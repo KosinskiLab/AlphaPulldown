@@ -197,6 +197,7 @@ def create_and_save_monomer_objects(m, pipeline, flags_dict):
 
 
 def main(argv):
+    os.makedirs(FLAGS.output_dir,exist_ok=True)
     pipeline, flags_dict = create_pipeline(flags_dict=FLAGS.flag_values_dict())
     uniprot_database_path = os.path.join(FLAGS.data_dir, "uniprot/uniprot.fasta")
     flags_dict.update({"uniprot_database_path": uniprot_database_path})
