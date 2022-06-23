@@ -181,6 +181,7 @@ singularity exec --no-home --bind /path/to/your/output/dir:/mnt
 **About the parameters**
 
 ```/path/to/your/output/dir``` should be the direct result of the 2nd step demonstrated above. 
+
 ```cutoff``` is to check the value of PAE between chains. In the case of multimers, the analysis programme will check whether any PAE values between two chains are smaller than the cutoff, as illustracted in the figure below:
 
 ```create_notebook``` is a boolean variable, for those predictions with good PAE scores between chains, would you like to create a jupyter notebook that shows the PAE, predicted models coloured by plDDT, and predicted models coloured by chains? A screen shot of an example notebook is shown below:
