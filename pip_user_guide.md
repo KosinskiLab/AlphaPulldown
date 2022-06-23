@@ -6,7 +6,7 @@ Remember to activate the conda env created while installing the package:
 source activate <env_name>
 ```
 
-Also make sure you have hmmer, hhblits-suite installed.
+Also make sure you have [HMMER](http://hmmer.org/documentation.html) and [HH-suite](https://github.com/soedinglab/hh-suite) **installed** and **configured !**
 
 As for our **HD cluster**, simply:
 ```bash
