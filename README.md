@@ -6,7 +6,7 @@
 
 **Firstly**, create a conda environment and gather necessary dependencies 
 ```bash
-conda create -n <env_name> -c omnia python==3.7 openmm  pdbfixer
+conda create -n <env_name> -c omnia python==3.7 openmm pdbfixer
 ````
 **Secondly**, activate the environment and install AlphaPulldown
 ```bash
