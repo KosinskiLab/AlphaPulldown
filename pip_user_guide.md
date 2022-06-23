@@ -5,6 +5,15 @@ Remember to activate the conda env created while installing the package:
 ```bash
 source activate <env_name>
 ```
+
+Also make sure you have hmmer, hhblits-suite installed.
+
+As for our **HD cluster**, simply:
+```bash
+module load HMMER/3.3.2-gompic-2020b
+module load HH-suite/3.3.0-gompic-2020b
+```
+
 ## 1st step: compute multiple sequence alignment (MSA) and template features (run on CPUs)
 
 The main command is :
