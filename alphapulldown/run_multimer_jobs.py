@@ -31,9 +31,6 @@ flags.DEFINE_list(
     None,
     "a list of directories where monomer objects are stored",
 )
-flags.DEFINE_string(
-    "jackhmmer_binary_path", shutil.which("jackhmmer"), "path to jackhmmer binary"
-)
 flags.DEFINE_list("protein_lists", None, "protein list files")
 flags.DEFINE_string("data_dir", None, "Path to params directory")
 flags.DEFINE_boolean(
