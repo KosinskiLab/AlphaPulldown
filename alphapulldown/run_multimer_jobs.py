@@ -99,12 +99,18 @@ def create_apms_info(bait_proteins: list, candidate_proteins: list) -> dict:
     return data
 
 
-def create_all_vs_all_info(all_proteins: list):
+def create_all_vs_all_info(all_proteins: list,job_index = None):
     """A function to create all against all i.e. every possible pair of interaction"""
     all_possible_pairs = list(combinations(all_proteins, 2))
+    if job_index is not None:
+        job_index = job_index -1
+        combs = [all_possible_pairs[job_index]]
+    else:
+        combs = all_possible_pairs
+
     col1 = []
     col2 = []
-    for comb in all_possible_pairs:
+    for comb in combs:
         col1.append(comb[0])
         col2.append(comb[1])
 
@@ -293,9 +299,9 @@ def main(argv):
 
     elif FLAGS.mode == "all_vs_all":
         all_proteins = read_all_proteins(FLAGS.protein_lists[0])
-        data = create_all_vs_all_info(all_proteins)
+        data = create_all_vs_all_info(all_proteins,job_index=FLAGS.job_index)
         multimers = create_multimer_objects(
-            data, FLAGS.monomer_objects_dir, job_index=FLAGS.job_index
+            data, FLAGS.monomer_objects_dir
         )
 
     elif FLAGS.mode == "homo-oligomer":
