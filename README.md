@@ -14,7 +14,7 @@ source activate <env_name>
 pip install alphapulldown
 ```
 ### Option2 : singularity
-Simply download AlphaPulldown singularity image from [here]()
+Simply download AlphaPulldown singularity image from [here](https://oc.embl.de/index.php/s/KR8d4m8ASN9p3gs)
 
 ------
 ## Manual: 
