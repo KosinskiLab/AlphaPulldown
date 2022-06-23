@@ -18,8 +18,8 @@ from alphapulldown.predict_structure import predict
 
 flags.DEFINE_enum(
     "mode",
-    "APMS",
-    ["APMS", "all_vs_all", "homo-oligomer", "custom"],
+    "pulldown",
+    ["pulldown", "all_vs_all", "homo-oligomer", "custom"],
     "choose the mode of running multimer jobs",
 )
 flags.DEFINE_string(
@@ -76,23 +76,32 @@ flags.mark_flag_as_required("output_path")
 FLAGS = flags.FLAGS
 
 
-def create_apms_info(bait_proteins: list, candidate_proteins: list) -> dict:
+def create_pulldown_info(bait_proteins: list, candidate_proteins: list,job_index=None) -> dict:
     """
     A function to create apms info
 
     Args:
     all_proteins: list of all proteins in the fasta file parsed by read_all_proteins()
     bait_protein: name of the bait protein
+    job_index: whether there is a job_index specified or not 
     """
     all_protein_pairs = list(itertools.product(*[bait_proteins, *candidate_proteins]))
     num_cols = len(candidate_proteins) + 1
     data = dict()
-    for i in range(num_cols):
-        curr_col = []
-        for pair in all_protein_pairs:
-            curr_col.append(pair[i])
-        update_dict = {f"col_{i+1}": curr_col}
-        data.update(update_dict)
+    
+    if job_index is None:
+        for i in range(num_cols):
+            curr_col = []
+            for pair in all_protein_pairs:
+                curr_col.append(pair[i])
+            update_dict = {f"col_{i+1}": curr_col}
+            data.update(update_dict)
+
+    elif isinstance(job_index,int):
+        target_pair = all_protein_pairs[job_index]
+        for i in range(num_cols):
+            update_dict = {f"col_{i+1}":[target_pair[i]]}
+            data.update(update_dict)
     return data
 
 
@@ -284,14 +293,14 @@ def predict_multimers(multimers):
 def main(argv):
     check_output_dir(FLAGS.output_path)
 
-    if FLAGS.mode == "APMS":
+    if FLAGS.mode == "pulldown":
         bait_proteins = read_all_proteins(FLAGS.protein_lists[0])
         candidate_proteins = []
         for file in FLAGS.protein_lists[1:]:
             candidate_proteins.append(read_all_proteins(file))
-        data = create_apms_info(bait_proteins, candidate_proteins)
+        data = create_pulldown_info(bait_proteins, candidate_proteins,job_index=FLAGS.job_index)
         multimers = create_multimer_objects(
-            data, FLAGS.monomer_objects_dir, job_index=FLAGS.job_index
+            data, FLAGS.monomer_objects_dir
         )
 
     elif FLAGS.mode == "all_vs_all":
