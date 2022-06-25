@@ -24,6 +24,7 @@ from alphapulldown.utils import *
 import contextlib
 from datetime import datetime
 import alphafold
+from pathlib import Path
 
 @contextlib.contextmanager
 def output_meta_file(file_path):
@@ -197,7 +198,7 @@ def create_and_save_monomer_objects(m, pipeline, flags_dict):
 
 
 def main(argv):
-    os.makedirs(FLAGS.output_dir,exist_ok=True)
+    Path(FLAGS.output_dir).mkdir(parents=True,exist_ok=True)
     pipeline, flags_dict = create_pipeline(flags_dict=FLAGS.flag_values_dict())
     uniprot_database_path = os.path.join(FLAGS.data_dir, "uniprot/uniprot.fasta")
     flags_dict.update({"uniprot_database_path": uniprot_database_path})

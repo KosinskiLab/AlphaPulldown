@@ -2,6 +2,7 @@
 # Author: Dingquan Yu
 # A script containing utility functions
 # #
+import paramiko
 from alphafold.data.tools import jackhmmer
 from alphapulldown.objects import ChoppedObject
 import json
@@ -15,7 +16,7 @@ from alphafold.model import data
 import random
 import sys
 from alphafold.data import parsers
-
+from pathlib import Path
 
 def create_uniprot_runner(jackhmmer_binary_path, uniprot_database_path):
     """create a uniprot runner object"""
@@ -166,9 +167,7 @@ def check_output_dir(path):
     """
     logging.info(f"checking if output_dir exists {path}")
     if not os.path.isdir(path):
-        logging.info(f"{path} does not exist. Now will create it")
-        os.mkdir(path)
-
+        Path(path).mkdir(parents=True,exist_ok=True)
 
 def create_and_save_pae_plots(multimer_object, output_dir):
     """A function to produce pae plots"""
