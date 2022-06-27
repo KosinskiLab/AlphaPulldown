@@ -14,12 +14,17 @@ module load HMMER/3.3.2-gompic-2020b
 module load HH-suite/3.3.0-gompic-2020b
 ```
 
+# Example1
+# Aim: Find interactors from human translation pathway that might also interact with eIF4G3 or eIF4G2 
 ## 1st step: compute multiple sequence alignment (MSA) and template features (run on CPUs)
+Firstly, download all 294 proteins that belong to human tranlsation pathway from Reactome: [link](https://reactome.org/PathwayBrowser/#/R-HSA-72766&DTAB=MT)
 
-The main command is :
+Then add the sequence of eIF4G3(Uniprot:[O43432](https://www.uniprot.org/uniprot/O43432)) and eIF4G2(Uniprot:[P78344](https://www.uniprot.org/uniprot/P78344)) to the sequences. The results: ```data/test_data/all_proteins.fasta```
+
+Now run:
 ```bash
   create_individual_features.py\
-    --fasta_paths=<path to your fasta>/<input_fasta>.fasta\
+    --fasta_paths=../data/test_data/all_proteins.fasta\
     --data_dir=<path to alphafold databases>\
     --save_msa_files=False\
     --output_dir=<dir to save the output objects>\ 
@@ -95,12 +100,14 @@ AlphaPulldown supports 3 different modes: pulldown, all_vs_all, and homo-oligome
 #### **2.1 pulldown mode**
 Inspired by pull-down assays, one can specify one or more proteins as "bait" and another list of proteins as "candidates". Then the programme will use AlphafoldMultimerV2 to predict interactions between baits and candidates. For instance:
 
+In this example, we selected pulldown mode and make eIF4G3(Uniprot:[O43432](https://www.uniprot.org/uniprot/O43432)) and eIF4G2(Uniprot:[P78344](https://www.uniprot.org/uniprot/P78344)) as baits while the other 294 proteins as candidates
+
 ![demo1](./apms_demo_1.png)
 
 However, in some cases, a functional domain may consist of multiple discontinuous regions. This programme also allows the user to split the proteins in such way, as indicated below:
 ![demo2](./apms_demo_2.png)
 
-**NB** The command line interface for using APMS mode will then become:
+**NB** The command line interface for using pulldown mode will then become:
 ```
 run_multimer_jobs.py --mode=pulldown\
 --num_cycle=3 --num_predictions_per_model=1\
