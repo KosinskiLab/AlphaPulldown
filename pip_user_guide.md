@@ -19,20 +19,20 @@ module load HH-suite/3.3.0-gompic-2020b
 ## 1st step: compute multiple sequence alignment (MSA) and template features (run on CPUs)
 Firstly, download all 294 proteins that belong to human tranlsation pathway from Reactome: [link](https://reactome.org/PathwayBrowser/#/R-HSA-72766&DTAB=MT)
 
-Then add the sequence of eIF4G3(Uniprot:[O43432](https://www.uniprot.org/uniprot/O43432)) and eIF4G2(Uniprot:[P78344](https://www.uniprot.org/uniprot/P78344)) to the sequences. The results: ```data/test_data/all_proteins.fasta```
+Then add the sequence of eIF4G3(Uniprot:[O43432](https://www.uniprot.org/uniprot/O43432)) and eIF4G2(Uniprot:[P78344](https://www.uniprot.org/uniprot/P78344)) to the sequences. The results: ```example_data/example_1_sequences.fasta```
 
 Now run:
 ```bash
   create_individual_features.py\
-    --fasta_paths=../data/test_data/all_proteins.fasta\
+    --fasta_paths=./example_data/example_1_sequences.fasta\
     --data_dir=<path to alphafold databases>\
     --save_msa_files=False\
     --output_dir=<dir to save the output objects>\ 
     --use_precomputed_msas=False\
-    --skip_existing=False --seq_index
+    --skip_existing=False --seq_index=<any number you want>
 ```
 
-```create_individual_features.py``` will compute necessary features each protein in the ```<input_fasta>.fasta``` file and store them in the ```output_dir```. An example is:```test/test_data/proteins.fasta```. Please be aware that everything after ```>``` will be 
+```create_individual_features.py``` will compute necessary features each protein in ```./example_data/example_1_sequences.fasta``` and store them in the ```output_dir```. An example is:```test/test_data/proteins.fasta```. Please be aware that everything after ```>``` will be 
 taken as the description of the protein and make sure do **NOT** include any special symbol, such as ```|```, after ```>```. However, ```-``` or ```_```is allowed. 
  The name of the pickles will be the same as the descriptions of the sequences  in fasta files (e.g. ">protein_A" in the fasta file will yield "protein_A.pkl")
  
