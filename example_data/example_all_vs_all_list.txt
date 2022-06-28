@@ -1,0 +1,3 @@
+protein_A,1-200
+protein_B,300-400,500-700
+protein_C
