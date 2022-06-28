@@ -94,10 +94,9 @@ different number if you wish to run an array of jobs in parallel then the progra
 ---------------------
 
 ## 2nd step: Predict structures (run on GPU)
-AlphaPulldown supports 3 different modes: pulldown, all_vs_all, and homo-oligomer 
 
-#### **2.1 pulldown mode**
-Inspired by pull-down assays, one can specify one or more proteins as "bait" and another list of proteins as "candidates". Then the programme will use AlphafoldMultimerV2 to predict interactions between baits and candidates. For instance:
+#### **Run in pulldown mode**
+Inspired by pull-down assays, one can specify one or more proteins as "bait" and another list of proteins as "candidates". Then the programme will use AlphafoldMultimerV2 to predict interactions between baits (as in [baits.txt](./example_data/baits.txt)) and candidates (as in [candidates.txt](./example_data/candidates.txt)). 
 
 In this example, we selected pulldown mode and make eIF4G3(Uniprot:[O43432](https://www.uniprot.org/uniprot/O43432)) and eIF4G2(Uniprot:[P78344](https://www.uniprot.org/uniprot/P78344)) as baits while the other 294 proteins as candidates. Thus, in total, there will be 2 * 294 = 588 predictions. 
 
@@ -127,60 +126,8 @@ different number if you wish to run an array of jobs in parallel then the progra
 
 **NB** ```job_index``` starts from 1
 
-Once this step is completed, check out the [final step](#3rd-step-evalutaion-and-visualisation) and run the analysis pipeline.
-
-
 --------------------
 
-#### **2.2 all_vs_all mode**
-As the name suggest, all_vs_all means predict all possible combinations within a single input file. The input can be either full-length proteins or regions of a protein, as illustrated in the [example_all_vs_all_list.txt](./example_data/example_all_vs_all_list.txt) and the figure below:
-![plot](./all_vs_all_demo.png)
- 
-```bash
-run_multimer_jobs.py --mode=all_vs_all\
---num_cycle=3 --num_predictions_per_model=1\
---output_path=/path/to/your/directory\ 
---data_dir=/path-to-Alphafold-data-dir\ 
---protein_lists=$PWD/example_data/example_all_vs_all_list.txt\
---monomer_objects_dir=/path/to/monomer_objects_directory
---job_index=<any number you want>
-```
-
-
----------------------------------------------
-
-#### **2.3 homo-oligomer mode**
-![plot](./homooligomer_demo.png)
-
-The programme also can fold homo-oligomers. Simply create a file indicated the oligomeric state of the corresponding protein, separated by ```,``` e.g. ```protein_A,3```means a homotrimer for protein_A. An example can be found in [example_oligomer_state_file.txt](./example_data/example_oligomer_state_file.txt). 
-
-**NB**: ```homo-oligomer``` mode can also predict monomers. Simply type nothing after the protein, such as : "protiein_A", or specify oligomer state to be 1, such as "protein_A,1", and the programme will predict a monomeric structure of protein_A. **However**, AlphaPulldown used hmmsearch instead of hhsearch when searching for structure templates in 1st step. As a result, predicted monomeric structure could differ from the prediction from default Alphafold monomer.  
-
-Take the sturcture of```test/``` directory as an example, the command line input would be:
-```
-run_multimer_jobs.py --mode=homo-oligomer --output_path=/path/to/your/directory\ 
---oligomer_state_file=$PWD/example_data/oligomer_state_file.txt\ 
---monomer_objects_dir=/path/to/monomer_objects_directory\ 
---data_dir=/path-to-Alphafold-data-dir\ 
---job_index=<any number you want>
-```
----------------------------------------
-
-#### **2.4 custom mode**
-The user can also just provide one single file in which each line contains a protein combination of desire. Different proteins are separated by ```;``` and if you'd like specific region of a particular protein, you can denote like ```protein_A,number1-number2```, as illustrated in the ```test/test_data/test_custom.txt``` and also in the picture below:
-![plot](./custom_mode_demo.png)
-
-Take the structure of ```test/``` directory as an example, the command line input would be:
-
-```
-run_multimer_jobs.py --mode=custom --output_path=/path/to/your/directory\ 
---protein_lists=$PWD/example_data/custom_mode_list.txt\ 
---monomer_objects_dir=/path/to/monomer_objects_directory\ 
---data_dir=/path-to-Alphafold-data-dir\ 
---job_index=<any number you want>
-```
-
-----------------------------------
 
 
 ## 3rd step Evalutaion and visualisation
