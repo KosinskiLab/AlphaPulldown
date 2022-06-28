@@ -24,6 +24,8 @@ AlphaPulldown supports 4 different modes of massive predictions: pulldown, all_v
 We have provided 2 examples:
 Example 1 is a case where pulldown and custom modes are used. Manuals: [example_1_for_pip_user](./example_1_for_pip_user.md) or [example_1_for_singularity_user](./singularity_user_example_1.md)
 
+Example 2 is a case where custom and homo-oligomer modes were used. Manuels: [example_2_for_pip_user](./example_2_for_pip_user.md) or [example_2_for_singularity_user](./singularity_user_example_2.md)
+
 ### **all_vs_all mode**
 As the name suggest, all_vs_all means predict all possible combinations within a single input file. The input can be either full-length proteins or regions of a protein, as illustrated in the [example_all_vs_all_list.txt](./example_data/example_all_vs_all_list.txt) and the figure below:
 ![plot](./all_vs_all_demo.png)
