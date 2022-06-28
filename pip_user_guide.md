@@ -15,7 +15,7 @@ module load HH-suite/3.3.0-gompic-2020b
 ```
 
 # Example1
-# Aim: Find interactors from human translation pathway that might also interact with eIF4G3 or eIF4G2 
+# Aim: Find proteins involving human translation pathway that might also interact with eIF4G3 or eIF4G2 
 ## 1st step: compute multiple sequence alignment (MSA) and template features (run on CPUs)
 Firstly, download all 294 proteins that belong to human tranlsation pathway from Reactome: [link](https://reactome.org/PathwayBrowser/#/R-HSA-72766&DTAB=MT)
 
