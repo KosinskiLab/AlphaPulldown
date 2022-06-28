@@ -22,7 +22,7 @@ Simply download AlphaPulldown singularity image from [here](https://oc.embl.de/i
 AlphaPulldown supports 4 different modes of massive predictions: pulldown, all_vs_all, homooliogmer, and custom.
 
 We have provided 2 examples:
-Example 1 is a case where pulldown and custom modes are used. Manuals: [example_1_for_pip_user](./pip_user_example_1.md) or [example_1_for_singularity_user](./singularity_user_example_1.md)
+Example 1 is a case where pulldown and custom modes are used. Manuals: [example_1_for_pip_user](./example_1_for_pip_user.md) or [example_1_for_singularity_user](./singularity_user_example_1.md)
 
 ### **all_vs_all mode**
 As the name suggest, all_vs_all means predict all possible combinations within a single input file. The input can be either full-length proteins or regions of a protein, as illustrated in the [example_all_vs_all_list.txt](./example_data/example_all_vs_all_list.txt) and the figure below:
