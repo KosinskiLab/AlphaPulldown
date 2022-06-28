@@ -134,7 +134,7 @@ Once this step is completed, check out the [final step](#3rd-step-evalutaion-and
 --------------------
 
 #### **2.2 all_vs_all mode**
-As the name suggest, all_vs_all means predict all possible combinations within a single input file. The input can be either full-length proteins or regions of a protein, as illustrated below:
+As the name suggest, all_vs_all means predict all possible combinations within a single input file. The input can be either full-length proteins or regions of a protein, as illustrated in the [example_all_vs_all_list.txt](./example_all_vs_all_list.txt) and the figure below:
 ![plot](./all_vs_all_demo.png)
  
 ```bash
