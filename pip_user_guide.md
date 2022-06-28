@@ -55,7 +55,6 @@ create individual folder for each protein. The output directory will look like:
             |- pdb_hits.sto
             |- etc.
  ```
- An example output directory when ```save_msa_files=True``` would be ```test/test_result/O73557```
  
  
 If ```save_msa_files=False``` then the ```output_dir``` will look like:
@@ -74,10 +73,10 @@ If ```save_msa_files=False``` then the ```output_dir``` will look like:
       |- protein_A 
             |- uniref90_hits.sto
             |- pdb_hits.sto
+            |-***.a3m
             |- etc
       |- protein_B
             |- ***.sto
-            |-***.a3m
             |- etc
  ```
 Then, in the command line, set the ```output_dir=/path/to/example_directory```
