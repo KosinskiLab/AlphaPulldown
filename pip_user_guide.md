@@ -100,12 +100,11 @@ AlphaPulldown supports 3 different modes: pulldown, all_vs_all, and homo-oligome
 #### **2.1 pulldown mode**
 Inspired by pull-down assays, one can specify one or more proteins as "bait" and another list of proteins as "candidates". Then the programme will use AlphafoldMultimerV2 to predict interactions between baits and candidates. For instance:
 
-In this example, we selected pulldown mode and make eIF4G3(Uniprot:[O43432](https://www.uniprot.org/uniprot/O43432)) and eIF4G2(Uniprot:[P78344](https://www.uniprot.org/uniprot/P78344)) as baits while the other 294 proteins as candidates
+In this example, we selected pulldown mode and make eIF4G3(Uniprot:[O43432](https://www.uniprot.org/uniprot/O43432)) and eIF4G2(Uniprot:[P78344](https://www.uniprot.org/uniprot/P78344)) as baits while the other 294 proteins as candidates. Thus, in total, there will be 2 * 294 = 588 predictions. 
 
 ![demo1](./pulldown_mode_demo_1.png)
 
-However, in some cases, a functional domain may consist of multiple discontinuous regions. This programme also allows the user to split the proteins in such way, as indicated below:
-![demo2](./apms_demo_2.png)
+
 
 **NB** The command line interface for using pulldown mode will then become:
 ```
@@ -113,34 +112,31 @@ run_multimer_jobs.py --mode=pulldown\
 --num_cycle=3 --num_predictions_per_model=1\
 --output_path=/path/to/your/directory\ 
 --data_dir=/path-to-Alphafold-data-dir\ 
---protein_lists=/path/to/file_1.txt,/path/to/file_2.txt,...,/path/to/file_n.txt \
+--protein_lists=$PWD/example_data/baits.txt,$PWD/example_data/candidates.txt\
 --monomer_objects_dir=/path/to/monomer_objects_directory
 --job_index=<any number you want>
 ```
-## Another explanation about the parameters
+
+**Another explanation about the parameters**
 ####  **```monomer_objects_dir```**
-It should be the same as ```output_dir``` in **Step 1**. It can be one directory or contain multiple directories if you stored pre-calculated objects in different locations. In the case of 
+It should be the same directory as ```output_dir``` specified in **Step 1**. It can be one directory or contain multiple directories if you stored pre-calculated objects in different locations. In the case of 
 multiple ```monomer_objects_dir```, remember to put a `,` between each e.g. ``` --monomer_objects_dir=<dir_1>,<dir_2>```
 
 ####  **```job_index```**
 Default is `None` and the programme will run predictions one by one in the given files. However, you can set ```job_index``` to 
 different number if you wish to run an array of jobs in parallel then the programme will only run the corresponding job specified by the ```job_index```
 
-Take the ```test/``` directory and the files in ```test/test_data/``` and ```test/test_result```as an example,the APMS mode will become:
+**NB** ```job_index``` starts from 1
 
-```
-python alphapassacaglia/run_multimer_jobs.py --mode=pulldown --output_path=/path/to/your/directory\
---protein_lists=test/test_data/test_bait.txt,test/test_data/test_candidate_list_1.txt,test/test_data/test_candidate_list_2.txt \
---monomer_objects_dir=test/test_result\
---data_dir=/path-to-Alphafold-data-dir\
---job_index=<any number you want>
-```
+Once this step is completed, check out the [final step](#3rd-step-evalutaion-and-visualisation) and run the analysis pipeline.
+
+
 --------------------
 
 #### **2.2 all_vs_all mode**
 As the name suggest, all_vs_all means predict all possible combinations within a single input file. The input can be either full-length proteins or reginos of a protein, as illustrated below:
 ![plot](./all_vs_all_demo.png)
-
+ 
 ```bash
 python create_multimer_jobs.py --mode=all_vs_all --output_path=/path/you/want --protein_lists=./test/test_data/test_all_vs_all.txt\
 --monomer_objects_dir=/g/kosinski/geoffrey/alpha-passacaglia/test/test_result/ 
@@ -183,7 +179,7 @@ run_multimer_jobs.py --mode=custom --output_path=/path/to/your/directory\
 ----------------------------------
 
 
-## 3rd step: Evalutaion and visualisation
+## 3rd step Evalutaion and visualisation
 We have also created an analysis pipeline and can be directly run by singularity. 
 
 Firstly, download the singularity image from [here](https://oc.embl.de/index.php/s/cDYsOOdXA1YmInk).
@@ -196,7 +192,7 @@ singularity exec --no-home --bind /path/to/your/output/dir:/mnt
 
 **About the parameters**
 
-```/path/to/your/output/dir``` should be the direct result of the 2nd step demonstrated above. 
+```/path/to/your/output/dir``` should be the direct result of the 2nd step as demonstrated above. 
 
 ```cutoff``` is to check the value of PAE between chains. In the case of multimers, the analysis programme will check whether any PAE values between two chains are smaller than the cutoff, as illustracted in the figure below:
 
