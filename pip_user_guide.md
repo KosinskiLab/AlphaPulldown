@@ -153,7 +153,7 @@ run_multimer_jobs.py --mode=all_vs_all\
 #### **2.3 homo-oligomer mode**
 ![plot](./homooligomer_demo.png)
 
-The programme also can fold homo-oligomers. Simply create a file indicated the oligomeric state of the corresponding protein, separated by ```,``` e.g. ```protein_A,3```means a homotrimer for protein_A. An example can be found in ```test/test_data/oligomer_state.txt```. 
+The programme also can fold homo-oligomers. Simply create a file indicated the oligomeric state of the corresponding protein, separated by ```,``` e.g. ```protein_A,3```means a homotrimer for protein_A. An example can be found in [example_oligomer_state_file.txt](./example_data/example_oligomer_state_file.txt). 
 
 **NB**: ```homo-oligomer``` mode can also predict monomers. Simply type nothing after the protein, such as : "protiein_A", or specify oligomer state to be 1, such as "protein_A,1", and the programme will predict a monomeric structure of protein_A. **However**, AlphaPulldown used hmmsearch instead of hhsearch when searching for structure templates in 1st step. As a result, predicted monomeric structure could differ from the prediction from default Alphafold monomer.  
 
