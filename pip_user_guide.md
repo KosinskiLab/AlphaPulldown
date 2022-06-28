@@ -102,7 +102,7 @@ Inspired by pull-down assays, one can specify one or more proteins as "bait" and
 
 In this example, we selected pulldown mode and make eIF4G3(Uniprot:[O43432](https://www.uniprot.org/uniprot/O43432)) and eIF4G2(Uniprot:[P78344](https://www.uniprot.org/uniprot/P78344)) as baits while the other 294 proteins as candidates
 
-![demo1](./apms_demo_1.png)
+![demo1](./pulldown_mode_demo_1.png)
 
 However, in some cases, a functional domain may consist of multiple discontinuous regions. This programme also allows the user to split the proteins in such way, as indicated below:
 ![demo2](./apms_demo_2.png)
