@@ -2,7 +2,7 @@
 # Author: Dingquan Yu
 # A script containing utility functions
 # #
-import paramiko
+
 from alphafold.data.tools import jackhmmer
 from alphapulldown.objects import ChoppedObject
 import json
