@@ -134,12 +134,17 @@ Once this step is completed, check out the [final step](#3rd-step-evalutaion-and
 --------------------
 
 #### **2.2 all_vs_all mode**
-As the name suggest, all_vs_all means predict all possible combinations within a single input file. The input can be either full-length proteins or reginos of a protein, as illustrated below:
+As the name suggest, all_vs_all means predict all possible combinations within a single input file. The input can be either full-length proteins or regions of a protein, as illustrated below:
 ![plot](./all_vs_all_demo.png)
  
 ```bash
-python create_multimer_jobs.py --mode=all_vs_all --output_path=/path/you/want --protein_lists=./test/test_data/test_all_vs_all.txt\
---monomer_objects_dir=/g/kosinski/geoffrey/alpha-passacaglia/test/test_result/ 
+run_multimer_jobs.py --mode=all_vs_all\
+--num_cycle=3 --num_predictions_per_model=1\
+--output_path=/path/to/your/directory\ 
+--data_dir=/path-to-Alphafold-data-dir\ 
+--protein_lists=$PWD/example_data/example_all_vs_all_list.txt\
+--monomer_objects_dir=/path/to/monomer_objects_directory
+--job_index=<any number you want>
 ```
 
 
@@ -155,8 +160,8 @@ The programme also can fold homo-oligomers. Simply create a file indicated the o
 Take the sturcture of```test/``` directory as an example, the command line input would be:
 ```
 run_multimer_jobs.py --mode=homo-oligomer --output_path=/path/to/your/directory\ 
---oligomer_state_file=test/test_data/oligomer_state.txt\ 
---monomer_objects_dir=test/test_result\ 
+--oligomer_state_file=$PWD/example_data/oligomer_state_file.txt\ 
+--monomer_objects_dir=/path/to/monomer_objects_directory\ 
 --data_dir=/path-to-Alphafold-data-dir\ 
 --job_index=<any number you want>
 ```
@@ -170,8 +175,8 @@ Take the structure of ```test/``` directory as an example, the command line inpu
 
 ```
 run_multimer_jobs.py --mode=custom --output_path=/path/to/your/directory\ 
---protein_lists=test_custom.txt\ 
---monomer_objects_dir=test/test_result\ 
+--protein_lists=$PWD/example_data/custom_mode_list.txt\ 
+--monomer_objects_dir=/path/to/monomer_objects_directory\ 
 --data_dir=/path-to-Alphafold-data-dir\ 
 --job_index=<any number you want>
 ```
