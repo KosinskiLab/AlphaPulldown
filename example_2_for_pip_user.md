@@ -18,12 +18,12 @@ module load HH-suite/3.3.0-gompic-2020b
 # Aims: Model interactions between Lassa virus L protein and Z matrix protein; predict the structure of Z matrix protein homo 12-mer 
 ## 1st step: compute multiple sequence alignment (MSA) and template features (run on CPUs)
 
-Firstly, download sequences of L(Uniprot: [O09705](https://www.uniprot.org/uniprotkb/O09705/entry)) and Z(uniprot:[O73557](https://www.uniprot.org/uniprotkb/O73557/entry)) proteins. Since there are only 2 sequences, you don't have to concatenate them into one single file (but you still can if you want). 
+Firstly, download sequences of L(Uniprot: [O09705](https://www.uniprot.org/uniprotkb/O09705/entry)) and Z(uniprot:[O73557](https://www.uniprot.org/uniprotkb/O73557/entry)) proteins. The result is [```example_data/example_2_sequences.fasta```](./example_data/example_2_sequences.fasta)
 
 Run the command:
 ```bash
   create_individual_features.py\
-    --fasta_paths=$PWD/example_data/O09705.fasta,$PWD/example_data/O73557.fasta\
+    --fasta_paths=$PWD/example_data/example_2_sequences.fasta\
     --data_dir=<path to alphafold databases>\
     --save_msa_files=False\
     --output_dir=<dir to save the output objects>\ 
@@ -109,6 +109,10 @@ run_multimer_jobs.py --mode=pulldown\
 --monomer_objects_dir=/path/to/monomer_objects_directory
 --job_index=<any number you want>
 ```
+
+Remember another aim is to model the homo 12-mer of Z protein. Thus, homo-oligomer mode is needed. An oligomer state file will tell the programme the number of units. 
+
+
 
 **Another explanation about the parameters**
 ####  **```monomer_objects_dir```**
