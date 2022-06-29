@@ -14,8 +14,8 @@ module load HMMER/3.3.2-gompic-2020b
 module load HH-suite/3.3.0-gompic-2020b
 ```
 
-# Example1
-# Aim: Model interactions between Lassa virus L protein and Z matrix protein; predict the structure of Z matrix protein homo 12-mer 
+# Example2
+# Aims: Model interactions between Lassa virus L protein and Z matrix protein; predict the structure of Z matrix protein homo 12-mer 
 ## 1st step: compute multiple sequence alignment (MSA) and template features (run on CPUs)
 
 Firstly, download sequences of L(Uniprot: [O09705](https://www.uniprot.org/uniprotkb/O09705/entry)) and Z(uniprot:[O73557](https://www.uniprot.org/uniprotkb/O73557/entry)) proteins. Since there are only 2 sequences, you don't have to concatenate them into one single file (but you still can if you want). 
@@ -31,7 +31,7 @@ Run the command:
     --max_template_date=<any date you want>\
     --skip_existing=False --seq_index=<any number you want>
 ```
-```create_individual_features.py``` will compute necessary features each protein in [```./example_data/example_1_sequences.fasta```](./example_data/example_1_sequences.fasta) and store them in the ```output_dir```. Please be aware that everything after ```>``` will be 
+```create_individual_features.py``` will compute necessary features for O73557 and O09705 then store them in the ```output_dir```. Please be aware that in the fasta files, everything after ```>``` will be 
 taken as the description of the protein and make sure do **NOT** include any special symbol, such as ```|```, after ```>```. However, ```-``` or ```_```is allowed. 
  The name of the pickles will be the same as the descriptions of the sequences  in fasta files (e.g. ">protein_A" in the fasta file will yield "protein_A.pkl")
  
@@ -89,3 +89,36 @@ Default is `None` and the programme will run predictions one by one in the given
 different number if you wish to run an array of jobs in parallel then the programme will only run the corresponding job specified by the ```seq_index```. e.g. the programme only calculate features for the 1st protein in your fasta file if ```seq_index``` is set to be 1.
 
 **NB**: ```seq_index``` starts from 1.
+
+## 2nd step: Predict structures (run on GPU)
+
+#### **Run in custom mode**
+We want to predict the structure of full-length L protein together with Z protein but could not finish the prediction with our computing resources. Thus 
+we predicted the interaction between a fragment of L protein and Z protein instead, as domonstrated in the figure below ![custom_demo_2.png](./custom_demo_2.png):
+
+
+
+**NB** The command line interface for using pulldown mode will then become:
+```
+run_multimer_jobs.py --mode=pulldown\
+--num_cycle=3 --num_predictions_per_model=1\
+--output_path=/path/to/your/directory\ 
+--data_dir=/path-to-Alphafold-data-dir\ 
+--protein_lists=$PWD/example_data/baits.txt,$PWD/example_data/candidates.txt\
+--monomer_objects_dir=/path/to/monomer_objects_directory
+--job_index=<any number you want>
+```
+
+**Another explanation about the parameters**
+####  **```monomer_objects_dir```**
+It should be the same directory as ```output_dir``` specified in **Step 1**. It can be one directory or contain multiple directories if you stored pre-calculated objects in different locations. In the case of 
+multiple ```monomer_objects_dir```, remember to put a `,` between each e.g. ``` --monomer_objects_dir=<dir_1>,<dir_2>```
+
+####  **```job_index```**
+Default is `None` and the programme will run predictions one by one in the given files. However, you can set ```job_index``` to 
+different number if you wish to run an array of jobs in parallel then the programme will only run the corresponding job specified by the ```job_index```
+
+**NB** ```job_index``` starts from 1
+
+--------------------
+
