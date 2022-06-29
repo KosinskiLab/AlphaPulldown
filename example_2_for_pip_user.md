@@ -166,3 +166,18 @@ singularity exec --no-home --bind /path/to/your/output/dir:/mnt
 By default, you will have a csv file named ```predictions_with_good_interpae.csv``` created in the directory ```/path/to/your/output/dir``` as you have given in the command above. ```predictions_with_good_interpae.csv``` reports:1.iptm, iptm+ptm scores provided by AlphaFold 2. mpDockQ score developed by[ Bryant _et al._, 2022](https://gitlab.com/patrickbryant1/molpc)  3. PI_score developed by [Malhotra _et al._, 2021](https://gitlab.com/sm2185/ppi_scoring/-/wikis/home). The detailed explainations on these scores can be found in out paper.
 
 If ```create_notebook=True```, then there will be a jupyter notebook named ```output.ipynb``` in the  ```/path/to/your/output/dir```. It is recommended uploading this jupyter notebook to google drive and viewing it via google's colabotary APP because the notebook can be very large and some features may not be properly installed in your local IDE.
+
+------------------------------------------------------------
+## Appendix: Instructions on running in all_vs_all mode
+As the name suggest, all_vs_all means predict all possible combinations within a single input file. The input can be either full-length proteins or regions of a protein, as illustrated in the [example_all_vs_all_list.txt](./example_data/example_all_vs_all_list.txt) and the figure below:
+![plot](./all_vs_all_demo.png)
+ 
+```bash
+run_multimer_jobs.py --mode=all_vs_all\
+--num_cycle=3 --num_predictions_per_model=1\
+--output_path=/path/to/your/directory\ 
+--data_dir=/path-to-Alphafold-data-dir\ 
+--protein_lists=$PWD/example_data/example_all_vs_all_list.txt\
+--monomer_objects_dir=/path/to/monomer_objects_directory
+--job_index=<any number you want>
+```
