@@ -97,8 +97,9 @@ We want to predict the structure of full-length L protein together with Z protei
 we predicted the interaction between a fragment of L protein and Z protein instead, as domonstrated in the figure below ![custom_demo_2.png](./custom_demo_2.png):
 
 
+Different proteins are seperated by ```;```. If a particular region is wanted from one protein, simply add ```,``` after that protein and followed by the region. Region comes in the format of ```number1-number2```
 
-**NB** The command line interface for using pulldown mode will then become:
+The command line interface for using pulldown mode will then become:
 ```
 run_multimer_jobs.py --mode=pulldown\
 --num_cycle=3 --num_predictions_per_model=1\
