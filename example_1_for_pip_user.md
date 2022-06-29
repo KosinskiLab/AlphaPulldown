@@ -19,8 +19,7 @@ module load HH-suite/3.3.0-gompic-2020b
 ## 1st step: compute multiple sequence alignment (MSA) and template features (run on CPUs)
 Firstly, download all 294 proteins that belong to human tranlsation pathway from Reactome: [link](https://reactome.org/PathwayBrowser/#/R-HSA-72766&DTAB=MT)
 
-Then add the sequence of eIF4G3(Uniprot:[O43432](https://www.uniprot.org/uniprot/O43432)) and eIF4G2(Uniprot:[P78344](https://www.uniprot.org/uniprot/P78344)) to the sequences. The results: ```example_data/example_1_sequences.fasta```
-
+Then add the sequence of eIF4G3(Uniprot:[O43432](https://www.uniprot.org/uniprot/O43432)) and eIF4G2(Uniprot:[P78344](https://www.uniprot.org/uniprot/P78344)) to the sequences. The results: [```./example_data/example_1_sequences.fasta```](./example_data/example_1_sequences.fasta)
 Now run:
 ```bash
   create_individual_features.py\
