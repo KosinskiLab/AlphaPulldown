@@ -92,16 +92,16 @@ different number if you wish to run an array of jobs in parallel then the progra
 
 ## 2nd step: Predict structures (run on GPU)
 
-#### **Run in custom mode**
-We want to predict the structure of full-length L protein together with Z protein but could not finish the prediction with our computing resources. Thus 
+#### **Task 1**
+We want to predict the structure of full-length L protein together with Z protein but could not finish the prediction with our computing resources. Thus, 
 we predicted the interaction between a fragment of L protein and Z protein instead, as domonstrated in the figure below ![custom_demo_2.png](./custom_demo_2.png):
 
 
-Different proteins are seperated by ```;```. If a particular region is wanted from one protein, simply add ```,``` after that protein and followed by the region. Region comes in the format of ```number1-number2```
+Different proteins are seperated by ```;```. If a particular region is wanted from one protein, simply add ```,``` after that protein and followed by the region. Region comes in the format of ```number1-number2```. An example input file is: [```example_data/cutom_mode.txt```](./example_data/custom_mode.txt)
 
-The command line interface for using pulldown mode will then become:
+The command line interface for using custom mode will then become:
 ```
-run_multimer_jobs.py --mode=pulldown\
+run_multimer_jobs.py --mode=custom\
 --num_cycle=3 --num_predictions_per_model=1\
 --output_path=/path/to/your/directory\ 
 --data_dir=/path-to-Alphafold-data-dir\ 
@@ -109,8 +109,8 @@ run_multimer_jobs.py --mode=pulldown\
 --monomer_objects_dir=/path/to/monomer_objects_directory
 --job_index=<any number you want>
 ```
-
-Remember another aim is to model the homo 12-mer of Z protein. Thus, homo-oligomer mode is needed. An oligomer state file will tell the programme the number of units. 
+#### **Task 2**
+Remember another aim is to model the homo 12-mer of Z protein. Thus, homo-oligomer mode is needed. An oligomer state file will tell the programme the number of units. An example is: [```example_data/example_oligomer_state_file.txt```](./example_data/example_oligomer_state_file.txt)
 
 
 
