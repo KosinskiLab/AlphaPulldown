@@ -1,4 +1,4 @@
-# AlphaPulldown manual (run via pip):
+# AlphaPulldown manual (run via singularity image):
 
 ## Step 0:
 Remember to download AlphaPulldown's singularity image first and know the path to your downloaded image. 
