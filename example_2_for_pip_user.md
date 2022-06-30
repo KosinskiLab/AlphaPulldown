@@ -119,7 +119,7 @@ Instead of homo-oligomers, this mode can also be used to predict monomeric struc
 The command for homo-oligomer mode is:
 
 ```
-run_multimer_jobs.py --mode=homo-oligomer --output_path=/path/to/your/directory\ 
+run_multimer_jobs.py --mode=homo-oligomer --output_path=<path to output directory>\ 
 --oligomer_state_file=$PWD/example_data/oligomer_state_file.txt\ 
 --monomer_objects_dir=<directory that stores monomer pickle files>\ 
 --data_dir=/path-to-Alphafold-data-dir\ 
