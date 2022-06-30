@@ -104,7 +104,7 @@ singularity exec --no-home\
 --output_path=/output_dir 
 --data_dir=/data_dir\ 
 --protein_lists=/input_data/baits.txt,/input_data/candidates.txt\
---monomer_objects_dir=/path/to/monomer_objects_directory
+--monomer_objects_dir=/monomer_object_dir
 --job_index=<any number you want>
 ```
 
