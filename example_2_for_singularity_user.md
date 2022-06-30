@@ -17,7 +17,7 @@ singularity exec --no-home --bind $PWD/example_data/example_2_sequences.fasta:/i
 --fasta_paths=/input_data/example_2_sequences.fasta --data_dir=/data_dir --output_dir=output_dir 
 --max_template_date=<any date you want> --seq_index=<any number you want>
 ```
-```create_individual_features.py``` will compute necessary features each protein in [```./example_data/example_1_sequences.fasta```](./example_data/example_1_sequences.fasta) and store them in the ```output_dir```. Please be aware that everything after ```>``` will be 
+```create_individual_features.py``` will compute necessary features each protein in [```./example_data/example_2_sequences.fasta```](./example_data/example_2_sequences.fasta) and store them as individual pickle files in the ```output_dir```. Please be aware that everything after ```>``` will be 
 taken as the description of the protein and make sure do **NOT** include any special symbol, such as ```|```, after ```>```. However, ```-``` or ```_```is allowed. 
  The name of the pickles will be the same as the descriptions of the sequences  in fasta files (e.g. ">protein_A" in the fasta file will yield "protein_A.pkl")
  
@@ -52,7 +52,7 @@ If ```save_msa_files=False``` then the ```output_dir``` will look like:
  --------------------
  
  ####  **```use_precomputed_msas```**
- Default value is ```False```. However, if you have already had msa files for your proteins, please set the parameter to be True and arrange your msa files in the format as below:
+ Default value is ```False```. However, if you have already had msa files for your proteins, please set the parameter to be True and arrange your msa files in the structure as below:
  ```
  example_directory
       |- protein_A 
@@ -166,7 +166,7 @@ singulairty exec --no-home\
 --num_cycle=3 --num_predictions_per_model=1\
 --output_path=/output_dir\ 
 --data_dir=/data_dir\ 
---protein_lists=$PWD/example_data/example_all_vs_all_list.txt\
+--protein_lists=/input_data/example_all_vs_all_list.txt\
 --monomer_objects_dir=/monomer_directory
 --job_index=<any number you want>
 ```
