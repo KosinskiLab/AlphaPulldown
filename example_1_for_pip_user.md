@@ -16,7 +16,7 @@ module load HH-suite/3.3.0-gompic-2020b
 
 Check if you have downloaded necessary parameters and databases(e.g. BFD, MGnify etc.) as instructed in [AlphFold's documentation](https://github.com/deepmind/alphafold) and you should have a directory like below:
  ```
- data_dir/                             # Total: ~ 2.2 TB (download: 438 GB)
+ alphafold_database/                             # Total: ~ 2.2 TB (download: 438 GB)
     bfd/                                   # ~ 1.7 TB (download: 271.6 GB)
         # 6 files.
     mgnify/                                # ~ 64 GB (download: 32.9 GB)
