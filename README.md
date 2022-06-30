@@ -3,7 +3,8 @@
 ## Installation: via pip or singularity 
 
 ### Option1 (recommended): pip
-This option is for the users who have already installed and compiled [HMMER](http://hmmer.org/documentation.html) and [HH-suite](https://github.com/soedinglab/hh-suite)
+This option is suitable for the users who have already installed and compiled [HMMER](http://hmmer.org/documentation.html) and [HH-suite](https://github.com/soedinglab/hh-suite)
+
 **Firstly**, create a conda environment and gather necessary dependencies 
 ```bash
 conda create -n <env_name> -c omnia python==3.7 openmm pdbfixer
