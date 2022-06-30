@@ -3,7 +3,7 @@
 ## Installation: via pip or singularity 
 
 ### Option1 (recommended): pip
-
+This option is for the users who have already installed and compiled [HMMER](http://hmmer.org/documentation.html) and [HH-suite](https://github.com/soedinglab/hh-suite)
 **Firstly**, create a conda environment and gather necessary dependencies 
 ```bash
 conda create -n <env_name> -c omnia python==3.7 openmm pdbfixer
@@ -14,7 +14,7 @@ source activate <env_name>
 pip install alphapulldown
 ```
 ### Option2 : singularity
-Simply download AlphaPulldown singularity image from [here](https://oc.embl.de/index.php/s/KR8d4m8ASN9p3gs)
+For users who don't want to install [HMMER](http://hmmer.org/documentation.html) and [HH-suite](https://github.com/soedinglab/hh-suite) themselves, the programme can also be run via singularity. Simply download AlphaPulldown singularity image from [here](https://oc.embl.de/index.php/s/KR8d4m8ASN9p3gs)
 
 ------
 
