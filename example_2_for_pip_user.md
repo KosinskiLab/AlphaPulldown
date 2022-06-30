@@ -31,7 +31,7 @@ Run the command:
     --max_template_date=<any date you want>\
     --skip_existing=False --seq_index=<any number you want>
 ```
-```create_individual_features.py``` will compute necessary features for O73557 and O09705 then store them in the ```output_dir```. Please be aware that in the fasta files, everything after ```>``` will be 
+```create_individual_features.py``` will compute necessary features for O73557 and O09705 then store them as individual pickle files in the ```output_dir```. Please be aware that in the fasta files, everything after ```>``` will be 
 taken as the description of the protein and make sure do **NOT** include any special symbol, such as ```|```, after ```>```. However, ```-``` or ```_```is allowed. 
  The name of the pickles will be the same as the descriptions of the sequences  in fasta files (e.g. ">protein_A" in the fasta file will yield "protein_A.pkl")
  
@@ -66,7 +66,7 @@ If ```save_msa_files=False``` then the ```output_dir``` will look like:
  --------------------
  
  ####  **```use_precomputed_msas```**
- Default value is ```False```. However, if you have already had msa files for your proteins, please set the parameter to be True and arrange your msa files in the format as below:
+ Default value is ```False```. However, if you have already had msa files for your proteins, please set the parameter to be True and arrange your msa files in the structure as below:
  ```
  example_directory
       |- protein_A 
@@ -121,7 +121,7 @@ The command for homo-oligomer mode is:
 ```
 run_multimer_jobs.py --mode=homo-oligomer --output_path=/path/to/your/directory\ 
 --oligomer_state_file=$PWD/example_data/oligomer_state_file.txt\ 
---monomer_objects_dir=/path/to/monomer_objects_directory\ 
+--monomer_objects_dir=<directory that stores monomer pickle files>\ 
 --data_dir=/path-to-Alphafold-data-dir\ 
 --job_index=<any number you want>
 ```
