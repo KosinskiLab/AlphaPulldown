@@ -92,7 +92,7 @@ In this example, we selected pulldown mode and make eIF4G3(Uniprot:[O43432](http
 
 
 **NB** The command line interface for using pulldown mode will then become:
-```
+```bash
 singularity exec --no-home\ 
 --bind $PWD/example_data/baits.txt:/input_data/baits.txt\
 --bind $PWD/example_data/candidates.txt:/input_data/candidates.txt\
