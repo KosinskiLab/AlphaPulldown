@@ -23,7 +23,7 @@ AlphaPulldown supports 4 different modes of massive predictions: ```pulldown```,
 
 We have provided 2 examples:
 
-Example 1 is a case where ```pulldown``` and ```custom``` modes are used. Manuals: [example_1_for_pip_user](./example_1_for_pip_user.md) or [example_1_for_singularity_user](./example_1_for_singularity_user.md)
+Example 1 is a case where ```pulldown``` mode is used. Manuals: [example_1_for_pip_user](./example_1_for_pip_user.md) or [example_1_for_singularity_user](./example_1_for_singularity_user.md)
 
 Example 2 is a case where ```custom``` and ```homo-oligomer``` modes were used. Manuals: [example_2_for_pip_user](./example_2_for_pip_user.md) or [example_2_for_singularity_user](./example_2_for_singularity_user.md)
 
