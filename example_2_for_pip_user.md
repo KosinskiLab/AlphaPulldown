@@ -105,7 +105,7 @@ run_multimer_jobs.py --mode=custom\
 --num_cycle=3 --num_predictions_per_model=1\
 --output_path=/path/to/your/directory\ 
 --data_dir=/path-to-Alphafold-data-dir\ 
---protein_lists=$PWD/example_data/baits.txt,$PWD/example_data/candidates.txt\
+--protein_lists=$PWD/example_data/custom_mode.txt\
 --monomer_objects_dir=/path/to/monomer_objects_directory
 --job_index=<any number you want>
 ```
