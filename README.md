@@ -27,4 +27,4 @@ Example 1 is a case where ```pulldown``` mode is used. Manuals: [example_1_for_p
 
 Example 2 is a case where ```custom``` and ```homo-oligomer``` modes were used. Manuals: [example_2_for_pip_user](./example_2_for_pip_user.md) or [example_2_for_singularity_user](./example_2_for_singularity_user.md)
 
-```all_vs_all``` mode can be viewed as a special case of pulldown mode thus the instructions of all_vs_all mode are aded as Appendix in all the manuals mentioned above. 
+```all_vs_all``` mode can be viewed as a special case of ```pulldown``` mode thus the instructions of all_vs_all mode are aded as Appendix in all the manuals mentioned above. 
