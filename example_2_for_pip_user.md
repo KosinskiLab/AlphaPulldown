@@ -103,8 +103,8 @@ The command line interface for using custom mode will then become:
 ```
 run_multimer_jobs.py --mode=custom\
 --num_cycle=3 --num_predictions_per_model=1\
---output_path=/path/to/your/directory\ 
---data_dir=/path-to-Alphafold-data-dir\ 
+--output_path=<path to output directory>\ 
+--data_dir=<path to AlphaFold data directory>\ 
 --protein_lists=$PWD/example_data/custom_mode.txt\
 --monomer_objects_dir=/path/to/monomer_objects_directory
 --job_index=<any number you want>
@@ -175,7 +175,7 @@ As the name suggest, all_vs_all means predict all possible combinations within a
 ```bash
 run_multimer_jobs.py --mode=all_vs_all\
 --num_cycle=3 --num_predictions_per_model=1\
---output_path=/path/to/your/directory\ 
+--output_path=<path to output directory>\ 
 --data_dir=/path-to-Alphafold-data-dir\ 
 --protein_lists=$PWD/example_data/example_all_vs_all_list.txt\
 --monomer_objects_dir=/path/to/monomer_objects_directory
