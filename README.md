@@ -18,8 +18,8 @@ pip install alphapulldown
 For users who don't want to install [HMMER](http://hmmer.org/documentation.html) and [HH-suite](https://github.com/soedinglab/hh-suite) themselves, the programme can also be run via singularity. Simply download AlphaPulldown singularity image from [here](https://oc.embl.de/index.php/s/KR8d4m8ASN9p3gs)
 
 ### Install AlphaFold databases
+For both options, install AlphaFold databases as described in the [AlphaFold manual](https://github.com/deepmind/alphafold#genetic-databases)
 
-For both options, installed databases as described in the [AlphaFold manual](https://github.com/deepmind/alphafold#genetic-databases)
 ------
 
 ## Manual
