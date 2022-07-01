@@ -23,12 +23,12 @@ For both options, install AlphaFold databases as described in the [AlphaFold man
 ------
 
 ## Manual
-AlphaPulldown supports 4 different modes of massive predictions: ```pulldown```, ```all_vs_all```, ```homo-oliogmer```, and ```custom```.
+AlphaPulldown supports four different modes of massive predictions: ```pulldown```, ```all_vs_all```, ```homo-oligomer```, and ```custom```.
 
-We have provided 2 examples:
+We have provided two examples:
 
 Example 1 is a case where ```pulldown``` mode is used. Manuals: [example_1_for_pip_user](./example_1_for_pip_user.md) or [example_1_for_singularity_user](./example_1_for_singularity_user.md)
 
-Example 2 is a case where ```custom``` and ```homo-oligomer``` modes were used. Manuals: [example_2_for_pip_user](./example_2_for_pip_user.md) or [example_2_for_singularity_user](./example_2_for_singularity_user.md)
+Example 2 is a case where ```custom``` and ```homo-oligomer``` modes are used. Manuals: [example_2_for_pip_user](./example_2_for_pip_user.md) or [example_2_for_singularity_user](./example_2_for_singularity_user.md)
 
-```all_vs_all``` mode can be viewed as a special case of ```pulldown``` mode thus the instructions of all_vs_all mode are aded as Appendix in all the manuals mentioned above. 
+```all_vs_all``` mode can be viewed as a special case of the ```pulldown``` mode thus the instructions of this mode are aded as Appendix in all the manuals mentioned above. 
