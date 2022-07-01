@@ -114,7 +114,7 @@ different number if you wish to run an array of jobs in parallel then the progra
 
 #### **Task 1**
 We want to predict the structure of full-length L protein together with Z protein but could not finish the prediction with our computing resources. Thus, 
-we predicted the interaction between a fragment of L protein and Z protein instead, as domonstrated in the figure below ![custom_demo_2.png](./custom_demo_2.png):
+we predicted the interaction between a fragment of L protein and Z protein instead, as demonstrated in the figure below ![custom_demo_2.png](./custom_demo_2.png):
 
 
 Different proteins are seperated by ```;```. If a particular region is wanted from one protein, simply add ```,``` after that protein and followed by the region. Region comes in the format of ```number1-number2```. An example input file is: [```example_data/cutom_mode.txt```](./example_data/custom_mode.txt)
