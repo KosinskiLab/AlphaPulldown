@@ -152,7 +152,7 @@ The command for homo-oligomer mode is:
 
 ```
 run_multimer_jobs.py --mode=homo-oligomer --output_path=<path to output directory>\ 
---oligomer_state_file=$PWD/example_data/oligomer_state_file.txt\ 
+--oligomer_state_file=$PWD/example_data/example_oligomer_state_file.txt\ 
 --monomer_objects_dir=<directory that stores monomer pickle files>\ 
 --data_dir=/path-to-Alphafold-data-dir\ 
 --job_index=<any number you want>
