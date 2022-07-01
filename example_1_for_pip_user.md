@@ -58,7 +58,7 @@ For the purpose of this manual, the expected file is already provided here: [```
 Now run:
 ```bash
 create_individual_features.py\
-  --fasta_paths=$PWD/example_data/example_1_sequences.fasta\
+  --fasta_paths=<your path to AlphaPulldown>/example_data/example_1_sequences.fasta\
   --data_dir=<path to alphafold databases>\
   --save_msa_files=False\
   --output_dir=<dir to save the output objects>\ 
