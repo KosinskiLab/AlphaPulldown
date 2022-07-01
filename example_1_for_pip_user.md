@@ -64,7 +64,8 @@ create_individual_features.py\
   --output_dir=<dir to save the output objects>\ 
   --use_precomputed_msas=False\
   --max_template_date=<any date you want>\
-  --skip_existing=False --seq_index=<any number you want>
+  --skip_existing=False\
+  --seq_index=<any number you want or skip the flag to run all one after another>
 ```
 
 ```create_individual_features.py``` will compute necessary features each protein in [```./example_data/example_1_sequences.fasta```](./example_data/example_1_sequences.fasta) and store them in the ```output_dir```. Please be aware that everything after ```>``` will be 
