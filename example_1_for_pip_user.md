@@ -1,7 +1,7 @@
 # AlphaPulldown manual (when installed via pip):
 
 ## Step 0:
-Remember to activate the conda env created while installing the package:
+Remember to activate the conda environment created when installing the package:
 ```bash
 source activate <env_name>
 ```
@@ -51,17 +51,20 @@ Check if you have downloaded necessary parameters and databases (e.g. BFD, MGnif
 ## 1st step: compute multiple sequence alignment (MSA) and template features (run on CPUs)
 Firstly, download all 294 proteins that belong to human tranlsation pathway from Reactome: [link](https://reactome.org/PathwayBrowser/#/R-HSA-72766&DTAB=MT)
 
-Then add the sequence of eIF4G3(Uniprot:[O43432](https://www.uniprot.org/uniprot/O43432)) and eIF4G2(Uniprot:[P78344](https://www.uniprot.org/uniprot/P78344)) to the sequences. The results: [```./example_data/example_1_sequences.fasta```](./example_data/example_1_sequences.fasta)
+Then append the sequence of eIF4G3 (Uniprot:[O43432](https://www.uniprot.org/uniprot/O43432)) and eIF4G2 (Uniprot:[P78344](https://www.uniprot.org/uniprot/P78344)) to the sequence file.
+
+For the purpose of this manual, the expected file is already provided here: [```./example_data/example_1_sequences.fasta```](./example_data/example_1_sequences.fasta).
+
 Now run:
 ```bash
-  create_individual_features.py\
-    --fasta_paths=$PWD/example_data/example_1_sequences.fasta\
-    --data_dir=<path to alphafold databases>\
-    --save_msa_files=False\
-    --output_dir=<dir to save the output objects>\ 
-    --use_precomputed_msas=False\
-    --max_template_date=<any date you want>\
-    --skip_existing=False --seq_index=<any number you want>
+create_individual_features.py\
+  --fasta_paths=$PWD/example_data/example_1_sequences.fasta\
+  --data_dir=<path to alphafold databases>\
+  --save_msa_files=False\
+  --output_dir=<dir to save the output objects>\ 
+  --use_precomputed_msas=False\
+  --max_template_date=<any date you want>\
+  --skip_existing=False --seq_index=<any number you want>
 ```
 
 ```create_individual_features.py``` will compute necessary features each protein in [```./example_data/example_1_sequences.fasta```](./example_data/example_1_sequences.fasta) and store them in the ```output_dir```. Please be aware that everything after ```>``` will be 
