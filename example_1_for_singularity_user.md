@@ -50,7 +50,8 @@ singularity exec --no-home --bind $PWD/example_data/example_1_sequences.fasta:/i
     --fasta_paths=/input_data/example_1_sequences.fasta\
     --data_dir=/data_dir\
     --output_dir=output_dir\
-    --max_template_date=<any date you want> --seq_index=<any number you want>
+    --max_template_date=<any date you want>\
+    --seq_index=<any number you want>
 ```
 
 ```create_individual_features.py``` will compute necessary features each protein in [```./example_data/example_1_sequences.fasta```](./example_data/example_1_sequences.fasta) and store them in the ```output_dir```. Please be aware that everything after ```>``` will be 
