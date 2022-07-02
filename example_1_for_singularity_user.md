@@ -44,11 +44,13 @@ Then add the sequence of eIF4G3(Uniprot:[O43432](https://www.uniprot.org/uniprot
 Now run:
 ```bash
 singularity exec --no-home --bind $PWD/example_data/example_1_sequences.fasta:/input_data/example_1_sequences.fasta\
---bind <path to alphafold databases>:/data_dir\ 
+--bind <path to alphafold databases>:/data_dir\
 --bind <dir to save output objects>:/output_dir\
 <path to your downloaded image>/alphapulldown.sif create_individual_features.py\ 
---fasta_paths=/input_data/example_1_sequences.fasta --data_dir=/data_dir --output_dir=output_dir 
---max_template_date=<any date you want> --seq_index=<any number you want>
+    --fasta_paths=/input_data/example_1_sequences.fasta\
+    --data_dir=/data_dir\
+    --output_dir=output_dir\
+    --max_template_date=<any date you want> --seq_index=<any number you want>
 ```
 
 ```create_individual_features.py``` will compute necessary features each protein in [```./example_data/example_1_sequences.fasta```](./example_data/example_1_sequences.fasta) and store them in the ```output_dir```. Please be aware that everything after ```>``` will be 
