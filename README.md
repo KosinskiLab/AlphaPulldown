@@ -60,4 +60,5 @@ We have provided two examples:
 Example 1 is a case where ```pulldown``` mode is used. Manual: [example_1](./example_1.md)
 
 Example 2 is a case where ```custom``` and ```homo-oligomer``` modes are used. Manual: [example_2](./example_2.md) 
+
 ```all_vs_all``` mode can be viewed as a special case of the ```pulldown``` mode thus the instructions of this mode are aded as Appendix in both manuals mentioned above. 
