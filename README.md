@@ -52,13 +52,12 @@ For users who don't want to install [HMMER](http://hmmer.org/documentation.html)
 
 ------
 
-## Manual
+## Manuals
 AlphaPulldown supports four different modes of massive predictions: ```pulldown```, ```all_vs_all```, ```homo-oligomer```, and ```custom```.
 
 We have provided two examples:
 
 Example 1 is a case where ```pulldown``` mode is used. Manual: [example_1](./example_1.md)
 
-Example 2 is a case where ```custom``` and ```homo-oligomer``` modes are used. Manuals: [example_2_for_pip_user](./example_2_for_pip_user.md) or [example_2_for_singularity_user](./example_2_for_singularity_user.md)
-
-```all_vs_all``` mode can be viewed as a special case of the ```pulldown``` mode thus the instructions of this mode are aded as Appendix in all the manuals mentioned above. 
+Example 2 is a case where ```custom``` and ```homo-oligomer``` modes are used. Manual: [example_2](./example_2.md) 
+```all_vs_all``` mode can be viewed as a special case of the ```pulldown``` mode thus the instructions of this mode are aded as Appendix in both manuals mentioned above. 
