@@ -43,14 +43,14 @@ Firstly, download all 294 proteins that belong to human tranlsation pathway from
 Then add the sequence of eIF4G3(Uniprot:[O43432](https://www.uniprot.org/uniprot/O43432)) and eIF4G2(Uniprot:[P78344](https://www.uniprot.org/uniprot/P78344)) to the sequences. The results: [```./example_data/example_1_sequences.fasta```](./example_data/example_1_sequences.fasta)
 Now run:
 ```bash
-singularity exec --no-home --bind $PWD/example_data/example_1_sequences.fasta:/input_data/example_1_sequences.fasta\
---bind <path to alphafold databases>:/data_dir\
---bind <dir to save output objects>:/output_dir\
-<path to your downloaded image>/alphapulldown.sif create_individual_features.py\ 
-    --fasta_paths=/input_data/example_1_sequences.fasta\
-    --data_dir=/data_dir\
-    --output_dir=output_dir\
-    --max_template_date=<any date you want>\
+singularity exec --no-home --bind $PWD/example_data/example_1_sequences.fasta:/input_data/example_1_sequences.fasta \
+--bind <path to alphafold databases>:/data_dir \
+--bind <dir to save output objects>:/output_dir \
+<path to your downloaded image>/alphapulldown.sif create_individual_features.py \ 
+    --fasta_paths=/input_data/example_1_sequences.fasta \
+    --data_dir=/data_dir \
+    --output_dir=output_dir \
+    --max_template_date=<any date you want> \
     --seq_index=<any number you want>
 ```
 
@@ -128,17 +128,17 @@ In this example, we selected pulldown mode and make eIF4G3(Uniprot:[O43432](http
 
 **NB** The command line interface for using pulldown mode will then become:
 ```bash
-singularity exec --no-home\ 
---bind $PWD/example_data/baits.txt:/input_data/baits.txt\
---bind $PWD/example_data/candidates.txt:/input_data/candidates.txt\
---bind <path to alphafold databases>:/data_dir\
---bind <dir to save predicted models>:/output_dir\ 
---bind <path to directory storing monomer objects >:/monomer_object_dir\
-<path to your downloaded image>/alphapulldown.sif run_multimer_jobs.py --mode=pulldown\
---num_cycle=3 --num_predictions_per_model=1\
+singularity exec --no-home \ 
+--bind $PWD/example_data/baits.txt:/input_data/baits.txt \
+--bind $PWD/example_data/candidates.txt:/input_data/candidates.txt \
+--bind <path to alphafold databases>:/data_dir \
+--bind <dir to save predicted models>:/output_dir \ 
+--bind <path to directory storing monomer objects >:/monomer_object_dir \
+<path to your downloaded image>/alphapulldown.sif run_multimer_jobs.py --mode=pulldown \
+--num_cycle=3 --num_predictions_per_model=1 \
 --output_path=/output_dir 
---data_dir=/data_dir\ 
---protein_lists=/input_data/baits.txt,/input_data/candidates.txt\
+--data_dir=/data_dir \ 
+--protein_lists=/input_data/baits.txt,/input_data/candidates.txt \
 --monomer_objects_dir=/monomer_object_dir
 --job_index=<any number you want>
 ```
