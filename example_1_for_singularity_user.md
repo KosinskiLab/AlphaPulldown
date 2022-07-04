@@ -136,7 +136,7 @@ singularity exec --no-home \
 --bind <path to directory storing monomer objects >:/monomer_object_dir \
 <path to your downloaded image>/alphapulldown.sif run_multimer_jobs.py --mode=pulldown \
 --num_cycle=3 --num_predictions_per_model=1 \
---output_path=/output_dir 
+--output_path=/output_dir \
 --data_dir=/data_dir \ 
 --protein_lists=/input_data/baits.txt,/input_data/candidates.txt \
 --monomer_objects_dir=/monomer_object_dir
@@ -165,7 +165,7 @@ Firstly, download the singularity image from [here](https://oc.embl.de/index.php
 
 Then execute the singularity image ( i.e. the sif file) by:
 ```
-singularity exec --no-home --bind /path/to/your/output/dir:/mnt 
+singularity exec --no-home --bind /path/to/your/output/dir:/mnt \
 /path/to/your/sif/file/alpha-analysis.sif run_get_good_pae.sh --output_dir=/mnt --cutoff=5 --create_notebook=True
 ```
 
@@ -188,16 +188,16 @@ As the name suggest, all_vs_all means predict all possible combinations within a
 ![plot](./all_vs_all_demo.png)
  
 ```bash
-singulairty exec --no-home\
---bind <output directory>:/output_dir\
---bind <path to monomer_objects_directory>:/monomer_directory\
---bind $PWD/example_data/example_all_vs_all_list.txt:/input_data/example_all_vs_all_list.txt\
---bind <path to alphafold databases>:/data_dir
-<path to your downloaded image>/alphapulldown.sif run_multimer_jobs.py --mode=all_vs_all\
---num_cycle=3 --num_predictions_per_model=1\
---output_path=/output_dir\ 
---data_dir=/data_dir\ 
---protein_lists=$PWD/example_data/example_all_vs_all_list.txt\
---monomer_objects_dir=/monomer_directory
+singulairty exec --no-home \
+--bind <output directory>:/output_dir \
+--bind <path to monomer_objects_directory>:/monomer_directory \
+--bind $PWD/example_data/example_all_vs_all_list.txt:/input_data/example_all_vs_all_list.txt \
+--bind <path to alphafold databases>:/data_dir \
+<path to your downloaded image>/alphapulldown.sif run_multimer_jobs.py --mode=all_vs_all \
+--num_cycle=3 --num_predictions_per_model=1 \
+--output_path=/output_dir \ 
+--data_dir=/data_dir \ 
+--protein_lists=$PWD/example_data/example_all_vs_all_list.txt \
+--monomer_objects_dir=/monomer_directory \
 --job_index=<any number you want>
 ```
