@@ -132,6 +132,7 @@ class MonomericObject:
         else:
             """This means precomputed msa files are available"""
             msa_output_dir = os.path.join(output_dir, self.description)
+            Path(msa_output_dir).mkdir(parents=True, exist_ok=True)
             logging.info(
                 "use precomputed msa. Searching for msa files in :{}".format(
                     msa_output_dir
