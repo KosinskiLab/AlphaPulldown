@@ -12,7 +12,7 @@ Firstly, download all 294 proteins that belong to human tranlsation pathway from
 
 Then append the sequence of eIF4G3 (Uniprot:[O43432](https://www.uniprot.org/uniprot/O43432)) and eIF4G2 (Uniprot:[P78344](https://www.uniprot.org/uniprot/P78344)) to the sequence file.
 
-For the purpose of this manual, the expected file is already provided here: [```./example_data/example_1_sequences.fasta```](./example_data/example_1_sequences.fasta).
+For the purpose of this manual, the expected file is already provided here: [```./example_data/example_1_sequences.fasta```](./example_data/example_1_sequences.fasta). If you want to save time and run fewer jobs, you can use [```./example_data/example_1_sequences_shorter.fasta```](./example_data/example_1_sequences_shorter.fasta) instead.
 
 If you installed via pip, now run:
 ```bash
