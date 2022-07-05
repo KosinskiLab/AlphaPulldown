@@ -1,7 +1,7 @@
 # AlphaPulldown
 
 ## Pre-installation
-Check if you have downloaded necessary parameters and databases(e.g. BFD, MGnify etc.) as instructed in [AlphFold's documentation](https://github.com/deepmind/alphafold) and you should have a directory like below:
+Check if you have downloaded necessary parameters and databases (e.g. BFD, MGnify etc.) as instructed in [AlphFold's documentation](https://github.com/deepmind/alphafold). You should have a directory like below:
  ```
  alphafold_database/                             # Total: ~ 2.2 TB (download: 438 GB)
     bfd/                                   # ~ 1.7 TB (download: 271.6 GB)
@@ -35,8 +35,8 @@ Check if you have downloaded necessary parameters and databases(e.g. BFD, MGnify
 
 ## Installation: via pip or singularity 
 
-### Option1 (recommended): pip
-This option is suitable for the users who have already installed and compiled [HMMER](http://hmmer.org/documentation.html) and [HH-suite](https://github.com/soedinglab/hh-suite)
+### Option 1 (recommended): pip
+This option is suitable for the users who have already installed and compiled [HMMER](http://hmmer.org/documentation.html), [HH-suite](https://github.com/soedinglab/hh-suite), and Kalign.
 
 **Firstly**, create a conda environment and gather necessary dependencies 
 ```bash
@@ -47,8 +47,8 @@ conda create -n <env_name> -c omnia python==3.7 openmm pdbfixer
 source activate <env_name>
 pip install alphapulldown
 ```
-### Option2 : singularity
-For users who don't want to install [HMMER](http://hmmer.org/documentation.html) and [HH-suite](https://github.com/soedinglab/hh-suite) themselves, the programme can also be run via singularity. Simply download AlphaPulldown singularity image from [here](https://oc.embl.de/index.php/s/KR8d4m8ASN9p3gs)
+### Option 2 : singularity
+For users who don't want to install [HMMER](http://hmmer.org/documentation.html), [HH-suite](https://github.com/soedinglab/hh-suite), and Kalign themselves, the programme can also be run via singularity. Simply download AlphaPulldown singularity image from [here](https://oc.embl.de/index.php/s/KR8d4m8ASN9p3gs)
 
 ------
 
