@@ -108,7 +108,7 @@ different number if you wish to run an array of jobs in parallel then the progra
 #### **Run in pulldown mode**
 Inspired by pull-down assays, one can specify one or more proteins as "bait" and another list of proteins as "candidates". Then the programme will use AlphafoldMultimerV2 to predict interactions between baits (as in [example_data/baits.txt](./example_data/baits.txt)) and candidates (as in [example_data/candidates.txt](./example_data/candidates.txt)). 
 
-**Note** If you want to save time and run fewer jobs, you can use [example_data/candidates_shoter.txt](./example_data/candidates_shorter.txt) instead of [example_data/candidates.txt](./example_data/candidates.txt) 
+**Note** If you want to save time and run fewer jobs, you can use [example_data/candidates_shorter.txt](./example_data/candidates_shorter.txt) instead of [example_data/candidates.txt](./example_data/candidates.txt) 
 
 In this example, we selected pulldown mode and make eIF4G3(Uniprot:[O43432](https://www.uniprot.org/uniprot/O43432)) and eIF4G2(Uniprot:[P78344](https://www.uniprot.org/uniprot/P78344)) as baits while the other 294 proteins as candidates. Thus, in total, there will be 2 * 294 = 588 predictions. 
 
