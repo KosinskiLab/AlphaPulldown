@@ -1,6 +1,13 @@
 # Example1
 # Aim: Find proteins involving human translation pathway that might also interact with eIF4G3 or eIF4G2 
 ## 1st step: compute multiple sequence alignment (MSA) and template features (run on CPUs)
+
+## Step 0 make sure you have HMMER and HH-suite downloaded and installed. 
+As for our **HD cluster**, simply:
+```bash
+module load HMMER/3.1b2-foss-2016b
+module load HH-suite/3.3.0-gompic-2020b
+```
 Firstly, download all 294 proteins that belong to human tranlsation pathway from Reactome: [link](https://reactome.org/PathwayBrowser/#/R-HSA-72766&DTAB=MT)
 
 Then append the sequence of eIF4G3 (Uniprot:[O43432](https://www.uniprot.org/uniprot/O43432)) and eIF4G2 (Uniprot:[P78344](https://www.uniprot.org/uniprot/P78344)) to the sequence file.
