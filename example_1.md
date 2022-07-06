@@ -5,7 +5,7 @@
 ## Step 0 make sure you have HMMER and HH-suite downloaded and installed. 
 As for our **HD cluster**, simply:
 ```bash
-module load HMMER/3.1b2-foss-2016b
+module load HMMER/3.3.2-gompic-2020b
 module load HH-suite/3.3.0-gompic-2020b
 module load Kalign/3.3.1-GCCcore-10.3.0
 
