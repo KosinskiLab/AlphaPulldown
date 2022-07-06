@@ -8,6 +8,9 @@ As for our **HD cluster**, simply:
 module load HMMER/3.1b2-foss-2016b
 module load HH-suite/3.3.0-gompic-2020b
 module load Kalign/3.3.1-GCCcore-10.3.0
+
+module load CUDA/11.1.1-GCC-10.2.0
+module load cuDNN/8.0.4.30-CUDA-11.1.1
 ```
 Firstly, download all 294 proteins that belong to human tranlsation pathway from Reactome: [link](https://reactome.org/PathwayBrowser/#/R-HSA-72766&DTAB=MT)
 
