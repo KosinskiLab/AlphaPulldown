@@ -7,7 +7,6 @@ As for our **HD cluster**, simply:
 ```bash
 module load HMMER/3.3.2-gompic-2020b
 module load HH-suite/3.3.0-gompic-2020b
-module load Kalign/3.3.1-GCCcore-10.3.0
 
 module load CUDA/11.1.1-GCC-10.2.0
 module load cuDNN/8.0.4.30-CUDA-11.1.1
