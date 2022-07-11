@@ -40,7 +40,7 @@ This option is suitable for the users who have already installed and compiled [H
 
 **Firstly**, create a conda environment and gather necessary dependencies 
 ```bash
-conda create -n TestAlphaPulldown -c omnia -c bioconda python==3.7 openmm pdbfixer kalign2=2.04
+conda create -n TestAlphaPulldown -c omnia -c bioconda -c conda-forge python==3.7 openmm pdbfixer kalign2=2.04 cctbx-base
 ````
 **Secondly**, activate the environment and install AlphaPulldown
 ```bash
