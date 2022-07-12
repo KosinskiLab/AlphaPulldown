@@ -46,7 +46,57 @@ singularity exec --no-home --bind $PWD/example_data/example_1_sequences.fasta:/i
 taken as the description of the protein and **please be aware** that any special symbol, such as ```| : ; #```, after ```>``` will be replaced with ```_```. 
 
 The name of the pickles will be the same as the descriptions of the sequences  in fasta files (e.g. ">protein_A" in the fasta file will yield "protein_A.pkl")
- 
+
+On a compute cluster, you may want to run all jobs in parallel as a [job array](https://slurm.schedmd.com/job_array.html). For example, on SLURM queuing system at EMBL we could use:
+
+```bash
+#!/bin/bash
+
+#A typical run takes couple of hours but may be much longer
+#SBATCH --job-name=array
+#SBATCH --time=10:00:00
+
+#log files:
+#SBATCH -e logs/create_individual_features_%A_%a_err.txt
+#SBATCH -o logs/create_individual_features_%A_%a_out.txt
+
+#qos sets priority
+#SBATCH --qos=low
+
+#Limit the run to a single node
+#SBATCH -N 1
+
+#Adjust this depending on the node
+#SBATCH --ntasks=8
+#SBATCH --mem=64000
+
+module load HMMER/3.3.2-gompic-2020b
+module load HH-suite/3.3.0-gompic-2020b
+module load Anaconda3
+source activate AlphaPulldown
+
+create_individual_features.py \
+  --fasta_paths=$1 \
+  --data_dir=/scratch/AlphaFold_DBs/2.2.2/ \
+  --save_msa_files=True \
+  --output_dir=/scratch/user/output \
+  --use_precomputed_msas=False \
+  --max_template_date=2050-01-01 \
+  --skip_existing=True \
+  --seq_index=$SLURM_ARRAY_TASK_ID
+```
+and then run using:
+
+```
+mkdir logs
+#Count the number of jobs corresponding to the number of sequences:
+nseqs=`grep ">" example_data/example_1_sequences.fasta | wc -l`
+#Run the job array, 100 jobs at a time:
+sbatch --array=1-$nseqs%100 create_individual_features.sh example_data/example_1_sequences.fasta
+```
+
+
+
  ------------------------
 
 ## 1.1 Explanation about the parameters
