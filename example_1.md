@@ -276,6 +276,7 @@ sbatch --array=1-20 example_data/run_multimer_jobs.sh
 ## 3rd step Evalutaion and visualisation
 
 **Feature 1**
+
 When a batch of jobs is finished, AlphaPulldown can create a jupyter notebook that presents a neat overview of the models, as seen in the example screenshot ![screenshot](./example_notebook_screenshot.png)
 
 On the left side, there is a bookmark listing all the jobs and when clicking a bookmark, the notebook will show: 1) PAE plots 2) predicted model coloured by plddt scores 3) predicted models coloured by chains.
@@ -298,6 +299,7 @@ conda environment as the kernel in order to execute the commands in the notebook
 ```create_notebook``` is a boolean variable. Turn it to be ```True``` to generate the notebook. 
 
 **Feature 2**
+
 We have also provided another singularity image to generate a csv table with structural properties and scores.
 Firstly, download the singularity image from [here](https://oc.embl.de/index.php/s/cDYsOOdXA1YmInk).
 
