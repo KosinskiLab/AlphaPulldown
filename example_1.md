@@ -31,7 +31,7 @@ create_individual_features.py \
 ```
 If you use singularity, now run:
 ```bash
-singularity exec --no-home --bind $PWD/example_data/example_1_sequences.fasta:/input_data/example_1_sequences.fasta \
+singularity exec --no-home --bind ./example_data/example_1_sequences.fasta:/input_data/example_1_sequences.fasta \
 --bind <path to alphafold databases>:/data_dir \
 --bind <dir to save output objects>:/output_dir \
 <path to your downloaded image>/alphapulldown.sif create_individual_features.py \ 
@@ -178,7 +178,7 @@ run_multimer_jobs.py --mode=pulldown \
 --num_cycle=3 --num_predictions_per_model=1 \
 --output_path=<output directory> \ 
 --data_dir=<path to alphafold databases> \ 
---protein_lists=$PWD/example_data/baits.txt,$PWD/example_data/candidates.txt \
+--protein_lists=./example_data/baits.txt,./example_data/candidates.txt \
 --monomer_objects_dir=/path/to/monomer_objects_directory \
 --job_index=<any number you want>
 ```
@@ -186,8 +186,8 @@ run_multimer_jobs.py --mode=pulldown \
 If you run via singularity:
 ```bash
 singularity exec --no-home \ 
---bind $PWD/example_data/baits.txt:/input_data/baits.txt \
---bind $PWD/example_data/candidates.txt:/input_data/candidates.txt \
+--bind ./example_data/baits.txt:/input_data/baits.txt \
+--bind ./example_data/candidates.txt:/input_data/candidates.txt \
 --bind <path to alphafold databases>:/data_dir \
 --bind <dir to save predicted models>:/output_dir \ 
 --bind <path to directory storing monomer objects >:/monomer_object_dir \
@@ -308,7 +308,7 @@ run_multimer_jobs.py --mode=all_vs_all \
 --num_cycle=3 --num_predictions_per_model=1 \
 --output_path=<path to output directory> \ 
 --data_dir=<path to AlphaFold data directory> \ 
---protein_lists=$PWD/example_data/example_all_vs_all_list.txt \
+--protein_lists=./example_data/example_all_vs_all_list.txt \
 --monomer_objects_dir=/path/to/monomer_objects_directory \
 --job_index=<any number you want>
 ```
@@ -317,13 +317,13 @@ If you run via singularity:
 singulairty exec --no-home \
 --bind <output directory>:/output_dir \
 --bind <path to monomer_objects_directory>:/monomer_directory \
---bind $PWD/example_data/example_all_vs_all_list.txt:/input_data/example_all_vs_all_list.txt \
+--bind ./example_data/example_all_vs_all_list.txt:/input_data/example_all_vs_all_list.txt \
 --bind <path to alphafold databases>:/data_dir \
 <path to your downloaded image>/alphapulldown.sif run_multimer_jobs.py --mode=all_vs_all \
 --num_cycle=3 --num_predictions_per_model=1 \
 --output_path=/output_dir \ 
 --data_dir=/data_dir \ 
---protein_lists=$PWD/example_data/example_all_vs_all_list.txt \
+--protein_lists=./example_data/example_all_vs_all_list.txt \
 --monomer_objects_dir=/monomer_directory \
 --job_index=<any number you want>
 ```
