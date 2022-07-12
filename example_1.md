@@ -5,8 +5,11 @@
 ## Step 0 make sure you have HMMER and HH-suite downloaded and installed. 
 As for our **HD cluster**, simply:
 ```bash
-module load HMMER/3.1b2-foss-2016b
+module load HMMER/3.3.2-gompic-2020b
 module load HH-suite/3.3.0-gompic-2020b
+
+module load CUDA/11.1.1-GCC-10.2.0
+module load cuDNN/8.2.1.32-CUDA-11.3.1
 ```
 Firstly, download all 294 proteins that belong to human tranlsation pathway from Reactome: [link](https://reactome.org/PathwayBrowser/#/R-HSA-72766&DTAB=MT)
 
@@ -28,7 +31,7 @@ create_individual_features.py \
 ```
 If you use singularity, now run:
 ```bash
-singularity exec --no-home --bind $PWD/example_data/example_1_sequences.fasta:/input_data/example_1_sequences.fasta \
+singularity exec --no-home --bind ./example_data/example_1_sequences.fasta:/input_data/example_1_sequences.fasta \
 --bind <path to alphafold databases>:/data_dir \
 --bind <dir to save output objects>:/output_dir \
 <path to your downloaded image>/alphapulldown.sif create_individual_features.py \ 
@@ -43,7 +46,59 @@ singularity exec --no-home --bind $PWD/example_data/example_1_sequences.fasta:/i
 taken as the description of the protein and **please be aware** that any special symbol, such as ```| : ; #```, after ```>``` will be replaced with ```_```. 
 
 The name of the pickles will be the same as the descriptions of the sequences  in fasta files (e.g. ">protein_A" in the fasta file will yield "protein_A.pkl")
- 
+
+### Running on a computer cluster in parallel
+
+On a compute cluster, you may want to run all jobs in parallel as a [job array](https://slurm.schedmd.com/job_array.html). For example, on SLURM queuing system at EMBL we could use:
+
+```bash
+#!/bin/bash
+
+#A typical run takes couple of hours but may be much longer
+#SBATCH --job-name=array
+#SBATCH --time=10:00:00
+
+#log files:
+#SBATCH -e logs/create_individual_features_%A_%a_err.txt
+#SBATCH -o logs/create_individual_features_%A_%a_out.txt
+
+#qos sets priority
+#SBATCH --qos=low
+
+#Limit the run to a single node
+#SBATCH -N 1
+
+#Adjust this depending on the node
+#SBATCH --ntasks=8
+#SBATCH --mem=64000
+
+module load HMMER/3.3.2-gompic-2020b
+module load HH-suite/3.3.0-gompic-2020b
+module load Anaconda3
+source activate AlphaPulldown
+
+create_individual_features.py \
+  --fasta_paths=$1 \
+  --data_dir=/scratch/AlphaFold_DBs/2.2.2/ \
+  --save_msa_files=True \
+  --output_dir=/scratch/user/output/features \
+  --use_precomputed_msas=False \
+  --max_template_date=2050-01-01 \
+  --skip_existing=True \
+  --seq_index=$SLURM_ARRAY_TASK_ID
+```
+and then run using:
+
+```
+mkdir logs
+#Count the number of jobs corresponding to the number of sequences:
+nseqs=`grep ">" example_data/example_1_sequences.fasta | wc -l`
+#Run the job array, 100 jobs at a time:
+sbatch --array=1-$nseqs%100 create_individual_features.sh example_data/example_1_sequences.fasta
+```
+
+
+
  ------------------------
 
 ## 1.1 Explanation about the parameters
@@ -107,7 +162,7 @@ different number if you wish to run an array of jobs in parallel then the progra
 #### **Run in pulldown mode**
 Inspired by pull-down assays, one can specify one or more proteins as "bait" and another list of proteins as "candidates". Then the programme will use AlphafoldMultimerV2 to predict interactions between baits (as in [example_data/baits.txt](./example_data/baits.txt)) and candidates (as in [example_data/candidates.txt](./example_data/candidates.txt)). 
 
-**Note** If you want to save time and run fewer jobs, you can use [example_data/candidates_shoter.txt](./example_data/candidates_shorter.txt) instead of [example_data/candidates.txt](./example_data/candidates.txt) 
+**Note** If you want to save time and run fewer jobs, you can use [example_data/candidates_shorter.txt](./example_data/candidates_shorter.txt) instead of [example_data/candidates.txt](./example_data/candidates.txt) 
 
 In this example, we selected pulldown mode and make eIF4G3(Uniprot:[O43432](https://www.uniprot.org/uniprot/O43432)) and eIF4G2(Uniprot:[P78344](https://www.uniprot.org/uniprot/P78344)) as baits while the other 294 proteins as candidates. Thus, in total, there will be 2 * 294 = 588 predictions. 
 
@@ -123,7 +178,7 @@ run_multimer_jobs.py --mode=pulldown \
 --num_cycle=3 --num_predictions_per_model=1 \
 --output_path=<output directory> \ 
 --data_dir=<path to alphafold databases> \ 
---protein_lists=$PWD/example_data/baits.txt,$PWD/example_data/candidates.txt \
+--protein_lists=./example_data/baits.txt,./example_data/candidates.txt \
 --monomer_objects_dir=/path/to/monomer_objects_directory \
 --job_index=<any number you want>
 ```
@@ -131,8 +186,8 @@ run_multimer_jobs.py --mode=pulldown \
 If you run via singularity:
 ```bash
 singularity exec --no-home \ 
---bind $PWD/example_data/baits.txt:/input_data/baits.txt \
---bind $PWD/example_data/candidates.txt:/input_data/candidates.txt \
+--bind ./example_data/baits.txt:/input_data/baits.txt \
+--bind ./example_data/candidates.txt:/input_data/candidates.txt \
 --bind <path to alphafold databases>:/data_dir \
 --bind <dir to save predicted models>:/output_dir \ 
 --bind <path to directory storing monomer objects >:/monomer_object_dir \
@@ -155,6 +210,64 @@ Default is `None` and the programme will run predictions one by one in the given
 different number if you wish to run an array of jobs in parallel then the programme will only run the corresponding job specified by the ```job_index```
 
 **NB** ```job_index``` starts from 1
+
+### Running on a computer cluster in parallel
+
+On a compute cluster, you may want to run all jobs in parallel as a [job array](https://slurm.schedmd.com/job_array.html). For example, on SLURM queuing system at EMBL we could use:
+
+```bash
+#!/bin/bash
+
+#A typical run takes couple of hours but may be much longer
+#SBATCH --job-name=array
+#SBATCH --time=2-00:00:00
+
+#log files:
+#SBATCH -e logs/run_multimer_jobs_%A_%a_err.txt
+#SBATCH -o logs/run_multimer_jobs_%A_%a_out.txt
+
+#qos sets priority
+#SBATCH --qos=low
+
+#SBATCH -p gpu
+#lower end GPUs might be sufficient for pairwise screens:
+#SBATCH -C "gpu=2080Ti|gpu=3090"
+
+#Reserve the entire GPU so no-one else slows you down
+#SBATCH --gres=gpu:1
+
+#Limit the run to a single node
+#SBATCH -N 1
+
+#Adjust this depending on the node
+#SBATCH --ntasks=8
+#SBATCH --mem=64000
+
+module load Anaconda3 
+module load CUDA/11.3.1
+module load cuDNN/8.2.1.32-CUDA-11.3.1
+source activate AlphaPulldown
+
+MAXRAM=$(echo `ulimit -m` '/ 1024.0'|bc)
+GPUMEM=`nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits|tail -1`
+export XLA_PYTHON_CLIENT_MEM_FRACTION=`echo "scale=3;$MAXRAM / $GPUMEM"|bc`
+export TF_FORCE_UNIFIED_MEMORY='1'
+
+run_multimer_jobs.py --mode=pulldown \
+    --num_cycle=3 \
+    --num_predictions_per_model=1 \
+    --output_path=/scratch/user/output/models \
+    --data_dir=/scratch/AlphaFold_DBs/2.2.2/ \
+    --protein_lists=./example_data/baits.txt,./example_data/candidates_shorter.txt \
+    --monomer_objects_dir=/scratch/user/output/features \
+    --job_index=$SLURM_ARRAY_TASK_ID
+```
+and then run using:
+
+```
+mkdir -p logs
+sbatch --array=1-20 example_data/run_multimer_jobs.sh
+```
 
 --------------------
 
@@ -195,7 +308,7 @@ run_multimer_jobs.py --mode=all_vs_all \
 --num_cycle=3 --num_predictions_per_model=1 \
 --output_path=<path to output directory> \ 
 --data_dir=<path to AlphaFold data directory> \ 
---protein_lists=$PWD/example_data/example_all_vs_all_list.txt \
+--protein_lists=./example_data/example_all_vs_all_list.txt \
 --monomer_objects_dir=/path/to/monomer_objects_directory \
 --job_index=<any number you want>
 ```
@@ -204,13 +317,13 @@ If you run via singularity:
 singulairty exec --no-home \
 --bind <output directory>:/output_dir \
 --bind <path to monomer_objects_directory>:/monomer_directory \
---bind $PWD/example_data/example_all_vs_all_list.txt:/input_data/example_all_vs_all_list.txt \
+--bind ./example_data/example_all_vs_all_list.txt:/input_data/example_all_vs_all_list.txt \
 --bind <path to alphafold databases>:/data_dir \
 <path to your downloaded image>/alphapulldown.sif run_multimer_jobs.py --mode=all_vs_all \
 --num_cycle=3 --num_predictions_per_model=1 \
 --output_path=/output_dir \ 
 --data_dir=/data_dir \ 
---protein_lists=$PWD/example_data/example_all_vs_all_list.txt \
+--protein_lists=./example_data/example_all_vs_all_list.txt \
 --monomer_objects_dir=/monomer_directory \
 --job_index=<any number you want>
 ```
