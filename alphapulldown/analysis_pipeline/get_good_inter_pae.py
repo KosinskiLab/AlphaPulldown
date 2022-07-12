@@ -1,4 +1,5 @@
-#
+#!/usr/bin/env python3
+
 # This script is to obtain all predicted multimer jobs 
 # with good 
 #  #
@@ -12,7 +13,6 @@ import json
 import numpy as np
 import pandas as pd
 import subprocess
-from calculate_mpdockq import *
 
 flags.DEFINE_string('output_dir',None,'directory where predicted models are stored')
 flags.DEFINE_float('cutoff',5.0,'cutoff value of PAE. i.e. only pae<cutoff is counted good')
@@ -37,12 +37,10 @@ def create_notebook(combo,output_dir):
     nb = nbf.new_notebook()
     output_cells = []
     md_cell = nbf.new_text_cell('markdown','# A notebook to display all the predictions with good inter-pae scores')
-    git_clone_cells = nbf.new_code_cell("!git clone https://github.com/henrywotton/programme_jupyter_notebook.git && export PYTHONPATH=$PWD:$PYTHONPATH")
-    output_cells.append(git_clone_cells)
-    import_cell = nbf.new_code_cell("from programme_notebook.af2hyde_mod import parse_results,parse_results_colour_chains")
+    import_cell = nbf.new_code_cell("from analysis_pipeline.af2hyde_mod import parse_results,parse_results_colour_chains")
     output_cells.append(md_cell)
     output_cells.append(import_cell)
-    import_cell = nbf.new_code_cell("from programme_notebook.utils import display_pae_plots")
+    import_cell = nbf.new_code_cell("from analysis_pipeline.utils import display_pae_plots")
     output_cells.append(import_cell)
     base_dir = output_dir
     for i in range(combo.shape[0]):
@@ -67,64 +65,9 @@ def create_notebook(combo,output_dir):
     nb['worksheets'].append(nbf.new_worksheet(cells=output_cells))
     with open(os.path.join(output_dir,'output.ipynb'),'w') as f:
         nbf.write(nb,f,'ipynb',version=4)
-    logging.info("A notebook has been successfully created. Now will execute the notebook")
+    logging.info("A notebook has been successfully created.")
     # logging.info("A notebook has been successfully created. Now will execute the notebook")
     # subprocess.run(f"source  activate programme_notebook && jupyter nbconvert --to notebook --inplace --execute {output_dir}/output.ipynb",shell=True,executable='/bin/bash')
-
-def obtain_mpdockq(work_dir):
-    pdb_path = os.path.join(work_dir,'ranked_0.pdb')
-    pdb_chains, chain_coords, chain_CA_inds, chain_CB_inds = read_pdb(pdb_path)
-    best_plddt = get_best_plddt(work_dir)
-    plddt_per_chain = read_plddt(best_plddt,chain_CA_inds)
-    complex_score = score_complex(chain_coords,chain_CB_inds,plddt_per_chain)
-    if complex_score is not None:
-        mpDockq = calculate_mpDockQ(complex_score)
-    else:
-        mpDockq = "None"
-    return mpDockq
-
-def run_and_summarise_pi_score(workd_dir,jobs,surface_thres):
-    """A function to calculate all predicted models' pi_scores and make a pandas df of the results"""
-    prediction_outputs = os.listdir(workd_dir)
-    # os.makedirs(os.path.join(workd_dir,"pi_score_outputs"),exist_ok=True)
-    subprocess.run(f"mkdir {workd_dir}/pi_score_outputs",shell=True,executable='/bin/bash')
-    pi_score_outputs = os.path.join(workd_dir,"pi_score_outputs")
-    for job in jobs:
-        subdir = os.path.join(workd_dir,job)
-        try:
-            os.path.isfile(os.path.join(subdir,"ranked_0.pdb"))
-            pdb_path = os.path.join(subdir,"ranked_0.pdb")
-            output_dir = os.path.join(pi_score_outputs,f"{job}")
-            subprocess.run(f"source activate pi_score && export PYTHONPATH=/software:$PYTHONPATH && python /software/pi_score/run_piscore_wc.py -p {pdb_path} -o {output_dir} -s {surface_thres} -ps 1",shell=True,executable='/bin/bash')
-        except FileNotFoundError:
-            print(f"{job} failed. Cannot find ranked_0.pdb in {subdir}")
-
-    output_df = pd.DataFrame()
-    for job in jobs:
-        subdir = os.path.join(pi_score_outputs,job)
-        csv_files = [f for f in os.listdir(subdir) if 'filter_intf_features' in f]
-        pi_score_files = [f for f in os.listdir(subdir) if 'pi_score_' in f]
-        filtered_df = pd.read_csv(os.path.join(subdir,csv_files[0]))
-        if filtered_df.shape[0]==0:
-            for column in filtered_df.columns:
-                filtered_df[column] = ["None"]
-            filtered_df['jobs'] = str(job)
-            filtered_df['pi_score'] = "No interface detected"
-        else:
-            with open(os.path.join(subdir,pi_score_files[0]),'r') as f:
-                lines = [l for l in f.readlines() if "#" not in l]
-                if len(lines)>0:
-                    pi_score = float(lines[0].split(",")[-1])
-                else:
-                    pi_score = 'SC:  mds: too many atoms'
-                f.close()
-            filtered_df['jobs'] = str(job)
-            filtered_df['pi_score'] = pi_score
-        
-        output_df = pd.concat([output_df,filtered_df])
-    output_df = output_df.drop(columns=['pdb'])
-    return output_df
-    
     
 
 def main(argv):
@@ -132,7 +75,6 @@ def main(argv):
     good_jobs = []
     iptm_ptm = []
     iptm = []
-    mpDockq_scores = []
     count = 0
     for job in jobs:
         logging.info(f"now processing {job}")
@@ -148,24 +90,20 @@ def main(argv):
             iptm_score = check_dict['iptm']
             pae_mtx = check_dict['predicted_aligned_error']
             check = examine_inter_pae(pae_mtx,seqs,cutoff=FLAGS.cutoff)
-            mpDockq_score = obtain_mpdockq(os.path.join(FLAGS.output_dir,job))
             if check:
                 good_jobs.append(str(job))
                 iptm_ptm.append(iptm_ptm_score)
                 iptm.append(iptm_score)
-                mpDockq_scores.append(mpDockq_score)
 
             logging.info(f"done for {job} {count} out of {len(jobs)} finished.")
     
-    pi_score_df = run_and_summarise_pi_score(FLAGS.output_dir,good_jobs,FLAGS.surface_thres)
+    pi_score_df = pd.DataFrame()
+    pi_score_df['jobs'] = good_jobs
     pi_score_df['iptm+ptm'] = iptm_ptm
-    pi_score_df['mpDockQ'] = mpDockq_scores
     pi_score_df['iptm'] = iptm
-    columns = list(pi_score_df.columns.values)
-    columns.pop(columns.index('jobs'))
-    pi_score_df = pi_score_df[['jobs'] + columns]
+
+
     pi_score_df = pi_score_df.sort_values(by='iptm',ascending=False)
-    pi_score_df.to_csv(os.path.join(FLAGS.output_dir,"predictions_with_good_interpae.csv"),index=False)
     
     if FLAGS.create_notebook:
         create_notebook(pi_score_df,FLAGS.output_dir)

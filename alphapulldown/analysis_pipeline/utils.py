@@ -3,7 +3,7 @@ import ipywidgets as widgets
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import os
-from programme_notebook.af2hyde_mod import plot_predicted_alignment_error
+from analysis_pipeline.af2hyde_mod import plot_predicted_alignment_error
 
 
 def display_pae_plots(subdir):
