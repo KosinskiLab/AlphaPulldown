@@ -47,6 +47,8 @@ taken as the description of the protein and **please be aware** that any special
 
 The name of the pickles will be the same as the descriptions of the sequences  in fasta files (e.g. ">protein_A" in the fasta file will yield "protein_A.pkl")
 
+### Running on a computer cluster in parallel
+
 On a compute cluster, you may want to run all jobs in parallel as a [job array](https://slurm.schedmd.com/job_array.html). For example, on SLURM queuing system at EMBL we could use:
 
 ```bash
@@ -79,7 +81,7 @@ create_individual_features.py \
   --fasta_paths=$1 \
   --data_dir=/scratch/AlphaFold_DBs/2.2.2/ \
   --save_msa_files=True \
-  --output_dir=/scratch/user/output \
+  --output_dir=/scratch/user/output/features \
   --use_precomputed_msas=False \
   --max_template_date=2050-01-01 \
   --skip_existing=True \
@@ -208,6 +210,64 @@ Default is `None` and the programme will run predictions one by one in the given
 different number if you wish to run an array of jobs in parallel then the programme will only run the corresponding job specified by the ```job_index```
 
 **NB** ```job_index``` starts from 1
+
+### Running on a computer cluster in parallel
+
+On a compute cluster, you may want to run all jobs in parallel as a [job array](https://slurm.schedmd.com/job_array.html). For example, on SLURM queuing system at EMBL we could use:
+
+```bash
+#!/bin/bash
+
+#A typical run takes couple of hours but may be much longer
+#SBATCH --job-name=array
+#SBATCH --time=2-00:00:00
+
+#log files:
+#SBATCH -e logs/run_multimer_jobs_%A_%a_err.txt
+#SBATCH -o logs/run_multimer_jobs_%A_%a_out.txt
+
+#qos sets priority
+#SBATCH --qos=low
+
+#SBATCH -p gpu
+#lower end GPUs might be sufficient for pairwise screens:
+#SBATCH -C "gpu=2080Ti|gpu=3090"
+
+#Reserve the entire GPU so no-one else slows you down
+#SBATCH --gres=gpu:1
+
+#Limit the run to a single node
+#SBATCH -N 1
+
+#Adjust this depending on the node
+#SBATCH --ntasks=8
+#SBATCH --mem=64000
+
+module load Anaconda3 
+module load CUDA/11.3.1
+module load cuDNN/8.2.1.32-CUDA-11.3.1
+source activate AlphaPulldown
+
+MAXRAM=$(echo `ulimit -m` '/ 1024.0'|bc)
+GPUMEM=`nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits|tail -1`
+export XLA_PYTHON_CLIENT_MEM_FRACTION=`echo "scale=3;$MAXRAM / $GPUMEM"|bc`
+export TF_FORCE_UNIFIED_MEMORY='1'
+
+run_multimer_jobs.py --mode=pulldown \
+    --num_cycle=3 \
+    --num_predictions_per_model=1 \
+    --output_path=/scratch/user/output/models \
+    --data_dir=/scratch/AlphaFold_DBs/2.2.2/ \
+    --protein_lists=./example_data/baits.txt,./example_data/candidates_shorter.txt \
+    --monomer_objects_dir=/scratch/user/output/features \
+    --job_index=$SLURM_ARRAY_TASK_ID
+```
+and then run using:
+
+```
+mkdir -p logs
+sbatch --array=1-20 example_data/run_multimer_jobs.sh
+```
 
 --------------------
 
