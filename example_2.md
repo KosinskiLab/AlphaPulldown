@@ -169,29 +169,46 @@ different number if you wish to run an array of jobs in parallel then the progra
 --------------------
 
 
-## 3rd step Evalutaion and visualisation
-We have also created an analysis pipeline and can be directly run by singularity. 
 
+## 3rd step Evalutaion and visualisation
+
+**Feature 1**
+
+When a batch of jobs is finished, AlphaPulldown can create a jupyter notebook that presents a neat overview of the models, as seen in the example screenshot ![screenshot](./example_notebook_screenshot.png)
+
+On the left side, there is a bookmark listing all the jobs and when clicking a bookmark, the notebook will show: 1) PAE plots 2) predicted model coloured by plddt scores 3) predicted models coloured by chains.
+
+In order to create the notebook, within the same conda environment, run:
+```bash
+get_good_inter_pae.py --output_dir=/scratch/user/output/models \
+--cutoff=5.0 \
+--create_notebook=True \
+```
+This command will yield an ```output.ipynb``` and you can open it in an IDE (e.g. jupyterhub or VS code). In the IDE, you should select the same 
+conda environment as the kernel in order to execute the commands in the notebook. 
+
+**About the parameters**
+
+```/scratch/user/output/model``` should be the direct result of the 2nd step as demonstrated above. 
+
+```cutoff``` is to check the value of PAE between chains. In the case of multimers, the analysis programme will check whether any PAE values between two chains are smaller than the cutoff, as illustracted in the figure below:
+
+```create_notebook``` is a boolean variable. Turn it to be ```True``` to generate the notebook. 
+
+**Feature 2**
+
+We have also provided another singularity image to generate a csv table with structural properties and scores.
 Firstly, download the singularity image from [here](https://oc.embl.de/index.php/s/cDYsOOdXA1YmInk).
 
 Then execute the singularity image ( i.e. the sif file) by:
 ```
 singularity exec --no-home --bind /path/to/your/output/dir:/mnt \
-/path/to/your/sif/file/alpha-analysis.sif run_get_good_pae.sh --output_dir=/mnt --cutoff=5 --create_notebook=True
+/path/to/your/sif/file/alpha-analysis.sif run_get_good_pae.sh --output_dir=/mnt --cutoff=5
 ```
 
-**About the parameters**
-
-```/path/to/your/output/dir``` should be the direct result of the 2nd step as demonstrated above. 
-
-```cutoff``` is to check the value of PAE between chains. In the case of multimers, the analysis programme will check whether any PAE values between two chains are smaller than the cutoff, as illustracted in the figure below:
-
-```create_notebook``` is a boolean variable, for those predictions with good PAE scores between chains, would you like to create a jupyter notebook that shows the PAE, predicted models coloured by plDDT, and predicted models coloured by chains? A screen shot of an example notebook is shown below:
-
 **About the outputs**
-By default, you will have a csv file named ```predictions_with_good_interpae.csv``` created in the directory ```/path/to/your/output/dir``` as you have given in the command above. ```predictions_with_good_interpae.csv``` reports:1.iptm, iptm+ptm scores provided by AlphaFold 2. mpDockQ score developed by[ Bryant _et al._, 2022](https://gitlab.com/patrickbryant1/molpc)  3. PI_score developed by [Malhotra _et al._, 2021](https://gitlab.com/sm2185/ppi_scoring/-/wikis/home). The detailed explainations on these scores can be found in out paper.
+By default, you will have a csv file named ```predictions_with_good_interpae.csv``` created in the directory ```/path/to/your/output/dir``` as you have given in the command above. ```predictions_with_good_interpae.csv``` reports:1.iptm, iptm+ptm scores provided by AlphaFold 2. mpDockQ score developed by[ Bryant _et al._, 2022](https://gitlab.com/patrickbryant1/molpc)  3. PI_score developed by [Malhotra _et al._, 2021](https://gitlab.com/sm2185/ppi_scoring/-/wikis/home). The detailed explainations on these scores can be found in our paper and an example screenshot of the table is below. ![example](./example_table_screenshot.png)
 
-If ```create_notebook=True```, then there will be a jupyter notebook named ```output.ipynb``` in the  ```/path/to/your/output/dir```. It is recommended uploading this jupyter notebook to google drive and viewing it via google's colabotary APP because the notebook can be very large and some features may not be properly installed in your local IDE.
 
 ------------------------------------------------------------
 ## Appendix: Instructions on running in all_vs_all mode
