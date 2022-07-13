@@ -2,6 +2,8 @@
 # the script to plot PAEs after predicting structures
 # #
 import pandas as pd
+import matplotlib
+matplotlib.use("agg")
 import matplotlib.pyplot as plt
 import pickle as pkl
 import numpy as np
@@ -17,6 +19,7 @@ def plot_pae(seqs: list, order, feature_dir, job_name):
     feature_dir: directory where the feature pickles are stored
     job_name: name of the job e.g. protein_A_and_protein_B
     """
+    matplotlib.use("agg")
     outs = dict()
     for i in order:
         prediction_result = pkl.load(open(f"{feature_dir}/result_{i}.pkl", "rb"))
