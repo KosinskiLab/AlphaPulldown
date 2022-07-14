@@ -47,6 +47,7 @@ conda create -n TestAlphaPulldown -c omnia -c bioconda -c conda-forge python==3.
 source activate <env_name>
 pip install alphapulldown
 pip install "jax[cuda]==0.2.14" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+pip install --upgrade jaxlib==0.1.69+cuda111 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 ```
 ### Option 2 : singularity
 For users who don't want to install [HMMER](http://hmmer.org/documentation.html), [HH-suite](https://github.com/soedinglab/hh-suite), and Kalign themselves, the programme can also be run via singularity. Simply download AlphaPulldown singularity image from [here](https://oc.embl.de/index.php/s/KR8d4m8ASN9p3gs)
