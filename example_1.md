@@ -288,6 +288,15 @@ get_good_inter_pae.py --output_dir=/scratch/user/output/models \
 --cutoff=5.0 \
 --create_notebook=True
 ```
+or if you use alphapulldown.sif
+```bash
+singularity exec --no-home \
+--bind /scratch/user/output/models:/mnt \
+<path to your downloaded image>/alphapulldown.sif \
+get_good_inter_pae.py --output_dir=/mnt \
+--cutoff=5.0 \
+--create_notebook=True
+```
 This command will yield an ```output.ipynb``` and you can open it in an IDE (e.g. jupyterhub or VS code). In the IDE, you should select the same 
 conda environment as the kernel in order to execute the commands in the notebook. 
 
@@ -299,15 +308,17 @@ conda environment as the kernel in order to execute the commands in the notebook
 
 ```create_notebook``` is a boolean variable. Turn it to be ```True``` to generate the notebook. 
 
+
+
 **Feature 2**
 
-We have also provided another singularity image to generate a csv table with structural properties and scores.
+We have also provided another singularity image called ```alpha-analysis.sif```to generate a csv table with structural properties and scores.
 Firstly, download the singularity image from [here](https://oc.embl.de/index.php/s/cDYsOOdXA1YmInk).
 
 Then execute the singularity image ( i.e. the sif file) by:
 ```
 singularity exec --no-home --bind /path/to/your/output/dir:/mnt \
-/path/to/your/sif/file/alpha-analysis.sif run_get_good_pae.sh --output_dir=/mnt --cutoff=5
+<path to your downloaded image>/alpha-analysis.sif run_get_good_pae.sh --output_dir=/mnt --cutoff=5
 ```
 
 **About the outputs**
