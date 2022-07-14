@@ -180,9 +180,10 @@ On the left side, there is a bookmark listing all the jobs and when clicking a b
 
 In order to create the notebook, within the same conda environment, run:
 ```bash
+source activate TestAlphaPulldown
 get_good_inter_pae.py --output_dir=/scratch/user/output/models \
 --cutoff=5.0 \
---create_notebook=True \
+--create_notebook=True
 ```
 This command will yield an ```output.ipynb``` and you can open it in an IDE (e.g. jupyterhub or VS code). In the IDE, you should select the same 
 conda environment as the kernel in order to execute the commands in the notebook. 
@@ -191,7 +192,7 @@ conda environment as the kernel in order to execute the commands in the notebook
 
 ```/scratch/user/output/model``` should be the direct result of the 2nd step as demonstrated above. 
 
-```cutoff``` is to check the value of PAE between chains. In the case of multimers, the analysis programme will check whether any PAE values between two chains are smaller than the cutoff, as illustracted in the figure below:
+```cutoff``` is to check the value of PAE between chains. In the case of multimers, the analysis programme will check whether any PAE values between two chains are smaller than the cutoff and only display those models that satisfies the cutoff.
 
 ```create_notebook``` is a boolean variable. Turn it to be ```True``` to generate the notebook. 
 
