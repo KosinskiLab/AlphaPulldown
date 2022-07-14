@@ -185,6 +185,15 @@ get_good_inter_pae.py --output_dir=/scratch/user/output/models \
 --cutoff=5.0 \
 --create_notebook=True
 ```
+or if you use alphapulldown.sif
+```bash
+singularity exec --no-home \
+--bind /scratch/user/output/models:/mnt \
+<path to your downloaded image>/alphapulldown.sif \
+get_good_inter_pae.py --output_dir=/mnt \
+--cutoff=5.0 \
+--create_notebook=True
+```
 This command will yield an ```output.ipynb``` and you can open it in an IDE (e.g. jupyterhub or VS code). In the IDE, you should select the same 
 conda environment as the kernel in order to execute the commands in the notebook. 
 
@@ -195,6 +204,7 @@ conda environment as the kernel in order to execute the commands in the notebook
 ```cutoff``` is to check the value of PAE between chains. In the case of multimers, the analysis programme will check whether any PAE values between two chains are smaller than the cutoff and only display those models that satisfies the cutoff.
 
 ```create_notebook``` is a boolean variable. Turn it to be ```True``` to generate the notebook. 
+
 
 **Feature 2**
 
