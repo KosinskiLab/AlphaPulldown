@@ -283,6 +283,7 @@ On the left side, there is a bookmark listing all the jobs and when clicking a b
 
 In order to create the notebook, within the same conda environment, run:
 ```bash
+source activate TestAlphaPulldown
 get_good_inter_pae.py --output_dir=/scratch/user/output/models \
 --cutoff=5.0 \
 --create_notebook=True
