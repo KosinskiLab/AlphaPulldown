@@ -18,6 +18,7 @@ import sys
 from alphafold.data import parsers
 from pathlib import Path
 
+
 def create_uniprot_runner(jackhmmer_binary_path, uniprot_database_path):
     """create a uniprot runner object"""
     return jackhmmer.Jackhmmer(
@@ -167,7 +168,8 @@ def check_output_dir(path):
     """
     logging.info(f"checking if output_dir exists {path}")
     if not os.path.isdir(path):
-        Path(path).mkdir(parents=True,exist_ok=True)
+        Path(path).mkdir(parents=True, exist_ok=True)
+
 
 def create_and_save_pae_plots(multimer_object, output_dir):
     """A function to produce pae plots"""

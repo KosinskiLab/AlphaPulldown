@@ -26,6 +26,7 @@ from datetime import datetime
 import alphafold
 from pathlib import Path
 
+
 @contextlib.contextmanager
 def output_meta_file(file_path):
     """function that create temp file"""
@@ -45,7 +46,16 @@ PATH_TO_RUN_ALPHAFOLD = os.path.join(
     os.path.dirname(alphafold.__file__), "run_alphafold.py"
 )
 
-run_af = load_module(PATH_TO_RUN_ALPHAFOLD, "run_alphafold")
+try:
+    run_af = load_module(PATH_TO_RUN_ALPHAFOLD, "run_alphafold")
+except FileNotFoundError:
+    PATH_TO_RUN_ALPHAFOLD = os.path.join(
+        os.path.dirname(alphafold.__file__), "run_alphafold.py"
+    )
+
+    run_af = load_module(PATH_TO_RUN_ALPHAFOLD, "run_alphafold")
+
+
 flags = run_af.flags
 flags.DEFINE_bool("save_msa_files", False, "save msa output or not")
 flags.DEFINE_bool(
@@ -198,7 +208,7 @@ def create_and_save_monomer_objects(m, pipeline, flags_dict):
 
 
 def main(argv):
-    Path(FLAGS.output_dir).mkdir(parents=True,exist_ok=True)
+    Path(FLAGS.output_dir).mkdir(parents=True, exist_ok=True)
     pipeline, flags_dict = create_pipeline(flags_dict=FLAGS.flag_values_dict())
     uniprot_database_path = os.path.join(FLAGS.data_dir, "uniprot/uniprot.fasta")
     flags_dict.update({"uniprot_database_path": uniprot_database_path})

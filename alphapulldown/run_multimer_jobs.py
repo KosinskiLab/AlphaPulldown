@@ -76,19 +76,21 @@ flags.mark_flag_as_required("output_path")
 FLAGS = flags.FLAGS
 
 
-def create_pulldown_info(bait_proteins: list, candidate_proteins: list,job_index=None) -> dict:
+def create_pulldown_info(
+    bait_proteins: list, candidate_proteins: list, job_index=None
+) -> dict:
     """
     A function to create apms info
 
     Args:
     all_proteins: list of all proteins in the fasta file parsed by read_all_proteins()
     bait_protein: name of the bait protein
-    job_index: whether there is a job_index specified or not 
+    job_index: whether there is a job_index specified or not
     """
     all_protein_pairs = list(itertools.product(*[bait_proteins, *candidate_proteins]))
     num_cols = len(candidate_proteins) + 1
     data = dict()
-    
+
     if job_index is None:
         for i in range(num_cols):
             curr_col = []
@@ -97,19 +99,19 @@ def create_pulldown_info(bait_proteins: list, candidate_proteins: list,job_index
             update_dict = {f"col_{i+1}": curr_col}
             data.update(update_dict)
 
-    elif isinstance(job_index,int):
+    elif isinstance(job_index, int):
         target_pair = all_protein_pairs[job_index]
         for i in range(num_cols):
-            update_dict = {f"col_{i+1}":[target_pair[i]]}
+            update_dict = {f"col_{i+1}": [target_pair[i]]}
             data.update(update_dict)
     return data
 
 
-def create_all_vs_all_info(all_proteins: list,job_index = None):
+def create_all_vs_all_info(all_proteins: list, job_index=None):
     """A function to create all against all i.e. every possible pair of interaction"""
     all_possible_pairs = list(combinations(all_proteins, 2))
     if job_index is not None:
-        job_index = job_index -1
+        job_index = job_index - 1
         combs = [all_possible_pairs[job_index]]
     else:
         combs = all_possible_pairs
@@ -298,17 +300,15 @@ def main(argv):
         candidate_proteins = []
         for file in FLAGS.protein_lists[1:]:
             candidate_proteins.append(read_all_proteins(file))
-        data = create_pulldown_info(bait_proteins, candidate_proteins,job_index=FLAGS.job_index)
-        multimers = create_multimer_objects(
-            data, FLAGS.monomer_objects_dir
+        data = create_pulldown_info(
+            bait_proteins, candidate_proteins, job_index=FLAGS.job_index
         )
+        multimers = create_multimer_objects(data, FLAGS.monomer_objects_dir)
 
     elif FLAGS.mode == "all_vs_all":
         all_proteins = read_all_proteins(FLAGS.protein_lists[0])
-        data = create_all_vs_all_info(all_proteins,job_index=FLAGS.job_index)
-        multimers = create_multimer_objects(
-            data, FLAGS.monomer_objects_dir
-        )
+        data = create_all_vs_all_info(all_proteins, job_index=FLAGS.job_index)
+        multimers = create_multimer_objects(data, FLAGS.monomer_objects_dir)
 
     elif FLAGS.mode == "homo-oligomer":
         multimers = create_homooligomers(
