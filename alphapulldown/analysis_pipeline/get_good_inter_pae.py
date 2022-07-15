@@ -109,7 +109,7 @@ def main(argv):
                 open(os.path.join(result_subdir, "ranking_debug.json"), "rb")
             )
 
-            if "iptm" in data.keys():
+            if "iptm" in data.keys() or "iptm+ptm" in data.keys():
                 iptm_ptm_score = data["iptm+ptm"][best_model]
                 check_dict = pickle.load(
                     open(os.path.join(result_subdir, f"result_{best_model}.pkl"), "rb")
