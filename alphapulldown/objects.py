@@ -52,7 +52,12 @@ class MonomericObject:
         self._uniprot_runner = uniprot_runner
 
     def all_seq_msa_features(
-        self, input_fasta_path, uniprot_msa_runner, save_msa, output_dir=None,use_precomuted_msa=False
+        self,
+        input_fasta_path,
+        uniprot_msa_runner,
+        save_msa,
+        output_dir=None,
+        use_precomuted_msa=False,
     ):
         """Get MSA features for unclustered uniprot, for pairing later on."""
         if not use_precomuted_msa:
@@ -79,12 +84,12 @@ class MonomericObject:
                 )
         else:
             result = pipeline.run_msa_tool(
-                    uniprot_msa_runner,
-                    input_fasta_path,
-                    f"{output_dir}/uniprot.sto",
-                    "sto",
-                    use_precomuted_msa,
-                )
+                uniprot_msa_runner,
+                input_fasta_path,
+                f"{output_dir}/uniprot.sto",
+                "sto",
+                use_precomuted_msa,
+            )
         msa = parsers.parse_stockholm(result["sto"])
         msa = msa.truncate(max_seqs=50000)
         all_seq_features = pipeline.make_msa_features([msa])
@@ -142,7 +147,11 @@ class MonomericObject:
             with temp_fasta_file(sequence_str) as fasta_file:
                 self.feature_dict = pipeline.process(fasta_file, msa_output_dir)
                 pairing_results = self.all_seq_msa_features(
-                    fasta_file, self._uniprot_runner, save_msa, msa_output_dir,use_precomuted_msa=True
+                    fasta_file,
+                    self._uniprot_runner,
+                    save_msa,
+                    msa_output_dir,
+                    use_precomuted_msa=True,
                 )
                 self.feature_dict.update(pairing_results)
 
