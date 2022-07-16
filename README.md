@@ -41,13 +41,22 @@ This option is suitable for the users who have already installed and compiled [H
 **Firstly**, create a conda environment and gather necessary dependencies 
 ```bash
 conda create -n AlphaPulldown -c omnia -c bioconda -c conda-forge python==3.7 openmm pdbfixer kalign2=2.04 cctbx-base
-````
+```
+
 **Secondly**, activate the environment and install AlphaPulldown
 ```bash
-source activate <env_name>
+source activate AlphaPulldown
 pip install alphapulldown
 pip install -q "jax[cuda]>=0.3.8,<0.4" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 ```
+
+**Optionally**, install [HMMER](http://hmmer.org/documentation.html), [HH-suite](https://github.com/soedinglab/hh-suite) from conda
+```bash
+source activate AlphaPulldown
+conda install -c bioconda hmmer hhsuite
+```
+This usually works, but on some compute systems users may wish to use other versions or optimized builds of HMMER and HH-suite.
+
 ### Option 2 : singularity
 For users who don't want to install [HMMER](http://hmmer.org/documentation.html), [HH-suite](https://github.com/soedinglab/hh-suite), and Kalign themselves, the programme can also be run via singularity. Simply download AlphaPulldown singularity image from [here](https://oc.embl.de/index.php/s/KR8d4m8ASN9p3gs)
 
