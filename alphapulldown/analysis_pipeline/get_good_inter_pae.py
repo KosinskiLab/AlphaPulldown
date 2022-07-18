@@ -50,8 +50,11 @@ def create_notebook(combo, output_dir):
     import_cell = nbf.new_code_cell(
         "from analysis_pipeline.af2hyde_mod import parse_results,parse_results_colour_chains"
     )
+    disable_autosave_cell = nbf.new_code_cell(f"%autosave 0")
     output_cells.append(md_cell)
+    output_cells.append(disable_autosave_cell)
     output_cells.append(import_cell)
+
     import_cell = nbf.new_code_cell(
         "from analysis_pipeline.utils import display_pae_plots"
     )
