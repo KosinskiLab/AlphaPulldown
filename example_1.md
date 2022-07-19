@@ -297,8 +297,20 @@ get_good_inter_pae.py --output_dir=/mnt \
 --cutoff=5.0 \
 --create_notebook=True
 ```
-This command will yield an ```output.ipynb``` and you can open it in an IDE (e.g. jupyterhub or VS code). In the IDE, you should select the same 
-conda environment as the kernel in order to execute the commands in the notebook. 
+This command will yield an ```output.ipynb``` and you can open it via Jupyterlab. Jupyterlab is already installed when pip installing AlphapullDown. Jupyterlab is also included in ```alphapulldown.sif```. Thus, to view the notebook: 
+
+```bash
+source activate AlphaPulldown
+cd /scratch/user/output/models
+jupyter-lab 
+```
+or 
+```bash
+singularity exec --no-home \
+--bind /scratch/user/output/models:/mnt \
+<path to your downloaded image>/alphapulldown.sif \
+cd /mnt && jupyter-lab
+```
 
 **About the parameters**
 
