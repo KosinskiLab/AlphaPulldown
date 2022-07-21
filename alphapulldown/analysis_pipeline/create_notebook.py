@@ -20,7 +20,7 @@ flags.DEFINE_string("output_dir", None, "directory where predicted models are st
 flags.DEFINE_float(
     "cutoff", 5.0, "cutoff value of PAE. i.e. only pae<cutoff is counted good"
 )
-flags.DEFINE_boolean("create_notebook", False, "Whether creating a notebook")
+flags.DEFINE_boolean("create_notebook", True, "Whether creating a notebook")
 flags.DEFINE_integer("surface_thres", 2, "surface threshold. must be integer")
 FLAGS = flags.FLAGS
 
