@@ -314,8 +314,6 @@ cd /mnt && jupyter-lab
 
 ```cutoff``` is to check the value of PAE between chains. In the case of multimers, the analysis programme will check whether any PAE values between two chains are smaller than the cutoff and only display those models that satisfies the cutoff.
 
-```create_notebook``` is a boolean variable. Turn it to be ```True``` to generate the notebook. 
-
 
 
 **Feature 2**
