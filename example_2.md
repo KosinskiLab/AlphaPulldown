@@ -180,22 +180,30 @@ On the left side, there is a bookmark listing all the jobs and when clicking a b
 
 In order to create the notebook, within the same conda environment, run:
 ```bash
-source activate TestAlphaPulldown
-get_good_inter_pae.py --output_dir=/scratch/user/output/models \
---cutoff=5.0 \
---create_notebook=True
+source activate AlphaPulldown
+create_notebook.py --output_dir=/mnt --cutoff=5.0
 ```
 or if you use alphapulldown.sif
 ```bash
 singularity exec --no-home \
 --bind /scratch/user/output/models:/mnt \
 <path to your downloaded image>/alphapulldown.sif \
-get_good_inter_pae.py --output_dir=/mnt \
---cutoff=5.0 \
---create_notebook=True
+create_notebook.py --output_dir=/mnt --cutoff=5.0
 ```
-This command will yield an ```output.ipynb``` and you can open it in an IDE (e.g. jupyterhub or VS code). In the IDE, you should select the same 
-conda environment as the kernel in order to execute the commands in the notebook. 
+This command will yield an ```output.ipynb``` and you can open it via Jupyterlab. Jupyterlab is already installed when pip installing AlphapullDown. Jupyterlab is also included in ```alphapulldown.sif```. Thus, to view the notebook: 
+
+```bash
+source activate AlphaPulldown
+cd /scratch/user/output/models
+jupyter-lab 
+```
+or 
+```bash
+singularity exec --no-home \
+--bind /scratch/user/output/models:/mnt \
+<path to your downloaded image>/alphapulldown.sif \
+cd /mnt && jupyter-lab
+```
 
 **About the parameters**
 
@@ -203,7 +211,7 @@ conda environment as the kernel in order to execute the commands in the notebook
 
 ```cutoff``` is to check the value of PAE between chains. In the case of multimers, the analysis programme will check whether any PAE values between two chains are smaller than the cutoff and only display those models that satisfies the cutoff.
 
-```create_notebook``` is a boolean variable. Turn it to be ```True``` to generate the notebook. 
+
 
 
 **Feature 2**
