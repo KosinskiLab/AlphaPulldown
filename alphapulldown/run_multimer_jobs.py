@@ -100,7 +100,7 @@ def create_pulldown_info(
             data.update(update_dict)
 
     elif isinstance(job_index, int):
-        target_pair = all_protein_pairs[job_index]
+        target_pair = all_protein_pairs[job_index-1]
         for i in range(num_cols):
             update_dict = {f"col_{i+1}": [target_pair[i]]}
             data.update(update_dict)
@@ -112,7 +112,7 @@ def create_all_vs_all_info(all_proteins: list, job_index=None):
     all_possible_pairs = list(combinations(all_proteins, 2))
     if job_index is not None:
         job_index = job_index - 1
-        combs = [all_possible_pairs[job_index]]
+        combs = [all_possible_pairs[job_index-1]]
     else:
         combs = all_possible_pairs
 
@@ -144,7 +144,6 @@ def create_multimer_objects(data, monomer_objects_dir):
     Arg
     data: a dictionary created by create_all_vs_all_info() or create_apms_info()
     monomer_objects_dir: a directory where pre-computed monomer objects are stored
-    job_index: which multimer job to run
     """
 
     multimers = []

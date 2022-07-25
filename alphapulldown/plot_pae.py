@@ -36,6 +36,10 @@ def plot_pae(seqs: list, order, feature_dir, job_name):
     xticks_labels = []
     for i, t in enumerate(xticks):
         xticks_labels.append(str(i + 1))
+
+    yticks_labels = []
+    for s in seqs:
+        yticks_labels.append(str(len(s)))
     fig, ax1 = plt.subplots(1, 1)
     # plt.figure(figsize=(3,18))
     for i in range(len(order)):
@@ -46,7 +50,7 @@ def plot_pae(seqs: list, order, feature_dir, job_name):
         ax1.set_yticks(xticks)
 
         ax1.set_xticklabels(xticks_labels, size="large")
-
+        ax1.set_yticklabels(yticks_labels,size="large")
         fig.colorbar(pos).ax.set_title("unit: Angstrom")
         for t in xticks:
             ax1.axhline(t, color="black", linewidth=3.5)
