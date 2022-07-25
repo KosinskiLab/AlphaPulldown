@@ -291,7 +291,7 @@ or if you use alphapulldown.sif
 singularity exec --no-home \
 --bind /scratch/user/output/models:/mnt \
 <path to your downloaded image>/alphapulldown.sif \
-create_notebook.py --output_dir=/mnt --cutoff=5.0
+create_notebook.py --output_dir=/mnt --cutoff=10
 ```
 This command will yield an ```output.ipynb``` and you can open it via Jupyterlab. Jupyterlab is already installed when pip installing AlphapullDown. Jupyterlab is also included in ```alphapulldown.sif```. Thus, to view the notebook: 
 
@@ -324,7 +324,7 @@ Firstly, download the singularity image from [here](https://oc.embl.de/index.php
 Then execute the singularity image ( i.e. the sif file) by:
 ```
 singularity exec --no-home --bind /path/to/your/output/dir:/mnt \
-<path to your downloaded image>/alpha-analysis.sif run_get_good_pae.sh --output_dir=/mnt --cutoff=5
+<path to your downloaded image>/alpha-analysis.sif run_get_good_pae.sh --output_dir=/mnt --cutoff=10
 ```
 
 **About the outputs**
