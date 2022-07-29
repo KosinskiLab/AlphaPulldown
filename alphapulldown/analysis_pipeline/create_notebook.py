@@ -48,7 +48,7 @@ def create_notebook(combo, output_dir):
         "# A notebook to display all the predictions with good inter-pae scores",
     )
     import_cell = nbf.new_code_cell(
-        "from analysis_pipeline.af2hyde_mod import parse_results,parse_results_colour_chains"
+        "from analysis_pipeline.af2_3dmol import parse_results,parse_results_colour_chains"
     )
     disable_autosave_cell = nbf.new_code_cell(f"%autosave 0")
     output_cells.append(md_cell)

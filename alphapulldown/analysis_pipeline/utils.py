@@ -3,7 +3,8 @@ import ipywidgets as widgets
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import os
-from analysis_pipeline.af2hyde_mod import plot_predicted_alignment_error
+#from analysis_pipeline.af2hyde_mod import plot_predicted_alignment_error
+from af2plots.af2plots.plotter import plotter
 
 
 def display_pae_plots(subdir):
@@ -15,6 +16,11 @@ def display_pae_plots(subdir):
             img = plt.imread(os.path.join(subdir, images[i]))
             axs[i].imshow(img)
             axs[i].axis("off")
-        plt.show()
+        #plt.show()
     else:
-        plot_predicted_alignment_error(subdir)
+        #plot_predicted_alignment_error(subdir)
+        af2o = plotter()
+        dd = af2o.parse_model_pickles(subdir)
+        ff = af2o.plot_predicted_alignment_error(dd)
+
+    plt.show()
