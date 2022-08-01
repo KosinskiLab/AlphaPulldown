@@ -50,7 +50,7 @@ try:
     run_af = load_module(PATH_TO_RUN_ALPHAFOLD, "run_alphafold")
 except FileNotFoundError:
     PATH_TO_RUN_ALPHAFOLD = os.path.join(
-        os.path.dirname(alphafold.__file__), "run_alphafold.py"
+        os.path.dirname(os.path.dirname(alphafold.__file__)), "run_alphafold.py"
     )
 
     run_af = load_module(PATH_TO_RUN_ALPHAFOLD, "run_alphafold")
