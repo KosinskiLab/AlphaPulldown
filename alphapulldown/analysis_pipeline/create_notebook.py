@@ -48,7 +48,7 @@ def create_notebook(combo, output_dir):
         "# A notebook to display all the predictions with good inter-pae scores",
     )
     import_cell = nbf.new_code_cell(
-        "from analysis_pipeline.af2hyde_mod import parse_results,parse_results_colour_chains"
+        "from analysis_pipeline.af2_3dmol import parse_results,parse_results_colour_chains"
     )
     disable_autosave_cell = nbf.new_code_cell(f"%autosave 0")
     output_cells.append(md_cell)
@@ -95,8 +95,8 @@ def main(argv):
     count = 0
     for job in jobs:
         logging.info(f"now processing {job}")
+        count = count + 1
         if os.path.isfile(os.path.join(FLAGS.output_dir, job, "ranking_debug.json")):
-            count = count + 1
             result_subdir = os.path.join(FLAGS.output_dir, job)
             best_result_pkl = sorted(
                 [i for i in os.listdir(result_subdir) if "result_model_" in i]
