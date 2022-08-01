@@ -95,8 +95,8 @@ def main(argv):
     count = 0
     for job in jobs:
         logging.info(f"now processing {job}")
+        count = count + 1
         if os.path.isfile(os.path.join(FLAGS.output_dir, job, "ranking_debug.json")):
-            count = count + 1
             result_subdir = os.path.join(FLAGS.output_dir, job)
             best_result_pkl = sorted(
                 [i for i in os.listdir(result_subdir) if "result_model_" in i]
