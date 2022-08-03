@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import os
 #from analysis_pipeline.af2hyde_mod import plot_predicted_alignment_error
-from af2plots.af2plots.plotter import plotter
+from af2plots.plotter import plotter
 
 
 def display_pae_plots(subdir):

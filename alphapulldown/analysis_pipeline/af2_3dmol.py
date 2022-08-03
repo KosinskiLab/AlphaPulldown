@@ -4,10 +4,11 @@
 
 import os, sys, re
 import glob
-
+import iotbx
+import iotbx.pdb
 
 import py3Dmol
-
+from scitbx import matrix
 from scitbx.math import superpose
 
 def parse_pdbstring(pdb_string):
