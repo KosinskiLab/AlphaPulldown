@@ -14,7 +14,7 @@ import sys
 
 flags.DEFINE_string('output_dir',None,'directory where predicted models are stored')
 flags.DEFINE_float('cutoff',5.0,'cutoff value of PAE. i.e. only pae<cutoff is counted good')
-flags.DEFINE_integer('surface_thres',1,'surface threshold. must be integer')
+flags.DEFINE_integer('surface_thres',2,'surface threshold. must be integer')
 FLAGS=flags.FLAGS
 
 def examine_inter_pae(pae_mtx,seqs,cutoff):
@@ -69,6 +69,7 @@ def run_and_summarise_pi_score(workd_dir,jobs,surface_thres):
         csv_files = [f for f in os.listdir(subdir) if 'filter_intf_features' in f]
         pi_score_files = [f for f in os.listdir(subdir) if 'pi_score_' in f]
         filtered_df = pd.read_csv(os.path.join(subdir,csv_files[0]))
+    
         if filtered_df.shape[0]==0:
             for column in filtered_df.columns:
                 filtered_df[column] = ["None"]
@@ -86,8 +87,6 @@ def run_and_summarise_pi_score(workd_dir,jobs,surface_thres):
             filtered_df['pi_score'] = pi_score
         
         output_df = pd.concat([output_df,filtered_df])
-    output_df = output_df.drop(columns=['pdb'])
-    output_df = output_df.drop(columns=['pvalue'])
     return output_df
     
     
@@ -131,6 +130,13 @@ def main(argv):
     columns.pop(columns.index('jobs'))
     pi_score_df = pi_score_df[['jobs'] + columns]
     pi_score_df = pi_score_df.sort_values(by='iptm',ascending=False)
+    
+    try:
+        pi_score_df = pi_score_df.drop(columns=['interface'])
+        pi_score_df = pi_score_df.drop(columns=[' pvalue'])
+        pi_score_df = pi_score_df.drop(columns=['pdb'])
+    except:
+        pass
     pi_score_df.to_csv(os.path.join(FLAGS.output_dir,"predictions_with_good_interpae.csv"),index=False)
     
 
