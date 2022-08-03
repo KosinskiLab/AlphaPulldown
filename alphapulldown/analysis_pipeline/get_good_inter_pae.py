@@ -14,7 +14,7 @@ import sys
 
 flags.DEFINE_string('output_dir',None,'directory where predicted models are stored')
 flags.DEFINE_float('cutoff',5.0,'cutoff value of PAE. i.e. only pae<cutoff is counted good')
-flags.DEFINE_integer('surface_thres',2,'surface threshold. must be integer')
+flags.DEFINE_integer('surface_thres',1,'surface threshold. must be integer')
 FLAGS=flags.FLAGS
 
 def examine_inter_pae(pae_mtx,seqs,cutoff):
@@ -87,6 +87,7 @@ def run_and_summarise_pi_score(workd_dir,jobs,surface_thres):
         
         output_df = pd.concat([output_df,filtered_df])
     output_df = output_df.drop(columns=['pdb'])
+    output_df = output_df.drop(columns=['pvalue'])
     return output_df
     
     
