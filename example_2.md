@@ -177,10 +177,10 @@ jupyter-lab
 **Feature 2**
 
 We have also provided another singularity image to generate a csv table with structural properties and scores.
-Firstly, download the singularity image from [here](https://www.embl-hamburg.de/AlphaPulldown/downloads/alpha-analysis.sif).
+Firstly, download the singularity image from [here](https://www.embl-hamburg.de/AlphaPulldown/downloads/alpha-analysis.sif).Chrome user may not be able to download it after cliking the link. If so, please right click and select "save link as".
 
 
-Then execute the singularity image ( i.e. the sif file) by:
+Then execute the singularity image (i.e. the sif file) by:
 ```
 singularity exec --no-home --bind /path/to/your/output/dir:/mnt \
 /path/to/your/sif/file/alpha-analysis.sif run_get_good_pae.sh --output_dir=/mnt --cutoff=10
