@@ -9,7 +9,7 @@ module load HMMER/3.3.2-gompic-2020b
 module load HH-suite/3.3.0-gompic-2020b
 
 module load CUDA/11.1.1-GCC-10.2.0
-module load cuDNN/8.2.1.32-CUDA-11.3.1
+module load cuDNN/8.0.4.30-CUDA-11.1.1
 ```
 Firstly, download all 294 proteins that belong to human tranlsation pathway from Reactome: [link](https://reactome.org/PathwayBrowser/#/R-HSA-72766&DTAB=MT)
 
@@ -17,7 +17,7 @@ Then append the sequence of eIF4G3 (Uniprot:[O43432](https://www.uniprot.org/uni
 
 For the purpose of this manual, the expected file is already provided here: [```./example_data/example_1_sequences.fasta```](./example_data/example_1_sequences.fasta). If you want to save time and run fewer jobs, you can use [```./example_data/example_1_sequences_shorter.fasta```](./example_data/example_1_sequences_shorter.fasta) instead.
 
-If you installed via pip, now run:
+Now run:
 ```bash
 create_individual_features.py \
   --fasta_paths=<your path to AlphaPulldown>/example_data/example_1_sequences.fasta \
@@ -29,18 +29,7 @@ create_individual_features.py \
   --skip_existing=False \
   --seq_index=<any number you want or skip the flag to run all one after another>
 ```
-If you use singularity, now run:
-```bash
-singularity exec --no-home --bind ./example_data/example_1_sequences.fasta:/input_data/example_1_sequences.fasta \
---bind <path to alphafold databases>:/data_dir \
---bind <dir to save output objects>:/output_dir \
-<path to your downloaded image>/alphapulldown.sif create_individual_features.py \ 
-    --fasta_paths=/input_data/example_1_sequences.fasta \
-    --data_dir=/data_dir \
-    --output_dir=output_dir \
-    --max_template_date=<any date you want> \
-    --seq_index=<any number you want>
-```
+
 
 ```create_individual_features.py``` will compute necessary features each protein in [```./example_data/example_1_sequences.fasta```](./example_data/example_1_sequences.fasta) and store them in the ```output_dir```. Please be aware that everything after ```>``` will be 
 taken as the description of the protein and **please be aware** that any special symbol, such as ```| : ; #```, after ```>``` will be replaced with ```_```. 
@@ -171,8 +160,6 @@ In this example, we selected pulldown mode and make eIF4G3(Uniprot:[O43432](http
 
 
 **NB** The command line interface for using pulldown mode will then become:
-
-If you installed via pip:
 ```
 run_multimer_jobs.py --mode=pulldown \
 --num_cycle=3 --num_predictions_per_model=1 \
@@ -180,23 +167,6 @@ run_multimer_jobs.py --mode=pulldown \
 --data_dir=<path to alphafold databases> \ 
 --protein_lists=./example_data/baits.txt,./example_data/candidates.txt \
 --monomer_objects_dir=/path/to/monomer_objects_directory \
---job_index=<any number you want>
-```
-
-If you run via singularity:
-```bash
-singularity exec --no-home \ 
---bind ./example_data/baits.txt:/input_data/baits.txt \
---bind ./example_data/candidates.txt:/input_data/candidates.txt \
---bind <path to alphafold databases>:/data_dir \
---bind <dir to save predicted models>:/output_dir \ 
---bind <path to directory storing monomer objects >:/monomer_object_dir \
-<path to your downloaded image>/alphapulldown.sif run_multimer_jobs.py --mode=pulldown \
---num_cycle=3 --num_predictions_per_model=1 \
---output_path=/output_dir \
---data_dir=/data_dir \ 
---protein_lists=/input_data/baits.txt,/input_data/candidates.txt \
---monomer_objects_dir=/monomer_object_dir
 --job_index=<any number you want>
 ```
 
@@ -244,8 +214,8 @@ On a compute cluster, you may want to run all jobs in parallel as a [job array](
 #SBATCH --mem=64000
 
 module load Anaconda3 
-module load CUDA/11.3.1
-module load cuDNN/8.2.1.32-CUDA-11.3.1
+module load CUDA/11.1.1-GCC-10.2.0
+module load cuDNN/8.0.4.30-CUDA-11.1.1
 source activate AlphaPulldown
 
 MAXRAM=$(echo `ulimit -m` '/ 1024.0'|bc)
@@ -286,13 +256,7 @@ In order to create the notebook, within the same conda environment, run:
 source activate AlphaPulldown
 create_notebook.py --output_dir=/mnt --cutoff=5.0
 ```
-or if you use alphapulldown.sif
-```bash
-singularity exec --no-home \
---bind /scratch/user/output/models:/mnt \
-<path to your downloaded image>/alphapulldown.sif \
-create_notebook.py --output_dir=/mnt --cutoff=10
-```
+
 This command will yield an ```output.ipynb``` and you can open it via Jupyterlab. Jupyterlab is already installed when pip installing AlphapullDown. Jupyterlab is also included in ```alphapulldown.sif```. Thus, to view the notebook: 
 
 ```bash
@@ -300,13 +264,7 @@ source activate AlphaPulldown
 cd /scratch/user/output/models
 jupyter-lab 
 ```
-or 
-```bash
-singularity exec --no-home \
---bind /scratch/user/output/models:/mnt \
-<path to your downloaded image>/alphapulldown.sif \
-cd /mnt && jupyter-lab
-```
+
 
 **About the parameters**
 
@@ -335,7 +293,7 @@ By default, you will have a csv file named ```predictions_with_good_interpae.csv
 As the name suggest, all_vs_all means predict all possible combinations within a single input file. The input can be either full-length proteins or regions of a protein, as illustrated in the [example_all_vs_all_list.txt](./example_data/example_all_vs_all_list.txt) and the figure below:
 ![plot](./all_vs_all_demo.png)
 
-If you installed via pip, run: 
+The corresponding command is: 
 ```bash
 run_multimer_jobs.py --mode=all_vs_all \
 --num_cycle=3 --num_predictions_per_model=1 \
@@ -343,20 +301,5 @@ run_multimer_jobs.py --mode=all_vs_all \
 --data_dir=<path to AlphaFold data directory> \ 
 --protein_lists=./example_data/example_all_vs_all_list.txt \
 --monomer_objects_dir=/path/to/monomer_objects_directory \
---job_index=<any number you want>
-```
-If you run via singularity:
-```bash
-singulairty exec --no-home \
---bind <output directory>:/output_dir \
---bind <path to monomer_objects_directory>:/monomer_directory \
---bind ./example_data/example_all_vs_all_list.txt:/input_data/example_all_vs_all_list.txt \
---bind <path to alphafold databases>:/data_dir \
-<path to your downloaded image>/alphapulldown.sif run_multimer_jobs.py --mode=all_vs_all \
---num_cycle=3 --num_predictions_per_model=1 \
---output_path=/output_dir \ 
---data_dir=/data_dir \ 
---protein_lists=./example_data/example_all_vs_all_list.txt \
---monomer_objects_dir=/monomer_directory \
 --job_index=<any number you want>
 ```
