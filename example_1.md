@@ -1,5 +1,5 @@
 # Example1
-# Aim: Find proteins involving human translation pathway that might also interact with eIF4G3 or eIF4G2 
+# Aim: Find proteins involving human translation pathway that might also interact with eIF4G2 
 ## 1st step: compute multiple sequence alignment (MSA) and template features (run on CPUs)
 
 ## Step 0 make sure you have HMMER and HH-suite downloaded and installed. 
@@ -159,7 +159,7 @@ In this example, we selected pulldown mode and make eIF4G3(Uniprot:[O43432](http
 
 
 
-**NB** The command line interface for using pulldown mode will then become:
+The command line interface for using pulldown mode will then become:
 ```
 run_multimer_jobs.py --mode=pulldown \
 --num_cycle=3 --num_predictions_per_model=1 \
@@ -169,6 +169,8 @@ run_multimer_jobs.py --mode=pulldown \
 --monomer_objects_dir=/path/to/monomer_objects_directory \
 --job_index=<any number you want>
 ```
+
+**NB** To reproduce the results of Lassa virus Z protein vs L protein fragments written in our paper, simply use [baits_Z_protein.txt](./example_data/baits_Z_protein.txt) and [L_protein_fragments.txt](./example_data/L_protein_fragments.txt) as the ```--protein_lists```inputs. 
 
 **Another explanation about the parameters**
 ####  **```monomer_objects_dir```**
