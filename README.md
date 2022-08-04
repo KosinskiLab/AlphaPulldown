@@ -33,9 +33,7 @@ Check if you have downloaded necessary parameters and databases (e.g. BFD, MGnif
         uniref90.fasta
  ```
 
-## Installation: via pip or singularity 
-
-### Option 1 (recommended): pip
+## Installation 
 
 **Firstly**, create a conda environment and gather necessary dependencies 
 ```bash
@@ -55,10 +53,6 @@ source activate AlphaPulldown
 conda install -c bioconda hmmer hhsuite
 ```
 This usually works, but on some compute systems users may wish to use other versions or optimized builds of already installed HMMER and HH-suite.
-
-### Option 2 : singularity
-For users who don't want to install [HMMER](http://hmmer.org/documentation.html), [HH-suite](https://github.com/soedinglab/hh-suite), and Kalign themselves, the programme can also be run via singularity. Simply download AlphaPulldown singularity image from [here](https://oc.embl.de/index.php/s/KR8d4m8ASN9p3gs)
-
 ------
 
 ## Manuals
