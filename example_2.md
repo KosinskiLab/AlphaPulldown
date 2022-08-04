@@ -7,8 +7,8 @@ As for our **HD cluster**, simply:
 module load HMMER/3.3.2-gompic-2020b
 module load HH-suite/3.3.0-gompic-2020b
 
-module load CUDA/11.1.1-GCC-10.2.0
-module load cuDNN/8.2.1.32-CUDA-11.3.1b
+module load CUDA/11.3.1
+module load cuDNN/8.2.1.32-CUDA-11.3.1
 ```
 
 # Example2
@@ -17,7 +17,7 @@ module load cuDNN/8.2.1.32-CUDA-11.3.1b
 
 Firstly, download sequences of L(Uniprot: [O09705](https://www.uniprot.org/uniprotkb/O09705/entry)) and Z(uniprot:[O73557](https://www.uniprot.org/uniprotkb/O73557/entry)) proteins. The result is [```example_data/example_2_sequences.fasta```](./example_data/example_2_sequences.fasta)
 
-If you installed via pip, run:
+Now run:
 ```bash
   create_individual_features.py \
     --fasta_paths=$PWD/example_data/example_2_sequences.fasta \
@@ -27,16 +27,6 @@ If you installed via pip, run:
     --use_precomputed_msas=False \
     --max_template_date=<any date you want> \
     --skip_existing=False --seq_index=<any number you want>
-```
-If you run via singularity:
-
-```bash
-singularity exec --no-home --bind $PWD/example_data/example_2_sequences.fasta:/input_data/example_2_sequences.fasta \
---bind <path to alphafold databases>:/data_dir \ 
---bind <dir to save output objects>:/output_dir \
-<path to your downloaded image>/alphapulldown.sif create_individual_features.py \ 
---fasta_paths=/input_data/example_2_sequences.fasta --data_dir=/data_dir --output_dir=output_dir \  
---max_template_date=<any date you want> --seq_index=<any number you want>
 ```
 
 ```create_individual_features.py``` will compute necessary features for O73557 and O09705 then store them as individual pickle files in the ```output_dir```. Please be aware that in the fasta files, everything after ```>``` will be 
@@ -109,7 +99,6 @@ Different proteins are seperated by ```;```. If a particular region is wanted fr
 
 The command line interface for using custom mode will then become:
 
-If you installed via pip, run:
 ```
 run_multimer_jobs.py --mode=custom \
 --num_cycle=3 --num_predictions_per_model=1 \
@@ -120,21 +109,6 @@ run_multimer_jobs.py --mode=custom \
 --job_index=<any number you want>
 ```
 
-If you run via singularity:
-```
-singularity exec --no-home \ 
---bind $PWD/example_data/custom_mode.txt:/input_data/custom_mode.txt \
---bind <path to alphafold databases>:/data_dir \
---bind <dir to save predicted models>:/output_dir \ 
---bind <path to directory storing monomer objects >:/monomer_object_dir \
-<path to your downloaded image>/alphapulldown.sif run_multimer_jobs.py --mode=custom \
---num_cycle=3 --num_predictions_per_model=1 \
---output_path=/output_dir \
---data_dir=/data_dir \ 
---protein_lists=/input_data/custom_mode.txt \
---monomer_objects_dir=/monomer_object_dir \
---job_index=<any number you want>
-```
 #### **Task 2**
 Remember another aim is to model the homo 12-mer of Z protein. Thus, homo-oligomer mode is needed. An oligomer state file will tell the programme the number of units. An example is: [```example_data/example_oligomer_state_file.txt```](./example_data/example_oligomer_state_file.txt)
 
@@ -183,26 +157,12 @@ In order to create the notebook, within the same conda environment, run:
 source activate AlphaPulldown
 create_notebook.py --output_dir=/mnt --cutoff=5.0
 ```
-or if you use alphapulldown.sif
-```bash
-singularity exec --no-home \
---bind /scratch/user/output/models:/mnt \
-<path to your downloaded image>/alphapulldown.sif \
-create_notebook.py --output_dir=/mnt --cutoff=10
-```
-This command will yield an ```output.ipynb``` and you can open it via Jupyterlab. Jupyterlab is already installed when pip installing AlphapullDown. Jupyterlab is also included in ```alphapulldown.sif```. Thus, to view the notebook: 
+This command will yield an ```output.ipynb``` and you can open it via Jupyterlab. Jupyterlab is already installed when pip installing AlphapullDown. Thus, to view the notebook: 
 
 ```bash
 source activate AlphaPulldown
 cd /scratch/user/output/models
 jupyter-lab 
-```
-or 
-```bash
-singularity exec --no-home \
---bind /scratch/user/output/models:/mnt \
-<path to your downloaded image>/alphapulldown.sif \
-cd /mnt && jupyter-lab
 ```
 
 **About the parameters**
@@ -217,7 +177,8 @@ cd /mnt && jupyter-lab
 **Feature 2**
 
 We have also provided another singularity image to generate a csv table with structural properties and scores.
-Firstly, download the singularity image from [here](https://oc.embl.de/index.php/s/cDYsOOdXA1YmInk).
+Firstly, download the singularity image from [here](https://www.embl-hamburg.de/AlphaPulldown/downloads/alpha-analysis.sif).
+
 
 Then execute the singularity image ( i.e. the sif file) by:
 ```
@@ -233,8 +194,8 @@ By default, you will have a csv file named ```predictions_with_good_interpae.csv
 ## Appendix: Instructions on running in all_vs_all mode
 As the name suggest, all_vs_all means predict all possible combinations within a single input file. The input can be either full-length proteins or regions of a protein, as illustrated in the [example_all_vs_all_list.txt](./example_data/example_all_vs_all_list.txt) and the figure below:
 ![plot](./all_vs_all_demo.png)
- 
- If you installed via pip:
+
+ The corresponding command is: 
 ```bash
 run_multimer_jobs.py --mode=all_vs_all \
 --num_cycle=3 --num_predictions_per_model=1 \
@@ -242,21 +203,5 @@ run_multimer_jobs.py --mode=all_vs_all \
 --data_dir=/path-to-Alphafold-data-dir \ 
 --protein_lists=$PWD/example_data/example_all_vs_all_list.txt \
 --monomer_objects_dir=/path/to/monomer_objects_directory \
---job_index=<any number you want>
-```
-
-If you run via singularity:
-```bash
-singulairty exec --no-home \
---bind <output directory>:/output_dir \
---bind <path to monomer_objects_directory>:/monomer_directory \
---bind $PWD/example_data/example_all_vs_all_list.txt:/input_data/example_all_vs_all_list.txt \
---bind <path to alphafold databases>:/data_dir \
-<path to your downloaded image>/alphapulldown.sif run_multimer_jobs.py --mode=all_vs_all \
---num_cycle=3 --num_predictions_per_model=1 \
---output_path=/output_dir \ 
---data_dir=/data_dir \ 
---protein_lists=/input_data/example_all_vs_all_list.txt \
---monomer_objects_dir=/monomer_directory \
 --job_index=<any number you want>
 ```
