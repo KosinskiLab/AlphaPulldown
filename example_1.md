@@ -8,8 +8,8 @@ As for our **HD cluster**, simply:
 module load HMMER/3.3.2-gompic-2020b
 module load HH-suite/3.3.0-gompic-2020b
 
-module load CUDA/11.1.1-GCC-10.2.0
-module load cuDNN/8.0.4.30-CUDA-11.1.1
+module load CUDA/11.3.1
+module load cuDNN/8.2.1.32-CUDA-11.3.1
 ```
 Firstly, download all 294 proteins that belong to human tranlsation pathway from Reactome: [link](https://reactome.org/PathwayBrowser/#/R-HSA-72766&DTAB=MT)
 
@@ -217,8 +217,8 @@ On a compute cluster, you may want to run all jobs in parallel as a [job array](
 #SBATCH --mem=64000
 
 module load Anaconda3 
-module load CUDA/11.1.1-GCC-10.2.0
-module load cuDNN/8.0.4.30-CUDA-11.1.1
+module load CUDA/11.3.1
+module load cuDNN/8.2.1.32-CUDA-11.3.1
 source activate AlphaPulldown
 
 MAXRAM=$(echo `ulimit -m` '/ 1024.0'|bc)
