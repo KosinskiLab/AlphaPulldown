@@ -260,7 +260,7 @@ source activate AlphaPulldown
 create_notebook.py --output_dir=/mnt --cutoff=5.0
 ```
 
-This command will yield an ```output.ipynb``` and you can open it via Jupyterlab. Jupyterlab is already installed when pip installing AlphapullDown. Jupyterlab is also included in ```alphapulldown.sif```. Thus, to view the notebook: 
+This command will yield an ```output.ipynb``` and you can open it via Jupyterlab. Jupyterlab is already installed when pip installing AlphapullDown.Thus, to view the notebook: 
 
 ```bash
 source activate AlphaPulldown
