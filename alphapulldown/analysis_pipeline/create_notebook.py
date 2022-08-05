@@ -16,7 +16,7 @@ import subprocess
 
 from alphafold import data
 
-flags.DEFINE_string("output_dir", None, "directory where predicted models are stored")
+flags.DEFINE_string("output_dir", '.', "directory where predicted models are stored")
 flags.DEFINE_float(
     "cutoff", 5.0, "cutoff value of PAE. i.e. only pae<cutoff is counted good"
 )
