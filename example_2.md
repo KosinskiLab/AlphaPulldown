@@ -49,6 +49,66 @@ run_multimer_jobs.py \
   --job_index=<any number you want>
 ```
 
+### Running on a computer cluster in parallel
+
+On a compute cluster, you may want to run all jobs in parallel as a [job array](https://slurm.schedmd.com/job_array.html). For example, on SLURM queuing system at EMBL we could use the following ```run_multimer_jobs_SLURM.sh``` sbatch script:
+
+```bash
+#!/bin/bash
+
+#A typical run takes couple of hours but may be much longer
+#SBATCH --job-name=array
+#SBATCH --time=2-00:00:00
+
+#log files:
+#SBATCH -e logs/run_multimer_jobs_%A_%a_err.txt
+#SBATCH -o logs/run_multimer_jobs_%A_%a_out.txt
+
+#qos sets priority
+#SBATCH --qos=low
+
+#SBATCH -p gpu-el8
+#You might want to use a higher-end card in case higher oligomeric state get big:
+#SBATCH -C "gpu=A40|gpu=A100"
+
+#Reserve the entire GPU so no-one else slows you down
+#SBATCH --gres=gpu:1
+
+#Limit the run to a single node
+#SBATCH -N 1
+
+#Adjust this depending on the node
+#SBATCH --ntasks=8
+#SBATCH --mem=128000
+
+module load Anaconda3 
+module load CUDA/11.3.1
+module load cuDNN/8.2.1.32-CUDA-11.3.1
+source activate AlphaPulldown
+
+MAXRAM=$(echo `ulimit -m` '/ 1024.0'|bc)
+GPUMEM=`nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits|tail -1`
+export XLA_PYTHON_CLIENT_MEM_FRACTION=`echo "scale=3;$MAXRAM / $GPUMEM"|bc`
+export TF_FORCE_UNIFIED_MEMORY='1'
+
+run_multimer_jobs.py  \
+  --mode=custom \
+  --num_cycle=3 \
+  --num_predictions_per_model=1 \
+  --output_path=<path to output directory> \ 
+  --data_dir=<path to AlphaFold data directory> \ 
+  --protein_lists=custom_mode.txt \
+  --monomer_objects_dir=/path/to/monomer_objects_directory \
+  --job_index=$SLURM_ARRAY_TASK_ID    
+```
+and then run using:
+
+```
+mkdir -p logs
+count=`grep -c "" custom_mode.txt` #count lines even if the last one has no end of line
+sbatch --array=1-$count run_multimer_jobs_SLURM.sh
+```
+
 #### **Task 2**
 This taks is to determine the oligomer state of SSB protein [(Uniprot:P0AGE0)](https://www.uniprot.org/uniprotkb/P0AGE0/entry#function) by modelling its monomeric, homodimeric, homotrimeric, and homoquatrameric structures. Thus, homo-oligomer mode is needed. An oligomer state file will tell the programme the number of units. An example is: [```example_data/example_oligomer_state_file.txt```](./example_data/example_oligomer_state_file.txt)
 
@@ -59,12 +119,14 @@ Instead of homo-oligomers, this mode can also be used to predict monomeric struc
 The command for homo-oligomer mode is:
 
 ```
-run_multimer_jobs.py --mode=homo-oligomer --output_path=<path to output directory> \ 
---num_cycle=3 \
---oligomer_state_file=$PWD/example_data/example_oligomer_state_file.txt \ 
---monomer_objects_dir=<directory that stores monomer pickle files> \ 
---data_dir=/path-to-Alphafold-data-dir \ 
---job_index=<any number you want>
+run_multimer_jobs.py \
+  --mode=homo-oligomer \
+  --output_path=<path to output directory> \ 
+  --num_cycle=3 \
+  --oligomer_state_file=example_oligomer_state_file.txt \ 
+  --monomer_objects_dir=<directory that stores monomer pickle files> \ 
+  --data_dir=/path-to-Alphafold-data-dir \ 
+  --job_index=<any number you want>
 ```
 
 Having screened the oligomeric states of SSB protein, we found our tetramer model agrees with the experimental structure (PDB:4MZ9). 
@@ -85,7 +147,7 @@ different number if you wish to run an array of jobs in parallel then the progra
 
 ### Running on a computer cluster in parallel
 
-On a compute cluster, you may want to run all jobs in parallel as a [job array](https://slurm.schedmd.com/job_array.html). For example, on SLURM queuing system at EMBL we could use:
+On a compute cluster, you may want to run all jobs in parallel as a [job array](https://slurm.schedmd.com/job_array.html). For example, on SLURM queuing system at EMBL we could use the following ```run_multimer_jobs_SLURM.sh``` sbatch script:
 
 ```bash
 #!/bin/bash
@@ -101,9 +163,9 @@ On a compute cluster, you may want to run all jobs in parallel as a [job array](
 #qos sets priority
 #SBATCH --qos=low
 
-#SBATCH -p gpu
-#lower end GPUs might be sufficient for pairwise screens:
-#SBATCH -C "gpu=2080Ti|gpu=3090"
+#SBATCH -p gpu-el8
+#You might want to use a higher-end card in case higher oligomeric state get big:
+#SBATCH -C "gpu=A40|gpu=A100"
 
 #Reserve the entire GPU so no-one else slows you down
 #SBATCH --gres=gpu:1
@@ -113,7 +175,7 @@ On a compute cluster, you may want to run all jobs in parallel as a [job array](
 
 #Adjust this depending on the node
 #SBATCH --ntasks=8
-#SBATCH --mem=64000
+#SBATCH --mem=128000
 
 module load Anaconda3 
 module load CUDA/11.3.1
@@ -125,22 +187,21 @@ GPUMEM=`nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits|tail -
 export XLA_PYTHON_CLIENT_MEM_FRACTION=`echo "scale=3;$MAXRAM / $GPUMEM"|bc`
 export TF_FORCE_UNIFIED_MEMORY='1'
 
-run_multimer_jobs.py --mode=homo-oligomer --output_path=<path to output directory> \ 
---num_cycle=3 \
---oligomer_state_file=$PWD/example_data/example_oligomer_state_file.txt \ 
---monomer_objects_dir=<directory that stores monomer pickle files> \ 
---data_dir=/path-to-Alphafold-data-dir \ 
---job_index=$SLURM_ARRAY_TASK_ID    
+run_multimer_jobs.py \
+  --mode=homo-oligomer \
+  --output_path=<path to output directory> \ 
+  --num_cycle=3 \
+  --oligomer_state_file=example_oligomer_state_file.txt \ 
+  --monomer_objects_dir=<directory that stores monomer pickle files> \ 
+  --data_dir=/path-to-Alphafold-data-dir \ 
+  --job_index=$SLURM_ARRAY_TASK_ID    
 ```
 and then run using:
 
 ```
 mkdir -p logs
-#Count the number of jobs corresponding to the number of sequences:
-baits=`grep -c "" baits.txt` #count lines even if the last one has no end of line
-candidates=`grep -c "" candidates_shorter.txt` #count lines even if the last one has no end of line
-count=$(( $baits * $candidates ))
-sbatch --array=1-$count example_data/run_multimer_jobs.sh
+count=`grep -c "" example_oligomer_state_file.txt` #count lines even if the last one has no end of line
+sbatch --array=1-$count run_multimer_jobs_SLURM.sh
 ```
 
 --------------------
