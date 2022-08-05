@@ -16,7 +16,7 @@ create_individual_features.py \
   --save_msa_files=False \
   --output_dir=<dir to save the output objects> \ 
   --use_precomputed_msas=False \
-  --max_template_date=<any date you want> \
+  --max_template_date=<any date you want, format like: 2050-01-01> \
   --skip_existing=False \
   --seq_index=<any number you want or skip the flag to run all one after another>
 ```
