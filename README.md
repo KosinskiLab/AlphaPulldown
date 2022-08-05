@@ -61,12 +61,12 @@ This usually works, but on some compute systems users may wish to use other vers
 ## Manuals
 AlphaPulldown supports four different modes of massive predictions: 
 
-* ```pulldown``` - to screen one or more "bait" proteins for interactions with other proteins
+* ```pulldown``` - to screen a list of "bait" proteins against a list or lists of other proteins
 * ```all_vs_all``` - to model all pairs of a protein list
 * ```homo-oligomer``` - to test alternative oligomeric states
-* ```custom``` - to model any combination of proteins and their fragments
+* ```custom``` - to model any combination of proteins and their fragments, such as a pre-defined list of pairs or fragments of a complex
 
-AlphaPulldown will return models of all interactions, summarize results in a score table, and will provide a [Jupyter](https://jupyter.org/) notebook for an interactive analysis.
+AlphaPulldown will return models of all interactions, summarize results in a score table, and will provide a [Jupyter](https://jupyter.org/) notebook for an interactive analysis, including PAE plots and 3D displays of models colored by chain and pLDDT score.
 
 ## Examples
 
