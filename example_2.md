@@ -71,56 +71,14 @@ run_multimer_jobs.py --mode=homo-oligomer --output_path=<path to output director
 
 ## Explanation about the parameters
 
-See [Example 2](https://github.com/KosinskiLab/AlphaPulldown/blob/main/example_1.md#explanation-about-the-parameters)
+See [Example 1](https://github.com/KosinskiLab/AlphaPulldown/blob/main/example_1.md#explanation-about-the-parameters)
 
 --------------------
 
 
-
 ## 3rd step Evalutaion and visualisation
 
-**Feature 1**
-
-When a batch of jobs is finished, AlphaPulldown can create a jupyter notebook that presents a neat overview of the models, as seen in the example screenshot ![screenshot](./example_notebook_screenshot.png)
-
-On the left side, there is a bookmark listing all the jobs and when clicking a bookmark, the notebook will show: 1) PAE plots 2) predicted model coloured by plddt scores 3) predicted models coloured by chains.
-
-In order to create the notebook, within the same conda environment, run:
-```bash
-source activate AlphaPulldown
-create_notebook.py --output_dir=/mnt --cutoff=5.0
-```
-This command will yield an ```output.ipynb``` and you can open it via Jupyterlab. Jupyterlab is already installed when pip installing AlphapullDown. Thus, to view the notebook: 
-
-```bash
-source activate AlphaPulldown
-cd /scratch/user/output/models
-jupyter-lab 
-```
-
-**About the parameters**
-
-```/scratch/user/output/model``` should be the direct result of the 2nd step as demonstrated above. 
-
-```cutoff``` is to check the value of PAE between chains. In the case of multimers, the analysis programme will check whether any PAE values between two chains are smaller than the cutoff and only display those models that satisfies the cutoff.
-
-
-
-
-**Feature 2**
-
-We have also provided another singularity image to generate a csv table with structural properties and scores.
-Firstly, download the singularity image from [here](https://www.embl-hamburg.de/AlphaPulldown/downloads/alpha-analysis.sif).Chrome user may not be able to download it after cliking the link. If so, please right click and select "save link as".
-
-
-Then execute the singularity image (i.e. the sif file) by:
-```
-singularity exec --no-home --bind /path/to/your/output/dir:/mnt \
-/path/to/your/sif/file/alpha-analysis.sif run_get_good_pae.sh --output_dir=/mnt --cutoff=10
-```
-
-**About the outputs**
-By default, you will have a csv file named ```predictions_with_good_interpae.csv``` created in the directory ```/path/to/your/output/dir``` as you have given in the command above. ```predictions_with_good_interpae.csv``` reports:1.iptm, iptm+ptm scores provided by AlphaFold 2. mpDockQ score developed by[ Bryant _et al._, 2022](https://gitlab.com/patrickbryant1/molpc)  3. PI_score developed by [Malhotra _et al._, 2021](https://gitlab.com/sm2185/ppi_scoring/-/wikis/home). The detailed explainations on these scores can be found in our paper and an example screenshot of the table is below. ![example](./example_table_screenshot.png)
+See [Example 1](https://github.com/KosinskiLab/AlphaPulldown/blob/main/example_1.md#3rd-step-evalutaion-and-visualisation)
 
 
 ------------------------------------------------------------
@@ -130,11 +88,13 @@ As the name suggest, all_vs_all means predict all possible combinations within a
 
  The corresponding command is: 
 ```bash
-run_multimer_jobs.py --mode=all_vs_all \
---num_cycle=3 --num_predictions_per_model=1 \
---output_path=<path to output directory> \ 
---data_dir=/path-to-Alphafold-data-dir \ 
---protein_lists=$PWD/example_data/example_all_vs_all_list.txt \
---monomer_objects_dir=/path/to/monomer_objects_directory \
---job_index=<any number you want>
+run_multimer_jobs.py \
+  --mode=all_vs_all \
+  --num_cycle=3 \
+  --num_predictions_per_model=1 \
+  --output_path=<path to output directory> \ 
+  --data_dir=/path-to-Alphafold-data-dir \ 
+  --protein_lists=example_all_vs_all_list.txt \
+  --monomer_objects_dir=/path/to/monomer_objects_directory \
+  --job_index=<any number you want>
 ```
