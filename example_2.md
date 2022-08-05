@@ -1,18 +1,6 @@
 # AlphaPulldown manual:
-
-Make sure you have [HMMER](http://hmmer.org/documentation.html) and [HH-suite](https://github.com/soedinglab/hh-suite) **installed** and **compiled!**
-
-As for our **HD cluster**, simply:
-```bash
-module load HMMER/3.3.2-gompic-2020b
-module load HH-suite/3.3.0-gompic-2020b
-
-module load CUDA/11.3.1
-module load cuDNN/8.2.1.32-CUDA-11.3.1
-```
-
 # Example2
-# Aims: Model interactions between Lassa virus L protein and Z matrix protein; predict the structure of Z matrix protein homo 12-mer 
+# Aims: Find the interaction site between Lassa virus L protein and Z matrix protein; predict the structure of Z matrix protein homo 12-mer 
 ## 1st step: compute multiple sequence alignment (MSA) and template features (run on CPUs)
 
 Firstly, download sequences of L(Uniprot: [O09705](https://www.uniprot.org/uniprotkb/O09705/entry)) and Z(uniprot:[O73557](https://www.uniprot.org/uniprotkb/O73557/entry)) proteins. The result is [```example_data/example_2_sequences.fasta```](./example_data/example_2_sequences.fasta)
@@ -20,7 +8,7 @@ Firstly, download sequences of L(Uniprot: [O09705](https://www.uniprot.org/unipr
 Now run:
 ```bash
   create_individual_features.py \
-    --fasta_paths=$PWD/example_data/example_2_sequences.fasta \
+    --fasta_paths=example_2_sequences.fasta \
     --data_dir=<path to alphafold databases> \
     --save_msa_files=False \
     --output_dir=<dir to save the output objects> \ 
@@ -36,57 +24,8 @@ taken as the description of the protein and  **please be aware** that any specia
  ------------------------
 
 ## 1.1 Explanation about the parameters
-####  **```save_msa_files```** 
-By default is **False** to save storage stage but can be changed into **True**. If it is set to be ```True```, the programme will 
-create individual folder for each protein. The output directory will look like:
-```
- output_dir
-      |- protein_A.pkl
-      |- protein_A
-            |- uniref90_hits.sto
-            |- pdb_hits.sto
-            |- etc.
-      |- protein_B.pkl
-      |- protein_B
-            |- uniref90_hits.sto
-            |- pdb_hits.sto
-            |- etc.
- ```
- 
- 
-If ```save_msa_files=False``` then the ```output_dir``` will look like:
- ```
- output_dir
-      |- protein_A.pkl
-      |- protine_B.pkl
- ```
- 
- --------------------
- 
- ####  **```use_precomputed_msas```**
- Default value is ```False```. However, if you have already had msa files for your proteins, please set the parameter to be True and arrange your msa files in the structure as below:
- ```
- example_directory
-      |- protein_A 
-            |- uniref90_hits.sto
-            |- pdb_hits.sto
-            |-***.a3m
-            |- etc
-      |- protein_B
-            |- ***.sto
-            |- etc
- ```
-Then, in the command line, set the ```output_dir=/path/to/example_directory```
 
-####  **```skip_existing```**
-Default is ```False``` but if you have run the 1st step already for some proteins and now add new proteins to the list, you can change ```skip_existing``` to ```True``` in the
-command line to avoid rerunning the same procedure for the previously calculated proteins.
-
-####  **```seq_index```**
-Default is `None` and the programme will run predictions one by one in the given files. However, you can set ```seq_index``` to 
-different number if you wish to run an array of jobs in parallel then the programme will only run the corresponding job specified by the ```seq_index```. e.g. the programme only calculate features for the 1st protein in your fasta file if ```seq_index``` is set to be 1.
-
-**NB**: ```seq_index``` starts from 1.
+See [Example 1](https://github.com/KosinskiLab/AlphaPulldown/blob/main/example_1.md#11-explanation-about-the-parameters)
 
 ## 2nd step: Predict structures (run on GPU)
 
@@ -129,16 +68,9 @@ run_multimer_jobs.py --mode=homo-oligomer --output_path=<path to output director
 
 ----------------------------------
 
-**Another explanation about the parameters**
-####  **```monomer_objects_dir```**
-It should be the same directory as ```output_dir``` specified in **Step 1**. It can be one directory or contain multiple directories if you stored pre-calculated objects in different locations. In the case of 
-multiple ```monomer_objects_dir```, remember to put a `,` between each e.g. ``` --monomer_objects_dir=<dir_1>,<dir_2>```
+## Explanation about the parameters
 
-####  **```job_index```**
-Default is `None` and the programme will run predictions one by one in the given files. However, you can set ```job_index``` to 
-different number if you wish to run an array of jobs in parallel then the programme will only run the corresponding job specified by the ```job_index```
-
-**NB** ```job_index``` starts from 1
+See [Example 2](https://github.com/KosinskiLab/AlphaPulldown/blob/main/example_1.md#explanation-about-the-parameters)
 
 --------------------
 
