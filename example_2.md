@@ -67,6 +67,8 @@ run_multimer_jobs.py --mode=homo-oligomer --output_path=<path to output director
 --job_index=<any number you want>
 ```
 
+Having screened the oligomeric states of SSB protein, we found our tetramer model agrees with the experimental structure (PDB:4MZ9). 
+
 ----------------------------------
 
 ## Explanation about the parameters
