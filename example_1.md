@@ -72,7 +72,7 @@ and then run using:
 mkdir logs
 #Count the number of jobs corresponding to the number of sequences:
 baits=`grep ">" baits.fasta | wc -l`
-candidates=`grep ">" example_1_sequences.fasta | wc -l`
+candidates=`grep ">" example_1_sequences_shorter.fasta | wc -l`
 count=$(( $baits + $candidates ))
 #Run the job array, 100 jobs at a time:
 sbatch --array=1-$count%100 create_individual_features_SLURM.sh
@@ -176,7 +176,7 @@ different number if you wish to run an array of jobs in parallel then the progra
 
 ### Running on a computer cluster in parallel
 
-On a compute cluster, you may want to run all jobs in parallel as a [job array](https://slurm.schedmd.com/job_array.html). For example, on SLURM queuing system at EMBL we could use:
+On a compute cluster, you may want to run all jobs in parallel as a [job array](https://slurm.schedmd.com/job_array.html). For example, on SLURM queuing system at EMBL we could use the following ```run_multimer_jobs_SLURM.sh``` sbatch script:
 
 ```bash
 #!/bin/bash
@@ -233,7 +233,7 @@ mkdir -p logs
 baits=`grep -c "" baits.txt` #count lines even if the last one has no end of line
 candidates=`grep -c "" candidates_shorter.txt` #count lines even if the last one has no end of line
 count=$(( $baits * $candidates ))
-sbatch --array=1-$count example_data/run_multimer_jobs.sh
+sbatch --array=1-$count example_data/run_multimer_jobs_SLURM.sh
 ```
 
 --------------------
