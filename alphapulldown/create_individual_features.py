@@ -207,6 +207,13 @@ def create_and_save_monomer_objects(m, pipeline, flags_dict):
         del m
 
 
+def iter_seqs(fasta_fns):
+    for fasta_path in fasta_fns:
+        with open(fasta_path, "r") as f:
+            sequences, descriptions = parse_fasta(f.read())
+            for seq, desc in zip(sequences, descriptions):
+                yield seq, desc
+
 def main(argv):
     Path(FLAGS.output_dir).mkdir(parents=True, exist_ok=True)
     pipeline, flags_dict = create_pipeline(flags_dict=FLAGS.flag_values_dict())
@@ -222,17 +229,12 @@ def main(argv):
         )
         sys.exit()
     monomers = []
-    for fasta_path in FLAGS.fasta_paths:
-        with open(fasta_path, "r") as f:
-            sequences, descriptions = parse_fasta(f.read())
-            if FLAGS.seq_index is not None:
-                seq_idxes = [FLAGS.seq_index - 1]
-            else:
-                seq_idxes = list(range(len(descriptions)))
 
-            for seq_idx in seq_idxes:
-                curr_desc = descriptions[seq_idx]
-                curr_seq = sequences[seq_idx]
+    seq_idx = 0
+    for curr_seq, curr_desc in iter_seqs(FLAGS.fasta_paths):
+        seq_idx = seq_idx + 1 #yes, we're counting from 1
+        if FLAGS.seq_index is None or \
+            (FLAGS.seq_index == seq_idx):
                 if curr_desc and not curr_desc.isspace():
                     curr_monomer = MonomericObject(curr_desc, curr_seq)
                     curr_monomer.uniprot_runner = uniprot_runner
