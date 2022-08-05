@@ -240,64 +240,69 @@ sbatch --array=1-$count example_data/run_multimer_jobs.sh
 
 
 
-## 3rd step Evalutaion and visualisation
+## 3rd step: Evalutaion and visualisation
 
 **Feature 1**
 
-When a batch of jobs is finished, AlphaPulldown can create a jupyter notebook that presents a neat overview of the models, as seen in the example screenshot ![screenshot](./example_notebook_screenshot.png)
+When a batch of jobs is finished, AlphaPulldown can create a [Jupyter](https://jupyter.org/) notebook that presents a neat overview of the models, as seen in the example screenshot ![screenshot](./example_notebook_screenshot.png)
 
-On the left side, there is a bookmark listing all the jobs and when clicking a bookmark, the notebook will show: 1) PAE plots 2) predicted model coloured by plddt scores 3) predicted models coloured by chains.
+On the left side, there is a bookmark listing all the jobs and when clicking a bookmark, and executing the corresponding cells, the notebook will show: 1) PAE plots 2) predicted model coloured by pLDDT scores 3) predicted models coloured by chains.
 
 In order to create the notebook, within the same conda environment, run:
 ```bash
 source activate AlphaPulldown
-create_notebook.py --output_dir=/mnt --cutoff=5.0
+cd <models_output_dir>
+create_notebook.py --cutoff=5.0
 ```
+:warning: The command must be run within the ```<output_dir>```!
 
-This command will yield an ```output.ipynb``` and you can open it via Jupyterlab. Jupyterlab is already installed when pip installing AlphapullDown.Thus, to view the notebook: 
+This command will yield an ```output.ipynb```, which you can open it via Jupyterlab. Jupyterlab is already installed when installing AlphaPulldown with pip. Thus, to view the notebook: 
 
 ```bash
 source activate AlphaPulldown
-cd /scratch/user/output/models
-jupyter-lab 
+cd <models_output_dir>
+jupyter-lab output.ipynb
 ```
-
+:memo: *If you run AlphaPulldown on a remote computer cluster, you will need a graphical connection to open the notebook in a browser, mount the remote directory to your local computer as a network directory, or copy the entire ```<models_output_dir>``` to the local computer.*
 
 **About the parameters**
 
-```/scratch/user/output/model``` should be the direct result of the 2nd step as demonstrated above. 
-
-```cutoff``` is to check the value of PAE between chains. In the case of multimers, the analysis programme will check whether any PAE values between two chains are smaller than the cutoff and only display those models that satisfies the cutoff.
-
-
+```cutoff``` is to check the value of PAE between chains. In the case of multimers, the analysis programme will create the notebook only from models with inter-chain PAE values smaller than the cutoff.
 
 **Feature 2**
 
-We have also provided another singularity image called ```alpha-analysis.sif```to generate a csv table with structural properties and scores.
-Firstly, download the singularity image from [here](https://www.embl-hamburg.de/AlphaPulldown/downloads/alpha-analysis.sif). Chrome user may not be able to download it after cliking the link. If so, please right click and select "save link as".
+We have also provided a singularity image called ```alpha-analysis.sif```to generate a CSV table with structural properties and scores.
+Firstly, download the singularity image from [here](https://www.embl-hamburg.de/AlphaPulldown/downloads/alpha-analysis.sif). Chrome user may not be able to download it after clicking the link. If so, please right click and select "Save link as".
 
 
-Then execute the singularity image ( i.e. the sif file) by:
+Then execute the singularity image (i.e. the sif file) by:
 ```
-singularity exec --no-home --bind /path/to/your/output/dir:/mnt \
-<path to your downloaded image>/alpha-analysis.sif run_get_good_pae.sh --output_dir=/mnt --cutoff=10
+singularity exec \
+    --no-home \
+    --bind /path/to/your/output/dir:/mnt \
+    <path to your downloaded image>/alpha-analysis.sif \
+    run_get_good_pae.sh \
+    --output_dir=/mnt \
+    --cutoff=10
 ```
 
 **About the outputs**
-By default, you will have a csv file named ```predictions_with_good_interpae.csv``` created in the directory ```/path/to/your/output/dir``` as you have given in the command above. ```predictions_with_good_interpae.csv``` reports:1.iptm, iptm+ptm scores provided by AlphaFold 2. mpDockQ score developed by[ Bryant _et al._, 2022](https://gitlab.com/patrickbryant1/molpc)  3. PI_score developed by [Malhotra _et al._, 2021](https://gitlab.com/sm2185/ppi_scoring/-/wikis/home). The detailed explainations on these scores can be found in our paper and an example screenshot of the table is below. ![example](./example_table_screenshot.png)
+By default, you will have a csv file named ```predictions_with_good_interpae.csv``` created in the directory ```/path/to/your/output/dir``` as you have given in the command above. ```predictions_with_good_interpae.csv``` reports: 1. iptm, iptm+ptm scores provided by AlphaFold 2. mpDockQ score developed by[ Bryant _et al._, 2022](https://gitlab.com/patrickbryant1/molpc)  3. PI_score developed by [Malhotra _et al._, 2021](https://gitlab.com/sm2185/ppi_scoring/-/wikis/home). The detailed explainations on these scores can be found in our paper and an example screenshot of the table is below. ![example](./example_table_screenshot.png)
 
 ------------------------------------------------------------
 ## Appendix: Instructions on running in all_vs_all mode
-As the name suggest, all_vs_all means predict all possible combinations within a single input file. The input can be either full-length proteins or regions of a protein, as illustrated in the [example_all_vs_all_list.txt](./example_data/example_all_vs_all_list.txt) and the figure below:
+As the name suggest, all_vs_all means predict all possible pairwise comparisons within a single input file. The input can be either full-length proteins or regions of a protein, as illustrated in the [example_all_vs_all_list.txt](./example_data/example_all_vs_all_list.txt) and the figure below:
 ![plot](./all_vs_all_demo.png)
 
 The corresponding command is: 
 ```bash
-run_multimer_jobs.py --mode=all_vs_all \
---num_cycle=3 --num_predictions_per_model=1 \
---output_path=<path to output directory> \ 
---data_dir=<path to AlphaFold data directory> \ 
---protein_lists=./example_data/example_all_vs_all_list.txt \
---monomer_objects_dir=/path/to/monomer_objects_directory \
---job_index=<any number you want>
+run_multimer_jobs.py \
+  --mode=all_vs_all \
+  --num_cycle=3 \
+  --num_predictions_per_model=1 \
+  --output_path=<path to output directory> \ 
+  --data_dir=<path to AlphaFold data directory> \ 
+  --protein_lists=example_all_vs_all_list.txt \
+  --monomer_objects_dir=/path/to/monomer_objects_directory \
+  --job_index=<any number you want>
 ```
