@@ -173,7 +173,7 @@ run_multimer_jobs.py --mode=pulldown \
 **NB** To reproduce the results of Lassa virus Z protein vs L protein fragments written in our paper, simply use [baits_Z_protein.txt](./example_data/baits_Z_protein.txt) and [L_protein_fragments.txt](./example_data/L_protein_fragments.txt) as the ```--protein_lists```inputs. 
 
 <br/><br/>
-**Another explanation about the parameters**
+## Explanation about the parameters
 ####  **```monomer_objects_dir```**
 It should be the same directory as ```output_dir``` specified in **Step 1**. It can be one directory or contain multiple directories if you stored pre-calculated objects in different locations. In the case of 
 multiple ```monomer_objects_dir```, remember to put a `,` between each e.g. ``` --monomer_objects_dir=<dir_1>,<dir_2>```
