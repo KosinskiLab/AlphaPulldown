@@ -1,6 +1,6 @@
 # AlphaPulldown manual:
 # Example2
-# Aims: Model interactions between Lassa virus L protein and Z matrix protein; predict the structure of Z matrix protein homo 12-mer 
+# Aims: Model interactions between Lassa virus L protein and Z matrix protein; Determine the oligomer state of _E.coli_ Single-stranded DNA-binding protein (SSB)
 ## 1st step: compute multiple sequence alignment (MSA) and template features (run on CPUs)
 
 Firstly, download sequences of L(Uniprot: [O09705](https://www.uniprot.org/uniprotkb/O09705/entry)) and Z(uniprot:[O73557](https://www.uniprot.org/uniprotkb/O73557/entry)) proteins. The result is [```example_data/example_2_sequences.fasta```](./example_data/example_2_sequences.fasta)
@@ -50,7 +50,7 @@ run_multimer_jobs.py \
 ```
 
 #### **Task 2**
-This taks is to model the homo 12-mer of Z protein. Thus, homo-oligomer mode is needed. An oligomer state file will tell the programme the number of units. An example is: [```example_data/example_oligomer_state_file.txt```](./example_data/example_oligomer_state_file.txt)
+This taks is to determine the oligomer state of SSB protein by modelling its monomeric, homodimeric, homotrimeric, and homoquatrameric structures. Thus, homo-oligomer mode is needed. An oligomer state file will tell the programme the number of units. An example is: [```example_data/example_oligomer_state_file.txt```](./example_data/example_oligomer_state_file.txt)
 
 In the file, oligomeric states of the corresponding proteins should be separated by ```,``` e.g. ```protein_A,3```means a homotrimer for protein_A  
 ![homo-oligomer_demo](./homooligomer_demo.png)
@@ -66,7 +66,6 @@ run_multimer_jobs.py --mode=homo-oligomer --output_path=<path to output director
 --data_dir=/path-to-Alphafold-data-dir \ 
 --job_index=<any number you want>
 ```
-
 
 ----------------------------------
 
