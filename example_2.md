@@ -1,6 +1,6 @@
 # AlphaPulldown manual:
 # Example2
-# Aims: Find the interaction site between Lassa virus L protein and Z matrix protein; predict the structure of Z matrix protein homo 12-mer 
+# Aims: Model interactions between Lassa virus L protein and Z matrix protein; predict the structure of Z matrix protein homo 12-mer 
 ## 1st step: compute multiple sequence alignment (MSA) and template features (run on CPUs)
 
 Firstly, download sequences of L(Uniprot: [O09705](https://www.uniprot.org/uniprotkb/O09705/entry)) and Z(uniprot:[O73557](https://www.uniprot.org/uniprotkb/O73557/entry)) proteins. The result is [```example_data/example_2_sequences.fasta```](./example_data/example_2_sequences.fasta)
@@ -30,8 +30,7 @@ See [Example 1](https://github.com/KosinskiLab/AlphaPulldown/blob/main/example_1
 ## 2nd step: Predict structures (run on GPU)
 
 #### **Task 1**
-We want to predict the structure of full-length L protein together with Z protein but could not finish the prediction with our computing resources. Thus, 
-we predicted the interaction between a fragment of L protein and Z protein instead, as demonstrated in the figure below ![custom_demo_2.png](./custom_demo_2.png):
+We want to predict the structure of full-length L protein together with Z protein. However, as the L protein is very long, many users would not have a GPU card with sufficient memory. Moreover, when attempting modeling the full L-Z, the resulting model does not match the known cryo-EM structure. In [Example 1](https://github.com/KosinskiLab/AlphaPulldown/blob/main/example_1.md), we showed how to use AlphaPulldown to find the interaction site by screening fragments using the ```pullldown``` mode. Here, to demonstrate the ```custom``` mode, we will assume the we know the interaction site and model the fragment using this mode, as demonstrated in the figure below ![custom_demo_2.png](./custom_demo_2.png):
 
 
 Different proteins are seperated by ```;```. If a particular region is wanted from one protein, simply add ```,``` after that protein and followed by the region. Region comes in the format of ```number1-number2```. An example input file is: [```example_data/cutom_mode.txt```](./example_data/custom_mode.txt)
@@ -39,17 +38,19 @@ Different proteins are seperated by ```;```. If a particular region is wanted fr
 The command line interface for using custom mode will then become:
 
 ```
-run_multimer_jobs.py --mode=custom \
---num_cycle=3 --num_predictions_per_model=1 \
---output_path=<path to output directory> \ 
---data_dir=<path to AlphaFold data directory> \ 
---protein_lists=$PWD/example_data/custom_mode.txt \
---monomer_objects_dir=/path/to/monomer_objects_directory \
---job_index=<any number you want>
+run_multimer_jobs.py \
+  --mode=custom \
+  --num_cycle=3 \
+  --num_predictions_per_model=1 \
+  --output_path=<path to output directory> \ 
+  --data_dir=<path to AlphaFold data directory> \ 
+  --protein_lists=custom_mode.txt \
+  --monomer_objects_dir=/path/to/monomer_objects_directory \
+  --job_index=<any number you want>
 ```
 
 #### **Task 2**
-Remember another aim is to model the homo 12-mer of Z protein. Thus, homo-oligomer mode is needed. An oligomer state file will tell the programme the number of units. An example is: [```example_data/example_oligomer_state_file.txt```](./example_data/example_oligomer_state_file.txt)
+This taks is to model the homo 12-mer of Z protein. Thus, homo-oligomer mode is needed. An oligomer state file will tell the programme the number of units. An example is: [```example_data/example_oligomer_state_file.txt```](./example_data/example_oligomer_state_file.txt)
 
 In the file, oligomeric states of the corresponding proteins should be separated by ```,``` e.g. ```protein_A,3```means a homotrimer for protein_A  
 ![homo-oligomer_demo](./homooligomer_demo.png)
