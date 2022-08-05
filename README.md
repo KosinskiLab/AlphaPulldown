@@ -1,5 +1,7 @@
 # AlphaPulldown
 
+AlphaPulldown is a Python package that streamlines protein-protein interaction screens and high-throughput modelling of higher-order oligomers using AlphaFold-Multimer. It provides a convenient command line interface, a variety of confidence scores, and a graphical analysis tool.
+
 ## Pre-installation
 Check if you have downloaded necessary parameters and databases (e.g. BFD, MGnify etc.) as instructed in [AlphFold's documentation](https://github.com/deepmind/alphafold). You should have a directory like below:
  ```
@@ -35,30 +37,38 @@ Check if you have downloaded necessary parameters and databases (e.g. BFD, MGnif
 
 ## Installation 
 
-**Firstly**, create a conda environment and gather necessary dependencies 
+**Firstly**, install [Anaconda](https://www.anaconda.com/) and create AlphaPulldown environment, gathering necessary dependencies 
 ```bash
 conda create -n AlphaPulldown -c omnia -c bioconda -c conda-forge python==3.7 openmm pdbfixer kalign2=2.04 cctbx-base
 ```
 
-**Secondly**, activate the environment and install AlphaPulldown
+**Secondly**, activate the AlphaPulldown environment and install AlphaPulldown
 ```bash
 source activate AlphaPulldown
 pip install alphapulldown
 pip install -q "jax[cuda]>=0.3.8,<0.4" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 ```
 
-**Optionally**, if you do not have these software yet on your system, install [HMMER](http://hmmer.org/documentation.html), [HH-suite](https://github.com/soedinglab/hh-suite) from conda
+**Optionally**, if you do not have these software yet on your system, install [HMMER](http://hmmer.org/documentation.html), [HH-suite](https://github.com/soedinglab/hh-suite) from Anaconda
 ```bash
 source activate AlphaPulldown
 conda install -c bioconda hmmer hhsuite
 ```
 This usually works, but on some compute systems users may wish to use other versions or optimized builds of already installed HMMER and HH-suite.
+
 ------
 
 ## Manuals
-AlphaPulldown supports four different modes of massive predictions: ```pulldown```, ```all_vs_all```, ```homo-oligomer```, and ```custom```.
+AlphaPulldown supports four different modes of massive predictions: 
 
-We have provided two examples:
+* ```pulldown``` - to screen one or more "bait" proteins for interactions with other proteins
+* ```all_vs_all``` - to model all pairs of a protein list
+* ```homo-oligomer``` - to test alternative oligomeric states
+* ```custom``` - to model any combination of proteins and their fragments
+
+AlphaPulldown will return models of all interactions, summarize results in a score table, and will provide a [Jupyter](https://jupyter.org/) notebook for an interactive analysis.
+
+## Examples
 
 Example 1 is a case where ```pulldown``` mode is used. Manual: [example_1](./example_1.md)
 
