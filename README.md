@@ -1,6 +1,11 @@
 # AlphaPulldown
 
-AlphaPulldown is a Python package that streamlines protein-protein interaction screens and high-throughput modelling of higher-order oligomers using AlphaFold-Multimer. It provides a convenient command line interface, a variety of confidence scores, and a graphical analysis tool.
+AlphaPulldown is a Python package that streamlines protein-protein interaction screens and high-throughput modelling of higher-order oligomers using AlphaFold-Multimer:
+* provides a convenient command line interface to screen a bait protein against many candidates, calculate all-versus-all pairwise comparisons, test alternative homo-oligomeric states, and model various parts of a larger complex
+* separates the CPU stages (MSA and template feature generation) from GPU stages (the actual modeling)
+* allows modeling fragments of proteins without recalculation of MSAs and keeping the original full-length residue numbering in the models
+* summarizes the results in a CSV table with AlphaFold scores, pDockQ and mpDockQ, PI-score, and various physical parameters of the interface
+* provides a Jupyter notebook for an interactive analysis of PAE plots and models
 
 ## Pre-installation
 Check if you have downloaded necessary parameters and databases (e.g. BFD, MGnify etc.) as instructed in [AlphFold's documentation](https://github.com/deepmind/alphafold). You should have a directory like below:
