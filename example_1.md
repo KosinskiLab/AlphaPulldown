@@ -80,9 +80,9 @@ sbatch --array=1-$count%100 create_individual_features_SLURM.sh
 
  ------------------------
 
-## 1.1 Explanation about the parameters
+## Explanation about the parameters
 ####  **```save_msa_files```** 
-By default is **False** to save storage stage but can be changed into **True**. If it is set to be ```True```, the programme will 
+By default is **False** to save storage stage but can be changed into **True**. If it is set to ```True```, the programme will 
 create individual folder for each protein. The output directory will look like:
 ```
  output_dir
@@ -103,7 +103,7 @@ If ```save_msa_files=False``` then the ```output_dir``` will look like:
  ```
  output_dir
       |- protein_A.pkl
-      |- protine_B.pkl
+      |- protein_B.pkl
  ```
  
  --------------------
@@ -130,9 +130,9 @@ command line to avoid rerunning the same procedure for the previously calculated
 
 ####  **```seq_index```**
 Default is `None` and the programme will run predictions one by one in the given files. However, you can set ```seq_index``` to 
-different number if you wish to run an array of jobs in parallel then the programme will only run the corresponding job specified by the ```seq_index```. e.g. the programme only calculate features for the 1st protein in your fasta file if ```seq_index``` is set to be 1.
+different number if you wish to run an array of jobs in parallel then the programme will only run the corresponding job specified by the ```seq_index```. e.g. the programme only calculate features for the 1st protein in your fasta file if ```seq_index``` is set to be 1. See also the Slurm sbatch script above for example how to use it for parallel execution.
 
-**NB**: ```seq_index``` starts from 1. 
+:exclamation: ```seq_index``` starts from 1. 
 
 ---------------------
 
@@ -143,27 +143,27 @@ Inspired by pull-down assays, one can specify one or more proteins as "bait" and
 
 **Note** If you want to save time and run fewer jobs, you can use [example_data/candidates_shorter.txt](./example_data/candidates_shorter.txt) instead of [example_data/candidates.txt](./example_data/candidates.txt) 
 
-In this example, we selected pulldown mode and make eIF4G3(Uniprot:[O43432](https://www.uniprot.org/uniprot/O43432)) and eIF4G2(Uniprot:[P78344](https://www.uniprot.org/uniprot/P78344)) as baits while the other 294 proteins as candidates. Thus, in total, there will be 2 * 294 = 588 predictions. 
+In this example, we selected pulldown mode and made eIF4G2(Uniprot:[P78344](https://www.uniprot.org/uniprot/P78344)) as a bait while the other 294 proteins as candidates. Thus, in total, there will be 1 * 294 = 294 predictions. 
 
 ![demo1](./pulldown_mode_demo_1.png)
-
 
 
 The command line interface for using pulldown mode will then become:
 ```
 run_multimer_jobs.py --mode=pulldown \
---num_cycle=3 --num_predictions_per_model=1 \
+--num_cycle=3 \
+--num_predictions_per_model=1 \
 --output_path=<output directory> \ 
 --data_dir=<path to alphafold databases> \ 
---protein_lists=./example_data/baits.txt,./example_data/candidates.txt \
+--protein_lists=baits.txt,candidates.txt \
 --monomer_objects_dir=/path/to/monomer_objects_directory \
 --job_index=<any number you want>
 ```
 
-**NB** To reproduce the results of Lassa virus Z protein vs L protein fragments written in our paper, simply use [baits_Z_protein.txt](./example_data/baits_Z_protein.txt) and [L_protein_fragments.txt](./example_data/L_protein_fragments.txt) as the ```--protein_lists```inputs. 
+:memo: To reproduce the results of Lassa virus Z protein vs L protein fragments written in our paper, simply use [baits_Z_protein.txt](./example_data/baits_Z_protein.txt) and [L_protein_fragments.txt](./example_data/L_protein_fragments.txt) as the ```--protein_lists```inputs. This example shows also how to run the interaction screen for fragments of proteins, keeping the original full-length residue numbering in the output!
 
 <br/><br/>
-**Another explanation about the parameters**
+**Explanation about the parameters**
 ####  **```monomer_objects_dir```**
 It should be the same directory as ```output_dir``` specified in **Step 1**. It can be one directory or contain multiple directories if you stored pre-calculated objects in different locations. In the case of 
 multiple ```monomer_objects_dir```, remember to put a `,` between each e.g. ``` --monomer_objects_dir=<dir_1>,<dir_2>```
@@ -172,7 +172,7 @@ multiple ```monomer_objects_dir```, remember to put a `,` between each e.g. ``` 
 Default is `None` and the programme will run predictions one by one in the given files. However, you can set ```job_index``` to 
 different number if you wish to run an array of jobs in parallel then the programme will only run the corresponding job specified by the ```job_index```
 
-**NB** ```job_index``` starts from 1
+:exclamation: ```job_index``` starts from 1
 
 ### Running on a computer cluster in parallel
 
@@ -221,7 +221,7 @@ run_multimer_jobs.py --mode=pulldown \
     --num_predictions_per_model=1 \
     --output_path=/scratch/user/output/models \
     --data_dir=/scratch/AlphaFold_DBs/2.2.2/ \
-    --protein_lists=./example_data/baits.txt,./example_data/candidates_shorter.txt \
+    --protein_lists=baits.txt,candidates_shorter.txt \
     --monomer_objects_dir=/scratch/user/output/features \
     --job_index=$SLURM_ARRAY_TASK_ID
 ```
@@ -229,7 +229,11 @@ and then run using:
 
 ```
 mkdir -p logs
-sbatch --array=1-20 example_data/run_multimer_jobs.sh
+#Count the number of jobs corresponding to the number of sequences:
+baits=`grep -c "" baits.txt` #count lines even if the last one has no end of line
+candidates=`grep -c "" candidates_shorter.txt` #count lines even if the last one has no end of line
+count=$(( $baits * $candidates ))
+sbatch --array=1-$count example_data/run_multimer_jobs.sh
 ```
 
 --------------------
