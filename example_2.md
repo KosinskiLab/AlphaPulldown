@@ -60,6 +60,7 @@ The command for homo-oligomer mode is:
 
 ```
 run_multimer_jobs.py --mode=homo-oligomer --output_path=<path to output directory> \ 
+--num_cycle=3 \
 --oligomer_state_file=$PWD/example_data/example_oligomer_state_file.txt \ 
 --monomer_objects_dir=<directory that stores monomer pickle files> \ 
 --data_dir=/path-to-Alphafold-data-dir \ 
@@ -71,15 +72,128 @@ run_multimer_jobs.py --mode=homo-oligomer --output_path=<path to output director
 
 ## Explanation about the parameters
 
-See [Example 1](https://github.com/KosinskiLab/AlphaPulldown/blob/main/example_1.md#explanation-about-the-parameters)
+####  **```monomer_objects_dir```**
+It should be the same directory as ```output_dir``` specified in **Step 1**. It can be one directory or contain multiple directories if you stored pre-calculated objects in different locations. In the case of 
+multiple ```monomer_objects_dir```, remember to put a `,` between each e.g. ``` --monomer_objects_dir=<dir_1>,<dir_2>```
+
+####  **```job_index```**
+Default is `None` and the programme will run predictions one by one in the given files. However, you can set ```job_index``` to 
+different number if you wish to run an array of jobs in parallel then the programme will only run the corresponding job specified by the ```job_index```
+
+:exclamation: ```job_index``` starts from 1
+
+### Running on a computer cluster in parallel
+
+On a compute cluster, you may want to run all jobs in parallel as a [job array](https://slurm.schedmd.com/job_array.html). For example, on SLURM queuing system at EMBL we could use:
+
+```bash
+#!/bin/bash
+
+#A typical run takes couple of hours but may be much longer
+#SBATCH --job-name=array
+#SBATCH --time=2-00:00:00
+
+#log files:
+#SBATCH -e logs/run_multimer_jobs_%A_%a_err.txt
+#SBATCH -o logs/run_multimer_jobs_%A_%a_out.txt
+
+#qos sets priority
+#SBATCH --qos=low
+
+#SBATCH -p gpu
+#lower end GPUs might be sufficient for pairwise screens:
+#SBATCH -C "gpu=2080Ti|gpu=3090"
+
+#Reserve the entire GPU so no-one else slows you down
+#SBATCH --gres=gpu:1
+
+#Limit the run to a single node
+#SBATCH -N 1
+
+#Adjust this depending on the node
+#SBATCH --ntasks=8
+#SBATCH --mem=64000
+
+module load Anaconda3 
+module load CUDA/11.3.1
+module load cuDNN/8.2.1.32-CUDA-11.3.1
+source activate AlphaPulldown
+
+MAXRAM=$(echo `ulimit -m` '/ 1024.0'|bc)
+GPUMEM=`nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits|tail -1`
+export XLA_PYTHON_CLIENT_MEM_FRACTION=`echo "scale=3;$MAXRAM / $GPUMEM"|bc`
+export TF_FORCE_UNIFIED_MEMORY='1'
+
+run_multimer_jobs.py --mode=homo-oligomer --output_path=<path to output directory> \ 
+--num_cycle=3 \
+--oligomer_state_file=$PWD/example_data/example_oligomer_state_file.txt \ 
+--monomer_objects_dir=<directory that stores monomer pickle files> \ 
+--data_dir=/path-to-Alphafold-data-dir \ 
+--job_index=$SLURM_ARRAY_TASK_ID    
+```
+and then run using:
+
+```
+mkdir -p logs
+#Count the number of jobs corresponding to the number of sequences:
+baits=`grep -c "" baits.txt` #count lines even if the last one has no end of line
+candidates=`grep -c "" candidates_shorter.txt` #count lines even if the last one has no end of line
+count=$(( $baits * $candidates ))
+sbatch --array=1-$count example_data/run_multimer_jobs.sh
+```
 
 --------------------
 
 
-## 3rd step Evalutaion and visualisation
 
-See [Example 1](https://github.com/KosinskiLab/AlphaPulldown/blob/main/example_1.md#3rd-step-evalutaion-and-visualisation)
+## 3rd step: Evalutaion and visualisation
 
+**Feature 1**
+
+When a batch of jobs is finished, AlphaPulldown can create a [Jupyter](https://jupyter.org/) notebook that presents a neat overview of the models, as seen in the example screenshot ![screenshot](./example_notebook_screenshot.png)
+
+On the left side, there is a bookmark listing all the jobs and when clicking a bookmark, and executing the corresponding cells, the notebook will show: 1) PAE plots 2) predicted model coloured by pLDDT scores 3) predicted models coloured by chains.
+
+In order to create the notebook, within the same conda environment, run:
+```bash
+source activate AlphaPulldown
+cd <models_output_dir>
+create_notebook.py --cutoff=5.0
+```
+:warning: The command must be run within the ```<output_dir>```!
+
+This command will yield an ```output.ipynb```, which you can open it via Jupyterlab. Jupyterlab is already installed when installing AlphaPulldown with pip. Thus, to view the notebook: 
+
+```bash
+source activate AlphaPulldown
+cd <models_output_dir>
+jupyter-lab output.ipynb
+```
+:memo: *If you run AlphaPulldown on a remote computer cluster, you will need a graphical connection to open the notebook in a browser, mount the remote directory to your local computer as a network directory, or copy the entire ```<models_output_dir>``` to the local computer.*
+
+**About the parameters**
+
+```cutoff``` is to check the value of PAE between chains. In the case of multimers, the analysis programme will create the notebook only from models with inter-chain PAE values smaller than the cutoff.
+
+**Feature 2**
+
+We have also provided a singularity image called ```alpha-analysis.sif```to generate a CSV table with structural properties and scores.
+Firstly, download the singularity image from [here](https://www.embl-hamburg.de/AlphaPulldown/downloads/alpha-analysis.sif). Chrome user may not be able to download it after clicking the link. If so, please right click and select "Save link as".
+
+
+Then execute the singularity image (i.e. the sif file) by:
+```
+singularity exec \
+    --no-home \
+    --bind /path/to/your/output/dir:/mnt \
+    <path to your downloaded image>/alpha-analysis.sif \
+    run_get_good_pae.sh \
+    --output_dir=/mnt \
+    --cutoff=10
+```
+
+**About the outputs**
+By default, you will have a csv file named ```predictions_with_good_interpae.csv``` created in the directory ```/path/to/your/output/dir``` as you have given in the command above. ```predictions_with_good_interpae.csv``` reports: 1. iptm, iptm+ptm scores provided by AlphaFold 2. mpDockQ score developed by[ Bryant _et al._, 2022](https://gitlab.com/patrickbryant1/molpc)  3. PI_score developed by [Malhotra _et al._, 2021](https://gitlab.com/sm2185/ppi_scoring/-/wikis/home). The detailed explainations on these scores can be found in our paper and an example screenshot of the table is below. ![example](./example_table_screenshot.png)
 
 ------------------------------------------------------------
 ## Appendix: Instructions on running in all_vs_all mode
