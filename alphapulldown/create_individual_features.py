@@ -228,7 +228,6 @@ def main(argv):
             f"Failed to find uniprot.fasta under {uniprot_database_path}. Please make sure your data_dir has been configured correctly."
         )
         sys.exit()
-    monomers = []
 
     seq_idx = 0
     for curr_seq, curr_desc in iter_seqs(FLAGS.fasta_paths):
@@ -238,11 +237,8 @@ def main(argv):
                 if curr_desc and not curr_desc.isspace():
                     curr_monomer = MonomericObject(curr_desc, curr_seq)
                     curr_monomer.uniprot_runner = uniprot_runner
-                    monomers.append(curr_monomer)
-
-    for m in monomers:
-        create_and_save_monomer_objects(m, pipeline, flags_dict)
-
+                    create_and_save_monomer_objects(curr_monomer, pipeline, flags_dict)
+        
 
 if __name__ == "__main__":
     flags.mark_flags_as_required(
