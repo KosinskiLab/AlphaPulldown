@@ -22,6 +22,7 @@ flags.DEFINE_float(
 )
 flags.DEFINE_boolean("create_notebook", True, "Whether creating a notebook")
 flags.DEFINE_integer("surface_thres", 2, "surface threshold. must be integer")
+flags.DEFINE_integer("pae_figsize",50,"figsize of pae_plot, default is 50")
 FLAGS = flags.FLAGS
 
 
@@ -38,7 +39,7 @@ def examine_inter_pae(pae_mtx, seqs, cutoff):
     return check
 
 
-def create_notebook(combo, output_dir):
+def create_notebook(combo, output_dir,figsize):
     from nbformat import current as nbf
 
     nb = nbf.new_notebook()
@@ -68,7 +69,7 @@ def create_notebook(combo, output_dir):
         subdir = os.path.join(base_dir, f"{job}")
         subtitile1 = nbf.new_text_cell("markdown", f"### {job} PAE plots")
         output_cells.append(subtitile1)
-        code_cell_1 = nbf.new_code_cell(f"display_pae_plots('{subdir}')")
+        code_cell_1 = nbf.new_code_cell(f"display_pae_plots('{subdir}',figsize=({figsize,figsize})")
         output_cells.append(code_cell_1)
         subtitle2 = nbf.new_text_cell("markdown", f"### {job} coloured by plddt")
         output_cells.append(subtitle2)
@@ -134,7 +135,7 @@ def main(argv):
     pi_score_df = pi_score_df.sort_values(by="iptm", ascending=False)
 
     if FLAGS.create_notebook:
-        create_notebook(pi_score_df, FLAGS.output_dir)
+        create_notebook(pi_score_df, FLAGS.output_dir,FLAGS.pae_figsize)
 
 
 if __name__ == "__main__":
