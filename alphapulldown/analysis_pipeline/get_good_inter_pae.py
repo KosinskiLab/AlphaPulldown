@@ -79,12 +79,17 @@ def run_and_summarise_pi_score(workd_dir,jobs,surface_thres):
             with open(os.path.join(subdir,pi_score_files[0]),'r') as f:
                 lines = [l for l in f.readlines() if "#" not in l]
                 if len(lines)>0:
-                    pi_score = float(lines[0].split(",")[-1])
+                    pi_score = pd.read_csv(os.path.join(subdir,pi_score_files[0]))
+                    pi_score['jobs']=str(job)
                 else:
-                    pi_score = 'SC:  mds: too many atoms'
+                    pi_score = pd.DataFrame.from_dict({"pi_score":['SC:  mds: too many atoms']})
                 f.close()
             filtered_df['jobs'] = str(job)
-            filtered_df['pi_score'] = pi_score
+            filtered_df=pd.merge(filtered_df,pi_score,on='jobs')
+            try:
+                filtered_df.drop(columns=["#PDB","pdb"," pvalue","chains","predicted_class"])
+            except:
+                pass
         
         output_df = pd.concat([output_df,filtered_df])
     return output_df
@@ -94,9 +99,9 @@ def run_and_summarise_pi_score(workd_dir,jobs,surface_thres):
 def main(argv):
     jobs = os.listdir(FLAGS.output_dir)
     good_jobs = []
-    iptm_ptm = []
-    iptm = []
-    mpDockq_scores = []
+    iptm_ptm = list()
+    iptm = list()
+    mpDockq_scores = list()
     count = 0
     for job in jobs:
         logging.info(f"now processing {job}")
@@ -120,23 +125,26 @@ def main(argv):
                     iptm_ptm.append(iptm_ptm_score)
                     iptm.append(iptm_score)
                     mpDockq_scores.append(mpDockq_score)
-
             logging.info(f"done for {job} {count} out of {len(jobs)} finished.")
+    other_measurements_df=pd.DataFrame.from_dict({
+        "jobs":good_jobs,
+        "iptm_ptm":iptm_ptm,
+        "iptm":iptm,
+        "mpDockQ/pDockQ":mpDockq_scores
+    })
     pi_score_df = run_and_summarise_pi_score(FLAGS.output_dir,good_jobs,FLAGS.surface_thres)
-    pi_score_df['iptm+ptm'] = iptm_ptm
-    pi_score_df['mpDockQ/pDockQ'] = mpDockq_scores
-    pi_score_df['iptm'] = iptm
+    pi_score_df=pd.merge(pi_score_df,other_measurements_df,on="jobs")
     columns = list(pi_score_df.columns.values)
     columns.pop(columns.index('jobs'))
     pi_score_df = pi_score_df[['jobs'] + columns]
     pi_score_df = pi_score_df.sort_values(by='iptm',ascending=False)
     
-    try:
-        pi_score_df = pi_score_df.drop(columns=['interface'])
-        pi_score_df = pi_score_df.drop(columns=[' pvalue'])
-        pi_score_df = pi_score_df.drop(columns=['pdb'])
-    except:
-        pass
+    # try:
+    #     pi_score_df = pi_score_df.drop(columns=['interface'])
+    #     pi_score_df = pi_score_df.drop(columns=[' pvalue'])
+    #     pi_score_df = pi_score_df.drop(columns=['pdb'])
+    # except:
+    #     pass
     pi_score_df.to_csv(os.path.join(FLAGS.output_dir,"predictions_with_good_interpae.csv"),index=False)
     
 
