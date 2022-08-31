@@ -11,7 +11,7 @@ import pandas as pd
 import subprocess
 from calculate_mpdockq import *
 import sys 
-
+from pathlib import Path
 flags.DEFINE_string('output_dir',None,'directory where predicted models are stored')
 flags.DEFINE_float('cutoff',5.0,'cutoff value of PAE. i.e. only pae<cutoff is counted good')
 flags.DEFINE_integer('surface_thres',2,'surface threshold. must be integer')
@@ -48,8 +48,11 @@ def obtain_mpdockq(work_dir):
 def run_and_summarise_pi_score(workd_dir,jobs,surface_thres):
 
     """A function to calculate all predicted models' pi_scores and make a pandas df of the results"""
-    # os.makedirs(os.path.join(workd_dir,"pi_score_outputs"),exist_ok=True)
-    subprocess.run(f"mkdir {workd_dir}/pi_score_outputs",shell=True,executable='/bin/bash')
+    try:
+        os.remove(f"mkdir {workd_dir}/pi_score_outputs")
+    except:
+        pass
+    Path(f"mkdir {workd_dir}/pi_score_outputs").mkdir(parents=True)
     pi_score_outputs = os.path.join(workd_dir,"pi_score_outputs")
     for job in jobs:
         subdir = os.path.join(workd_dir,job)
@@ -139,12 +142,6 @@ def main(argv):
     pi_score_df = pi_score_df[['jobs'] + columns]
     pi_score_df = pi_score_df.sort_values(by='iptm',ascending=False)
     
-    # try:
-    #     pi_score_df = pi_score_df.drop(columns=['interface'])
-    #     pi_score_df = pi_score_df.drop(columns=[' pvalue'])
-    #     pi_score_df = pi_score_df.drop(columns=['pdb'])
-    # except:
-    #     pass
     pi_score_df.to_csv(os.path.join(FLAGS.output_dir,"predictions_with_good_interpae.csv"),index=False)
     
 
