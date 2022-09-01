@@ -48,7 +48,10 @@ def obtain_mpdockq(work_dir):
 def run_and_summarise_pi_score(workd_dir,jobs,surface_thres):
 
     """A function to calculate all predicted models' pi_scores and make a pandas df of the results"""
-    # os.makedirs(os.path.join(workd_dir,"pi_score_outputs"),exist_ok=True)
+    try:
+        os.remove(f"mkdir {workd_dir}/pi_score_outputs")
+    except:
+        pass
     subprocess.run(f"mkdir {workd_dir}/pi_score_outputs",shell=True,executable='/bin/bash')
     pi_score_outputs = os.path.join(workd_dir,"pi_score_outputs")
     for job in jobs:
@@ -139,12 +142,6 @@ def main(argv):
     pi_score_df = pi_score_df[['jobs'] + columns]
     pi_score_df = pi_score_df.sort_values(by='iptm',ascending=False)
     
-    # try:
-    #     pi_score_df = pi_score_df.drop(columns=['interface'])
-    #     pi_score_df = pi_score_df.drop(columns=[' pvalue'])
-    #     pi_score_df = pi_score_df.drop(columns=['pdb'])
-    # except:
-    #     pass
     pi_score_df.to_csv(os.path.join(FLAGS.output_dir,"predictions_with_good_interpae.csv"),index=False)
     
 
