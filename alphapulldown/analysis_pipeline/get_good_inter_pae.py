@@ -11,7 +11,7 @@ import pandas as pd
 import subprocess
 from calculate_mpdockq import *
 import sys 
-
+from pathlib import Path
 flags.DEFINE_string('output_dir',None,'directory where predicted models are stored')
 flags.DEFINE_float('cutoff',5.0,'cutoff value of PAE. i.e. only pae<cutoff is counted good')
 flags.DEFINE_integer('surface_thres',2,'surface threshold. must be integer')
@@ -52,7 +52,11 @@ def run_and_summarise_pi_score(workd_dir,jobs,surface_thres):
         os.remove(f"mkdir {workd_dir}/pi_score_outputs")
     except:
         pass
+<<<<<<< HEAD
     subprocess.run(f"mkdir {workd_dir}/pi_score_outputs",shell=True,executable='/bin/bash')
+=======
+    Path(f"mkdir {workd_dir}/pi_score_outputs").mkdir(parents=True)
+>>>>>>> e226b188a2d334d3355329bb537a83a0bc641476
     pi_score_outputs = os.path.join(workd_dir,"pi_score_outputs")
     for job in jobs:
         subdir = os.path.join(workd_dir,job)
