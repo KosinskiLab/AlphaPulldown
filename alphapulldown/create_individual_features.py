@@ -200,7 +200,7 @@ def create_and_save_monomer_objects(m, pipeline, flags_dict):
         m.make_features(
             pipeline,
             output_dir=FLAGS.output_dir,
-            use_precomuted_msa=FLAGS.use_precomputed_msas,
+            use_precomputed_msa=FLAGS.use_precomputed_msas,
             save_msa=FLAGS.save_msa_files,
         )
         pickle.dump(m, open(f"{FLAGS.output_dir}/{m.description}.pkl", "wb"))
