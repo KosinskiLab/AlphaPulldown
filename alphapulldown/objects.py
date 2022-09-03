@@ -11,7 +11,6 @@ from tracemalloc import start
 import numpy as np
 from alphafold.data import parsers
 from alphafold.data import pipeline_multimer
-from alphafold.data import pipeline
 from alphafold.data import msa_pairing
 from alphafold.data import feature_processing
 from pathlib import Path
@@ -56,10 +55,11 @@ class MonomericObject:
         input_fasta_path,
         uniprot_msa_runner,
         save_msa,
+        pipeline,
         output_dir=None,
         use_precomuted_msa=False,
     ):
-        """Get MSA features for unclustered uniprot, for pairing later on."""
+        """Get MSA features from unclustered uniprot, for pairing later on."""
         if not use_precomuted_msa:
             if not save_msa:
                 with tempfile.TemporaryDirectory() as tempdir:
@@ -102,11 +102,27 @@ class MonomericObject:
         }
         return feats
 
+
+    def execute_pipeline(self,pipeline,fasta_file,msa_output_dir,save_msa,use_precomuted_msa):
+        """A method that run AlphaFold's pipeline.process"""
+        self.feature_dict = pipeline.process(input_fasta_path=fasta_file, 
+                                            msa_output_dir=msa_output_dir)
+        pairing_results = self.all_seq_msa_features(
+            fasta_file,
+            self._uniprot_runner,
+            save_msa=save_msa,
+            pipeline=pipeline,
+            msa_output_dir=msa_output_dir,
+            use_precomuted_msa=use_precomuted_msa,
+        )
+        self.feature_dict.update(pairing_results)
+
+
     def make_features(
-        self, pipeline, output_dir=None, use_precomuted_msa=False, save_msa=False
+        self, pipeline, output_dir=None, use_precomputed_msa=False, save_msa=False
     ):
         """a method that make msa and template features"""
-        if not use_precomuted_msa:
+        if not use_precomputed_msa:
             if not save_msa:
                 """this means no msa files are going to be saved"""
                 logging.info("You have chosen not to save msa output files")
@@ -114,13 +130,9 @@ class MonomericObject:
                 with temp_fasta_file(
                     sequence_str
                 ) as fasta_file, tempfile.TemporaryDirectory() as tmpdirname:
-                    self.feature_dict = pipeline.process(
-                        input_fasta_path=fasta_file, msa_output_dir=tmpdirname
-                    )
-                    pairing_results = self.all_seq_msa_features(
-                        fasta_file, self._uniprot_runner, save_msa
-                    )
-                    self.feature_dict.update(pairing_results)
+                    self.execute_pipeline(pipeline,
+                    fasta_file,tmpdirname,
+                    save_msa=False,use_precomuted_msa=False)
 
             else:
                 """this means no precomputed msa available and will save output msa files"""
@@ -129,11 +141,10 @@ class MonomericObject:
                 logging.info("will save msa files in :{}".format(msa_output_dir))
                 Path(msa_output_dir).mkdir(parents=True, exist_ok=True)
                 with temp_fasta_file(sequence_str) as fasta_file:
-                    self.feature_dict = pipeline.process(fasta_file, msa_output_dir)
-                    pairing_results = self.all_seq_msa_features(
-                        fasta_file, self._uniprot_runner, save_msa, msa_output_dir
-                    )
-                    self.feature_dict.update(pairing_results)
+                    self.execute_pipeline(pipeline,fasta_file,
+                    msa_output_dir,
+                    save_msa=True,use_precomuted_msa=False)
+               
         else:
             """This means precomputed msa files are available"""
             msa_output_dir = os.path.join(output_dir, self.description)
@@ -145,16 +156,9 @@ class MonomericObject:
             )
             sequence_str = f">{self.description}\n{self.sequence}"
             with temp_fasta_file(sequence_str) as fasta_file:
-                self.feature_dict = pipeline.process(fasta_file, msa_output_dir)
-                pairing_results = self.all_seq_msa_features(
-                    fasta_file,
-                    self._uniprot_runner,
-                    save_msa,
-                    msa_output_dir,
-                    use_precomuted_msa=True,
-                )
-                self.feature_dict.update(pairing_results)
-
+                self.execute_pipeline(pipeline,fasta_file,msa_output_dir,
+                save_msa=save_msa,use_precomuted_msa=True)
+                
 
 class ChoppedObject(MonomericObject):
     """chopped monomeric objects"""
