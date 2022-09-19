@@ -340,9 +340,10 @@ class MultimericObject:
     interactors: individual interactors that are to be concatenated
     """
 
-    def __init__(self, interactors: list) -> None:
+    def __init__(self, interactors: list, pair_msa: bool = True) -> None:
         self.description = ""
         self.interactors = interactors
+        self.pair_msa = pair_msa
         self.chain_id_map = dict()
         self.input_seqs = []
         self.get_all_residue_index()
@@ -378,24 +379,25 @@ class MultimericObject:
             sequences=self.input_seqs, descriptions=input_descs
         )
 
-    def pair_and_merge(self, all_chain_features, pair_msa):
+    def pair_and_merge(self, all_chain_features):
         """merge all chain features"""
         MAX_TEMPLATES = 4
         MSA_CROP_SIZE = 2048
         feature_processing.process_unmerged_features(all_chain_features)
         np_chains_list = list(all_chain_features.values())
-        if pair_msa:
+        pair_msa_sequences = self.pair_msa and not feature_processing._is_homomer_or_monomer(np_chains_list)
+        if pair_msa_sequences:
             np_chains_list = msa_pairing.create_paired_features(chains=np_chains_list)
             np_chains_list = msa_pairing.deduplicate_unpaired_sequences(np_chains_list)
         np_chains_list = feature_processing.crop_chains(
             np_chains_list,
             msa_crop_size=MSA_CROP_SIZE,
-            pair_msa_sequences=pair_msa,
+            pair_msa_sequences=pair_msa_sequences,
             max_templates=MAX_TEMPLATES,
         )
         np_example = msa_pairing.merge_chain_features(
             np_chains_list=np_chains_list,
-            pair_msa_sequences=pair_msa,
+            pair_msa_sequences=pair_msa_sequences,
             max_templates=MAX_TEMPLATES,
         )
         np_example = feature_processing.process_final(np_example)
@@ -424,7 +426,7 @@ class MultimericObject:
         self.all_chain_features = pipeline_multimer.add_assembly_features(
             all_chain_features
         )
-        self.feature_dict = feature_processing.pair_and_merge(
+        self.feature_dict = self.pair_and_merge(
             all_chain_features=self.all_chain_features
         )
         self.feature_dict = pipeline_multimer.pad_msa(self.feature_dict, 512)

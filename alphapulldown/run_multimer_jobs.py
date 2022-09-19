@@ -72,6 +72,9 @@ flags.DEFINE_integer(
 flags.DEFINE_integer(
     "job_index", None, "index of sequence in the fasta file, starting from 1"
 )
+flags.DEFINE_boolean(
+    "no_pair_msa", False, "do not pair the MSAs when constructing multimer objects"
+)
 flags.mark_flag_as_required("output_path")
 FLAGS = flags.FLAGS
 
@@ -137,7 +140,7 @@ def create_custom_info(all_proteins):
     return data
 
 
-def create_multimer_objects(data, monomer_objects_dir):
+def create_multimer_objects(data, monomer_objects_dir, pair_msa=True):
     """
     A function to create multimer objects
 
@@ -153,8 +156,7 @@ def create_multimer_objects(data, monomer_objects_dir):
     for job_idx in job_idxes:
         interactors = create_interactors(data, monomer_objects_dir, job_idx)
         if len(interactors) > 1:
-            multimer = MultimericObject(interactors=interactors)
-            multimer.create_all_chain_features()
+            multimer = MultimericObject(interactors=interactors,pair_msa=pair_msa)
             logging.info(f"done creating multimer {multimer.description}")
             multimers.append(multimer)
         else:
@@ -164,7 +166,7 @@ def create_multimer_objects(data, monomer_objects_dir):
     return multimers
 
 
-def create_homooligomers(oligomer_state_file, monomer_objects_dir, job_index=None):
+def create_homooligomers(oligomer_state_file, monomer_objects_dir, job_index=None, pair_msa = False):
     """a function to read homooligomer state"""
     multimers = []
     monomer_dir_dict = make_dir_monomer_dictionary(monomer_objects_dir)
@@ -188,9 +190,8 @@ def create_homooligomers(oligomer_state_file, monomer_objects_dir, job_index=Non
                 if num_units > 1:
                     monomer = load_monomer_objects(monomer_dir_dict, protein_name)
                     interactors = [monomer] * num_units
-                    homooligomer = MultimericObject(interactors)
+                    homooligomer = MultimericObject(interactors,pair_msa=pair_msa)
                     homooligomer.description = f"{protein_name}_homo_{num_units}er"
-                    homooligomer.create_all_chain_features()
                     multimers.append(homooligomer)
                     logging.info(
                         f"finished creating homooligomer {homooligomer.description}"
@@ -203,7 +204,7 @@ def create_homooligomers(oligomer_state_file, monomer_objects_dir, job_index=Non
     return multimers
 
 
-def create_custom_jobs(custom_input_file, monomer_objects_dir, job_index=None):
+def create_custom_jobs(custom_input_file, monomer_objects_dir, job_index=None, pair_msa=True):
     """
     A function to create multimers under custom mode
 
@@ -226,7 +227,7 @@ def create_custom_jobs(custom_input_file, monomer_objects_dir, job_index=None):
         if len(l.strip()) > 0:
             all_proteins = read_custom(l)
             data = create_custom_info(all_proteins)
-            multimers = create_multimer_objects(data, monomer_objects_dir)
+            multimers = create_multimer_objects(data, monomer_objects_dir, pair_msa=pair_msa)
     return multimers
 
 
@@ -260,6 +261,7 @@ def predict_multimers(multimers):
     or create_custom_jobs() or create_homooligomers()
     """
     for object in multimers:
+        logging.info('object: '+object.description)
         if isinstance(object, MultimericObject):
             model_runners, random_seed = create_model_runners_and_random_seed(
                 "multimer",
@@ -302,23 +304,24 @@ def main(argv):
         data = create_pulldown_info(
             bait_proteins, candidate_proteins, job_index=FLAGS.job_index
         )
-        multimers = create_multimer_objects(data, FLAGS.monomer_objects_dir)
+        multimers = create_multimer_objects(data, FLAGS.monomer_objects_dir, not FLAGS.no_pair_msa)
 
     elif FLAGS.mode == "all_vs_all":
         all_proteins = read_all_proteins(FLAGS.protein_lists[0])
         data = create_all_vs_all_info(all_proteins, job_index=FLAGS.job_index)
-        multimers = create_multimer_objects(data, FLAGS.monomer_objects_dir)
+        multimers = create_multimer_objects(data, FLAGS.monomer_objects_dir, not FLAGS.no_pair_msa)
 
     elif FLAGS.mode == "homo-oligomer":
         multimers = create_homooligomers(
             FLAGS.oligomer_state_file,
             FLAGS.monomer_objects_dir,
             job_index=FLAGS.job_index,
+            pair_msa=not FLAGS.no_pair_msa
         )
 
     elif FLAGS.mode == "custom":
         multimers = create_custom_jobs(
-            FLAGS.protein_lists, FLAGS.monomer_objects_dir, job_index=FLAGS.job_index
+            FLAGS.protein_lists, FLAGS.monomer_objects_dir, job_index=FLAGS.job_index, pair_msa=not FLAGS.no_pair_msa
         )
 
     predict_multimers(multimers)
