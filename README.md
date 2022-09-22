@@ -1,6 +1,11 @@
 
 # Just a local copy for secret AlphaPulldown experiments (e.g. for TrueMultimer)
 
+This is a real fork of AlphaPulldown with https://github.com/KosinskiLab/AlphaPulldown set as upstream:
+git remote add upstream https://github.com/KosinskiLab/AlphaPulldown
+Here, you can create branches for your forks and keep them in sync with the original AlphaPulldown.
+The main branch should be untouched and will be periodically rebased to AlphaPulldown main.
+
 # AlphaPulldown
 
 AlphaPulldown is a Python package that streamlines protein-protein interaction screens and high-throughput modelling of higher-order oligomers using AlphaFold-Multimer:
