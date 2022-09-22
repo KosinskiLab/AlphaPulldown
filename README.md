@@ -1,3 +1,6 @@
+
+# Just a local copy for secret AlphaPulldown experiments (e.g. for TrueMultimer)
+
 # AlphaPulldown
 
 AlphaPulldown is a Python package that streamlines protein-protein interaction screens and high-throughput modelling of higher-order oligomers using AlphaFold-Multimer:
