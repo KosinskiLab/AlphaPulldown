@@ -25,7 +25,7 @@ import contextlib
 from datetime import datetime
 import alphafold
 from pathlib import Path
-
+from ColabFold.colabfold.utils import DEFAULT_API_SERVER
 
 @contextlib.contextmanager
 def output_meta_file(file_path):
@@ -67,6 +67,7 @@ flags.DEFINE_integer(
 flags.DEFINE_string(
     "new_uniclust_dir", None, "directory where new version of uniclust is stored"
 )
+flags.DEFINE_bool("use_mmseq2",False,"Use mmseq2 remotely or not. Default is False")
 FLAGS = flags.FLAGS
 MAX_TEMPLATE_HITS = 20
 
@@ -184,7 +185,8 @@ def check_existing_objects(output_dir, pickle_name):
     return os.path.isfile(os.path.join(output_dir, pickle_name))
 
 
-def create_and_save_monomer_objects(m, pipeline, flags_dict):
+def create_and_save_monomer_objects(m, pipeline, flags_dict,use_mmseq2=False):
+    logging.info("You are using the new version")
     if FLAGS.skip_existing and check_existing_objects(
         FLAGS.output_dir, f"{m.description}.pkl"
     ):
@@ -197,12 +199,16 @@ def create_and_save_monomer_objects(m, pipeline, flags_dict):
         )
         with output_meta_file(metadata_output_path) as meta_data_outfile:
             save_meta_data(flags_dict, meta_data_outfile)
-        m.make_features(
-            pipeline,
-            output_dir=FLAGS.output_dir,
-            use_precomuted_msa=FLAGS.use_precomputed_msas,
-            save_msa=FLAGS.save_msa_files,
-        )
+        
+        if not use_mmseq2:
+            m.make_features(
+                pipeline,
+                output_dir=FLAGS.output_dir,
+                use_precomputed_msa=FLAGS.use_precomputed_msas,
+                save_msa=FLAGS.save_msa_files,
+            )
+        else:
+            m.make_mmseq_features(DEFAULT_API_SERVER,output_dir=FLAGS.output_dir)
         pickle.dump(m, open(f"{FLAGS.output_dir}/{m.description}.pkl", "wb"))
         del m
 
@@ -237,7 +243,8 @@ def main(argv):
                 if curr_desc and not curr_desc.isspace():
                     curr_monomer = MonomericObject(curr_desc, curr_seq)
                     curr_monomer.uniprot_runner = uniprot_runner
-                    create_and_save_monomer_objects(curr_monomer, pipeline, flags_dict)
+                    create_and_save_monomer_objects(curr_monomer, pipeline, 
+                    flags_dict,use_mmseq2=FLAGS.use_mmseq2)
         
 
 if __name__ == "__main__":
