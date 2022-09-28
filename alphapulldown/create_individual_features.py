@@ -25,7 +25,7 @@ import contextlib
 from datetime import datetime
 import alphafold
 from pathlib import Path
-from ColabFold.colabfold.utils import DEFAULT_API_SERVER
+from colabfold.utils import DEFAULT_API_SERVER
 
 @contextlib.contextmanager
 def output_meta_file(file_path):

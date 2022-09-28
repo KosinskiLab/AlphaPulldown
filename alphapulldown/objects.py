@@ -16,7 +16,7 @@ from alphafold.data import msa_pairing
 from alphafold.data import feature_processing
 from pathlib import Path as plPath
 
-from ColabFold.colabfold.batch import get_queries,unserialize_msa,get_msa_and_templates,msa_to_str,build_monomer_feature
+from colabfold.batch import get_queries,unserialize_msa,get_msa_and_templates,msa_to_str,build_monomer_feature,parse_fasta
 
 @contextlib.contextmanager
 def temp_fasta_file(sequence_str):
@@ -156,10 +156,12 @@ class MonomericObject:
                 )
                 self.feature_dict.update(pairing_results)
 
+   
     def make_mmseq_features(
         self,DEFAULT_API_SERVER,output_dir=None
     ):
         """A method to use mmseq_remote to calculate msa"""
+        
 
         logging.info("You chose to calculate MSA with mmseq2")
         msa_mode = "MMseqs2 (UniRef+Environmental)"
@@ -170,13 +172,24 @@ class MonomericObject:
         if keep_existing_results and plPath(result_zip).is_file():
             logging.info(f"Skipping {self.description} (result.zip)")
 
-        if os.path.isfile(os.path.join(result_dir,self.description,".a3m")):
-            logging.info(f"Have found pre-computed a3m file by mmseq2 at : {os.path.join(result_dir,self.description,'.a3m')}")
-            queries,*_ = get_queries(os.path.join(result_dir,self.description,".a3m"))
+
+        logging.info(f"looking for possible precomputed a3m at {os.path.join(result_dir,self.description+'.a3m')}")
+        try:
+            logging.info(f"input is {os.path.join(result_dir,self.description+'.a3m')}")
+            input_path=os.path.join(result_dir,self.description+'.a3m')
+            (seqs, header) = parse_fasta(plPath(input_path).read_text())
+            if len(seqs) == 0:
+                raise ValueError(f"{input_path} is empty")
+            query_sequence = seqs[0]
+            # Use a list so we can easily extend this to multiple msas later
+            a3m_lines = [plPath(input_path).read_text()]
+            queries = [(input_path.stem, query_sequence, a3m_lines)]
+            queries.sort(key=lambda t: len(t[1]))
             (*_,a3m_lines)=queries
-        else:
+            logging.info(f"Finished parsing the precalculated a3m_file\nNow will search for template in local {self.description}_env")
+        except:
             a3m_lines=None
-        
+
         if a3m_lines is not None:
                 (
                     unpaired_msa,
