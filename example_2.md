@@ -220,7 +220,7 @@ In order to create the notebook, within the same conda environment, run:
 ```bash
 source activate AlphaPulldown
 cd <models_output_dir>
-create_notebook.py --cutoff=5.0
+create_notebook.py --cutoff=5.0 --output_dir=<models_output_dir>
 ```
 :warning: The command must be run within the ```<output_dir>```!
 
