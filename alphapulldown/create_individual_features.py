@@ -224,18 +224,28 @@ def iter_seqs(fasta_fns):
 
 def main(argv):
     Path(FLAGS.output_dir).mkdir(parents=True, exist_ok=True)
-    pipeline, flags_dict = create_pipeline(flags_dict=FLAGS.flag_values_dict())
-    uniprot_database_path = os.path.join(FLAGS.data_dir, "uniprot/uniprot.fasta")
-    flags_dict.update({"uniprot_database_path": uniprot_database_path})
-    if os.path.isfile(uniprot_database_path):
-        uniprot_runner = create_uniprot_runner(
-            FLAGS.jackhmmer_binary_path, uniprot_database_path
-        )
+    
+    if not FLAGS.use_mmseqs2:
+        pipeline, flags_dict = create_pipeline(flags_dict=FLAGS.flag_values_dict())
+        uniprot_database_path = os.path.join(FLAGS.data_dir, "uniprot/uniprot.fasta")
+        flags_dict.update({"uniprot_database_path": uniprot_database_path})
+        if os.path.isfile(uniprot_database_path):
+            uniprot_runner = create_uniprot_runner(
+                FLAGS.jackhmmer_binary_path, uniprot_database_path
+            )
+        else:
+            logging.info(
+                f"Failed to find uniprot.fasta under {uniprot_database_path}. Please make sure your data_dir has been configured correctly."
+            )
+            sys.exit()
     else:
-        logging.info(
-            f"Failed to find uniprot.fasta under {uniprot_database_path}. Please make sure your data_dir has been configured correctly."
-        )
-        sys.exit()
+        if FLAGS.max_template_date is not None:
+            logging.info("You have provided a max_template_date and chosen to use mmseqs2\n However, mmseqs2 does not take into account max_template_date. Please remove this parameter from your command and run again.")
+            sys.exit()
+        else:
+            pipeline=None
+            uniprot_runner=None
+            flags_dict=FLAGS.flag_values_dict()
 
     seq_idx = 0
     for curr_seq, curr_desc in iter_seqs(FLAGS.fasta_paths):
@@ -251,6 +261,6 @@ def main(argv):
 
 if __name__ == "__main__":
     flags.mark_flags_as_required(
-        ["fasta_paths", "data_dir", "output_dir", "max_template_date"]
+        ["fasta_paths", "output_dir"]
     )
     app.run(main)
