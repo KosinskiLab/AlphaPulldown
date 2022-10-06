@@ -49,6 +49,10 @@ run_multimer_jobs.py \
   --job_index=<any number you want>
 ```
 
+### (**Optionally**) Running with mmseqs2 against colabfold databases instead. 
+Some of the users may be more familiar with mmseqs2 and colabfold databases. Sometimes, using remote mmseqs2 server can finish MSA calculation even faster than the above method. If you are interested in running mmseqs2, please refer to [this manual](./mmseqs2_manual.md) 
+:memo: Please be aware that mmseqs2 and colabfold databases give different MSA from alphafold's database and HHBlits. Therefore, the predicted models are not always the same when using the these two different ways of generating MSA alignments. 
+
 ### Running on a computer cluster in parallel
 
 On a compute cluster, you may want to run all jobs in parallel as a [job array](https://slurm.schedmd.com/job_array.html). For example, on SLURM queuing system at EMBL we could use the following ```run_multimer_jobs_SLURM.sh``` sbatch script:
