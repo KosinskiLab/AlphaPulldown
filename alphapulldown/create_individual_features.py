@@ -25,7 +25,7 @@ import contextlib
 from datetime import datetime
 import alphafold
 from pathlib import Path
-
+from colabfold.utils import DEFAULT_API_SERVER
 
 @contextlib.contextmanager
 def output_meta_file(file_path):
@@ -67,6 +67,7 @@ flags.DEFINE_integer(
 flags.DEFINE_string(
     "new_uniclust_dir", None, "directory where new version of uniclust is stored"
 )
+flags.DEFINE_bool("use_mmseqs2",False,"Use mmseqs2 remotely or not. Default is False")
 FLAGS = flags.FLAGS
 MAX_TEMPLATE_HITS = 20
 
@@ -184,7 +185,8 @@ def check_existing_objects(output_dir, pickle_name):
     return os.path.isfile(os.path.join(output_dir, pickle_name))
 
 
-def create_and_save_monomer_objects(m, pipeline, flags_dict):
+def create_and_save_monomer_objects(m, pipeline, flags_dict,use_mmseqs2=False):
+    logging.info("You are using the new version")
     if FLAGS.skip_existing and check_existing_objects(
         FLAGS.output_dir, f"{m.description}.pkl"
     ):
@@ -197,12 +199,18 @@ def create_and_save_monomer_objects(m, pipeline, flags_dict):
         )
         with output_meta_file(metadata_output_path) as meta_data_outfile:
             save_meta_data(flags_dict, meta_data_outfile)
-        m.make_features(
-            pipeline,
-            output_dir=FLAGS.output_dir,
-            use_precomuted_msa=FLAGS.use_precomputed_msas,
-            save_msa=FLAGS.save_msa_files,
-        )
+        
+        if not use_mmseqs2:
+            m.make_features(
+                pipeline,
+                output_dir=FLAGS.output_dir,
+                use_precomputed_msa=FLAGS.use_precomputed_msas,
+                save_msa=FLAGS.save_msa_files,
+            )
+        else:
+            if FLAGS.max_template_date :
+                logging.info("You have set the maximum template data but mmseqs2 does not take this into account.\nThis setting will not work the same way as in default AlphaFold pipeline.")
+            m.make_mmseq_features(DEFAULT_API_SERVER,output_dir=FLAGS.output_dir)
         pickle.dump(m, open(f"{FLAGS.output_dir}/{m.description}.pkl", "wb"))
         del m
 
@@ -216,18 +224,28 @@ def iter_seqs(fasta_fns):
 
 def main(argv):
     Path(FLAGS.output_dir).mkdir(parents=True, exist_ok=True)
-    pipeline, flags_dict = create_pipeline(flags_dict=FLAGS.flag_values_dict())
-    uniprot_database_path = os.path.join(FLAGS.data_dir, "uniprot/uniprot.fasta")
-    flags_dict.update({"uniprot_database_path": uniprot_database_path})
-    if os.path.isfile(uniprot_database_path):
-        uniprot_runner = create_uniprot_runner(
-            FLAGS.jackhmmer_binary_path, uniprot_database_path
-        )
+    
+    if not FLAGS.use_mmseqs2:
+        pipeline, flags_dict = create_pipeline(flags_dict=FLAGS.flag_values_dict())
+        uniprot_database_path = os.path.join(FLAGS.data_dir, "uniprot/uniprot.fasta")
+        flags_dict.update({"uniprot_database_path": uniprot_database_path})
+        if os.path.isfile(uniprot_database_path):
+            uniprot_runner = create_uniprot_runner(
+                FLAGS.jackhmmer_binary_path, uniprot_database_path
+            )
+        else:
+            logging.info(
+                f"Failed to find uniprot.fasta under {uniprot_database_path}. Please make sure your data_dir has been configured correctly."
+            )
+            sys.exit()
     else:
-        logging.info(
-            f"Failed to find uniprot.fasta under {uniprot_database_path}. Please make sure your data_dir has been configured correctly."
-        )
-        sys.exit()
+        if FLAGS.max_template_date is not None:
+            logging.info("You have provided a max_template_date and chosen to use mmseqs2\n However, mmseqs2 mode does not take into account max_template_date. Please remove this parameter from your command and run again.")
+            sys.exit()
+        else:
+            pipeline=None
+            uniprot_runner=None
+            flags_dict=FLAGS.flag_values_dict()
 
     seq_idx = 0
     for curr_seq, curr_desc in iter_seqs(FLAGS.fasta_paths):
@@ -237,11 +255,12 @@ def main(argv):
                 if curr_desc and not curr_desc.isspace():
                     curr_monomer = MonomericObject(curr_desc, curr_seq)
                     curr_monomer.uniprot_runner = uniprot_runner
-                    create_and_save_monomer_objects(curr_monomer, pipeline, flags_dict)
+                    create_and_save_monomer_objects(curr_monomer, pipeline, 
+                    flags_dict,use_mmseqs2=FLAGS.use_mmseqs2)
         
 
 if __name__ == "__main__":
     flags.mark_flags_as_required(
-        ["fasta_paths", "data_dir", "output_dir", "max_template_date"]
+        ["fasta_paths", "output_dir"]
     )
     app.run(main)

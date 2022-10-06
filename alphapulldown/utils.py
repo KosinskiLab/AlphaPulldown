@@ -243,11 +243,11 @@ def parse_fasta(fasta_string: str):
         line = line.strip()
         if line.startswith(">"):
             index += 1
-            line.replace(" ", "_")
+            line = line.replace(" ", "_")
             unwanted_symbols = ["|", "=", "&", "*", "@", "#", "`", ":", ";", "$", "?"]
             for symbol in unwanted_symbols:
                 if symbol in line:
-                    line.replace(symbol, "_")
+                    line = line.replace(symbol, "_")
             descriptions.append(line[1:])  # Remove the '>' at the beginning.
             sequences.append("")
             continue

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
+
 # Author: Dingquan Yu
 # A script to create region information for create_multimer_features.py
 # #
+
 
 import itertools
 from re import I
@@ -14,6 +16,8 @@ import os
 import shutil
 from pathlib import Path
 from alphapulldown.predict_structure import predict
+
+
 
 
 flags.DEFINE_enum(
@@ -79,6 +83,8 @@ flags.mark_flag_as_required("output_path")
 FLAGS = flags.FLAGS
 
 
+
+
 def create_pulldown_info(
     bait_proteins: list, candidate_proteins: list, job_index=None
 ) -> dict:
@@ -94,6 +100,7 @@ def create_pulldown_info(
     num_cols = len(candidate_proteins) + 1
     data = dict()
 
+
     if job_index is None:
         for i in range(num_cols):
             curr_col = []
@@ -102,12 +109,15 @@ def create_pulldown_info(
             update_dict = {f"col_{i+1}": curr_col}
             data.update(update_dict)
 
+
     elif isinstance(job_index, int):
         target_pair = all_protein_pairs[job_index-1]
         for i in range(num_cols):
             update_dict = {f"col_{i+1}": [target_pair[i]]}
             data.update(update_dict)
     return data
+
+
 
 
 def create_all_vs_all_info(all_proteins: list, job_index=None):
@@ -119,14 +129,18 @@ def create_all_vs_all_info(all_proteins: list, job_index=None):
     else:
         combs = all_possible_pairs
 
+
     col1 = []
     col2 = []
     for comb in combs:
         col1.append(comb[0])
         col2.append(comb[1])
 
+
     data = {"col1": col1, "col2": col2}
     return data
+
+
 
 
 def create_custom_info(all_proteins):
@@ -140,6 +154,8 @@ def create_custom_info(all_proteins):
     return data
 
 
+
+
 def create_multimer_objects(data, monomer_objects_dir, pair_msa=True):
     """
     A function to create multimer objects
@@ -149,9 +165,11 @@ def create_multimer_objects(data, monomer_objects_dir, pair_msa=True):
     monomer_objects_dir: a directory where pre-computed monomer objects are stored
     """
 
+
     multimers = []
     num_jobs = len(data[list(data.keys())[0]])
     job_idxes = list(range(num_jobs))
+
 
     for job_idx in job_idxes:
         interactors = create_interactors(data, monomer_objects_dir, job_idx)
@@ -163,7 +181,10 @@ def create_multimer_objects(data, monomer_objects_dir, pair_msa=True):
             logging.info(f"done loading monomer {interactors[0].description}")
             multimers.append(interactors[0])
 
+
     return multimers
+
+
 
 
 def create_homooligomers(oligomer_state_file, monomer_objects_dir, job_index=None, pair_msa = False):
@@ -177,6 +198,7 @@ def create_homooligomers(oligomer_state_file, monomer_objects_dir, job_index=Non
         else:
             job_idxes = list(range(len(lines)))
 
+
         for job_idx in job_idxes:
             l = lines[job_idx]
             if len(l.strip()) > 0:
@@ -186,6 +208,7 @@ def create_homooligomers(oligomer_state_file, monomer_objects_dir, job_index=Non
                 else:
                     protein_name = l.rstrip().split(",")[0]
                     num_units = 1
+
 
                 if num_units > 1:
                     monomer = load_monomer_objects(monomer_dir_dict, protein_name)
@@ -202,6 +225,8 @@ def create_homooligomers(oligomer_state_file, monomer_objects_dir, job_index=Non
                     logging.info(f"finished loading monomer: {protein_name}")
         f.close()
     return multimers
+
+
 
 
 def create_custom_jobs(custom_input_file, monomer_objects_dir, job_index=None, pair_msa=True):
@@ -222,6 +247,7 @@ def create_custom_jobs(custom_input_file, monomer_objects_dir, job_index=None, p
     else:
         job_idxes = list(range(len(lines)))
 
+
     for job_idx in job_idxes:
         l = lines[job_idx]
         if len(l.strip()) > 0:
@@ -231,13 +257,17 @@ def create_custom_jobs(custom_input_file, monomer_objects_dir, job_index=None, p
     return multimers
 
 
+
+
 def predict_individual_jobs(multimer_object, output_path, model_runners, random_seed):
     output_path = os.path.join(output_path, multimer_object.description)
     Path(output_path).mkdir(parents=True, exist_ok=True)
     logging.info(f"now running prediction on {multimer_object.description}")
 
+
     if not isinstance(multimer_object, MultimericObject):
         multimer_object.input_seqs = [multimer_object.sequence]
+
 
     predict(
         model_runners,
@@ -250,6 +280,8 @@ def predict_individual_jobs(multimer_object, output_path, model_runners, random_
         seqs=multimer_object.input_seqs,
     )
     create_and_save_pae_plots(multimer_object, output_path)
+
+
 
 
 def predict_multimers(multimers):
@@ -293,8 +325,11 @@ def predict_multimers(multimers):
             )
 
 
+
+
 def main(argv):
     check_output_dir(FLAGS.output_path)
+
 
     if FLAGS.mode == "pulldown":
         bait_proteins = read_all_proteins(FLAGS.protein_lists[0])
@@ -306,10 +341,12 @@ def main(argv):
         )
         multimers = create_multimer_objects(data, FLAGS.monomer_objects_dir, not FLAGS.no_pair_msa)
 
+
     elif FLAGS.mode == "all_vs_all":
         all_proteins = read_all_proteins(FLAGS.protein_lists[0])
         data = create_all_vs_all_info(all_proteins, job_index=FLAGS.job_index)
         multimers = create_multimer_objects(data, FLAGS.monomer_objects_dir, not FLAGS.no_pair_msa)
+
 
     elif FLAGS.mode == "homo-oligomer":
         multimers = create_homooligomers(
@@ -319,12 +356,16 @@ def main(argv):
             pair_msa=not FLAGS.no_pair_msa
         )
 
+
     elif FLAGS.mode == "custom":
         multimers = create_custom_jobs(
             FLAGS.protein_lists, FLAGS.monomer_objects_dir, job_index=FLAGS.job_index, pair_msa=not FLAGS.no_pair_msa
         )
 
+
     predict_multimers(multimers)
+
+
 
 
 if __name__ == "__main__":

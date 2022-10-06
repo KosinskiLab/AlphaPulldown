@@ -14,8 +14,9 @@ from alphafold.data import pipeline_multimer
 from alphafold.data import pipeline
 from alphafold.data import msa_pairing
 from alphafold.data import feature_processing
-from pathlib import Path
+from pathlib import Path as plPath
 
+from colabfold.batch import get_queries,unserialize_msa,get_msa_and_templates,msa_to_str,build_monomer_feature,parse_fasta
 
 @contextlib.contextmanager
 def temp_fasta_file(sequence_str):
@@ -103,7 +104,7 @@ class MonomericObject:
         return feats
 
     def make_features(
-        self, pipeline, output_dir=None, use_precomuted_msa=False, save_msa=False
+        self, pipeline, output_dir=None, use_precomuted_msa=False, save_msa=True
     ):
         """a method that make msa and template features"""
         if not use_precomuted_msa:
@@ -127,7 +128,7 @@ class MonomericObject:
                 msa_output_dir = os.path.join(output_dir, self.description)
                 sequence_str = f">{self.description}\n{self.sequence}"
                 logging.info("will save msa files in :{}".format(msa_output_dir))
-                Path(msa_output_dir).mkdir(parents=True, exist_ok=True)
+                plPath(msa_output_dir).mkdir(parents=True, exist_ok=True)
                 with temp_fasta_file(sequence_str) as fasta_file:
                     self.feature_dict = pipeline.process(fasta_file, msa_output_dir)
                     pairing_results = self.all_seq_msa_features(
@@ -137,7 +138,7 @@ class MonomericObject:
         else:
             """This means precomputed msa files are available"""
             msa_output_dir = os.path.join(output_dir, self.description)
-            Path(msa_output_dir).mkdir(parents=True, exist_ok=True)
+            plPath(msa_output_dir).mkdir(parents=True, exist_ok=True)
             logging.info(
                 "use precomputed msa. Searching for msa files in :{}".format(
                     msa_output_dir
@@ -155,6 +156,81 @@ class MonomericObject:
                 )
                 self.feature_dict.update(pairing_results)
 
+   
+    def make_mmseq_features(
+        self,DEFAULT_API_SERVER,output_dir=None
+    ):
+        """A method to use mmseq_remote to calculate msa"""
+        
+
+        logging.info("You chose to calculate MSA with mmseq2")
+        msa_mode = "MMseqs2 (UniRef+Environmental)"
+        keep_existing_results=True
+        result_dir = output_dir
+        use_templates=True
+        result_zip = os.path.join(result_dir,self.description,".result.zip")
+        if keep_existing_results and plPath(result_zip).is_file():
+            logging.info(f"Skipping {self.description} (result.zip)")
+
+
+        logging.info(f"looking for possible precomputed a3m at {os.path.join(result_dir,self.description+'.a3m')}")
+        try:
+            logging.info(f"input is {os.path.join(result_dir,self.description+'.a3m')}")
+            input_path=os.path.join(result_dir,self.description+'.a3m')
+            (seqs, header) = parse_fasta(plPath(input_path).read_text())
+            if len(seqs) == 0:
+                raise ValueError(f"{input_path} is empty")
+            query_sequence = seqs[0]
+            # Use a list so we can easily extend this to multiple msas later
+            a3m_lines = [plPath(input_path).read_text()]
+            queries = [(input_path.stem, query_sequence, a3m_lines)]
+            queries.sort(key=lambda t: len(t[1]))
+            (*_,a3m_lines)=queries
+            logging.info(f"Finished parsing the precalculated a3m_file\nNow will search for template in local {self.description}_env")
+        except:
+            a3m_lines=None
+
+        if a3m_lines is not None:
+                (
+                    unpaired_msa,
+                    paired_msa,
+                    query_seqs_unique,
+                    query_seqs_cardinality,
+                    template_features,
+                ) = unserialize_msa(a3m_lines, self.sequence)
+        else:
+            (
+                unpaired_msa,
+                paired_msa,
+                query_seqs_unique,
+                query_seqs_cardinality,
+                template_features,
+            ) = get_msa_and_templates(
+                self.description,
+                self.sequence,
+                plPath(result_dir),
+                msa_mode,
+                use_templates,
+                custom_template_path=None,
+                pair_mode="none",
+                host_url=DEFAULT_API_SERVER,
+            )
+        msa = msa_to_str(
+            unpaired_msa, paired_msa, query_seqs_unique, query_seqs_cardinality
+        )
+        plPath(os.path.join(result_dir,self.description + ".a3m")).write_text(msa)
+        self.feature_dict = build_monomer_feature(self.sequence,unpaired_msa[0],template_features[0])
+        
+        
+        # update feature_dict with 
+        valid_feats = msa_pairing.MSA_FEATURES + (
+            "msa_species_identifiers",
+            "msa_uniprot_accession_identifiers",
+        )
+        feats = {
+            f"{k}_all_seq": v for k, v in self.feature_dict.items() if k in valid_feats
+        }
+        self.feature_dict.update(feats)
 
 class ChoppedObject(MonomericObject):
     """chopped monomeric objects"""
