@@ -240,7 +240,7 @@ def main(argv):
             sys.exit()
     else:
         if FLAGS.max_template_date is not None:
-            logging.info("You have provided a max_template_date and chosen to use mmseqs2\n However, mmseqs2 does not take into account max_template_date. Please remove this parameter from your command and run again.")
+            logging.info("You have provided a max_template_date and chosen to use mmseqs2\n However, mmseqs2 mode does not take into account max_template_date. Please remove this parameter from your command and run again.")
             sys.exit()
         else:
             pipeline=None
