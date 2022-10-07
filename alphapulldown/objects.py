@@ -104,10 +104,10 @@ class MonomericObject:
         return feats
 
     def make_features(
-        self, pipeline, output_dir=None, use_precomuted_msa=False, save_msa=True
+        self, pipeline, output_dir=None, use_precomputed_msa=False, save_msa=True
     ):
         """a method that make msa and template features"""
-        if not use_precomuted_msa:
+        if not use_precomputed_msa:
             if not save_msa:
                 """this means no msa files are going to be saved"""
                 logging.info("You have chosen not to save msa output files")
