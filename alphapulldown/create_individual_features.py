@@ -226,18 +226,22 @@ def main(argv):
     Path(FLAGS.output_dir).mkdir(parents=True, exist_ok=True)
     
     if not FLAGS.use_mmseqs2:
-        pipeline, flags_dict = create_pipeline(flags_dict=FLAGS.flag_values_dict())
-        uniprot_database_path = os.path.join(FLAGS.data_dir, "uniprot/uniprot.fasta")
-        flags_dict.update({"uniprot_database_path": uniprot_database_path})
-        if os.path.isfile(uniprot_database_path):
-            uniprot_runner = create_uniprot_runner(
-                FLAGS.jackhmmer_binary_path, uniprot_database_path
-            )
-        else:
-            logging.info(
-                f"Failed to find uniprot.fasta under {uniprot_database_path}. Please make sure your data_dir has been configured correctly."
-            )
+        if not FLAGS.max_template_date:
+            logging.info("You have not provided a max_template_date. Please specify a date and run again.")
             sys.exit()
+        else:
+            pipeline, flags_dict = create_pipeline(flags_dict=FLAGS.flag_values_dict())
+            uniprot_database_path = os.path.join(FLAGS.data_dir, "uniprot/uniprot.fasta")
+            flags_dict.update({"uniprot_database_path": uniprot_database_path})
+            if os.path.isfile(uniprot_database_path):
+                uniprot_runner = create_uniprot_runner(
+                    FLAGS.jackhmmer_binary_path, uniprot_database_path
+                )
+            else:
+                logging.info(
+                    f"Failed to find uniprot.fasta under {uniprot_database_path}. Please make sure your data_dir has been configured correctly."
+                )
+                sys.exit()
     else:
         if FLAGS.max_template_date is not None:
             logging.info("You have provided a max_template_date and chosen to use mmseqs2\n However, mmseqs2 mode does not take into account max_template_date. Please remove this parameter from your command and run again.")
