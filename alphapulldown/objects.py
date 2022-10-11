@@ -166,7 +166,7 @@ class MonomericObject:
         template_path should be the same as FLAG.data_dir
         """
         template_featureiser = templates.HhsearchHitFeaturizer(
-        mmcif_dir=template_path,
+        mmcif_dir=f"{template_path}/pdb_mmcif/mmcif_files",
         max_template_date=max_template_date,
         max_hits=20,
         kalign_binary_path="kalign",
@@ -174,7 +174,7 @@ class MonomericObject:
         obsolete_pdbs_path=None,
         )
         hhsearch_pdb70_runner = hhsearch.HHSearch(
-        binary_path="hhsearch", databases=[f"{template_path}/pdb70"]
+        binary_path="hhsearch", databases=[f"{template_path}/pdb70/pdb70"]
     )
 
         hhsearch_result = hhsearch_pdb70_runner.query(a3m_lines)
@@ -204,20 +204,13 @@ class MonomericObject:
         try:
             logging.info(f"input is {os.path.join(result_dir,self.description+'.a3m')}")
             input_path=os.path.join(result_dir,self.description+'.a3m')
-            (seqs, header) = parse_fasta(plPath(input_path).read_text())
-            if len(seqs) == 0:
-                raise ValueError(f"{input_path} is empty")
-            query_sequence = seqs[0]
-            # Use a list so we can easily extend this to multiple msas later
             a3m_lines = [plPath(input_path).read_text()]
-            queries = [(input_path.stem, query_sequence, a3m_lines)]
-            queries.sort(key=lambda t: len(t[1]))
-            (*_,a3m_lines)=queries
-            logging.info(f"Finished parsing the precalculated a3m_file\nNow will search for template in local {self.description}_env")
+            logging.info(f"Finished parsing the precalculated a3m_file\nNow will search for template in local {template_path}")
         except:
             a3m_lines=None
 
         if a3m_lines is not None:
+                logging.info(f"a3m_line is not none")
                 (
                     unpaired_msa,
                     paired_msa,
@@ -249,7 +242,8 @@ class MonomericObject:
         plPath(os.path.join(result_dir,self.description + ".a3m")).write_text(msa)
         # unserialize_msa was from colabfold.batch and originally will only create mock template features
                 # below will search against pdb70 database using hhsearch and create real template features
-        template_features = [self.mk_template(a3m_lines,
+        logging.info("will search for templates in local template database")
+        template_features = [self.mk_template(a3m_lines[0],
         template_path,query_sequence=self.sequence,max_template_date=max_template_date)]
         self.feature_dict = build_monomer_feature(self.sequence,unpaired_msa[0],template_features[0])
         
