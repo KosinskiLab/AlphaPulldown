@@ -194,7 +194,7 @@ class MonomericObject:
         msa_mode = "MMseqs2 (UniRef+Environmental)"
         keep_existing_results=True
         result_dir = output_dir
-        use_templates=True
+        use_templates=False
         result_zip = os.path.join(result_dir,self.description,".result.zip")
         if keep_existing_results and plPath(result_zip).is_file():
             logging.info(f"Skipping {self.description} (result.zip)")
@@ -225,10 +225,7 @@ class MonomericObject:
                     query_seqs_cardinality,
                     template_features,
                 ) = unserialize_msa(a3m_lines, self.sequence)
-                # unserialize_msa was from colabfold.batch and originally will only create mock template features
-                # below will search against pdb70 database using hhsearch and create real template features
-                template_features = [self.mk_template(a3m_lines,
-                template_path,query_sequence=self.sequence,max_template_date=max_template_date)]
+                
         else:
             (
                 unpaired_msa,
@@ -250,6 +247,10 @@ class MonomericObject:
             unpaired_msa, paired_msa, query_seqs_unique, query_seqs_cardinality
         )
         plPath(os.path.join(result_dir,self.description + ".a3m")).write_text(msa)
+        # unserialize_msa was from colabfold.batch and originally will only create mock template features
+                # below will search against pdb70 database using hhsearch and create real template features
+        template_features = [self.mk_template(a3m_lines,
+        template_path,query_sequence=self.sequence,max_template_date=max_template_date)]
         self.feature_dict = build_monomer_feature(self.sequence,unpaired_msa[0],template_features[0])
         
         
