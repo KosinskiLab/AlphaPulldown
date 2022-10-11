@@ -243,13 +243,10 @@ def main(argv):
                 )
                 sys.exit()
     else:
-        if FLAGS.max_template_date is not None:
-            logging.info("You have provided a max_template_date and chosen to use mmseqs2\n However, mmseqs2 mode does not take into account max_template_date. Please remove this parameter from your command and run again.")
-            sys.exit()
-        else:
-            pipeline=None
-            uniprot_runner=None
-            flags_dict=FLAGS.flag_values_dict()
+        
+        pipeline=None
+        uniprot_runner=None
+        flags_dict=FLAGS.flag_values_dict()
 
     seq_idx = 0
     for curr_seq, curr_desc in iter_seqs(FLAGS.fasta_paths):

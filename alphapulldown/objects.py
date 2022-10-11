@@ -210,7 +210,6 @@ class MonomericObject:
             a3m_lines=None
 
         if a3m_lines is not None:
-                logging.info(f"a3m_line is not none")
                 (
                     unpaired_msa,
                     paired_msa,
