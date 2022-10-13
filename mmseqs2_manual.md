@@ -10,13 +10,25 @@ Now run:
 ```bash
 source activate AlphaPulldown
 create_individual_features.py \
-  --fasta_paths=baits.fasta,example_1_sequences.fasta \
+  --fasta_paths=example_1_sequences.fasta \
   --data_dir=<path to alphafold databases> \
   --output_dir=<dir to save the output objects> \ 
   --skip_existing=False \
   --use_mmseqs2=True \
   --max_template_date=<any date you want, format like: 2050-01-01> \ 
   --seq_index=<any number you want or skip the flag to run all one after another>
+```
+
+and your output_dir will look like:
+```bash
+output_dir
+    |-protein_A.a3m
+    |-protein_A_env/
+    |-protein_A.pkl
+    |-protein_B.a3m
+    |-protein_B_env/
+    |-protein_B.pkl
+    ...
 ```
 
 ```create_individual_features.py``` will compute necessary features each protein in [```./example_data/example_1_sequences.fasta```](./example_data/example_1_sequences.fasta) and store them in the ```output_dir```. Please be aware that everything after ```>``` will be 
@@ -68,7 +80,7 @@ create_individual_features.py \
   --use_mmseqs2=True \
   --seq_index=<any number you want or skip the flag to run all one after another>
 ```
-and AlphaPulldown will automatically search each protein's corresponding a3m files.
+and AlphaPulldown will automatically search each protein's corresponding a3m files. In the end, your output_dir will look like:
 ```
 output_dir
     |-protein_A.a3m
