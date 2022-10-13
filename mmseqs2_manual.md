@@ -75,7 +75,6 @@ create_individual_features.py \
   --fasta_paths=example_1_sequences.fasta \
   --data_dir=<path to alphafold databases> \
   --output_dir=output_dir \ 
-  --use_precomputed_msas=False \
   --skip_existing=False \
   --use_mmseqs2=True \
   --seq_index=<any number you want or skip the flag to run all one after another>
