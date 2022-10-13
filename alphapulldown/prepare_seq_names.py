@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import sys
 from itertools import groupby
 import re
@@ -40,5 +41,7 @@ with open(sys.argv[1]) as f:
         items = re.split('[ \|]', headerStr)
         out_lines.append(f'>{items[1]}')
         out_lines.append(seq)
-
-print("\n".join(out_lines))
+    f.close()
+with open(sys.argv[1],'w') as f:
+    print("\n".join(out_lines),file=f)
+    f.close()

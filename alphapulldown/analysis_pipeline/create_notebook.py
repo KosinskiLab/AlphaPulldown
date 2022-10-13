@@ -69,7 +69,7 @@ def create_notebook(combo, output_dir,figsize):
         subdir = os.path.join(base_dir, f"{job}")
         subtitile1 = nbf.new_text_cell("markdown", f"### {job} PAE plots")
         output_cells.append(subtitile1)
-        code_cell_1 = nbf.new_code_cell(f"display_pae_plots('{subdir}',figsize=({figsize,figsize})")
+        code_cell_1 = nbf.new_code_cell(f"display_pae_plots('{subdir}',figsize=({figsize,figsize}))")
         output_cells.append(code_cell_1)
         subtitle2 = nbf.new_text_cell("markdown", f"### {job} coloured by plddt")
         output_cells.append(subtitle2)
