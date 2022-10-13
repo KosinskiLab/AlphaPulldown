@@ -10,76 +10,83 @@ Now run:
 ```bash
 source activate AlphaPulldown
 create_individual_features.py \
-  --fasta_paths=baits.fasta,example_1_sequences.fasta 
+  --fasta_paths=example_1_sequences.fasta \
+  --data_dir=<path to alphafold databases> \
   --output_dir=<dir to save the output objects> \ 
-  --use_precomputed_msas=False \
   --skip_existing=False \
-  --use_mmseqs2=True
+  --use_mmseqs2=True \
+  --max_template_date=<any date you want, format like: 2050-01-01> \ 
   --seq_index=<any number you want or skip the flag to run all one after another>
+```
+
+and your output_dir will look like:
+```bash
+output_dir
+    |-protein_A.a3m
+    |-protein_A_env/
+    |-protein_A.pkl
+    |-protein_B.a3m
+    |-protein_B_env/
+    |-protein_B.pkl
+    ...
 ```
 
 ```create_individual_features.py``` will compute necessary features each protein in [```./example_data/example_1_sequences.fasta```](./example_data/example_1_sequences.fasta) and store them in the ```output_dir```. Please be aware that everything after ```>``` will be 
 taken as the description of the protein and **please be aware** that any special symbol, such as ```| : ; #```, after ```>``` will be replaced with ```_```
 
-```max_template_date``` and ```data_dir``` are not needed here. This part of programme in AlphaPulldown is built upon ColabFold, in which maximum template date is hardcoded. 
-Thus, providing ```max_template_date``` and ```--use_mmseqs2=True``` will return a warning message and stop the programme.
 
 # option 2: run mmseqs2 locally.
 
 AlphaPulldown does **NOT** provide interface or codes that will run mmseqs2 locally. Neither will it install mmseqs or any other programme required. The user has to
-install mmseqs, colabfold databases and other required dependencies and run msa alignments first. An example guide can be found on [mmseqs website](https://github.com/soedinglab/MMseqs2) or [Colabfold github](https://github.com/sokrypton/ColabFold)
+install mmseqs, colabfold databases, colab_search and other required dependencies and run msa alignments first. An example guide can be found on [Colabfold github](https://github.com/sokrypton/ColabFold).
 
-Suppose you have run mmseqs locally successfully, for each protein of your interest, it will generate an a3m file and some env subdirectory. Thus, your output_dir
+Suppose you have run mmseqs locally successfully using ```colab_search``` programme, for each protein of your interest, it will generate an a3m file. Thus, your output_dir
 should look like this:
 
 ```
 output_dir
-    |-protein_A.a3m
-    |-protein_A_env/
-          |-bfd.mgnify30.metaeuk30.smag30.a3m
-          |-msa.sh
-          |-pdb70.m8
-          |-templates_101/
-          |-uniref.a3m
-    |-protein_B.a3m
-    |-protein_B_env/
-          |-bfd.mgnify30.metaeuk30.smag30.a3m
-          |-msa.sh
-          |-pdb70.m8
-          |-templates_101/
-          |-uniref.a3m
+    |-0.a3m
+    |-1.a3m
+    |-2.a3m
+    |-3.a3m
+    ...
 ```
-
-After this, point to this directory in the command:
+These a3m files from```colabfold_search``` are named in such inconvenient way. Thus, we have provided a ```rename_colab_search_a3m.py``` script that will help you rename all these files. Simply run:
 ```bash
-source activate AlphaPulldown
-create_individual_features.py \
-  --fasta_paths=baits.fasta,example_1_sequences.fasta 
-  --output_dir=output_dir \ 
-  --use_precomputed_msas=False \
-  --skip_existing=False \
-  --use_mmseqs2=True
-  --seq_index=<any number you want or skip the flag to run all one after another>
+# within the same conda env where you have installed AlphaPulldown
+cd output_dir
+rename_colab_search_a3m.py
 ```
-and AlphaPulldown will automatically search each protein's corresponding a3m file and ```XXX_env``` subfolder
-and generate features. Finally, the output_dir will look like:
+Then your ```output_dir``` will become:
 
 ```
 output_dir
     |-protein_A.a3m
+    |-protein_B.a3m
+    |-protein_C.a3m
+    |-protein_D.a3m
+    ...
+```
+where ```protein_A``` ```protein_B``` ... correspond to the names you have in your input fasta file (">protein_A" will give you "protein_A.a3m", "protein_B" -> "protein_B.a3m" etc.). 
+After this, go back to your project directory with the original FASTA file and point to this directory in the command:
+```bash
+source activate AlphaPulldown
+create_individual_features.py \
+  --fasta_paths=example_1_sequences.fasta \
+  --data_dir=<path to alphafold databases> \
+  --output_dir=output_dir \ 
+  --skip_existing=False \
+  --use_mmseqs2=True \
+  --seq_index=<any number you want or skip the flag to run all one after another>
+```
+and AlphaPulldown will automatically search each protein's corresponding a3m files. In the end, your output_dir will look like:
+```
+output_dir
+    |-protein_A.a3m
     |-protein_A.pkl
-    |-protein_A_env/
-          |-bfd.mgnify30.metaeuk30.smag30.a3m
-          |-msa.sh
-          |-pdb70.m8
-          |-templates_101/
-          |-uniref.a3m
     |-protein_B.a3m
     |-protein_B.pkl
-    |-protein_B_env/
-          |-bfd.mgnify30.metaeuk30.smag30.a3m
-          |-msa.sh
-          |-pdb70.m8
-          |-templates_101/
-          |-uniref.a3m
+    |-protein_C.a3m
+    |-protein_C.pkl
+    ...
 ```
