@@ -38,7 +38,7 @@ taken as the description of the protein and **please be aware** that any special
 # option 2: run mmseqs2 locally.
 
 AlphaPulldown does **NOT** provide interface or codes that will run mmseqs2 locally. Neither will it install mmseqs or any other programme required. The user has to
-install mmseqs, colabfold databases, colab_search and other required dependencies and run msa alignments first. An example guide can be found on [mmseqs website](https://github.com/soedinglab/MMseqs2) or [Colabfold github](https://github.com/sokrypton/ColabFold)
+install mmseqs, colabfold databases, colab_search and other required dependencies and run msa alignments first. An example guide can be found on [Colabfold github](https://github.com/sokrypton/ColabFold)
 
 Suppose you have run mmseqs locally successfully using ```colab_search``` programme, for each protein of your interest, it will generate an a3m file Thus, your output_dir
 should look like this:
