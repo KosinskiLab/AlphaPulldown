@@ -165,7 +165,7 @@ class MonomericObject:
         Args
         template_path should be the same as FLAG.data_dir
         """
-        template_featureiser = templates.HhsearchHitFeaturizer(
+        template_featuriser = templates.HhsearchHitFeaturizer(
         mmcif_dir=f"{template_path}/pdb_mmcif/mmcif_files",
         max_template_date=max_template_date,
         max_hits=20,
@@ -179,7 +179,7 @@ class MonomericObject:
         
         hhsearch_result = hhsearch_pdb70_runner.query(a3m_lines)
         hhsearch_hits = pipeline.parsers.parse_hhr(hhsearch_result)
-        templates_result = template_featureiser.get_templates(
+        templates_result = template_featuriser.get_templates(
             query_sequence=query_sequence, hits=hhsearch_hits
         )
         return dict(templates_result.features)
