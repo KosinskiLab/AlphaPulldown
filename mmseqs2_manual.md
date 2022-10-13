@@ -38,9 +38,9 @@ taken as the description of the protein and **please be aware** that any special
 # option 2: run mmseqs2 locally.
 
 AlphaPulldown does **NOT** provide interface or codes that will run mmseqs2 locally. Neither will it install mmseqs or any other programme required. The user has to
-install mmseqs, colabfold databases, colab_search and other required dependencies and run msa alignments first. An example guide can be found on [Colabfold github](https://github.com/sokrypton/ColabFold)
+install mmseqs, colabfold databases, colab_search and other required dependencies and run msa alignments first. An example guide can be found on [Colabfold github](https://github.com/sokrypton/ColabFold).
 
-Suppose you have run mmseqs locally successfully using ```colab_search``` programme, for each protein of your interest, it will generate an a3m file Thus, your output_dir
+Suppose you have run mmseqs locally successfully using ```colab_search``` programme, for each protein of your interest, it will generate an a3m file. Thus, your output_dir
 should look like this:
 
 ```
@@ -51,7 +51,7 @@ output_dir
     |-3.a3m
     ...
 ```
-These a3m files from```colabfold_search``` are named in such inconvenient way. Thus, we have provided a ```rename_colab_search_a3m.py``` that will help you rename all these files. Simply run:
+These a3m files from```colabfold_search``` are named in such inconvenient way. Thus, we have provided a ```rename_colab_search_a3m.py``` script that will help you rename all these files. Simply run:
 ```bash
 # within the same conda env where you have installed AlphaPulldown
 cd output_dir
@@ -68,7 +68,7 @@ output_dir
     ...
 ```
 where ```protein_A``` ```protein_B``` ... correspond to the names you have in your input fasta file (">protein_A" will give you "protein_A.a3m", "protein_B" -> "protein_B.a3m" etc.). 
-After this, point to this directory in the command:
+After this, go back to your project directory with the original FASTA file and point to this directory in the command:
 ```bash
 source activate AlphaPulldown
 create_individual_features.py \
