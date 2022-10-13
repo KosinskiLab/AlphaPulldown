@@ -42,6 +42,4 @@ with open(sys.argv[1]) as f:
         out_lines.append(f'>{items[1]}')
         out_lines.append(seq)
     f.close()
-with open(sys.argv[1],'w') as f:
-    print("\n".join(out_lines),file=f)
-    f.close()
+print("\n".join(out_lines))
