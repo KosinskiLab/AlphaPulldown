@@ -223,8 +223,10 @@ def iter_seqs(fasta_fns):
                 yield seq, desc
 
 def main(argv):
-    Path(FLAGS.output_dir).mkdir(parents=True, exist_ok=True)
-    
+    try:
+        Path(FLAGS.output_dir).mkdir(parents=True, exist_ok=True)
+    except:
+        logging.info("Multiple processes are trying to create the same folder now.")
     if not FLAGS.use_mmseqs2:
         if not FLAGS.max_template_date:
             logging.info("You have not provided a max_template_date. Please specify a date and run again.")
