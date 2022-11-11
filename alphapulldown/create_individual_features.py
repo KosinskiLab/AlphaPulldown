@@ -241,6 +241,7 @@ def main(argv):
     except FileExistsError:
         logging.info("Multiple processes are trying to create the same folder now.")
     
+    flags_dict = FLAGS.flag_values_dict()
     create_global_arguments(flags_dict)
     if not FLAGS.use_mmseqs2:
         if not FLAGS.max_template_date:

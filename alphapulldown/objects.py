@@ -204,7 +204,7 @@ class MonomericObject:
             logging.info(f"input is {os.path.join(result_dir,self.description+'.a3m')}")
             input_path=os.path.join(result_dir,self.description+'.a3m')
             a3m_lines = [plPath(input_path).read_text()]
-            logging.info(f"Finished parsing the precalculated a3m_file\nNow will search for template in local {template_path}")
+            logging.info(f"Finished parsing the precalculated a3m_file\nNow will search for template")
         except:
             a3m_lines=None
 
