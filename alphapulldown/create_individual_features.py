@@ -73,9 +73,19 @@ MAX_TEMPLATE_HITS = 20
 
 flags_dict = FLAGS.flag_values_dict()
 
+def create_global_arguments(flags_dict):
+    global uniref90_database_path
+    global mgnify_database_path
+    global bfd_database_path
+    global small_bfd_database_path
+    global uniclust30_database_path
+    global pdb_seqres_database_path
+    global template_mmcif_dir
+    global obsolete_pdbs_path
+    global pdb70_database_path
+    global use_small_bfd
 
-def create_pipeline(flags_dict):
-    if FLAGS.uniref90_database_path is None:
+    if FLAGS.uniref90_database_path is None: 
         uniref90_database_path = os.path.join(
             FLAGS.data_dir, "uniref90", "uniref90.fasta"
         )
@@ -153,6 +163,7 @@ def create_pipeline(flags_dict):
     flags_dict.update({"pdb70_database_path": pdb70_database_path})
     use_small_bfd = FLAGS.db_preset == "reduced_dbs"
 
+def create_pipeline():
     monomer_data_pipeline = DataPipeline(
         jackhmmer_binary_path=FLAGS.jackhmmer_binary_path,
         hhblits_binary_path=FLAGS.hhblits_binary_path,
@@ -177,7 +188,7 @@ def create_pipeline(flags_dict):
             release_dates_path=None,
         ),
     )
-    return monomer_data_pipeline, flags_dict
+    return monomer_data_pipeline
 
 
 def check_existing_objects(output_dir, pickle_name):
@@ -208,9 +219,12 @@ def create_and_save_monomer_objects(m, pipeline, flags_dict,use_mmseqs2=False):
                 save_msa=FLAGS.save_msa_files,
             )
         else:
-            m.make_mmseq_features(DEFAULT_API_SERVER,template_path=FLAGS.data_dir,
+            logging.info("running mmseq now")
+            m.make_mmseq_features(DEFAULT_API_SERVER=DEFAULT_API_SERVER,
+            pdb70_database_path=pdb70_database_path,
+            template_mmcif_dir=template_mmcif_dir,
             max_template_date=FLAGS.max_template_date,
-            output_dir=FLAGS.output_dir,)
+            output_dir=FLAGS.output_dir)
         pickle.dump(m, open(f"{FLAGS.output_dir}/{m.description}.pkl", "wb"))
         del m
 
@@ -225,14 +239,17 @@ def iter_seqs(fasta_fns):
 def main(argv):
     try:
         Path(FLAGS.output_dir).mkdir(parents=True, exist_ok=True)
-    except:
+    except FileExistsError:
         logging.info("Multiple processes are trying to create the same folder now.")
+    
+    flags_dict = FLAGS.flag_values_dict()
+    create_global_arguments(flags_dict)
     if not FLAGS.use_mmseqs2:
         if not FLAGS.max_template_date:
             logging.info("You have not provided a max_template_date. Please specify a date and run again.")
             sys.exit()
         else:
-            pipeline, flags_dict = create_pipeline(flags_dict=FLAGS.flag_values_dict())
+            pipeline, flags_dict = create_pipeline()
             uniprot_database_path = os.path.join(FLAGS.data_dir, "uniprot/uniprot.fasta")
             flags_dict.update({"uniprot_database_path": uniprot_database_path})
             if os.path.isfile(uniprot_database_path):

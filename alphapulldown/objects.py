@@ -157,7 +157,7 @@ class MonomericObject:
                 )
                 self.feature_dict.update(pairing_results)
 
-    def mk_template(self,a3m_lines,template_path,query_sequence,max_template_date):
+    def mk_template(self,a3m_lines,pdb70_database_path,template_mmcif_dir,query_sequence,max_template_date):
         """
         Overwrite ColabFold's original mk_template to incorporate max_template data argument 
         from the command line input
@@ -166,7 +166,7 @@ class MonomericObject:
         template_path should be the same as FLAG.data_dir
         """
         template_featuriser = templates.HhsearchHitFeaturizer(
-        mmcif_dir=f"{template_path}/pdb_mmcif/mmcif_files",
+        mmcif_dir=f"{template_mmcif_dir}",
         max_template_date=max_template_date,
         max_hits=20,
         kalign_binary_path="kalign",
@@ -174,7 +174,7 @@ class MonomericObject:
         obsolete_pdbs_path=None,
         )
         hhsearch_pdb70_runner = hhsearch.HHSearch(
-        binary_path="hhsearch", databases=[f"{template_path}/pdb70/pdb70"]
+        binary_path="hhsearch", databases=[f"{pdb70_database_path}"]
     )
         
         hhsearch_result = hhsearch_pdb70_runner.query(a3m_lines)
@@ -185,7 +185,7 @@ class MonomericObject:
         return dict(templates_result.features)
 
     def make_mmseq_features(
-        self,DEFAULT_API_SERVER,template_path,max_template_date,output_dir=None
+        self,DEFAULT_API_SERVER,pdb70_database_path,template_mmcif_dir,max_template_date,output_dir=None
     ):
         """A method to use mmseq_remote to calculate msa"""
         
@@ -204,7 +204,7 @@ class MonomericObject:
             logging.info(f"input is {os.path.join(result_dir,self.description+'.a3m')}")
             input_path=os.path.join(result_dir,self.description+'.a3m')
             a3m_lines = [plPath(input_path).read_text()]
-            logging.info(f"Finished parsing the precalculated a3m_file\nNow will search for template in local {template_path}")
+            logging.info(f"Finished parsing the precalculated a3m_file\nNow will search for template")
         except:
             a3m_lines=None
 
@@ -243,7 +243,7 @@ class MonomericObject:
         # below will search against pdb70 database using hhsearch and create real template features
         logging.info("will search for templates in local template database")
         template_features = [self.mk_template(a3m_lines[0],
-        template_path,query_sequence=self.sequence,max_template_date=max_template_date)]
+        pdb70_database_path,template_mmcif_dir,query_sequence=self.sequence,max_template_date=max_template_date)]
         self.feature_dict = build_monomer_feature(self.sequence,unpaired_msa[0],template_features[0])
         
         
