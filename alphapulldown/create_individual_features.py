@@ -220,10 +220,11 @@ def create_and_save_monomer_objects(m, pipeline, flags_dict,use_mmseqs2=False):
             )
         else:
             logging.info("running mmseq now")
-            m.make_mmseq_features(DEFAULT_API_SERVER,pdb70_database_path,
-            template_mmcif_dir,
+            m.make_mmseq_features(DEFAULT_API_SERVER=DEFAULT_API_SERVER,
+            pdb70_database_path=pdb70_database_path,
+            template_mmcif_dir=template_mmcif_dir,
             max_template_date=FLAGS.max_template_date,
-            output_dir=FLAGS.output_dir,)
+            output_dir=FLAGS.output_dir)
         pickle.dump(m, open(f"{FLAGS.output_dir}/{m.description}.pkl", "wb"))
         del m
 
