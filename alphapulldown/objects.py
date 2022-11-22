@@ -160,7 +160,8 @@ class MonomericObject:
     def mk_template(self,a3m_lines,pdb70_database_path,template_mmcif_dir,query_sequence,max_template_date):
         """
         Overwrite ColabFold's original mk_template to incorporate max_template data argument 
-        from the command line input
+        from the command line input.
+        Modified from ColabFold: https://github.com/sokrypton/ColabFold
 
         Args
         template_path should be the same as FLAG.data_dir
@@ -187,7 +188,10 @@ class MonomericObject:
     def make_mmseq_features(
         self,DEFAULT_API_SERVER,pdb70_database_path,template_mmcif_dir,max_template_date,output_dir=None
     ):
-        """A method to use mmseq_remote to calculate msa"""
+        """
+        A method to use mmseq_remote to calculate msa
+        Modified from ColabFold: https://github.com/sokrypton/ColabFold
+        """
         
 
         logging.info("You chose to calculate MSA with mmseq2")
