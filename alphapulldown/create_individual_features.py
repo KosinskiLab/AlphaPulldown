@@ -249,7 +249,7 @@ def main(argv):
             logging.info("You have not provided a max_template_date. Please specify a date and run again.")
             sys.exit()
         else:
-            pipeline, flags_dict = create_pipeline()
+            pipeline = create_pipeline()
             uniprot_database_path = os.path.join(FLAGS.data_dir, "uniprot/uniprot.fasta")
             flags_dict.update({"uniprot_database_path": uniprot_database_path})
             if os.path.isfile(uniprot_database_path):
