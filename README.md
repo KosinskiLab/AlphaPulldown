@@ -44,13 +44,13 @@ Check if you have downloaded necessary parameters and databases (e.g. BFD, MGnif
 
 **Firstly**, install [Anaconda](https://www.anaconda.com/) and create AlphaPulldown environment, gathering necessary dependencies 
 ```bash
-conda create -n AlphaPulldown -c omnia -c bioconda -c conda-forge python==3.7 openmm pdbfixer kalign2=2.04 cctbx-base
+conda create -n test_ap -c omnia -c bioconda -c conda-forge python==3.8 openmm pdbfixer kalign2=2.04 cctbx-base
 ```
 
 **Secondly**, activate the AlphaPulldown environment and install AlphaPulldown
 ```bash
-source activate AlphaPulldown
-pip install alphapulldown
+source activate test_ap
+python3 -m pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple alphapulldown==0.30.7
 pip install -q "jax[cuda]>=0.3.8,<0.3.10" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 ```
 
