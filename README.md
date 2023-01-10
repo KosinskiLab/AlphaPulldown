@@ -44,7 +44,7 @@ Check if you have downloaded necessary parameters and databases (e.g. BFD, MGnif
 
 **Firstly**, install [Anaconda](https://www.anaconda.com/) and create AlphaPulldown environment, gathering necessary dependencies 
 ```bash
-conda create -n test_ap -c omnia -c bioconda -c conda-forge python==3.8 openmm pdbfixer kalign2=2.04 cctbx-base
+conda create -n test_ap -c omnia -c bioconda -c conda-forge python==3.8 openmm=7.5.1 pdbfixer kalign2=2.04 cctbx-base
 ```
 
 **Secondly**, activate the AlphaPulldown environment and install AlphaPulldown
