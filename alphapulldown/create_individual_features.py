@@ -79,7 +79,6 @@ def create_global_arguments(flags_dict):
     global mgnify_database_path
     global bfd_database_path
     global small_bfd_database_path
-    # global uniclust30_database_path
     global pdb_seqres_database_path
     global template_mmcif_dir
     global obsolete_pdbs_path
@@ -134,16 +133,6 @@ def create_global_arguments(flags_dict):
         small_bfd_database_path = FLAGS.small_bfd_database_path
     flags_dict.update({"small_bfd_database_path": small_bfd_database_path})
 
-    # Path to the Uniclust30 database for use by HHblits.
-    # if FLAGS.uniclust30_database_path is None:
-    #     uniclust30_database_path = os.path.join(
-    #         FLAGS.data_dir, "uniclust30", "uniclust30_2018_08", "uniclust30_2018_08"
-    #     )
-    # else:
-    #     uniclust30_database_path = FLAGS.uniclust30_database_path
-    # flags_dict.update({"uniclust30_database_path": uniclust30_database_path})
-
-    # Path to the PDB seqres database for use by hmmsearch.
     if FLAGS.pdb_seqres_database_path is None:
         pdb_seqres_database_path = os.path.join(
             FLAGS.data_dir, "pdb_seqres", "pdb_seqres.txt"
