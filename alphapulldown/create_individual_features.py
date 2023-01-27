@@ -68,6 +68,7 @@ flags.DEFINE_string(
     "new_uniclust_dir", None, "directory where new version of uniclust is stored"
 )
 flags.DEFINE_bool("use_mmseqs2",False,"Use mmseqs2 remotely or not. Default is False")
+
 FLAGS = flags.FLAGS
 MAX_TEMPLATE_HITS = 20
 
@@ -78,12 +79,21 @@ def create_global_arguments(flags_dict):
     global mgnify_database_path
     global bfd_database_path
     global small_bfd_database_path
-    global uniclust30_database_path
     global pdb_seqres_database_path
     global template_mmcif_dir
     global obsolete_pdbs_path
     global pdb70_database_path
     global use_small_bfd
+    global uniref30_database_path
+
+    # Path to the Uniref30 database for use by HHblits.
+    if FLAGS.uniref30_database_path is None:
+        uniref30_database_path = os.path.join(
+            FLAGS.data_dir, "uniref30", "UniRef30_2021_03"
+        )
+    else:
+        uniref30_database_path = FLAGS.uniref30_database_path
+    flags_dict.update({"uniref30_database_path": uniref30_database_path})
 
     if FLAGS.uniref90_database_path is None: 
         uniref90_database_path = os.path.join(
@@ -97,7 +107,7 @@ def create_global_arguments(flags_dict):
     # Path to the MGnify database for use by JackHMMER.
     if FLAGS.mgnify_database_path is None:
         mgnify_database_path = os.path.join(
-            FLAGS.data_dir, "mgnify", "mgy_clusters_2018_12.fa"
+            FLAGS.data_dir, "mgnify", "mgy_clusters_2022_05.fa"
         )
     else:
         mgnify_database_path = FLAGS.mgnify_database_path
@@ -123,16 +133,6 @@ def create_global_arguments(flags_dict):
         small_bfd_database_path = FLAGS.small_bfd_database_path
     flags_dict.update({"small_bfd_database_path": small_bfd_database_path})
 
-    # Path to the Uniclust30 database for use by HHblits.
-    if FLAGS.uniclust30_database_path is None:
-        uniclust30_database_path = os.path.join(
-            FLAGS.data_dir, "uniclust30", "uniclust30_2018_08", "uniclust30_2018_08"
-        )
-    else:
-        uniclust30_database_path = FLAGS.uniclust30_database_path
-    flags_dict.update({"uniclust30_database_path": uniclust30_database_path})
-
-    # Path to the PDB seqres database for use by hmmsearch.
     if FLAGS.pdb_seqres_database_path is None:
         pdb_seqres_database_path = os.path.join(
             FLAGS.data_dir, "pdb_seqres", "pdb_seqres.txt"
@@ -170,7 +170,7 @@ def create_pipeline():
         uniref90_database_path=uniref90_database_path,
         mgnify_database_path=mgnify_database_path,
         bfd_database_path=bfd_database_path,
-        uniclust30_database_path=uniclust30_database_path,
+        uniref30_database_path=uniref30_database_path,
         small_bfd_database_path=small_bfd_database_path,
         use_small_bfd=use_small_bfd,
         use_precomputed_msas=FLAGS.use_precomputed_msas,
