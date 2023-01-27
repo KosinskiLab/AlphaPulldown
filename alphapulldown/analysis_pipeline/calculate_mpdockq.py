@@ -86,10 +86,12 @@ def read_plddt(best_plddt, chain_CA_inds):
     return plddt_per_chain
 
 def score_complex(path_coords, path_CB_inds, path_plddt):
-    '''Score all interfaces in the current complex
     '''
-    metrics = {'Chain':[], 'n_ints':[], 'sum_av_IF_plDDT':[], 
-                'n_contacts':[], 'n_IF_residues':[]}
+    Score all interfaces in the current complex
+
+    Modified from the score_complex() function in MoLPC repo: 
+    https://gitlab.com/patrickbryant1/molpc/-/blob/main/src/complex_assembly/score_entire_complex.py#L106-154
+    '''
 
     chains = [*path_coords.keys()]
     chain_inds = np.arange(len(chains))
@@ -132,13 +134,37 @@ def calculate_mpDockQ(complex_score):
     b = 0.221
     return L/(1+math.exp(-1*k*(complex_score-x_0))) + b
 
-def calculate_pDockQ(complex_score):
-    """
-    A function that returns a complex's pDockQ score after 
-    calculating complex_score
-    """
-    L = 0.724
-    x_0 = 152.611
-    k = 0.052
-    b = 0.018
-    return L/(1+math.exp(-1*k*(complex_score-x_0))) + b
+
+def calc_pdockq(chain_coords, chain_plddt, t):
+    '''Calculate the pDockQ scores
+    pdockQ = L / (1 + np.exp(-k*(x-x0)))+b
+    L= 0.724 x0= 152.611 k= 0.052 and b= 0.018
+
+    Modified from the calc_pdockq() from FoldDock repo: 
+    https://gitlab.com/ElofssonLab/FoldDock/-/blob/main/src/pdockq.py#L62
+    '''
+
+    #Get coords and plddt per chain
+    ch1, ch2 = [*chain_coords.keys()]
+    coords1, coords2 = chain_coords[ch1], chain_coords[ch2]
+    plddt1, plddt2 = chain_plddt[ch1], chain_plddt[ch2]
+
+    #Calc 2-norm
+    mat = np.append(coords1, coords2,axis=0)
+    a_min_b = mat[:,np.newaxis,:] -mat[np.newaxis,:,:]
+    dists = np.sqrt(np.sum(a_min_b.T ** 2, axis=0)).T
+    l1 = len(coords1)
+    contact_dists = dists[:l1,l1:] #upper triangular --> first dim = chain 1
+    contacts = np.argwhere(contact_dists<=t)
+
+    if contacts.shape[0]<1:
+        pdockq=0
+    else:
+        #Get the average interface plDDT
+        avg_if_plddt = np.average(np.concatenate([plddt1[np.unique(contacts[:,0])], plddt2[np.unique(contacts[:,1])]]))
+        #Get the number of interface contacts
+        n_if_contacts = contacts.shape[0]
+        x = avg_if_plddt*np.log10(n_if_contacts)
+        pdockq = 0.724 / (1 + np.exp(-0.052*(x-152.611)))+0.018
+
+    return pdockq
