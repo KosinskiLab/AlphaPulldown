@@ -61,6 +61,9 @@ conda install -c bioconda hmmer hhsuite
 ```
 This usually works, but on some compute systems users may wish to use other versions or optimized builds of already installed HMMER and HH-suite.
 
+**For older versions of AlphaFold**: 
+If you haven't updated your databases according to the requirements of AlphaFold 2.3.0, you can still use AlphaPulldown with your older version of AlphaFold database. Please follow the installation instructions on the [dedicated branch](https://github.com/KosinskiLab/AlphaPulldown/tree/AlphaFold-2.2.0)
+
 ------
 
 ## Manuals
