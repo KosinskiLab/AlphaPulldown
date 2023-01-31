@@ -83,3 +83,17 @@ Example 1 is a case where ```pulldown``` mode is used. Manual: [example_1](./exa
 Example 2 is a case where ```custom``` and ```homo-oligomer``` modes are used. Manual: [example_2](./example_2.md) 
 
 ```all_vs_all``` mode can be viewed as a special case of the ```pulldown``` mode thus the instructions of this mode are added as Appendix in both manuals mentioned above. 
+
+## Citations
+If you use this package, please cite as the following:
+```python
+@Article{AlphaPUlldown,
+  author  = {Dingquan Yu, Grzegorz Chojnowski, Maria Rosenthal, and Jan Kosinski},
+  journal = {Bioinformatics},
+  title   = {AlphaPulldown—a python package for protein–protein interaction screens using AlphaFold-Multimer},
+  year    = {2023},
+  volume  = {39},
+  issue  = {1},
+  doi     = {https://doi.org/10.1093/bioinformatics/btac749}
+}
+```
