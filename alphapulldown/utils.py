@@ -130,6 +130,9 @@ def check_existing_objects(output_dir, pickle_name):
     logging.info(f"checking if {os.path.join(output_dir,pickle_name)} already exists")
     return os.path.isfile(os.path.join(output_dir, pickle_name))
 
+def check_empty_templates(feature_dict:dict) -> bool:
+    """A function to check wether the pickle has empty templates"""
+    return (feature_dict['template_all_atom_masks'].size ==0) or (feature_dict['template_aatype'].size==0)
 
 def create_interactors(data, monomer_objects_dir, i):
     """
@@ -142,22 +145,25 @@ def create_interactors(data, monomer_objects_dir, i):
     monomer_dir_dict = make_dir_monomer_dictionary(monomer_objects_dir)
     for k in data.keys():
         for curr_interactor_name, curr_interactor_region in data[k][i].items():
-            if curr_interactor_region == "all":
-                monomer = load_monomer_objects(monomer_dir_dict, curr_interactor_name)
-                interactors.append(monomer)
-            elif (
-                isinstance(curr_interactor_region, list)
-                and len(curr_interactor_region) != 0
-            ):
-                monomer = load_monomer_objects(monomer_dir_dict, curr_interactor_name)
-                chopped_object = ChoppedObject(
-                    monomer.description,
-                    monomer.sequence,
-                    monomer.feature_dict,
-                    curr_interactor_region,
-                )
-                chopped_object.prepare_final_sliced_feature_dict()
-                interactors.append(chopped_object)
+            monomer = load_monomer_objects(monomer_dir_dict, curr_interactor_name)
+            if check_empty_templates(monomer.feature_dict):
+                logging.info(f"{monomer.description} was failed to aligned to any templates during the first step thus cannot be used for model predictions.\nThe programme will end.")
+                sys.exit()
+            else:
+                if curr_interactor_region == "all":
+                    interactors.append(monomer)
+                elif (
+                    isinstance(curr_interactor_region, list)
+                    and len(curr_interactor_region) != 0
+                ):
+                    chopped_object = ChoppedObject(
+                        monomer.description,
+                        monomer.sequence,
+                        monomer.feature_dict,
+                        curr_interactor_region,
+                    )
+                    chopped_object.prepare_final_sliced_feature_dict()
+                    interactors.append(chopped_object)
     return interactors
 
 
