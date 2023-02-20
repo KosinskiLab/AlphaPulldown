@@ -76,7 +76,6 @@ def parse_results(output, color=None, models=5, multimer=False):
 
     if len(chain_ids) > 1 and color == "chain":
         view = py3Dmol.view(
-            js="https://3dmol.org/build/3Dmol.js",
             width=900,
             height=600,
             viewergrid=(1, 2),
@@ -99,7 +98,6 @@ def parse_results(output, color=None, models=5, multimer=False):
     else:
         frames = min(models, len(ph_array))
         view = py3Dmol.view(
-            js="https://3dmol.org/build/3Dmol.js",
             width=400 * frames,
             height=400,
             viewergrid=(1, frames),
@@ -142,7 +140,6 @@ def parse_results_colour_chains(output, color=None, models=5, multimer=False):
 
     if len(chain_ids) > 1 and color == None:
         view = py3Dmol.view(
-            js="https://3dmol.org/build/3Dmol.js",
             width=900,
             height=600,
             viewergrid=(1, 2),
@@ -165,7 +162,6 @@ def parse_results_colour_chains(output, color=None, models=5, multimer=False):
     else:
         frames = min(models, len(ph_array))
         view = py3Dmol.view(
-            js="https://3dmol.org/build/3Dmol.js",
             width=400 * frames,
             height=400,
             viewergrid=(1, frames),
