@@ -106,5 +106,12 @@ class TestCreateObjects(unittest.TestCase):
         ),)
         return monomer_data_pipeline
     
+    def test_3_run_alignments(self):
+        monomer_obj = self.test_1_initialise_MonomericObject()
+        monomer_pipeline = self.test_2_initialise_datapipeline()
+        monomer_obj.make_features(monomer_pipeline,self.output_dir
+                                  ,use_precomputed_msa=False,save_msa=False)
+    
+
 if __name__ == "__main__":
     unittest.main()
