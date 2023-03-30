@@ -157,9 +157,9 @@ class MonomericObject:
                 )
                 self.feature_dict.update(pairing_results)
 
-    def mk_template(self,a3m_lines,pdb70_database_path,template_mmcif_dir,query_sequence,max_template_date):
+    def mk_template(self,a3m_lines,pdb70_database_path,template_mmcif_dir,query_sequence,max_template_date, obsolete_pdbs_path=None):
         """
-        Overwrite ColabFold's original mk_template to incorporate max_template data argument 
+        Overwrite ColabFold's original mk_template to incorporate max_template data argument
         from the command line input.
         Modified from ColabFold: https://github.com/sokrypton/ColabFold
 
@@ -172,12 +172,12 @@ class MonomericObject:
         max_hits=20,
         kalign_binary_path="kalign",
         release_dates_path=None,
-        obsolete_pdbs_path=None,
+        obsolete_pdbs_path=obsolete_pdbs_path,
         )
         hhsearch_pdb70_runner = hhsearch.HHSearch(
         binary_path="hhsearch", databases=[f"{pdb70_database_path}"]
     )
-        
+
         hhsearch_result = hhsearch_pdb70_runner.query(a3m_lines)
         hhsearch_hits = pipeline.parsers.parse_hhr(hhsearch_result)
         templates_result = template_featuriser.get_templates(
@@ -186,15 +186,16 @@ class MonomericObject:
         return dict(templates_result.features)
 
     def make_mmseq_features(
-        self,DEFAULT_API_SERVER,pdb70_database_path,template_mmcif_dir,max_template_date,output_dir=None
+        self,DEFAULT_API_SERVER,pdb70_database_path,template_mmcif_dir,max_template_date,output_dir=None,obsolete_pdbs_path=None
     ):
         """
         A method to use mmseq_remote to calculate msa
         Modified from ColabFold: https://github.com/sokrypton/ColabFold
         """
-        
+
 
         logging.info("You chose to calculate MSA with mmseq2")
+        logging.info("Debug version")
         msa_mode = "MMseqs2 (UniRef+Environmental)"
         keep_existing_results=True
         result_dir = output_dir
@@ -220,7 +221,7 @@ class MonomericObject:
                     query_seqs_cardinality,
                     template_features,
                 ) = unserialize_msa(a3m_lines, self.sequence)
-                
+
         else:
             (
                 unpaired_msa,
@@ -247,11 +248,11 @@ class MonomericObject:
         # below will search against pdb70 database using hhsearch and create real template features
         logging.info("will search for templates in local template database")
         template_features = [self.mk_template(a3m_lines[0],
-        pdb70_database_path,template_mmcif_dir,query_sequence=self.sequence,max_template_date=max_template_date)]
+        pdb70_database_path,template_mmcif_dir,query_sequence=self.sequence,max_template_date=max_template_date, obsolete_pdbs_path=obsolete_pdbs_path)]
         self.feature_dict = build_monomer_feature(self.sequence,unpaired_msa[0],template_features[0])
-        
-        
-        # update feature_dict with 
+
+
+        # update feature_dict with
         valid_feats = msa_pairing.MSA_FEATURES + (
             "msa_species_identifiers",
             "msa_uniprot_accession_identifiers",
