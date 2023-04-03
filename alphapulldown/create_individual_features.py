@@ -95,7 +95,7 @@ def create_global_arguments(flags_dict):
         uniref30_database_path = FLAGS.uniref30_database_path
     flags_dict.update({"uniref30_database_path": uniref30_database_path})
 
-    if FLAGS.uniref90_database_path is None: 
+    if FLAGS.uniref90_database_path is None:
         uniref90_database_path = os.path.join(
             FLAGS.data_dir, "uniref90", "uniref90.fasta"
         )
@@ -210,7 +210,7 @@ def create_and_save_monomer_objects(m, pipeline, flags_dict,use_mmseqs2=False):
         )
         with output_meta_file(metadata_output_path) as meta_data_outfile:
             save_meta_data(flags_dict, meta_data_outfile)
-        
+
         if not use_mmseqs2:
             m.make_features(
                 pipeline,
@@ -224,7 +224,9 @@ def create_and_save_monomer_objects(m, pipeline, flags_dict,use_mmseqs2=False):
             pdb70_database_path=pdb70_database_path,
             template_mmcif_dir=template_mmcif_dir,
             max_template_date=FLAGS.max_template_date,
-            output_dir=FLAGS.output_dir)
+            output_dir=FLAGS.output_dir,
+            obsolete_pdbs_path=FLAGS.obsolete_pdbs_path
+            )
         pickle.dump(m, open(f"{FLAGS.output_dir}/{m.description}.pkl", "wb"))
         del m
 
@@ -241,7 +243,7 @@ def main(argv):
         Path(FLAGS.output_dir).mkdir(parents=True, exist_ok=True)
     except FileExistsError:
         logging.info("Multiple processes are trying to create the same folder now.")
-    
+
     flags_dict = FLAGS.flag_values_dict()
     create_global_arguments(flags_dict)
     if not FLAGS.use_mmseqs2:
@@ -262,7 +264,7 @@ def main(argv):
                 )
                 sys.exit()
     else:
-        
+
         pipeline=None
         uniprot_runner=None
         flags_dict=FLAGS.flag_values_dict()
@@ -275,9 +277,9 @@ def main(argv):
                 if curr_desc and not curr_desc.isspace():
                     curr_monomer = MonomericObject(curr_desc, curr_seq)
                     curr_monomer.uniprot_runner = uniprot_runner
-                    create_and_save_monomer_objects(curr_monomer, pipeline, 
+                    create_and_save_monomer_objects(curr_monomer, pipeline,
                     flags_dict,use_mmseqs2=FLAGS.use_mmseqs2)
-        
+
 
 if __name__ == "__main__":
     flags.mark_flags_as_required(
