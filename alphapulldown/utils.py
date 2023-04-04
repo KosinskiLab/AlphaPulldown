@@ -13,11 +13,12 @@ from alphapulldown.plot_pae import plot_pae
 from alphafold.model import config
 from alphafold.model import model
 from alphafold.model import data
+from alphafold.data import templates
 import random
 import sys
 from alphafold.data import parsers
 from pathlib import Path
-
+import numpy as np
 
 def create_uniprot_runner(jackhmmer_binary_path, uniprot_database_path):
     """create a uniprot runner object"""
@@ -40,6 +41,48 @@ def make_dir_monomer_dictionary(monomer_objects_dir):
             output_dict[m] = dir
     return output_dict
 
+def check_empty_templates(feature_dict:dict) -> bool:
+    """A function to check wether the pickle has empty templates"""
+    return (feature_dict['template_all_atom_masks'].size ==0) or (feature_dict['template_aatype'].size==0)
+
+def mk_mock_template(
+    feature_dict:dict
+):  
+    """
+    Modified based upon colabfold mk_mock_template():
+    https://github.com/sokrypton/ColabFold/blob/05c0cb38d002180da3b58cdc53ea45a6b2a62d31/colabfold/batch.py#L121-L155
+    """
+    num_temp=1 # number of fake templates
+    ln = feature_dict['aatype'].shape[0]
+    output_templates_sequence = "A" * ln
+    output_confidence_scores = np.full(ln, 1.0)
+
+
+    templates_all_atom_positions = np.zeros(
+        (ln, templates.residue_constants.atom_type_num, 3)
+    )
+    templates_all_atom_masks = np.zeros((ln, templates.residue_constants.atom_type_num))
+    templates_aatype = templates.residue_constants.sequence_to_onehot(
+        output_templates_sequence, templates.residue_constants.HHBLITS_AA_TO_ID
+    )
+    template_features = {
+        "template_all_atom_positions": np.tile(
+            templates_all_atom_positions[None], [num_temp, 1, 1, 1]
+        ),
+        "template_all_atom_masks": np.tile(
+            templates_all_atom_masks[None], [num_temp, 1, 1]
+        ),
+        "template_sequence": [f"none".encode()] * num_temp,
+        "template_aatype": np.tile(np.array(templates_aatype)[None], [num_temp, 1, 1]),
+        "template_confidence_scores": np.tile(
+            output_confidence_scores[None], [num_temp, 1]
+        ),
+        "template_domain_names": [f"none".encode()] * num_temp,
+        "template_release_date": [f"none".encode()] * num_temp,
+        "template_sum_probs": np.zeros([num_temp], dtype=np.float32),
+    }
+    feature_dict.update(template_features)
+    return feature_dict
 
 def load_monomer_objects(monomer_dir_dict, protein_name):
     """
@@ -50,7 +93,10 @@ def load_monomer_objects(monomer_dir_dict, protein_name):
     """
     target_path = monomer_dir_dict[f"{protein_name}.pkl"]
     target_path = os.path.join(target_path, f"{protein_name}.pkl")
-    return pickle.load(open(target_path, "rb"))
+    monomer = pickle.load(open(target_path, "rb"))
+    if check_empty_templates(monomer.feature_dict):
+        monomer.feature_dict = mk_mock_template(monomer.feature_dict)
+    return monomer
 
 
 def read_all_proteins(fasta_path) -> list:
@@ -124,15 +170,11 @@ def read_custom(line) -> list:
 
     return all_proteins
 
-
 def check_existing_objects(output_dir, pickle_name):
     """check whether the wanted monomer object already exists in the output_dir"""
     logging.info(f"checking if {os.path.join(output_dir,pickle_name)} already exists")
     return os.path.isfile(os.path.join(output_dir, pickle_name))
 
-def check_empty_templates(feature_dict:dict) -> bool:
-    """A function to check wether the pickle has empty templates"""
-    return (feature_dict['template_all_atom_masks'].size ==0) or (feature_dict['template_aatype'].size==0)
 
 def create_interactors(data, monomer_objects_dir, i):
     """
@@ -147,8 +189,7 @@ def create_interactors(data, monomer_objects_dir, i):
         for curr_interactor_name, curr_interactor_region in data[k][i].items():
             monomer = load_monomer_objects(monomer_dir_dict, curr_interactor_name)
             if check_empty_templates(monomer.feature_dict):
-                logging.info(f"{monomer.description} was failed to aligned to any templates during the first step thus cannot be used for model predictions.\nThe programme will end.")
-                sys.exit()
+                monomer.feature_dict = mk_mock_template(monomer.feature_dict)
             else:
                 if curr_interactor_region == "all":
                     interactors.append(monomer)
