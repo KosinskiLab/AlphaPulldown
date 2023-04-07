@@ -9,7 +9,6 @@ import time
 from absl import logging
 from alphafold.common import protein
 from alphafold.common import residue_constants
-from alphafold.relax import relax
 import numpy as np
 import json
 
@@ -31,7 +30,6 @@ def predict(
     fasta_name,
     allow_resume=True,
     seqs=[],
-    use_gpu_relax=True
 ):
     timings = {}
     unrelaxed_pdbs = {}
@@ -102,12 +100,25 @@ def predict(
                 remove_leading_feature_dimension=not model_runner.multimer_mode,
             )
 
-            unrelaxed_proteins[model_name] = unrelaxed_protein
             unrelaxed_pdbs[model_name] = protein.to_pdb(unrelaxed_protein)
             unrelaxed_pdb_path = os.path.join(output_dir, f"unrelaxed_{model_name}.pdb")
             with open(unrelaxed_pdb_path, "w") as f:
                 f.write(unrelaxed_pdbs[model_name])
 
+            if amber_relaxer:
+                # Relax the prediction.
+                t_0 = time.time()
+                relaxed_pdb_str, _, _ = amber_relaxer.process(prot=unrelaxed_protein)
+                timings[f"relax_{model_name}"] = time.time() - t_0
+
+                relaxed_pdbs[model_name] = relaxed_pdb_str
+
+                # Save the relaxed PDB.
+                relaxed_output_path = os.path.join(
+                    output_dir, f"relaxed_{model_name}.pdb"
+                )
+                with open(relaxed_output_path, "w") as f:
+                    f.write(relaxed_pdb_str)
         restored = False
     else:
         logging.info(
@@ -132,38 +143,28 @@ def predict(
             unrelaxed_pdbs[model_name] = unrelaxed_pdb_str
         logging.info("Finished restoring unrelaxed PDBs.")
         restored = True
+        if amber_relaxer:
+            for model_index, (model_name, model_runner) in enumerate(
+                model_runners.items()
+            ):
+                # Relax the prediction.
+                t_0 = time.time()
+                relaxed_pdb_str, _, _ = amber_relaxer.process(
+                    prot=unrelaxed_proteins[model_name]
+                )
+                timings[f"relax_{model_name}"] = time.time() - t_0
 
-    if amber_relaxer:
-        amber_relaxer = relax.AmberRelaxation(
-            max_iterations=RELAX_MAX_ITERATIONS,
-            tolerance=RELAX_ENERGY_TOLERANCE,
-            stiffness=RELAX_STIFFNESS,
-            exclude_residues=RELAX_EXCLUDE_RESIDUES,
-            max_outer_iterations=RELAX_MAX_OUTER_ITERATIONS,
-            use_gpu=use_gpu_relax)
-    
-        for model_index, (model_name, model_runner) in enumerate(
-            model_runners.items()
-        ):
-            # Relax the prediction.
-            t_0 = time.time()
-            relaxed_pdb_str, _, _ = amber_relaxer.process(
-                prot=unrelaxed_proteins[model_name]
-            )
-            timings[f"relax_{model_name}"] = time.time() - t_0
+                relaxed_pdbs[model_name] = relaxed_pdb_str
 
-            relaxed_pdbs[model_name] = relaxed_pdb_str
-
-            # Save the relaxed PDB.
-            relaxed_output_path = os.path.join(
-                output_dir, f"relaxed_{model_name}.pdb"
-            )
-
-            with open(relaxed_output_path, "w") as f:
-                f.write(relaxed_pdb_str)
-
+                # Save the relaxed PDB.
+                relaxed_output_path = os.path.join(
+                    output_dir, f"relaxed_{model_name}.pdb"
+                )
+                with open(relaxed_output_path, "w") as f:
+                    f.write(relaxed_pdb_str)
     # Rank by model confidence and write out relaxed PDBs in rank order.
     ranked_order = []
+    # pDockq_scores = {}
     for idx, (model_name, _) in enumerate(
         sorted(ranking_confidences.items(), key=lambda x: x[1], reverse=True)
     ):
