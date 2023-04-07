@@ -1,1 +1,2 @@
-include ./alphafold/run_alphafold.py 
+include ./alphafold/run_alphafold.py
+include stereo_chemical_props.txt
