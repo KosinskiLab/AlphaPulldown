@@ -7,18 +7,18 @@
 
 
 import itertools
-from re import I
 from absl import app, flags, logging
 from alphapulldown.utils import *
 from itertools import combinations
 from alphapulldown.objects import MultimericObject
 import os
-import shutil
 from pathlib import Path
-from alphapulldown.predict_structure import predict
+from alphapulldown.predict_structure import predict, ModelsToRelax
 
 
 
+run_af = get_run_alphafold()
+flags = run_af.flags
 
 flags.DEFINE_enum(
     "mode",
@@ -36,40 +36,11 @@ flags.DEFINE_list(
     "a list of directories where monomer objects are stored",
 )
 flags.DEFINE_list("protein_lists", None, "protein list files")
+
+delattr(flags.FLAGS, "data_dir")
 flags.DEFINE_string("data_dir", None, "Path to params directory")
-flags.DEFINE_boolean(
-    "random_seed",
-    False,
-    "Run multiple JAX model evaluations "
-    "to obtain a timing that excludes the compilation time, "
-    "which should be more indicative of the time required for "
-    "inferencing many proteins.",
-)
+
 flags.DEFINE_integer("num_cycle", 3, help="number of recycles")
-flags.DEFINE_boolean(
-    "amber_relax",
-    False,
-    "Run multiple JAX model evaluations "
-    "to obtain a timing that excludes the compilation time, "
-    "which should be more indicative of the time required for "
-    "inferencing many proteins.",
-)
-flags.DEFINE_boolean(
-    "benchmark",
-    False,
-    "Run multiple JAX model evaluations "
-    "to obtain a timing that excludes the compilation time, "
-    "which should be more indicative of the time required for "
-    "inferencing many proteins.",
-)
-flags.DEFINE_enum(
-    "model_preset",
-    "multimer",
-    ["monomer", "monomer_casp14", "monomer_ptm", "multimer"],
-    "Choose preset model configuration - the monomer model, "
-    "the monomer model with extra ensembling, monomer model with "
-    "pTM head, or multimer model",
-)
 flags.DEFINE_integer(
     "num_predictions_per_model", 1, "How many predictions per model. Default is 1"
 )
@@ -80,10 +51,46 @@ flags.DEFINE_boolean(
     "no_pair_msa", False, "do not pair the MSAs when constructing multimer objects"
 )
 flags.mark_flag_as_required("output_path")
+
+delattr(flags.FLAGS, "models_to_relax")
+flags.DEFINE_enum_class('models_to_relax', ModelsToRelax.NONE, ModelsToRelax,
+                        'The models to run the final relaxation step on. '
+                        'If `all`, all models are relaxed, which may be time '
+                        'consuming. If `best`, only the most confident model '
+                        'is relaxed. If `none`, relaxation is not run. Turning '
+                        'off relaxation might result in predictions with '
+                        'distracting stereochemical violations but might help '
+                        'in case you are having issues with the relaxation '
+                        'stage.')
+
+unused_flags = (
+    'bfd_database_path',
+    'db_preset',
+    'fasta_paths',
+    'hhblits_binary_path',
+    'hhsearch_binary_path',
+    'hmmbuild_binary_path',
+    'hmmsearch_binary_path',
+    'jackhmmer_binary_path',
+    'kalign_binary_path',
+    'max_template_date',
+    'mgnify_database_path',
+    'num_multimer_predictions_per_model',
+    'obsolete_pdbs_path',
+    'output_dir',
+    'pdb70_database_path',
+    'pdb_seqres_database_path',
+    'small_bfd_database_path',
+    'template_mmcif_dir',
+    'uniprot_database_path',
+    'uniref30_database_path',
+    'uniref90_database_path',
+)
+
+for flag in unused_flags:
+    delattr(flags.FLAGS, flag)
+
 FLAGS = flags.FLAGS
-
-
-
 
 def create_pulldown_info(
     bait_proteins: list, candidate_proteins: list, job_index=None
@@ -276,7 +283,7 @@ def predict_individual_jobs(multimer_object, output_path, model_runners, random_
         random_seed,
         FLAGS.benchmark,
         fasta_name=multimer_object.description,
-        amber_relaxer=FLAGS.amber_relax,
+        models_to_relax=FLAGS.models_to_relax,
         seqs=multimer_object.input_seqs,
     )
     create_and_save_pae_plots(multimer_object, output_path)

@@ -19,6 +19,9 @@ import sys
 from alphafold.data import parsers
 from pathlib import Path
 import numpy as np
+import importlib
+import alphafold
+import sys
 
 def create_uniprot_runner(jackhmmer_binary_path, uniprot_database_path):
     """create a uniprot runner object"""
@@ -303,3 +306,26 @@ def parse_fasta(fasta_string: str):
         sequences[index] += line
 
     return sequences, descriptions
+
+def load_module(file_name, module_name):
+    spec = importlib.util.spec_from_file_location(module_name, file_name)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+def get_run_alphafold():
+    PATH_TO_RUN_ALPHAFOLD = os.path.join(
+        os.path.dirname(alphafold.__file__), "run_alphafold.py"
+    )
+
+    try:
+        run_af = load_module(PATH_TO_RUN_ALPHAFOLD, "run_alphafold")
+    except FileNotFoundError:
+        PATH_TO_RUN_ALPHAFOLD = os.path.join(
+            os.path.dirname(os.path.dirname(alphafold.__file__)), "run_alphafold.py"
+        )
+
+        run_af = load_module(PATH_TO_RUN_ALPHAFOLD, "run_alphafold")
+
+    return run_af

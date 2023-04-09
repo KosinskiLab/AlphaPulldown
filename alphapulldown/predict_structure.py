@@ -1,6 +1,7 @@
 #
-# Authorship belongs to DeepMind
-# based on run_alphafold.py from https://github.com/deepmind/alphafold
+# This script is
+# based on run_alphafold.py by DeepMind from https://github.com/deepmind/alphafold
+# and contains code copied from the script run_alphafold.py.
 # #
 import json
 import os
@@ -11,7 +12,7 @@ from alphafold.common import protein
 from alphafold.common import residue_constants
 from alphafold.relax import relax
 import numpy as np
-import json
+import enum
 
 MAX_TEMPLATE_HITS = 20
 RELAX_MAX_ITERATIONS = 0
@@ -20,6 +21,11 @@ RELAX_STIFFNESS = 10.0
 RELAX_EXCLUDE_RESIDUES = []
 RELAX_MAX_OUTER_ITERATIONS = 3
 
+@enum.unique
+class ModelsToRelax(enum.Enum):
+  ALL = 0
+  BEST = 1
+  NONE = 2
 
 def predict(
     model_runners,
@@ -27,7 +33,7 @@ def predict(
     feature_dict,
     random_seed,
     benchmark,
-    amber_relaxer,
+    models_to_relax: ModelsToRelax,
     fasta_name,
     allow_resume=True,
     seqs=[],
@@ -36,10 +42,45 @@ def predict(
     timings = {}
     unrelaxed_pdbs = {}
     relaxed_pdbs = {}
+    relax_metrics = {}
     ranking_confidences = {}
     unrelaxed_proteins = {}
+    temp_order = []
+    START = 0
+    temp_ranking_output_path = os.path.join(output_dir, "ranking_debug_temp.json")
+    temp_timings_output_path = os.path.join(output_dir, "timings_temp.json")
     if allow_resume:
         logging.info("Checking for %s", os.path.join(output_dir, "ranking_debug.json"))
+
+        
+        if os.path.exists(temp_ranking_output_path):
+            with open(temp_ranking_output_path, "r") as f:
+                temp_ranking_output = json.load(f)
+                if "iptm+ptm" in temp_ranking_output:
+                    ranking_confidences.update(temp_ranking_output["iptm+ptm"])
+                elif "plddts" in temp_ranking_output:
+                    ranking_confidences.update(temp_ranking_output["plddts"])
+                temp_order = temp_ranking_output["order"]
+
+        if os.path.exists(temp_timings_output_path):
+            with open(temp_timings_output_path, "r") as f:
+                timings = json.load(f)
+
+        for model_id, model_name in enumerate(temp_order):
+            unrelaxed_pdb_file = f"unrelaxed_{model_name}.pdb"
+            unrelaxed_pdb_path = os.path.join(output_dir, unrelaxed_pdb_file)
+            if os.path.exists(unrelaxed_pdb_path) and model_name in ranking_confidences:
+                with open(unrelaxed_pdb_path, "r") as f:
+                    unrelaxed_pdb_str = f.read()
+                unrelaxed_proteins[model_name] = protein.from_pdb_string(unrelaxed_pdb_str)
+                unrelaxed_pdbs[model_name] = unrelaxed_pdb_str
+                START += 1
+            else:
+                break
+
+        if START > 0:
+            logging.info("Found existing results, continuing from there.")
+
     if (
         not os.path.exists(os.path.join(output_dir, "ranking_debug.json"))
         or not allow_resume
@@ -47,6 +88,8 @@ def predict(
         # Run the models.
         num_models = len(model_runners)
         for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
+            if model_index < START:
+                continue
             logging.info("Running model %s on %s", model_name, fasta_name)
             t_0 = time.time()
             model_random_seed = model_index + random_seed * num_models
@@ -107,6 +150,18 @@ def predict(
             unrelaxed_pdb_path = os.path.join(output_dir, f"unrelaxed_{model_name}.pdb")
             with open(unrelaxed_pdb_path, "w") as f:
                 f.write(unrelaxed_pdbs[model_name])
+            temp_order.append(model_name)
+
+            with open(temp_ranking_output_path, "w") as f:
+                label = "iptm+ptm" if "iptm" in prediction_result else "plddts"
+                f.write(
+                    json.dumps(
+                        {label: ranking_confidences, "order": temp_order}, indent=4
+                    )
+                )
+
+            with open(temp_timings_output_path, "w") as f:
+                f.write(json.dumps(timings, indent=4))
 
         restored = False
     else:
@@ -133,44 +188,50 @@ def predict(
         logging.info("Finished restoring unrelaxed PDBs.")
         restored = True
 
-    if amber_relaxer:
-        amber_relaxer = relax.AmberRelaxation(
-            max_iterations=RELAX_MAX_ITERATIONS,
-            tolerance=RELAX_ENERGY_TOLERANCE,
-            stiffness=RELAX_STIFFNESS,
-            exclude_residues=RELAX_EXCLUDE_RESIDUES,
-            max_outer_iterations=RELAX_MAX_OUTER_ITERATIONS,
-            use_gpu=use_gpu_relax)
-    
-        for model_index, (model_name, model_runner) in enumerate(
-            model_runners.items()
-        ):
-            # Relax the prediction.
-            t_0 = time.time()
-            relaxed_pdb_str, _, _ = amber_relaxer.process(
-                prot=unrelaxed_proteins[model_name]
-            )
-            timings[f"relax_{model_name}"] = time.time() - t_0
+    # Rank by model confidence.
+    ranked_order = [
+        model_name for model_name, confidence in
+        sorted(ranking_confidences.items(), key=lambda x: x[1], reverse=True)]
 
-            relaxed_pdbs[model_name] = relaxed_pdb_str
+    # Relax predictions.
+    amber_relaxer = relax.AmberRelaxation(
+        max_iterations=RELAX_MAX_ITERATIONS,
+        tolerance=RELAX_ENERGY_TOLERANCE,
+        stiffness=RELAX_STIFFNESS,
+        exclude_residues=RELAX_EXCLUDE_RESIDUES,
+        max_outer_iterations=RELAX_MAX_OUTER_ITERATIONS,
+        use_gpu=use_gpu_relax)
 
-            # Save the relaxed PDB.
-            relaxed_output_path = os.path.join(
-                output_dir, f"relaxed_{model_name}.pdb"
-            )
-            print("relaxed_output_path", relaxed_output_path)
-            with open(relaxed_output_path, "w") as f:
-                f.write(relaxed_pdb_str)
+    if models_to_relax == ModelsToRelax.BEST:
+        to_relax = [ranked_order[0]]
+    elif models_to_relax == ModelsToRelax.ALL:
+        to_relax = ranked_order
+    elif models_to_relax == ModelsToRelax.NONE:
+        to_relax = []
 
-    # Rank by model confidence and write out relaxed PDBs in rank order.
-    ranked_order = []
-    for idx, (model_name, _) in enumerate(
-        sorted(ranking_confidences.items(), key=lambda x: x[1], reverse=True)
-    ):
-        ranked_order.append(model_name)
-        ranked_output_path = os.path.join(output_dir, f"ranked_{idx}.pdb")
-        with open(ranked_output_path, "w") as f:
-            if amber_relaxer:
+    for model_name in to_relax:
+        t_0 = time.time()
+        relaxed_pdb_str, _, violations = amber_relaxer.process(
+            prot=unrelaxed_proteins[model_name])
+        relax_metrics[model_name] = {
+            'remaining_violations': violations,
+            'remaining_violations_count': sum(violations)
+        }
+        timings[f'relax_{model_name}'] = time.time() - t_0
+
+        relaxed_pdbs[model_name] = relaxed_pdb_str
+
+        # Save the relaxed PDB.
+        relaxed_output_path = os.path.join(
+            output_dir, f'relaxed_{model_name}.pdb')
+        with open(relaxed_output_path, 'w') as f:
+            f.write(relaxed_pdb_str)
+
+    # Write out relaxed PDBs in rank order.
+    for idx, model_name in enumerate(ranked_order):
+        ranked_output_path = os.path.join(output_dir, f'ranked_{idx}.pdb')
+        with open(ranked_output_path, 'w') as f:
+            if model_name in relaxed_pdbs:
                 f.write(relaxed_pdbs[model_name])
             else:
                 f.write(unrelaxed_pdbs[model_name])
@@ -186,7 +247,21 @@ def predict(
             )
 
     logging.info("Final timings for %s: %s", fasta_name, timings)
-
     timings_output_path = os.path.join(output_dir, "timings.json")
     with open(timings_output_path, "w") as f:
         f.write(json.dumps(timings, indent=4))
+    if models_to_relax != ModelsToRelax.NONE:
+        relax_metrics_path = os.path.join(output_dir, 'relax_metrics.json')
+        with open(relax_metrics_path, 'w') as f:
+            f.write(json.dumps(relax_metrics, indent=4))
+
+    if os.path.exists(temp_ranking_output_path): #should not happen at this stag but just in case
+        try:
+            os.remove(temp_ranking_output_path)
+        except OSError:
+            pass
+    if os.path.exists(temp_timings_output_path): #should not happen at this stage but just in case
+        try:
+            os.remove(temp_timings_output_path)
+        except OSError:
+            pass
