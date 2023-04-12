@@ -13,20 +13,17 @@ from alphafold.common import protein
 from alphafold.common import residue_constants
 from alphafold.relax import relax
 import numpy as np
-import enum
+from alphapulldown.utils import get_run_alphafold
 
-MAX_TEMPLATE_HITS = 20
-RELAX_MAX_ITERATIONS = 0
-RELAX_ENERGY_TOLERANCE = 2.39
-RELAX_STIFFNESS = 10.0
-RELAX_EXCLUDE_RESIDUES = []
-RELAX_MAX_OUTER_ITERATIONS = 3
+run_af = get_run_alphafold()
 
-@enum.unique
-class ModelsToRelax(enum.Enum):
-  ALL = 0
-  BEST = 1
-  NONE = 2
+RELAX_MAX_ITERATIONS = run_af.RELAX_MAX_ITERATIONS
+RELAX_ENERGY_TOLERANCE = run_af.RELAX_ENERGY_TOLERANCE
+RELAX_STIFFNESS = run_af.RELAX_STIFFNESS
+RELAX_EXCLUDE_RESIDUES = run_af.RELAX_EXCLUDE_RESIDUES
+RELAX_MAX_OUTER_ITERATIONS = run_af.RELAX_MAX_OUTER_ITERATIONS
+
+ModelsToRelax =run_af.ModelsToRelax
 
 def get_score_from_pkl(pkl_path):
     """Get the score from the model result pkl file"""
