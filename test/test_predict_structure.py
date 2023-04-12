@@ -152,6 +152,11 @@ class TestScript(_TestBase):
 
 
 #TODO: Add tests for other modeling examples subclassing the class above
+#TODO: Add tests that assess that the modeling results are as expected from native AlphaFold2
+#TODO: Add tests that assess that the ranking is correct
+#TODO: Add tests for features with and without templates
+#TODO: Add tests for the different modeling modes (pulldown, homo-oligomeric, all-against-all, custom)
+#TODO: Add tests for monomeric modeling
 
 class TestFunctions(_TestBase):
     def setUp(self):
@@ -167,7 +172,7 @@ class TestFunctions(_TestBase):
             1,
         )
 
-    def test_get_score_from_pkl(self):
+    def test_get_score_from_result_pkl(self):
         self.output_dir = os.path.join(self.test_data_dir, "P0DPR3_and_P0DPR3")
         #Open ranking_debug.json from self.output_dir and load to results
         with open(os.path.join(self.output_dir, "ranking_debug.json"), "r") as f:
@@ -176,7 +181,7 @@ class TestFunctions(_TestBase):
             expected_iptm_ptm = results["iptm+ptm"]["model_1_multimer_v3_pred_0"]
         
         pkl_path = os.path.join(self.test_data_dir, "P0DPR3_and_P0DPR3", "result_model_1_multimer_v3_pred_0.pkl")
-        out = predict_structure.get_score_from_pkl(pkl_path)
+        out = predict_structure.get_score_from_result_pkl(pkl_path)
         self.assertTupleEqual(out, ('iptm+ptm', expected_iptm_ptm))
 
     def test_get_existing_model_info(self):

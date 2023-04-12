@@ -3,7 +3,6 @@
 # based on run_alphafold.py by DeepMind from https://github.com/deepmind/alphafold
 # and contains code copied from the script run_alphafold.py.
 # #
-from collections import namedtuple
 import json
 import os
 import pickle
@@ -25,7 +24,7 @@ RELAX_MAX_OUTER_ITERATIONS = run_af.RELAX_MAX_OUTER_ITERATIONS
 
 ModelsToRelax = run_af.ModelsToRelax
 
-def get_score_from_pkl(pkl_path):
+def get_score_from_result_pkl(pkl_path):
     """Get the score from the model result pkl file"""
 
     with open(pkl_path, "rb") as f:
@@ -58,7 +57,7 @@ def get_existing_model_info(output_dir, model_runners):
         except (EOFError, pickle.UnpicklingError):
             break
 
-        score_name, score = get_score_from_pkl(pkl_path)
+        score_name, score = get_score_from_result_pkl(pkl_path)
         ranking_confidences[model_name] = score
 
         with open(pdb_path, "r") as f:
@@ -90,7 +89,8 @@ def predict(
     unrelaxed_proteins = {}
     START = 0
     ranking_output_path = os.path.join(output_dir, "ranking_debug.json")
-    temp_timings_output_path = os.path.join(output_dir, "timings_temp.json")
+    temp_timings_output_path = os.path.join(output_dir, "timings_temp.json") #To keep track of timings in case of crash and resume
+
     if allow_resume:
         logging.info("Checking for existing results")
         ranking_confidences, unrelaxed_proteins, unrelaxed_pdbs, START = get_existing_model_info(output_dir, model_runners)
@@ -122,6 +122,7 @@ def predict(
 
         # update prediction_result with input seqs
         prediction_result.update({"seqs": seqs})
+
         t_diff = time.time() - t_0
         timings[f"predict_and_compile_{model_name}"] = t_diff
         logging.info(
