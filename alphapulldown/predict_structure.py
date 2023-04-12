@@ -23,7 +23,7 @@ RELAX_STIFFNESS = run_af.RELAX_STIFFNESS
 RELAX_EXCLUDE_RESIDUES = run_af.RELAX_EXCLUDE_RESIDUES
 RELAX_MAX_OUTER_ITERATIONS = run_af.RELAX_MAX_OUTER_ITERATIONS
 
-ModelsToRelax =run_af.ModelsToRelax
+ModelsToRelax = run_af.ModelsToRelax
 
 def get_score_from_pkl(pkl_path):
     """Get the score from the model result pkl file"""
@@ -89,111 +89,88 @@ def predict(
     ranking_confidences = {}
     unrelaxed_proteins = {}
     START = 0
+    ranking_output_path = os.path.join(output_dir, "ranking_debug.json")
     temp_timings_output_path = os.path.join(output_dir, "timings_temp.json")
     if allow_resume:
         logging.info("Checking for existing results")
         ranking_confidences, unrelaxed_proteins, unrelaxed_pdbs, START = get_existing_model_info(output_dir, model_runners)
 
-        if START > 0:
+        if os.path.exists(ranking_output_path) and len(unrelaxed_pdbs) == len(model_runners):
+            logging.info(
+                "ranking_debug.json exists. Skipping prediction. Restoring unrelaxed predictions and ranked order"
+            )
+            START = len(model_runners)
+        elif START > 0:
             logging.info("Found existing results, continuing from there.")
 
-    if (
-        not os.path.exists(os.path.join(output_dir, "ranking_debug.json"))
-        or not allow_resume
-    ):
-        # Run the models.
-        num_models = len(model_runners)
-        for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
-            if model_index < START:
-                continue
-            logging.info("Running model %s on %s", model_name, fasta_name)
-            t_0 = time.time()
-            model_random_seed = model_index + random_seed * num_models
-            processed_feature_dict = model_runner.process_features(
-                feature_dict, random_seed=model_random_seed
-            )
-            timings[f"process_features_{model_name}"] = time.time() - t_0
+    num_models = len(model_runners)
+    for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
+        if model_index < START:
+            continue
+        logging.info("Running model %s on %s", model_name, fasta_name)
+        t_0 = time.time()
+        model_random_seed = model_index + random_seed * num_models
+        processed_feature_dict = model_runner.process_features(
+            feature_dict, random_seed=model_random_seed
+        )
+        timings[f"process_features_{model_name}"] = time.time() - t_0
 
+        t_0 = time.time()
+        prediction_result = model_runner.predict(
+            processed_feature_dict, random_seed=model_random_seed
+        )
+
+        # update prediction_result with input seqs
+        prediction_result.update({"seqs": seqs})
+        t_diff = time.time() - t_0
+        timings[f"predict_and_compile_{model_name}"] = t_diff
+        logging.info(
+            "Total JAX model %s on %s predict time (includes compilation time, see --benchmark): %.1fs",
+            model_name,
+            fasta_name,
+            t_diff,
+        )
+
+        if benchmark:
             t_0 = time.time()
-            prediction_result = model_runner.predict(
+            model_runner.predict(
                 processed_feature_dict, random_seed=model_random_seed
             )
-
-            # update prediction_result with input seqs
-            prediction_result.update({"seqs": seqs})
             t_diff = time.time() - t_0
-            timings[f"predict_and_compile_{model_name}"] = t_diff
+            timings[f"predict_benchmark_{model_name}"] = t_diff
             logging.info(
-                "Total JAX model %s on %s predict time (includes compilation time, see --benchmark): %.1fs",
+                "Total JAX model %s on %s predict time (excludes compilation time): %.1fs",
                 model_name,
                 fasta_name,
                 t_diff,
             )
 
-            if benchmark:
-                t_0 = time.time()
-                model_runner.predict(
-                    processed_feature_dict, random_seed=model_random_seed
-                )
-                t_diff = time.time() - t_0
-                timings[f"predict_benchmark_{model_name}"] = t_diff
-                logging.info(
-                    "Total JAX model %s on %s predict time (excludes compilation time): %.1fs",
-                    model_name,
-                    fasta_name,
-                    t_diff,
-                )
+        plddt = prediction_result["plddt"]
+        ranking_confidences[model_name] = prediction_result["ranking_confidence"]
 
-            plddt = prediction_result["plddt"]
-            ranking_confidences[model_name] = prediction_result["ranking_confidence"]
+        result_output_path = os.path.join(output_dir, f"result_{model_name}.pkl")
+        with open(result_output_path, "wb") as f:
+            pickle.dump(prediction_result, f, protocol=4)
 
-            result_output_path = os.path.join(output_dir, f"result_{model_name}.pkl")
-            with open(result_output_path, "wb") as f:
-                pickle.dump(prediction_result, f, protocol=4)
-
-            plddt_b_factors = np.repeat(
-                plddt[:, None], residue_constants.atom_type_num, axis=-1
-            )
-            unrelaxed_protein = protein.from_prediction(
-                features=processed_feature_dict,
-                result=prediction_result,
-                b_factors=plddt_b_factors,
-                remove_leading_feature_dimension=not model_runner.multimer_mode,
-            )
-
-            unrelaxed_proteins[model_name] = unrelaxed_protein
-            unrelaxed_pdbs[model_name] = protein.to_pdb(unrelaxed_protein)
-            unrelaxed_pdb_path = os.path.join(output_dir, f"unrelaxed_{model_name}.pdb")
-            with open(unrelaxed_pdb_path, "w") as f:
-                f.write(unrelaxed_pdbs[model_name])
-
-            with open(temp_timings_output_path, "w") as f:
-                f.write(json.dumps(timings, indent=4))
-
-        restored = False
-    else:
-        logging.info(
-            "ranking_debug.json exists. Skipped prediction. Restoring unrelaxed predictions and ranked order"
+        plddt_b_factors = np.repeat(
+            plddt[:, None], residue_constants.atom_type_num, axis=-1
         )
-        ranking_file = open(os.path.join(output_dir, "ranking_debug.json"))
-        ranking_confidences_data = json.load(ranking_file)
-        ranking_confidences = ranking_confidences_data[
-            list(ranking_confidences_data.keys())[0]
-        ]
-        for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
-            unrelaxed_pdb_path = os.path.join(output_dir, f"unrelaxed_{model_name}.pdb")
-            logging.info("Restored pdb %s ", unrelaxed_pdb_path)
-            logging.info(
-                "Restored confidence for model %s: %s",
-                model_name,
-                ranking_confidences[model_name],
-            )
-            with open(unrelaxed_pdb_path, "r") as f:
-                unrelaxed_pdb_str = f.read()
-            unrelaxed_proteins[model_name] = protein.from_pdb_string(unrelaxed_pdb_str)
-            unrelaxed_pdbs[model_name] = unrelaxed_pdb_str
-        logging.info("Finished restoring unrelaxed PDBs.")
-        restored = True
+        unrelaxed_protein = protein.from_prediction(
+            features=processed_feature_dict,
+            result=prediction_result,
+            b_factors=plddt_b_factors,
+            remove_leading_feature_dimension=not model_runner.multimer_mode,
+        )
+
+        unrelaxed_proteins[model_name] = unrelaxed_protein
+        unrelaxed_pdbs[model_name] = protein.to_pdb(unrelaxed_protein)
+        unrelaxed_pdb_path = os.path.join(output_dir, f"unrelaxed_{model_name}.pdb")
+        with open(unrelaxed_pdb_path, "w") as f:
+            f.write(unrelaxed_pdbs[model_name])
+
+        with open(temp_timings_output_path, "w") as f:
+            f.write(json.dumps(timings, indent=4))
+
 
     # Rank by model confidence.
     ranked_order = [
@@ -243,8 +220,7 @@ def predict(
             else:
                 f.write(unrelaxed_pdbs[model_name])
 
-    ranking_output_path = os.path.join(output_dir, "ranking_debug.json")
-    if not restored:  # already exists if restored.
+    if not os.path.exists(ranking_output_path):  # already exists if restored.
         with open(ranking_output_path, "w") as f:
             label = "iptm+ptm" if "iptm" in prediction_result else "plddts"
             f.write(

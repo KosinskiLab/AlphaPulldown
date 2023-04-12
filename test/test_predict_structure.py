@@ -135,7 +135,8 @@ class TestScript(_TestBase):
         result = subprocess.run(self.args, capture_output=True, text=True)
         self._runCommonTests(result)
         self._runAfterRelaxTests(result)
-
+        self.assertIn("ranking_debug.json exists. Skipping prediction. Restoring unrelaxed predictions and ranked order", result.stdout + result.stderr)
+        
     def testRunWithoutAmberRelax_ResumeAfter2(self):
         """
         Test if the script can resume after 2 models are finished
