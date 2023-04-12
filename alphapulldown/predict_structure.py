@@ -3,6 +3,7 @@
 # based on run_alphafold.py by DeepMind from https://github.com/deepmind/alphafold
 # and contains code copied from the script run_alphafold.py.
 # #
+from collections import namedtuple
 import json
 import os
 import pickle
@@ -27,6 +28,51 @@ class ModelsToRelax(enum.Enum):
   BEST = 1
   NONE = 2
 
+def get_score_from_pkl(pkl_path):
+    """Get the score from the model result pkl file"""
+
+    with open(pkl_path, "rb") as f:
+        result = pickle.load(f)
+    if "iptm" in result:
+        score_type = "iptm+ptm"
+        score = 0.8 * result["iptm"] + 0.2 * result["ptm"]
+    else:
+        score_type = "plddt"
+        score = result["plddt"]
+
+    return score_type, score
+
+def get_existing_model_info(output_dir, model_runners):
+    ranking_confidences = {}
+    unrelaxed_proteins = {}
+    unrelaxed_pdbs = {}
+    processed_models = 0
+
+    for model_name, _ in model_runners.items():
+        pdb_path = os.path.join(output_dir, f"unrelaxed_{model_name}.pdb")
+        pkl_path = os.path.join(output_dir, f"result_{model_name}.pkl")
+
+        if not (os.path.exists(pdb_path) and os.path.exists(pkl_path)):
+            break
+
+        try:
+            with open(pkl_path, "rb") as f:
+                result = pickle.load(f)
+        except (EOFError, pickle.UnpicklingError):
+            break
+
+        score_name, score = get_score_from_pkl(pkl_path)
+        ranking_confidences[model_name] = score
+
+        with open(pdb_path, "r") as f:
+            unrelaxed_pdb_str = f.read()
+        unrelaxed_proteins[model_name] = protein.from_pdb_string(unrelaxed_pdb_str)
+        unrelaxed_pdbs[model_name] = unrelaxed_pdb_str
+
+        processed_models += 1
+
+    return ranking_confidences, unrelaxed_proteins, unrelaxed_pdbs, processed_models
+
 def predict(
     model_runners,
     output_dir,
@@ -45,38 +91,11 @@ def predict(
     relax_metrics = {}
     ranking_confidences = {}
     unrelaxed_proteins = {}
-    temp_order = []
     START = 0
-    temp_ranking_output_path = os.path.join(output_dir, "ranking_debug_temp.json")
     temp_timings_output_path = os.path.join(output_dir, "timings_temp.json")
     if allow_resume:
-        logging.info("Checking for %s", os.path.join(output_dir, "ranking_debug.json"))
-
-        
-        if os.path.exists(temp_ranking_output_path):
-            with open(temp_ranking_output_path, "r") as f:
-                temp_ranking_output = json.load(f)
-                if "iptm+ptm" in temp_ranking_output:
-                    ranking_confidences.update(temp_ranking_output["iptm+ptm"])
-                elif "plddts" in temp_ranking_output:
-                    ranking_confidences.update(temp_ranking_output["plddts"])
-                temp_order = temp_ranking_output["order"]
-
-        if os.path.exists(temp_timings_output_path):
-            with open(temp_timings_output_path, "r") as f:
-                timings = json.load(f)
-
-        for model_id, model_name in enumerate(temp_order):
-            unrelaxed_pdb_file = f"unrelaxed_{model_name}.pdb"
-            unrelaxed_pdb_path = os.path.join(output_dir, unrelaxed_pdb_file)
-            if os.path.exists(unrelaxed_pdb_path) and model_name in ranking_confidences:
-                with open(unrelaxed_pdb_path, "r") as f:
-                    unrelaxed_pdb_str = f.read()
-                unrelaxed_proteins[model_name] = protein.from_pdb_string(unrelaxed_pdb_str)
-                unrelaxed_pdbs[model_name] = unrelaxed_pdb_str
-                START += 1
-            else:
-                break
+        logging.info("Checking for existing results")
+        ranking_confidences, unrelaxed_proteins, unrelaxed_pdbs, START = get_existing_model_info(output_dir, model_runners)
 
         if START > 0:
             logging.info("Found existing results, continuing from there.")
@@ -150,15 +169,6 @@ def predict(
             unrelaxed_pdb_path = os.path.join(output_dir, f"unrelaxed_{model_name}.pdb")
             with open(unrelaxed_pdb_path, "w") as f:
                 f.write(unrelaxed_pdbs[model_name])
-            temp_order.append(model_name)
-
-            with open(temp_ranking_output_path, "w") as f:
-                label = "iptm+ptm" if "iptm" in prediction_result else "plddts"
-                f.write(
-                    json.dumps(
-                        {label: ranking_confidences, "order": temp_order}, indent=4
-                    )
-                )
 
             with open(temp_timings_output_path, "w") as f:
                 f.write(json.dumps(timings, indent=4))
@@ -255,11 +265,6 @@ def predict(
         with open(relax_metrics_path, 'w') as f:
             f.write(json.dumps(relax_metrics, indent=4))
 
-    if os.path.exists(temp_ranking_output_path): #should not happen at this stag but just in case
-        try:
-            os.remove(temp_ranking_output_path)
-        except OSError:
-            pass
     if os.path.exists(temp_timings_output_path): #should not happen at this stage but just in case
         try:
             os.remove(temp_timings_output_path)

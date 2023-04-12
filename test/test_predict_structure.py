@@ -27,6 +27,7 @@ import subprocess
 import json
 
 import alphapulldown
+from alphapulldown import predict_structure
 
 FAST=True
 if FAST:
@@ -34,14 +35,20 @@ if FAST:
     config.CONFIG_MULTIMER.model.embeddings_and_evoformer.evoformer_num_block = 1
     #TODO: can it be done faster? For P0DPR3_and_P0DPR3 example, I think most of the time is taken by jax model compilation.
 
-class TestScript(unittest.TestCase):
-    #Add setup that creates ampty output directory temprarily
+class _TestBase(unittest.TestCase):
     def setUp(self) -> None:
-        #Create a temporary directory for the output
-        self.output_dir = tempfile.mkdtemp()
         self.data_dir = "/scratch/AlphaFold_DBs/2.3.0/"
         #Get test_data directory as relative path to this script
         self.test_data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_data")
+
+class TestScript(_TestBase):
+    #Add setup that creates ampty output directory temprarily
+    def setUp(self) -> None:
+        #Call the setUp method of the parent class
+        super().setUp()
+
+        #Create a temporary directory for the output
+        self.output_dir = tempfile.mkdtemp()
         self.protein_lists = os.path.join(self.test_data_dir, "tiny_monomeric_features_homodimer.txt")
         self.monomer_objects_dir = self.test_data_dir
 
@@ -83,8 +90,6 @@ class TestScript(unittest.TestCase):
         self.assertTrue("ranking_debug.json" in os.listdir(os.path.join(self.output_dir, dirname)))
         #Check if the directory contains timings.json
         self.assertTrue("timings.json" in os.listdir(os.path.join(self.output_dir, dirname)))
-        #Check ranking_debug_temp.json is not present
-        self.assertFalse("ranking_debug_temp.json" in os.listdir(os.path.join(self.output_dir, dirname)))
         #Check timings_temp.json is not present
         self.assertFalse("timings_temp.json" in os.listdir(os.path.join(self.output_dir, dirname)))
         #Check if all files not empty
@@ -95,10 +100,12 @@ class TestScript(unittest.TestCase):
             ranking_debug = json.load(f)
             self.assertEqual(len(ranking_debug["order"]), 5)
             self.assertEqual(len(ranking_debug["iptm+ptm"]), 5)
+            #Check if order contains the correct models
+            self.assertSetEqual(set(ranking_debug["order"]), set(["model_1_multimer_v3_pred_0", "model_2_multimer_v3_pred_0", "model_3_multimer_v3_pred_0", "model_4_multimer_v3_pred_0", "model_5_multimer_v3_pred_0"]))
+            #Check if iptm+ptm contains the correct models
+            self.assertSetEqual(set(ranking_debug["iptm+ptm"].keys()), set(["model_1_multimer_v3_pred_0", "model_2_multimer_v3_pred_0", "model_3_multimer_v3_pred_0", "model_4_multimer_v3_pred_0", "model_5_multimer_v3_pred_0"]))
 
     def _runAfterRelaxTests(self, result):
-        #Get the name of the first directory in the output directory
-        print(os.listdir(os.path.join(self.output_dir, "P0DPR3_and_P0DPR3")))
         dirname = os.listdir(self.output_dir)[0]
         #Check if the directory contains five files starting from relaxed and ending with .pdb
         self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.startswith("relaxed") and f.endswith(".pdb")]), 5)
@@ -124,7 +131,6 @@ class TestScript(unittest.TestCase):
         """
         #Copy the example directory called "test" to the output directory
         shutil.copytree(os.path.join(self.test_data_dir,"P0DPR3_and_P0DPR3"), os.path.join(self.output_dir, "P0DPR3_and_P0DPR3"))
-        #list content of the output directory
         self.args.append("--models_to_relax=all")
         result = subprocess.run(self.args, capture_output=True, text=True)
         self._runCommonTests(result)
@@ -136,7 +142,6 @@ class TestScript(unittest.TestCase):
         """
         # Copy the example directory called "test" to the output directory
         shutil.copytree(os.path.join(self.test_data_dir, "P0DPR3_and_P0DPR3_partial"), os.path.join(self.output_dir, "P0DPR3_and_P0DPR3"))
-        # List content of the output directory
         result = subprocess.run(self.args, capture_output=True, text=True)
         self.assertIn("Found existing results, continuing from there", result.stdout + result.stderr)
         self.assertNotIn("Running model model_1_multimer_v3_pred_0", result.stdout + result.stderr)
@@ -145,7 +150,61 @@ class TestScript(unittest.TestCase):
         self._runCommonTests(result)
 
 
-#TODO: Add tests for other examples subclassing the class above
+#TODO: Add tests for other modeling examples subclassing the class above
+
+class TestFunctions(_TestBase):
+    def setUp(self):
+        #Call the setUp method of the parent class
+        super().setUp()
+        
+        from alphapulldown.utils import create_model_runners_and_random_seed
+        self.model_runners, random_seed = create_model_runners_and_random_seed(
+            "multimer",
+            3,
+            1,
+            self.data_dir,
+            1,
+        )
+
+    def test_get_score_from_pkl(self):
+        self.output_dir = os.path.join(self.test_data_dir, "P0DPR3_and_P0DPR3")
+        #Open ranking_debug.json from self.output_dir and load to results
+        with open(os.path.join(self.output_dir, "ranking_debug.json"), "r") as f:
+            results = json.load(f)
+            #Get the expected score from the results
+            expected_iptm_ptm = results["iptm+ptm"]["model_1_multimer_v3_pred_0"]
+        
+        pkl_path = os.path.join(self.test_data_dir, "P0DPR3_and_P0DPR3", "result_model_1_multimer_v3_pred_0.pkl")
+        out = predict_structure.get_score_from_pkl(pkl_path)
+        self.assertTupleEqual(out, ('iptm+ptm', expected_iptm_ptm))
+
+    def test_get_existing_model_info(self):
+        self.output_dir = os.path.join(self.test_data_dir, "P0DPR3_and_P0DPR3")
+        ranking_confidences, unrelaxed_proteins, unrelaxed_pdbs, START = predict_structure.get_existing_model_info(self.output_dir, self.model_runners)
+        self.assertEqual(len(ranking_confidences), len(unrelaxed_proteins))
+        self.assertEqual(len(ranking_confidences), len(unrelaxed_pdbs))
+        self.assertEqual(len(ranking_confidences), len(self.model_runners))
+        self.assertEqual(START, 5)
+        with open(os.path.join(self.output_dir, "ranking_debug.json"), "r") as f:
+            results = json.load(f)
+            #Get the expected score from the results
+            expected_iptm_ptm = results["iptm+ptm"]
+        self.assertDictEqual(ranking_confidences, expected_iptm_ptm)
+
+    def test_get_existing_model_info_ResumeAfter2(self):
+        self.output_dir = os.path.join(self.test_data_dir, "P0DPR3_and_P0DPR3_partial")
+        ranking_confidences, unrelaxed_proteins, unrelaxed_pdbs, START = predict_structure.get_existing_model_info(self.output_dir, self.model_runners)
+        self.assertEqual(len(ranking_confidences), len(unrelaxed_proteins))
+        self.assertEqual(len(ranking_confidences), len(unrelaxed_pdbs))
+        self.assertNotEqual(len(ranking_confidences), len(self.model_runners))
+        self.assertEqual(START, 2)
+        with open(os.path.join(self.output_dir, "ranking_debug_temp.json"), "r") as f:
+            results = json.load(f)
+            #Get the expected score from the results
+            expected_iptm_ptm = results["iptm+ptm"]
+        self.assertDictEqual(ranking_confidences, expected_iptm_ptm)
+
+    #TODO: Test monomeric runs (where score is pLDDT)
 
 if __name__ == '__main__':
     unittest.main()
