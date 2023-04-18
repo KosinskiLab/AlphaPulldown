@@ -254,13 +254,14 @@ def create_custom_jobs(custom_input_file, monomer_objects_dir, job_index=None, p
     else:
         job_idxes = list(range(len(lines)))
 
-
+    multimers = []
     for job_idx in job_idxes:
         l = lines[job_idx]
         if len(l.strip()) > 0:
             all_proteins = read_custom(l)
             data = create_custom_info(all_proteins)
-            multimers = create_multimer_objects(data, monomer_objects_dir, pair_msa=pair_msa)
+            multimer = create_multimer_objects(data, monomer_objects_dir, pair_msa=pair_msa)
+            multimers += multimer
     return multimers
 
 
