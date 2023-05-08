@@ -58,7 +58,6 @@ def mk_mock_template(
     num_temp=1 # number of fake templates
     ln = feature_dict['aatype'].shape[0]
     output_templates_sequence = "A" * ln
-    output_confidence_scores = np.full(ln, 1.0)
 
 
     templates_all_atom_positions = np.zeros(
@@ -77,11 +76,7 @@ def mk_mock_template(
         ),
         "template_sequence": [f"none".encode()] * num_temp,
         "template_aatype": np.tile(np.array(templates_aatype)[None], [num_temp, 1, 1]),
-        "template_confidence_scores": np.tile(
-            output_confidence_scores[None], [num_temp, 1]
-        ),
         "template_domain_names": [f"none".encode()] * num_temp,
-        "template_release_date": [f"none".encode()] * num_temp,
         "template_sum_probs": np.zeros([num_temp], dtype=np.float32),
     }
     feature_dict.update(template_features)

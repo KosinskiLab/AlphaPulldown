@@ -4,7 +4,6 @@
 [submodule "alphapulldown/ColabFold"]
 	path = alphapulldown/ColabFold
 	url = git@github.com:sokrypton/ColabFold.git
-[submodule "src/ColabFold"]
-	path = src/ColabFold
-	url = git@github.com:sokrypton/ColabFold.git
-	branch = main
+[submodule "alphafold"]
+	path = alphafold
+	url = git@github.com:henrywotton/alphafold.git
