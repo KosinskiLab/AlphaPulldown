@@ -8,3 +8,6 @@
 	path = src/ColabFold
 	url = git@github.com:sokrypton/ColabFold.git
 	branch = main
+[submodule "alphafold"]
+	path = alphafold
+	url = git@github.com:henrywotton/alphafold.git
