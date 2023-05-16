@@ -1,9 +1,11 @@
-[submodule "alphapulldown/analysis_pipeline/af2plots"]
-	path = alphapulldown/analysis_pipeline/af2plots
-	url = https://gitlab.com/gchojnowski/af2plots.git
 [submodule "alphapulldown/ColabFold"]
 	path = alphapulldown/ColabFold
 	url = git@github.com:sokrypton/ColabFold.git
+	branch = main
 [submodule "alphafold"]
 	path = alphafold
 	url = git@github.com:henrywotton/alphafold.git
+[submodule "alphapulldown/analysis_pipeline/af2_plots"]
+	path = alphapulldown/analysis_pipeline/af2_plots
+	url = git@git.embl.de:gchojnowski/af2plots.git
+	branch = main
