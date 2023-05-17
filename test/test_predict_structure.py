@@ -49,7 +49,8 @@ class TestScript(_TestBase):
 
         #Create a temporary directory for the output
         self.output_dir = tempfile.mkdtemp()
-        self.protein_lists = os.path.join(self.test_data_dir, "tiny_monomeric_features_homodimer.txt")
+        self.example_data_dir = os.path.join(os.path.dirname(os.getcwd()),"example_data")
+        self.protein_lists = os.path.join(self.example_data_dir, "custom_mode.txt")
         self.monomer_objects_dir = os.path.join(os.path.dirname(os.getcwd()),"example_data")
 
         #Get path of the alphapulldown module
