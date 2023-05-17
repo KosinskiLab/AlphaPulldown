@@ -50,7 +50,7 @@ class TestScript(_TestBase):
         #Create a temporary directory for the output
         self.output_dir = tempfile.mkdtemp()
         self.protein_lists = os.path.join(self.test_data_dir, "tiny_monomeric_features_homodimer.txt")
-        self.monomer_objects_dir = self.test_data_dir
+        self.monomer_objects_dir = os.path.join(os.path.dirname(os.getcwd()),"example_data")
 
         #Get path of the alphapulldown module
         alphapulldown_path = alphapulldown.__path__[0]
@@ -99,11 +99,36 @@ class TestScript(_TestBase):
         with open(os.path.join(self.output_dir, dirname, "ranking_debug.json"), "r") as f:
             ranking_debug = json.load(f)
             self.assertEqual(len(ranking_debug["order"]), 5)
-            self.assertEqual(len(ranking_debug["iptm+ptm"]), 5)
-            #Check if order contains the correct models
-            self.assertSetEqual(set(ranking_debug["order"]), set(["model_1_multimer_v3_pred_0", "model_2_multimer_v3_pred_0", "model_3_multimer_v3_pred_0", "model_4_multimer_v3_pred_0", "model_5_multimer_v3_pred_0"]))
-            #Check if iptm+ptm contains the correct models
-            self.assertSetEqual(set(ranking_debug["iptm+ptm"].keys()), set(["model_1_multimer_v3_pred_0", "model_2_multimer_v3_pred_0", "model_3_multimer_v3_pred_0", "model_4_multimer_v3_pred_0", "model_5_multimer_v3_pred_0"]))
+            if "iptm+ptm" in ranking_debug:
+                expected_set = set(["model_1_multimer_v3_pred_0", "model_2_multimer_v3_pred_0", "model_3_multimer_v3_pred_0", "model_4_multimer_v3_pred_0", "model_5_multimer_v3_pred_0"])
+                self.assertEqual(len(ranking_debug["iptm+ptm"]), 5)
+                #Check if order contains the correct models
+                self.assertSetEqual(set(ranking_debug["order"]), expected_set)
+                #Check if iptm+ptm contains the correct models
+                self.assertSetEqual(set(ranking_debug["iptm+ptm"].keys()), expected_set)
+            elif "plddt" in ranking_debug:
+                expected_set = set(["model_1_pred_0", "model_2_pred_0", "model_3_pred_0", "model_4_pred_0", "model_5_pred_0"])
+                self.assertEqual(len(ranking_debug["plddt"]), 5)
+                self.assertSetEqual(set(ranking_debug["order"]), expected_set)
+                #Check if iptm+ptm contains the correct models
+                self.assertSetEqual(set(ranking_debug["plddt"].keys()), expected_set)
+
+    def testRunMonomer(self):
+        """test run monomer structure prediction"""
+        self.oligomer_state_file = os.path.join(os.path.dirname(os.getcwd()),"example_data/homooligomer_state.txt")
+        self.args = [
+            sys.executable,
+            self.script_path,
+            "--mode=homo-oligomer",
+            "--num_cycle=1",
+            "--num_predictions_per_model=1",
+            f"--output_path={self.output_dir}",
+            f"--data_dir={self.data_dir}",
+            f"--oligomer_state_file={self.protein_lists}",
+            f"--monomer_objects_dir={self.monomer_objects_dir}"
+        ]
+        result = subprocess.run(self.args, capture_output=True, text=True)
+        self._runCommonTests(result)
 
     def _runAfterRelaxTests(self, result):
         dirname = os.listdir(self.output_dir)[0]
@@ -156,7 +181,7 @@ class TestScript(_TestBase):
 #TODO: Add tests that assess that the ranking is correct
 #TODO: Add tests for features with and without templates
 #TODO: Add tests for the different modeling modes (pulldown, homo-oligomeric, all-against-all, custom)
-#TODO: Add tests for monomeric modeling
+#TODO: Add tests for monomeric modeling done
 
 class TestFunctions(_TestBase):
     def setUp(self):
@@ -211,6 +236,19 @@ class TestFunctions(_TestBase):
         self.assertDictEqual(ranking_confidences, expected_iptm_ptm)
 
     #TODO: Test monomeric runs (where score is pLDDT)
+
+class TestMonomerFunctions(_TestBase):
+    def setUp(self) -> None:
+        super().setUp()
+        from alphapulldown.utils import create_model_runners_and_random_seed
+        self.model_runners, random_seed = create_model_runners_and_random_seed(
+            "monomer",
+            3,
+            1,
+            self.data_dir,
+            1,
+        )
+
 
 if __name__ == '__main__':
     unittest.main()
