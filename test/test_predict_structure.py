@@ -25,6 +25,7 @@ import sys
 import os
 import subprocess
 import json
+from pathlib import Path
 
 import alphapulldown
 from alphapulldown import predict_structure
@@ -49,9 +50,9 @@ class TestScript(_TestBase):
 
         #Create a temporary directory for the output
         self.output_dir = tempfile.mkdtemp()
-        self.example_data_dir = os.path.join(os.path.dirname(os.getcwd()),"example_data")
-        self.protein_lists = os.path.join(self.example_data_dir, "custom_mode.txt")
-        self.monomer_objects_dir = os.path.join(os.path.dirname(os.getcwd()),"example_data")
+        self.test_data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_data")
+        self.protein_lists = os.path.join(self.test_data_dir, "tiny_monomeric_features_homodimer.txt")
+        self.monomer_objects_dir = self.test_data_dir
 
         #Get path of the alphapulldown module
         alphapulldown_path = alphapulldown.__path__[0]
@@ -116,7 +117,11 @@ class TestScript(_TestBase):
 
     def testRunMonomer(self):
         """test run monomer structure prediction"""
-        self.oligomer_state_file = os.path.join(os.path.dirname(os.getcwd()),"example_data/homooligomer_state.txt")
+        self.example_data_dir = os.path.join(Path(os.path.abspath(__file__)).parent.parent.absolute(), "example_data")
+        print(self.example_data_dir)
+        self.protein_lists = os.path.join(self.example_data_dir, "custom_mode.txt")
+        self.monomer_objects_dir = self.example_data_dir
+        self.oligomer_state_file = os.path.join(self.example_data_dir, "homooligomer_state.txt")
         self.args = [
             sys.executable,
             self.script_path,
