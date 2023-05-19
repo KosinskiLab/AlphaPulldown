@@ -27,7 +27,17 @@
 module load Anaconda3 
 module load CUDA/11.3.1
 module load cuDNN/8.2.1.32-CUDA-11.3.1
-source activate alphapulldown
+
+#Print error message if no arguments and help message that explains how to use the script
+if [ $# -eq 0 ]
+  then
+    echo "No arguments supplied"
+    echo "Usage: test_predict_structure.sh YourAlphaPulldownEnvironment"
+    exit 1
+fi
+
+AlphaPulldownENV=$1
+source activate $AlphaPulldownENV
 
 MAXRAM=$(echo `ulimit -m` '/ 1024.0'|bc)
 GPUMEM=`nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits|tail -1`
