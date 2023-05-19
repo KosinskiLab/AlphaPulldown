@@ -27,7 +27,7 @@
 module load Anaconda3 
 module load CUDA/11.3.1
 module load cuDNN/8.2.1.32-CUDA-11.3.1
-source activate AlphaPulldown
+source activate alphapulldown
 
 MAXRAM=$(echo `ulimit -m` '/ 1024.0'|bc)
 GPUMEM=`nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits|tail -1`
