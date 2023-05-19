@@ -125,7 +125,7 @@ class TestScript(_TestBase):
             "--num_predictions_per_model=1",
             f"--output_path={self.output_dir}",
             f"--data_dir={self.data_dir}",
-            f"--oligomer_state_file={self.protein_lists}",
+            f"--oligomer_state_file={self.oligomer_state_file}",
             f"--monomer_objects_dir={self.monomer_objects_dir}"
         ]
         result = subprocess.run(self.args, capture_output=True, text=True)
