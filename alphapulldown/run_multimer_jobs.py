@@ -305,6 +305,33 @@ def predict_individual_jobs(multimer_object, output_path, model_runners, random_
     if not isinstance(multimer_object, MultimericObject):
         multimer_object.input_seqs = [multimer_object.sequence]
 
+    if not use_unifold:
+        predict(
+            model_runners,
+            output_path,
+            multimer_object.feature_dict,
+            random_seed,
+            FLAGS.benchmark,
+            fasta_name=multimer_object.description,
+            models_to_relax=FLAGS.models_to_relax,
+            seqs=multimer_object.input_seqs,
+        )
+        create_and_save_pae_plots(multimer_object, output_path)
+    else:
+        from unifold.inference import config_args,unifold_config_model,unifold_predict
+        from unifold.dataset import process
+        from unifold.config import model_config
+        configs = model_config("multimer_af2_v3")
+        general_args = config_args(FLAGS.unifold_param,target_name=multimer_object.description,output_dir=output_path)
+        model_runner = unifold_config_model(general_args)
+        # First need to add num_recycling_iters to the feature dictionary
+        # multimer_object.feature_dict.update({"num_recycling_iters":general_args.max_recycling_iters})
+        processed_features,_ = process(config=configs.data,features=multimer_object.feature_dict,
+                                       mode="predict",labels=None,
+                                       seed=42,batch_idx=None,
+                                       data_idx=None,is_distillation=False)
+        logging.info(f"finished configuring the Unifold AlphlaFold model and process numpy features")
+        unifold_predict(model_runner,general_args,processed_features)
 
     predict(
         model_runners,
