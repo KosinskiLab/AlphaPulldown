@@ -39,8 +39,16 @@ Check if you have downloaded necessary parameters and databases (e.g. BFD, MGnif
     uniref90/                              # ~ 58 GB (download: 29.7 GB)
         uniref90.fasta
  ```
+## (For developers) Installation locally
+```bash
+git clone --recurse-submodules git@github.com:KosinskiLab/AlphaPulldown.git
+cd AlphaPulldown 
+git submodule init
+git submodule update 
+pip install .
+```
 
-## Installation 
+## (For users) pip installation 
 
 **Firstly**, install [Anaconda](https://www.anaconda.com/) and create AlphaPulldown environment, gathering necessary dependencies 
 ```bash
