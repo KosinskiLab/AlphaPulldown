@@ -67,6 +67,8 @@ flags.DEFINE_integer(
     "msa_depth", None, "Number of sequences to use from the MSA (by default is taken from AF model config)"
 )
 
+flags.DEFINE_enum("unifold_model_name","multimer_af2",
+                  ["multimer_af2","multimer_ft","multimer","multimer_af2_v3","multimer_af2_model45_v3"])
 flags.mark_flag_as_required("output_path")
 
 delattr(flags.FLAGS, "models_to_relax")
@@ -319,14 +321,14 @@ def predict_individual_jobs(multimer_object, output_path, model_runners, random_
         create_and_save_pae_plots(multimer_object, output_path)
     else:
         from unifold.inference import config_args,unifold_config_model,unifold_predict
-        from unifold.dataset import process
+        from unifold.dataset import process_ap
         from unifold.config import model_config
-        configs = model_config("multimer_af2_v3")
+        configs = model_config(FLAGS.unifold_model_name)
         general_args = config_args(FLAGS.unifold_param,target_name=multimer_object.description,output_dir=output_path)
         model_runner = unifold_config_model(general_args)
         # First need to add num_recycling_iters to the feature dictionary
         # multimer_object.feature_dict.update({"num_recycling_iters":general_args.max_recycling_iters})
-        processed_features,_ = process(config=configs.data,features=multimer_object.feature_dict,
+        processed_features,_ = process_ap(config=configs.data,features=multimer_object.feature_dict,
                                        mode="predict",labels=None,
                                        seed=42,batch_idx=None,
                                        data_idx=None,is_distillation=False)
