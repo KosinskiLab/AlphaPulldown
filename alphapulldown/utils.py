@@ -248,7 +248,7 @@ def create_model_runners_and_random_seed(
         for i in range(num_multimer_predictions_per_model):
             model_runners[f"{model_name}_pred_{i}"] = model_runner
     if random_seed is None:
-        random_seed = random.randrange(sys.maxsize // len(model_names))
+        random_seed = random.randrange(sys.maxsize // len(model_runners))
         logging.info("Using random seed %d for the data pipeline", random_seed)
     return model_runners, random_seed
 
