@@ -13,11 +13,15 @@ from alphapulldown.plot_pae import plot_pae
 from alphafold.model import config
 from alphafold.model import model
 from alphafold.model import data
+from alphafold.data import templates
 import random
 import sys
 from alphafold.data import parsers
 from pathlib import Path
-
+import numpy as np
+import importlib
+import alphafold
+import sys
 
 def create_uniprot_runner(jackhmmer_binary_path, uniprot_database_path):
     """create a uniprot runner object"""
@@ -40,6 +44,43 @@ def make_dir_monomer_dictionary(monomer_objects_dir):
             output_dict[m] = dir
     return output_dict
 
+def check_empty_templates(feature_dict:dict) -> bool:
+    """A function to check wether the pickle has empty templates"""
+    return (feature_dict['template_all_atom_masks'].size ==0) or (feature_dict['template_aatype'].size==0)
+
+def mk_mock_template(
+    feature_dict:dict
+):
+    """
+    Modified based upon colabfold mk_mock_template():
+    https://github.com/sokrypton/ColabFold/blob/05c0cb38d002180da3b58cdc53ea45a6b2a62d31/colabfold/batch.py#L121-L155
+    """
+    num_temp=1 # number of fake templates
+    ln = feature_dict['aatype'].shape[0]
+    output_templates_sequence = "A" * ln
+
+
+    templates_all_atom_positions = np.zeros(
+        (ln, templates.residue_constants.atom_type_num, 3)
+    )
+    templates_all_atom_masks = np.zeros((ln, templates.residue_constants.atom_type_num))
+    templates_aatype = templates.residue_constants.sequence_to_onehot(
+        output_templates_sequence, templates.residue_constants.HHBLITS_AA_TO_ID
+    )
+    template_features = {
+        "template_all_atom_positions": np.tile(
+            templates_all_atom_positions[None], [num_temp, 1, 1, 1]
+        ),
+        "template_all_atom_masks": np.tile(
+            templates_all_atom_masks[None], [num_temp, 1, 1]
+        ),
+        "template_sequence": [f"none".encode()] * num_temp,
+        "template_aatype": np.tile(np.array(templates_aatype)[None], [num_temp, 1, 1]),
+        "template_domain_names": [f"none".encode()] * num_temp,
+        "template_sum_probs": np.zeros([num_temp], dtype=np.float32),
+    }
+    feature_dict.update(template_features)
+    return feature_dict
 
 def load_monomer_objects(monomer_dir_dict, protein_name):
     """
@@ -50,7 +91,10 @@ def load_monomer_objects(monomer_dir_dict, protein_name):
     """
     target_path = monomer_dir_dict[f"{protein_name}.pkl"]
     target_path = os.path.join(target_path, f"{protein_name}.pkl")
-    return pickle.load(open(target_path, "rb"))
+    monomer = pickle.load(open(target_path, "rb"))
+    if check_empty_templates(monomer.feature_dict):
+        monomer.feature_dict = mk_mock_template(monomer.feature_dict)
+    return monomer
 
 
 def read_all_proteins(fasta_path) -> list:
@@ -124,7 +168,6 @@ def read_custom(line) -> list:
 
     return all_proteins
 
-
 def check_existing_objects(output_dir, pickle_name):
     """check whether the wanted monomer object already exists in the output_dir"""
     logging.info(f"checking if {os.path.join(output_dir,pickle_name)} already exists")
@@ -142,22 +185,24 @@ def create_interactors(data, monomer_objects_dir, i):
     monomer_dir_dict = make_dir_monomer_dictionary(monomer_objects_dir)
     for k in data.keys():
         for curr_interactor_name, curr_interactor_region in data[k][i].items():
-            if curr_interactor_region == "all":
-                monomer = load_monomer_objects(monomer_dir_dict, curr_interactor_name)
-                interactors.append(monomer)
-            elif (
-                isinstance(curr_interactor_region, list)
-                and len(curr_interactor_region) != 0
-            ):
-                monomer = load_monomer_objects(monomer_dir_dict, curr_interactor_name)
-                chopped_object = ChoppedObject(
-                    monomer.description,
-                    monomer.sequence,
-                    monomer.feature_dict,
-                    curr_interactor_region,
-                )
-                chopped_object.prepare_final_sliced_feature_dict()
-                interactors.append(chopped_object)
+            monomer = load_monomer_objects(monomer_dir_dict, curr_interactor_name)
+            if check_empty_templates(monomer.feature_dict):
+                monomer.feature_dict = mk_mock_template(monomer.feature_dict)
+            else:
+                if curr_interactor_region == "all":
+                    interactors.append(monomer)
+                elif (
+                    isinstance(curr_interactor_region, list)
+                    and len(curr_interactor_region) != 0
+                ):
+                    chopped_object = ChoppedObject(
+                        monomer.description,
+                        monomer.sequence,
+                        monomer.feature_dict,
+                        curr_interactor_region,
+                    )
+                    chopped_object.prepare_final_sliced_feature_dict()
+                    interactors.append(chopped_object)
     return interactors
 
 
@@ -203,7 +248,7 @@ def create_model_runners_and_random_seed(
         for i in range(num_multimer_predictions_per_model):
             model_runners[f"{model_name}_pred_{i}"] = model_runner
     if random_seed is None:
-        random_seed = random.randrange(sys.maxsize // len(model_names))
+        random_seed = random.randrange(sys.maxsize // len(model_runners))
         logging.info("Using random seed %d for the data pipeline", random_seed)
     return model_runners, random_seed
 
@@ -243,11 +288,11 @@ def parse_fasta(fasta_string: str):
         line = line.strip()
         if line.startswith(">"):
             index += 1
-            line.replace(" ", "_")
+            line = line.replace(" ", "_")
             unwanted_symbols = ["|", "=", "&", "*", "@", "#", "`", ":", ";", "$", "?"]
             for symbol in unwanted_symbols:
                 if symbol in line:
-                    line.replace(symbol, "_")
+                    line = line.replace(symbol, "_")
             descriptions.append(line[1:])  # Remove the '>' at the beginning.
             sequences.append("")
             continue
@@ -256,3 +301,26 @@ def parse_fasta(fasta_string: str):
         sequences[index] += line
 
     return sequences, descriptions
+
+def load_module(file_name, module_name):
+    spec = importlib.util.spec_from_file_location(module_name, file_name)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+def get_run_alphafold():
+    PATH_TO_RUN_ALPHAFOLD = os.path.join(
+        os.path.dirname(alphafold.__file__), "run_alphafold.py"
+    )
+
+    try:
+        run_af = load_module(PATH_TO_RUN_ALPHAFOLD, "run_alphafold")
+    except FileNotFoundError:
+        PATH_TO_RUN_ALPHAFOLD = os.path.join(
+            os.path.dirname(os.path.dirname(alphafold.__file__)), "run_alphafold.py"
+        )
+
+        run_af = load_module(PATH_TO_RUN_ALPHAFOLD, "run_alphafold")
+
+    return run_af
