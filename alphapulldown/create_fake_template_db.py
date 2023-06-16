@@ -31,14 +31,13 @@ _entity_poly_seq.mon_id
 '''
 
 
-def read_cif(cif_fn, code, chain_id):
+def save_cif(cif_fn, code, chain_id, path):
     """
     Read, validate and fix CIF file using ColabFold
     o cif_fn - path to the CIF file
     o code - four letter PDB-like code
     o chain_id - chain ID of the multimeric template
-    Return:
-        o ColabFold like CIF object
+    o path - path where to save the CIF file
     """
     p = MMCIFParser()
     try:
@@ -46,51 +45,32 @@ def read_cif(cif_fn, code, chain_id):
         logging.info(f'Validated and fixed {cif_fn}!')
     except Exception as e:
         logging.warning(f'Exception: {e}'
-                        f'Cannot validate and fix {cif_fn}!'
-                        f'Adding missing fields and trying again!')
-        with open(cif_fn, 'r+') as f:
-            contents = f.read()
-            new_contents = f"{contents}{extra_fields}"
-            f.seek(0)
-            f.write(new_contents)
-    validate_and_fix_mmcif(cif_fn)
+                        f'Cannot validate and fix {cif_fn}!')
     struct = p.get_structure(code, cif_fn)
     if len(struct.child_list) > 1:
-        logging.error(f'{len(struct.child_list)} models found in {cif_fn}!')
-    # Check that the chain_id is in the structure
+        raise Exception(f'{len(struct.child_list)} models found in {cif_fn}!')
+    # Check that it's only 1 model and chain_id is in the structure
     for model in struct:
         chain_ids = [chain.id for chain in model]
     if chain_id not in chain_ids:
-        raise Exception(f"Chain {chain_id} not found in {cif_fn}!"
+        logging.warning(f"Warning! SEQRES chains may be different from ATOM chains!"
+                        f"Chain {chain_id} not found in {cif_fn}!"
                         f"Found chains: {chain_ids}!")
     else:
         logging.info(f'Found chain {chain_id} in {cif_fn}!')
-    cif = colabfold.utils.CFMMCIFIO()
-    cif.set_structure(struct)
-    return cif
+    #cif_io.save(path)
+    # cif is corrupted due to Biopython bug, just copy template instead
+    out_path = Path(path) / f'{code}.cif'
+    shutil.copyfile(cif_fn, out_path)
+    return out_path
 
 
-def save_cif(cif, code, path):
-    """
-    Save CIF file to pdb_mmcif database
-    o cif - CIF file
-    o code - four letter PDB-like code
-    o path - path to the mmcif database
-    Return:
-        o path to the saved CIF file
-    """
-    fn = os.path.join(path, code + ".cif")
-    #cif.save(fn) # resulting cif is corrupted, just copy template instead
-    shutil.copyfile(cif, fn)
-    return fn
-
-
-def extract_seqs_from_cif(cif, file_path, chain_id):
+def extract_seqs_from_cif(file_path, chain_id):
     """
     Extract sequences from PDB/CIF file, if SEQRES records are not present,
     extract from atoms
-    o cif - CIF file
-    o code - four letter PDB-like code
+    o file_path - path to CIF file
+    o chain id - chain id
     Return:
         o list of tuples: (chain_id, sequence)
     """
@@ -103,8 +83,12 @@ def extract_seqs_from_cif(cif, file_path, chain_id):
         seqs.append((record.seq, record.id))
     if len(seqs) == 0:
         logging.info(f'No SEQRES records found in {file_path}! Parsing from atoms!')
+        # Get the SEQRES records from the structure
+        cif_io = colabfold.utils.CFMMCIFIO()
+        p = MMCIFParser()
+        struct = p.get_structure('template', file_path)
         # Iterate through all chains in all models of the structure
-        for model in cif.structure.child_list:
+        for model in struct.child_list:
             for chain in model:
                 if chain.id != chain_id:
                     logging.info("Skipping chain %s", chain.id)
@@ -129,7 +113,7 @@ def save_seqres(code, seqs, path):
     o seqs - list of tuples: (chain_id, sequence)
     o path - path to the pdb_seqresi, unique for each chain
     Returns:
-        o None
+        o Path to the file
     """
     fn = path / 'pdb_seqres.txt'
     # Rewrite the file if it exists
@@ -140,9 +124,10 @@ def save_seqres(code, seqs, path):
             chain = seq[1]
             s = seq[0]
             lines = f">{code}_{chain} mol:protein length:{len(s)}\n{s}\n"
+            logging.info(f'Saving SEQRES for chain {chain} to {fn}!')
             logging.info(lines)
             f.write(lines)
-
+    return fn
 
 def create_db(argv):
     """Main function that creates a fake template database for AlphaFold2
@@ -186,21 +171,22 @@ def create_db(argv):
         if os.path.exists(seqres_dir / 'pdb_seqres.txt'):
             os.remove(seqres_dir / 'pdb_seqres.txt')
 
-    # Convert PDB/MMCIF to the ColabFold-like CIF
+    # Convert PDB/MMCIF to the ColabFold-like CIF file
     if struct_fn.endswith('pdb'):
+        logging.info(f"Converting {struct_fn} to CIF!")
         convert_pdb_to_mmcif(Path(struct_fn))
-        cif = read_cif(struct_fn.replace('.pdb', '.cif'), code, chain_id)
+        cif = save_cif(struct_fn.replace('.pdb', '.cif'), code, chain_id, mmcif_dir)
     elif struct_fn.endswith('cif'):
-        cif = read_cif(struct_fn, code, chain_id)
+        logging.info(f"Reading {struct_fn}!")
+        cif = save_cif(struct_fn, code, chain_id, mmcif_dir)
     else:
         logging.error('Unknown format of ', struct_fn)
-    # Save CIF file to pdb_mmcif database
-    save_cif(struct_fn, code, mmcif_dir)
+        sys.exit(1)
 
     # Save pdb_seqres.txt file to pdb_seqres
-    seqs = extract_seqs_from_cif(cif, struct_fn, chain_id)
-    save_seqres(code, seqs, seqres_dir)
-    logging.info("Done!")
+    seqs = extract_seqs_from_cif(cif, chain_id)
+    sqrres_path = save_seqres(code, seqs, seqres_dir)
+    logging.info(f"SEQRES saved to {sqrres_path}!")
 
 
 if __name__ == '__main__':
