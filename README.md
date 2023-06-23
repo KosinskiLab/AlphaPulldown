@@ -40,16 +40,8 @@ Check if you have downloaded necessary parameters and databases (e.g. BFD, MGnif
     uniref90/                              # ~ 58 GB (download: 29.7 GB)
         uniref90.fasta
  ```
-## (For developers) Installation locally
-```bash
-git clone --recurse-submodules git@github.com:KosinskiLab/AlphaPulldown.git
-cd AlphaPulldown 
-git submodule init
-git submodule update 
-pip install .
-```
 
-## (For users) pip installation 
+## Installation using pip
 
 **Firstly**, install [Anaconda](https://www.anaconda.com/) and create AlphaPulldown environment, gathering necessary dependencies 
 ```bash
@@ -72,6 +64,9 @@ This usually works, but on some compute systems users may wish to use other vers
 
 **For older versions of AlphaFold**: 
 If you haven't updated your databases according to the requirements of AlphaFold 2.3.0, you can still use AlphaPulldown with your older version of AlphaFold database. Please follow the installation instructions on the [dedicated branch](https://github.com/KosinskiLab/AlphaPulldown/tree/AlphaFold-2.2.0)
+
+## How to develop
+Follow the instructions at [Developing guidelines](./Developing.md)
 
 ------
 
