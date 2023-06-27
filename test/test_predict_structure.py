@@ -117,11 +117,8 @@ class TestScript(_TestBase):
 
     def testRunMonomer(self):
         """test run monomer structure prediction"""
-        self.example_data_dir = os.path.join(Path(os.path.abspath(__file__)).parent.parent.absolute(), "example_data")
-        print(self.example_data_dir)
-        self.protein_lists = os.path.join(self.example_data_dir, "custom_mode.txt")
-        self.monomer_objects_dir = self.example_data_dir
-        self.oligomer_state_file = os.path.join(self.example_data_dir, "homooligomer_state.txt")
+        self.monomer_objects_dir = self.test_data_dir
+        self.oligomer_state_file = os.path.join(self.test_data_dir, "test_homooligomer_state.txt")
         self.args = [
             sys.executable,
             self.script_path,
@@ -131,7 +128,8 @@ class TestScript(_TestBase):
             f"--output_path={self.output_dir}",
             f"--data_dir={self.data_dir}",
             f"--oligomer_state_file={self.oligomer_state_file}",
-            f"--monomer_objects_dir={self.monomer_objects_dir}"
+            f"--monomer_objects_dir={self.monomer_objects_dir}",
+            "--job_index=1"
         ]
         result = subprocess.run(self.args, capture_output=True, text=True)
         self._runCommonTests(result)
