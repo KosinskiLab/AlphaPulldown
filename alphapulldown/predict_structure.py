@@ -34,11 +34,7 @@ def get_score_from_result_pkl(pkl_path):
         score = 0.8 * result["iptm"] + 0.2 * result["ptm"]
     else:
         score_type = "plddt"
-<<<<<<< HEAD
         score = np.mean(result["plddt"])
-=======
-        score = result["plddt"]
->>>>>>> 4425307c0570304cfdf3411b13525817ebebb01b
 
     return score_type, score
 
@@ -91,10 +87,7 @@ def predict(
     relax_metrics = {}
     ranking_confidences = {}
     unrelaxed_proteins = {}
-<<<<<<< HEAD
     prediction_result = {}
-=======
->>>>>>> 4425307c0570304cfdf3411b13525817ebebb01b
     START = 0
     ranking_output_path = os.path.join(output_dir, "ranking_debug.json")
     temp_timings_output_path = os.path.join(output_dir, "timings_temp.json") #To keep track of timings in case of crash and resume
@@ -180,10 +173,7 @@ def predict(
         with open(temp_timings_output_path, "w") as f:
             f.write(json.dumps(timings, indent=4))
 
-<<<<<<< HEAD
-=======
 
->>>>>>> 4425307c0570304cfdf3411b13525817ebebb01b
     # Rank by model confidence.
     ranked_order = [
         model_name for model_name, confidence in
