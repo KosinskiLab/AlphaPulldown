@@ -1,4 +1,5 @@
-#Fork from github to gitlab
+1. Fork from github to gitlab
+ ```
 #local clone with submodules
 git clone --recurse-submodules git@github.com:KosinskiLab/AlphaPulldown.git
 cd AlphaPulldown 
@@ -25,9 +26,10 @@ git pull gitlab/master
 git push gitlab HEAD:master
 #update submodules from remote
 git submodule update –remote
+```
 
-
-#Rebase
+1. Rebase
+```
 git remote add upstream https://github.com/KosinskiLab/AlphaPulldown.git   
 #add GitHub repository to remotes
 git fetch upstream   # fetch the latest changes from the remote repository
@@ -48,4 +50,4 @@ git commit -m "Rebased from github/main"
 
 # Push the changes to the GitLab repository with the --force option
 git push --force origin [name-of-your-branch]
-
+```
