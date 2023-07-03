@@ -50,11 +50,7 @@ def check_empty_templates(feature_dict:dict) -> bool:
 
 def mk_mock_template(
     feature_dict:dict
-<<<<<<< HEAD
-):  
-=======
 ):
->>>>>>> 4425307c0570304cfdf3411b13525817ebebb01b
     """
     Modified based upon colabfold mk_mock_template():
     https://github.com/sokrypton/ColabFold/blob/05c0cb38d002180da3b58cdc53ea45a6b2a62d31/colabfold/batch.py#L121-L155
@@ -327,8 +323,4 @@ def get_run_alphafold():
 
         run_af = load_module(PATH_TO_RUN_ALPHAFOLD, "run_alphafold")
 
-<<<<<<< HEAD
     return run_af
-=======
-    return run_af
->>>>>>> 4425307c0570304cfdf3411b13525817ebebb01b
