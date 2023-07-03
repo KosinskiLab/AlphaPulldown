@@ -1,4 +1,3 @@
-#
 # Author Dingquan Yu
 # scripts to create objects (e.g. monomeric object, multimeric objects)
 #
@@ -183,6 +182,11 @@ class MonomericObject:
         templates_result = template_featuriser.get_templates(
             query_sequence=query_sequence, hits=hhsearch_hits
         )
+<<<<<<< HEAD
+=======
+        print(templates_result)
+        exit()
+>>>>>>> 4425307c0570304cfdf3411b13525817ebebb01b
         return dict(templates_result.features)
 
     def make_mmseq_features(
@@ -446,13 +450,13 @@ class MultimericObject:
     interactors: individual interactors that are to be concatenated
     """
 
-    def __init__(self, interactors: list, pair_msa: bool = True) -> None:
+    def __init__(self, interactors: list, pair_msa: bool = True, multimeric_mode: bool = False) -> None:
         self.description = ""
         self.interactors = interactors
         self.pair_msa = pair_msa
+        self.multimeric_mode = multimeric_mode
         self.chain_id_map = dict()
         self.input_seqs = []
-        self.get_all_residue_index()
         self.create_output_name()
         self.create_all_chain_features()
         pass
@@ -484,6 +488,57 @@ class MultimericObject:
         self.chain_id_map = pipeline_multimer._make_chain_id_map(
             sequences=self.input_seqs, descriptions=input_descs
         )
+
+    def save_binary_matrix(self, matrix, file_path):
+        from PIL import Image, ImageDraw, ImageFont
+        height, width = matrix.shape
+        image_data = np.zeros((height, width, 3), dtype=np.uint8)
+        image_data[matrix == 1] = [255, 0, 0]  # Set ones as red
+        image_data[matrix == 0] = [0, 0, 255]  # Set zeros as blue
+
+        image = Image.fromarray(image_data)
+
+        draw = ImageDraw.Draw(image)
+        font_size = 16
+        # Try to use Arial font, if not available, use default font
+        try:
+            font = ImageFont.truetype("Arial", font_size)
+        except OSError:
+            font = ImageFont.load_default()
+        for col in range(width-1):
+            if matrix[:, col].any() != matrix[:, col+1].any():
+                text = str(col+1)
+                text_width, text_height = draw.textsize(text, font=font)
+                x = (col + 0.5) * image.width / width - text_width / 2
+                y = image.height - text_height
+                draw.text((x, y), text, font=font, fill=(0, 0, 0))  # Set text fill color to black
+
+        image.save(file_path)
+
+    def create_multichain_mask(self):
+        """a method to create pdb_map for further multitemplate modeling"""
+        pdb_map = []
+        no_gap_map = []
+        for interactor in self.interactors:
+            temp_length = len(interactor.sequence)
+            pdb_map.extend([interactor.feature_dict['template_domain_names'][0]] * temp_length)
+            has_no_gaps = [True] * temp_length
+            # for each template in the interactor, check for gaps in sequence
+            for template_sequence in interactor.feature_dict['template_sequence']:
+                is_not_gap = [s!='-' for s in template_sequence.decode("utf-8").strip()]
+                # False if any of the templates has a gap in this position
+                has_no_gaps = [a and b for a,b in zip(has_no_gaps,is_not_gap)]
+            no_gap_map.extend(has_no_gaps)
+        multichain_mask = np.zeros((len(pdb_map), len(pdb_map)), dtype=int)
+        for index1, id1 in enumerate(pdb_map):
+            for index2, id2 in enumerate(pdb_map):
+                if (id1[:4] == id2[:4]):#and (no_gap_map[index1] and no_gap_map[index2]):
+                    multichain_mask[index1, index2] = 1
+        #DEBUG
+        self.save_binary_matrix(multichain_mask,
+                                "multichain_mask.png")
+        #exit()
+        return multichain_mask
 
     def pair_and_merge(self, all_chain_features):
         """merge all chain features"""
@@ -517,6 +572,9 @@ class MultimericObject:
         uniprot_runner: a jackhammer runner with path to the uniprot database
         msa_pairing: boolean pairs msas or not
         """
+        if self.multimeric_mode:
+            self.multichain_mask = self.create_multichain_mask()
+        self.get_all_residue_index()
         self.create_chain_id_map()
         all_chain_features = {}
         sequence_features = {}
@@ -536,3 +594,5 @@ class MultimericObject:
             all_chain_features=self.all_chain_features
         )
         self.feature_dict = pipeline_multimer.pad_msa(self.feature_dict, 512)
+        if self.multimeric_mode:
+            self.feature_dict['multichain_mask'] = self.multichain_mask
