@@ -182,11 +182,6 @@ class MonomericObject:
         templates_result = template_featuriser.get_templates(
             query_sequence=query_sequence, hits=hhsearch_hits
         )
-<<<<<<< HEAD
-=======
-        print(templates_result)
-        exit()
->>>>>>> 4425307c0570304cfdf3411b13525817ebebb01b
         return dict(templates_result.features)
 
     def make_mmseq_features(

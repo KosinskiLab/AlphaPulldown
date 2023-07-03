@@ -36,13 +36,10 @@ flags.DEFINE_list(
     "a list of directories where monomer objects are stored",
 )
 flags.DEFINE_list("protein_lists", None, "protein list files")
-<<<<<<< HEAD
 
 delattr(flags.FLAGS, "data_dir")
 flags.DEFINE_string("data_dir", None, "Path to params directory")
-=======
 #flags.DEFINE_string("data_dir", None, "Path to params directory")
->>>>>>> 4425307c0570304cfdf3411b13525817ebebb01b
 
 flags.DEFINE_integer("num_cycle", 3, help="number of recycles")
 flags.DEFINE_integer(
@@ -276,10 +273,6 @@ def create_custom_jobs(custom_input_file, monomer_objects_dir, job_index=None, p
     else:
         logging.info("Running in serial mode")
         job_idxes = list(range(len(lines)))
-<<<<<<< HEAD
-
-=======
->>>>>>> 4425307c0570304cfdf3411b13525817ebebb01b
     multimers = []
     for job_idx in job_idxes:
         l = lines[job_idx]

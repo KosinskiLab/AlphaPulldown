@@ -20,11 +20,8 @@ import sys
 import contextlib
 from datetime import datetime
 from pathlib import Path
-<<<<<<< HEAD
 from colabfold.utils import DEFAULT_API_SERVER
-=======
 import tempfile
->>>>>>> 4425307c0570304cfdf3411b13525817ebebb01b
 
 @contextlib.contextmanager
 def output_meta_file(file_path):
@@ -68,43 +65,30 @@ flags.DEFINE_string(
 )
 flags.DEFINE_bool("use_mmseqs2",False,"Use mmseqs2 remotely or not. Default is False")
 
-<<<<<<< HEAD
-=======
 flags.DEFINE_string("path_to_multimeric_template", None, "Path to the multimeric template PDB file")
 
 flags.DEFINE_string("multimeric_chain", None, "Chain of the multimeric template PDB/CIF file")
 
->>>>>>> 4425307c0570304cfdf3411b13525817ebebb01b
 FLAGS = flags.FLAGS
 MAX_TEMPLATE_HITS = 20
 
 flags_dict = FLAGS.flag_values_dict()
 
-<<<<<<< HEAD
-def create_global_arguments(flags_dict):
-=======
 def create_global_arguments(flags_dict, temp_dir=None):
->>>>>>> 4425307c0570304cfdf3411b13525817ebebb01b
     global uniref90_database_path
     global mgnify_database_path
     global bfd_database_path
     global small_bfd_database_path
     global pdb_seqres_database_path
     global template_mmcif_dir
-<<<<<<< HEAD
-=======
     global path_to_multimeric_template # rewrite template_mmcif_template if this flag is not None
     global multimeric_chain
->>>>>>> 4425307c0570304cfdf3411b13525817ebebb01b
     global obsolete_pdbs_path
     global pdb70_database_path
     global use_small_bfd
     global uniref30_database_path
 
-<<<<<<< HEAD
-=======
 
->>>>>>> 4425307c0570304cfdf3411b13525817ebebb01b
     # Path to the Uniref30 database for use by HHblits.
     if FLAGS.uniref30_database_path is None:
         uniref30_database_path = os.path.join(
@@ -152,14 +136,12 @@ def create_global_arguments(flags_dict, temp_dir=None):
         small_bfd_database_path = FLAGS.small_bfd_database_path
     flags_dict.update({"small_bfd_database_path": small_bfd_database_path})
 
-<<<<<<< HEAD
     if FLAGS.pdb_seqres_database_path is None:
         pdb_seqres_database_path = os.path.join(
             FLAGS.data_dir, "pdb_seqres", "pdb_seqres.txt"
         )
     else:
         pdb_seqres_database_path = FLAGS.pdb_seqres_database_path
-=======
     # Path to the Uniclust30 database for use by HHblits.
     # if FLAGS.uniclust30_database_path is None:
     #     uniclust30_database_path = os.path.join(
@@ -201,7 +183,6 @@ def create_global_arguments(flags_dict, temp_dir=None):
             obsolete_pdbs_path = os.path.join(FLAGS.data_dir, "pdb_mmcif", "obsolete.dat")
         else:
             obsolete_pdbs_path = FLAGS.obsolete_pdbs_path
->>>>>>> 4425307c0570304cfdf3411b13525817ebebb01b
     flags_dict.update({"pdb_seqres_database_path": pdb_seqres_database_path})
     flags_dict.update({"template_mmcif_dir": template_mmcif_dir})
     flags_dict.update({"obsolete_pdbs_path": obsolete_pdbs_path})
@@ -215,10 +196,7 @@ def create_global_arguments(flags_dict, temp_dir=None):
 
     use_small_bfd = FLAGS.db_preset == "reduced_dbs"
 
-<<<<<<< HEAD
-=======
 
->>>>>>> 4425307c0570304cfdf3411b13525817ebebb01b
 def create_pipeline():
     monomer_data_pipeline = DataPipeline(
         jackhmmer_binary_path=FLAGS.jackhmmer_binary_path,
@@ -300,11 +278,9 @@ def main(argv):
         Path(FLAGS.output_dir).mkdir(parents=True, exist_ok=True)
     except FileExistsError:
         logging.info("Multiple processes are trying to create the same folder now.")
-<<<<<<< HEAD
 
     flags_dict = FLAGS.flag_values_dict()
     create_global_arguments(flags_dict)
-=======
     flags_dict = FLAGS.flag_values_dict()
     temp_dir = tempfile.TemporaryDirectory()
     if  "path_to_multimeric_template" in flags_dict:
@@ -312,8 +288,6 @@ def main(argv):
         create_global_arguments(flags_dict, temp_dir)
     else:
         create_global_arguments(flags_dict)
-    
->>>>>>> 4425307c0570304cfdf3411b13525817ebebb01b
     if not FLAGS.use_mmseqs2:
         if not FLAGS.max_template_date:
             logging.info("You have not provided a max_template_date. Please specify a date and run again.")
@@ -347,18 +321,11 @@ def main(argv):
                     curr_monomer.uniprot_runner = uniprot_runner
                     create_and_save_monomer_objects(curr_monomer, pipeline,
                     flags_dict,use_mmseqs2=FLAGS.use_mmseqs2)
-<<<<<<< HEAD
-=======
     temp_dir.cleanup()
->>>>>>> 4425307c0570304cfdf3411b13525817ebebb01b
 
 
 if __name__ == "__main__":
     flags.mark_flags_as_required(
-<<<<<<< HEAD
         ["fasta_paths", "output_dir","max_template_date","data_dir"]
-=======
-        ["fasta_paths", "output_dir", "max_template_date", "data_dir"]
->>>>>>> 4425307c0570304cfdf3411b13525817ebebb01b
     )
     app.run(main)
