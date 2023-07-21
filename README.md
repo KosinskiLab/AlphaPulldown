@@ -1,11 +1,3 @@
-
-# Just a local copy for secret AlphaPulldown experiments (e.g. for TrueMultimer)
-
-This is a real fork of AlphaPulldown with https://github.com/KosinskiLab/AlphaPulldown set as upstream:
-git remote add upstream https://github.com/KosinskiLab/AlphaPulldown
-Here, you can create branches for your forks and keep them in sync with the original AlphaPulldown.
-The main branch should be untouched and will be periodically rebased to AlphaPulldown main.
-
 # AlphaPulldown
 [![Downloads](https://static.pepy.tech/badge/alphapulldown)](https://pepy.tech/project/alphapulldown)  [![python3.8](https://img.shields.io/badge/python-3.8-blue.svg)](https://www.python.org/downloads/release/python-360/) ![GPL3 license](https://img.shields.io/badge/license-GPLv3-green)
 
