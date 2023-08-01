@@ -132,8 +132,7 @@ def save_seqres(code, seqs, path):
 def create_db(argv):
     """Main function that creates a fake template database for AlphaFold2
     from a PDB/CIF template file."""
-    struct_fn = FLAGS.path_to_multimeric_template
-    chain_id = FLAGS.multimeric_chain
+    out_path, struct_fn, chain_id = argv
     with open(struct_fn, "r") as f:
         for line in f:
             if line.startswith("_entry.id"):
@@ -144,7 +143,6 @@ def create_db(argv):
     code = code.lower()
     if len(code) != 4:
         logging.warning(f'Code must have 4 characters but is {code}')
-    out_path = argv[0]
 
     # Create the database structure
     pdb_mmcif_dir = Path(out_path) / 'pdb_mmcif'
