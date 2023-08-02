@@ -6,7 +6,7 @@
 
 from alphapulldown.objects import MonomericObject
 from alphapulldown.utils import parse_fasta, save_meta_data, create_uniprot_runner
-from alphapulldown import create_fake_template_db
+from alphapulldown.create_fake_template_db import create_db
 import alphafold
 from alphafold.data.pipeline import DataPipeline
 from alphafold.data.tools import hmmsearch
@@ -156,7 +156,7 @@ def create_global_arguments(flags_dict, path_to_multimeric_template, chain_id, t
     # local_path_to_fake_template_db = Path(os.environ["TMPDIR"]) / "fake_template_db"
     local_path_to_fake_template_db = Path(temp_dir.name) / "fake_template_db" / pdb_fn / chain_id
     logging.info(f"Path to local database: {local_path_to_fake_template_db}")
-    create_fake_template_db.create_db([local_path_to_fake_template_db, path_to_multimeric_template, chain_id])
+    create_db(local_path_to_fake_template_db, path_to_multimeric_template, chain_id)
     pdb_seqres_database_path = os.path.join(local_path_to_fake_template_db, "pdb_seqres", "pdb_seqres.txt")
     template_mmcif_dir = os.path.join(local_path_to_fake_template_db, "pdb_mmcif", "mmcif_files")
     obsolete_pdbs_path = os.path.join(local_path_to_fake_template_db, "pdb_mmcif", "obsolete.dat")

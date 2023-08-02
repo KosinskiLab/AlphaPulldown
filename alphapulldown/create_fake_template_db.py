@@ -58,7 +58,7 @@ def save_cif(cif_fn, code, chain_id, path):
                         f"Found chains: {chain_ids}!")
     else:
         logging.info(f'Found chain {chain_id} in {cif_fn}!')
-    #cif_io.save(path)
+    # cif_io.save(path)
     # cif is corrupted due to Biopython bug, just copy template instead
     out_path = Path(path) / f'{code}.cif'
     shutil.copyfile(cif_fn, out_path)
@@ -129,10 +129,10 @@ def save_seqres(code, seqs, path):
             f.write(lines)
     return fn
 
-def create_db(argv):
+
+def create_db(out_path, struct_fn, chain_id):
     """Main function that creates a fake template database for AlphaFold2
     from a PDB/CIF template file."""
-    out_path, struct_fn, chain_id = argv
     with open(struct_fn, "r") as f:
         for line in f:
             if line.startswith("_entry.id"):
@@ -187,11 +187,14 @@ def create_db(argv):
     logging.info(f"SEQRES saved to {sqrres_path}!")
 
 
+def main(argv):
+    flags.FLAGS(argv)
+    create_db(flags.FLAGS.out_path, flags.FLAGS.template, flags.FLAGS.multimeric_chain)
+
+
 if __name__ == '__main__':
-    flags.DEFINE_string("path_to_multimeric_template", None,
-                        "Path to the multimeric template PDB/CIF file")
-    flags.DEFINE_string("multimeric_chain", None,
-                        "Chain ID of the multimeric template")
-    flags.mark_flags_as_required(["use_multimeric_template",
-                                  "multimeric_chain"])
-    app.run(create_db, argv=sys.argv)
+    flags.DEFINE_string("out_path", None, "Path to the output directory")
+    flags.DEFINE_string("template", None, "Path to the template mmCIF/PDB file")
+    flags.DEFINE_string("multimeric_chain", None, "Chain ID of the multimeric template")
+    flags.mark_flags_as_required(["out_path", "template", "multimeric_chain"])
+    app.run(main)
