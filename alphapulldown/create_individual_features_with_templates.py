@@ -59,7 +59,7 @@ flags.DEFINE_bool(
     "skip_existing", False, "skip existing monomer feature pickles or not"
 )
 flags.DEFINE_integer(
-    "seq_index", None, "index of sequence in the fasta file, starting from 1"
+    "job_index", None, "index of job in the description file, starting from 1"
 )
 flags.DEFINE_string(
     "new_uniclust_dir", None, "directory where new version of uniclust is stored"
@@ -155,6 +155,7 @@ def create_global_arguments(flags_dict, path_to_multimeric_template, chain_id, t
     # Create fake template database
     # local_path_to_fake_template_db = Path(os.environ["TMPDIR"]) / "fake_template_db"
     local_path_to_fake_template_db = Path(temp_dir.name) / "fake_template_db" / pdb_fn / chain_id
+    logging.info(f"Path to local database: {local_path_to_fake_template_db}")
     create_fake_template_db.create_db([local_path_to_fake_template_db, path_to_multimeric_template, chain_id])
     pdb_seqres_database_path = os.path.join(local_path_to_fake_template_db, "pdb_seqres", "pdb_seqres.txt")
     template_mmcif_dir = os.path.join(local_path_to_fake_template_db, "pdb_mmcif", "mmcif_files")
@@ -277,45 +278,43 @@ def main(argv):
     feats = parse_txt_file(FLAGS.description_file)
     fasta_paths = []
     temp_dir = tempfile.TemporaryDirectory()
-    for feat in feats:
-        fasta_fn = os.path.join(fasta_dir, feat[0].strip())
-        fasta_paths.append(fasta_fn)
-        mmt_fn = os.path.join(mmt_dir, feat[1].strip())
-        chain_id = feat[2].strip()
-        if os.path.isfile(fasta_fn) and os.path.isfile(mmt_fn):
-            logging.info(f"Processing {fasta_fn} and {mmt_fn}")
-            create_global_arguments(flags_dict, mmt_fn, chain_id, temp_dir)
-        else:
-            logging.info(f"Either {fasta_fn} or {mmt_fn} does not exist. Skipping")
-
-        if not FLAGS.use_mmseqs2:
-            if not FLAGS.max_template_date:
-                logging.info("You have not provided a max_template_date. Please specify a date and run again.")
-                sys.exit()
+    for idx, feat in enumerate(feats, 1):
+        if (FLAGS.job_index is None) or (FLAGS.job_index == idx):
+            fasta_fn = os.path.join(fasta_dir, feat[0].strip())
+            fasta_paths.append(fasta_fn)
+            mmt_fn = os.path.join(mmt_dir, feat[1].strip())
+            chain_id = feat[2].strip()
+            if os.path.isfile(fasta_fn) and os.path.isfile(mmt_fn):
+                logging.info(f"Processing {fasta_fn} and {mmt_fn}. Chain ID: {chain_id}")
+                create_global_arguments(flags_dict, mmt_fn, chain_id, temp_dir)
             else:
-                pipeline = create_pipeline()
-                uniprot_database_path = os.path.join(FLAGS.data_dir, "uniprot/uniprot.fasta")
-                flags_dict.update({"uniprot_database_path": uniprot_database_path})
-                if os.path.isfile(uniprot_database_path):
-                    uniprot_runner = create_uniprot_runner(
-                        FLAGS.jackhmmer_binary_path, uniprot_database_path
-                    )
-                else:
-                    logging.info(
-                        f"Failed to find uniprot.fasta under {uniprot_database_path}. Please make sure your data_dir has been configured correctly."
-                    )
-                    sys.exit()
-        # If we are using mmseqs2, we don't need to create a pipeline
-        else:
-            pipeline=None
-            uniprot_runner=None
-            flags_dict=FLAGS.flag_values_dict()
+                logging.info(f"Either {fasta_fn} or {mmt_fn} does not exist. Skipping")
 
-        seq_idx = 0
-        for curr_seq, curr_desc in iter_seqs(fasta_paths):
-            seq_idx = seq_idx + 1 #yes, we're counting from 1
-            if FLAGS.seq_index is None or \
-                (FLAGS.seq_index == seq_idx):
+            if not FLAGS.use_mmseqs2:
+                if not FLAGS.max_template_date:
+                    logging.info("You have not provided a max_template_date. Please specify a date and run again.")
+                    sys.exit()
+                else:
+                    pipeline = create_pipeline()
+                    uniprot_database_path = os.path.join(FLAGS.data_dir, "uniprot/uniprot.fasta")
+                    flags_dict.update({"uniprot_database_path": uniprot_database_path})
+                    if os.path.isfile(uniprot_database_path):
+                        uniprot_runner = create_uniprot_runner(
+                            FLAGS.jackhmmer_binary_path, uniprot_database_path
+                        )
+                    else:
+                        logging.info(
+                            f"Failed to find uniprot.fasta under {uniprot_database_path}."
+                            "Please make sure your data_dir has been configured correctly."
+                        )
+                        sys.exit()
+            # If we are using mmseqs2, we don't need to create a pipeline
+            else:
+                pipeline=None
+                uniprot_runner=None
+                flags_dict=FLAGS.flag_values_dict()
+
+            for curr_seq, curr_desc in iter_seqs(fasta_paths):
                     if curr_desc and not curr_desc.isspace():
                         curr_monomer = MonomericObject(curr_desc, curr_seq)
                         curr_monomer.uniprot_runner = uniprot_runner
