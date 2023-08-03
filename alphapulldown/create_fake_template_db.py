@@ -117,38 +117,44 @@ def save_seqres(code, seqs, path):
     """
     fn = path / 'pdb_seqres.txt'
     # Rewrite the file if it exists
-    if os.path.exists(fn):
-        os.remove(fn)
-    with open(fn, 'w') as f:
+    with open(fn, 'a') as f:
         for count, seq in enumerate(seqs):
             chain = seq[1]
             s = seq[0]
             lines = f">{code}_{chain} mol:protein length:{len(s)}\n{s}\n"
             logging.info(f'Saving SEQRES for chain {chain} to {fn}!')
-            logging.info(lines)
+            #logging.info(lines)
             f.write(lines)
     return fn
 
 
-def create_db(out_path, struct_fn, chain_id):
-    """Main function that creates a fake template database for AlphaFold2
-    from a PDB/CIF template file."""
-    with open(struct_fn, "r") as f:
+def parse_code(template):
+    # Check that the code is 4 letters
+    with open(template, "r") as f:
         for line in f:
             if line.startswith("_entry.id"):
                 code = line.split()[1]
-    if 'code' not in locals():
-        code = Path(struct_fn).stem  # must be 4-letter code
-    logging.info(f"Code: {code}")
-    code = code.lower()
-    if len(code) != 4:
-        logging.warning(f'Code must have 4 characters but is {code}')
+                if len(code) != 4:
+                    logging.error(f'Error for template {template}!\n'
+                                  f'Code must have 4 characters but is {code}\n')
+                    sys.exit(1)
+    return code.lower()
+
+def create_db(out_path, templates, chains):
+    """
+    Main function that creates a fake template database for AlphaFold2
+    from a PDB/CIF template files.
+    o out_path - path to the output directory where the database will be created
+    o templates - list of paths to the template files
+    o chains - list of chain IDs of the multimeric templates
+    Returns:
+        o None
+    """
 
     # Create the database structure
     pdb_mmcif_dir = Path(out_path) / 'pdb_mmcif'
     mmcif_dir = pdb_mmcif_dir / 'mmcif_files'
     seqres_dir = Path(out_path) / 'pdb_seqres'
-    # pdb70_dir = Path(out_path) / 'pdb70'
     try:
         Path(mmcif_dir).mkdir(parents=True)
         # Create empty obsolete.dat file
@@ -169,27 +175,30 @@ def create_db(out_path, struct_fn, chain_id):
         if os.path.exists(seqres_dir / 'pdb_seqres.txt'):
             os.remove(seqres_dir / 'pdb_seqres.txt')
 
-    # Convert PDB/MMCIF to the ColabFold-like CIF file
-    if struct_fn.endswith('pdb'):
-        logging.info(f"Converting {struct_fn} to CIF!")
-        convert_pdb_to_mmcif(Path(struct_fn))
-        cif = save_cif(struct_fn.replace('.pdb', '.cif'), code, chain_id, mmcif_dir)
-    elif struct_fn.endswith('cif'):
-        logging.info(f"Reading {struct_fn}!")
-        cif = save_cif(struct_fn, code, chain_id, mmcif_dir)
-    else:
-        logging.error('Unknown format of ', struct_fn)
-        sys.exit(1)
+    # Convert PDB/MMCIF to the proper mmCIF files
+    for template, chain_id in zip(templates, chains):
+        code = parse_code(template)
+        logging.info(f"Processing template: {template}  Code: {code}")
+        if template.endswith('pdb'):
+            logging.info(f"Converting {template} to CIF!")
+            convert_pdb_to_mmcif(Path(template))
+            cif = save_cif(template.replace('.pdb', '.cif'), code, chain_id, mmcif_dir)
+        elif template.endswith('cif'):
+            logging.info(f"Reading {template}!")
+            cif = save_cif(template, code, chain_id, mmcif_dir)
+        else:
+            logging.error('Unknown format of ', template)
+            sys.exit(1)
 
-    # Save pdb_seqres.txt file to pdb_seqres
-    seqs = extract_seqs_from_cif(cif, chain_id)
-    sqrres_path = save_seqres(code, seqs, seqres_dir)
-    logging.info(f"SEQRES saved to {sqrres_path}!")
+        # Save pdb_seqres.txt file to pdb_seqres
+        seqs = extract_seqs_from_cif(cif, chain_id)
+        sqrres_path = save_seqres(code, seqs, seqres_dir)
+        logging.info(f"SEQRES saved to {sqrres_path}!")
 
 
 def main(argv):
     flags.FLAGS(argv)
-    create_db(flags.FLAGS.out_path, flags.FLAGS.template, flags.FLAGS.multimeric_chain)
+    create_db(flags.FLAGS.out_path, [flags.FLAGS.template], [flags.FLAGS.multimeric_chain])
 
 
 if __name__ == '__main__':

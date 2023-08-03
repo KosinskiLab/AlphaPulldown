@@ -77,7 +77,7 @@ MAX_TEMPLATE_HITS = 20
 
 flags_dict = FLAGS.flag_values_dict()
 
-def create_global_arguments(flags_dict, path_to_multimeric_template, chain_id, temp_dir=None):
+def create_global_arguments(flags_dict, feat, temp_dir=None):
     global uniref90_database_path
     global mgnify_database_path
     global bfd_database_path
@@ -88,8 +88,8 @@ def create_global_arguments(flags_dict, path_to_multimeric_template, chain_id, t
     global use_small_bfd
     global uniref30_database_path
     global template_mmcif_dir
-
-    pdb_fn = Path(path_to_multimeric_template).stem
+    fasta = Path(feat["fasta"]).stem
+    templates, chains = feat["templates"], feat["chains"]
     # Path to the Uniref30 database for use by HHblits.
     if FLAGS.uniref30_database_path is None:
         uniref30_database_path = os.path.join(
@@ -153,17 +153,17 @@ def create_global_arguments(flags_dict, path_to_multimeric_template, chain_id, t
     # flags_dict.update({"uniclust30_database_path": uniclust30_database_path})
 
     # Create fake template database
-    # local_path_to_fake_template_db = Path(os.environ["TMPDIR"]) / "fake_template_db"
-    local_path_to_fake_template_db = Path(temp_dir.name) / "fake_template_db" / pdb_fn / chain_id
+    #local_path_to_fake_template_db = Path(".") / "fake_template_db" / fasta
+    local_path_to_fake_template_db = Path(temp_dir.name) / "fake_template_db" / fasta
     logging.info(f"Path to local database: {local_path_to_fake_template_db}")
-    create_db(local_path_to_fake_template_db, path_to_multimeric_template, chain_id)
+    create_db(local_path_to_fake_template_db, templates, chains)
     pdb_seqres_database_path = os.path.join(local_path_to_fake_template_db, "pdb_seqres", "pdb_seqres.txt")
     template_mmcif_dir = os.path.join(local_path_to_fake_template_db, "pdb_mmcif", "mmcif_files")
     obsolete_pdbs_path = os.path.join(local_path_to_fake_template_db, "pdb_mmcif", "obsolete.dat")
-    # Update flags_dict (for use by the pipeline).
-    flags_dict.update({"path_to_multimeric_template": path_to_multimeric_template})
-    flags_dict.update({"multimeric_chain": chain_id})
-    flags_dict.update({"pdb_seqres_database_path": pdb_seqres_database_path})
+    # Update flags_dict.
+    flags_dict.update({"fasta_path": fasta})
+    flags_dict.update({"multimeric_template": templates})
+    flags_dict.update({"multimeric_chains": chains})
     flags_dict.update({"template_mmcif_dir": template_mmcif_dir})
     flags_dict.update({"obsolete_pdbs_path": obsolete_pdbs_path})
 
@@ -252,19 +252,35 @@ def iter_seqs(fasta_fns):
             for seq, desc in zip(sequences, descriptions):
                 yield seq, desc
 
-def parse_txt_file(file_path):
-    """features.csv: A coma-separated file with three columns: FASTA file, PDB file, chain ID."""
-    parsed_data = []  # List to store the parsed data
-    with open(file_path, newline='') as csvfile:
+def parse_txt_file(csv_path, fasta_dir, mmt_dir):
+    """
+    o csv_path: Path to the text file with descriptions
+        features.csv: A coma-separated file with three columns: FASTA file, PDB file, chain ID.
+    o fasta_dir: Path to directory with fasta files
+    o mmt_dir: Path to directory with multimeric template mmCIF files
+
+    Returns:
+        a list of dictionaries with the following structure:
+    [{"fasta": fasta_file, "templates": [pdb_files], "chains": [chain_id]}, ...]
+    """
+    parsed_dict = {}
+    with open(csv_path, newline='') as csvfile:
         csvreader = csv.reader(csvfile)
         for row in csvreader:
+            # skip empty lines
+            if not row:
+                continue
             if len(row) == 3:
-                parsed_data.append((row[0], row[1], row[2]))
+                fasta, template, chain = [item.strip() for item in row]
+                if fasta not in parsed_dict:
+                    parsed_dict[fasta] = {"fasta": os.path.join(fasta_dir, fasta), "templates": [], "chains": []}
+                parsed_dict[fasta]["templates"].append(os.path.join(mmt_dir, template))
+                parsed_dict[fasta]["chains"].append(chain)
             else:
-                logging.error(f"Invalid line found in the file {file_path}: {row}")
+                logging.error(f"Invalid line found in the file {csv_path}: {row}")
                 exit(1)
 
-    return parsed_data
+    return list(parsed_dict.values())
 
 def main(argv):
     try:
@@ -273,22 +289,19 @@ def main(argv):
         logging.info("Multiple processes are trying to create the same folder now.")
 
     flags_dict = FLAGS.flag_values_dict()
-    fasta_dir = FLAGS.path_to_fasta
-    mmt_dir = FLAGS.path_to_mmt
-    feats = parse_txt_file(FLAGS.description_file)
-    fasta_paths = []
-    temp_dir = tempfile.TemporaryDirectory()
+    feats = parse_txt_file(FLAGS.description_file, FLAGS.path_to_fasta, FLAGS.path_to_mmt)
     for idx, feat in enumerate(feats, 1):
+        temp_dir = tempfile.TemporaryDirectory() #for each fasta file, create a temp dir
         if (FLAGS.job_index is None) or (FLAGS.job_index == idx):
-            fasta_fn = os.path.join(fasta_dir, feat[0].strip())
-            fasta_paths.append(fasta_fn)
-            mmt_fn = os.path.join(mmt_dir, feat[1].strip())
-            chain_id = feat[2].strip()
-            if os.path.isfile(fasta_fn) and os.path.isfile(mmt_fn):
-                logging.info(f"Processing {fasta_fn} and {mmt_fn}. Chain ID: {chain_id}")
-                create_global_arguments(flags_dict, mmt_fn, chain_id, temp_dir)
-            else:
-                logging.info(f"Either {fasta_fn} or {mmt_fn} does not exist. Skipping")
+            if not os.path.isfile(feat["fasta"]):
+                logging.error(f"Fasta file {feat['fasta']} does not exist. Please check your input file.")
+                exit(1)
+            for temp in feat["templates"]:
+                if not os.path.isfile:
+                    logging.error(f"Template file {temp} does not exist. Please check your input file.")
+                    exit(1)
+            logging.info(f"Processing {feat['fasta']}: templates: {feat['templates']} chains: {feat['chains']}")
+            create_global_arguments(flags_dict, feat, temp_dir)
 
             if not FLAGS.use_mmseqs2:
                 if not FLAGS.max_template_date:
@@ -313,14 +326,13 @@ def main(argv):
                 pipeline=None
                 uniprot_runner=None
                 flags_dict=FLAGS.flag_values_dict()
-
-            for curr_seq, curr_desc in iter_seqs(fasta_paths):
-                    if curr_desc and not curr_desc.isspace():
-                        curr_monomer = MonomericObject(curr_desc, curr_seq)
-                        curr_monomer.uniprot_runner = uniprot_runner
-                        create_and_save_monomer_objects(curr_monomer, pipeline,
-                        flags_dict,use_mmseqs2=FLAGS.use_mmseqs2)
-    temp_dir.cleanup()
+            for curr_seq, curr_desc in iter_seqs([feat['fasta']]):
+                if curr_desc and not curr_desc.isspace():
+                    curr_monomer = MonomericObject(curr_desc, curr_seq)
+                    curr_monomer.uniprot_runner = uniprot_runner
+                    create_and_save_monomer_objects(curr_monomer, pipeline,
+                    flags_dict, use_mmseqs2=FLAGS.use_mmseqs2)
+        temp_dir.cleanup()
 
 
 if __name__ == "__main__":
