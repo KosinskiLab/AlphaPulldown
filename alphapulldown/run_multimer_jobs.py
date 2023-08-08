@@ -330,6 +330,7 @@ def predict_multimers(multimers):
                 FLAGS.random_seed,
                 FLAGS.data_dir,
                 FLAGS.num_predictions_per_model,
+                FLAGS.multimeric_mode
             )
             predict_individual_jobs(
                 object,

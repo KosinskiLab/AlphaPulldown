@@ -231,15 +231,21 @@ def create_and_save_pae_plots(multimer_object, output_dir):
 
 
 def create_model_runners_and_random_seed(
-    model_preset, num_cycle, random_seed, data_dir, num_multimer_predictions_per_model
+    model_preset, num_cycle, random_seed, data_dir, num_multimer_predictions_per_model, multimeric_mode=False
 ):
     num_ensemble = 1
     model_runners = {}
     model_names = config.MODEL_PRESETS[model_preset]
-    for model_name in model_names:
+    for i, model_name in enumerate(model_names, start=1):
         model_config = config.model_config(model_name)
         model_config.model.num_ensemble_eval = num_ensemble
         model_config["model"].update({"num_recycle": num_cycle})
+        # different num_msa for different models for TrueMultimer
+        if multimeric_mode:
+            num_msa = model_config["model"]["embeddings_and_evoformer"]["num_msa"]
+            num_extra_msa = model_config["model"]["embeddings_and_evoformer"]["num_extra_msa"]
+            model_config["model"]["embeddings_and_evoformer"].update({"num_msa": int(num_msa/i)})
+            model_config["model"]["embeddings_and_evoformer"].update({"num_extra_msa": int(num_extra_msa/i)})
         model_config.model.num_ensemble_eval = num_ensemble
         model_params = data.get_model_haiku_params(
             model_name=model_name, data_dir=data_dir

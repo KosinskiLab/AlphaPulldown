@@ -568,6 +568,7 @@ class MultimericObject:
         msa_pairing: boolean pairs msas or not
         """
         if self.multimeric_mode:
+            logging.info("Running in TrueMultimer mode")
             self.multichain_mask = self.create_multichain_mask()
         self.get_all_residue_index()
         self.create_chain_id_map()
