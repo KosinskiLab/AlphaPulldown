@@ -2,26 +2,30 @@
 
 # Author Dingquan Yu
 # This script is just to create msa and structural features for each sequences and store them in pickle
-#
+# #
 
-from alphapulldown.objects import MonomericObject
-from alphapulldown.utils import parse_fasta, save_meta_data, create_uniprot_runner
-from alphapulldown import create_fake_template_db
-import alphafold
-from alphafold.data.pipeline import DataPipeline
-from alphafold.data.tools import hmmsearch
-from alphafold.data import templates
-from colabfold.utils import DEFAULT_API_SERVER
-from absl import logging, app
-import importlib
 import os
 import pickle
 import sys
+from alphapulldown.objects import MonomericObject
+import importlib
+from absl import app
+from absl import flags
+from absl import logging
+
+from alphafold.data.pipeline import DataPipeline
+from alphafold.data.tools import hmmsearch
+from alphafold.data import templates
+import numpy as np
+import os
+from absl import logging, app
+import numpy as np
+from alphapulldown.utils import *
 import contextlib
 from datetime import datetime
+import alphafold
 from pathlib import Path
 from colabfold.utils import DEFAULT_API_SERVER
-import tempfile
 
 @contextlib.contextmanager
 def output_meta_file(file_path):
@@ -65,29 +69,22 @@ flags.DEFINE_string(
 )
 flags.DEFINE_bool("use_mmseqs2",False,"Use mmseqs2 remotely or not. Default is False")
 
-flags.DEFINE_string("path_to_multimeric_template", None, "Path to the multimeric template PDB file")
-
-flags.DEFINE_string("multimeric_chain", None, "Chain of the multimeric template PDB/CIF file")
-
 FLAGS = flags.FLAGS
 MAX_TEMPLATE_HITS = 20
 
 flags_dict = FLAGS.flag_values_dict()
 
-def create_global_arguments(flags_dict, temp_dir=None):
+def create_global_arguments(flags_dict):
     global uniref90_database_path
     global mgnify_database_path
     global bfd_database_path
     global small_bfd_database_path
     global pdb_seqres_database_path
     global template_mmcif_dir
-    global path_to_multimeric_template # rewrite template_mmcif_template if this flag is not None
-    global multimeric_chain
     global obsolete_pdbs_path
     global pdb70_database_path
     global use_small_bfd
     global uniref30_database_path
-
 
     # Path to the Uniref30 database for use by HHblits.
     if FLAGS.uniref30_database_path is None:
@@ -142,50 +139,20 @@ def create_global_arguments(flags_dict, temp_dir=None):
         )
     else:
         pdb_seqres_database_path = FLAGS.pdb_seqres_database_path
-    # Path to the Uniclust30 database for use by HHblits.
-    # if FLAGS.uniclust30_database_path is None:
-    #     uniclust30_database_path = os.path.join(
-    #         FLAGS.data_dir, "uniclust30", "uniclust30_2018_08", "uniclust30_2018_08"
-    #     )
-    # else:
-    #     uniclust30_database_path = FLAGS.uniclust30_database_path
-    # flags_dict.update({"uniclust30_database_path": uniclust30_database_path})
-
-    # Create fake template database if path_to_multimeric_template is set.
-    if FLAGS.path_to_multimeric_template is not None:
-        if FLAGS.multimeric_chain is None:
-            raise ValueError("multimeric_chain must be set if path_to_multimeric_template is set")
-        path_to_multimeric_template = FLAGS.path_to_multimeric_template
-        chain = FLAGS.multimeric_chain
-        #local_path_to_fake_template_db = Path(os.environ["TMPDIR"]) / "fake_template_db"
-        local_path_to_fake_template_db = Path(temp_dir.name) / "fake_template_db"
-        create_fake_template_db.create_db([local_path_to_fake_template_db, path_to_multimeric_template, chain])
-        pdb_seqres_database_path = os.path.join(local_path_to_fake_template_db, "pdb_seqres", "pdb_seqres.txt")
-        template_mmcif_dir = os.path.join(local_path_to_fake_template_db, "pdb_mmcif", "mmcif_files")
-        obsolete_pdbs_path = os.path.join(local_path_to_fake_template_db, "pdb_mmcif", "obsolete.dat")
-        flags_dict.update({"path_to_multimeric_template": path_to_multimeric_template})
-    else:
-        # Path to the PDB seqres database for use by hmmsearch.
-        if FLAGS.pdb_seqres_database_path is None:
-            pdb_seqres_database_path = os.path.join(
-                FLAGS.data_dir, "pdb_seqres", "pdb_seqres.txt"
-            )
-        else:
-            pdb_seqres_database_path = FLAGS.pdb_seqres_database_path
-
-        # Path to a directory with template mmCIF structures, each named <pdb_id>.cif.
-        if FLAGS.template_mmcif_dir is None:
-            template_mmcif_dir = os.path.join(FLAGS.data_dir, "pdb_mmcif", "mmcif_files")
-        else:
-            template_mmcif_dir = FLAGS.template_mmcif_dir
-
-        # Path to a file mapping obsolete PDB IDs to their replacements.
-        if FLAGS.obsolete_pdbs_path is None:
-            obsolete_pdbs_path = os.path.join(FLAGS.data_dir, "pdb_mmcif", "obsolete.dat")
-        else:
-            obsolete_pdbs_path = FLAGS.obsolete_pdbs_path
     flags_dict.update({"pdb_seqres_database_path": pdb_seqres_database_path})
+
+    # Path to a directory with template mmCIF structures, each named <pdb_id>.cif.
+    if FLAGS.template_mmcif_dir is None:
+        template_mmcif_dir = os.path.join(FLAGS.data_dir, "pdb_mmcif", "mmcif_files")
+    else:
+        template_mmcif_dir = FLAGS.template_mmcif_dir
     flags_dict.update({"template_mmcif_dir": template_mmcif_dir})
+
+    # Path to a file mapping obsolete PDB IDs to their replacements.
+    if FLAGS.obsolete_pdbs_path is None:
+        obsolete_pdbs_path = os.path.join(FLAGS.data_dir, "pdb_mmcif", "obsolete.dat")
+    else:
+        obsolete_pdbs_path = FLAGS.obsolete_pdbs_path
     flags_dict.update({"obsolete_pdbs_path": obsolete_pdbs_path})
 
     # Path to pdb70 database
@@ -194,9 +161,7 @@ def create_global_arguments(flags_dict, temp_dir=None):
     else:
         pdb70_database_path = FLAGS.pdb70_database_path
     flags_dict.update({"pdb70_database_path": pdb70_database_path})
-
     use_small_bfd = FLAGS.db_preset == "reduced_dbs"
-
 
 def create_pipeline():
     monomer_data_pipeline = DataPipeline(
@@ -273,7 +238,6 @@ def iter_seqs(fasta_fns):
             for seq, desc in zip(sequences, descriptions):
                 yield seq, desc
 
-
 def main(argv):
     try:
         Path(FLAGS.output_dir).mkdir(parents=True, exist_ok=True)
@@ -282,13 +246,6 @@ def main(argv):
 
     flags_dict = FLAGS.flag_values_dict()
     create_global_arguments(flags_dict)
-    flags_dict = FLAGS.flag_values_dict()
-    temp_dir = tempfile.TemporaryDirectory()
-    if  "path_to_multimeric_template" in flags_dict:
-        temp_dir = tempfile.TemporaryDirectory()
-        create_global_arguments(flags_dict, temp_dir)
-    else:
-        create_global_arguments(flags_dict)
     if not FLAGS.use_mmseqs2:
         if not FLAGS.max_template_date:
             logging.info("You have not provided a max_template_date. Please specify a date and run again.")
@@ -322,7 +279,6 @@ def main(argv):
                     curr_monomer.uniprot_runner = uniprot_runner
                     create_and_save_monomer_objects(curr_monomer, pipeline,
                     flags_dict,use_mmseqs2=FLAGS.use_mmseqs2)
-    temp_dir.cleanup()
 
 
 if __name__ == "__main__":
