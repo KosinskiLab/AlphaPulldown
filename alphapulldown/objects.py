@@ -16,7 +16,9 @@ from alphafold.data import feature_processing
 from alphafold.data import templates
 from pathlib import Path as plPath
 from alphafold.data.tools import hhsearch
-from colabfold.batch import get_queries,unserialize_msa,get_msa_and_templates,msa_to_str,build_monomer_feature,parse_fasta
+from colabfold.batch import get_queries, unserialize_msa, get_msa_and_templates, msa_to_str, build_monomer_feature, \
+    parse_fasta
+
 
 @contextlib.contextmanager
 def temp_fasta_file(sequence_str):
@@ -53,12 +55,12 @@ class MonomericObject:
         self._uniprot_runner = uniprot_runner
 
     def all_seq_msa_features(
-        self,
-        input_fasta_path,
-        uniprot_msa_runner,
-        save_msa,
-        output_dir=None,
-        use_precomuted_msa=False,
+            self,
+            input_fasta_path,
+            uniprot_msa_runner,
+            save_msa,
+            output_dir=None,
+            use_precomuted_msa=False,
     ):
         """Get MSA features for unclustered uniprot, for pairing later on."""
         if not use_precomuted_msa:
@@ -104,7 +106,7 @@ class MonomericObject:
         return feats
 
     def make_features(
-        self, pipeline, output_dir=None, use_precomputed_msa=False, save_msa=True
+            self, pipeline, output_dir=None, use_precomputed_msa=False, save_msa=True
     ):
         """a method that make msa and template features"""
         if not use_precomputed_msa:
@@ -113,7 +115,7 @@ class MonomericObject:
                 logging.info("You have chosen not to save msa output files")
                 sequence_str = f">{self.description}\n{self.sequence}"
                 with temp_fasta_file(
-                    sequence_str
+                        sequence_str
                 ) as fasta_file, tempfile.TemporaryDirectory() as tmpdirname:
                     self.feature_dict = pipeline.process(
                         input_fasta_path=fasta_file, msa_output_dir=tmpdirname
@@ -156,7 +158,8 @@ class MonomericObject:
                 )
                 self.feature_dict.update(pairing_results)
 
-    def mk_template(self,a3m_lines,pdb70_database_path,template_mmcif_dir,query_sequence,max_template_date, obsolete_pdbs_path=None):
+    def mk_template(self, a3m_lines, pdb70_database_path, template_mmcif_dir, query_sequence, max_template_date,
+                    obsolete_pdbs_path=None):
         """
         Overwrite ColabFold's original mk_template to incorporate max_template data argument
         from the command line input.
@@ -166,16 +169,16 @@ class MonomericObject:
         template_path should be the same as FLAG.data_dir
         """
         template_featuriser = templates.HhsearchHitFeaturizer(
-        mmcif_dir=f"{template_mmcif_dir}",
-        max_template_date=max_template_date,
-        max_hits=20,
-        kalign_binary_path="kalign",
-        release_dates_path=None,
-        obsolete_pdbs_path=obsolete_pdbs_path,
+            mmcif_dir=f"{template_mmcif_dir}",
+            max_template_date=max_template_date,
+            max_hits=20,
+            kalign_binary_path="kalign",
+            release_dates_path=None,
+            obsolete_pdbs_path=obsolete_pdbs_path,
         )
         hhsearch_pdb70_runner = hhsearch.HHSearch(
-        binary_path="hhsearch", databases=[f"{pdb70_database_path}"]
-    )
+            binary_path="hhsearch", databases=[f"{pdb70_database_path}"]
+        )
 
         hhsearch_result = hhsearch_pdb70_runner.query(a3m_lines)
         hhsearch_hits = pipeline.parsers.parse_hhr(hhsearch_result)
@@ -185,41 +188,41 @@ class MonomericObject:
         return dict(templates_result.features)
 
     def make_mmseq_features(
-        self,DEFAULT_API_SERVER,pdb70_database_path,template_mmcif_dir,max_template_date,output_dir=None,obsolete_pdbs_path=None
+            self, DEFAULT_API_SERVER, pdb70_database_path, template_mmcif_dir, max_template_date, output_dir=None,
+            obsolete_pdbs_path=None
     ):
         """
         A method to use mmseq_remote to calculate msa
         Modified from ColabFold: https://github.com/sokrypton/ColabFold
         """
 
-
         logging.info("You chose to calculate MSA with mmseq2")
         logging.info("Debug version")
         msa_mode = "MMseqs2 (UniRef+Environmental)"
-        keep_existing_results=True
+        keep_existing_results = True
         result_dir = output_dir
-        use_templates=False
-        result_zip = os.path.join(result_dir,self.description,".result.zip")
+        use_templates = False
+        result_zip = os.path.join(result_dir, self.description, ".result.zip")
         if keep_existing_results and plPath(result_zip).is_file():
             logging.info(f"Skipping {self.description} (result.zip)")
 
-        logging.info(f"looking for possible precomputed a3m at {os.path.join(result_dir,self.description+'.a3m')}")
+        logging.info(f"looking for possible precomputed a3m at {os.path.join(result_dir, self.description + '.a3m')}")
         try:
-            logging.info(f"input is {os.path.join(result_dir,self.description+'.a3m')}")
-            input_path=os.path.join(result_dir,self.description+'.a3m')
+            logging.info(f"input is {os.path.join(result_dir, self.description + '.a3m')}")
+            input_path = os.path.join(result_dir, self.description + '.a3m')
             a3m_lines = [plPath(input_path).read_text()]
             logging.info(f"Finished parsing the precalculated a3m_file\nNow will search for template")
         except:
-            a3m_lines=None
+            a3m_lines = None
 
         if a3m_lines is not None:
-                (
-                    unpaired_msa,
-                    paired_msa,
-                    query_seqs_unique,
-                    query_seqs_cardinality,
-                    template_features,
-                ) = unserialize_msa(a3m_lines, self.sequence)
+            (
+                unpaired_msa,
+                paired_msa,
+                query_seqs_unique,
+                query_seqs_cardinality,
+                template_features,
+            ) = unserialize_msa(a3m_lines, self.sequence)
 
         else:
             (
@@ -241,15 +244,16 @@ class MonomericObject:
             msa = msa_to_str(
                 unpaired_msa, paired_msa, query_seqs_unique, query_seqs_cardinality
             )
-            plPath(os.path.join(result_dir,self.description + ".a3m")).write_text(msa)
-            a3m_lines=[plPath(os.path.join(result_dir,self.description + ".a3m")).read_text()]
+            plPath(os.path.join(result_dir, self.description + ".a3m")).write_text(msa)
+            a3m_lines = [plPath(os.path.join(result_dir, self.description + ".a3m")).read_text()]
         # unserialize_msa was from colabfold.batch and originally will only create mock template features
         # below will search against pdb70 database using hhsearch and create real template features
         logging.info("will search for templates in local template database")
         template_features = [self.mk_template(a3m_lines[0],
-        pdb70_database_path,template_mmcif_dir,query_sequence=self.sequence,max_template_date=max_template_date, obsolete_pdbs_path=obsolete_pdbs_path)]
-        self.feature_dict = build_monomer_feature(self.sequence,unpaired_msa[0],template_features[0])
-
+                                              pdb70_database_path, template_mmcif_dir, query_sequence=self.sequence,
+                                              max_template_date=max_template_date,
+                                              obsolete_pdbs_path=obsolete_pdbs_path)]
+        self.feature_dict = build_monomer_feature(self.sequence, unpaired_msa[0], template_features[0])
 
         # update feature_dict with
         valid_feats = msa_pairing.MSA_FEATURES + (
@@ -260,6 +264,7 @@ class MonomericObject:
             f"{k}_all_seq": v for k, v in self.feature_dict.items() if k in valid_feats
         }
         self.feature_dict.update(feats)
+
 
 class ChoppedObject(MonomericObject):
     """chopped monomeric objects"""
@@ -290,15 +295,15 @@ class ChoppedObject(MonomericObject):
         new_seq_length = np.array([length] * length)
         new_aa_type = msa_feature["aatype"][start_point:end_point, :]
         new_between_segment_residue = msa_feature["between_segment_residues"][
-            start_point:end_point
-        ]
+                                      start_point:end_point
+                                      ]
         new_domain_name = msa_feature["domain_name"]
         new_residue_index = msa_feature["residue_index"][start_point:end_point]
         new_sequence = np.array([msa_feature["sequence"][0][start_point:end_point]])
         new_deletion_mtx = msa_feature["deletion_matrix_int"][:, start_point:end_point]
         new_deletion_mtx_all_seq = msa_feature["deletion_matrix_int_all_seq"][
-            :, start_point:end_point
-        ]
+                                   :, start_point:end_point
+                                   ]
         new_msa = msa_feature["msa"][:, start_point:end_point]
         new_msa_all_seq = msa_feature["msa_all_seq"][:, start_point:end_point]
         new_num_alignments = np.array([msa_feature["msa"].shape[0]] * length)
@@ -324,7 +329,7 @@ class ChoppedObject(MonomericObject):
         return new_msa_feature, new_sequence[0].decode("utf-8")
 
     def prepare_new_template_feature_dict(
-        self, template_feature, start_point, end_point
+            self, template_feature, start_point, end_point
     ):
         """
         prepare template  features
@@ -334,14 +339,14 @@ class ChoppedObject(MonomericObject):
         """
         start_point = start_point - 1
         new_template_aatype = template_feature["template_aatype"][
-            :, start_point:end_point, :
-        ]
+                              :, start_point:end_point, :
+                              ]
         new_template_all_atom_masks = template_feature["template_all_atom_masks"][
-            :, start_point:end_point, :
-        ]
+                                      :, start_point:end_point, :
+                                      ]
         new_template_all_atom_positions = template_feature[
-            "template_all_atom_positions"
-        ][:, start_point:end_point, :, :]
+                                              "template_all_atom_positions"
+                                          ][:, start_point:end_point, :, :]
         new_template_domain_names = template_feature["template_domain_names"]
         new_template_sequence = template_feature["template_sequence"]
         new_template_sum_probs = template_feature["template_sum_probs"]
@@ -357,7 +362,7 @@ class ChoppedObject(MonomericObject):
         return new_template_feature
 
     def prepare_individual_sliced_feature_dict(
-        self, feature_dict, start_point, end_point
+            self, feature_dict, start_point, end_point
     ):
         """combine prepare_new_template_feature_dict and prepare_new_template_feature_dict"""
         new_msa_feature, new_sequence = self.prepare_new_msa_feature(
@@ -458,10 +463,10 @@ class MultimericObject:
 
     def get_all_residue_index(self):
         """get all residue indexes from subunits"""
-        self.res_indexes=[]
+        self.res_indexes = []
         for i in self.interactors:
             curr_res_idx = i.feature_dict['residue_index']
-            self.res_indexes.append([curr_res_idx[0],curr_res_idx[-1]])
+            self.res_indexes.append([curr_res_idx[0], curr_res_idx[-1]])
 
     def create_output_name(self):
         """a method to create output name"""
@@ -476,8 +481,8 @@ class MultimericObject:
         multimer_sequence_str = ""
         for interactor in self.interactors:
             multimer_sequence_str = (
-                multimer_sequence_str
-                + f">{interactor.description}\n{interactor.sequence}\n"
+                    multimer_sequence_str
+                    + f">{interactor.description}\n{interactor.sequence}\n"
             )
         self.input_seqs, input_descs = parsers.parse_fasta(multimer_sequence_str)
         self.chain_id_map = pipeline_multimer._make_chain_id_map(
@@ -500,9 +505,9 @@ class MultimericObject:
             font = ImageFont.truetype("Arial", font_size)
         except OSError:
             font = ImageFont.load_default()
-        for col in range(width-1):
-            if matrix[:, col].any() != matrix[:, col+1].any():
-                text = str(col+1)
+        for col in range(width - 1):
+            if matrix[:, col].any() != matrix[:, col + 1].any():
+                text = str(col + 1)
                 text_width, text_height = draw.textsize(text, font=font)
                 x = (col + 0.5) * image.width / width - text_width / 2
                 y = image.height - text_height
@@ -520,19 +525,17 @@ class MultimericObject:
             has_no_gaps = [True] * temp_length
             # for each template in the interactor, check for gaps in sequence
             for template_sequence in interactor.feature_dict['template_sequence']:
-                is_not_gap = [s!='-' for s in template_sequence.decode("utf-8").strip()]
+                is_not_gap = [s != '-' for s in template_sequence.decode("utf-8").strip()]
                 # False if any of the templates has a gap in this position
-                has_no_gaps = [a and b for a,b in zip(has_no_gaps,is_not_gap)]
+                has_no_gaps = [a and b for a, b in zip(has_no_gaps, is_not_gap)]
             no_gap_map.extend(has_no_gaps)
         multichain_mask = np.zeros((len(pdb_map), len(pdb_map)), dtype=int)
         for index1, id1 in enumerate(pdb_map):
             for index2, id2 in enumerate(pdb_map):
-                if (id1[:4] == id2[:4]):#and (no_gap_map[index1] and no_gap_map[index2]):
+                if (id1[:4] == id2[:4]):  # and (no_gap_map[index1] and no_gap_map[index2]):
                     multichain_mask[index1, index2] = 1
-        #DEBUG
-        self.save_binary_matrix(multichain_mask,
-                                "multichain_mask.png")
-        #exit()
+        # DEBUG
+        # self.save_binary_matrix(multichain_mask, "multichain_mask.png")
         return multichain_mask
 
     def pair_and_merge(self, all_chain_features):
