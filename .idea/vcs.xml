@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-  <component name="VcsDirectoryMappings">
-    <mapping directory="" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/alphafold" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/alphapulldown/ColabFold" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/alphapulldown/analysis_pipeline/af2_plots" vcs="Git" />
-  </component>
-</project>
