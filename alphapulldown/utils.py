@@ -27,6 +27,12 @@ import datetime
 import re
 
 
+COMMON_PATTERNS = [
+    r"[Vv]ersion\s*(\d+\.\d+(?:\.\d+)?)",  # version 1.0 or version 1.0.0
+    r"\b(\d+\.\d+(?:\.\d+)?)\b"  # just the version number 1.0 or 1.0.0
+]
+
+
 def create_uniprot_runner(jackhmmer_binary_path, uniprot_database_path):
     """create a uniprot runner object"""
     return jackhmmer.Jackhmmer(
@@ -286,47 +292,37 @@ def create_model_runners_and_random_seed(
 
 
 def get_last_modified_date(path):
+    """
+    Get the last modified date of a file or the most recently modified file in a directory.
+    """
     try:
-        # Check if the path exists
         if not os.path.exists(path):
             logging.warning(f"Path does not exist: {path}")
             return None
-        # Set a very old initial value
-        most_recent_timestamp = 0.0
-        # if path is a file, return the last modified date of the file
+
         if os.path.isfile(path):
             return datetime.datetime.fromtimestamp(os.path.getmtime(path)).strftime('%Y-%m-%d %H:%M:%S')
-        # if it is a directory, return the last modified date of the most recently modified file in the directory
-        # Walk through the directory and all its subdirectories
-        for dirpath, dirnames, filenames in os.walk(path):
-            for file in filenames:
-                filepath = os.path.join(dirpath, file)
-                timestamp = os.path.getmtime(filepath)
-                # Check if this file is more recent than the current most recent
-                if timestamp > most_recent_timestamp:
-                    most_recent_timestamp = timestamp
-        # Convert the most recent timestamp to a formatted date string
-        return datetime.datetime.fromtimestamp(most_recent_timestamp).strftime('%Y-%m-%d %H:%M:%S')
+
+        logging.info(f"Getting last modified date for {path}")
+        most_recent_timestamp = max((entry.stat().st_mtime for entry in os.scandir(path) if entry.is_file()),
+                                    default=0.0)
+
+        return datetime.datetime.fromtimestamp(most_recent_timestamp).strftime(
+            '%Y-%m-%d %H:%M:%S') if most_recent_timestamp else None
+
     except Exception as e:
         logging.warning(f"Error processing {path}: {e}")
         return None
 
 
 def parse_version(output):
-    # Common versioning schemes: v1.0, v1.0.0, 1.0, 1.0.0, version 1.0, version 1.0.0
-    common_patterns = [
-        r"[Vv]ersion\s*(\d+\.\d+(?:\.\d+)?)",  # version 1.0 or version 1.0.0
-        r"\b(\d+\.\d+(?:\.\d+)?)\b"  # just the version number 1.0 or 1.0.0
-    ]
-
-    for pattern in common_patterns:
+    """Parse version information from a given output string."""
+    for pattern in COMMON_PATTERNS:
         match = re.search(pattern, output)
         if match:
             return match.group(1)
 
-    # Custom pattern for kalign
-    kalign_pattern = r"Kalign\s+version\s+(\d+\.\d+)"
-    match = re.search(kalign_pattern, output)
+    match = re.search(r"Kalign\s+version\s+(\d+\.\d+)", output)
     if match:
         return match.group(1)
 
@@ -334,16 +330,14 @@ def parse_version(output):
 
 
 def get_program_version(binary_path):
-    version_cmds = [[binary_path, "--help"], [binary_path, "-h"]]
-    for cmd in version_cmds:
+    """Get version information for a given binary."""
+    for cmd_suffix in ["--help", "-h"]:
+        cmd = [binary_path, cmd_suffix]
         try:
             result = subprocess.run(cmd, capture_output=True, text=True)
-            # Combine both stdout and stderr
-            combined_output = result.stdout + result.stderr
-            version = parse_version(combined_output)
+            version = parse_version(result.stdout + result.stderr)
             if version:
                 return version
-
         except Exception as e:
             logging.debug(f"Error while processing {cmd}: {e}")
 
@@ -352,7 +346,7 @@ def get_program_version(binary_path):
 
 
 def save_meta_data(flag_dict, outfile):
-    """A function to save metadata in json format"""
+    """Save metadata in JSON format."""
     metadata = {
         "databases": {},
         "binaries": {},
@@ -360,17 +354,16 @@ def save_meta_data(flag_dict, outfile):
         "date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "other": {},
     }
+
     for k, v in flag_dict.items():
+        metadata["other"][k] = str(v)
         if "_binary_path" in k:
             name = k.replace("_binary_path", "")
             metadata["binaries"][name] = get_program_version(v)
-            metadata["other"][k] = str(v)
         elif "_database_path" in k or "template_mmcif_dir" in k:
             name = k.replace("_database_path", "")
-            metadata["databases"][name] = get_last_modified_date(v)  # slow for the whole pdb
-            metadata["other"][k] = str(v)
-        else:
-            metadata["other"][k] = str(v)
+            metadata["databases"][name] = get_last_modified_date(v)
+
     with open(outfile, "w") as f:
         json.dump(metadata, f, indent=2)
 
