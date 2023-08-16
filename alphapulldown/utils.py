@@ -25,13 +25,15 @@ import alphafold
 import sys
 import datetime
 import re
+import hashlib
+import glob
 
 
 COMMON_PATTERNS = [
     r"[Vv]ersion\s*(\d+\.\d+(?:\.\d+)?)",  # version 1.0 or version 1.0.0
     r"\b(\d+\.\d+(?:\.\d+)?)\b"  # just the version number 1.0 or 1.0.0
 ]
-
+BFD_HASH_HHM_FFINDEX = "799f308b20627088129847709f1abed6"
 
 def create_uniprot_runner(jackhmmer_binary_path, uniprot_database_path):
     """create a uniprot runner object"""
@@ -304,7 +306,7 @@ def get_last_modified_date(path):
             return datetime.datetime.fromtimestamp(os.path.getmtime(path)).strftime('%Y-%m-%d %H:%M:%S')
 
         logging.info(f"Getting last modified date for {path}")
-        most_recent_timestamp = max((entry.stat().st_mtime for entry in os.scandir(path) if entry.is_file()),
+        most_recent_timestamp = max((entry.stat().st_mtime for entry in glob.glob(path + '*') if entry.is_file()),
                                     default=0.0)
 
         return datetime.datetime.fromtimestamp(most_recent_timestamp).strftime(
@@ -329,6 +331,16 @@ def parse_version(output):
     return None
 
 
+def get_hash(filename):
+    """Get the md5 hash of a file."""
+    md5_hash = hashlib.md5()
+    with open(filename,"rb") as f:
+        # Read and update hash in chunks of 4K
+        for byte_block in iter(lambda: f.read(4096),b""):
+            md5_hash.update(byte_block)
+        return(md5_hash.hexdigest())
+
+
 def get_program_version(binary_path):
     """Get version information for a given binary."""
     for cmd_suffix in ["--help", "-h"]:
@@ -345,24 +357,58 @@ def get_program_version(binary_path):
     return None
 
 
+def get_metadata_for_binary(k, v):
+    name = k.replace("_binary_path", "")
+    return {name: {"version": get_program_version(v)}}
+
+
+def get_metadata_for_database(k, v):
+    name = k.replace("_database_path", "").replace("_dir", "")
+
+    specific_databases = ["pdb70", "bfd"]
+    if name in specific_databases:
+        fn = v + "_hhm.ffindex"
+        hash_value = get_hash(fn)
+        version = get_last_modified_date(fn)
+        if hash_value == BFD_HASH_HHM_FFINDEX:
+            version = "AF2"
+        return {name: {"version": version, "hash": hash_value}}
+
+    other_databases = ["small_bfd", "uniprot", "uniref90", "pdb_seqres"]
+    if name in other_databases:
+        # here we ignore pdb_mmcif assuming it's version is identical to pdb_seqres
+        return {name: {"version": get_last_modified_date(v), "hash": "NA" if name != "pdb_seqres" else get_hash(v)}}
+
+    if name in ["uniref30", "mgnify"]:
+        hash_value = "NA"
+        match = re.search(r"(\d{4}_\d{2})", v)
+        if match:
+            version = match.group(1).replace("_", "-")
+            if name == "uniref30":
+                hash_value = get_hash(v + "_hhm.ffindex")
+            return {name: {"version": version, "hash": hash_value}}
+    return {}
+
+
 def save_meta_data(flag_dict, outfile):
     """Save metadata in JSON format."""
     metadata = {
         "databases": {},
         "binaries": {},
+        "software": "alphapulldown",
         "version": __version__,
         "date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "other": {},
     }
 
     for k, v in flag_dict.items():
+        if k == "use_cprofile_for_profiling" or k.startswith("test_") or k.startswith("help"):
+            continue
         metadata["other"][k] = str(v)
         if "_binary_path" in k:
-            name = k.replace("_binary_path", "")
-            metadata["binaries"][name] = get_program_version(v)
+            metadata["binaries"].update(get_metadata_for_binary(k, v))
         elif "_database_path" in k or "template_mmcif_dir" in k:
-            name = k.replace("_database_path", "")
-            metadata["databases"][name] = get_last_modified_date(v)
+            metadata["databases"].update(get_metadata_for_database(k, v))
 
     with open(outfile, "w") as f:
         json.dump(metadata, f, indent=2)
