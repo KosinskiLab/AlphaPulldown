@@ -28,12 +28,12 @@ import re
 import hashlib
 import glob
 
-
 COMMON_PATTERNS = [
     r"[Vv]ersion\s*(\d+\.\d+(?:\.\d+)?)",  # version 1.0 or version 1.0.0
     r"\b(\d+\.\d+(?:\.\d+)?)\b"  # just the version number 1.0 or 1.0.0
 ]
 BFD_HASH_HHM_FFINDEX = "799f308b20627088129847709f1abed6"
+
 
 def create_uniprot_runner(jackhmmer_binary_path, uniprot_database_path):
     """create a uniprot runner object"""
@@ -334,11 +334,11 @@ def parse_version(output):
 def get_hash(filename):
     """Get the md5 hash of a file."""
     md5_hash = hashlib.md5()
-    with open(filename,"rb") as f:
+    with open(filename, "rb") as f:
         # Read and update hash in chunks of 4K
-        for byte_block in iter(lambda: f.read(4096),b""):
+        for byte_block in iter(lambda: f.read(4096), b""):
             md5_hash.update(byte_block)
-        return(md5_hash.hexdigest())
+        return (md5_hash.hexdigest())
 
 
 def get_program_version(binary_path):
@@ -402,6 +402,8 @@ def save_meta_data(flag_dict, outfile):
     }
 
     for k, v in flag_dict.items():
+        if v is None:
+            continue
         if k == "use_cprofile_for_profiling" or k.startswith("test_") or k.startswith("help"):
             continue
         metadata["other"][k] = str(v)
@@ -409,6 +411,11 @@ def save_meta_data(flag_dict, outfile):
             metadata["binaries"].update(get_metadata_for_binary(k, v))
         elif "_database_path" in k or "template_mmcif_dir" in k:
             metadata["databases"].update(get_metadata_for_database(k, v))
+        elif k == "use_mmseqs2":
+            metadata["databases"].update({"ColabFold":
+                                              {"version": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                                               "hash": "NA"}
+                                          })
 
     with open(outfile, "w") as f:
         json.dump(metadata, f, indent=2)
