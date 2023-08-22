@@ -8,4 +8,5 @@
 	branch = main
 [submodule "alphafold"]
 	path = alphafold
-	url = git@git.embl.de:grp-kosinski/alphafold.git
+	url = git@github.com:dingquanyu/alphafold.git
+	branch = main
