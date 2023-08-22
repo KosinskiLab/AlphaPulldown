@@ -39,7 +39,6 @@ flags.DEFINE_list("protein_lists", None, "protein list files")
 
 delattr(flags.FLAGS, "data_dir")
 flags.DEFINE_string("data_dir", None, "Path to params directory")
-#flags.DEFINE_string("data_dir", None, "Path to params directory")
 
 flags.DEFINE_integer("num_cycle", 3, help="number of recycles")
 flags.DEFINE_integer(
