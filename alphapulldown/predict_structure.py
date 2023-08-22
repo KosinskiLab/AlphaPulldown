@@ -173,7 +173,6 @@ def predict(
         with open(temp_timings_output_path, "w") as f:
             f.write(json.dumps(timings, indent=4))
 
-
     # Rank by model confidence.
     ranked_order = [
         model_name for model_name, confidence in
