@@ -27,7 +27,6 @@ import alphafold
 from pathlib import Path
 from colabfold.utils import DEFAULT_API_SERVER
 
-
 @contextlib.contextmanager
 def output_meta_file(file_path):
     """function that create temp file"""
@@ -68,13 +67,12 @@ flags.DEFINE_integer(
 flags.DEFINE_string(
     "new_uniclust_dir", None, "directory where new version of uniclust is stored"
 )
-flags.DEFINE_bool("use_mmseqs2", False, "Use mmseqs2 remotely or not. Default is False")
+flags.DEFINE_bool("use_mmseqs2",False,"Use mmseqs2 remotely or not. Default is False")
 
 FLAGS = flags.FLAGS
 MAX_TEMPLATE_HITS = 20
 
 flags_dict = FLAGS.flag_values_dict()
-
 
 def create_global_arguments(flags_dict):
     global uniref90_database_path
@@ -165,7 +163,6 @@ def create_global_arguments(flags_dict):
     flags_dict.update({"pdb70_database_path": pdb70_database_path})
     use_small_bfd = FLAGS.db_preset == "reduced_dbs"
 
-
 def create_pipeline():
     monomer_data_pipeline = DataPipeline(
         jackhmmer_binary_path=FLAGS.jackhmmer_binary_path,
@@ -199,7 +196,7 @@ def check_existing_objects(output_dir, pickle_name):
     return os.path.isfile(os.path.join(output_dir, pickle_name))
 
 
-def create_and_save_monomer_objects(m, pipeline, flags_dict, use_mmseqs2=False):
+def create_and_save_monomer_objects(m, pipeline, flags_dict,use_mmseqs2=False):
     logging.info("You are using the new version")
     if FLAGS.skip_existing and check_existing_objects(
         FLAGS.output_dir, f"{m.description}.pkl"
@@ -208,7 +205,8 @@ def create_and_save_monomer_objects(m, pipeline, flags_dict, use_mmseqs2=False):
         pass
     else:
         metadata_output_path = os.path.join(
-            FLAGS.output_dir, f"{m.description}_feature_metadata.json"
+            FLAGS.output_dir,
+            f"{m.description}_feature_metadata_{datetime.date(datetime.now())}.txt",
         )
         with output_meta_file(metadata_output_path) as meta_data_outfile:
             save_meta_data(flags_dict, meta_data_outfile)
@@ -222,13 +220,12 @@ def create_and_save_monomer_objects(m, pipeline, flags_dict, use_mmseqs2=False):
             )
         else:
             logging.info("running mmseq now")
-            m.make_mmseq_features(
-                DEFAULT_API_SERVER=DEFAULT_API_SERVER,
-                pdb70_database_path=pdb70_database_path,
-                template_mmcif_dir=template_mmcif_dir,
-                max_template_date=FLAGS.max_template_date,
-                output_dir=FLAGS.output_dir,
-                obsolete_pdbs_path=FLAGS.obsolete_pdbs_path,
+            m.make_mmseq_features(DEFAULT_API_SERVER=DEFAULT_API_SERVER,
+            pdb70_database_path=pdb70_database_path,
+            template_mmcif_dir=template_mmcif_dir,
+            max_template_date=FLAGS.max_template_date,
+            output_dir=FLAGS.output_dir,
+            obsolete_pdbs_path=FLAGS.obsolete_pdbs_path
             )
         pickle.dump(m, open(f"{FLAGS.output_dir}/{m.description}.pkl", "wb"))
         del m
@@ -241,7 +238,6 @@ def iter_seqs(fasta_fns):
             for seq, desc in zip(sequences, descriptions):
                 yield seq, desc
 
-
 def main(argv):
     try:
         Path(FLAGS.output_dir).mkdir(parents=True, exist_ok=True)
@@ -252,15 +248,11 @@ def main(argv):
     create_global_arguments(flags_dict)
     if not FLAGS.use_mmseqs2:
         if not FLAGS.max_template_date:
-            logging.info(
-                "You have not provided a max_template_date. Please specify a date and run again."
-            )
+            logging.info("You have not provided a max_template_date. Please specify a date and run again.")
             sys.exit()
         else:
             pipeline = create_pipeline()
-            uniprot_database_path = os.path.join(
-                FLAGS.data_dir, "uniprot/uniprot.fasta"
-            )
+            uniprot_database_path = os.path.join(FLAGS.data_dir, "uniprot/uniprot.fasta")
             flags_dict.update({"uniprot_database_path": uniprot_database_path})
             if os.path.isfile(uniprot_database_path):
                 uniprot_runner = create_uniprot_runner(
@@ -273,24 +265,24 @@ def main(argv):
                 sys.exit()
     else:
 
-        pipeline = None
-        uniprot_runner = None
-        flags_dict = FLAGS.flag_values_dict()
+        pipeline=None
+        uniprot_runner=None
+        flags_dict=FLAGS.flag_values_dict()
 
     seq_idx = 0
     for curr_seq, curr_desc in iter_seqs(FLAGS.fasta_paths):
-        seq_idx = seq_idx + 1  # yes, we're counting from 1
-        if FLAGS.seq_index is None or (FLAGS.seq_index == seq_idx):
-            if curr_desc and not curr_desc.isspace():
-                curr_monomer = MonomericObject(curr_desc, curr_seq)
-                curr_monomer.uniprot_runner = uniprot_runner
-                create_and_save_monomer_objects(
-                    curr_monomer, pipeline, flags_dict, use_mmseqs2=FLAGS.use_mmseqs2
-                )
+        seq_idx = seq_idx + 1 #yes, we're counting from 1
+        if FLAGS.seq_index is None or \
+            (FLAGS.seq_index == seq_idx):
+                if curr_desc and not curr_desc.isspace():
+                    curr_monomer = MonomericObject(curr_desc, curr_seq)
+                    curr_monomer.uniprot_runner = uniprot_runner
+                    create_and_save_monomer_objects(curr_monomer, pipeline,
+                    flags_dict,use_mmseqs2=FLAGS.use_mmseqs2)
 
 
 if __name__ == "__main__":
     flags.mark_flags_as_required(
-        ["fasta_paths", "output_dir", "max_template_date", "data_dir"]
+        ["fasta_paths", "output_dir","max_template_date","data_dir"]
     )
     app.run(main)
