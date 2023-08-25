@@ -99,14 +99,14 @@ def parse_code(template):
     return code.lower()
 
 
-def create_db(out_path, templates, chains, threashold_clashes, hb_allowance, plddt_threshold):
+def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, plddt_threshold):
     """
     Main function that creates a fake template database for AlphaFold2
     from a PDB/CIF template files.
     o out_path - path to the output directory where the database will be created
     o templates - list of paths to the template files
     o chains - list of chain IDs of the multimeric templates
-    o threashold_clashes - threshold for clashes removal
+    o threshold_clashes - threshold for clashes removal
     o hb_allowance - hb_allowance for clashes removal
     o plddt_threshold - threshold for low pLDDT regions removal
     Returns:
@@ -142,7 +142,7 @@ def create_db(out_path, templates, chains, threashold_clashes, hb_allowance, pld
         logging.info(f"Processing template: {template}  Chain {chain_id} Code: {code}")
         structure = to_bio(template, chain_id)
         # Remove clashes and low pLDDT regions for each template
-        structure = remove_clashes(structure, threashold_clashes, hb_allowance)
+        structure = remove_clashes(structure, threshold_clashes, hb_allowance)
         structure = remove_low_plddt(structure, plddt_threshold)
         # Convert to Protein
         protein = _from_bio_structure(structure)
@@ -153,10 +153,10 @@ def create_db(out_path, templates, chains, threashold_clashes, hb_allowance, pld
         with open(fn, 'w') as f:
             f.write(mmcif_string)
         # Fix and validate with ColabFold
-        validate_and_fix_mmcif(template)
-        logging.info(f'Validated and fixed {template}!')
+        validate_and_fix_mmcif(fn)
+        logging.info(f'{template} is done!')
 
-        # Save pdb_seqres.txt file to pdb_seqres
+        # Parse SEQRES from the original template file
         seqs = extract_seqs_from_cif(template, chain_id)
         sqrres_path = save_seqres(code, seqs, seqres_dir)
         logging.info(f"SEQRES saved to {sqrres_path}!")
