@@ -31,28 +31,27 @@ def extract_seqs_from_cif(file_path, chain_id):
     Return:
         o list of tuples: (chain_id, sequence)
     """
-    seqs = []
+    struct = to_bio(file_path)
+    # Die if more than 1 model in the structure
+    if len(struct.child_list) > 1:
+        raise Exception(f'{len(struct.child_list)} models found in {cif_fn}!')
+    model = struct[0]
+    chain_ids = [chain.id for chain in model]
+    if chain_id not in chain_ids:
+        logging.error(f"No {chain_id} in {chain_ids} of {file_path}!")
     # Try to parse SEQRES records from mmCIF file
+    seqs = []
     for record in SeqIO.parse(file_path, "cif-seqres"):
         if record.id != chain_id:
-            logging.info("Skipping chain %s", record.id)
+            logging.info("Parsing from seqres: Skipping chain %s", record.id)
             continue
         seqs.append((record.seq, record.id))
     if len(seqs) == 0:
         logging.info(f'No SEQRES records found in {file_path}! Parsing from atoms!')
-        # Get the SEQRES records from the structure
-        struct = get_bio(file_path)
-        # Die if more than 1 model in the structure
-        if len(struct.child_list) > 1:
-            raise Exception(f'{len(struct.child_list)} models found in {cif_fn}!')
-        model = struct[0]
-        chains = [chain.id for chain in model]
-        if chain_id not in chains:
-            logging.error(f"Warning! SEQRES chains may be different from ATOM chains!"
-                            f"Chain {chain_id} not found in {cif_fn}!"
-                            f"Found chains: {chains}!")
         # Parse from atoms
-        for chain in chains:
+        for chain in model:
+            if chain.id != chain_id:
+                logging.info("Parsing from atoms: Skipping chain %s", chain.id)
             seq_chain = ''
             for resi in chain:
                 try:
@@ -138,21 +137,19 @@ def create_db(out_path, templates, chains, threashold_clashes, hb_allowance, pld
         if os.path.exists(seqres_dir / 'pdb_seqres.txt'):
             os.remove(seqres_dir / 'pdb_seqres.txt')
 
-    # Chains start from A to B, C, etc.
-    chains_ABC = [chr(ord('A') + i) for i in range(len(chains))]
-    for template, chain_id in zip(templates, chains_ABC):
+    for template, chain_id in zip(templates, chains):
         code = parse_code(template)
-        logging.info(f"Processing template: {template}  Code: {code}")
-        structure = to_bio(template)
+        logging.info(f"Processing template: {template}  Chain {chain_id} Code: {code}")
+        structure = to_bio(template, chain_id)
         # Remove clashes and low pLDDT regions for each template
         structure = remove_clashes(structure, threashold_clashes, hb_allowance)
         structure = remove_low_plddt(structure, plddt_threshold)
         # Convert to Protein
         protein = _from_bio_structure(structure)
         # Convert to mmCIF
-        mmcif_string = to_mmcif(protein, code, "Monomer")
+        mmcif_string = to_mmcif(protein, f"{code}_{chain_id}", "Monomer")
         # Save to file
-        fn = mmcif_dir / f'{code}.cif'
+        fn = mmcif_dir / f"{code}_{chain_id}.cif"
         with open(fn, 'w') as f:
             f.write(mmcif_string)
         # Fix and validate with ColabFold

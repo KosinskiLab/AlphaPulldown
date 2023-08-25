@@ -1,3 +1,4 @@
+from Bio.PDB import Structure
 from Bio.PDB.PDBParser import PDBParser
 from Bio.PDB.MMCIFParser import MMCIFParser
 from Bio.PDB.NeighborSearch import NeighborSearch
@@ -6,6 +7,7 @@ from Bio.PDB.mmcifio import MMCIFIO
 from collections import defaultdict
 from absl import app, flags
 import logging
+import copy
 
 DONORS_ACCEPTORS = ['N', 'O', 'S']
 VDW_RADII = defaultdict(lambda: 1.5)
@@ -98,12 +100,27 @@ def save_structure(structure, output_file_path):
     io.save(output_file_path)
 
 
-def to_bio(input_file_path):
+def to_bio(input_file_path, chain_id=None):
     if input_file_path.endswith(".pdb"):
         parser = PDBParser(QUIET=True)
     elif input_file_path.endswith(".cif"):
         parser = MMCIFParser(QUIET=True)
     structure = parser.get_structure("model", input_file_path)
+
+    if chain_id:
+        # Create a new structure to hold the specific chain
+        new_structure = Structure.Structure("new_model")
+        for model in structure:
+            new_model = model.__class__(model.id, new_structure)
+            new_structure.add(new_model)
+            for chain in model:
+                if chain.id == chain_id:
+                    # Simply copy the chain instead of building it from scratch
+                    new_chain = copy.deepcopy(chain)
+                    new_model.add(new_chain)
+                    break
+        return new_structure
+
     return structure
 
 def main(argv):
