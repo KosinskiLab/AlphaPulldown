@@ -38,11 +38,12 @@ flags.DEFINE_string("path_to_fasta", None, "Path to directory with fasta files")
 
 flags.DEFINE_string("path_to_mmt", None, "Path to directory with multimeric template mmCIF files")
 
-flags.DEFINE_float("threshold_clashes", 0.9, "Threshold for VDW overlap to identify clashes")
+flags.DEFINE_float("threshold_clashes", 1000, "Threshold for VDW overlap to identify clashes "
+                                             "(default: 1000, i.e. no threshold, for thresholding, use 0.9)")
 
 flags.DEFINE_float("hb_allowance", 0.4, "Allowance for hydrogen bonding (default: 0.4)")
 
-flags.DEFINE_float("plddt_threshold", 50, "Threshold for pLDDT score (default: 50)")
+flags.DEFINE_float("plddt_threshold", 0, "Threshold for pLDDT score (default: 0)")
 
 FLAGS = flags.FLAGS
 MAX_TEMPLATE_HITS = 1000000  # make it large enough to get all templates
@@ -97,8 +98,8 @@ def create_arguments(flags_dict, feat, temp_dir=None):
     threashold_clashes = FLAGS.threshold_clashes
     hb_allowance = FLAGS.hb_allowance
     plddt_threshold = FLAGS.plddt_threshold
-    local_path_to_fake_template_db = Path(".") / "fake_template_db" / fasta # DEBUG
-    #local_path_to_fake_template_db = Path(temp_dir.name) / "fake_template_db" / fasta
+    #local_path_to_fake_template_db = Path(".") / "fake_template_db" / fasta # DEBUG
+    local_path_to_fake_template_db = Path(temp_dir.name) / "fake_template_db" / fasta
     logging.info(f"Path to local database: {local_path_to_fake_template_db}")
     create_db(local_path_to_fake_template_db, templates, chains, threashold_clashes, hb_allowance, plddt_threshold)
     FLAGS.pdb_seqres_database_path = os.path.join(local_path_to_fake_template_db, "pdb_seqres", "pdb_seqres.txt")
