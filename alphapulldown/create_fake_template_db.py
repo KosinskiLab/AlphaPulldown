@@ -99,6 +99,12 @@ def parse_code(template):
     return code.lower()
 
 
+def remove_lines_containing_unk(mmcif_string):
+    lines = mmcif_string.split('\n')
+    filtered_lines = [line for line in lines if "UNK" not in line]
+    return '\n'.join(filtered_lines)
+
+
 def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, plddt_threshold):
     """
     Main function that creates a fake template database for AlphaFold2
@@ -148,8 +154,10 @@ def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, pldd
         protein = _from_bio_structure(structure)
         # Convert to mmCIF
         mmcif_string = to_mmcif(protein, f"{code}_{chain_id}", "Monomer")
+        # Remove lines containing UNK
+        mmcif_string = remove_lines_containing_unk(mmcif_string)
         # Save to file
-        fn = mmcif_dir / f"{code}_{chain_id}.cif"
+        fn = mmcif_dir / f"{code}.cif"
         with open(fn, 'w') as f:
             f.write(mmcif_string)
         # Fix and validate with ColabFold
