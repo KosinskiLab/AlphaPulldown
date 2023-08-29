@@ -4,7 +4,7 @@
 	branch = main
 [submodule "alphapulldown/analysis_pipeline/af2_plots"]
 	path = alphapulldown/analysis_pipeline/af2_plots
-	url = git@git.embl.de:gchojnowski/af2plots.git
+	url = git@gitlab.com:gchojnowski/af2plots.git
 	branch = main
 [submodule "alphafold"]
 	path = alphafold
