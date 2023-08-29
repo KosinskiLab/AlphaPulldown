@@ -6,3 +6,7 @@
 	path = alphafold
 	url = git@github.com:dingquanyu/alphafold.git
 	branch = main
+[submodule "alphapulldown/analysis_pipeline/af2plots"]
+	path = alphapulldown/analysis_pipeline/af2plots
+	url = git@gitlab.com:gchojnowski/af2plots.git
+	branch = main
