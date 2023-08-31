@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 from absl import logging, flags, app
 from Bio import SeqIO
-from Bio.PDB.Polypeptide import three_to_one
+from Bio.PDB.Polypeptide import three_to_one, one_to_three
 from alphapulldown.remove_clashes_low_plddt import remove_clashes, remove_low_plddt, to_bio
 from colabfold.batch import validate_and_fix_mmcif
 from alphafold.common.protein import Protein, _from_bio_structure, to_pdb, to_mmcif
@@ -34,7 +34,7 @@ def extract_seqs_from_cif(file_path, chain_id):
     struct = to_bio(file_path)
     # Die if more than 1 model in the structure
     if len(struct.child_list) > 1:
-        raise Exception(f'{len(struct.child_list)} models found in {cif_fn}!')
+        raise Exception(f'{len(struct.child_list)} models found in {file_path}!')
     model = struct[0]
     chain_ids = [chain.id for chain in model]
     if chain_id not in chain_ids:
@@ -99,10 +99,38 @@ def parse_code(template):
     return code.lower()
 
 
-def remove_lines_containing_unk(mmcif_string):
-    lines = mmcif_string.split('\n')
-    filtered_lines = [line for line in lines if "UNK" not in line]
-    return '\n'.join(filtered_lines)
+def replace_entity_poly_seq(mmcif_string, seqs, chain_id):
+    new_mmcif_string = []
+    saving = True
+    start = -1
+    # Remove old entity_poly_seq lines
+    for index, line in enumerate(mmcif_string.splitlines()):
+        if line.startswith("_entity_poly_seq.entity_id"):
+            saving = False
+            start = index
+        if not saving and line.startswith("#"):
+            saving = True
+        if saving:
+            new_mmcif_string.append(line)
+    # Construct new entity_poly_seq lines
+    new_entity_poly_seq = []
+    for seq in seqs:
+        if seq[1] == chain_id:
+            new_entity_poly_seq.append("_entity_poly_seq.entity_id")
+            new_entity_poly_seq.append("_entity_poly_seq.num")
+            new_entity_poly_seq.append("_entity_poly_seq.mon_id")
+            new_entity_poly_seq.append("_entity_poly_seq.hetero")
+            entity_id = ord(chain_id.upper()) - 64
+            for i, aa in enumerate(seq[0]):
+                three_letter_aa = one_to_three(aa)
+                # TODO: uncomment after chain ids are properly saved
+                #new_entity_poly_seq.append(f"{entity_id}\t{i+1}\t{three_letter_aa}\tn")
+                new_entity_poly_seq.append(f"0\t{i + 1}\t{three_letter_aa}\tn")
+    # Insert new entity_poly_seq lines at the start index
+    new_mmcif_string[start:start] = new_entity_poly_seq
+    new_mmcif_string.append("\n")
+    return '\n'.join(new_mmcif_string)
+
 
 
 def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, plddt_threshold):
@@ -146,6 +174,11 @@ def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, pldd
     for template, chain_id in zip(templates, chains):
         code = parse_code(template)
         logging.info(f"Processing template: {template}  Chain {chain_id} Code: {code}")
+        # Parse SEQRES from the original template file
+        seqs = extract_seqs_from_cif(template, chain_id)
+        sqrres_path = save_seqres(code, seqs, seqres_dir)
+        logging.info(f"SEQRES saved to {sqrres_path}!")
+        # Prepare pdb_mmcif directory
         structure = to_bio(template, chain_id)
         # Remove clashes and low pLDDT regions for each template
         structure = remove_clashes(structure, threshold_clashes, hb_allowance)
@@ -155,7 +188,7 @@ def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, pldd
         # Convert to mmCIF
         mmcif_string = to_mmcif(protein, f"{code}_{chain_id}", "Monomer")
         # Remove lines containing UNK
-        mmcif_string = remove_lines_containing_unk(mmcif_string)
+        mmcif_string = replace_entity_poly_seq(mmcif_string, seqs, chain_id)
         # Save to file
         fn = mmcif_dir / f"{code}.cif"
         with open(fn, 'w') as f:
@@ -164,10 +197,7 @@ def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, pldd
         validate_and_fix_mmcif(fn)
         logging.info(f'{template} is done!')
 
-        # Parse SEQRES from the original template file
-        seqs = extract_seqs_from_cif(template, chain_id)
-        sqrres_path = save_seqres(code, seqs, seqres_dir)
-        logging.info(f"SEQRES saved to {sqrres_path}!")
+
 
 
 def main(argv):

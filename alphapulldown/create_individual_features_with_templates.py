@@ -98,8 +98,8 @@ def create_arguments(flags_dict, feat, temp_dir=None):
     threashold_clashes = FLAGS.threshold_clashes
     hb_allowance = FLAGS.hb_allowance
     plddt_threshold = FLAGS.plddt_threshold
-    #local_path_to_fake_template_db = Path(".") / "fake_template_db" / fasta # DEBUG
-    local_path_to_fake_template_db = Path(temp_dir.name) / "fake_template_db" / fasta
+    local_path_to_fake_template_db = Path(".") / "fake_template_db" / fasta # DEBUG
+    #local_path_to_fake_template_db = Path(temp_dir.name) / "fake_template_db" / fasta
     logging.info(f"Path to local database: {local_path_to_fake_template_db}")
     create_db(local_path_to_fake_template_db, templates, chains, threashold_clashes, hb_allowance, plddt_threshold)
     FLAGS.pdb_seqres_database_path = os.path.join(local_path_to_fake_template_db, "pdb_seqres", "pdb_seqres.txt")
@@ -235,8 +235,6 @@ def main(argv):
                         flags_dict,
                         use_mmseqs2=FLAGS.use_mmseqs2,
                     )
-        else:
-            logging.info(f"Killing job {FLAGS.job_index} because we have {len(feats)} fasta files to run.")
         temp_dir.cleanup()
 
 
