@@ -251,7 +251,7 @@ def create_model_runners_and_random_seed(
         random_seed,
         data_dir,
         num_multimer_predictions_per_model,
-        multimeric_mode=False,
+        gradient_msa_depth=False,
 ):
     num_ensemble = 1
     model_runners = {}
@@ -261,7 +261,7 @@ def create_model_runners_and_random_seed(
         model_config.model.num_ensemble_eval = num_ensemble
         model_config["model"].update({"num_recycle": num_cycle})
         # different num_msa for different models for TrueMultimer
-        if multimeric_mode:
+        if gradient_msa_depth:
             num_msa = model_config["model"]["embeddings_and_evoformer"]["num_msa"]
             msa_ranges = (
                 np.rint(np.linspace(16, num_msa, len(model_names))).astype(int).tolist()

@@ -55,6 +55,11 @@ flags.DEFINE_boolean(
     False,
     "Run with multimeric template ",
 )
+flags.DEFINE_boolean(
+    "gradient_msa_depth",
+    False,
+    "Run 5 AF models with different MSA depth",
+)
 
 flags.mark_flag_as_required("output_path")
 
@@ -329,7 +334,7 @@ def predict_multimers(multimers):
                 FLAGS.random_seed,
                 FLAGS.data_dir,
                 FLAGS.num_predictions_per_model,
-                FLAGS.multimeric_mode
+                FLAGS.gradient_msa_depth,
             )
             predict_individual_jobs(
                 object,
