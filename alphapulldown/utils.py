@@ -5,7 +5,8 @@
 
 from alphafold.data.tools import jackhmmer
 from alphapulldown.objects import ChoppedObject
-from alphapulldown import __version__
+from alphapulldown import __version__ as AP_VERSION
+from alphafold.version import __version__ as AF_VERSION
 import json
 import os
 import pickle
@@ -396,7 +397,8 @@ def save_meta_data(flag_dict, outfile):
         "databases": {},
         "binaries": {},
         "software": "alphapulldown",
-        "version": __version__,
+        "version": AP_VERSION,
+        "AlphaFold version": AF_VERSION,
         "date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "other": {},
     }
