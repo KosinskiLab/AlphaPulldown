@@ -16,7 +16,7 @@ from Bio import SeqIO
 from Bio.PDB.Polypeptide import three_to_one, one_to_three
 from alphapulldown.remove_clashes_low_plddt import remove_clashes, remove_low_plddt, to_bio
 from colabfold.batch import validate_and_fix_mmcif
-from alphafold.common.protein import Protein, _from_bio_structure, to_pdb, to_mmcif
+from alphafold.common.protein import _from_bio_structure, to_mmcif
 
 FLAGS = flags.FLAGS
 

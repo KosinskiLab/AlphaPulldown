@@ -395,10 +395,8 @@ def save_meta_data(flag_dict, outfile):
     """Save metadata in JSON format."""
     metadata = {
         "databases": {},
-        "binaries": {},
-        "software": "alphapulldown",
-        "version": AP_VERSION,
-        "AlphaFold version": AF_VERSION,
+        "software": {"AlphaPulldown": {"version": AP_VERSION},
+                     "AlphaFold": {"version": AF_VERSION}},
         "date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "other": {},
     }
@@ -410,7 +408,7 @@ def save_meta_data(flag_dict, outfile):
             continue
         metadata["other"][k] = str(v)
         if "_binary_path" in k:
-            metadata["binaries"].update(get_metadata_for_binary(k, v))
+            metadata["software"].update(get_metadata_for_binary(k, v))
         elif "_database_path" in k or "template_mmcif_dir" in k:
             metadata["databases"].update(get_metadata_for_database(k, v))
         elif k == "use_mmseqs2":
