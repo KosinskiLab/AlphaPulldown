@@ -105,6 +105,8 @@ def to_bio(input_file_path, chain_id=None):
         parser = PDBParser(QUIET=True)
     elif input_file_path.endswith(".cif"):
         parser = MMCIFParser(QUIET=True)
+    else:
+        raise Exception(f"Unknown file format for {input_file_path}. Accepted formats: PDB, CIF")
     structure = parser.get_structure("model", input_file_path)
 
     if chain_id:

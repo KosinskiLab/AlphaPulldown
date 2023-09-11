@@ -22,7 +22,7 @@ FLAGS = flags.FLAGS
 
 
 
-def extract_seqs_from_cif(file_path, chain_id):
+def extract_seqs_from_cif(chain_id, file_path):
     """
     Extract sequences from PDB/CIF file, if SEQRES records are not present,
     extract from atoms
@@ -77,9 +77,9 @@ def save_seqres(code, seqs, path):
     fn = path / 'pdb_seqres.txt'
     # Rewrite the file if it exists
     with open(fn, 'a') as f:
-        for count, seq in enumerate(seqs):
-            chain = seq[1]
-            s = seq[0]
+        for seq in seqs:
+            chain = seq[0]
+            s = seq[1]
             lines = f">{code}_{chain} mol:protein length:{len(s)}\n{s}\n"
             logging.info(f'Saving SEQRES for chain {chain} to {fn}!')
             logging.debug(lines)
@@ -117,7 +117,7 @@ def replace_entity_poly_seq(mmcif_string, seqs, chain_id):
     # Construct new entity_poly_seq lines
     new_entity_poly_seq = []
     for seq in seqs:
-        if seq[1] == chain_id:
+        if seq[0] == chain_id:
             new_entity_poly_seq.append("_entity_poly_seq.entity_id")
             new_entity_poly_seq.append("_entity_poly_seq.num")
             new_entity_poly_seq.append("_entity_poly_seq.mon_id")
@@ -177,7 +177,7 @@ def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, pldd
         code = parse_code(template)
         logging.info(f"Processing template: {template}  Chain {chain_id} Code: {code}")
         # Parse SEQRES from the original template file
-        seqs = extract_seqs_from_cif(template, chain_id)
+        seqs = extract_seqs_from_cif(chain_id, template)
         sqrres_path = save_seqres(code, seqs, seqres_dir)
         logging.info(f"SEQRES saved to {sqrres_path}!")
         # Prepare pdb_mmcif directory
