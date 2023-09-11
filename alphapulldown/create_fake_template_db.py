@@ -123,7 +123,7 @@ def replace_entity_poly_seq(mmcif_string, seqs, chain_id):
             new_entity_poly_seq.append("_entity_poly_seq.mon_id")
             new_entity_poly_seq.append("_entity_poly_seq.hetero")
             entity_id = ord(chain_id.upper()) - 64
-            for i, aa in enumerate(seq[0]):
+            for i, aa in enumerate(seq[1]):
                 three_letter_aa = one_to_three(aa)
                 # TODO: uncomment after chain ids are properly saved
                 #new_entity_poly_seq.append(f"{entity_id}\t{i+1}\t{three_letter_aa}\tn")
