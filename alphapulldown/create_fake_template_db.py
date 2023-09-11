@@ -32,35 +32,37 @@ def extract_seqs_from_cif(file_path, chain_id):
         o list of tuples: (chain_id, sequence)
     """
     struct = to_bio(file_path)
-    # Die if more than 1 model in the structure
     if len(struct.child_list) > 1:
         raise Exception(f'{len(struct.child_list)} models found in {file_path}!')
+
     model = struct[0]
     chain_ids = [chain.id for chain in model]
+
     if chain_id not in chain_ids:
         logging.error(f"No {chain_id} in {chain_ids} of {file_path}!")
-    # Try to parse SEQRES records from mmCIF file
+        return []  # Exit if chain_id is not found
+
     seqs = []
+
+    # Parsing SEQRES
     for record in SeqIO.parse(file_path, "cif-seqres"):
-        if record.id != chain_id:
-            logging.info("Parsing from seqres: Skipping chain %s", record.id)
-            continue
-        seqs.append((record.seq, record.id))
+        if record.id == chain_id:
+            seqs.append((chain_id, str(record.seq)))
+
+    # Parsing from atoms if SEQRES records are not found
     if len(seqs) == 0:
         logging.info(f'No SEQRES records found in {file_path}! Parsing from atoms!')
-        # Parse from atoms
         for chain in model:
-            if chain.id != chain_id:
-                logging.info("Parsing from atoms: Skipping chain %s", chain.id)
-            seq_chain = ''
-            for resi in chain:
-                try:
-                    one_letter = three_to_one(resi.resname)
-                    seq_chain += one_letter
-                except KeyError:
-                    logging.warning(f'Skipping {resi.resname} with id {resi.id}')
-                    continue
-            seqs.append((seq_chain, chain.id))
+            if chain.id == chain_id:
+                seq_chain = ''
+                for resi in chain:
+                    try:
+                        one_letter = three_to_one(resi.resname)
+                        seq_chain += one_letter
+                    except KeyError:
+                        logging.warning(f'Skipping {resi.resname} with id {resi.id}')
+                seqs.append((chain_id, seq_chain))
+
     return seqs
 
 
