@@ -100,38 +100,38 @@ def parse_code(template):
                     sys.exit(1)
     return code.lower()
 
-
-def replace_entity_poly_seq(mmcif_string, seqs, chain_id):
-    new_mmcif_string = []
-    saving = True
-    start = -1
-    # Remove old entity_poly_seq lines
-    for index, line in enumerate(mmcif_string.splitlines()):
-        if line.startswith("_entity_poly_seq.entity_id"):
-            saving = False
-            start = index
-        if not saving and line.startswith("#"):
-            saving = True
-        if saving:
-            new_mmcif_string.append(line)
-    # Construct new entity_poly_seq lines
-    new_entity_poly_seq = []
-    for seq in seqs:
-        if seq[0] == chain_id:
-            new_entity_poly_seq.append("_entity_poly_seq.entity_id")
-            new_entity_poly_seq.append("_entity_poly_seq.num")
-            new_entity_poly_seq.append("_entity_poly_seq.mon_id")
-            new_entity_poly_seq.append("_entity_poly_seq.hetero")
-            entity_id = ord(chain_id.upper()) - 64
-            for i, aa in enumerate(seq[1]):
-                three_letter_aa = one_to_three(aa)
-                # TODO: uncomment after chain ids are properly saved
-                #new_entity_poly_seq.append(f"{entity_id}\t{i+1}\t{three_letter_aa}\tn")
-                new_entity_poly_seq.append(f"0\t{i + 1}\t{three_letter_aa}\tn")
-    # Insert new entity_poly_seq lines at the start index
-    new_mmcif_string[start:start] = new_entity_poly_seq
-    new_mmcif_string.append("\n")
-    return '\n'.join(new_mmcif_string)
+#
+# def replace_entity_poly_seq(mmcif_string, seqs, chain_id):
+#     new_mmcif_string = []
+#     saving = True
+#     start = -1
+#     # Remove old entity_poly_seq lines
+#     for index, line in enumerate(mmcif_string.splitlines()):
+#         if line.startswith("_entity_poly_seq.entity_id"):
+#             saving = False
+#             start = index
+#         if not saving and line.startswith("#"):
+#             saving = True
+#         if saving:
+#             new_mmcif_string.append(line)
+#     # Construct new entity_poly_seq lines
+#     new_entity_poly_seq = []
+#     for seq in seqs:
+#         if seq[0] == chain_id:
+#             new_entity_poly_seq.append("_entity_poly_seq.entity_id")
+#             new_entity_poly_seq.append("_entity_poly_seq.num")
+#             new_entity_poly_seq.append("_entity_poly_seq.mon_id")
+#             new_entity_poly_seq.append("_entity_poly_seq.hetero")
+#             entity_id = ord(chain_id.upper()) - 64
+#             for i, aa in enumerate(seq[1]):
+#                 three_letter_aa = one_to_three(aa)
+#                 # TODO: uncomment after chain indicies are properly saved
+#                 new_entity_poly_seq.append(f"{entity_id}\t{i+1}\t{three_letter_aa}\tn")
+#                 #new_entity_poly_seq.append(f"0\t{i + 1}\t{three_letter_aa}\tn")
+#     # Insert new entity_poly_seq lines at the start index
+#     new_mmcif_string[start:start] = new_entity_poly_seq
+#     new_mmcif_string.append("\n")
+#     return '\n'.join(new_mmcif_string)
 
 
 
@@ -188,9 +188,7 @@ def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, pldd
         # Convert to Protein
         protein = _from_bio_structure(structure)
         # Convert to mmCIF
-        mmcif_string = to_mmcif(protein, f"{code}_{chain_id}", "Monomer")
-        # Remove lines containing UNK
-        mmcif_string = replace_entity_poly_seq(mmcif_string, seqs, chain_id)
+        mmcif_string = to_mmcif(protein, f"{code}_{chain_id}", "Monomer", chain_id)
         # Save to file
         fn = mmcif_dir / f"{code}.cif"
         with open(fn, 'w') as f:
@@ -204,12 +202,17 @@ def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, pldd
 
 def main(argv):
     flags.FLAGS(argv)
-    create_db(flags.FLAGS.out_path, [flags.FLAGS.template], [flags.FLAGS.multimeric_chain])
+    create_db(flags.FLAGS.out_path, [flags.FLAGS.template], [flags.FLAGS.multimeric_chain],
+              flags.FLAGS.threshold_clashes, flags.FLAGS.hb_allowance, flags.FLAGS.plddt_threshold)
 
 
 if __name__ == '__main__':
     flags.DEFINE_string("out_path", None, "Path to the output directory")
     flags.DEFINE_string("template", None, "Path to the template mmCIF/PDB file")
     flags.DEFINE_string("multimeric_chain", None, "Chain ID of the multimeric template")
+    flags.DEFINE_float("threshold_clashes", 1000, "Threshold for VDW overlap to identify clashes "
+                                                  "(default: 1000, i.e. no threshold, for thresholding, use 0.9)")
+    flags.DEFINE_float("hb_allowance", 0.4, "Allowance for hydrogen bonding (default: 0.4)")
+    flags.DEFINE_float("plddt_threshold", 0, "Threshold for pLDDT score (default: 0)")
     flags.mark_flags_as_required(["out_path", "template", "multimeric_chain"])
     app.run(main)
