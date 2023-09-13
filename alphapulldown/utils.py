@@ -275,6 +275,7 @@ def create_model_runners_and_random_seed(
                 .astype(int)
                 .tolist()
             )
+            logging.info("Running with num_msa %s and num_extra_msa %s", msa_ranges[i], extra_msa_ranges[i])
             model_config["model"]["embeddings_and_evoformer"].update(
                 {"num_msa": msa_ranges[i]}
             )
