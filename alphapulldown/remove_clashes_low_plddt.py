@@ -1,11 +1,12 @@
-from Bio.PDB import Structure, PDBParser, MMCIFParser, NeighborSearch, PDBIO, MMCIFIO
 from collections import defaultdict
 from absl import app, flags
 import logging
 import copy
 from alphafold.data.mmcif_parsing import _get_atom_site_list
 from Bio import SeqIO
-from Bio.PDB.Polypeptide import three_to_one, one_to_three
+from Bio.PDB import Structure, PDBParser, MMCIFParser, NeighborSearch, PDBIO, MMCIFIO
+from Bio.PDB.Polypeptide import three_to_one
+
 
 class BioStructure:
     """
@@ -21,14 +22,13 @@ class BioStructure:
         self.input_file_path = input_file_path
         self.chain_id = chain_id
         self.mmcif_to_author_chain_id = {}
+        self.author_chain_to_mmcif_id = {}
         self.structure = self.to_bio(input_file_path, chain_id)
         self.seqs = self.extract_seqs()
         self.structure_modified = False
 
-
     def __eq__(self, other):
         return self.structure == other.structure
-
 
     def to_bio(self, input_file_path, chain_id):
         if input_file_path.endswith(".pdb"):
@@ -47,12 +47,16 @@ class BioStructure:
 
         for atom in _get_atom_site_list(parsed_info):
           self.mmcif_to_author_chain_id[atom.mmcif_chain_id] = atom.author_chain_id
+          self.author_chain_to_mmcif_id[atom.author_chain_id] = atom.mmcif_chain_id
 
         if chain_id:
             # Error if chain_id is not found
             chain_ids = [chain.id for chain in structure[0]]
+            chain_ids_author = [chain for chain in self.author_chain_to_mmcif_id.keys()]
             if chain_id not in chain_ids:
-                logging.error(f"No {chain_id} in {chain_ids} of {input_file_path}!")
+                logging.warning(f"No {chain_id} in internal {chain_ids} of {input_file_path}!")
+                if chain_id not in chain_ids_author:
+                    logging.error(f"No {chain_id} in author {chain_ids_author} of {input_file_path}!")
 
             # Create a new structure to hold the specific chain
             new_structure = Structure.Structure("new_model")
@@ -114,14 +118,11 @@ class BioStructure:
             return True
         return False
 
-
     def remove_clashes(self, threshold=0.9, hb_allowance=0.4):
         """
         Remove residues that are clashing with other residues in the structure.
         o threshold - threshold for VDW overlap to identify clashes (default: 0.9)
         o hb_allowance - correction to threshold for hydrogen bonding (default: 0.4)
-        Returns:
-            o truncated_structure - BioPython structure object with clashing residues removed
         """
         model = self.structure[0]
         ns = NeighborSearch(list(model.get_atoms()))
@@ -153,13 +154,10 @@ class BioStructure:
             chain.detach_child(residue.id)
         self.structure_modified = True
 
-
     def remove_low_plddt(self, plddt_threshold=50):
         """
         Remove residues with pLDDT score below the threshold.
         o plddt_threshold - threshold for pLDDT score (default: 50)
-        Returns:
-            o truncated_structure - BioPython structure object with low pLDDT residues removed
         """
         model = self.structure[0]
         low_plddt_residues = set()
@@ -174,7 +172,6 @@ class BioStructure:
             chain.detach_child(residue.id)
 
         self.structure_modified = True
-
 
     def save_structure(self, output_file_path):
         """

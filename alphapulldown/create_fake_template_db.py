@@ -19,7 +19,6 @@ from alphafold.common.protein import _from_bio_structure, to_mmcif
 FLAGS = flags.FLAGS
 
 
-
 def save_seqres(code, seqs, path):
     """
     o code - four letter PDB-like code
