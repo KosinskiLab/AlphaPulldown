@@ -91,7 +91,8 @@ class BioStructure:
         else:
             logging.error(f'Unknown file type for {template}!')
         for record in SeqIO.parse(template, format):
-            if record.id == chain_id or record.id == self.mmcif_to_author_chain_id[record.id]:
+            chain_id_author = self.mmcif_to_author_chain_id[record.id]
+            if (record.id == chain_id) or (chain_id_author == chain_id):
                 seqs.append((chain_id, str(record.seq)))
 
         # Parsing from atoms if SEQRES records are not found
