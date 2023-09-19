@@ -246,6 +246,17 @@ def create_and_save_pae_plots(multimer_object, output_dir):
         )
 
 
+def compute_msa_ranges(num_msa, num_extra_msa, num_multimer_predictions):
+    """
+    Denser for smaller num_msa, sparser for larger num_msa
+    """
+    msa_ranges = np.rint(np.logspace(np.log10(16), np.log10(num_msa),
+                                     num_multimer_predictions)).astype(int).tolist()
+    extra_msa_ranges = np.rint(np.logspace(np.log10(32), np.log10(num_extra_msa),
+                                           num_multimer_predictions)).astype(int).tolist()
+    return msa_ranges, extra_msa_ranges
+
+
 def create_model_runners_and_random_seed(
         model_preset,
         num_cycle,
@@ -257,37 +268,27 @@ def create_model_runners_and_random_seed(
     num_ensemble = 1
     model_runners = {}
     model_names = config.MODEL_PRESETS[model_preset]
-    for i, model_name in enumerate(model_names):
+    for model_name in model_names:
         model_config = config.model_config(model_name)
         model_config.model.num_ensemble_eval = num_ensemble
         model_config["model"].update({"num_recycle": num_cycle})
-        # different num_msa for different models for TrueMultimer
-        if gradient_msa_depth:
-            num_msa = model_config["model"]["embeddings_and_evoformer"]["num_msa"]
-            msa_ranges = (
-                np.rint(np.linspace(16, num_msa, len(model_names))).astype(int).tolist()
-            )
-            num_extra_msa = model_config["model"]["embeddings_and_evoformer"][
-                "num_extra_msa"
-            ]
-            extra_msa_ranges = (
-                np.rint(np.linspace(32, num_extra_msa, len(model_names)))
-                .astype(int)
-                .tolist()
-            )
-            logging.info("Running with num_msa %s and num_extra_msa %s", msa_ranges[i], extra_msa_ranges[i])
-            model_config["model"]["embeddings_and_evoformer"].update(
-                {"num_msa": msa_ranges[i]}
-            )
-            model_config["model"]["embeddings_and_evoformer"].update(
-                {"num_extra_msa": extra_msa_ranges[i]}
-            )
         model_config.model.num_ensemble_eval = num_ensemble
         model_params = data.get_model_haiku_params(
             model_name=model_name, data_dir=data_dir
         )
         model_runner = model.RunModel(model_config, model_params)
+        # could be different starting num_msa for different models
+        num_msa = model_config["model"]["embeddings_and_evoformer"]["num_msa"]
+        num_extra_msa = model_config["model"]["embeddings_and_evoformer"]["num_extra_msa"]
         for i in range(num_multimer_predictions_per_model):
+            if gradient_msa_depth:
+                msa_ranges, extra_msa_ranges = compute_msa_ranges(
+                    num_msa, num_extra_msa, num_multimer_predictions_per_model
+                )
+                logging.info(f"Model {model_name} is running {i} prediction "
+                             f"with num_msa={msa_ranges[i]} and num_extra_msa={extra_msa_ranges[i]}")
+                model_config["model"]["embeddings_and_evoformer"].update({"num_msa": msa_ranges[i]})
+                model_config["model"]["embeddings_and_evoformer"].update({"num_extra_msa": extra_msa_ranges[i]})
             model_runners[f"{model_name}_pred_{i}"] = model_runner
     if random_seed is None:
         random_seed = random.randrange(sys.maxsize // len(model_runners))
