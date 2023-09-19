@@ -12,58 +12,12 @@ import os
 import sys
 from pathlib import Path
 from absl import logging, flags, app
-from Bio import SeqIO
-from Bio.PDB.Polypeptide import three_to_one, one_to_three
-from alphapulldown.remove_clashes_low_plddt import remove_clashes, remove_low_plddt, to_bio
+from alphapulldown.remove_clashes_low_plddt import BioStructure
 from colabfold.batch import validate_and_fix_mmcif
 from alphafold.common.protein import _from_bio_structure, to_mmcif
 
 FLAGS = flags.FLAGS
 
-
-
-def extract_seqs_from_cif(chain_id, file_path):
-    """
-    Extract sequences from PDB/CIF file, if SEQRES records are not present,
-    extract from atoms
-    o file_path - path to CIF file
-    o chain id - chain id
-    Return:
-        o list of tuples: (chain_id, sequence)
-    """
-    struct = to_bio(file_path)
-    if len(struct.child_list) > 1:
-        raise Exception(f'{len(struct.child_list)} models found in {file_path}!')
-
-    model = struct[0]
-    chain_ids = [chain.id for chain in model]
-
-    if chain_id not in chain_ids:
-        logging.error(f"No {chain_id} in {chain_ids} of {file_path}!")
-        return []  # Exit if chain_id is not found
-
-    seqs = []
-
-    # Parsing SEQRES
-    for record in SeqIO.parse(file_path, "cif-seqres"):
-        if record.id == chain_id:
-            seqs.append((chain_id, str(record.seq)))
-
-    # Parsing from atoms if SEQRES records are not found
-    if len(seqs) == 0:
-        logging.info(f'No SEQRES records found in {file_path}! Parsing from atoms!')
-        for chain in model:
-            if chain.id == chain_id:
-                seq_chain = ''
-                for resi in chain:
-                    try:
-                        one_letter = three_to_one(resi.resname)
-                        seq_chain += one_letter
-                    except KeyError:
-                        logging.warning(f'Skipping {resi.resname} with id {resi.id}')
-                seqs.append((chain_id, seq_chain))
-
-    return seqs
 
 
 def save_seqres(code, seqs, path):
@@ -100,40 +54,6 @@ def parse_code(template):
                     sys.exit(1)
     return code.lower()
 
-#
-# def replace_entity_poly_seq(mmcif_string, seqs, chain_id):
-#     new_mmcif_string = []
-#     saving = True
-#     start = -1
-#     # Remove old entity_poly_seq lines
-#     for index, line in enumerate(mmcif_string.splitlines()):
-#         if line.startswith("_entity_poly_seq.entity_id"):
-#             saving = False
-#             start = index
-#         if not saving and line.startswith("#"):
-#             saving = True
-#         if saving:
-#             new_mmcif_string.append(line)
-#     # Construct new entity_poly_seq lines
-#     new_entity_poly_seq = []
-#     for seq in seqs:
-#         if seq[0] == chain_id:
-#             new_entity_poly_seq.append("_entity_poly_seq.entity_id")
-#             new_entity_poly_seq.append("_entity_poly_seq.num")
-#             new_entity_poly_seq.append("_entity_poly_seq.mon_id")
-#             new_entity_poly_seq.append("_entity_poly_seq.hetero")
-#             entity_id = ord(chain_id.upper()) - 64
-#             for i, aa in enumerate(seq[1]):
-#                 three_letter_aa = one_to_three(aa)
-#                 # TODO: uncomment after chain indicies are properly saved
-#                 new_entity_poly_seq.append(f"{entity_id}\t{i+1}\t{three_letter_aa}\tn")
-#                 #new_entity_poly_seq.append(f"0\t{i + 1}\t{three_letter_aa}\tn")
-#     # Insert new entity_poly_seq lines at the start index
-#     new_mmcif_string[start:start] = new_entity_poly_seq
-#     new_mmcif_string.append("\n")
-#     return '\n'.join(new_mmcif_string)
-
-
 
 def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, plddt_threshold):
     """
@@ -148,7 +68,6 @@ def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, pldd
     Returns:
         o None
     """
-
     # Create the database structure
     pdb_mmcif_dir = Path(out_path) / 'pdb_mmcif'
     mmcif_dir = pdb_mmcif_dir / 'mmcif_files'
@@ -176,17 +95,16 @@ def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, pldd
     for template, chain_id in zip(templates, chains):
         code = parse_code(template)
         logging.info(f"Processing template: {template}  Chain {chain_id} Code: {code}")
-        # Parse SEQRES from the original template file
-        seqs = extract_seqs_from_cif(chain_id, template)
-        sqrres_path = save_seqres(code, seqs, seqres_dir)
+        # Convert to (our) biopython class
+        bio_struct = BioStructure(template, chain_id)
+        # Parse SEQRES
+        sqrres_path = save_seqres(code, bio_struct.seqs, seqres_dir)
         logging.info(f"SEQRES saved to {sqrres_path}!")
-        # Prepare pdb_mmcif directory
-        structure = to_bio(template, chain_id)
         # Remove clashes and low pLDDT regions for each template
-        structure = remove_clashes(structure, threshold_clashes, hb_allowance)
-        structure = remove_low_plddt(structure, plddt_threshold)
+        bio_struct.remove_clashes(threshold_clashes, hb_allowance)
+        bio_struct.remove_low_plddt(plddt_threshold)
         # Convert to Protein
-        protein = _from_bio_structure(structure)
+        protein = _from_bio_structure(bio_struct.structure)
         # Convert to mmCIF
         mmcif_string = to_mmcif(protein, f"{code}_{chain_id}", "Monomer", chain_id)
         # Save to file
