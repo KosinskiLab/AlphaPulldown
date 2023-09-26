@@ -2,113 +2,110 @@ from collections import defaultdict
 from absl import app, flags
 import logging
 import copy
-from alphafold.data.mmcif_parsing import _get_atom_site_list
-from Bio import SeqIO
-from Bio.PDB import Structure, PDBParser, MMCIFParser, NeighborSearch, PDBIO, MMCIFIO
-from Bio.PDB.Polypeptide import three_to_one
+from alphafold.data.mmcif_parsing import parse
+from alphafold.common.residue_constants import residue_atoms
+#from Bio import SeqIO
+from Bio.PDB import Structure, NeighborSearch, PDBIO, MMCIFIO
+from Bio.PDB.Polypeptide import protein_letters_3to1
+import numpy as np
 
 
-class BioStructure:
+class MmcifObjectFiltered:
     """
-    Biopython structure with some checks and mapped mmcif chain id to author chain id
-    Stores only the first model and only one chain if provided as argument
     Has methods to remove clashes and low pLDDT residues and can save the structure to a file
     """
     DONORS_ACCEPTORS = ['N', 'O', 'S']
     VDW_RADII = defaultdict(lambda: 1.5,
                             {'H': 1.1, 'C': 1.7, 'N': 1.55, 'O': 1.52, 'F': 1.47, 'P': 1.8, 'S': 1.8, 'CL': 1.75})
 
-    def __init__(self, input_file_path, chain_id=None):
+    def __init__(self, input_file_path, code, chain_id=None):
         self.input_file_path = input_file_path
         self.chain_id = chain_id
-        self.mmcif_to_author_chain_id = {}
-        self.author_chain_to_mmcif_id = {}
-        self.structure = self.to_bio(input_file_path, chain_id)
-        self.seqs = self.extract_seqs()
+        with open(input_file_path) as f:
+            mmcif = f.read()
+        parsing_result = parse(file_id=code, mmcif_string=mmcif)
+        if parsing_result.errors:
+            raise Exception(f"Can't parse mmcif file {input_file_path}: {parsing_result.errors}")
+        mmcif_object = parse(file_id=code, mmcif_string=mmcif).mmcif_object
+        self.sequence_seqres = mmcif_object.chain_to_seqres[chain_id]
+        self.seqres_to_structure = mmcif_object.seqres_to_structure[chain_id]
+        self.atoms_label_seq_id = self.extract_atoms_label_seq_id(self.seqres_to_structure)
+        self.residue_index = np.array([x for x in self.seqres_to_structure.keys()])
+        self.sequence_atom = None
+        self.structure = self.extract_chain(mmcif_object.structure, chain_id)
         self.structure_modified = False
+
 
     def __eq__(self, other):
         return self.structure == other.structure
 
-    def to_bio(self, input_file_path, chain_id):
-        if input_file_path.endswith(".pdb"):
-            parser = PDBParser(QUIET=True)
-        elif input_file_path.endswith(".cif"):
-            parser = MMCIFParser(QUIET=True)
-        else:
-            logging.error(f"Unknown file format for {input_file_path}. Accepted formats: PDB, CIF")
-
-        structure = parser.get_structure("model", input_file_path)
-        parsed_info = parser._mmcif_dict
-
-        # Error if multiple models are found
-        if len(structure.child_list) > 1:
-            logging.error(f'{len(structure.child_list)} models found in {input_file_path}!')
-
-        for atom in _get_atom_site_list(parsed_info):
-          self.mmcif_to_author_chain_id[atom.mmcif_chain_id] = atom.author_chain_id
-          self.author_chain_to_mmcif_id[atom.author_chain_id] = atom.mmcif_chain_id
-
-        if chain_id:
-            # Error if chain_id is not found
-            chain_ids = [chain.id for chain in structure[0]]
-            chain_ids_author = [chain for chain in self.author_chain_to_mmcif_id.keys()]
-            if chain_id not in chain_ids:
-                logging.warning(f"No {chain_id} in internal {chain_ids} of {input_file_path}!")
-                if chain_id not in chain_ids_author:
-                    logging.error(f"No {chain_id} in author {chain_ids_author} of {input_file_path}!")
-
-            # Create a new structure to hold the specific chain
-            new_structure = Structure.Structure("new_model")
-            for model in structure:
-                new_model = model.__class__(model.id, new_structure)
-                new_structure.add(new_model)
-                for chain in model:
-                    if chain.id == chain_id:
-                        # Simply copy the chain instead of building it from scratch
-                        new_chain = copy.deepcopy(chain)
-                        new_model.add(new_chain)
-                        break
-            return new_structure
-
-        return structure
-
-    def extract_seqs(self):
+    def extract_atoms_label_seq_id(self, seqres_to_structure):
         """
-        Extract sequences from PDB/CIF file, if SEQRES records are not present,
-        extract from atoms
-        Return:
-            o list of tuples: (chain_id, sequence)
+        Extracts residue index for atoms.
         """
-        seqs = []
-        # Parsing SEQRES
-        template = self.input_file_path
-        chain_id = self.chain_id
-        if template.endswith('.pdb'):
-            format = 'pdb-seqres'
-        elif template.endswith('.cif'):
-            format = 'cif-seqres'
-        else:
-            logging.error(f'Unknown file type for {template}!')
-        for record in SeqIO.parse(template, format):
-            chain_id_author = self.mmcif_to_author_chain_id[record.id]
-            if (record.id == chain_id) or (chain_id_author == chain_id):
-                seqs.append((chain_id, str(record.seq)))
+        atoms_label_seq_id = []
+        for label_id, residue in seqres_to_structure.items():
+            name = residue.name
+            number_of_atoms_in_residue = len(residue_atoms[name])
+            atoms_label_seq_id += [label_id + 1] * number_of_atoms_in_residue
+        return np.array(atoms_label_seq_id)
 
-        # Parsing from atoms if SEQRES records are not found
-        if len(seqs) == 0:
-            logging.warning(f'No SEQRES records found in {template}! Parsing from atoms!')
-            model = self.structure[0]
-            for chain in model:
-                seq_chain = ''
+    def extract_chain(self, model, chain_id):
+        """
+        Extracts a chain and parses sequence from atoms.
+        """
+
+        # The author chain ids
+        chain_ids = [chain.id for chain in model]
+        if chain_id not in chain_ids:
+            raise ValueError(f"No {chain_id} in author {chain_ids} of {self.input_file_path}!")
+
+        # Create a new structure to hold the specific chain
+        new_structure = Structure.Structure("new_model")
+        new_model = model.__class__(model.id, new_structure)
+        new_structure.add(new_model)
+        for chain in model:
+            if chain.id == chain_id:
+                # Simply copy the chain instead of building it from scratch
+                new_chain = copy.deepcopy(chain)
+                new_model.add(new_chain)
+                # Parse sequence from atoms
+                seq = ''
                 for resi in chain:
                     try:
-                        one_letter = three_to_one(resi.resname)
-                        seq_chain += one_letter
+                        one_letter = protein_letters_3to1[resi.resname]
+                        seq += one_letter
                     except KeyError:
-                        logging.warning(f'Skipping {resi.resname} with id {resi.id}')
-                seqs.append((chain_id, seq_chain))
-        return seqs
+                        logging.info(f'Skipping residue {resi.resname} with id {resi.id}, chain {chain_id}')
+        self.sequence_atom = seq
+        return new_structure
+
+
+    # def extract_seqs(self):
+    #     """
+    #     Extract sequences from PDB/CIF file using Bio.SeqIO.
+    #     1) reads sequence from atoms using author chain_id
+    #     2) reads SEQRES records using the author chain_id, if present
+    #     3) Maps SEQRES sequence to atom sequence using residue index
+    #     (if SEQRES sequence is not found, just numbers from 1 to len(atom sequence)
+    #     """
+    #     format_types = [f"{self.file_type[1:]}-atom", f"{self.file_type[1:]}-seqres"]
+    #
+    #     for format_type in format_types:
+    #         for record in SeqIO.parse(self.input_file_path, format_type):
+    #             chain_id_internal = record.annotations['chain']
+    #             chain_id_author = self.mmcif_to_author_chain_id.get(chain_id_internal)
+    #
+    #             if chain_id_author == self.chain_id:
+    #                 if format_type.endswith('atom'):
+    #                     self.sequence_atom = str(record.seq)
+    #                 elif format_type.endswith('seqres'):
+    #                     self.sequence_seqres = str(record.seq)
+    #     if self.sequence_atom is None:
+    #         logging.error(f"No atom sequence found for chain {self.chain_id}")
+    #     if self.sequence_seqres is None:
+    #         logging.warning(f"No SEQRES sequence found for chain {self.chain_id}")
+
 
     def is_potential_hbond(self, atom1, atom2):
         """
@@ -149,10 +146,12 @@ class BioStructure:
 
         logging.info(f"Unique clashing atoms: {len(clashing_atoms)} out of {len(list(model.get_atoms()))}")
         logging.info(f"Unique clashing residues: {len(clashing_residues)} out of {len(list(model.get_residues()))}")
-
+        # remove from structure
         for residue in clashing_residues:
             chain = residue.get_parent()
             chain.detach_child(residue.id)
+        # TODO: remove from sequence and residue index
+
         self.structure_modified = True
 
     def remove_low_plddt(self, plddt_threshold=50):
@@ -167,10 +166,11 @@ class BioStructure:
                 low_plddt_residues.add(residue)
 
         logging.info(f"Low pLDDT residues: {len(low_plddt_residues)} out of {len(list(model.get_residues()))}")
-
+        # remove from structure
         for residue in low_plddt_residues:
             chain = residue.get_parent()
             chain.detach_child(residue.id)
+        # TODO: remove from sequence and residue index
 
         self.structure_modified = True
 
@@ -192,7 +192,7 @@ def main(argv):
     hb_allowance = flags.FLAGS.hb_allowance
     plddt_threshold = flags.FLAGS.plddt_threshold
 
-    bio_struct = BioStructure(input_file_path)
+    bio_struct = MmcifObjectFiltered(input_file_path, "TEST")
     bio_struct.remove_clashes(threshold, hb_allowance)
     bio_struct.remove_low_plddt(plddt_threshold)
 

@@ -12,17 +12,18 @@ import os
 import sys
 from pathlib import Path
 from absl import logging, flags, app
-from alphapulldown.remove_clashes_low_plddt import BioStructure
-from colabfold.batch import validate_and_fix_mmcif
+from alphapulldown.remove_clashes_low_plddt import MmcifObjectFiltered
+from colabfold.batch import validate_and_fix_mmcif, convert_pdb_to_mmcif
 from alphafold.common.protein import _from_bio_structure, to_mmcif
 
 FLAGS = flags.FLAGS
 
 
-def save_seqres(code, seqs, path):
+def save_seqres(code, chain, s, path):
     """
     o code - four letter PDB-like code
-    o seqs - list of tuples: (chain_id, sequence)
+    o chain - chain ID
+    o s - sequence
     o path - path to the pdb_seqresi, unique for each chain
     Returns:
         o Path to the file
@@ -30,13 +31,10 @@ def save_seqres(code, seqs, path):
     fn = path / 'pdb_seqres.txt'
     # Rewrite the file if it exists
     with open(fn, 'a') as f:
-        for seq in seqs:
-            chain = seq[0]
-            s = seq[1]
-            lines = f">{code}_{chain} mol:protein length:{len(s)}\n{s}\n"
-            logging.info(f'Saving SEQRES for chain {chain} to {fn}!')
-            logging.debug(lines)
-            f.write(lines)
+        lines = f">{code}_{chain} mol:protein length:{len(s)}\n{s}\n"
+        logging.info(f'Saving SEQRES for chain {chain} to {fn}!')
+        logging.debug(lines)
+        f.write(lines)
     return fn
 
 
@@ -53,24 +51,15 @@ def parse_code(template):
                     sys.exit(1)
     return code.lower()
 
-
-def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, plddt_threshold):
+def create_tree(pdb_mmcif_dir, mmcif_dir, seqres_dir):
     """
-    Main function that creates a fake template database for AlphaFold2
-    from a PDB/CIF template files.
-    o out_path - path to the output directory where the database will be created
-    o templates - list of paths to the template files
-    o chains - list of chain IDs of the multimeric templates
-    o threshold_clashes - threshold for clashes removal
-    o hb_allowance - hb_allowance for clashes removal
-    o plddt_threshold - threshold for low pLDDT regions removal
+    Create the db structure with empty directories
+    o pdb_mmcif_dir - path to the output directory
+    o mmcif_dir - path to the mmcif directory
+    o seqres_dir - path to the seqres directory
     Returns:
         o None
     """
-    # Create the database structure
-    pdb_mmcif_dir = Path(out_path) / 'pdb_mmcif'
-    mmcif_dir = pdb_mmcif_dir / 'mmcif_files'
-    seqres_dir = Path(out_path) / 'pdb_seqres'
     try:
         Path(mmcif_dir).mkdir(parents=True)
         # Create empty obsolete.dat file
@@ -91,21 +80,55 @@ def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, pldd
         if os.path.exists(seqres_dir / 'pdb_seqres.txt'):
             os.remove(seqres_dir / 'pdb_seqres.txt')
 
+
+def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, plddt_threshold):
+    """
+    Main function that creates a fake template database for AlphaFold2
+    from a PDB/CIF template files.
+    o out_path - path to the output directory where the database will be created
+    o templates - list of paths to the template files
+    o chains - list of chain IDs of the multimeric templates
+    o threshold_clashes - threshold for clashes removal
+    o hb_allowance - hb_allowance for clashes removal
+    o plddt_threshold - threshold for low pLDDT regions removal
+    Returns:
+        o None
+    """
+    # Create the database structure
+    pdb_mmcif_dir = Path(out_path) / 'pdb_mmcif'
+    mmcif_dir = pdb_mmcif_dir / 'mmcif_files'
+    seqres_dir = Path(out_path) / 'pdb_seqres'
+    create_tree(pdb_mmcif_dir, mmcif_dir, seqres_dir)
+    # Process each template/chain pair
     for template, chain_id in zip(templates, chains):
         code = parse_code(template)
         logging.info(f"Processing template: {template}  Chain {chain_id} Code: {code}")
-        # Convert to (our) biopython class
-        bio_struct = BioStructure(template, chain_id)
+        if template.endswith('.pdb'):
+            logging.info(f"Converting to mmCIF: {template}")
+            template = Path(template)
+            template = template.parent.joinpath(f"{template.stem}.cif")
+            convert_pdb_to_mmcif(template)
+        # Convert to (our) mmcif object
+        mmcif_obj = MmcifObjectFiltered(template, code, chain_id)
         # Parse SEQRES
-        sqrres_path = save_seqres(code, bio_struct.seqs, seqres_dir)
+        if mmcif_obj.sequence_seqres:
+            seqres = mmcif_obj.sequence_seqres
+        else:
+            seqres = mmcif_obj.sequence_atom
+        sqrres_path = save_seqres(code, chain_id, seqres, seqres_dir)
         logging.info(f"SEQRES saved to {sqrres_path}!")
         # Remove clashes and low pLDDT regions for each template
-        bio_struct.remove_clashes(threshold_clashes, hb_allowance)
-        bio_struct.remove_low_plddt(plddt_threshold)
+        mmcif_obj.remove_clashes(threshold_clashes, hb_allowance)
+        mmcif_obj.remove_low_plddt(plddt_threshold)
         # Convert to Protein
-        protein = _from_bio_structure(bio_struct.structure)
+        protein = _from_bio_structure(mmcif_obj.structure)
         # Convert to mmCIF
-        mmcif_string = to_mmcif(protein, f"{code}_{chain_id}", "Monomer", chain_id)
+        mmcif_string = to_mmcif(protein,
+                                f"{code}_{chain_id}",
+                                "Monomer",
+                                chain_id,
+                                seqres,
+                                mmcif_obj.residue_index)
         # Save to file
         fn = mmcif_dir / f"{code}.cif"
         with open(fn, 'w') as f:
