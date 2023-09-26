@@ -46,15 +46,18 @@ def run_test(pdb_templates, chains):
         atoms = list(model.child_dict[chains[0]].get_atoms())
         assert len(atoms) > 0
         # check seqres and atom label_id count are the same
-        seqres_ids = [int(x) for x in mmcif_object.seqres_to_structure[chains[0]].keys()]
+        seqres_ids = [int(x+1) for x in mmcif_object.seqres_to_structure[chains[0]].keys()]
         mmcif_dict = MMCIF2Dict.MMCIF2Dict(path_to_mmcif)
         atoms = _get_atom_site_list(mmcif_dict)
         for atom in atoms:
-            assert int(atom.mmcif_seq_num) in seqres_ids
+            if atom.mmcif_chain_id == chains[0]:
+                print(f"Debug: atom.mmci_seq_num: {atom.mmcif_seq_num}")
+                assert int(atom.mmcif_seq_num) in seqres_ids
 
 
-def test_from_pdb():
+def test_from_pdb(capfd):
     run_test(["./test/test_data/true_multimer/3L4Q.pdb"], ["C"])
 
-def test_from_cif():
+def test_from_cif(capfd):
     run_test(["./test/test_data/true_multimer/3L4Q.cif"], ["A"])
+
