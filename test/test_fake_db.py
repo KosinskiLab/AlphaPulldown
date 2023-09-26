@@ -4,6 +4,9 @@ import tempfile
 import os
 from alphafold.data import mmcif_parsing
 from pathlib import Path
+from Bio.PDB import MMCIF2Dict
+from alphafold.data.mmcif_parsing import _get_atom_site_list
+
 
 def run_test(pdb_templates, chains):
     threshold_clashes = 1000
@@ -18,9 +21,7 @@ def run_test(pdb_templates, chains):
 
         assert os.path.exists(f"{tmpdirname}/pdb_mmcif/obsolete.dat")
         assert os.path.exists(f"{tmpdirname}/pdb_seqres/pdb_seqres.txt")
-
         path_to_mmcif = Path(tmpdirname) / f"pdb_mmcif/mmcif_files/3l4q.cif"
-
         assert os.path.exists(path_to_mmcif)
 
         with open(path_to_mmcif, "r") as f:
@@ -33,9 +34,24 @@ def run_test(pdb_templates, chains):
         assert not parse_result.errors
         mmcif_object = parse_result.mmcif_object
         model = mmcif_object.structure
+        # check the chain
         assert len(model.child_dict) == 1
         assert chains[0] in model.child_dict
         assert chains[0] in mmcif_object.chain_to_seqres
+        # check that the sequence is the same as the one in the pdb_seqres.txt
+        with open(f"{tmpdirname}/pdb_seqres/pdb_seqres.txt", "r") as f:
+            seqres_seq = f.readlines()[-1]
+        assert mmcif_object.chain_to_seqres[chains[0]]+'\n' == seqres_seq
+        # check there are atoms in the model
+        atoms = list(model.child_dict[chains[0]].get_atoms())
+        assert len(atoms) > 0
+        # check seqres and atom label_id count are the same
+        seqres_ids = [int(x) for x in mmcif_object.seqres_to_structure[chains[0]].keys()]
+        mmcif_dict = MMCIF2Dict.MMCIF2Dict(path_to_mmcif)
+        atoms = _get_atom_site_list(mmcif_dict)
+        for atom in atoms:
+            assert int(atom.mmcif_seq_num) in seqres_ids
+
 
 def test_from_pdb():
     run_test(["./test/test_data/true_multimer/3L4Q.pdb"], ["C"])
