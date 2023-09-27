@@ -10,8 +10,9 @@ from Bio.PDB.Polypeptide import protein_letters_3to1
 import numpy as np
 
 
-class MmcifObjectFiltered:
+class MmcifChainFiltered:
     """
+    Takes only one chain from the mmcif file
     Has methods to remove clashes and low pLDDT residues and can save the structure to a file
     """
     DONORS_ACCEPTORS = ['N', 'O', 'S']
@@ -29,26 +30,25 @@ class MmcifObjectFiltered:
         mmcif_object = parse(file_id=code, mmcif_string=mmcif).mmcif_object
         self.sequence_seqres = mmcif_object.chain_to_seqres[chain_id]
         self.seqres_to_structure = mmcif_object.seqres_to_structure[chain_id]
-        self.atoms_label_seq_id = self.extract_atoms_label_seq_id(self.seqres_to_structure)
-        self.residue_index = np.array([x for x in self.seqres_to_structure.keys()])
-        self.sequence_atom = None
-        self.structure = self.extract_chain(mmcif_object.structure, chain_id)
+        self.structure, self.sequence_atom = self.extract_chain(mmcif_object.structure, chain_id)
         self.structure_modified = False
 
 
     def __eq__(self, other):
         return self.structure == other.structure
 
-    def extract_atoms_label_seq_id(self, seqres_to_structure):
+    def extract_atom_site_label_seq_id(self):
         """
         Extracts residue index for atoms.
         """
         atoms_label_seq_id = []
-        for label_id, residue in seqres_to_structure.items():
+        for label_id, residue in self.seqres_to_structure.items():
+            if residue.is_missing:
+                continue
             name = residue.name
             number_of_atoms_in_residue = len(residue_atoms[name])
-            atoms_label_seq_id += [label_id + 1] * number_of_atoms_in_residue
-        return np.array(atoms_label_seq_id)
+            atoms_label_seq_id += [str(label_id + 1)] * number_of_atoms_in_residue
+        return atoms_label_seq_id
 
     def extract_chain(self, model, chain_id):
         """
@@ -60,25 +60,32 @@ class MmcifObjectFiltered:
         if chain_id not in chain_ids:
             raise ValueError(f"No {chain_id} in author {chain_ids} of {self.input_file_path}!")
 
-        # Create a new structure to hold the specific chain
-        new_structure = Structure.Structure("new_model")
+        new_structure = Structure.Structure(f"struct_{chain_id}")
         new_model = model.__class__(model.id, new_structure)
         new_structure.add(new_model)
+        resis = list(protein_letters_3to1.keys())
+        residues_to_remove = []
+
         for chain in model:
             if chain.id == chain_id:
-                # Simply copy the chain instead of building it from scratch
-                new_chain = copy.deepcopy(chain)
-                new_model.add(new_chain)
-                # Parse sequence from atoms
                 seq = ''
                 for resi in chain:
+                    if resi.resname not in resis:
+                        residues_to_remove.append(resi)
+                        continue
                     try:
                         one_letter = protein_letters_3to1[resi.resname]
                         seq += one_letter
                     except KeyError:
                         logging.info(f'Skipping residue {resi.resname} with id {resi.id}, chain {chain_id}')
-        self.sequence_atom = seq
-        return new_structure
+
+                for resi in residues_to_remove:
+                    chain.detach_child(resi.id)
+
+                new_chain = copy.deepcopy(chain)
+                new_model.add(new_chain)
+
+        return new_structure, seq
 
 
     # def extract_seqs(self):
@@ -150,6 +157,8 @@ class MmcifObjectFiltered:
         for residue in clashing_residues:
             chain = residue.get_parent()
             chain.detach_child(residue.id)
+            # and from seqres_to_structure
+
         # TODO: remove from sequence and residue index
 
         self.structure_modified = True

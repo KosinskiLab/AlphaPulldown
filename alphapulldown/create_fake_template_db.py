@@ -12,7 +12,7 @@ import os
 import sys
 from pathlib import Path
 from absl import logging, flags, app
-from alphapulldown.remove_clashes_low_plddt import MmcifObjectFiltered
+from alphapulldown.remove_clashes_low_plddt import MmcifChainFiltered
 from colabfold.batch import validate_and_fix_mmcif, convert_pdb_to_mmcif
 from alphafold.common.protein import _from_bio_structure, to_mmcif
 
@@ -109,7 +109,7 @@ def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, pldd
             template = template.parent.joinpath(f"{template.stem}.cif")
             convert_pdb_to_mmcif(template)
         # Convert to (our) mmcif object
-        mmcif_obj = MmcifObjectFiltered(template, code, chain_id)
+        mmcif_obj = MmcifChainFiltered(template, code, chain_id)
         # Parse SEQRES
         if mmcif_obj.sequence_seqres:
             seqres = mmcif_obj.sequence_seqres
@@ -120,6 +120,8 @@ def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, pldd
         # Remove clashes and low pLDDT regions for each template
         mmcif_obj.remove_clashes(threshold_clashes, hb_allowance)
         mmcif_obj.remove_low_plddt(plddt_threshold)
+        #Get atom site label seq ids
+        atom_site_label_seq_ids = mmcif_obj.extract_atom_site_label_seq_id()
         # Convert to Protein
         protein = _from_bio_structure(mmcif_obj.structure)
         # Convert to mmCIF
@@ -128,7 +130,7 @@ def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, pldd
                                 "Monomer",
                                 chain_id,
                                 seqres,
-                                mmcif_obj.residue_index)
+                                atom_site_label_seq_ids)
         # Save to file
         fn = mmcif_dir / f"{code}.cif"
         with open(fn, 'w') as f:
