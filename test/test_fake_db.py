@@ -1,11 +1,11 @@
 import pytest
-from alphapulldown.create_fake_template_db import create_db
+from alphapulldown.create_fake_template_db import create_db, parse_code
 import tempfile
 import os
 from alphafold.data import mmcif_parsing
 from pathlib import Path
 from Bio.PDB import MMCIF2Dict
-from alphafold.data.mmcif_parsing import _get_atom_site_list
+from alphafold.data.mmcif_parsing import _get_atom_site_list, _get_protein_chains
 
 
 def run_test(pdb_templates, chains):
@@ -21,8 +21,14 @@ def run_test(pdb_templates, chains):
 
         assert os.path.exists(f"{tmpdirname}/pdb_mmcif/obsolete.dat")
         assert os.path.exists(f"{tmpdirname}/pdb_seqres/pdb_seqres.txt")
-        path_to_mmcif = Path(tmpdirname) / f"pdb_mmcif/mmcif_files/3l4q.cif"
+        code = parse_code(pdb_templates[0])
+        print(code)
+        path_to_mmcif = Path(tmpdirname) / f"pdb_mmcif/mmcif_files/{code}.cif"
         assert os.path.exists(path_to_mmcif)
+
+        mmcif_dict = MMCIF2Dict.MMCIF2Dict(path_to_mmcif)
+        valid_chains = _get_protein_chains(parsed_info= mmcif_dict)
+        assert (chains[0] in valid_chains)
 
         with open(path_to_mmcif, "r") as f:
             mmcif_string = f.read()
@@ -47,18 +53,19 @@ def run_test(pdb_templates, chains):
         assert len(atoms) > 0
         # check seqres and atom label_id count are the same
         seqres_ids = [int(x+1) for x in mmcif_object.seqres_to_structure[chains[0]].keys()]
-        mmcif_dict = MMCIF2Dict.MMCIF2Dict(path_to_mmcif)
         atoms = _get_atom_site_list(mmcif_dict)
         for atom in atoms:
             if atom.mmcif_chain_id == chains[0] or atom.hetatm_atom:
-                print(f"Debug: atom.mmci_seq_num: {atom.mmcif_seq_num}")
-                print(f"Debug: atom.author_seq_num: {atom.author_seq_num}")
+                #print(f"Debug: atom.mmci_seq_num: {atom.mmcif_seq_num}")
+                #print(f"Debug: atom.author_seq_num: {atom.author_seq_num}")
                 assert int(atom.mmcif_seq_num) in seqres_ids
 
 
-#def test_from_pdb(capfd):
-#    run_test(["./test/test_data/true_multimer/3L4Q.pdb"], ["C"])
+def test_from_pdb(capfd):
+    run_test(["./test/test_data/true_multimer/3L4Q.pdb"], ["C"])
 
 def test_from_cif(capfd):
     run_test(["./test/test_data/true_multimer/3L4Q.cif"], ["A"])
 
+def test_from_minimal_pdb(capfd):
+    run_test(["./test/test_data/true_multimer/0099.pdb"], ["B"])

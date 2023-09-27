@@ -106,8 +106,8 @@ def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, pldd
         if template.endswith('.pdb'):
             logging.info(f"Converting to mmCIF: {template}")
             template = Path(template)
-            template = template.parent.joinpath(f"{template.stem}.cif")
             convert_pdb_to_mmcif(template)
+            template = template.parent.joinpath(f"{template.stem}.cif")
         # Convert to (our) mmcif object
         mmcif_obj = MmcifChainFiltered(template, code, chain_id)
         # Parse SEQRES
