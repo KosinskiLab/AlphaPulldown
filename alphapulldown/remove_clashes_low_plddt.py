@@ -7,7 +7,6 @@ from alphafold.common.residue_constants import residue_atoms
 #from Bio import SeqIO
 from Bio.PDB import Structure, NeighborSearch, PDBIO, MMCIFIO
 from Bio.PDB.Polypeptide import protein_letters_3to1
-import numpy as np
 
 
 class MmcifChainFiltered:
@@ -150,17 +149,11 @@ class MmcifChainFiltered:
 
         # Remove residues if at least one atom is clashing
         clashing_residues = set(atom.get_parent() for atom in clashing_atoms)
-
         logging.info(f"Unique clashing atoms: {len(clashing_atoms)} out of {len(list(model.get_atoms()))}")
         logging.info(f"Unique clashing residues: {len(clashing_residues)} out of {len(list(model.get_residues()))}")
-        # remove from structure
-        for residue in clashing_residues:
-            chain = residue.get_parent()
-            chain.detach_child(residue.id)
-            # and from seqres_to_structure
-
-        # TODO: remove from sequence and residue index
-
+        # remove from structure and seqres_to_structure
+        if len(clashing_residues) > 0:
+            self.remove_residues(clashing_residues)
         self.structure_modified = True
 
     def remove_low_plddt(self, plddt_threshold=50):
@@ -175,13 +168,25 @@ class MmcifChainFiltered:
                 low_plddt_residues.add(residue)
 
         logging.info(f"Low pLDDT residues: {len(low_plddt_residues)} out of {len(list(model.get_residues()))}")
-        # remove from structure
-        for residue in low_plddt_residues:
+        # remove from structure and seqres_to_structure
+        if len(low_plddt_residues) > 0:
+            self.remove_residues(low_plddt_residues)
+        self.structure_modified = True
+
+    def remove_residues(self, residues):
+        """
+        Remove residues from the structure
+        and seqres_to_structure (that's enough for atoms_label_seq_id).
+        """
+        ids = []
+        for residue in residues:
             chain = residue.get_parent()
             chain.detach_child(residue.id)
-        # TODO: remove from sequence and residue index
-
-        self.structure_modified = True
+            ids.append(residue.id[1])
+        # and from seqres_to_structure
+        self.seqres_to_structure = \
+            {k: v for k, v in self.seqres_to_structure.items() if
+             v.position.residue_number not in ids}
 
     def save_structure(self, output_file_path):
         """
@@ -201,7 +206,7 @@ def main(argv):
     hb_allowance = flags.FLAGS.hb_allowance
     plddt_threshold = flags.FLAGS.plddt_threshold
 
-    bio_struct = MmcifObjectFiltered(input_file_path, "TEST")
+    bio_struct = MmcifChainFiltered(input_file_path, "TEST")
     bio_struct.remove_clashes(threshold, hb_allowance)
     bio_struct.remove_low_plddt(plddt_threshold)
 
