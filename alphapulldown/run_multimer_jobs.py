@@ -60,6 +60,12 @@ flags.DEFINE_boolean(
     False,
     "Run 5 AF models with different MSA depth",
 )
+flags.DEFINE_string(
+    "model_names", None, "Names of models to use, e.g. model_2_multimer_v3 (default: all models)"
+)
+flags.DEFINE_integer(
+    "msa_depth", None, "Number of sequences to use from the MSA (by default is taken from AF model config)"
+)
 
 flags.mark_flag_as_required("output_path")
 
@@ -335,6 +341,8 @@ def predict_multimers(multimers):
                 FLAGS.data_dir,
                 FLAGS.num_predictions_per_model,
                 FLAGS.gradient_msa_depth,
+                FLAGS.model_names,
+                FLAGS.msa_depth,
             )
             predict_individual_jobs(
                 object,

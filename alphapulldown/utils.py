@@ -257,43 +257,60 @@ def compute_msa_ranges(num_msa, num_extra_msa, num_multimer_predictions):
     return msa_ranges, extra_msa_ranges
 
 
+def update_model_config(model_config, num_msa, num_extra_msa):
+    embeddings_and_evo = model_config["model"]["embeddings_and_evoformer"]
+    embeddings_and_evo.update({"num_msa": num_msa, "num_extra_msa": num_extra_msa})
+
+
 def create_model_runners_and_random_seed(
-        model_preset,
-        num_cycle,
-        random_seed,
-        data_dir,
+        model_preset, num_cycle, random_seed, data_dir,
         num_multimer_predictions_per_model,
-        gradient_msa_depth=False,
-):
+        gradient_msa_depth=False, model_names_custom=None,
+        msa_depth=None):
     num_ensemble = 1
     model_runners = {}
     model_names = config.MODEL_PRESETS[model_preset]
+
+    if model_names_custom:
+        model_names_custom = tuple(model_names_custom.split(","))
+        if all(x in model_names for x in model_names_custom):
+            model_names = model_names_custom
+        else:
+            raise Exception(f"Provided model names {model_names_custom} not part of available {model_names}")
+
     for model_name in model_names:
         model_config = config.model_config(model_name)
         model_config.model.num_ensemble_eval = num_ensemble
         model_config["model"].update({"num_recycle": num_cycle})
-        model_config.model.num_ensemble_eval = num_ensemble
-        model_params = data.get_model_haiku_params(
-            model_name=model_name, data_dir=data_dir
-        )
+
+        model_params = data.get_model_haiku_params(model_name=model_name, data_dir=data_dir)
         model_runner = model.RunModel(model_config, model_params)
-        # could be different starting num_msa for different models
-        num_msa = model_config["model"]["embeddings_and_evoformer"]["num_msa"]
-        num_extra_msa = model_config["model"]["embeddings_and_evoformer"]["num_extra_msa"]
+
+        num_msa, num_extra_msa = get_default_msa(model_config)
+
         for i in range(num_multimer_predictions_per_model):
-            if gradient_msa_depth:
-                msa_ranges, extra_msa_ranges = compute_msa_ranges(
-                    num_msa, num_extra_msa, num_multimer_predictions_per_model
-                )
-                logging.info(f"Model {model_name} is running {i} prediction "
-                             f"with num_msa={msa_ranges[i]} and num_extra_msa={extra_msa_ranges[i]}")
-                model_config["model"]["embeddings_and_evoformer"].update({"num_msa": msa_ranges[i]})
-                model_config["model"]["embeddings_and_evoformer"].update({"num_extra_msa": extra_msa_ranges[i]})
+            if msa_depth:
+                num_msa = int(msa_depth)
+                num_extra_msa = num_msa * 4  # approx. 4x the number of msa, as in the AF2 config file
+            elif gradient_msa_depth:
+                num_msa, num_extra_msa = compute_msa_ranges(num_msa, num_extra_msa, num_multimer_predictions_per_model)[
+                    i]
+
+            update_model_config(model_config, num_msa, num_extra_msa)
+            logging.info(
+                f"Model {model_name} is running {i} prediction with num_msa={num_msa} and num_extra_msa={num_extra_msa}")
             model_runners[f"{model_name}_pred_{i}"] = model_runner
+
     if random_seed is None:
         random_seed = random.randrange(sys.maxsize // len(model_runners))
         logging.info("Using random seed %d for the data pipeline", random_seed)
+
     return model_runners, random_seed
+
+
+def get_default_msa(model_config):
+    embeddings_and_evo = model_config["model"]["embeddings_and_evoformer"]
+    return embeddings_and_evo["num_msa"], embeddings_and_evo["num_extra_msa"]
 
 
 def get_last_modified_date(path):
