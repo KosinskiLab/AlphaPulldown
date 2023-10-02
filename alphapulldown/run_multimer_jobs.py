@@ -58,7 +58,7 @@ flags.DEFINE_boolean(
 flags.DEFINE_boolean(
     "gradient_msa_depth",
     False,
-    "Run 5 AF models with different MSA depth",
+    "Run predictions for each model with logarithmically distributed MSA depth",
 )
 flags.DEFINE_string(
     "model_names", None, "Names of models to use, e.g. model_2_multimer_v3 (default: all models)"

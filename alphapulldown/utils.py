@@ -293,8 +293,10 @@ def create_model_runners_and_random_seed(
                 num_msa = int(msa_depth)
                 num_extra_msa = num_msa * 4  # approx. 4x the number of msa, as in the AF2 config file
             elif gradient_msa_depth:
-                num_msa, num_extra_msa = compute_msa_ranges(num_msa, num_extra_msa, num_multimer_predictions_per_model)[
-                    i]
+                msa_ranges, extra_msa_ranges = compute_msa_ranges(num_msa, num_extra_msa,
+                                                                  num_multimer_predictions_per_model)
+                num_msa = msa_ranges[i]
+                num_extra_msa = extra_msa_ranges[i]
 
             update_model_config(model_config, num_msa, num_extra_msa)
             logging.info(
