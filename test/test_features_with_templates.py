@@ -2,12 +2,17 @@ import subprocess
 from pathlib import Path
 from absl.testing import absltest
 import alphapulldown.create_individual_features_with_templates as run_features_generation
+import pickle
 
 class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
 
     def setUp(self):
         super().setUp()
         self.TEST_DATA_DIR = Path(__file__).parent / "test_data" / "true_multimer"
+
+    def tearDown(self):
+        # Any cleanup can go here
+        pass
 
     def test_main(self):
         # Remove existing files
@@ -51,6 +56,16 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
         assert pkl_path_c.exists()
         assert sto_path_a.exists()
         assert sto_path_c.exists()
+
+        with open(pkl_path_a, 'rb') as f:
+            temp_sequence = pickle.load(f).feature_dict['template_sequence']
+        assert len(temp_sequence) > 0
+        assert len(temp_sequence[0]) > 0
+
+        with open(pkl_path_a, 'rb') as f:
+            atom_coords = pickle.load(f).feature_dict['template_all_atom_positions'][0][9:12]
+        # Check that the atom coordinates are not all 0
+        assert (atom_coords.any()) > 0
 
 if __name__ == '__main__':
     absltest.main()
