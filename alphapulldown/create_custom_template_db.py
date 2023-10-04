@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-This script generates a fake template database for AlphaFold2 from PDB or mmCIF
+This script generates a custom template database for AlphaFold2 from PDB or mmCIF
 template files.
 Removes steric clashes and low pLDDT regions from the template files.
 Can be used as a standalone script.
@@ -83,7 +83,7 @@ def create_tree(pdb_mmcif_dir, mmcif_dir, seqres_dir):
 
 def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, plddt_threshold):
     """
-    Main function that creates a fake template database for AlphaFold2
+    Main function that creates a custom template database for AlphaFold2
     from a PDB/CIF template files.
     o out_path - path to the output directory where the database will be created
     o templates - list of paths to the template files

@@ -5,7 +5,7 @@
 
 from alphapulldown.objects import MonomericObject
 from alphapulldown.utils import parse_fasta, save_meta_data, create_uniprot_runner
-from alphapulldown.create_fake_template_db import create_db
+from alphapulldown.create_custom_template_db import create_db
 import alphafold
 from alphafold.data.pipeline import DataPipeline
 from alphafold.data.tools import hmmsearch
@@ -98,17 +98,17 @@ def create_arguments(flags_dict, feat, temp_dir=None):
     threashold_clashes = FLAGS.threshold_clashes
     hb_allowance = FLAGS.hb_allowance
     plddt_threshold = FLAGS.plddt_threshold
-    local_path_to_fake_template_db = Path(".") / "fake_template_db" / fasta # DEBUG
-    #local_path_to_fake_template_db = Path(temp_dir.name) / "fake_template_db" / fasta
-    logging.info(f"Path to local database: {local_path_to_fake_template_db}")
-    create_db(local_path_to_fake_template_db, templates, chains, threashold_clashes, hb_allowance, plddt_threshold)
-    FLAGS.pdb_seqres_database_path = os.path.join(local_path_to_fake_template_db, "pdb_seqres", "pdb_seqres.txt")
+    local_path_to_custom_template_db = Path(".") / "custom_template_db" / fasta # DEBUG
+    #local_path_to_custom_template_db = Path(temp_dir.name) / "custom_template_db" / fasta
+    logging.info(f"Path to local database: {local_path_to_custom_template_db}")
+    create_db(local_path_to_custom_template_db, templates, chains, threashold_clashes, hb_allowance, plddt_threshold)
+    FLAGS.pdb_seqres_database_path = os.path.join(local_path_to_custom_template_db, "pdb_seqres", "pdb_seqres.txt")
     flags_dict.update({"pdb_seqres_database_path": FLAGS.pdb_seqres_database_path})
 
-    FLAGS.template_mmcif_dir = os.path.join(local_path_to_fake_template_db, "pdb_mmcif", "mmcif_files")
+    FLAGS.template_mmcif_dir = os.path.join(local_path_to_custom_template_db, "pdb_mmcif", "mmcif_files")
     flags_dict.update({"template_mmcif_dir": FLAGS.template_mmcif_dir})
 
-    FLAGS.obsolete_pdbs_path = os.path.join(local_path_to_fake_template_db, "pdb_mmcif", "obsolete.dat")
+    FLAGS.obsolete_pdbs_path = os.path.join(local_path_to_custom_template_db, "pdb_mmcif", "obsolete.dat")
     flags_dict.update({"obsolete_pdbs_path": FLAGS.obsolete_pdbs_path})
 
     use_small_bfd= FLAGS.db_preset == "reduced_dbs"
