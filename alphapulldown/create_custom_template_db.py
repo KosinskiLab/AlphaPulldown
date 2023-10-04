@@ -9,6 +9,7 @@ Can be used as a standalone script.
 """
 
 import os
+import shutil
 import sys
 from pathlib import Path
 from absl import logging, flags, app
@@ -51,34 +52,41 @@ def parse_code(template):
                     sys.exit(1)
     return code.lower()
 
-def create_tree(pdb_mmcif_dir, mmcif_dir, seqres_dir):
+
+def create_dir_and_remove_files(dir_path, files_to_remove=[]):
+    try:
+        Path(dir_path).mkdir(parents=True)
+    except FileExistsError:
+        logging.info(f"{dir_path} already exists!")
+        logging.info("The existing database will be overwritten!")
+        for f in files_to_remove:
+            target_file = dir_path / Path(f)
+            if target_file.exists():
+                target_file.unlink()
+
+
+def create_tree(pdb_mmcif_dir, mmcif_dir, seqres_dir, templates_dir):
     """
     Create the db structure with empty directories
     o pdb_mmcif_dir - path to the output directory
     o mmcif_dir - path to the mmcif directory
     o seqres_dir - path to the seqres directory
+    o templates_dir - path to the directory with all-chain templates in mmcif format
     Returns:
         o None
     """
-    try:
-        Path(mmcif_dir).mkdir(parents=True)
-        # Create empty obsolete.dat file
-        open(pdb_mmcif_dir / 'obsolete.dat', 'a').close()
-    except FileExistsError:
-        logging.info("Output mmcif directory already exists!")
-        logging.info("The existing database will be overwritten!")
-        mmcif_files = os.listdir(mmcif_dir)
-        if len(mmcif_files) > 0:
-            logging.info("Removing existing mmcif files!")
-            for f in mmcif_files:
-                os.remove(mmcif_dir / Path(f))
-    try:
-        Path(seqres_dir).mkdir(parents=True)
-    except FileExistsError:
-        logging.info("Output mmcif directory already exists!")
-        logging.info("The existing database will be overwritten!")
-        if os.path.exists(seqres_dir / 'pdb_seqres.txt'):
-            os.remove(seqres_dir / 'pdb_seqres.txt')
+    if Path(pdb_mmcif_dir).exists():
+        files_to_remove = os.listdir(pdb_mmcif_dir)
+    else:
+        files_to_remove = []
+    create_dir_and_remove_files(mmcif_dir, files_to_remove)
+    create_dir_and_remove_files(templates_dir)
+
+    # Create empty obsolete.dat file
+    with open(pdb_mmcif_dir / 'obsolete.dat', 'a'):
+        pass
+
+    create_dir_and_remove_files(seqres_dir, ['pdb_seqres.txt'])
 
 
 def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, plddt_threshold):
@@ -98,12 +106,16 @@ def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, pldd
     pdb_mmcif_dir = Path(out_path) / 'pdb_mmcif'
     mmcif_dir = pdb_mmcif_dir / 'mmcif_files'
     seqres_dir = Path(out_path) / 'pdb_seqres'
-    create_tree(pdb_mmcif_dir, mmcif_dir, seqres_dir)
+    templates_dir = Path(out_path) / 'templates'
+    create_tree(pdb_mmcif_dir, mmcif_dir, seqres_dir, templates_dir)
     # Process each template/chain pair
     for template, chain_id in zip(templates, chains):
         code = parse_code(template)
+        # Copy the template to out_path to avoid conflicts with the same file names
+        shutil.copyfile(template, templates_dir / Path(template).name)
+        template = templates_dir / Path(template).name
         logging.info(f"Processing template: {template}  Chain {chain_id} Code: {code}")
-        if template.endswith('.pdb'):
+        if template.suffix == '.pdb':
             logging.info(f"Converting to mmCIF: {template}")
             template = Path(template)
             convert_pdb_to_mmcif(template)

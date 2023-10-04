@@ -1,5 +1,5 @@
 import pytest
-from alphapulldown.create_fake_template_db import create_db, parse_code
+from alphapulldown.create_custom_template_db import create_db, parse_code
 import tempfile
 import os
 from alphafold.data import mmcif_parsing
@@ -14,8 +14,9 @@ def run_test(pdb_templates, chains):
     plddt_threshold = 0
 
     with tempfile.TemporaryDirectory() as tmpdirname:
+        tmpdirname = Path(tmpdirname) / "test_custom_db"
         create_db(
-            Path(tmpdirname), pdb_templates, chains,
+            tmpdirname, pdb_templates, chains,
             threshold_clashes, hb_allowance, plddt_threshold
         )
 
@@ -66,6 +67,9 @@ def test_from_pdb(capfd):
 
 def test_from_cif(capfd):
     run_test(["./test/test_data/true_multimer/3L4Q.cif"], ["A"])
+
+def test_from_af_output_pdb(capfd):
+    run_test(["./test/test_data/true_multimer/cage_BC_AF.pdb"], ["B"])
 
 def test_from_minimal_pdb(capfd):
     run_test(["./test/test_data/true_multimer/0099.pdb"], ["B"])
