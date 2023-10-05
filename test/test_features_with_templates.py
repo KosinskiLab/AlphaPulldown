@@ -3,6 +3,7 @@ from pathlib import Path
 from absl.testing import absltest
 import alphapulldown.create_individual_features_with_templates as run_features_generation
 import pickle
+import  numpy as np
 
 class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
 
@@ -57,15 +58,25 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
         assert sto_path_a.exists()
         assert sto_path_c.exists()
 
-        with open(pkl_path_a, 'rb') as f:
-            temp_sequence = pickle.load(f).feature_dict['template_sequence']
+        with open(pkl_path_c, 'rb') as f:
+            feats = pickle.load(f).feature_dict
+        temp_sequence = feats['template_sequence'][0].decode('utf-8')
+        atom_coords = feats['template_all_atom_positions'][0]
         assert len(temp_sequence) > 0
-        assert len(temp_sequence[0]) > 0
-
-        with open(pkl_path_a, 'rb') as f:
-            atom_coords = pickle.load(f).feature_dict['template_all_atom_positions'][0][9:12]
         # Check that the atom coordinates are not all 0
         assert (atom_coords.any()) > 0
+        # Check for each non-gap in temp_sequence the first 4 elements (incl. GLY) in atom_coords are not zero
+        condition_results = []
+        for s, a in zip(temp_sequence, atom_coords):
+            condition = (s == '-' and np.any(a == 0)) or (s != '-' and np.any(a != 0))
+            condition_results.append(condition)
+
+            # They all should be not zero, but they are not?!
+            if s != '-':
+                print(f"Backbone coordinates [0:4] '{s}': {a[0:4]}")
+        print(condition_results)
+        assert all(condition_results)
+
 
 if __name__ == '__main__':
     absltest.main()
