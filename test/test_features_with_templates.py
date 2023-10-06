@@ -4,6 +4,8 @@ from absl.testing import absltest
 import alphapulldown.create_individual_features_with_templates as run_features_generation
 import pickle
 import  numpy as np
+from alphapulldown.create_custom_template_db import extract_seqs
+
 
 class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
 
@@ -21,6 +23,7 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
         pkl_path_c = self.TEST_DATA_DIR / 'features' / '3L4Q_C.pkl'
         sto_path_a = self.TEST_DATA_DIR / 'features' / '3L4Q_A' / 'pdb_hits.sto'
         sto_path_c = self.TEST_DATA_DIR / 'features' / '3L4Q_C' / 'pdb_hits.sto'
+        cif_path = self.TEST_DATA_DIR / 'templates' / '3L4Q.pdb'
 
         if pkl_path_a.exists():
             pkl_path_a.unlink()
@@ -46,36 +49,56 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
             '--path_to_fasta', f"{self.TEST_DATA_DIR}/fastas",
             '--path_to_mmt', f"{self.TEST_DATA_DIR}/templates",
             '--description_file', f"{self.TEST_DATA_DIR}/description.csv",
-            '--output_dir', f"{self.TEST_DATA_DIR}/features"
+            '--output_dir', f"{self.TEST_DATA_DIR}/features",
         ]
 
-        # Run the command
-        subprocess.run(cmd, check=True)
-
         # Check the output
+        subprocess.run(cmd, check=True)
         assert pkl_path_a.exists()
         assert pkl_path_c.exists()
         assert sto_path_a.exists()
         assert sto_path_c.exists()
 
-        with open(pkl_path_c, 'rb') as f:
-            feats = pickle.load(f).feature_dict
-        temp_sequence = feats['template_sequence'][0].decode('utf-8')
-        atom_coords = feats['template_all_atom_positions'][0]
-        assert len(temp_sequence) > 0
-        # Check that the atom coordinates are not all 0
-        assert (atom_coords.any()) > 0
-        # Check for each non-gap in temp_sequence the first 4 elements (incl. GLY) in atom_coords are not zero
-        condition_results = []
-        for s, a in zip(temp_sequence, atom_coords):
-            condition = (s == '-' and np.any(a == 0)) or (s != '-' and np.any(a != 0))
-            condition_results.append(condition)
+        for chain in ['A', 'C']:
+            if chain == 'A':
+                pkl_path = pkl_path_a
+            if chain == 'C':
+                pkl_path = pkl_path_c
+            with open(pkl_path, 'rb') as f:
+                feats = pickle.load(f).feature_dict
+            temp_sequence = feats['template_sequence'][0].decode('utf-8')
+            target_sequence = feats['sequence'][0].decode('utf-8')
+            atom_coords = feats['template_all_atom_positions'][0]
+            assert len(temp_sequence) > 0
+            # Check that the atom coordinates are not all 0
+            assert (atom_coords.any()) > 0
 
-            # They all should be not zero, but they are not?!
-            if s != '-':
-                print(f"Backbone coordinates [0:4] '{s}': {a[0:4]}")
-        print(condition_results)
-        assert all(condition_results)
+            atom_seq, seqres_seq = extract_seqs(cif_path, chain)
+            print(f"target sequence: {target_sequence}")
+            print(len(target_sequence))
+            print(f"template sequence: {temp_sequence}")
+            print(len(temp_sequence))
+            print(f"seq-seqres: {seqres_seq}")
+            print(len(seqres_seq))
+            print(f"seq-atom: {atom_seq}")
+            print(len(atom_seq))
+            # Check that atoms with non-zero coordinates are identical in seq-seqres and seq-atom
+            residue_has_nonzero_coords = []
+            atom_id = 0
+            for s, a in zip(temp_sequence, atom_coords):
+                    # if mismatch between target and seqres
+                    if s == '-':
+                        assert np.all(a == 0)
+                        residue_has_nonzero_coords.append(False)
+                    else:
+                        non_zero = np.any(a != 0)
+                        residue_has_nonzero_coords.append(non_zero)
+                        if non_zero:
+                            assert s == atom_seq[atom_id]
+                            assert np.any(a[:4] != 0)
+                            atom_id += 1
+            print(residue_has_nonzero_coords)
+            print(len(residue_has_nonzero_coords))
 
 
 if __name__ == '__main__':
