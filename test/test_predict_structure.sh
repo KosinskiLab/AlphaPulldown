@@ -24,7 +24,8 @@
 #SBATCH --ntasks=8
 #SBATCH --mem=16000
 
-module load Anaconda3 
+module load Anaconda3
+eval "$(conda shell.bash hook)"
 module load CUDA/11.3.1
 module load cuDNN/8.2.1.32-CUDA-11.3.1
 
@@ -37,11 +38,11 @@ if [ $# -eq 0 ]
 fi
 
 AlphaPulldownENV=$1
-source activate $AlphaPulldownENV
+conda activate $AlphaPulldownENV
 
 MAXRAM=$(echo `ulimit -m` '/ 1024.0'|bc)
 GPUMEM=`nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits|tail -1`
 export XLA_PYTHON_CLIENT_MEM_FRACTION=`echo "scale=3;$MAXRAM / $GPUMEM"|bc`
 export TF_FORCE_UNIFIED_MEMORY='1'
 
-python test_predict_structure.py
+python -m unittest test/test_predict_structure.py -k 'TestScript.testRunTrueMultimer'

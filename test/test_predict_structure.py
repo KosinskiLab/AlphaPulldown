@@ -1,8 +1,6 @@
 """
 Running the test script:
 1. Batch job on gpu-el8
-#Replace with your own path:
-export PYTHONPATH=/g/kosinski/kosinski/devel/AlphaPulldown/:$PYTHONPATH
 sbatch test_predict_structure.sh
 
 2. Interactive session on gpu-el8
@@ -11,21 +9,17 @@ salloc -p gpu-el8 --ntasks 1 --cpus-per-task 8 --qos=highest --mem=16000 -C gami
 module load Anaconda3 
 module load CUDA/11.3.1
 module load cuDNN/8.2.1.32-CUDA-11.3.1
-source activate AlphaPulldown
-#Replace with your own path:
-export PYTHONPATH=/g/kosinski/kosinski/devel/AlphaPulldown/:$PYTHONPATH
+conda activate AlphaPulldown
 srun python test_predict_structure.py 
 
 """
 import shutil
 import tempfile
 import unittest
-import subprocess
 import sys
 import os
 import subprocess
 import json
-from pathlib import Path
 
 import alphapulldown
 from alphapulldown import predict_structure
@@ -38,12 +32,12 @@ if FAST:
 
 class _TestBase(unittest.TestCase):
     def setUp(self) -> None:
-        self.data_dir = "/scratch/AlphaFold_DBs/2.3.0/"
+        self.data_dir = "/scratch/AlphaFold_DBs/2.3.2/"
         #Get test_data directory as relative path to this script
         self.test_data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_data")
 
 class TestScript(_TestBase):
-    #Add setup that creates ampty output directory temprarily
+    #Add setup that creates empty output directory temporary
     def setUp(self) -> None:
         #Call the setUp method of the parent class
         super().setUp()
@@ -178,6 +172,36 @@ class TestScript(_TestBase):
         self.assertNotIn("Running model model_2_multimer_v3_pred_0", result.stdout + result.stderr)
 
         self._runCommonTests(result)
+
+    def testRunTrueMultimer(self):
+        """
+        Test running structure prediction in custom mode with --multimeric_mode=True
+        """
+        self.args = [
+            sys.executable,
+            self.script_path,
+            "--mode=custom",
+            "--num_cycle=3",
+            "--num_predictions_per_model=1",
+            "--multimeric_mode=True",
+            "--model_names=model_2_multimer_v3,model_3_multimer_v3",
+            "--msa_depth=128",
+            f"--output_path={self.output_dir}",
+            f"--data_dir={self.data_dir}",
+            f"--protein_lists={self.protein_lists}",
+            f"--monomer_objects_dir={self.monomer_objects_dir}"
+        ]
+        result = subprocess.run(self.args, capture_output=True, text=True)
+        self._runCommonTests(result)
+        # check that RMSD < 3 A for all chains
+        from alphapulldown.analysis_pipeline.calculate_rmsd import calculate_rmsd
+        reference = os.path.join(
+            self.test_data_dir, "true_multimer", "modelling","3L4Q_A_and_3L4Q_C", "ranked_0.pdb")
+        target = os.path.join(self.output_dir, "3L4Q_A_and_3L4Q_C", "ranked_0.pdb")
+        rmsds = calculate_rmsd(reference, target)
+        for rmsd in rmsds:
+            assert rmsd < 3.0
+
 
 
 #TODO: Add tests for other modeling examples subclassing the class above
