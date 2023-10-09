@@ -1,3 +1,10 @@
+#!/usr/bin/env python3
+
+"""
+Superimposes and calculates RMSD for two PDB files.
+"""
+
+
 from absl import app, flags, logging
 from Bio.PDB import PDBParser, Superimposer
 
@@ -11,10 +18,8 @@ flags.DEFINE_string('chain_id', None, 'Chain ID to superimpose; if not provided,
 def main(argv):
     # Initialize PDB parser and read files
     parser = PDBParser()
-    ref_structure = parser.get_structure('reference', FLAGS.ref_pdb)
+    ref_structure = parser.get_structure('reference', FLAGS.reference_pdb)
     target_structure = parser.get_structure('target', FLAGS.target_pdb)
-
-    use_str = '-----------RTLLMAGVSHDLRTPLTRIRLATEMMSEQDGYLAESINKDI---------------'
 
     if FLAGS.chain_id:
         chains_to_try = [FLAGS.chain_id]
@@ -26,12 +31,13 @@ def main(argv):
         target_chain = target_structure[0][chain_id]
 
         # Extract aligned residues
-        ref_residues_aligned = [res for i, res in enumerate(ref_chain) if use_str[i] != '-']
-        target_residues_aligned = [res for i, res in enumerate(target_chain) if use_str[i] != '-']
+        # TODO: privide aligned sequence(s) as aligned_seq
+        ref_residues = [res for i, res in enumerate(ref_chain)]# if aligned_seq[i] != '-']
+        target_residues = [res for i, res in enumerate(target_chain)]# if aligned_seq[i] != '-']
 
         # Extract atoms from those residues (you can customize which atoms e.g. CA, backbone atoms, etc.)
-        ref_atoms_aligned = [atom for res in ref_residues_aligned for atom in res]
-        target_atoms_aligned = [atom for res in target_residues_aligned for atom in res]
+        ref_atoms_aligned = [atom for res in ref_residues for atom in res]
+        target_atoms_aligned = [atom for res in target_residues for atom in res]
 
         # Superimpose
         superimposer = Superimposer()
