@@ -3,29 +3,13 @@ A unittest script that test if creating MonomericObject
 or MultimericObject works
 """
 import unittest
-import os
-import pickle
-import sys
 from alphapulldown.objects import MonomericObject
-import importlib
-from absl import app
-from absl import flags
-from absl import logging
 import shutil
 from alphafold.data.pipeline import DataPipeline
 from alphafold.data.tools import hmmsearch
-from alphafold.data import templates
-from alphapulldown.utils import *
-import numpy as np
+from alphapulldown.utils import parse_fasta, create_uniprot_runner, templates
 import os
-from absl import logging, app
-import numpy as np
-from alphapulldown.utils import *
-import contextlib
-from datetime import datetime
-import alphafold
-from pathlib import Path
-from colabfold.utils import DEFAULT_API_SERVER
+
 
 class TestCreateObjects(unittest.TestCase):
     def setUp(self) -> None:
@@ -37,7 +21,7 @@ class TestCreateObjects(unittest.TestCase):
         self.fasta_paths = "./example_data/test_input.fasta"
         self.monomer_object_dir = "./example_data/"
         self.output_dir = "./example_data/"
-        self.data_dir = "/scratch/AlphaFold_DBs/2.3.0/"
+        self.data_dir = "/scratch/AlphaFold_DBs/2.3.2/"
         self.max_template_date = "2200-01-01"
         self.oligomer_state_file = "./example_data/oligomer_state_file.txt"
         self.custom = "./example_data/custom.txt"
@@ -70,6 +54,7 @@ class TestCreateObjects(unittest.TestCase):
   
         self.pdb70_database_path = os.path.join(self.data_dir, "pdb70", "pdb70")
 
+        self.uniprot_database_path = os.path.join(self.data_dir, "uniprot/uniprot.fasta")
     
     def test_1_initialise_MonomericObject(self):
         """Test initialise a monomeric object"""
@@ -109,8 +94,10 @@ class TestCreateObjects(unittest.TestCase):
     def test_3_run_alignments(self):
         monomer_obj = self.test_1_initialise_MonomericObject()
         monomer_pipeline = self.test_2_initialise_datapipeline()
-        monomer_obj.make_features(monomer_pipeline,self.output_dir
-                                  ,use_precomputed_msa=False,save_msa=False)
+        uniprot_runner = create_uniprot_runner(self.jackhmmer_binary_path, self.uniprot_database_path)
+        monomer_obj.uniprot_runner = uniprot_runner
+        monomer_obj.make_features(monomer_pipeline,self.output_dir,
+                                  use_precomputed_msa=False,save_msa=False)
     
 
 if __name__ == "__main__":
