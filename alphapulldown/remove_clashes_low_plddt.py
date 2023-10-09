@@ -4,7 +4,6 @@ import logging
 import copy
 from alphafold.data.mmcif_parsing import parse
 from alphafold.common.residue_constants import residue_atoms
-#from Bio import SeqIO
 from Bio.PDB import Structure, NeighborSearch, PDBIO, MMCIFIO
 from Bio.PDB.Polypeptide import protein_letters_3to1
 
@@ -86,33 +85,6 @@ class MmcifChainFiltered:
 
         return new_structure, seq
 
-
-    # def extract_seqs(self):
-    #     """
-    #     Extract sequences from PDB/CIF file using Bio.SeqIO.
-    #     1) reads sequence from atoms using author chain_id
-    #     2) reads SEQRES records using the author chain_id, if present
-    #     3) Maps SEQRES sequence to atom sequence using residue index
-    #     (if SEQRES sequence is not found, just numbers from 1 to len(atom sequence)
-    #     """
-    #     format_types = [f"{self.file_type[1:]}-atom", f"{self.file_type[1:]}-seqres"]
-    #
-    #     for format_type in format_types:
-    #         for record in SeqIO.parse(self.input_file_path, format_type):
-    #             chain_id_internal = record.annotations['chain']
-    #             chain_id_author = self.mmcif_to_author_chain_id.get(chain_id_internal)
-    #
-    #             if chain_id_author == self.chain_id:
-    #                 if format_type.endswith('atom'):
-    #                     self.sequence_atom = str(record.seq)
-    #                 elif format_type.endswith('seqres'):
-    #                     self.sequence_seqres = str(record.seq)
-    #     if self.sequence_atom is None:
-    #         logging.error(f"No atom sequence found for chain {self.chain_id}")
-    #     if self.sequence_seqres is None:
-    #         logging.warning(f"No SEQRES sequence found for chain {self.chain_id}")
-
-
     def is_potential_hbond(self, atom1, atom2):
         """
         Check if two atoms are potential hydrogen bond donors and acceptors.
@@ -152,6 +124,7 @@ class MmcifChainFiltered:
         logging.info(f"Unique clashing atoms: {len(clashing_atoms)} out of {len(list(model.get_atoms()))}")
         logging.info(f"Unique clashing residues: {len(clashing_residues)} out of {len(list(model.get_residues()))}")
         # remove from structure and seqres_to_structure
+        print(clashing_residues)
         if len(clashing_residues) > 0:
             self.remove_residues(clashing_residues)
         self.structure_modified = True

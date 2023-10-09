@@ -16,7 +16,6 @@ from absl import logging, flags, app
 from alphapulldown.remove_clashes_low_plddt import MmcifChainFiltered
 from colabfold.batch import validate_and_fix_mmcif, convert_pdb_to_mmcif
 from alphafold.common.protein import _from_bio_structure, to_mmcif
-from alphafold.data.mmcif_parsing import _get_atom_site_list
 from Bio import SeqIO, PDB
 
 FLAGS = flags.FLAGS

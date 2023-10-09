@@ -25,7 +25,7 @@ def main(argv):
         chains_to_try = [FLAGS.chain_id]
     else:
         chains_to_try = [chain.id for chain in ref_structure[0]]
-
+    rmsds = []
     for chain_id in chains_to_try:
         ref_chain = ref_structure[0][chain_id]
         target_chain = target_structure[0][chain_id]
@@ -48,6 +48,8 @@ def main(argv):
 
         # Print RMSD
         logging.info(f'RMSD for chain {chain_id}: {superimposer.rms}')
+        rmsds.append(superimposer.rms)
+    return rmsds
 
 
 if __name__ == '__main__':
