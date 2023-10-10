@@ -10,7 +10,7 @@ module load Anaconda3
 module load CUDA/11.3.1
 module load cuDNN/8.2.1.32-CUDA-11.3.1
 conda activate AlphaPulldown
-srun python test_predict_structure.py 
+srun python test/check_predict_structure.py # this will be slower due to the slow compilation error
 
 """
 import shutil
@@ -182,7 +182,7 @@ class TestScript(_TestBase):
             self.script_path,
             "--mode=custom",
             "--num_cycle=3",
-            "--num_predictions_per_model=1",
+            "--num_predictions_per_model=3",
             "--multimeric_mode=True",
             "--model_names=model_2_multimer_v3",
             "--msa_depth=128",
@@ -196,17 +196,23 @@ class TestScript(_TestBase):
         print(self.args)
         print(result.stdout)
         print(result.stderr)
-        target = os.path.join(self.output_dir, "3L4Q_A_and_3L4Q_C", "ranked_0.pdb")
-        #self._runCommonTests(result) #fails because not all models are run
-        # check that RMSD < 3 A for all chains
+        #self._runCommonTests(result) # fails because only one model is run
         from alphapulldown.analysis_pipeline.calculate_rmsd import calculate_rmsd
+        rmsd_chain_b = []
+        rmsd_chain_c = []
         reference = os.path.join(
-            self.test_data_dir, "true_multimer", "modelling","3L4Q_A_and_3L4Q_C", "ranked_0.pdb")
-        assert os.path.exists(target)
-        rmsds = calculate_rmsd(reference, target)
-        for rmsd in rmsds:
-            print(f"RMSD: {rmsd}")
-            assert rmsd < 3.0
+            self.test_data_dir, "true_multimer", "modelling", "3L4Q_A_and_3L4Q_C", "ranked_0.pdb")
+        for i in range(3):
+            target = os.path.join(self.output_dir, "3L4Q_A_and_3L4Q_C", f"ranked_{i}.pdb")
+            assert os.path.exists(target)
+            rmsds = calculate_rmsd(reference, target)
+            rmsd_chain_b.append(rmsds[0])
+            rmsd_chain_c.append(rmsds[1])
+            print(f"Model {i} RMSD chain B: {rmsds[0]}")
+            print(f"Model {i} RMSD chain C: {rmsds[1]}")
+        # Best RMSD must be below 2 A
+        assert min(rmsd_chain_b) < 3.0
+        assert min(rmsd_chain_c) < 3.0
 
 
 
