@@ -50,6 +50,23 @@ flags.DEFINE_integer(
 flags.DEFINE_boolean(
     "no_pair_msa", False, "do not pair the MSAs when constructing multimer objects"
 )
+flags.DEFINE_boolean(
+    "multimeric_mode",
+    False,
+    "Run with multimeric template ",
+)
+flags.DEFINE_boolean(
+    "gradient_msa_depth",
+    False,
+    "Run predictions for each model with logarithmically distributed MSA depth",
+)
+flags.DEFINE_string(
+    "model_names", None, "Names of models to use, e.g. model_2_multimer_v3 (default: all models)"
+)
+flags.DEFINE_integer(
+    "msa_depth", None, "Number of sequences to use from the MSA (by default is taken from AF model config)"
+)
+
 flags.mark_flag_as_required("output_path")
 
 delattr(flags.FLAGS, "models_to_relax")
@@ -93,7 +110,7 @@ for flag in unused_flags:
 FLAGS = flags.FLAGS
 
 def create_pulldown_info(
-    bait_proteins: list, candidate_proteins: list, job_index=None
+        bait_proteins: list, candidate_proteins: list, job_index=None
 ) -> dict:
     """
     A function to create apms info
@@ -113,14 +130,14 @@ def create_pulldown_info(
             curr_col = []
             for pair in all_protein_pairs:
                 curr_col.append(pair[i])
-            update_dict = {f"col_{i+1}": curr_col}
+            update_dict = {f"col_{i + 1}": curr_col}
             data.update(update_dict)
 
 
     elif isinstance(job_index, int):
-        target_pair = all_protein_pairs[job_index-1]
+        target_pair = all_protein_pairs[job_index - 1]
         for i in range(num_cols):
-            update_dict = {f"col_{i+1}": [target_pair[i]]}
+            update_dict = {f"col_{i + 1}": [target_pair[i]]}
             data.update(update_dict)
     return data
 
@@ -176,12 +193,23 @@ def create_multimer_objects(data, monomer_objects_dir, pair_msa=True):
     multimers = []
     num_jobs = len(data[list(data.keys())[0]])
     job_idxes = list(range(num_jobs))
+    import glob
+    path = os.path.join(monomer_objects_dir[0],'*.pkl')
+    pickles = set([os.path.basename(fl) for fl in glob.glob(path)])
+    required_pickles = set(key+".pkl" for value_list in data.values()
+                    for value_dict in value_list
+                    for key in value_dict.keys())
+    missing_pickles = required_pickles.difference(pickles)
+    if len(missing_pickles) > 0:
+        raise Exception(f"{missing_pickles} not found in {monomer_objects_dir}")
+    else:
+        logging.info("All pickle files have been found")
 
 
     for job_idx in job_idxes:
         interactors = create_interactors(data, monomer_objects_dir, job_idx)
         if len(interactors) > 1:
-            multimer = MultimericObject(interactors=interactors,pair_msa=pair_msa)
+            multimer = MultimericObject(interactors=interactors,pair_msa=pair_msa, multimeric_mode = FLAGS.multimeric_mode)
             logging.info(f"done creating multimer {multimer.description}")
             multimers.append(multimer)
         else:
@@ -250,10 +278,11 @@ def create_custom_jobs(custom_input_file, monomer_objects_dir, job_index=None, p
             lines = lines + list(f.readlines())
             f.close()
     if job_index is not None:
+        logging.info("Running in parallel mode")
         job_idxes = [job_index - 1]
     else:
+        logging.info("Running in serial mode")
         job_idxes = list(range(len(lines)))
-
     multimers = []
     for job_idx in job_idxes:
         l = lines[job_idx]
@@ -302,6 +331,8 @@ def predict_multimers(multimers):
     """
     for object in multimers:
         logging.info('object: '+object.description)
+        path_to_models = os.path.join(FLAGS.output_path, object.description)
+        logging.info(f"Modeling new interaction for {path_to_models}")
         if isinstance(object, MultimericObject):
             model_runners, random_seed = create_model_runners_and_random_seed(
                 "multimer",
@@ -309,6 +340,9 @@ def predict_multimers(multimers):
                 FLAGS.random_seed,
                 FLAGS.data_dir,
                 FLAGS.num_predictions_per_model,
+                FLAGS.gradient_msa_depth,
+                FLAGS.model_names,
+                FLAGS.msa_depth,
             )
             predict_individual_jobs(
                 object,

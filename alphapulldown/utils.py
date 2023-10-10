@@ -5,6 +5,8 @@
 
 from alphafold.data.tools import jackhmmer
 from alphapulldown.objects import ChoppedObject
+from alphapulldown import __version__ as AP_VERSION
+from alphafold.version import __version__ as AF_VERSION
 import json
 import os
 import pickle
@@ -15,13 +17,24 @@ from alphafold.model import model
 from alphafold.model import data
 from alphafold.data import templates
 import random
-import sys
+import subprocess
 from alphafold.data import parsers
 from pathlib import Path
 import numpy as np
 import importlib
 import alphafold
 import sys
+import datetime
+import re
+import hashlib
+import glob
+
+COMMON_PATTERNS = [
+    r"[Vv]ersion\s*(\d+\.\d+(?:\.\d+)?)",  # version 1.0 or version 1.0.0
+    r"\b(\d+\.\d+(?:\.\d+)?)\b"  # just the version number 1.0 or 1.0.0
+]
+BFD_HASH_HHM_FFINDEX = "799f308b20627088129847709f1abed6"
+
 
 def create_uniprot_runner(jackhmmer_binary_path, uniprot_database_path):
     """create a uniprot runner object"""
@@ -44,21 +57,22 @@ def make_dir_monomer_dictionary(monomer_objects_dir):
             output_dict[m] = dir
     return output_dict
 
-def check_empty_templates(feature_dict:dict) -> bool:
-    """A function to check wether the pickle has empty templates"""
-    return (feature_dict['template_all_atom_masks'].size ==0) or (feature_dict['template_aatype'].size==0)
 
-def mk_mock_template(
-    feature_dict:dict
-):  
+def check_empty_templates(feature_dict: dict) -> bool:
+    """A function to check wether the pickle has empty templates"""
+    return (feature_dict["template_all_atom_masks"].size == 0) or (
+            feature_dict["template_aatype"].size == 0
+    )
+
+
+def mk_mock_template(feature_dict: dict):
     """
     Modified based upon colabfold mk_mock_template():
     https://github.com/sokrypton/ColabFold/blob/05c0cb38d002180da3b58cdc53ea45a6b2a62d31/colabfold/batch.py#L121-L155
     """
-    num_temp=1 # number of fake templates
-    ln = feature_dict['aatype'].shape[0]
+    num_temp = 1  # number of fake templates
+    ln = feature_dict["aatype"].shape[0]
     output_templates_sequence = "A" * ln
-
 
     templates_all_atom_positions = np.zeros(
         (ln, templates.residue_constants.atom_type_num, 3)
@@ -81,6 +95,7 @@ def mk_mock_template(
     }
     feature_dict.update(template_features)
     return feature_dict
+
 
 def load_monomer_objects(monomer_dir_dict, protein_name):
     """
@@ -168,9 +183,10 @@ def read_custom(line) -> list:
 
     return all_proteins
 
+
 def check_existing_objects(output_dir, pickle_name):
     """check whether the wanted monomer object already exists in the output_dir"""
-    logging.info(f"checking if {os.path.join(output_dir,pickle_name)} already exists")
+    logging.info(f"checking if {os.path.join(output_dir, pickle_name)} already exists")
     return os.path.isfile(os.path.join(output_dir, pickle_name))
 
 
@@ -192,8 +208,8 @@ def create_interactors(data, monomer_objects_dir, i):
                 if curr_interactor_region == "all":
                     interactors.append(monomer)
                 elif (
-                    isinstance(curr_interactor_region, list)
-                    and len(curr_interactor_region) != 0
+                        isinstance(curr_interactor_region, list)
+                        and len(curr_interactor_region) != 0
                 ):
                     chopped_object = ChoppedObject(
                         monomer.description,
@@ -230,38 +246,200 @@ def create_and_save_pae_plots(multimer_object, output_dir):
         )
 
 
+def compute_msa_ranges(num_msa, num_extra_msa, num_multimer_predictions):
+    """
+    Denser for smaller num_msa, sparser for larger num_msa
+    """
+    msa_ranges = np.rint(np.logspace(np.log10(16), np.log10(num_msa),
+                                     num_multimer_predictions)).astype(int).tolist()
+    extra_msa_ranges = np.rint(np.logspace(np.log10(32), np.log10(num_extra_msa),
+                                           num_multimer_predictions)).astype(int).tolist()
+    return msa_ranges, extra_msa_ranges
+
+
+def update_model_config(model_config, num_msa, num_extra_msa):
+    embeddings_and_evo = model_config["model"]["embeddings_and_evoformer"]
+    embeddings_and_evo.update({"num_msa": num_msa, "num_extra_msa": num_extra_msa})
+
+
 def create_model_runners_and_random_seed(
-    model_preset, num_cycle, random_seed, data_dir, num_multimer_predictions_per_model
-):
+        model_preset, num_cycle, random_seed, data_dir,
+        num_multimer_predictions_per_model,
+        gradient_msa_depth=False, model_names_custom=None,
+        msa_depth=None):
     num_ensemble = 1
     model_runners = {}
     model_names = config.MODEL_PRESETS[model_preset]
+
+    if model_names_custom:
+        model_names_custom = tuple(model_names_custom.split(","))
+        if all(x in model_names for x in model_names_custom):
+            model_names = model_names_custom
+        else:
+            raise Exception(f"Provided model names {model_names_custom} not part of available {model_names}")
+
     for model_name in model_names:
         model_config = config.model_config(model_name)
         model_config.model.num_ensemble_eval = num_ensemble
         model_config["model"].update({"num_recycle": num_cycle})
-        model_config.model.num_ensemble_eval = num_ensemble
-        model_params = data.get_model_haiku_params(
-            model_name=model_name, data_dir=data_dir
-        )
+
+        model_params = data.get_model_haiku_params(model_name=model_name, data_dir=data_dir)
         model_runner = model.RunModel(model_config, model_params)
+
+        num_msa, num_extra_msa = get_default_msa(model_config)
+        msa_ranges, extra_msa_ranges = compute_msa_ranges(num_msa, num_extra_msa,
+                                                          num_multimer_predictions_per_model)
+
         for i in range(num_multimer_predictions_per_model):
-            model_runners[f"{model_name}_pred_{i}"] = model_runner
+            if msa_depth:
+                num_msa = int(msa_depth)
+                num_extra_msa = num_msa * 4  # approx. 4x the number of msa, as in the AF2 config file
+            elif gradient_msa_depth:
+                num_msa = msa_ranges[i]
+                num_extra_msa = extra_msa_ranges[i]
+
+            update_model_config(model_config, num_msa, num_extra_msa)
+            logging.info(
+                f"Model {model_name} is running {i} prediction with num_msa={num_msa} and num_extra_msa={num_extra_msa}")
+            model_runners[f"{model_name}_pred_{i}_msa_{num_msa}"] = model_runner
+
     if random_seed is None:
         random_seed = random.randrange(sys.maxsize // len(model_runners))
         logging.info("Using random seed %d for the data pipeline", random_seed)
+
     return model_runners, random_seed
 
 
-def save_meta_data(flag_dict, outfile):
-    """A function to print out metadata"""
-    with open(outfile, "w") as f:
-        # if shutil.which('git') is not None:
-        #     label = subprocess.check_output(["git", "describe", '--always']).decode('utf-8').rstrip()
-        #     print(f"git_label:{label}",file=f)
+def get_default_msa(model_config):
+    embeddings_and_evo = model_config["model"]["embeddings_and_evoformer"]
+    return embeddings_and_evo["num_msa"], embeddings_and_evo["num_extra_msa"]
 
-        for k, v in flag_dict.items():
-            print(f"{k}:{v}", file=f)
+
+def get_last_modified_date(path):
+    """
+    Get the last modified date of a file or the most recently modified file in a directory.
+    """
+    try:
+        if not os.path.exists(path):
+            logging.warning(f"Path does not exist: {path}")
+            return None
+
+        if os.path.isfile(path):
+            return datetime.datetime.fromtimestamp(os.path.getmtime(path)).strftime('%Y-%m-%d %H:%M:%S')
+
+        logging.info(f"Getting last modified date for {path}")
+        most_recent_timestamp = max((entry.stat().st_mtime for entry in glob.glob(path + '*') if entry.is_file()),
+                                    default=0.0)
+
+        return datetime.datetime.fromtimestamp(most_recent_timestamp).strftime(
+            '%Y-%m-%d %H:%M:%S') if most_recent_timestamp else None
+
+    except Exception as e:
+        logging.warning(f"Error processing {path}: {e}")
+        return None
+
+
+def parse_version(output):
+    """Parse version information from a given output string."""
+    for pattern in COMMON_PATTERNS:
+        match = re.search(pattern, output)
+        if match:
+            return match.group(1)
+
+    match = re.search(r"Kalign\s+version\s+(\d+\.\d+)", output)
+    if match:
+        return match.group(1)
+
+    return None
+
+
+def get_hash(filename):
+    """Get the md5 hash of a file."""
+    md5_hash = hashlib.md5()
+    with open(filename, "rb") as f:
+        # Read and update hash in chunks of 4K
+        for byte_block in iter(lambda: f.read(4096), b""):
+            md5_hash.update(byte_block)
+        return (md5_hash.hexdigest())
+
+
+def get_program_version(binary_path):
+    """Get version information for a given binary."""
+    for cmd_suffix in ["--help", "-h"]:
+        cmd = [binary_path, cmd_suffix]
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            version = parse_version(result.stdout + result.stderr)
+            if version:
+                return version
+        except Exception as e:
+            logging.debug(f"Error while processing {cmd}: {e}")
+
+    logging.warning(f"Cannot parse version from {binary_path}")
+    return None
+
+
+def get_metadata_for_binary(k, v):
+    name = k.replace("_binary_path", "")
+    return {name: {"version": get_program_version(v)}}
+
+
+def get_metadata_for_database(k, v):
+    name = k.replace("_database_path", "").replace("_dir", "")
+
+    specific_databases = ["pdb70", "bfd"]
+    if name in specific_databases:
+        fn = v + "_hhm.ffindex"
+        hash_value = get_hash(fn)
+        version = get_last_modified_date(fn)
+        if hash_value == BFD_HASH_HHM_FFINDEX:
+            version = "AF2"
+        return {name: {"version": version, "hash": hash_value}}
+
+    other_databases = ["small_bfd", "uniprot", "uniref90", "pdb_seqres"]
+    if name in other_databases:
+        # here we ignore pdb_mmcif assuming it's version is identical to pdb_seqres
+        return {name: {"version": get_last_modified_date(v), "hash": "NA" if name != "pdb_seqres" else get_hash(v)}}
+
+    if name in ["uniref30", "mgnify"]:
+        hash_value = "NA"
+        match = re.search(r"(\d{4}_\d{2})", v)
+        if match:
+            version = match.group(1).replace("_", "-")
+            if name == "uniref30":
+                hash_value = get_hash(v + "_hhm.ffindex")
+            return {name: {"version": version, "hash": hash_value}}
+    return {}
+
+
+def save_meta_data(flag_dict, outfile):
+    """Save metadata in JSON format."""
+    metadata = {
+        "databases": {},
+        "software": {"AlphaPulldown": {"version": AP_VERSION},
+                     "AlphaFold": {"version": AF_VERSION}},
+        "date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "other": {},
+    }
+
+    for k, v in flag_dict.items():
+        if v is None:
+            continue
+        if k == "use_cprofile_for_profiling" or k.startswith("test_") or k.startswith("help"):
+            continue
+        metadata["other"][k] = str(v)
+        if "_binary_path" in k:
+            metadata["software"].update(get_metadata_for_binary(k, v))
+        elif "_database_path" in k or "template_mmcif_dir" in k:
+            metadata["databases"].update(get_metadata_for_database(k, v))
+        elif k == "use_mmseqs2":
+            metadata["databases"].update({"ColabFold":
+                                              {"version": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                                               "hash": "NA"}
+                                          })
+
+    with open(outfile, "w") as f:
+        json.dump(metadata, f, indent=2)
 
 
 def parse_fasta(fasta_string: str):
@@ -302,12 +480,14 @@ def parse_fasta(fasta_string: str):
 
     return sequences, descriptions
 
+
 def load_module(file_name, module_name):
     spec = importlib.util.spec_from_file_location(module_name, file_name)
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
     spec.loader.exec_module(module)
     return module
+
 
 def get_run_alphafold():
     PATH_TO_RUN_ALPHAFOLD = os.path.join(

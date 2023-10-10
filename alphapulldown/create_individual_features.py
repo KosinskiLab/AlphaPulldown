@@ -206,7 +206,7 @@ def create_and_save_monomer_objects(m, pipeline, flags_dict,use_mmseqs2=False):
     else:
         metadata_output_path = os.path.join(
             FLAGS.output_dir,
-            f"{m.description}_feature_metadata_{datetime.date(datetime.now())}.txt",
+            f"{m.description}_feature_metadata_{datetime.date(datetime.now())}.json",
         )
         with output_meta_file(metadata_output_path) as meta_data_outfile:
             save_meta_data(flags_dict, meta_data_outfile)

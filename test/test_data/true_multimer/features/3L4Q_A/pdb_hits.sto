@@ -1,0 +1,11 @@
+# STOCKHOLM 1.0
+#=GF ID query
+#=GF AU hmmsearch (HMMER 3.3.2)
+
+#=GS 3l4q_A/7-164 DE [subseq from] mol:protein length:164
+
+3l4q_A/7-164         SDEALKMTMASVPASRYLTDMTLEEMSRDWSMLIPKQKVAGPLCIRMDQAIMDKNIILKANFSVIFDRLETLILLRAFTEEGAIVGEISPLPSLPGHTAEDVKNAVGVLIGGLEWNDNTVRVSETLQRFAWRSSNENGRPPLTPKQKREMAGTIRSEV
+#=GR 3l4q_A/7-164 PP 79**********************************************************************************************************************************************************97
+#=GC PP_cons         79**********************************************************************************************************************************************************97
+#=GC RF              xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+//
