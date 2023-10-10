@@ -1,0 +1,21 @@
+name: AlphaPulldown-github-CI
+
+on: [pull_request,push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.8]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install AlphaPulldown and run unittests
+        run: |
+          $CONDA/bin/conda install -c omnia -c bioconda -c conda-forge openmm=7.5.1 pdbfixer=1.6 kalign2=2.04 cctbx-base
+          pip install .
+          pip install -q "jax[cuda]==0.3.25" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
