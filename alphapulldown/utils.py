@@ -287,21 +287,21 @@ def create_model_runners_and_random_seed(
         model_runner = model.RunModel(model_config, model_params)
 
         num_msa, num_extra_msa = get_default_msa(model_config)
+        msa_ranges, extra_msa_ranges = compute_msa_ranges(num_msa, num_extra_msa,
+                                                          num_multimer_predictions_per_model)
 
         for i in range(num_multimer_predictions_per_model):
             if msa_depth:
                 num_msa = int(msa_depth)
                 num_extra_msa = num_msa * 4  # approx. 4x the number of msa, as in the AF2 config file
             elif gradient_msa_depth:
-                msa_ranges, extra_msa_ranges = compute_msa_ranges(num_msa, num_extra_msa,
-                                                                  num_multimer_predictions_per_model)
                 num_msa = msa_ranges[i]
                 num_extra_msa = extra_msa_ranges[i]
 
             update_model_config(model_config, num_msa, num_extra_msa)
             logging.info(
                 f"Model {model_name} is running {i} prediction with num_msa={num_msa} and num_extra_msa={num_extra_msa}")
-            model_runners[f"{model_name}_pred_{i}"] = model_runner
+            model_runners[f"{model_name}_pred_{i}_msa_{num_msa}"] = model_runner
 
     if random_seed is None:
         random_seed = random.randrange(sys.maxsize // len(model_runners))
