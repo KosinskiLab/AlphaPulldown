@@ -23,7 +23,9 @@ jobs:
         run: python -c "import sys; print(sys.version)"
       - name: Add Conda to System Path
         run: |
+          pwd
           echo $CONDA/bin >> $GITHUB_PATH
+          echo "$GITHUB_WORKSPACE/alphapulldown" >> $GITHUB_PATH
       - name: Install AlphaPulldown without dependencies
         run: |
           conda create --name AlphaPulldown python=${{ matrix.python-version }}        
