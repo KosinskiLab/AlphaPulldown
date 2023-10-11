@@ -30,6 +30,8 @@ jobs:
           pip install pytest
       - name: Install AlphaPulldown
         run: pip install .
+             pip install -e alphapulldown/ColabFold --no-deps
+             pip install -e alphafold --no-deps
       - name: Run Tests
         run: pytest test/
       - name: Build and Push to Docker Hub
