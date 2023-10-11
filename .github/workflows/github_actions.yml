@@ -28,6 +28,10 @@ jobs:
           echo $CONDA/bin >> $GITHUB_PATH
           conda init bash
           conda install -c anaconda conda-build
+      - name: Create Conda Environment
+        run: conda create --name AlphaPulldown python=${{ matrix.python-version }}
+      - name: Activate Conda Environment
+        run: conda activate AlphaPulldown
       #- name: Install Dependencies
       #  run: |
       #    conda install -c omnia -c bioconda -c conda-forge openmm=8.0 pdbfixer=1.9 kalign2 cctbx-base
