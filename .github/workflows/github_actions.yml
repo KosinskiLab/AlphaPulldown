@@ -1,21 +1,36 @@
 name: AlphaPulldown-github-CI
 
-on: [pull_request,push]
+on: [push]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.8]
+        python-version: [3.10]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v3
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install AlphaPulldown and run unittests
+      - name: Add Conda to System Path
+        run: echo $CONDA/bin >> $GITHUB_PATH
+      - name: Install Dependencies
         run: |
-          $CONDA/bin/conda install -c omnia -c bioconda -c conda-forge openmm=7.5.1 pdbfixer=1.6 kalign2=2.04 cctbx-base
-          pip install .
-          pip install -q "jax[cuda]==0.3.25" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+          conda install -c omnia -c bioconda -c conda-forge openmm=8.0 pdbfixer=1.9 kalign2 cctbx-base
+          pip install jax==0.3.25 jaxlib==0.3.25+cuda11.cudnn805 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+          pip install pytest
+      - name: Install AlphaPulldown
+        run: pip install .
+      - name: Run Tests
+        run: pytest test/
+      - name: Build and Push to Docker Hub
+        uses: mr-smithers-excellent/docker-build-push@v5
+        with:
+          image: dmolodenskiy/AlphaPulldown
+          registry: docker.io
+          dockerfile: docker/Dockerfile
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          tags: latest
