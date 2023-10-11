@@ -32,7 +32,7 @@ jobs:
           eval "$(conda shell.bash hook)"
           conda activate AlphaPulldown
           conda install -c anaconda conda-build
-          conda develop .
+          conda develop alphapulldown
           conda develop alphapulldown/ColabFold
           conda develop alphafold
           #conda info
