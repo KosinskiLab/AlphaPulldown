@@ -27,8 +27,8 @@ jobs:
           echo $GITHUB_PATH
           echo $CONDA/bin >> $GITHUB_PATH
       - name: Create Conda Environment
-        run: conda create --name AlphaPulldown python=${{ matrix.python-version }}
-      - name: Activate Conda Environment
+        run: | 
+          conda create --name AlphaPulldown python=${{ matrix.python-version }}        
           conda init bash
           source ~/.bashrc
           conda env list
