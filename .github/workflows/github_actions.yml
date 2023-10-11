@@ -23,10 +23,8 @@ jobs:
         run: python -c "import sys; print(sys.version)"
       - name: Add Conda to System Path
         run: |
-          echo $CONDA/bin
-          echo $GITHUB_PATH
           echo $CONDA/bin >> $GITHUB_PATH
-      - name: Install AlphaPulldown
+      - name: Install AlphaPulldown without dependencies
         run: |
           conda create --name AlphaPulldown python=${{ matrix.python-version }}        
           eval "$(conda shell.bash hook)"
@@ -35,21 +33,16 @@ jobs:
           conda develop .
           conda develop alphapulldown/ColabFold
           conda develop alphafold
-          conda develop alphafold/alphafold
-          which python
-          which conda
-          conda info
-          conda list
-          python -c "import sys; print(sys.path)"
-          echo "Python version: $(python --version)"
-          echo "Python path: $PYTHONPATH"
-          echo "Current working directory: $(pwd)"
+          #conda info
+          #conda list
+          #python -c "import sys; print(sys.path)"
+          #echo "Python path: $PYTHONPATH"
           python -c "import alphafold; import os; print('Alphafold module is located at:', alphafold.__file__); alphafold_dir = os.path.dirname(alphafold.__file__); print('Contents of the Alphafold directory:', os.listdir(alphafold_dir))"
       - name: Install Dependencies
         run: |
           eval "$(conda shell.bash hook)"
           conda activate AlphaPulldown
-          conda install -c omnia -c bioconda -c conda-forge openmm=8.0 pdbfixer=1.9 kalign2 cctbx-base
+          conda install -c omnia -c bioconda -c conda-forge openmm pdbfixer kalign2 cctbx-base importlib_metadata
           pip install jax==0.3.25 jaxlib==0.3.25+cuda11.cudnn805 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
           pip install "absl-py>=0.13.0" dm-haiku "dm-tree>=0.1.6" "h5py>=3.1.0" "ml-collections>=0.1.0" "pandas>=1.3.4" tensorflow "importlib-resources==5.8.0" "nbformat==5.4.0" "py3Dmol==2.0.1" ipython appdirs jupyterlab ipywidgets pytest
       - name: Run Tests
