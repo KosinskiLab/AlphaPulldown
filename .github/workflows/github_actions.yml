@@ -35,6 +35,9 @@ jobs:
              conda develop alphafold/alphafold
       - name: Debug Alphafold Location
         run: |
+             which python
+             which conda
+             conda info
              echo "Python version: $(python --version)"
              echo "Python path: $PYTHONPATH"
              echo "Current working directory: $(pwd)"
