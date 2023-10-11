@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        python-version: [3.10.01]
+        python-version: ["3.10.12","3.10.x", "3.11"]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -15,12 +15,12 @@ jobs:
       - name: Debug List Directory
         run: ls -la -R
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
-      - name: Debug List Directory 2
-        run: ls -la
+      - name: Display Python version
+        run: python -c "import sys; print(sys.version)"
       - name: Add Conda to System Path
         run: echo $CONDA/bin >> $GITHUB_PATH
       - name: Install Dependencies
