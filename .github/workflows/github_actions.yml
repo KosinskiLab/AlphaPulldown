@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        python-version: ["3.10.12","3.10.x", "3.11"]
+        python-version: ["3.10.00","3.10.x", "3.11"]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -29,7 +29,8 @@ jobs:
           pip install jax==0.3.25 jaxlib==0.3.25+cuda11.cudnn805 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
           pip install pytest
       - name: Install AlphaPulldown
-        run: pip install .
+        run: |
+             pip install .
              pip install -e alphapulldown/ColabFold --no-deps
              pip install -e alphafold/alphafold --no-deps
       - name: Run Tests
