@@ -32,6 +32,7 @@ jobs:
           conda init bash
           source ~/.bashrc
           conda env list
+          eval "$(conda shell.bash hook)"
           conda activate AlphaPulldown
           conda install -c anaconda conda-build
       #- name: Install Dependencies
