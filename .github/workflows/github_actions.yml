@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        python-version: ["3.10.12","3.10.x", "3.11"]
+        python-version: ["3.10.12", "3.11"]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -18,7 +18,7 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-          cache: "pip"
+          #cache: "pip"
       - name: Display Python version
         run: python -c "import sys; print(sys.version)"
       - name: Add Conda to System Path
@@ -33,6 +33,12 @@ jobs:
              conda develop .
              conda develop alphapulldown/ColabFold
              conda develop alphafold/alphafold
+      - name: Debug Alphafold Location
+        run: |
+             echo "Python version: $(python --version)"
+             echo "Python path: $PYTHONPATH"
+             echo "Current working directory: $(pwd)"
+             python -c "import alphafold; import os; print('Alphafold module is located at:', alphafold.__file__); alphafold_dir = os.path.dirname(alphafold.__file__); print('Contents of the Alphafold directory:', os.listdir(alphafold_dir))"
       - name: Run Tests
         run: pytest test/
       - name: Build and Push to Docker Hub
