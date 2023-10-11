@@ -34,10 +34,13 @@ jobs:
           conda install -c anaconda conda-build
           conda develop .
           conda develop alphapulldown/ColabFold
+          conda develop alphafold
           conda develop alphafold/alphafold
           which python
           which conda
           conda info
+          conda list
+          python -c "import sys; print(sys.path)"
           echo "Python version: $(python --version)"
           echo "Python path: $PYTHONPATH"
           echo "Current working directory: $(pwd)"
