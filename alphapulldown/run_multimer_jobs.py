@@ -66,7 +66,20 @@ flags.DEFINE_string(
 flags.DEFINE_integer(
     "msa_depth", None, "Number of sequences to use from the MSA (by default is taken from AF model config)"
 )
+flags.DEFINE_boolean(
+    "use_unifold",False,"Whether unifold models are going to be used. Default it False"
+)
 
+flags.DEFINE_boolean(
+    "use_alphalink",False,"Whether alphalink models are going to be used. Default it False"
+)
+
+flags.DEFINE_string(
+    "alphalink_weight",None,'Path to AlphaLink neural network weights'
+)
+flags.DEFINE_string(
+    "unifold_param",None,'Path to UniFold neural network weights'
+)
 flags.DEFINE_enum("unifold_model_name","multimer_af2",
                   ["multimer_af2","multimer_ft","multimer","multimer_af2_v3","multimer_af2_model45_v3"],"choose unifold model structure")
 flags.mark_flag_as_required("output_path")
@@ -307,7 +320,7 @@ def predict_individual_jobs(multimer_object, output_path, model_runners, random_
     if not isinstance(multimer_object, MultimericObject):
         multimer_object.input_seqs = [multimer_object.sequence]
 
-    if not use_unifold:
+    if not FLAGS.use_unifold:
         predict(
             model_runners,
             output_path,
@@ -328,10 +341,12 @@ def predict_individual_jobs(multimer_object, output_path, model_runners, random_
         model_runner = unifold_config_model(general_args)
         # First need to add num_recycling_iters to the feature dictionary
         # multimer_object.feature_dict.update({"num_recycling_iters":general_args.max_recycling_iters})
-        processed_features,_ = process_ap(config=configs.data,features=multimer_object.feature_dict,
-                                       mode="predict",labels=None,
-                                       seed=42,batch_idx=None,
-                                       data_idx=None,is_distillation=False)
+        processed_features,_ = process_ap(config=configs.data,
+                                          features=multimer_object.feature_dict,
+                                          mode="predict",labels=None,
+                                          seed=42,batch_idx=None,
+                                          data_idx=None,is_distillation=False,
+                                          chain_id_map = multimer_object.chain_id_map)
         logging.info(f"finished configuring the Unifold AlphlaFold model and process numpy features")
         unifold_predict(model_runner,general_args,processed_features)
 
