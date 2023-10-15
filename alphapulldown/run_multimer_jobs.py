@@ -73,7 +73,9 @@ flags.DEFINE_boolean(
 flags.DEFINE_boolean(
     "use_alphalink",False,"Whether alphalink models are going to be used. Default it False"
 )
-
+flags.DEFINE_string(
+    "crosslinks",None,"Path to crosslink information pickle"
+)
 flags.DEFINE_string(
     "alphalink_weight",None,'Path to AlphaLink neural network weights'
 )
@@ -332,7 +334,7 @@ def predict_individual_jobs(multimer_object, output_path, model_runners, random_
             seqs=multimer_object.input_seqs,
         )
         create_and_save_pae_plots(multimer_object, output_path)
-    else:
+    elif FLAGS.use_unifold:
         from unifold.inference import config_args,unifold_config_model,unifold_predict
         from unifold.dataset import process_ap
         from unifold.config import model_config
@@ -346,9 +348,13 @@ def predict_individual_jobs(multimer_object, output_path, model_runners, random_
                                           mode="predict",labels=None,
                                           seed=42,batch_idx=None,
                                           data_idx=None,is_distillation=False,
-                                          chain_id_map = multimer_object.chain_id_map)
+                                          chain_id_map = multimer_object.chain_id_map,
+                                          )
         logging.info(f"finished configuring the Unifold AlphlaFold model and process numpy features")
         unifold_predict(model_runner,general_args,processed_features)
+    elif FLAGS.use_alphalink:
+        assert FLAGS.crosslinks is not None
+        assert FLAGS.alphalink_weight is not None
 
     predict(
         model_runners,
