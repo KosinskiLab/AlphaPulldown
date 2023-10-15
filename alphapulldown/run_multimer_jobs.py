@@ -339,7 +339,9 @@ def predict_individual_jobs(multimer_object, output_path, model_runners, random_
         from unifold.dataset import process_ap
         from unifold.config import model_config
         configs = model_config(FLAGS.unifold_model_name)
-        general_args = config_args(FLAGS.unifold_param,target_name=multimer_object.description,output_dir=output_path)
+        general_args = config_args(FLAGS.unifold_param,
+                                   target_name=multimer_object.description,
+                                   output_dir=output_path)
         model_runner = unifold_config_model(general_args)
         # First need to add num_recycling_iters to the feature dictionary
         # multimer_object.feature_dict.update({"num_recycling_iters":general_args.max_recycling_iters})
@@ -347,28 +349,26 @@ def predict_individual_jobs(multimer_object, output_path, model_runners, random_
                                           features=multimer_object.feature_dict,
                                           mode="predict",labels=None,
                                           seed=42,batch_idx=None,
-                                          data_idx=None,is_distillation=False,
-                                          chain_id_map = multimer_object.chain_id_map,
+                                          data_idx=None,is_distillation=False
                                           )
         logging.info(f"finished configuring the Unifold AlphlaFold model and process numpy features")
         unifold_predict(model_runner,general_args,processed_features)
+        
     elif FLAGS.use_alphalink:
         assert FLAGS.crosslinks is not None
         assert FLAGS.alphalink_weight is not None
-
-    predict(
-        model_runners,
-        output_path,
-        multimer_object.feature_dict,
-        random_seed,
-        FLAGS.benchmark,
-        fasta_name=multimer_object.description,
-        models_to_relax=FLAGS.models_to_relax,
-        seqs=multimer_object.input_seqs,
-    )
-    create_and_save_pae_plots(multimer_object, output_path)
-
-
+        from unifold.alphalink_inference import alphalink_prediction
+        from unifold.dataset import process_ap
+        processed_features,_ = process_ap(config=configs.data,
+                                          features=multimer_object.feature_dict,
+                                          mode="predict",labels=None,
+                                          seed=42,batch_idx=None,
+                                          data_idx=None,is_distillation=False,
+                                          chain_id_map = multimer_object.chain_id_map,
+                                          crosslinks = FLAGS.crosslinks
+                                          )       
+        alphalink_prediction(processed_features,FLAGS.output_path,
+                             param_path = FLAGS.alphalink_weight)
 
 
 def predict_multimers(multimers):
