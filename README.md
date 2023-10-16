@@ -1,6 +1,9 @@
 # AlphaPulldown
 [![Downloads](https://static.pepy.tech/badge/alphapulldown)](https://pepy.tech/project/alphapulldown)  [![python3.10](https://img.shields.io/badge/python-3.8-blue.svg)](https://www.python.org/downloads/release/python-3100/) ![GPL3 license](https://img.shields.io/badge/license-GPLv3-green)
 
+<span style="color:red">*This is a development version of AlphaPulldown! The stable version is available at [0.30.7 branch](https://github.com/KosinskiLab/AlphaPulldown/tree/temp_main)</span>.
+
+
 AlphaPulldown is a Python package that streamlines protein-protein interaction screens and high-throughput modelling of higher-order oligomers using AlphaFold-Multimer:
 * provides a convenient command line interface to screen a bait protein against many candidates, calculate all-versus-all pairwise comparisons, test alternative homo-oligomeric states, and model various parts of a larger complex
 * separates the CPU stages (MSA and template feature generation) from GPU stages (the actual modeling)
