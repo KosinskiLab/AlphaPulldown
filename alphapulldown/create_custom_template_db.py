@@ -10,13 +10,14 @@ Can be used as a standalone script.
 
 import os
 import shutil
-import sys
+import random
+import string
 from pathlib import Path
 from absl import logging, flags, app
 from alphapulldown.remove_clashes_low_plddt import MmcifChainFiltered
 from colabfold.batch import validate_and_fix_mmcif, convert_pdb_to_mmcif
 from alphafold.common.protein import _from_bio_structure, to_mmcif
-from Bio import SeqIO, PDB
+from Bio import SeqIO
 
 FLAGS = flags.FLAGS
 
@@ -47,10 +48,11 @@ def parse_code(template):
         for line in f:
             if line.startswith("_entry.id"):
                 code = line.split()[1]
-                if len(code) != 4:
-                    logging.error(f'Error for template {template}!\n'
-                                  f'Code must have 4 characters but is {code}\n')
-                    sys.exit(1)
+
+    # Generate a random 4-character code if needed
+    if len(code) != 4:
+        code = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(4))
+
     return code.lower()
 
 
@@ -146,10 +148,13 @@ def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, pldd
     # Process each template/chain pair
     for template, chain_id in zip(templates, chains):
         code = parse_code(template)
+        logging.info(f"Template code: {code}")
+        assert len(code) == 4
         # Copy the template to out_path to avoid conflicts with the same file names
-        shutil.copyfile(template, templates_dir / Path(template).name)
-        template = templates_dir / Path(template).name
-        logging.info(f"Processing template: {template}  Chain {chain_id} Code: {code}")
+        new_template = templates_dir / Path(code + Path(template).suffix)
+        shutil.copyfile(template, new_template)
+        template = new_template
+        logging.info(f"Processing template: {template}  Chain {chain_id}")
         logging.info("Parsing SEQRES...")
         atom_seq, seqres_seq = None, None
         if template.suffix == '.pdb':

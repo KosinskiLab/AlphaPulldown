@@ -12,27 +12,39 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
     def setUp(self):
         super().setUp()
         self.TEST_DATA_DIR = Path(__file__).parent / "test_data" / "true_multimer"
+        # Create necessary directories if they don't exist
+        (self.TEST_DATA_DIR / 'features').mkdir(parents=True, exist_ok=True)
+        (self.TEST_DATA_DIR / 'templates').mkdir(parents=True, exist_ok=True)
 
     def tearDown(self):
-        # Any cleanup can go here
-        pass
+        # Clean up any files or directories created during testing
+        pkl_files = list((self.TEST_DATA_DIR / 'features').glob('*.pkl'))
+        for pkl_file in pkl_files:
+            pkl_file.unlink()
+        sto_files = list((self.TEST_DATA_DIR / 'features').glob('*/pdb_hits.sto'))
+        for sto_file in sto_files:
+            sto_file.unlink()
+        desc_file = self.TEST_DATA_DIR / 'description.csv'
+        if desc_file.exists():
+            desc_file.unlink()
 
-    def test_main(self):
+    def run_features_generation(self, file_name, chain_id, file_extension):
+        # Ensure directories exist
+        (self.TEST_DATA_DIR / 'features').mkdir(parents=True, exist_ok=True)
+        (self.TEST_DATA_DIR / 'templates').mkdir(parents=True, exist_ok=True)
         # Remove existing files
-        pkl_path_a = self.TEST_DATA_DIR / 'features' / '3L4Q_A.pkl'
-        pkl_path_c = self.TEST_DATA_DIR / 'features' / '3L4Q_C.pkl'
-        sto_path_a = self.TEST_DATA_DIR / 'features' / '3L4Q_A' / 'pdb_hits.sto'
-        sto_path_c = self.TEST_DATA_DIR / 'features' / '3L4Q_C' / 'pdb_hits.sto'
-        cif_path = self.TEST_DATA_DIR / 'templates' / '3L4Q.pdb'
+        pkl_path = self.TEST_DATA_DIR / 'features' / f'{file_name}_{chain_id}.pkl'
+        sto_path = self.TEST_DATA_DIR / 'features' / f'{file_name}_{chain_id}' / 'pdb_hits.sto'
+        template_path = self.TEST_DATA_DIR / 'templates' / f'{file_name}.{file_extension}'
 
-        if pkl_path_a.exists():
-            pkl_path_a.unlink()
-        if pkl_path_c.exists():
-            pkl_path_c.unlink()
-        if sto_path_a.exists():
-            sto_path_a.unlink()
-        if sto_path_c.exists():
-            sto_path_c.unlink()
+        if pkl_path.exists():
+            pkl_path.unlink()
+        if sto_path.exists():
+            sto_path.unlink()
+
+        # Generate description.csv
+        with open(f"{self.TEST_DATA_DIR}/description.csv", 'w') as desc_file:
+            desc_file.write(f"{file_name}_{chain_id}.fasta, {file_name}.{file_extension}, {chain_id}\n")
 
         # Prepare the command and arguments
         cmd = [
@@ -54,51 +66,65 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
 
         # Check the output
         subprocess.run(cmd, check=True)
-        assert pkl_path_a.exists()
-        assert pkl_path_c.exists()
-        assert sto_path_a.exists()
-        assert sto_path_c.exists()
+        assert pkl_path.exists()
+        assert sto_path.exists()
 
-        for chain in ['A', 'C']:
-            if chain == 'A':
-                pkl_path = pkl_path_a
-            if chain == 'C':
-                pkl_path = pkl_path_c
-            with open(pkl_path, 'rb') as f:
-                feats = pickle.load(f).feature_dict
-            temp_sequence = feats['template_sequence'][0].decode('utf-8')
-            target_sequence = feats['sequence'][0].decode('utf-8')
-            atom_coords = feats['template_all_atom_positions'][0]
-            assert len(temp_sequence) > 0
-            # Check that the atom coordinates are not all 0
-            assert (atom_coords.any()) > 0
+        with open(pkl_path, 'rb') as f:
+            feats = pickle.load(f).feature_dict
+        temp_sequence = feats['template_sequence'][0].decode('utf-8')
+        target_sequence = feats['sequence'][0].decode('utf-8')
+        atom_coords = feats['template_all_atom_positions'][0]
+        assert len(temp_sequence) > 0
+        # Check that the atom coordinates are not all 0
+        assert (atom_coords.any()) > 0
 
-            atom_seq, seqres_seq = extract_seqs(cif_path, chain)
-            print(f"target sequence: {target_sequence}")
-            print(len(target_sequence))
-            print(f"template sequence: {temp_sequence}")
-            print(len(temp_sequence))
-            print(f"seq-seqres: {seqres_seq}")
+        atom_seq, seqres_seq = extract_seqs(template_path, chain_id)
+        print(f"target sequence: {target_sequence}")
+        print(len(target_sequence))
+        print(f"template sequence: {temp_sequence}")
+        print(len(temp_sequence))
+        print(f"seq-seqres: {seqres_seq}")
+        if seqres_seq:
             print(len(seqres_seq))
-            print(f"seq-atom: {atom_seq}")
-            print(len(atom_seq))
-            # Check that atoms with non-zero coordinates are identical in seq-seqres and seq-atom
-            residue_has_nonzero_coords = []
-            atom_id = 0
-            for s, a in zip(temp_sequence, atom_coords):
-                    # if mismatch between target and seqres
-                    if s == '-':
-                        assert np.all(a == 0)
-                        residue_has_nonzero_coords.append(False)
+        print(f"seq-atom: {atom_seq}")
+        print(len(atom_seq))
+        # Check that atoms with non-zero coordinates are identical in seq-seqres and seq-atom
+        residue_has_nonzero_coords = []
+        atom_id = -1
+        for number, (s, a) in enumerate(zip(temp_sequence, atom_coords)):
+            # if mismatch between target and seqres
+            if s == '-':
+                assert np.all(a == 0)
+                residue_has_nonzero_coords.append(False)
+            else:
+                non_zero = np.any(a != 0)
+                residue_has_nonzero_coords.append(non_zero)
+                if non_zero:
+                    atom_id += 1
+                    if seqres_seq:
+                        seqres = seqres_seq[number]
                     else:
-                        non_zero = np.any(a != 0)
-                        residue_has_nonzero_coords.append(non_zero)
-                        if non_zero:
-                            assert s == atom_seq[atom_id]
-                            assert np.any(a[:4] != 0)
-                            atom_id += 1
-            print(residue_has_nonzero_coords)
-            print(len(residue_has_nonzero_coords))
+                        seqres = None
+                    print(f"template-seq: {s} atom-seq: {atom_seq[atom_id]} seqres-seq: {seqres} id: {atom_id}")
+                    if seqres:
+                        assert (s == seqres_seq[number] or s == atom_seq[atom_id]) #seqres can be different from atomseq
+                    else:
+                        assert (s == atom_seq[atom_id])
+                    assert np.any(a[:4] != 0)
+        print(residue_has_nonzero_coords)
+        print(len(residue_has_nonzero_coords))
+
+    def test_1a_run_features_generation(self):
+        self.run_features_generation('3L4Q', 'A', 'cif')
+
+    def test_2c_run_features_generation(self):
+        self.run_features_generation('3L4Q', 'C', 'pdb')
+
+    def test_3b_bizarre_filename(self):
+        self.run_features_generation('RANdom_name1_.7-1_0', 'B', 'pdb')
+
+    def test_4c_bizarre_filename(self):
+        self.run_features_generation('RANdom_name1_.7-1_0', 'C', 'pdb')
 
 
 if __name__ == '__main__':

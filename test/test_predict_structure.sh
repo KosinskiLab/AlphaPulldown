@@ -45,4 +45,4 @@ GPUMEM=`nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits|tail -
 export XLA_PYTHON_CLIENT_MEM_FRACTION=`echo "scale=3;$MAXRAM / $GPUMEM"|bc`
 export TF_FORCE_UNIFIED_MEMORY='1'
 
-python -m unittest test/check_predict_structure.py -k 'TestScript.testRunTrueMultimer'
+python -m unittest test/check_predict_structure.py
