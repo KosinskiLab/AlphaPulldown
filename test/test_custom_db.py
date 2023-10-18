@@ -72,4 +72,4 @@ def test_from_af_output_pdb(capfd):
     run_test(["./test/test_data/true_multimer/cage_BC_AF.pdb"], ["B"])
 
 def test_from_minimal_pdb(capfd):
-    run_test(["./test/test_data/true_multimer/0099.pdb"], ["B"])
+    run_test(["./test/test_data/true_multimer/RANdom_name1_.7-1_0.pdb"], ["B"])

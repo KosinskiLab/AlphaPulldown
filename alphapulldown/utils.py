@@ -35,6 +35,21 @@ COMMON_PATTERNS = [
 ]
 BFD_HASH_HHM_FFINDEX = "799f308b20627088129847709f1abed6"
 
+DB_NAME_TO_URL = {
+    'UniRef90' : ["ftp://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref90/uniref90.fasta.gz"],
+    'UniRef30' : ["https://storage.googleapis.com/alphafold-databases/v2.3/UniRef30_{release_date}.tar.gz"],
+    'MGnify' : ["https://storage.googleapis.com/alphafold-databases/v2.3/mgy_clusters_{release_date}.fa.gz"],
+    'BFD' : ["https://storage.googleapis.com/alphafold-databases/casp14_versions/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt.tar.gz"],
+    'Reduced BFD' : ["https://storage.googleapis.com/alphafold-databases/reduced_dbs/bfd-first_non_consensus_sequences.fasta.gz"],
+    'PDB70' : ["http://wwwuser.gwdg.de/~compbiol/data/hhsuite/databases/hhsuite_dbs/old-releases/pdb70_from_mmcif_200401.tar.gz"],
+    'UniProt' : [
+        "ftp://ftp.ebi.ac.uk/pub/databases/uniprot/current_release/knowledgebase/complete/uniprot_trembl.fasta.gz",
+        "ftp://ftp.ebi.ac.uk/pub/databases/uniprot/current_release/knowledgebase/complete/uniprot_sprot.fasta.gz"
+        ],
+    'PDB seqres' : ["ftp://ftp.wwpdb.org/pub/pdb/derived_data/pdb_seqres.txt"],
+    'ColabFold' : ["https://wwwuser.gwdg.de/~compbiol/colabfold/colabfold_envdb_202108.tar.gz"],
+}
+
 
 def create_uniprot_runner(jackhmmer_binary_path, uniprot_database_path):
     """create a uniprot runner object"""
@@ -395,26 +410,43 @@ def get_metadata_for_database(k, v):
 
     specific_databases = ["pdb70", "bfd"]
     if name in specific_databases:
+        name = name.upper()
+        url = DB_NAME_TO_URL[name]
         fn = v + "_hhm.ffindex"
         hash_value = get_hash(fn)
-        version = get_last_modified_date(fn)
+        release_date = get_last_modified_date(fn)
         if hash_value == BFD_HASH_HHM_FFINDEX:
-            version = "AF2"
-        return {name: {"version": version, "hash": hash_value}}
+            release_date = "AF2"
+        return {name: {"release_date": release_date, "version": hash_value, "location_url": url}}
 
     other_databases = ["small_bfd", "uniprot", "uniref90", "pdb_seqres"]
     if name in other_databases:
+        if name == "small_bfd":
+            name = "Reduced BFD"
+        elif name == "uniprot":
+            name = "UniProt"
+        elif name == "uniref90":
+            name = "UniRef90"
+        elif name == "pdb_seqres":
+            name = "PDB seqres"
+        url = DB_NAME_TO_URL[name]
         # here we ignore pdb_mmcif assuming it's version is identical to pdb_seqres
-        return {name: {"version": get_last_modified_date(v), "hash": "NA" if name != "pdb_seqres" else get_hash(v)}}
+        return {name: {"release_date": get_last_modified_date(v),
+                       "version": "NA" if name != "PDB seqres" else get_hash(v), "location_url": url}}
 
     if name in ["uniref30", "mgnify"]:
+        if name == "uniref30":
+            name = "UniRef30"
+        elif name == "mgnify":
+            name = "MGnify"
         hash_value = "NA"
         match = re.search(r"(\d{4}_\d{2})", v)
         if match:
-            version = match.group(1).replace("_", "-")
+            release_date = match.group(1)
+            url = [DB_NAME_TO_URL[name][0].format(release_date=release_date)]
             if name == "uniref30":
                 hash_value = get_hash(v + "_hhm.ffindex")
-            return {name: {"version": version, "hash": hash_value}}
+            return {name: {"release_date": release_date, "version": hash_value, "location_url": url}}
     return {}
 
 
@@ -439,9 +471,11 @@ def save_meta_data(flag_dict, outfile):
         elif "_database_path" in k or "template_mmcif_dir" in k:
             metadata["databases"].update(get_metadata_for_database(k, v))
         elif k == "use_mmseqs2":
+            url = DB_NAME_TO_URL["ColabFold"]
             metadata["databases"].update({"ColabFold":
                                               {"version": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                                               "hash": "NA"}
+                                               "release_date": "NA",
+                                               "location_url": url}
                                           })
 
     with open(outfile, "w") as f:
