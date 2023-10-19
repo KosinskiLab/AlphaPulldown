@@ -3,15 +3,19 @@
 # Aims: Model activation of phosphoinositide 3-kinase by the influenza A virus NS1 protein (PDB: 3L4Q)
 ## 1st step: compute multiple sequence alignment (MSA) and template features using provided pbd templates (run on CPU)
 
-his complex can not be modeled with vanilla AlphaFold Multimer, since it is a host-pathogen interaction.
-Firstly, download sequences of NS1(Uniprot: [P03496](https://www.uniprot.org/uniprotkb/P03496/entry)) andP85B(uniprot:[P23726](https://www.uniprot.org/uniprotkb/P23726/entry)) proteins.
+This complex can not be modeled with vanilla AlphaFold Multimer, since it is a host-pathogen interaction.
+Firstly, download sequences of NS1(Uniprot: [P03496](https://www.uniprot.org/uniprotkb/P03496/entry)) and P85B(uniprot:[P23726](https://www.uniprot.org/uniprotkb/P23726/entry)) proteins.
 Then download the multimeric template in either pdb or mmCIF format(PDB: [3L4Q](https://www.rcsb.org/structure/3L4Q)).
 Create directories named "fastas" and "templates" and put the sequences and pdb/cif files in the corresponding directories.
 Finally, create a text file with features description (description.csv):
 ```
-3L4Q_A.fasta, 3L4Q.cif, A
-3L4Q_C.fasta, 3L4Q.cif, C
+P03496.fasta, 3L4Q.cif, A
+P23726.fasta, 3L4Q.cif, C
 ```
+In this example we refer to the NS1 protein as chain A and to the P85B protein as chain C in multimeric template 3L4Q.cif.
+
+**Please note**, that your template will be renamed to a PDB code taken from *_entry_id*. If you use a *.pdb file instead of *.cif, AlphaPulldown will first try to parse the PDB code from the file. Then it will check if the filename is 4-letter long. If it is not, it will generate a random 4-letter code and use it instead.
+*Please also note, that currently --use_mmseqs2 flag is not supported for this mode.*
 
 Now run:
 ```bash
