@@ -1,20 +1,18 @@
 #!/bin/bash
-
-#A typical run takes couple of hours but may be much longer
 #SBATCH --job-name=test_predict_structure
 #SBATCH --time=05:00:00
+
+#Increase this number for new tests in check_predict_structure.py !!!
+#SBATCH --array=1-6
 
 #log files:
 #SBATCH -e %x.%j_err.txt
 #SBATCH -o %x.%j_out.txt
 
-#qos sets priority, you can set to high or highest but there is a limit of high priority jobs per user: https://wiki.embl.de/cluster/Slurm#QoS
 #SBATCH --qos=normal
 
 #SBATCH -p gpu-el8
 #SBATCH -C gaming
-
-#Reserve the entire GPU so no-one else slows you down
 #SBATCH --gres=gpu:1
 
 #Limit the run to a single node
@@ -45,4 +43,5 @@ GPUMEM=`nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits|tail -
 export XLA_PYTHON_CLIENT_MEM_FRACTION=`echo "scale=3;$MAXRAM / $GPUMEM"|bc`
 export TF_FORCE_UNIFIED_MEMORY='1'
 
-python -m unittest test/check_predict_structure.py
+pytest -s test/check_predict_structure.py::TestScript::testRun_$SLURM_ARRAY_TASK_ID
+pytest -s test/check_predict_structure.py::TestFunctions::test_get_$SLURM_ARRAY_TASK_ID

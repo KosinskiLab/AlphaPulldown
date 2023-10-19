@@ -109,7 +109,7 @@ class TestScript(_TestBase):
                 #Check if iptm+ptm contains the correct models
                 self.assertSetEqual(set(ranking_debug["plddt"].keys()), expected_set)
 
-    def testRunMonomer(self):
+    def testRun_1(self):
         """test run monomer structure prediction"""
         self.monomer_objects_dir = self.test_data_dir
         self.oligomer_state_file = os.path.join(self.test_data_dir, "test_homooligomer_state.txt")
@@ -133,7 +133,8 @@ class TestScript(_TestBase):
         #Check if the directory contains five files starting from relaxed and ending with .pdb
         self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.startswith("relaxed") and f.endswith(".pdb")]), 5)
 
-    def testRunWithoutAmberRelax(self):
+    def testRun_2(self):
+        """test run without amber relaxation"""
         result = subprocess.run(self.args, capture_output=True, text=True)
         self._runCommonTests(result)
         #Check that directory does not contain relaxed pdb files
@@ -141,14 +142,15 @@ class TestScript(_TestBase):
         self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.startswith("relaxed") and f.endswith(".pdb")]), 0)
         self.assertIn("Running model model_1_multimer_v3_pred_0", result.stdout + result.stderr)
 
-    def testRunWithAmberRelax(self):
+    def testRun_3(self):
+        """test run with relaxation for all models"""
         self.args.append("--models_to_relax=all")
         result = subprocess.run(self.args, capture_output=True, text=True)
         self._runCommonTests(result)
         self._runAfterRelaxTests(result)
         self.assertIn("Running model model_1_multimer_v3_pred_0", result.stdout + result.stderr)
 
-    def testRunWithAmberRelax_ResumeAfterAll5(self):
+    def testRun_4(self):
         """
         Test if the script can resume after all 5 models are finished, running amber relax on the 5 models
         """
@@ -160,7 +162,7 @@ class TestScript(_TestBase):
         self._runAfterRelaxTests(result)
         self.assertIn("ranking_debug.json exists. Skipping prediction. Restoring unrelaxed predictions and ranked order", result.stdout + result.stderr)
         
-    def testRunWithoutAmberRelax_ResumeAfter2(self):
+    def testRun_5(self):
         """
         Test if the script can resume after 2 models are finished
         """
@@ -173,10 +175,16 @@ class TestScript(_TestBase):
 
         self._runCommonTests(result)
 
-    def testRunTrueMultimer(self):
+    def testRun_6(self):
         """
-        Test running structure prediction in custom mode with --multimeric_mode=True
+        Test running structure prediction with --multimeric_mode=True
+        Checks that the output model follows provided template (RMSD < 3 A)
         """
+        #checks that features contain pickle files
+        self.assertTrue(os.path.exists(os.path.join(
+            self.test_data_dir, "true_multimer", "features", "3L4Q_A_and_3L4Q_C", "3L4Q_A.pkl")))
+        self.assertTrue(os.path.exists(os.path.join(
+            self.test_data_dir, "true_multimer", "features", "3L4Q_A_and_3L4Q_C", "3L4Q_Cll.pkl")))
         self.args = [
             sys.executable,
             self.script_path,
@@ -237,7 +245,8 @@ class TestFunctions(_TestBase):
             1,
         )
 
-    def test_get_score_from_result_pkl(self):
+    def test_get_1(self):
+        """Oligomer: Check that iptm+ptm are equal in json and result pkl"""
         self.output_dir = os.path.join(self.test_data_dir, "P0DPR3_and_P0DPR3")
         #Open ranking_debug.json from self.output_dir and load to results
         with open(os.path.join(self.output_dir, "ranking_debug.json"), "r") as f:
@@ -249,7 +258,8 @@ class TestFunctions(_TestBase):
         out = predict_structure.get_score_from_result_pkl(pkl_path)
         self.assertTupleEqual(out, ('iptm+ptm', expected_iptm_ptm))
 
-    def test_get_existing_model_info(self):
+    def test_get_2(self):
+        """Oligomer: Check get_existing_model_info for all models finished"""
         self.output_dir = os.path.join(self.test_data_dir, "P0DPR3_and_P0DPR3")
         ranking_confidences, unrelaxed_proteins, unrelaxed_pdbs, START = predict_structure.get_existing_model_info(self.output_dir, self.model_runners)
         self.assertEqual(len(ranking_confidences), len(unrelaxed_proteins))
@@ -262,7 +272,8 @@ class TestFunctions(_TestBase):
             expected_iptm_ptm = results["iptm+ptm"]
         self.assertDictEqual(ranking_confidences, expected_iptm_ptm)
 
-    def test_get_existing_model_info_ResumeAfter2(self):
+    def test_get_3(self):
+        """Oligomer: Check get_existing_model_info, resume after 2 models finished"""
         self.output_dir = os.path.join(self.test_data_dir, "P0DPR3_and_P0DPR3_partial")
         ranking_confidences, unrelaxed_proteins, unrelaxed_pdbs, START = predict_structure.get_existing_model_info(self.output_dir, self.model_runners)
         self.assertEqual(len(ranking_confidences), len(unrelaxed_proteins))
@@ -276,19 +287,17 @@ class TestFunctions(_TestBase):
         self.assertDictEqual(ranking_confidences, expected_iptm_ptm)
 
     #TODO: Test monomeric runs (where score is pLDDT)
+    def test_get_4(self):
+        """Monomer: Check that plddt are equal in json and result pkl"""
+        pass
 
-class TestMonomerFunctions(_TestBase):
-    def setUp(self) -> None:
-        super().setUp()
-        from alphapulldown.utils import create_model_runners_and_random_seed
-        self.model_runners, random_seed = create_model_runners_and_random_seed(
-            "monomer",
-            3,
-            1,
-            self.data_dir,
-            1,
-        )
+    def test_get_5(self):
+        """Monomer: Check get_existing_model_info for all models finished"""
+        pass
 
+    def test_get_6(self):
+        """Monomer: Check get_existing_model_info, resume after 2 models finished"""
+        pass
 
 if __name__ == '__main__':
     unittest.main()

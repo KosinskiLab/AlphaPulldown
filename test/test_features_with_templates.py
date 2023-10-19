@@ -18,9 +18,6 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
 
     def tearDown(self):
         # Clean up any files or directories created during testing
-        pkl_files = list((self.TEST_DATA_DIR / 'features').glob('*.pkl'))
-        for pkl_file in pkl_files:
-            pkl_file.unlink()
         sto_files = list((self.TEST_DATA_DIR / 'features').glob('*/pdb_hits.sto'))
         for sto_file in sto_files:
             sto_file.unlink()
@@ -32,11 +29,10 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
         # Ensure directories exist
         (self.TEST_DATA_DIR / 'features').mkdir(parents=True, exist_ok=True)
         (self.TEST_DATA_DIR / 'templates').mkdir(parents=True, exist_ok=True)
-        # Remove existing files
+        # Remove existing files (should be done by tearDown, but just in case)
         pkl_path = self.TEST_DATA_DIR / 'features' / f'{file_name}_{chain_id}.pkl'
         sto_path = self.TEST_DATA_DIR / 'features' / f'{file_name}_{chain_id}' / 'pdb_hits.sto'
         template_path = self.TEST_DATA_DIR / 'templates' / f'{file_name}.{file_extension}'
-
         if pkl_path.exists():
             pkl_path.unlink()
         if sto_path.exists():
