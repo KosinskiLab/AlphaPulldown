@@ -6,7 +6,6 @@ import logging
 import tempfile
 import os
 import contextlib
-from tracemalloc import start
 import numpy as np
 from alphafold.data import parsers
 from alphafold.data import pipeline_multimer
@@ -16,8 +15,7 @@ from alphafold.data import feature_processing
 from alphafold.data import templates
 from pathlib import Path as plPath
 from alphafold.data.tools import hhsearch
-from colabfold.batch import get_queries, unserialize_msa, get_msa_and_templates, msa_to_str, build_monomer_feature, \
-    parse_fasta
+from colabfold.batch import unserialize_msa, get_msa_and_templates, msa_to_str, build_monomer_feature
 
 
 @contextlib.contextmanager

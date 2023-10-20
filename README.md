@@ -1,5 +1,5 @@
 # AlphaPulldown
-[![Downloads](https://static.pepy.tech/badge/alphapulldown)](https://pepy.tech/project/alphapulldown)  [![python3.10](https://img.shields.io/badge/python-3.8-blue.svg)](https://www.python.org/downloads/release/python-3100/) ![GPL3 license](https://img.shields.io/badge/license-GPLv3-green)
+[![Downloads](https://static.pepy.tech/badge/alphapulldown)](https://pepy.tech/project/alphapulldown)  [![python3.10](https://img.shields.io/badge/python-3.10-blue.svg)](https://www.python.org/downloads/release/python-3100/) ![GPL3 license](https://img.shields.io/badge/license-GPLv3-green)
 
 <span style="color:red">*This is a development version of AlphaPulldown! The stable version is available at [0.30.7 branch](https://github.com/KosinskiLab/AlphaPulldown/tree/temp_main)</span>.
 
@@ -49,14 +49,14 @@ Check if you have downloaded necessary parameters and databases (e.g. BFD, MGnif
 
 **Firstly**, install [Anaconda](https://www.anaconda.com/) and create AlphaPulldown environment, gathering necessary dependencies 
 ```bash
-conda create -n AlphaPulldown -c omnia -c bioconda -c conda-forge python==3.10 openmm==8.0 pdbfixer==1.9 kalign2 cctbx-base
+conda create -n AlphaPulldown -c omnia -c bioconda -c conda-forge python==3.10 openmm==8.0 pdbfixer==1.9 kalign2 cctbx-base pytest
 ```
 
 **Secondly**, activate the AlphaPulldown environment and install AlphaPulldown
 ```bash
 source activate AlphaPulldown
-python3 -m pip install alphapulldown==0.30.8
-pip install jax==0.3.25 jaxlib==0.3.25+cuda11.cudnn805 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+python3 -m pip install alphapulldown==1.00.0
+pip install jax==0.4.19 jaxlib==0.4.19+cuda11.cudnn86 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 ```
 
 **Optionally**, if you do not have these software yet on your system, install [HMMER](http://hmmer.org/documentation.html), [HH-suite](https://github.com/soedinglab/hh-suite) from Anaconda

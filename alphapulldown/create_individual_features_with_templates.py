@@ -3,10 +3,10 @@
 # create_individual_features using custom multimeric templates
 #
 
+from alphafold import run_alphafold as run_af
 from alphapulldown.objects import MonomericObject
-from alphapulldown.utils import parse_fasta, save_meta_data, create_uniprot_runner
+from alphapulldown.utils import create_uniprot_runner
 from alphapulldown.create_custom_template_db import create_db
-import alphafold
 from alphafold.data.pipeline import DataPipeline
 from alphafold.data.tools import hmmsearch
 from alphafold.data import templates
@@ -16,16 +16,7 @@ import sys
 from pathlib import Path
 import tempfile
 import csv
-from create_individual_features import load_module, create_and_save_monomer_objects, iter_seqs
-
-
-PATH_TO_RUN_ALPHAFOLD = os.path.join(os.path.dirname(alphafold.__file__), "run_alphafold.py")
-
-try:
-    run_af = load_module(PATH_TO_RUN_ALPHAFOLD, "run_alphafold")
-except FileNotFoundError:
-    PATH_TO_RUN_ALPHAFOLD = os.path.join(os.path.dirname(os.path.dirname(alphafold.__file__)), "run_alphafold.py")
-    run_af = load_module(PATH_TO_RUN_ALPHAFOLD, "run_alphafold")
+from create_individual_features import create_and_save_monomer_objects, iter_seqs
 
 
 flags = run_af.flags
