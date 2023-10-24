@@ -182,9 +182,9 @@ class TestScript(_TestBase):
         """
         #checks that features contain pickle files
         self.assertTrue(os.path.exists(os.path.join(
-            self.test_data_dir, "true_multimer", "features", "3L4Q_A_and_3L4Q_C", "3L4Q_A.pkl")))
+            self.test_data_dir, "true_multimer", "features", "3L4Q_A.pkl")))
         self.assertTrue(os.path.exists(os.path.join(
-            self.test_data_dir, "true_multimer", "features", "3L4Q_A_and_3L4Q_C", "3L4Q_Cll.pkl")))
+            self.test_data_dir, "true_multimer", "features", "3L4Q_C.pkl")))
         self.args = [
             sys.executable,
             self.script_path,
