@@ -322,19 +322,7 @@ def predict_individual_jobs(multimer_object, output_path, model_runners, random_
     if not isinstance(multimer_object, MultimericObject):
         multimer_object.input_seqs = [multimer_object.sequence]
 
-    if not FLAGS.use_unifold:
-        predict(
-            model_runners,
-            output_path,
-            multimer_object.feature_dict,
-            random_seed,
-            FLAGS.benchmark,
-            fasta_name=multimer_object.description,
-            models_to_relax=FLAGS.models_to_relax,
-            seqs=multimer_object.input_seqs,
-        )
-        create_and_save_pae_plots(multimer_object, output_path)
-    elif FLAGS.use_unifold:
+    if FLAGS.use_unifold:
         from unifold.inference import config_args,unifold_config_model,unifold_predict
         from unifold.dataset import process_ap
         from unifold.config import model_config
@@ -353,12 +341,16 @@ def predict_individual_jobs(multimer_object, output_path, model_runners, random_
                                           )
         logging.info(f"finished configuring the Unifold AlphlaFold model and process numpy features")
         unifold_predict(model_runner,general_args,processed_features)
-        
+
     elif FLAGS.use_alphalink:
         assert FLAGS.crosslinks is not None
         assert FLAGS.alphalink_weight is not None
         from unifold.alphalink_inference import alphalink_prediction
         from unifold.dataset import process_ap
+        from unifold.config import model_config
+        logging.info(f"###### Start using AlphaLink weights and cross-link information")  
+        MODEL_NAME = 'model_5_ptm_af2'
+        configs = model_config(MODEL_NAME)
         processed_features,_ = process_ap(config=configs.data,
                                           features=multimer_object.feature_dict,
                                           mode="predict",labels=None,
@@ -366,9 +358,21 @@ def predict_individual_jobs(multimer_object, output_path, model_runners, random_
                                           data_idx=None,is_distillation=False,
                                           chain_id_map = multimer_object.chain_id_map,
                                           crosslinks = FLAGS.crosslinks
-                                          )       
+                                          )     
         alphalink_prediction(processed_features,FLAGS.output_path,
                              param_path = FLAGS.alphalink_weight)
+    else:
+        predict(
+            model_runners,
+            output_path,
+            multimer_object.feature_dict,
+            random_seed,
+            FLAGS.benchmark,
+            fasta_name=multimer_object.description,
+            models_to_relax=FLAGS.models_to_relax,
+            seqs=multimer_object.input_seqs,
+        )
+        create_and_save_pae_plots(multimer_object, output_path)
 
 
 def predict_multimers(multimers):
