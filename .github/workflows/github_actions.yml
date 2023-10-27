@@ -46,13 +46,16 @@ jobs:
           conda activate AlphaPulldown
           conda install -c omnia -c bioconda -c conda-forge openmm==8.0 pdbfixer==1.9 kalign2 cctbx-base importlib_metadata
           #conda install -c bioconda hmmer hhsuite #this causes conda conflicts
+
+          # install PyTorch 
+          pip install torch --pre -f https://download.pytorch.org/whl/nightly/cu121/torch_nightly.html 
           pip install jax==0.3.25 jaxlib==0.3.25+cuda11.cudnn805 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
           pip install "absl-py>=0.13.0" dm-haiku "dm-tree>=0.1.6" "h5py>=3.1.0" "ml-collections>=0.1.0" "pandas>=1.3.4" tensorflow "importlib-resources==5.8.0" "nbformat==5.4.0" "py3Dmol==2.0.1" ipython appdirs jupyterlab ipywidgets pytest
       - name: Run Tests
         run: |
           eval "$(conda shell.bash hook)"
           conda activate AlphaPulldown
-          pytest test/
+          python3 -m unittest discover -s test -t test
       - name: Build and Push to Docker Hub
         uses: mr-smithers-excellent/docker-build-push@v5
         with:
