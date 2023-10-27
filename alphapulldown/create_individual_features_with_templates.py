@@ -213,7 +213,7 @@ def main(argv):
                         sys.exit()
             # If we are using mmseqs2, we don't need to create a pipeline
             else:
-                pipeline = None
+                pipeline = create_pipeline()
                 uniprot_runner = None
                 flags_dict = FLAGS.flag_values_dict()
             for curr_seq, curr_desc in iter_seqs([feat["fasta"]]):
