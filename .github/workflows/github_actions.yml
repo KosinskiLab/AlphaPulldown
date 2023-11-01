@@ -48,8 +48,9 @@ jobs:
           git clone https://github.com/dptech-corp/Uni-Core.git
           cd Uni-Core
           python3 setup.py install --disable-cuda-ext
+          python -c "from unifold.alphalink_inference import alphalink_prediction"
           python -c "from unifold.dataset import process_ap"
-          python -c "from unifold.inference import config_args,unifold_config_model,unifold_predict"
+          python -c "from unifold.config import model_config"
           python -c "from colabfold.batch import get_queries, unserialize_msa, get_msa_and_templates, msa_to_str, build_monomer_feature, parse_fasta"
       - name: Install Dependencies
         run: |
