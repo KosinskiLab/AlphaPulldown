@@ -39,9 +39,10 @@ jobs:
           python -c "import alphafold; import os; print('Alphafold module is located at:', alphafold.__file__); alphafold_dir = os.path.dirname(alphafold.__file__); print('Contents of the Alphafold directory:', os.listdir(alphafold_dir))"
       - name: Check imports of submodules
         run : |
-          python -c "import unifold; print('unifold path is :',unifold.__file__)"
+          conda activate AlphaPulldown
           python -c "from unifold.dataset import process_ap"
           python -c "from unifold.inference import config_args,unifold_config_model,unifold_predict"
+          python -c "from colabfold.batch import get_queries, unserialize_msa, get_msa_and_templates, msa_to_str, build_monomer_feature, parse_fasta"
       - name: Install Dependencies
         run: |
           eval "$(conda shell.bash hook)"
