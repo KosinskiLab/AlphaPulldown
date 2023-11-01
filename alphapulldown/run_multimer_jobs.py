@@ -348,7 +348,7 @@ def predict_individual_jobs(multimer_object, output_path, model_runners, random_
         from unifold.alphalink_inference import alphalink_prediction
         from unifold.dataset import process_ap
         from unifold.config import model_config
-        logging.info(f"###### Start using AlphaLink weights and cross-link information")  
+        logging.info(f"Start using AlphaLink weights and cross-link information")  
         MODEL_NAME = 'model_5_ptm_af2'
         configs = model_config(MODEL_NAME)
         processed_features,_ = process_ap(config=configs.data,
