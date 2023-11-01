@@ -42,6 +42,10 @@ jobs:
         run : |
           eval "$(conda shell.bash hook)"
           conda activate AlphaPulldown
+          # setup unicore
+          git clone https://github.com/dptech-corp/Uni-Core.git
+          cd Uni-Core
+          python3 setup.py install --disable-cuda-ext
           # install PyTorch 
           pip install torch --pre -f https://download.pytorch.org/whl/nightly/cu121/torch_nightly.html 
           python -c "from unifold.dataset import process_ap"
