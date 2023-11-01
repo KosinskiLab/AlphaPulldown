@@ -35,7 +35,8 @@ jobs:
           conda develop alphapulldown
           conda develop alphapulldown/ColabFold
           conda develop alphafold
-          conda develop unifold
+          cd unifold
+          python3 setup.py install 
           python -c "import alphafold; import os; print('Alphafold module is located at:', alphafold.__file__); alphafold_dir = os.path.dirname(alphafold.__file__); print('Contents of the Alphafold directory:', os.listdir(alphafold_dir))"
       - name: Check imports of submodules
         run : |
