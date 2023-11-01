@@ -39,6 +39,7 @@ jobs:
           python -c "import alphafold; import os; print('Alphafold module is located at:', alphafold.__file__); alphafold_dir = os.path.dirname(alphafold.__file__); print('Contents of the Alphafold directory:', os.listdir(alphafold_dir))"
       - name: Check imports of submodules
         run : |
+          eval "$(conda shell.bash hook)"
           conda activate AlphaPulldown
           python -c "from unifold.dataset import process_ap"
           python -c "from unifold.inference import config_args,unifold_config_model,unifold_predict"
