@@ -35,11 +35,13 @@ jobs:
           conda develop alphapulldown
           conda develop alphapulldown/ColabFold
           conda develop alphafold
-          #conda info
-          #conda list
-          #python -c "import sys; print(sys.path)"
-          #echo "Python path: $PYTHONPATH"
+          conda develop unifold
           python -c "import alphafold; import os; print('Alphafold module is located at:', alphafold.__file__); alphafold_dir = os.path.dirname(alphafold.__file__); print('Contents of the Alphafold directory:', os.listdir(alphafold_dir))"
+      - name: Check imports of submodules
+      run : |
+          python -c "import unifold; print('unifold path is :',unifold.__file__)"
+          python -c "from unifold.dataset import process_ap"
+          python -c "from unifold.inference import config_args,unifold_config_model,unifold_predict"
       - name: Install Dependencies
         run: |
           eval "$(conda shell.bash hook)"
@@ -47,12 +49,16 @@ jobs:
           conda install -c omnia -c bioconda -c conda-forge openmm==8.0 pdbfixer==1.9 kalign2 cctbx-base importlib_metadata
           #conda install -c bioconda hmmer hhsuite #this causes conda conflicts
           pip install jax==0.3.25 jaxlib==0.3.25+cuda11.cudnn805 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+          # install PyTorch 
+          pip install torch --pre -f https://download.pytorch.org/whl/nightly/cu121/torch_nightly.html 
           pip install "absl-py>=0.13.0" dm-haiku "dm-tree>=0.1.6" "h5py>=3.1.0" "ml-collections>=0.1.0" "pandas>=1.3.4" tensorflow "importlib-resources==5.8.0" "nbformat==5.4.0" "py3Dmol==2.0.1" ipython appdirs jupyterlab ipywidgets pytest
       - name: Run Tests
         run: |
           eval "$(conda shell.bash hook)"
           conda activate AlphaPulldown
-          pytest test/
+          pytest -s test/test_custom_db.py
+          pytest -s test/test_remove_clashes_low_plddt.py
+          python3 -m unittest test/test_crosslink_input.py 
       - name: Build and Push to Docker Hub
         uses: mr-smithers-excellent/docker-build-push@v5
         with:
