@@ -49,8 +49,15 @@ jobs:
           conda activate AlphaPulldown
           pip install protobuf==4.23.0
           cd $WORKDIRPATH/alphafold && python3 setup.py install
-          cd $HOMEPATH/alphapulldown/ColabFold && python3 setup.py install  
           python -c "import tree"
+      - name: Install Dependencies
+        run: |
+          eval "$(conda shell.bash hook)"
+          conda activate AlphaPulldown
+          conda install -c omnia -c bioconda -c conda-forge openmm==8.0 pdbfixer==1.9 kalign2 cctbx-base importlib_metadata
+          #conda install -c bioconda hmmer hhsuite #this causes conda conflicts
+          pip install jax==0.3.25 jaxlib==0.3.25+cuda11.cudnn805 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+          pip install "absl-py>=0.13.0" dm-haiku "dm-tree>=0.1.6" "h5py>=3.1.0" "ml-collections>=0.1.0" "pandas>=1.3.4" tensorflow "importlib-resources==5.8.0" "nbformat==5.4.0" "py3Dmol==2.0.1" ipython appdirs jupyterlab ipywidgets pytest
       - name: Check imports of submodules
         run : |
           eval "$(conda shell.bash hook)"
@@ -65,14 +72,6 @@ jobs:
           python -c "from unifold.dataset import process_ap"
           python -c "from unifold.config import model_config"
           python -c "from colabfold.batch import get_queries, unserialize_msa, get_msa_and_templates, msa_to_str, build_monomer_feature, parse_fasta"
-      - name: Install Dependencies
-        run: |
-          eval "$(conda shell.bash hook)"
-          conda activate AlphaPulldown
-          conda install -c omnia -c bioconda -c conda-forge openmm==8.0 pdbfixer==1.9 kalign2 cctbx-base importlib_metadata
-          #conda install -c bioconda hmmer hhsuite #this causes conda conflicts
-          pip install jax==0.3.25 jaxlib==0.3.25+cuda11.cudnn805 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
-          pip install "absl-py>=0.13.0" dm-haiku "dm-tree>=0.1.6" "h5py>=3.1.0" "ml-collections>=0.1.0" "pandas>=1.3.4" tensorflow "importlib-resources==5.8.0" "nbformat==5.4.0" "py3Dmol==2.0.1" ipython appdirs jupyterlab ipywidgets pytest
       - name: Run Tests
         run: |
           eval "$(conda shell.bash hook)"
@@ -80,12 +79,3 @@ jobs:
           pytest -s test/test_custom_db.py
           pytest -s test/test_remove_clashes_low_plddt.py
           python3 -m unittest test/test_crosslink_input.py 
-      - name: Build and Push to Docker Hub
-        uses: mr-smithers-excellent/docker-build-push@v5
-        with:
-          image: dmolodenskiy/AlphaPulldown
-          registry: docker.io
-          dockerfile: docker/Dockerfile
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-          tags: latest
