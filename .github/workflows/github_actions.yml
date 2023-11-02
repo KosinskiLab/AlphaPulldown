@@ -28,7 +28,6 @@ jobs:
           echo "$GITHUB_WORKSPACE/alphapulldown" >> $GITHUB_PATH
       - name: Install AlphaPulldown without dependencies
         run: |
-          HOMEPATH=$PWD
           conda create --name AlphaPulldown python=${{ matrix.python-version }}        
           eval "$(conda shell.bash hook)"
           conda activate AlphaPulldown
@@ -36,11 +35,21 @@ jobs:
           conda develop alphapulldown
           conda develop alphapulldown/ColabFold
           conda develop alphafold
-          cd $HOMEPATH/unifold && python3 setup.py install
-          cd $HOMEPATH/alphafold && python3 setup.py install
+          python -c "import alphafold; import os; print('Alphafold module is located at:', alphafold.__file__); alphafold_dir = os.path.dirname(alphafold.__file__); print('Contents of the Alphafold directory:', os.listdir(alphafold_dir))"
+      - name: Install dependencies in AlphaFold setup.py 
+        run: |
+          eval "$(conda shell.bash hook)"
+          export WORKDIRPATH=$PWD
+          conda activate AlphaPulldown
+          cd $WORKDIRPATH/alphafold && python3 setup.py install
           cd $HOMEPATH/alphapulldown/ColabFold && python3 setup.py install  
           python -c "import tree"
-          python -c "import alphafold; import os; print('Alphafold module is located at:', alphafold.__file__); alphafold_dir = os.path.dirname(alphafold.__file__); print('Contents of the Alphafold directory:', os.listdir(alphafold_dir))"
+      - name: Install dependencies in unifold setup.py
+        run: |
+          eval "$(conda shell.bash hook)"
+          export WORKDIRPATH=$PWD
+          conda activate AlphaPulldown
+          cd $WORKDIRPATH/unifold && python3 setup.py install
       - name: Check imports of submodules
         run : |
           eval "$(conda shell.bash hook)"
