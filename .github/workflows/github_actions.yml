@@ -35,7 +35,6 @@ jobs:
           conda develop alphapulldown
           conda develop alphapulldown/ColabFold
           conda develop alphafold
-          cd alphapulldown && pip install .
           cd unifold && python3 setup.py install
           cd alphapulldown/ColabFold && python3 setup.py install  
           python -c "import tree"
