@@ -36,20 +36,21 @@ jobs:
           conda develop alphapulldown/ColabFold
           conda develop alphafold
           python -c "import alphafold; import os; print('Alphafold module is located at:', alphafold.__file__); alphafold_dir = os.path.dirname(alphafold.__file__); print('Contents of the Alphafold directory:', os.listdir(alphafold_dir))"
-      - name: Install dependencies in AlphaFold setup.py 
-        run: |
-          eval "$(conda shell.bash hook)"
-          export WORKDIRPATH=$PWD
-          conda activate AlphaPulldown
-          cd $WORKDIRPATH/alphafold && python3 setup.py install
-          cd $HOMEPATH/alphapulldown/ColabFold && python3 setup.py install  
-          python -c "import tree"
       - name: Install dependencies in unifold setup.py
         run: |
           eval "$(conda shell.bash hook)"
           export WORKDIRPATH=$PWD
           conda activate AlphaPulldown
           cd $WORKDIRPATH/unifold && python3 setup.py install
+      - name: Install dependencies in AlphaFold setup.py 
+        run: |
+          eval "$(conda shell.bash hook)"
+          export WORKDIRPATH=$PWD
+          conda activate AlphaPulldown
+          pip install protobuf==4.23.0
+          cd $WORKDIRPATH/alphafold && python3 setup.py install
+          cd $HOMEPATH/alphapulldown/ColabFold && python3 setup.py install  
+          python -c "import tree"
       - name: Check imports of submodules
         run : |
           eval "$(conda shell.bash hook)"
