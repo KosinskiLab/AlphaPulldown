@@ -359,7 +359,7 @@ def predict_individual_jobs(multimer_object, output_path, model_runners, random_
                                           chain_id_map = multimer_object.chain_id_map,
                                           crosslinks = FLAGS.crosslinks
                                           )     
-        alphalink_prediction(processed_features,FLAGS.output_path,
+        alphalink_prediction(processed_features,os.path.join(FLAGS.output_path,multimer_object.description),
                              param_path = FLAGS.alphalink_weight)
     else:
         predict(
