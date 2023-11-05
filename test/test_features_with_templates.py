@@ -20,7 +20,8 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
         # Clean up any files or directories created during testing
         sto_files = list((self.TEST_DATA_DIR / 'features').glob('*/pdb_hits.sto'))
         for sto_file in sto_files:
-            sto_file.unlink()
+            if sto_file.exists():
+                sto_file.unlink()
         desc_file = self.TEST_DATA_DIR / 'description.csv'
         if desc_file.exists():
             desc_file.unlink()
@@ -59,7 +60,7 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
             '--description_file', f"{self.TEST_DATA_DIR}/description.csv",
             '--output_dir', f"{self.TEST_DATA_DIR}/features",
         ]
-
+        print(" ".join(cmd))
         # Check the output
         subprocess.run(cmd, check=True)
         assert pkl_path.exists()
@@ -122,6 +123,8 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
     def test_4c_bizarre_filename(self):
         self.run_features_generation('RANdom_name1_.7-1_0', 'C', 'pdb')
 
+    def test_4c_gappy_pdb(self):
+        self.run_features_generation('GAPPY_PDB', 'B', 'pdb')
 
 if __name__ == '__main__':
     absltest.main()
