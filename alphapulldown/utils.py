@@ -317,6 +317,7 @@ def create_model_runners_and_random_seed(
                     f"Model {model_name} is running {i} prediction with num_msa={num_msa} "
                     f"and num_extra_msa={num_extra_msa}")
                 model_runners[f"{model_name}_pred_{i}_msa_{num_msa}"] = model_runner
+                #model_runners[f"{model_name}_pred_{i}"] = model_runner
             else:
                 logging.info(
                     f"Model {model_name} is running {i} prediction with default MSA depth")
@@ -413,6 +414,8 @@ def get_metadata_for_database(k, v):
         fn = v + "_hhm.ffindex"
         hash_value = get_hash(fn)
         release_date = get_last_modified_date(fn)
+        if release_date == "NA":
+            release_date = None
         if hash_value == BFD_HASH_HHM_FFINDEX:
             release_date = "AF2"
         return {name: {"release_date": release_date, "version": hash_value, "location_url": url}}
@@ -430,21 +433,27 @@ def get_metadata_for_database(k, v):
         url = DB_NAME_TO_URL[name]
         # here we ignore pdb_mmcif assuming it's version is identical to pdb_seqres
         return {name: {"release_date": get_last_modified_date(v),
-                       "version": "NA" if name != "PDB seqres" else get_hash(v), "location_url": url}}
+                       "version": None if name != "PDB seqres" else get_hash(v), "location_url": url}}
 
     if name in ["uniref30", "mgnify"]:
         if name == "uniref30":
             name = "UniRef30"
         elif name == "mgnify":
             name = "MGnify"
-        hash_value = "NA"
+        hash_value = None
+        release_date = None
         match = re.search(r"(\d{4}_\d{2})", v)
         if match:
-            release_date = match.group(1)
-            url = [DB_NAME_TO_URL[name][0].format(release_date=release_date)]
-            if name == "uniref30":
+            #release_date = match.group(1)
+            url_release_date = match.group(1)
+            url = [DB_NAME_TO_URL[name][0].format(release_date=url_release_date)]
+            if name == "UniRef30":
                 hash_value = get_hash(v + "_hhm.ffindex")
-            return {name: {"release_date": release_date, "version": hash_value, "location_url": url}}
+                if not hash_value:
+                    hash_value = url_release_date
+            if name == "MGnify":
+                hash_value = url_release_date
+        return {name: {"release_date": release_date, "version": hash_value, "location_url": url}}
     return {}
 
 
@@ -472,7 +481,7 @@ def save_meta_data(flag_dict, outfile):
             url = DB_NAME_TO_URL["ColabFold"]
             metadata["databases"].update({"ColabFold":
                                               {"version": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                                               "release_date": "NA",
+                                               "release_date": None,
                                                "location_url": url}
                                           })
 
