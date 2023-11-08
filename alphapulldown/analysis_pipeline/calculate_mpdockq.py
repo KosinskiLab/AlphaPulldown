@@ -134,6 +134,35 @@ def calculate_mpDockQ(complex_score):
     b = 0.221
     return L/(1+math.exp(-1*k*(complex_score-x_0))) + b
 
+def read_pdb_pdockq(pdbfile):
+    '''Read a pdb file predicted with AF and rewritten to conatin all chains
+    Adepted from FoldDock repo:
+    https://gitlab.com/ElofssonLab/FoldDock/-/blob/main/src/pdockq.py#L34-59
+    '''
+
+    chain_coords, chain_plddt = {}, {}
+    with open(pdbfile, 'r') as file:
+        for line in file:
+            if not line.startswith('ATOM'):
+                continue
+            record = parse_atm_record(line)
+            #Get CB - CA for GLY
+            if record['atm_name']=='CB' or (record['atm_name']=='CA' and record['res_name']=='GLY'):
+                if record['chain'] in [*chain_coords.keys()]:
+                    chain_coords[record['chain']].append([record['x'],record['y'],record['z']])
+                    chain_plddt[record['chain']].append(record['B'])
+                else:
+                    chain_coords[record['chain']] = [[record['x'],record['y'],record['z']]]
+                    chain_plddt[record['chain']] = [record['B']]
+
+
+    #Convert to arrays
+    for chain in chain_coords:
+        chain_coords[chain] = np.array(chain_coords[chain])
+        chain_plddt[chain] = np.array(chain_plddt[chain])
+
+    return chain_coords, chain_plddt
+
 
 def calc_pdockq(chain_coords, chain_plddt, t):
     '''Calculate the pDockQ scores
