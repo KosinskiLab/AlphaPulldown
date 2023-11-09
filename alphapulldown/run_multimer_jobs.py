@@ -66,7 +66,24 @@ flags.DEFINE_string(
 flags.DEFINE_integer(
     "msa_depth", None, "Number of sequences to use from the MSA (by default is taken from AF model config)"
 )
+flags.DEFINE_boolean(
+    "use_unifold",False,"Whether unifold models are going to be used. Default it False"
+)
 
+flags.DEFINE_boolean(
+    "use_alphalink",False,"Whether alphalink models are going to be used. Default it False"
+)
+flags.DEFINE_string(
+    "crosslinks",None,"Path to crosslink information pickle"
+)
+flags.DEFINE_string(
+    "alphalink_weight",None,'Path to AlphaLink neural network weights'
+)
+flags.DEFINE_string(
+    "unifold_param",None,'Path to UniFold neural network weights'
+)
+flags.DEFINE_enum("unifold_model_name","multimer_af2",
+                  ["multimer_af2","multimer_ft","multimer","multimer_af2_v3","multimer_af2_model45_v3"],"choose unifold model structure")
 flags.mark_flag_as_required("output_path")
 
 delattr(flags.FLAGS, "models_to_relax")
@@ -305,20 +322,53 @@ def predict_individual_jobs(multimer_object, output_path, model_runners, random_
     if not isinstance(multimer_object, MultimericObject):
         multimer_object.input_seqs = [multimer_object.sequence]
 
+    if FLAGS.use_unifold:
+        from unifold.inference import config_args,unifold_config_model,unifold_predict
+        from unifold.dataset import process_ap
+        from unifold.config import model_config
+        configs = model_config(FLAGS.unifold_model_name)
+        general_args = config_args(FLAGS.unifold_param,
+                                   target_name=multimer_object.description,
+                                   output_dir=output_path)
+        model_runner = unifold_config_model(general_args)
+        # First need to add num_recycling_iters to the feature dictionary
+        # multimer_object.feature_dict.update({"num_recycling_iters":general_args.max_recycling_iters})
+        processed_features,_ = process_ap(config=configs.data,
+                                          features=multimer_object.feature_dict,
+                                          mode="predict",labels=None,
+                                          seed=42,batch_idx=None,
+                                          data_idx=None,is_distillation=False
+                                          )
+        logging.info(f"finished configuring the Unifold AlphlaFold model and process numpy features")
+        unifold_predict(model_runner,general_args,processed_features)
 
-    predict(
-        model_runners,
-        output_path,
-        multimer_object.feature_dict,
-        random_seed,
-        FLAGS.benchmark,
-        fasta_name=multimer_object.description,
-        models_to_relax=FLAGS.models_to_relax,
-        seqs=multimer_object.input_seqs,
-    )
-    create_and_save_pae_plots(multimer_object, output_path)
-
-
+    elif FLAGS.use_alphalink:
+        assert FLAGS.crosslinks is not None
+        assert FLAGS.alphalink_weight is not None
+        from unifold.alphalink_inference import alphalink_prediction
+        
+        from unifold.config import model_config
+        logging.info(f"Start using AlphaLink weights and cross-link information")  
+        MODEL_NAME = 'model_5_ptm_af2'
+        configs = model_config(MODEL_NAME)
+        alphalink_prediction(multimer_object.feature_dict,
+                             os.path.join(FLAGS.output_path,multimer_object.description),
+                             input_seqs = multimer_object.input_seqs,
+                             param_path = FLAGS.alphalink_weight,
+                             configs = configs,crosslinks=FLAGS.crosslinks,
+                             chain_id_map=multimer_object.chain_id_map)
+    else:
+        predict(
+            model_runners,
+            output_path,
+            multimer_object.feature_dict,
+            random_seed,
+            FLAGS.benchmark,
+            fasta_name=multimer_object.description,
+            models_to_relax=FLAGS.models_to_relax,
+            seqs=multimer_object.input_seqs,
+        )
+        create_and_save_pae_plots(multimer_object, output_path)
 
 
 def predict_multimers(multimers):
