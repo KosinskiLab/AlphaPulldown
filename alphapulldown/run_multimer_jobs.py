@@ -346,21 +346,16 @@ def predict_individual_jobs(multimer_object, output_path, model_runners, random_
         assert FLAGS.crosslinks is not None
         assert FLAGS.alphalink_weight is not None
         from unifold.alphalink_inference import alphalink_prediction
-        from unifold.dataset import process_ap
+        
         from unifold.config import model_config
         logging.info(f"Start using AlphaLink weights and cross-link information")  
         MODEL_NAME = 'model_5_ptm_af2'
         configs = model_config(MODEL_NAME)
-        processed_features,_ = process_ap(config=configs.data,
-                                          features=multimer_object.feature_dict,
-                                          mode="predict",labels=None,
-                                          seed=42,batch_idx=None,
-                                          data_idx=None,is_distillation=False,
-                                          chain_id_map = multimer_object.chain_id_map,
-                                          crosslinks = FLAGS.crosslinks
-                                          )     
-        alphalink_prediction(processed_features,os.path.join(FLAGS.output_path,multimer_object.description),
-                             param_path = FLAGS.alphalink_weight)
+        alphalink_prediction(multimer_object.feature_dict,
+                             os.path.join(FLAGS.output_path,multimer_object.description),
+                             param_path = FLAGS.alphalink_weight,
+                             configs = configs,crosslinks=FLAGS.crosslinks,
+                             chain_id_map=multimer_object.chain_id_map)
     else:
         predict(
             model_runners,
