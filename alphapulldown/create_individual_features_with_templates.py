@@ -3,9 +3,8 @@
 # create_individual_features using custom multimeric templates
 #
 
-from alphafold import run_alphafold as run_af
 from alphapulldown.objects import MonomericObject
-from alphapulldown.utils import create_uniprot_runner
+from alphapulldown.utils import create_uniprot_runner, get_flags_from_af
 from alphapulldown.create_custom_template_db import create_db
 from alphafold.data.pipeline import DataPipeline
 from alphafold.data.tools import hmmsearch
@@ -19,7 +18,7 @@ import csv
 from create_individual_features import create_and_save_monomer_objects, iter_seqs
 
 
-flags = run_af.flags
+flags = get_flags_from_af()
 
 flags.DEFINE_integer("job_index", None, "index of job in the description file, starting from 1")
 
