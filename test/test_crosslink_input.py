@@ -7,7 +7,7 @@ import torch
 class TestCreateObjects(unittest.TestCase):
     def setUp(self) -> None:
         self.crosslink_info ="./test/test_data/test_xl_input.pkl.gz"
-        self.asym_id = [1]*10 + [2]*25 + [3]*40
+        self.asym_id = torch.tensor([1]*10 + [2]*25 + [3]*40)
         self.chain_id_map = {
             "A":_FastaChain(sequence='',description='chain1'),
             "B":_FastaChain(sequence='',description='chain2'),
