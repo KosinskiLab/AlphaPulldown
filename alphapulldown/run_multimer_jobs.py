@@ -343,7 +343,6 @@ def predict_individual_jobs(multimer_object, output_path, model_runners, random_
         unifold_predict(model_runner,general_args,processed_features)
 
     elif FLAGS.use_alphalink:
-        assert FLAGS.crosslinks is not None
         assert FLAGS.alphalink_weight is not None
         from unifold.alphalink_inference import alphalink_prediction
         
