@@ -5,26 +5,25 @@ import alphapulldown.create_individual_features_with_templates as run_features_g
 import pickle
 import  numpy as np
 from alphapulldown.remove_clashes_low_plddt import extract_seqs
+import tempfile
+import shutil
 
 
 class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
 
     def setUp(self):
         super().setUp()
-        self.TEST_DATA_DIR = Path(__file__).parent / "test_data" / "true_multimer"
-        # Create necessary directories if they don't exist
+        self.temp_dir = tempfile.TemporaryDirectory()  # Create a temporary directory
+        self.TEST_DATA_DIR = Path(self.temp_dir.name)  # Use the temporary directory as the test data directory
+        # Copy test data files to the temporary directory
+        original_test_data_dir = Path(__file__).parent / "test_data" / "true_multimer"
+        shutil.copytree(original_test_data_dir, self.TEST_DATA_DIR, dirs_exist_ok=True)
+        # Create necessary directories
         (self.TEST_DATA_DIR / 'features').mkdir(parents=True, exist_ok=True)
         (self.TEST_DATA_DIR / 'templates').mkdir(parents=True, exist_ok=True)
 
     def tearDown(self):
-        # Clean up any files or directories created during testing
-        sto_files = list((self.TEST_DATA_DIR / 'features').glob('*/pdb_hits.sto'))
-        for sto_file in sto_files:
-            if sto_file.exists():
-                sto_file.unlink()
-        desc_file = self.TEST_DATA_DIR / 'description.csv'
-        if desc_file.exists():
-            desc_file.unlink()
+        self.temp_dir.cleanup()  # Clean up the temporary directory
 
     def run_features_generation(self, file_name, chain_id, file_extension):
         # Ensure directories exist
