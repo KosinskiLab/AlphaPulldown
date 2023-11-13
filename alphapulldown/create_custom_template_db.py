@@ -15,9 +15,8 @@ import string
 from pathlib import Path
 from absl import logging, flags, app
 from alphapulldown.remove_clashes_low_plddt import MmcifChainFiltered
-from colabfold.batch import validate_and_fix_mmcif, convert_pdb_to_mmcif
+from colabfold.batch import validate_and_fix_mmcif
 from alphafold.common.protein import _from_bio_structure, to_mmcif
-from Bio import SeqIO
 
 FLAGS = flags.FLAGS
 
@@ -92,40 +91,6 @@ def create_tree(pdb_mmcif_dir, mmcif_dir, seqres_dir, templates_dir):
     create_dir_and_remove_files(seqres_dir, ['pdb_seqres.txt'])
 
 
-def extract_seqs(template, chain_id):
-    """
-    Extract sequences from PDB/CIF file using Bio.SeqIO.
-    o input_file_path - path to the input file
-    o chain_id - chain ID
-    Returns:
-        o sequence_atom - sequence from ATOM records
-        o sequence_seqres - sequence from SEQRES records
-    """
-    file_type = template.suffix.lower()
-
-    if template.suffix.lower() != '.pdb' and template.suffix.lower() != '.cif':
-        raise ValueError(f"Unknown file type for {template}!")
-
-    format_types = [f"{file_type[1:]}-atom", f"{file_type[1:]}-seqres"]
-    # initialize the sequences
-    sequence_atom = None
-    sequence_seqres = None
-    # parse
-    for format_type in format_types:
-        for record in SeqIO.parse(template, format_type):
-            chain = record.annotations['chain']
-            if chain == chain_id:
-                if format_type.endswith('atom'):
-                    sequence_atom = str(record.seq)
-                elif format_type.endswith('seqres'):
-                    sequence_seqres = str(record.seq)
-    if sequence_atom is None:
-        logging.error(f"No atom sequence found for chain {chain_id}")
-    if sequence_seqres is None:
-        logging.warning(f"No SEQRES sequence found for chain {chain_id}")
-    return sequence_atom, sequence_seqres
-
-
 def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, plddt_threshold):
     """
     Main function that creates a custom template database for AlphaFold2
@@ -155,26 +120,13 @@ def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, pldd
         shutil.copyfile(template, new_template)
         template = new_template
         logging.info(f"Processing template: {template}  Chain {chain_id}")
-        logging.info("Parsing SEQRES...")
-        atom_seq, seqres_seq = None, None
-        if template.suffix == '.pdb':
-            atom_seq, seqres_seq = extract_seqs(template, chain_id)
-            logging.info(f"Converting to mmCIF: {template}")
-            template = Path(template)
-            convert_pdb_to_mmcif(template)
-            template = template.parent.joinpath(f"{template.stem}.cif")
         # Convert to (our) mmcif object
         mmcif_obj = MmcifChainFiltered(template, code, chain_id)
-        # Parse SEQRES
+        # full sequence is either SEQRES or parsed from (original) ATOMs
         if mmcif_obj.sequence_seqres:
             seqres = mmcif_obj.sequence_seqres
         else:
             seqres = mmcif_obj.sequence_atom
-        # if we converted from pdb, seqres is parsed from Bio.SeqIO
-        if seqres_seq or atom_seq:
-            seqres = seqres_seq
-            if seqres is None:
-                seqres = atom_seq
         sqrres_path = save_seqres(code, chain_id, seqres, seqres_dir)
         logging.info(f"SEQRES saved to {sqrres_path}!")
         # Remove clashes and low pLDDT regions for each template

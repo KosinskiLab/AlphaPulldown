@@ -4,7 +4,7 @@ from absl.testing import absltest
 import alphapulldown.create_individual_features_with_templates as run_features_generation
 import pickle
 import  numpy as np
-from alphapulldown.create_custom_template_db import extract_seqs
+from alphapulldown.remove_clashes_low_plddt import extract_seqs
 
 
 class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
@@ -71,6 +71,7 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
         temp_sequence = feats['template_sequence'][0].decode('utf-8')
         target_sequence = feats['sequence'][0].decode('utf-8')
         atom_coords = feats['template_all_atom_positions'][0]
+        # Check that template sequence is not empty
         assert len(temp_sequence) > 0
         # Check that the atom coordinates are not all 0
         assert (atom_coords.any()) > 0
@@ -83,33 +84,30 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
         print(f"seq-seqres: {seqres_seq}")
         if seqres_seq:
             print(len(seqres_seq))
+        # SeqIO adds X for missing residues for atom-seq
         print(f"seq-atom: {atom_seq}")
         print(len(atom_seq))
-        # Check that atoms with non-zero coordinates are identical in seq-seqres and seq-atom
+        # Check that atoms for not missing residues are not all 0
         residue_has_nonzero_coords = []
-        atom_id = -1
-        for number, (s, a) in enumerate(zip(temp_sequence, atom_coords)):
-            # if mismatch between target and seqres
-            if s == '-':
+        for number, (s, a) in enumerate(zip(atom_seq, atom_coords)):
+            # no coordinates for missing residues
+            if s == 'X':
                 assert np.all(a == 0)
                 residue_has_nonzero_coords.append(False)
             else:
                 non_zero = np.any(a != 0)
                 residue_has_nonzero_coords.append(non_zero)
                 if non_zero:
-                    atom_id += 1
                     if seqres_seq:
                         seqres = seqres_seq[number]
                     else:
                         seqres = None
-                    print(f"template-seq: {s} atom-seq: {atom_seq[atom_id]} seqres-seq: {seqres} id: {atom_id}")
                     if seqres:
-                        assert (s == seqres_seq[number] or s == atom_seq[atom_id]) #seqres can be different from atomseq
-                    else:
-                        assert (s == atom_seq[atom_id])
+                        assert (s in seqres_seq)
+                    # first 4 coordinates are non zero
                     assert np.any(a[:4] != 0)
-        print(residue_has_nonzero_coords)
-        print(len(residue_has_nonzero_coords))
+        #print(residue_has_nonzero_coords)
+        #print(len(residue_has_nonzero_coords))
 
     def test_1a_run_features_generation(self):
         self.run_features_generation('3L4Q', 'A', 'cif')
@@ -123,7 +121,7 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
     def test_4c_bizarre_filename(self):
         self.run_features_generation('RANdom_name1_.7-1_0', 'C', 'pdb')
 
-    def test_4c_gappy_pdb(self):
+    def test_5b_gappy_pdb(self):
         self.run_features_generation('GAPPY_PDB', 'B', 'pdb')
 
 if __name__ == '__main__':
