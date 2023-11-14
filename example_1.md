@@ -171,6 +171,8 @@ run_multimer_jobs.py --mode=pulldown \
 
 :memo: To reproduce the results of Lassa virus Z protein vs L protein fragments written in our paper, simply use [baits_Z_protein.txt](./example_data/baits_Z_protein.txt) and [L_protein_fragments.txt](./example_data/L_protein_fragments.txt) as the ```--protein_lists```inputs. This example shows also how to run the interaction screen for fragments of proteins, keeping the original full-length residue numbering in the output!
 
+✨ **New Features** Now AlphaPulldown supports integrative structural modelling if the user has experimental cross-link data. Please refer to [this manual](run_with_AlphaLink2.md) if you'd like to model your protein complexes with cross-link MS data as extra input.
+
 ## Explanation about the parameters
 
 ####  **```monomer_objects_dir```**
