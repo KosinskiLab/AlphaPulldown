@@ -40,7 +40,9 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
 
         # Generate description.csv
         with open(f"{self.TEST_DATA_DIR}/description.csv", 'w') as desc_file:
-            desc_file.write(f"{file_name}_{chain_id}.fasta, {file_name}.{file_extension}, {chain_id}\n")
+            desc_file.write(f">{file_name}_{chain_id}, {file_name}.{file_extension}, {chain_id}\n")
+
+        assert Path(f"{self.TEST_DATA_DIR}/fastas/{file_name}_{chain_id}.fasta").exists()
 
         # Prepare the command and arguments
         cmd = [
@@ -54,7 +56,7 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
             '--threshold_clashes', '1000',
             '--hb_allowance', '0.4',
             '--plddt_threshold', '0',
-            '--path_to_fasta', f"{self.TEST_DATA_DIR}/fastas",
+            '--fasta_paths', f"{self.TEST_DATA_DIR}/fastas/{file_name}_{chain_id}.fasta",
             '--path_to_mmt', f"{self.TEST_DATA_DIR}/templates",
             '--description_file', f"{self.TEST_DATA_DIR}/description.csv",
             '--output_dir', f"{self.TEST_DATA_DIR}/features",
@@ -122,6 +124,48 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
 
     def test_5b_gappy_pdb(self):
         self.run_features_generation('GAPPY_PDB', 'B', 'pdb')
+
+    def test_6a_mmseqs2(self):
+        file_name = '3L4Q'
+        chain_id = 'A'
+        file_extension = 'cif'
+        # Ensure directories exist
+        (self.TEST_DATA_DIR / 'features').mkdir(parents=True, exist_ok=True)
+        (self.TEST_DATA_DIR / 'templates').mkdir(parents=True, exist_ok=True)
+        # Remove existing files (should be done by tearDown, but just in case)
+        pkl_path = self.TEST_DATA_DIR / 'features' / f'{file_name}_{chain_id}.pkl'
+        a3m_path = self.TEST_DATA_DIR / 'features' / f'{file_name}_{chain_id}.a3m'
+        template_path = self.TEST_DATA_DIR / 'templates' / f'{file_name}.{file_extension}'
+        if pkl_path.exists():
+            pkl_path.unlink()
+        if a3m_path.exists():
+            a3m_path.unlink()
+
+        # Generate description.csv
+        with open(f"{self.TEST_DATA_DIR}/description.csv", 'w') as desc_file:
+            desc_file.write(f">{file_name}_{chain_id}, {file_name}.{file_extension}, {chain_id}\n")
+
+        # Prepare the command and arguments
+        cmd = [
+            'python',
+            run_features_generation.__file__,
+            '--skip_existing', 'False',
+            '--data_dir', '/scratch/AlphaFold_DBs/2.3.2',
+            '--max_template_date', '3021-01-01',
+            '--threshold_clashes', '1000',
+            '--hb_allowance', '0.4',
+            '--plddt_threshold', '0',
+            '--fasta_paths', f"{self.TEST_DATA_DIR}/fastas/{file_name}_{chain_id}.fasta",
+            '--path_to_mmt', f"{self.TEST_DATA_DIR}/templates",
+            '--description_file', f"{self.TEST_DATA_DIR}/description.csv",
+            '--output_dir', f"{self.TEST_DATA_DIR}/features",
+            '--use_mmseqs2', 'True',
+        ]
+        print(" ".join(cmd))
+        # Check the output
+        subprocess.run(cmd, check=True)
+        assert pkl_path.exists()
+        assert a3m_path.exists()
 
 if __name__ == '__main__':
     absltest.main()

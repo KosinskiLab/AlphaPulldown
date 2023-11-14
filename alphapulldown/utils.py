@@ -510,6 +510,15 @@ def save_meta_data(flag_dict, outfile):
         json.dump(metadata, f, indent=2)
 
 
+def convert_fasta_description_to_protein_name(line):
+    line = line.replace(" ", "_")
+    unwanted_symbols = ["|", "=", "&", "*", "@", "#", "`", ":", ";", "$", "?"]
+    for symbol in unwanted_symbols:
+        if symbol in line:
+            line = line.replace(symbol, "_")[1:]
+    return line[1:]  # Remove the '>' at the beginning.
+
+
 def parse_fasta(fasta_string: str):
     """Parses FASTA string and returns list of strings with amino-acid sequences.
 
@@ -534,12 +543,7 @@ def parse_fasta(fasta_string: str):
         line = line.strip()
         if line.startswith(">"):
             index += 1
-            line = line.replace(" ", "_")
-            unwanted_symbols = ["|", "=", "&", "*", "@", "#", "`", ":", ";", "$", "?"]
-            for symbol in unwanted_symbols:
-                if symbol in line:
-                    line = line.replace(symbol, "_")
-            descriptions.append(line[1:])  # Remove the '>' at the beginning.
+            descriptions.append(convert_fasta_description_to_protein_name(line))
             sequences.append("")
             continue
         elif not line:
