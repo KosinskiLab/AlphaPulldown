@@ -18,17 +18,15 @@
 1. Test your package during development using tests in ```test/```, e.g.:
    ```
    pip install pytest
-   pytest
-   pytest test
-   python test/test_predict_structure.py
-   sbatch test/test_predict_structure.sh
-   python -m unittest test/test_predict_structure.<name of the test>
+   pytest -s test/
+   pytest -s test/test_predictions_slurm.py
+   pytest -s test/test_features_with_templates.py::TestCreateIndividualFeaturesWithTemplates::test_1a_run_features_generation
    ```
 1. Before pushing to the remote or submitting pull request
     ```
     pip install .
-    pytest test
+    pytest -s test/
     ```
-    to install the package and test
+    to install the package and test. Pytest for predictions only work if slurm is available. Check the created log files in your current directory.
     
     

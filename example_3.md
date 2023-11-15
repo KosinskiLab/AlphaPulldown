@@ -7,21 +7,22 @@ This complex can not be modeled with vanilla AlphaFold Multimer, since it is a h
 Firstly, download sequences of NS1(Uniprot: [P03496](https://www.uniprot.org/uniprotkb/P03496/entry)) and P85B(uniprot:[P23726](https://www.uniprot.org/uniprotkb/P23726/entry)) proteins.
 Then download the multimeric template in either pdb or mmCIF format(PDB: [3L4Q](https://www.rcsb.org/structure/3L4Q)).
 Create directories named "fastas" and "templates" and put the sequences and pdb/cif files in the corresponding directories.
-Finally, create a text file with features description (description.csv):
+Finally, create a text file with description for generating features (description.csv).
+**Please note**, the first column must be an exact copy of the protein description from your fasta files. Please consider shortening them in your favorite text editor for convenience. These names will be used to generate pickle files with monomeric features!
+The description.csv for the NS1-P85B complex should look like:
 ```
-P03496.fasta, 3L4Q.cif, A
-P23726.fasta, 3L4Q.cif, C
+>sp|P03496|NS1_I34A1, 3L4Q.cif, A
+>sp|P23726|P85B_BOVIN, 3L4Q.cif, C
 ```
 In this example we refer to the NS1 protein as chain A and to the P85B protein as chain C in multimeric template 3L4Q.cif.
 
-**Please note**, that your template will be renamed to a PDB code taken from *_entry_id*. If you use a *.pdb file instead of *.cif, AlphaPulldown will first try to parse the PDB code from the file. Then it will check if the filename is 4-letter long. If it is not, it will generate a random 4-letter code and use it instead.
-*Please also note, that currently --use_mmseqs2 flag is not supported for this mode.*
+**Please note**, that your template will be renamed to a PDB code taken from *_entry_id*. If you use a *.pdb file instead of *.cif, AlphaPulldown will first try to parse the PDB code from the file. Then it will check if the filename is 4-letter long. If it is not, it will generate a random 4-letter code and use it as the PDB code.
 
 Now run:
 ```bash
   create_individual_features_with_templates.py \
     --description_file=description.csv \
-    --path_to_fasta=fastas/ \
+    --fasta_paths=fastas/P03496.fasta,fastas/P23726.fasta \
     --path_to_mmt=templates/ \
     --data_dir=<path to alphafold databases> \
     --save_msa_files=False \
@@ -30,7 +31,7 @@ Now run:
     --max_template_date=2050-01-01 \
     --skip_existing=False --seq_index=<any number you want>
 ```
-
+It is also possible to combine all your fasta files into a single fasta file.
 ```create_individual_features_with_templates.py``` will compute the features similarly to the create_individual_features.py, but will utilize the provided templates instead of the PDB database.
  
  ------------------------
