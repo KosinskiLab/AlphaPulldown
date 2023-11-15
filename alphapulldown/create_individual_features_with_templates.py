@@ -4,9 +4,8 @@
 #
 
 from alphapulldown.objects import MonomericObject
-from alphapulldown.utils import parse_fasta, save_meta_data, create_uniprot_runner
+from alphapulldown.utils import create_uniprot_runner, get_flags_from_af, convert_fasta_description_to_protein_name
 from alphapulldown.create_custom_template_db import create_db
-import alphafold
 from alphafold.data.pipeline import DataPipeline
 from alphafold.data.tools import hmmsearch
 from alphafold.data import templates
@@ -16,25 +15,14 @@ import sys
 from pathlib import Path
 import tempfile
 import csv
-from create_individual_features import load_module, create_and_save_monomer_objects, iter_seqs
+from create_individual_features import create_and_save_monomer_objects, iter_seqs
 
 
-PATH_TO_RUN_ALPHAFOLD = os.path.join(os.path.dirname(alphafold.__file__), "run_alphafold.py")
-
-try:
-    run_af = load_module(PATH_TO_RUN_ALPHAFOLD, "run_alphafold")
-except FileNotFoundError:
-    PATH_TO_RUN_ALPHAFOLD = os.path.join(os.path.dirname(os.path.dirname(alphafold.__file__)), "run_alphafold.py")
-    run_af = load_module(PATH_TO_RUN_ALPHAFOLD, "run_alphafold")
-
-
-flags = run_af.flags
+flags = get_flags_from_af()
 
 flags.DEFINE_integer("job_index", None, "index of job in the description file, starting from 1")
 
 flags.DEFINE_string("description_file", None, "Path to the text file with descriptions")
-
-flags.DEFINE_string("path_to_fasta", None, "Path to directory with fasta files")
 
 flags.DEFINE_string("path_to_mmt", None, "Path to directory with multimeric template mmCIF files")
 
@@ -55,7 +43,7 @@ def create_arguments(flags_dict, feat, temp_dir=None):
     """Create arguments for alphafold.run()"""
     global use_small_bfd
 
-    fasta = Path(feat["fasta"]).stem
+    protein = feat["protein"]
     templates, chains = feat["templates"], feat["chains"]
 
     # Path to the Uniref30 database for use by HHblits.
@@ -99,7 +87,7 @@ def create_arguments(flags_dict, feat, temp_dir=None):
     hb_allowance = FLAGS.hb_allowance
     plddt_threshold = FLAGS.plddt_threshold
     #local_path_to_custom_template_db = Path(".") / "custom_template_db" / fasta # DEBUG
-    local_path_to_custom_template_db = Path(temp_dir.name) / "custom_template_db" / fasta
+    local_path_to_custom_template_db = Path(temp_dir.name) / "custom_template_db" / protein
     logging.info(f"Path to local database: {local_path_to_custom_template_db}")
     create_db(local_path_to_custom_template_db, templates, chains, threashold_clashes, hb_allowance, plddt_threshold)
     FLAGS.pdb_seqres_database_path = os.path.join(local_path_to_custom_template_db, "pdb_seqres", "pdb_seqres.txt")
@@ -115,17 +103,29 @@ def create_arguments(flags_dict, feat, temp_dir=None):
     flags_dict.update({"use_small_bfd": use_small_bfd})
 
 
-def parse_txt_file(csv_path, fasta_dir, mmt_dir):
+def parse_csv_file(csv_path, fasta_paths, mmt_dir):
     """
     o csv_path: Path to the text file with descriptions
-        features.csv: A coma-separated file with three columns: FASTA file, PDB file, chain ID.
-    o fasta_dir: Path to directory with fasta files
+        features.csv: A coma-separated file with three columns: PROTEIN name, PDB/CIF template, chain ID.
+    o fasta_paths: path to fasta file(s)
     o mmt_dir: Path to directory with multimeric template mmCIF files
 
     Returns:
         a list of dictionaries with the following structure:
-    [{"fasta": fasta_file, "templates": [pdb_files], "chains": [chain_id]}, ...]
+    [{"protein": protein_name, "templates": [pdb_files], "chains": [chain_id]}, ...]
     """
+    protein_names = []
+    # Check that fasta files exist
+    for fasta_path in fasta_paths:
+        logging.info(f"Parsing {fasta_path}...")
+        if not os.path.isfile(fasta_path):
+            raise FileNotFoundError(f"Fasta file {fasta_path} does not exist. Please check your input file.")
+    # Parse all protein names from fasta files
+    for curr_seq, curr_desc in iter_seqs(fasta_paths):
+        protein_names.append(curr_desc)
+
+    protein_names = set(protein_names)
+    # Parse csv file
     parsed_dict = {}
     with open(csv_path, newline="") as csvfile:
         csvreader = csv.reader(csvfile)
@@ -134,15 +134,20 @@ def parse_txt_file(csv_path, fasta_dir, mmt_dir):
             if not row:
                 continue
             if len(row) == 3:
-                fasta, template, chain = [item.strip() for item in row]
-                if fasta not in parsed_dict:
-                    parsed_dict[fasta] = {
-                        "fasta": os.path.join(fasta_dir, fasta),
+                protein, template, chain = [item.strip() for item in row]
+                # Remove special symbols from protein name
+                protein = convert_fasta_description_to_protein_name(protein)
+                if protein not in protein_names:
+                    raise Exception(f"Protein {protein} from description.csv is not found in the fasta file(s)."
+                                    f"List of proteins in fasta file(s): {protein_names}")
+                if protein not in parsed_dict:
+                    parsed_dict[protein] = {
+                        "protein": protein,
                         "templates": [],
                         "chains": [],
                     }
-                parsed_dict[fasta]["templates"].append(os.path.join(mmt_dir, template))
-                parsed_dict[fasta]["chains"].append(chain)
+                parsed_dict[protein]["templates"].append(os.path.join(mmt_dir, template))
+                parsed_dict[protein]["chains"].append(chain)
             else:
                 logging.error(f"Invalid line found in the file {csv_path}: {row}")
                 sys.exit()
@@ -185,22 +190,20 @@ def main(argv):
         logging.info("Multiple processes are trying to create the same folder now.")
 
     flags_dict = FLAGS.flag_values_dict()
-    feats = parse_txt_file(FLAGS.description_file, FLAGS.path_to_fasta, FLAGS.path_to_mmt)
+    fasta_paths = flags_dict["fasta_paths"]
+    feats = parse_csv_file(FLAGS.description_file, fasta_paths, FLAGS.path_to_mmt)
     logging.info(f"job_index: {FLAGS.job_index} feats: {feats}")
     for idx, feat in enumerate(feats, 1):
         temp_dir = (tempfile.TemporaryDirectory())  # for each fasta file, create a temp dir
         if (FLAGS.job_index is None) or (FLAGS.job_index == idx):
-            if not os.path.isfile(feat["fasta"]):
-                logging.error(f"Fasta file {feat['fasta']} does not exist. Please check your input file.")
-                sys.exit()
             for temp in feat["templates"]:
                 if not os.path.isfile:
                     logging.error(f"Template file {temp} does not exist. Please check your input file.")
                     sys.exit()
-            logging.info(f"Processing {feat['fasta']}: templates: {feat['templates']} chains: {feat['chains']}")
+            logging.info(f"Processing {feat['protein']}: templates: {feat['templates']} chains: {feat['chains']}")
             create_arguments(flags_dict, feat, temp_dir)
             # Update flags_dict to store data about templates
-            flags_dict.update({f"fasta_path_{idx}": feat['fasta']})
+            flags_dict.update({f"protein_{idx}": feat['protein']})
             flags_dict.update({f"multimeric_templates_{idx}": feat['templates']})
             flags_dict.update({f"multimeric_chains_{idx}": feat['chains']})
 
@@ -220,12 +223,11 @@ def main(argv):
                             "Please make sure your data_dir has been configured correctly."
                         )
                         sys.exit()
-            # If we are using mmseqs2, we don't need to create a pipeline
             else:
-                pipeline = None
+                pipeline = create_pipeline()
                 uniprot_runner = None
                 flags_dict = FLAGS.flag_values_dict()
-            for curr_seq, curr_desc in iter_seqs([feat["fasta"]]):
+            for curr_seq, curr_desc in iter_seqs(FLAGS.fasta_paths):
                 if curr_desc and not curr_desc.isspace():
                     curr_monomer = MonomericObject(curr_desc, curr_seq)
                     curr_monomer.uniprot_runner = uniprot_runner
@@ -242,7 +244,7 @@ if __name__ == "__main__":
     flags.mark_flags_as_required(
         [
             "description_file",
-            "path_to_fasta",
+            "fasta_paths",
             "path_to_mmt",
             "output_dir",
             "max_template_date",

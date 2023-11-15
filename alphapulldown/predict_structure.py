@@ -12,9 +12,7 @@ from alphafold.common import protein
 from alphafold.common import residue_constants
 from alphafold.relax import relax
 import numpy as np
-from alphapulldown.utils import get_run_alphafold
-
-run_af = get_run_alphafold()
+from alphafold import run_alphafold as run_af
 
 RELAX_MAX_ITERATIONS = run_af.RELAX_MAX_ITERATIONS
 RELAX_ENERGY_TOLERANCE = run_af.RELAX_ENERGY_TOLERANCE

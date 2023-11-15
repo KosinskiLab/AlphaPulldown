@@ -3,30 +3,36 @@
 # Aims: Model activation of phosphoinositide 3-kinase by the influenza A virus NS1 protein (PDB: 3L4Q)
 ## 1st step: compute multiple sequence alignment (MSA) and template features using provided pbd templates (run on CPU)
 
-his complex can not be modeled with vanilla AlphaFold Multimer, since it is a host-pathogen interaction.
-Firstly, download sequences of NS1(Uniprot: [P03496](https://www.uniprot.org/uniprotkb/P03496/entry)) andP85B(uniprot:[P23726](https://www.uniprot.org/uniprotkb/P23726/entry)) proteins.
+This complex can not be modeled with vanilla AlphaFold Multimer, since it is a host-pathogen interaction.
+Firstly, download sequences of NS1(Uniprot: [P03496](https://www.uniprot.org/uniprotkb/P03496/entry)) and P85B(uniprot:[P23726](https://www.uniprot.org/uniprotkb/P23726/entry)) proteins.
 Then download the multimeric template in either pdb or mmCIF format(PDB: [3L4Q](https://www.rcsb.org/structure/3L4Q)).
 Create directories named "fastas" and "templates" and put the sequences and pdb/cif files in the corresponding directories.
-Finally, create a text file with features description (description.csv):
+Finally, create a text file with description for generating features (description.csv).
+
+**Please note**, the first column must be an exact copy of the protein description from your fasta files. Please consider shortening them in fasta files using your favorite text editor for convenience. These names will be used to generate pickle files with monomeric features!
+The description.csv for the NS1-P85B complex should look like:
 ```
-3L4Q_A.fasta, 3L4Q.cif, A
-3L4Q_C.fasta, 3L4Q.cif, C
+>sp|P03496|NS1_I34A1, 3L4Q.cif, A
+>sp|P23726|P85B_BOVIN, 3L4Q.cif, C
 ```
+In this example we refer to the NS1 protein as chain A and to the P85B protein as chain C in multimeric template 3L4Q.cif.
+
+**Please note**, that your template will be renamed to a PDB code taken from *_entry_id*. If you use a *.pdb file instead of *.cif, AlphaPulldown will first try to parse the PDB code from the file. Then it will check if the filename is 4-letter long. If it is not, it will generate a random 4-letter code and use it as the PDB code.
 
 Now run:
 ```bash
   create_individual_features_with_templates.py \
     --description_file=description.csv \
-    --path_to_fasta=fastas/ \
+    --fasta_paths=fastas/P03496.fasta,fastas/P23726.fasta \
     --path_to_mmt=templates/ \
-    --data_dir=<path to alphafold databases> \
-    --save_msa_files=False \
-    --output_dir=<dir to save the output objects> \ 
-    --use_precomputed_msas=False \
+    --data_dir=/scratch/AlphaFold_DBs/2.3.2/ \
+    --save_msa_files=True \
+    --output_dir=features\ 
+    --use_precomputed_msas=True \
     --max_template_date=2050-01-01 \
-    --skip_existing=False --seq_index=<any number you want>
+    --skip_existing=True
 ```
-
+It is also possible to combine all your fasta files into a single fasta file.
 ```create_individual_features_with_templates.py``` will compute the features similarly to the create_individual_features.py, but will utilize the provided templates instead of the PDB database.
  
  ------------------------
@@ -55,14 +61,55 @@ run_multimer_jobs.py \
   --multimeric_mode=True \
   --msa_depth=<any number you want> \
   --gradient_msa_depth=<True or False, overwrites msa_depth if provided> \
-  --model_names=<coma separated names of the models>
-  --job_index=<any number you want>
+  --model_names=<coma separated names of the models> \
+  --job_index=<corresponds to the string number from custom_mode.txt, don't provide for sequential execution>
 ```
 
 
 ### Running on a computer cluster in parallel
 
-On a compute cluster, you may want to run all jobs in parallel as a [job array](https://slurm.schedmd.com/job_array.html). For example, on SLURM queuing system at EMBL we could use the following ```run_multimer_jobs_SLURM.sh``` sbatch script:
+On a compute cluster, you may want to run all jobs in parallel as a [job array](https://slurm.schedmd.com/job_array.html). For example, on SLURM queuing system at EMBL we could use the following ```create_feature_jobs_SLURM.sh``` sbatch script:
+```bash
+#!/bin/bash
+
+#A typical run takes couple of hours but may be much longer
+#SBATCH --job-name=array
+#SBATCH --time=5:00:00
+
+#log files:
+#SBATCH -e logs/create_individual_features_%A_%a_err.txt
+#SBATCH -o logs/create_individual_features_%A_%a_out.txt
+
+#qos sets priority
+#SBATCH --qos=normal
+
+#SBATCH -p htc-el8
+#Limit the run to a single node
+#SBATCH -N 1
+
+#Adjust this depending on the node
+#SBATCH --ntasks=8
+#SBATCH --mem=32000
+
+module load HMMER/3.3.2-gompic-2020b
+module load HH-suite/3.3.0-gompic-2020b
+module load Anaconda3
+source activate AlphaPulldown
+
+  create_individual_features_with_templates.py \
+    --description_file=description.csv \
+    --fasta_paths=fastas/P03496.fasta,fastas/P23726.fasta \
+    --path_to_mmt=templates/ \
+    --data_dir=/scratch/AlphaFold_DBs/2.3.2/ \
+    --save_msa_files=True \
+    --output_dir=features \ 
+    --use_precomputed_msas=True \
+    --max_template_date=2050-01-01 \
+    --skip_existing=True \
+    --job_index=$SLURM_ARRAY_TASK_ID
+```
+
+and the following ```run_multimer_jobs_SLURM.sh``` sbatch script:
 
 ```bash
 #!/bin/bash
@@ -76,11 +123,9 @@ On a compute cluster, you may want to run all jobs in parallel as a [job array](
 #SBATCH -o logs/run_multimer_jobs_%A_%a_out.txt
 
 #qos sets priority
-#SBATCH --qos=low
+#SBATCH --qos=normal
 
 #SBATCH -p gpu-el8
-#You might want to use a higher-end card in case higher oligomeric state get big:
-#SBATCH -C "gpu=A40|gpu=A100"
 
 #Reserve the entire GPU so no-one else slows you down
 #SBATCH --gres=gpu:1
@@ -90,7 +135,7 @@ On a compute cluster, you may want to run all jobs in parallel as a [job array](
 
 #Adjust this depending on the node
 #SBATCH --ntasks=8
-#SBATCH --mem=128000
+#SBATCH --mem=64000
 
 module load Anaconda3 
 module load CUDA/11.3.1
@@ -120,7 +165,9 @@ and then run using:
 
 ```
 mkdir -p logs
-count=`grep -c "" custom_mode.txt` #count lines even if the last one has no end of line
+count=`grep -c "" description.csv` #count lines even if the last one has no end of line
+sbatch --array=1-$count create_feature_jobs_SLURM.sh
+count=`grep -c "" custom_mode.txt` #likewise for predictions
 sbatch --array=1-$count run_multimer_jobs_SLURM.sh
 ```
 After the successful run one can evaluate and visualise the results in a usual manner (see e.g. [Example 2](https://github.com/KosinskiLab/AlphaPulldown/blob/main/example_2.md#3rd-step-evalutaion-and-visualisation))

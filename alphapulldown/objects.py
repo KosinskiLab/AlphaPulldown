@@ -6,7 +6,6 @@ import logging
 import tempfile
 import os
 import contextlib
-from tracemalloc import start
 import numpy as np
 from alphafold.data import parsers
 from alphafold.data import pipeline_multimer
@@ -16,8 +15,7 @@ from alphafold.data import feature_processing
 from alphafold.data import templates
 from pathlib import Path as plPath
 from alphafold.data.tools import hhsearch
-from colabfold.batch import get_queries, unserialize_msa, get_msa_and_templates, msa_to_str, build_monomer_feature, \
-    parse_fasta
+from colabfold.batch import unserialize_msa, get_msa_and_templates, msa_to_str, build_monomer_feature
 
 
 @contextlib.contextmanager
@@ -158,38 +156,30 @@ class MonomericObject:
                 )
                 self.feature_dict.update(pairing_results)
 
-    def mk_template(self, a3m_lines, pdb70_database_path, template_mmcif_dir, query_sequence, max_template_date,
-                    obsolete_pdbs_path=None):
+    def mk_template(self, a3m_lines, 
+                    pipeline, query_sequence):
         """
         Overwrite ColabFold's original mk_template to incorporate max_template data argument
-        from the command line input.
+        from the command line input. Use Hmmsearch instead of hhsearch to stay in lign 
+        withe AlphaPulldown's convention and new TrueMultimer updates
         Modified from ColabFold: https://github.com/sokrypton/ColabFold
 
         Args
         template_path should be the same as FLAG.data_dir
         """
-        template_featuriser = templates.HhsearchHitFeaturizer(
-            mmcif_dir=f"{template_mmcif_dir}",
-            max_template_date=max_template_date,
-            max_hits=20,
-            kalign_binary_path="kalign",
-            release_dates_path=None,
-            obsolete_pdbs_path=obsolete_pdbs_path,
-        )
-        hhsearch_pdb70_runner = hhsearch.HHSearch(
-            binary_path="hhsearch", databases=[f"{pdb70_database_path}"]
-        )
-
-        hhsearch_result = hhsearch_pdb70_runner.query(a3m_lines)
-        hhsearch_hits = pipeline.parsers.parse_hhr(hhsearch_result)
+        template_featuriser = pipeline.template_featurizer
+        hmm_build_runner = pipeline.template_searcher.hmmbuild_runner
+        hmm_profile = hmm_build_runner.build_profile_from_a3m(a3m_lines)
+        query_result = hmm_build_runner.query(hmm_profile)
+        template_hits = pipeline.template_searcher.get_template_hits(query_result,query_sequence)
         templates_result = template_featuriser.get_templates(
-            query_sequence=query_sequence, hits=hhsearch_hits
+            query_sequence=query_sequence, hits=template_hits
         )
         return dict(templates_result.features)
 
     def make_mmseq_features(
-            self, DEFAULT_API_SERVER, pdb70_database_path, template_mmcif_dir, max_template_date, output_dir=None,
-            obsolete_pdbs_path=None
+            self, DEFAULT_API_SERVER, 
+            pipeline=None, output_dir=None,
     ):
         """
         A method to use mmseq_remote to calculate msa
@@ -233,9 +223,6 @@ class MonomericObject:
                 query_seqs_cardinality,
                 template_features,
             ) = get_msa_and_templates(
-                a3m_lines = a3m_lines,
-                jobname=self.description,
-                query_sequences=self.sequence,
                 result_dir=plPath(result_dir),
                 msa_mode=msa_mode,
                 use_templates=use_templates,
@@ -251,11 +238,10 @@ class MonomericObject:
         # unserialize_msa was from colabfold.batch and originally will only create mock template features
         # below will search against pdb70 database using hhsearch and create real template features
         logging.info("will search for templates in local template database")
-        template_features = [self.mk_template(a3m_lines[0],
-                                              pdb70_database_path, template_mmcif_dir, query_sequence=self.sequence,
-                                              max_template_date=max_template_date,
-                                              obsolete_pdbs_path=obsolete_pdbs_path)]
-        self.feature_dict = build_monomer_feature(self.sequence, unpaired_msa[0], template_features[0])
+        template_features = self.mk_template(a3m_lines[0],
+                                              pipeline, query_sequence=self.sequence)
+        self.feature_dict = build_monomer_feature(self.sequence, unpaired_msa[0], 
+                                                  template_features)
 
         # update feature_dict with
         valid_feats = msa_pairing.MSA_FEATURES + (

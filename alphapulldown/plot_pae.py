@@ -7,7 +7,6 @@ import matplotlib
 matplotlib.use("agg")
 import matplotlib.pyplot as plt
 import pickle as pkl
-import numpy as np
 
 
 def plot_pae(seqs: list, order, feature_dir, job_name):

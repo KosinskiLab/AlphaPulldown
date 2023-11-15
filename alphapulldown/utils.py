@@ -12,6 +12,7 @@ import os
 import pickle
 import logging
 from alphapulldown.plot_pae import plot_pae
+import alphafold
 from alphafold.model import config
 from alphafold.model import model
 from alphafold.model import data
@@ -21,19 +22,52 @@ import subprocess
 from alphafold.data import parsers
 from pathlib import Path
 import numpy as np
-import importlib
-import alphafold
 import sys
 import datetime
 import re
 import hashlib
 import glob
+import importlib
 
 COMMON_PATTERNS = [
     r"[Vv]ersion\s*(\d+\.\d+(?:\.\d+)?)",  # version 1.0 or version 1.0.0
     r"\b(\d+\.\d+(?:\.\d+)?)\b"  # just the version number 1.0 or 1.0.0
 ]
 BFD_HASH_HHM_FFINDEX = "799f308b20627088129847709f1abed6"
+
+DB_NAME_TO_URL = {
+    'UniRef90' : ["ftp://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref90/uniref90.fasta.gz"],
+    'UniRef30' : ["https://storage.googleapis.com/alphafold-databases/v2.3/UniRef30_{release_date}.tar.gz"],
+    'MGnify' : ["https://storage.googleapis.com/alphafold-databases/v2.3/mgy_clusters_{release_date}.fa.gz"],
+    'BFD' : ["https://storage.googleapis.com/alphafold-databases/casp14_versions/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt.tar.gz"],
+    'Reduced BFD' : ["https://storage.googleapis.com/alphafold-databases/reduced_dbs/bfd-first_non_consensus_sequences.fasta.gz"],
+    'PDB70' : ["http://wwwuser.gwdg.de/~compbiol/data/hhsuite/databases/hhsuite_dbs/old-releases/pdb70_from_mmcif_200401.tar.gz"],
+    'UniProt' : [
+        "ftp://ftp.ebi.ac.uk/pub/databases/uniprot/current_release/knowledgebase/complete/uniprot_trembl.fasta.gz",
+        "ftp://ftp.ebi.ac.uk/pub/databases/uniprot/current_release/knowledgebase/complete/uniprot_sprot.fasta.gz"
+        ],
+    'PDB seqres' : ["ftp://ftp.wwpdb.org/pub/pdb/derived_data/pdb_seqres.txt"],
+    'ColabFold' : ["https://wwwuser.gwdg.de/~compbiol/colabfold/colabfold_envdb_202108.tar.gz"],
+}
+
+def get_flags_from_af():
+    """
+    A function to load flags from alphafold imported as a module
+    """
+    def load_module(file_name, module_name):
+        spec = importlib.util.spec_from_file_location(module_name, file_name)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = module
+        spec.loader.exec_module(module)
+        return module
+    PATH_TO_RUN_ALPHAFOLD = os.path.join(os.path.dirname(alphafold.__file__), "run_alphafold.py")
+    try:
+        run_af = load_module(PATH_TO_RUN_ALPHAFOLD, "run_alphafold")
+        return run_af.flags
+    except FileNotFoundError:
+        PATH_TO_RUN_ALPHAFOLD = os.path.join(os.path.dirname(os.path.dirname(alphafold.__file__)), "run_alphafold.py")
+        run_af = load_module(PATH_TO_RUN_ALPHAFOLD, "run_alphafold")
+        return run_af.flags
 
 
 def create_uniprot_runner(jackhmmer_binary_path, uniprot_database_path):
@@ -286,22 +320,29 @@ def create_model_runners_and_random_seed(
         model_params = data.get_model_haiku_params(model_name=model_name, data_dir=data_dir)
         model_runner = model.RunModel(model_config, model_params)
 
-        num_msa, num_extra_msa = get_default_msa(model_config)
-        msa_ranges, extra_msa_ranges = compute_msa_ranges(num_msa, num_extra_msa,
-                                                          num_multimer_predictions_per_model)
+        if gradient_msa_depth or msa_depth:
+            num_msa, num_extra_msa = get_default_msa(model_config)
+            msa_ranges, extra_msa_ranges = compute_msa_ranges(num_msa, num_extra_msa,
+                                                              num_multimer_predictions_per_model)
 
         for i in range(num_multimer_predictions_per_model):
-            if msa_depth:
-                num_msa = int(msa_depth)
-                num_extra_msa = num_msa * 4  # approx. 4x the number of msa, as in the AF2 config file
-            elif gradient_msa_depth:
-                num_msa = msa_ranges[i]
-                num_extra_msa = extra_msa_ranges[i]
-
-            update_model_config(model_config, num_msa, num_extra_msa)
-            logging.info(
-                f"Model {model_name} is running {i} prediction with num_msa={num_msa} and num_extra_msa={num_extra_msa}")
-            model_runners[f"{model_name}_pred_{i}_msa_{num_msa}"] = model_runner
+            if msa_depth or gradient_msa_depth:
+                if msa_depth:
+                    num_msa = int(msa_depth)
+                    num_extra_msa = num_msa * 4  # approx. 4x the number of msa, as in the AF2 config file
+                elif gradient_msa_depth:
+                    num_msa = msa_ranges[i]
+                    num_extra_msa = extra_msa_ranges[i]
+                update_model_config(model_config, num_msa, num_extra_msa)
+                logging.info(
+                    f"Model {model_name} is running {i} prediction with num_msa={num_msa} "
+                    f"and num_extra_msa={num_extra_msa}")
+                model_runners[f"{model_name}_pred_{i}_msa_{num_msa}"] = model_runner
+                #model_runners[f"{model_name}_pred_{i}"] = model_runner
+            else:
+                logging.info(
+                    f"Model {model_name} is running {i} prediction with default MSA depth")
+                model_runners[f"{model_name}_pred_{i}"] = model_runner
 
     if random_seed is None:
         random_seed = random.randrange(sys.maxsize // len(model_runners))
@@ -389,26 +430,51 @@ def get_metadata_for_database(k, v):
 
     specific_databases = ["pdb70", "bfd"]
     if name in specific_databases:
+        name = name.upper()
+        url = DB_NAME_TO_URL[name]
         fn = v + "_hhm.ffindex"
         hash_value = get_hash(fn)
-        version = get_last_modified_date(fn)
+        release_date = get_last_modified_date(fn)
+        if release_date == "NA":
+            release_date = None
         if hash_value == BFD_HASH_HHM_FFINDEX:
-            version = "AF2"
-        return {name: {"version": version, "hash": hash_value}}
+            release_date = "AF2"
+        return {name: {"release_date": release_date, "version": hash_value, "location_url": url}}
 
     other_databases = ["small_bfd", "uniprot", "uniref90", "pdb_seqres"]
     if name in other_databases:
+        if name == "small_bfd":
+            name = "Reduced BFD"
+        elif name == "uniprot":
+            name = "UniProt"
+        elif name == "uniref90":
+            name = "UniRef90"
+        elif name == "pdb_seqres":
+            name = "PDB seqres"
+        url = DB_NAME_TO_URL[name]
         # here we ignore pdb_mmcif assuming it's version is identical to pdb_seqres
-        return {name: {"version": get_last_modified_date(v), "hash": "NA" if name != "pdb_seqres" else get_hash(v)}}
+        return {name: {"release_date": get_last_modified_date(v),
+                       "version": None if name != "PDB seqres" else get_hash(v), "location_url": url}}
 
     if name in ["uniref30", "mgnify"]:
-        hash_value = "NA"
+        if name == "uniref30":
+            name = "UniRef30"
+        elif name == "mgnify":
+            name = "MGnify"
+        hash_value = None
+        release_date = None
         match = re.search(r"(\d{4}_\d{2})", v)
         if match:
-            version = match.group(1).replace("_", "-")
-            if name == "uniref30":
+            #release_date = match.group(1)
+            url_release_date = match.group(1)
+            url = [DB_NAME_TO_URL[name][0].format(release_date=url_release_date)]
+            if name == "UniRef30":
                 hash_value = get_hash(v + "_hhm.ffindex")
-            return {name: {"version": version, "hash": hash_value}}
+                if not hash_value:
+                    hash_value = url_release_date
+            if name == "MGnify":
+                hash_value = url_release_date
+        return {name: {"release_date": release_date, "version": hash_value, "location_url": url}}
     return {}
 
 
@@ -433,13 +499,24 @@ def save_meta_data(flag_dict, outfile):
         elif "_database_path" in k or "template_mmcif_dir" in k:
             metadata["databases"].update(get_metadata_for_database(k, v))
         elif k == "use_mmseqs2":
+            url = DB_NAME_TO_URL["ColabFold"]
             metadata["databases"].update({"ColabFold":
                                               {"version": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                                               "hash": "NA"}
+                                               "release_date": None,
+                                               "location_url": url}
                                           })
 
     with open(outfile, "w") as f:
         json.dump(metadata, f, indent=2)
+
+
+def convert_fasta_description_to_protein_name(line):
+    line = line.replace(" ", "_")
+    unwanted_symbols = ["|", "=", "&", "*", "@", "#", "`", ":", ";", "$", "?"]
+    for symbol in unwanted_symbols:
+        if symbol in line:
+            line = line.replace(symbol, "_")
+    return line[1:]  # Remove the '>' at the beginning.
 
 
 def parse_fasta(fasta_string: str):
@@ -466,12 +543,7 @@ def parse_fasta(fasta_string: str):
         line = line.strip()
         if line.startswith(">"):
             index += 1
-            line = line.replace(" ", "_")
-            unwanted_symbols = ["|", "=", "&", "*", "@", "#", "`", ":", ";", "$", "?"]
-            for symbol in unwanted_symbols:
-                if symbol in line:
-                    line = line.replace(symbol, "_")
-            descriptions.append(line[1:])  # Remove the '>' at the beginning.
+            descriptions.append(convert_fasta_description_to_protein_name(line))
             sequences.append("")
             continue
         elif not line:
@@ -479,28 +551,3 @@ def parse_fasta(fasta_string: str):
         sequences[index] += line
 
     return sequences, descriptions
-
-
-def load_module(file_name, module_name):
-    spec = importlib.util.spec_from_file_location(module_name, file_name)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[module_name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-def get_run_alphafold():
-    PATH_TO_RUN_ALPHAFOLD = os.path.join(
-        os.path.dirname(alphafold.__file__), "run_alphafold.py"
-    )
-
-    try:
-        run_af = load_module(PATH_TO_RUN_ALPHAFOLD, "run_alphafold")
-    except FileNotFoundError:
-        PATH_TO_RUN_ALPHAFOLD = os.path.join(
-            os.path.dirname(os.path.dirname(alphafold.__file__)), "run_alphafold.py"
-        )
-
-        run_af = load_module(PATH_TO_RUN_ALPHAFOLD, "run_alphafold")
-
-    return run_af

@@ -4,28 +4,19 @@
 # This script is just to create msa and structural features for each sequences and store them in pickle
 # #
 
-import os
-import pickle
-import sys
 from alphapulldown.objects import MonomericObject
-import importlib
-from absl import app
-from absl import flags
-from absl import logging
-
 from alphafold.data.pipeline import DataPipeline
 from alphafold.data.tools import hmmsearch
 from alphafold.data import templates
-import numpy as np
-import os
 from absl import logging, app
-import numpy as np
-from alphapulldown.utils import *
+from alphapulldown.utils import save_meta_data, create_uniprot_runner, parse_fasta, get_flags_from_af
 import contextlib
 from datetime import datetime
-import alphafold
 from pathlib import Path
 from colabfold.utils import DEFAULT_API_SERVER
+import os
+import sys
+import pickle
 
 @contextlib.contextmanager
 def output_meta_file(file_path):
@@ -33,30 +24,7 @@ def output_meta_file(file_path):
     with open(file_path, "w") as outfile:
         yield outfile.name
 
-
-def load_module(file_name, module_name):
-    spec = importlib.util.spec_from_file_location(module_name, file_name)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[module_name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-PATH_TO_RUN_ALPHAFOLD = os.path.join(
-    os.path.dirname(alphafold.__file__), "run_alphafold.py"
-)
-
-try:
-    run_af = load_module(PATH_TO_RUN_ALPHAFOLD, "run_alphafold")
-except FileNotFoundError:
-    PATH_TO_RUN_ALPHAFOLD = os.path.join(
-        os.path.dirname(os.path.dirname(alphafold.__file__)), "run_alphafold.py"
-    )
-
-    run_af = load_module(PATH_TO_RUN_ALPHAFOLD, "run_alphafold")
-
-
-flags = run_af.flags
+flags = get_flags_from_af()
 flags.DEFINE_bool("save_msa_files", False, "save msa output or not")
 flags.DEFINE_bool(
     "skip_existing", False, "skip existing monomer feature pickles or not"
@@ -221,11 +189,7 @@ def create_and_save_monomer_objects(m, pipeline, flags_dict,use_mmseqs2=False):
         else:
             logging.info("running mmseq now")
             m.make_mmseq_features(DEFAULT_API_SERVER=DEFAULT_API_SERVER,
-            pdb70_database_path=pdb70_database_path,
-            template_mmcif_dir=template_mmcif_dir,
-            max_template_date=FLAGS.max_template_date,
-            output_dir=FLAGS.output_dir,
-            obsolete_pdbs_path=FLAGS.obsolete_pdbs_path
+                                  pipeline=pipeline,output_dir=FLAGS.output_dir
             )
         pickle.dump(m, open(f"{FLAGS.output_dir}/{m.description}.pkl", "wb"))
         del m
@@ -264,8 +228,7 @@ def main(argv):
                 )
                 sys.exit()
     else:
-
-        pipeline=None
+        pipeline = create_pipeline()
         uniprot_runner=None
         flags_dict=FLAGS.flag_values_dict()
 

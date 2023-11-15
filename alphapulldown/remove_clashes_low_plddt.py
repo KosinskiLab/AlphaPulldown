@@ -1,4 +1,6 @@
 from collections import defaultdict
+from pathlib import Path
+
 from absl import app, flags
 import logging
 import copy
@@ -6,7 +8,41 @@ from alphafold.data.mmcif_parsing import parse
 from alphafold.common.residue_constants import residue_atoms
 from Bio.PDB import Structure, NeighborSearch, PDBIO, MMCIFIO
 from Bio.PDB.Polypeptide import protein_letters_3to1
+from Bio import SeqIO
+from colabfold.batch import convert_pdb_to_mmcif
 
+def extract_seqs(template, chain_id=None):
+    """
+    Extract sequences from PDB/CIF file using Bio.SeqIO.
+    o input_file_path - path to the input file
+    o chain_id - chain ID
+    Returns:
+        o sequence_atom - sequence from ATOM records
+        o sequence_seqres - sequence from SEQRES records
+    """
+
+    file_type = template.suffix.lower()
+    if template.suffix.lower() != '.pdb' and template.suffix.lower() != '.cif':
+        raise ValueError(f"Unknown file type for {template}!")
+
+    format_types = [f"{file_type[1:]}-atom", f"{file_type[1:]}-seqres"]
+    # initialize the sequences
+    sequence_atom = None
+    sequence_seqres = None
+    # parse
+    for format_type in format_types:
+        for record in SeqIO.parse(template, format_type):
+            chain = record.annotations['chain']
+            if chain == chain_id:
+                if format_type.endswith('atom'):
+                    sequence_atom = str(record.seq)
+                elif format_type.endswith('seqres'):
+                    sequence_seqres = str(record.seq)
+    if sequence_atom is None:
+        logging.error(f"No atom sequence found for chain {chain_id}")
+    if sequence_seqres is None:
+        logging.warning(f"No SEQRES sequence found for chain {chain_id}")
+    return sequence_atom, sequence_seqres
 
 class MmcifChainFiltered:
     """
@@ -20,20 +56,33 @@ class MmcifChainFiltered:
     def __init__(self, input_file_path, code, chain_id=None):
         self.input_file_path = input_file_path
         self.chain_id = chain_id
+        logging.info("Parsing SEQRES...")
+        self.sequence_atom, self.sequence_seqres = extract_seqs(input_file_path, chain_id)
+        if input_file_path.suffix == '.pdb':
+            logging.info(f"Converting to mmCIF: {input_file_path}")
+            input_file_path = Path(input_file_path)
+            convert_pdb_to_mmcif(input_file_path)
+            input_file_path = input_file_path.parent.joinpath(f"{input_file_path.stem}.cif")
         with open(input_file_path) as f:
             mmcif = f.read()
         parsing_result = parse(file_id=code, mmcif_string=mmcif)
         if parsing_result.errors:
             raise Exception(f"Can't parse mmcif file {input_file_path}: {parsing_result.errors}")
         mmcif_object = parse(file_id=code, mmcif_string=mmcif).mmcif_object
-        self.sequence_seqres = mmcif_object.chain_to_seqres[chain_id]
         self.seqres_to_structure = mmcif_object.seqres_to_structure[chain_id]
-        self.structure, self.sequence_atom = self.extract_chain(mmcif_object.structure, chain_id)
+        #self.sequence_seqres = mmcif_object.chain_to_seqres[chain_id]
+        self.structure, sequence_atom = self.extract_chain(mmcif_object.structure, chain_id)
+        if str(self.sequence_atom) != str(sequence_atom):
+            logging.info("Template structure was modified!")
+            logging.info(f"original ATOM sequence: {self.sequence_atom}")
+            logging.info(f"modified ATOM sequence: {sequence_atom}")
+            self.sequence_atom = sequence_atom
         self.structure_modified = False
 
 
     def __eq__(self, other):
         return self.structure == other.structure
+
 
     def extract_atom_site_label_seq_id(self):
         """
@@ -47,6 +96,7 @@ class MmcifChainFiltered:
             number_of_atoms_in_residue = len(residue_atoms[name])
             atoms_label_seq_id += [str(label_id + 1)] * number_of_atoms_in_residue
         return atoms_label_seq_id
+
 
     def extract_chain(self, model, chain_id):
         """

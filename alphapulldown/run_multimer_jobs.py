@@ -1,23 +1,22 @@
 #!/usr/bin/env python3
 
-
 # Author: Dingquan Yu
 # A script to create region information for create_multimer_features.py
 # #
 
-
 import itertools
-from absl import app, flags, logging
-from alphapulldown.utils import *
+from absl import app, logging
+from alphapulldown.utils import (create_interactors, read_all_proteins, read_custom, make_dir_monomer_dictionary,
+                                 load_monomer_objects, check_output_dir, create_model_runners_and_random_seed,
+                                 create_and_save_pae_plots)
 from itertools import combinations
 from alphapulldown.objects import MultimericObject
 import os
 from pathlib import Path
 from alphapulldown.predict_structure import predict, ModelsToRelax
+from alphafold import run_alphafold as run_af
 
 
-
-run_af = get_run_alphafold()
 flags = run_af.flags
 
 flags.DEFINE_enum(

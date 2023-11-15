@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
-import sys
 import glob, os
 from itertools import groupby
-import re
 
 """
 Rename all .a3m files in the current directory
