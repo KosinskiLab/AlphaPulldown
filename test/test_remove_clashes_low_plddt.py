@@ -2,10 +2,11 @@ import pytest
 import os
 import alphapulldown
 from alphapulldown.remove_clashes_low_plddt import MmcifChainFiltered
+from pathlib import Path
 
 alphapulldown_dir = os.path.dirname(alphapulldown.__file__)
-cif_file = os.path.join(alphapulldown_dir, '..',
-                        'test', 'test_data','true_multimer','cage_BC_AF.cif')
+alphapulldown_dir = Path(alphapulldown_dir)
+cif_file = alphapulldown_dir / '..' / 'test' / 'test_data' / 'true_multimer' / 'cage_BC_AF.cif'
 
 
 def test_init():
