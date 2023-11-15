@@ -61,8 +61,8 @@ run_multimer_jobs.py \
   --multimeric_mode=True \
   --msa_depth=<any number you want> \
   --gradient_msa_depth=<True or False, overwrites msa_depth if provided> \
-  --model_names=<coma separated names of the models>
-  --job_index=<any number you want>
+  --model_names=<coma separated names of the models> \
+  --job_index=<corresponds to the string number from custom_mode.txt, don't provide for sequential execution>
 ```
 
 
@@ -102,10 +102,10 @@ source activate AlphaPulldown
     --path_to_mmt=templates/ \
     --data_dir=/scratch/AlphaFold_DBs/2.3.2/ \
     --save_msa_files=True \
-    --output_dir=features\ 
+    --output_dir=features \ 
     --use_precomputed_msas=True \
     --max_template_date=2050-01-01 \
-    --skip_existing=True
+    --skip_existing=True \
     --job_index=$SLURM_ARRAY_TASK_ID
 ```
 
@@ -167,7 +167,7 @@ and then run using:
 mkdir -p logs
 count=`grep -c "" description.csv` #count lines even if the last one has no end of line
 sbatch --array=1-$count create_feature_jobs_SLURM.sh
-count=`grep -c "" custom_mode.txt`
+count=`grep -c "" custom_mode.txt` #likewise for predictions
 sbatch --array=1-$count run_multimer_jobs_SLURM.sh
 ```
 After the successful run one can evaluate and visualise the results in a usual manner (see e.g. [Example 2](https://github.com/KosinskiLab/AlphaPulldown/blob/main/example_2.md#3rd-step-evalutaion-and-visualisation))
