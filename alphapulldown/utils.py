@@ -515,7 +515,7 @@ def convert_fasta_description_to_protein_name(line):
     unwanted_symbols = ["|", "=", "&", "*", "@", "#", "`", ":", ";", "$", "?"]
     for symbol in unwanted_symbols:
         if symbol in line:
-            line = line.replace(symbol, "_")[1:]
+            line = line.replace(symbol, "_")
     return line[1:]  # Remove the '>' at the beginning.
 
 
