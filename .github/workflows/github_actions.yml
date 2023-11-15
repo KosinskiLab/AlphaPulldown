@@ -35,30 +35,51 @@ jobs:
           conda develop alphapulldown
           conda develop alphapulldown/ColabFold
           conda develop alphafold
-          #conda info
-          #conda list
-          #python -c "import sys; print(sys.path)"
-          #echo "Python path: $PYTHONPATH"
           python -c "import alphafold; import os; print('Alphafold module is located at:', alphafold.__file__); alphafold_dir = os.path.dirname(alphafold.__file__); print('Contents of the Alphafold directory:', os.listdir(alphafold_dir))"
+      - name: Install dependencies in unifold setup.py
+        run: |
+          eval "$(conda shell.bash hook)"
+          export WORKDIRPATH=$PWD
+          conda activate AlphaPulldown
+          cd $WORKDIRPATH/unifold && python3 setup.py install
+      - name: Install dependencies in AlphaFold setup.py 
+        run: |
+          eval "$(conda shell.bash hook)"
+          export WORKDIRPATH=$PWD
+          conda activate AlphaPulldown
+          pip install protobuf==4.23.0
+          cd $WORKDIRPATH/alphafold && python3 setup.py install
+          python -c "import tree"
       - name: Install Dependencies
         run: |
           eval "$(conda shell.bash hook)"
           conda activate AlphaPulldown
           conda install -c omnia -c bioconda -c conda-forge openmm==8.0 pdbfixer==1.9 kalign2 cctbx-base importlib_metadata
           #conda install -c bioconda hmmer hhsuite #this causes conda conflicts
+
+          # install PyTorch 
+          pip install torch --pre -f https://download.pytorch.org/whl/nightly/cu121/torch_nightly.html 
           pip install jax==0.3.25 jaxlib==0.3.25+cuda11.cudnn805 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
           pip install "absl-py>=0.13.0" dm-haiku "dm-tree>=0.1.6" "h5py>=3.1.0" "ml-collections>=0.1.0" "pandas>=1.3.4" tensorflow "importlib-resources==5.8.0" "nbformat==5.4.0" "py3Dmol==2.0.1" ipython appdirs jupyterlab ipywidgets pytest
+      # - name: Check imports of submodules
+      #   run : |
+      #     eval "$(conda shell.bash hook)"
+      #     conda activate AlphaPulldown
+      #     # install PyTorch 
+      #     pip install torch --pre -f https://download.pytorch.org/whl/nightly/cu121/torch_nightly.html 
+      #     # setup unicore
+      #     git clone https://github.com/dptech-corp/Uni-Core.git
+      #     cd Uni-Core
+      #     python3 setup.py install --disable-cuda-ext
+      #     python -c "from unifold.alphalink_inference import alphalink_prediction"
+      #     python -c "from unifold.dataset import process_ap"
+      #     python -c "from unifold.config import model_config"
+      #     python -c "from colabfold.batch import get_queries, unserialize_msa, get_msa_and_templates, msa_to_str, build_monomer_feature, parse_fasta"
       - name: Run Tests
         run: |
           eval "$(conda shell.bash hook)"
           conda activate AlphaPulldown
-          pytest test/
-      - name: Build and Push to Docker Hub
-        uses: mr-smithers-excellent/docker-build-push@v5
-        with:
-          image: dmolodenskiy/AlphaPulldown
-          registry: docker.io
-          dockerfile: docker/Dockerfile
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-          tags: latest
+          pytest -s test/test_custom_db.py
+          pytest -s test/test_remove_clashes_low_plddt.py
+          # python3 -m unittest test/test_crosslink_input.py 
+

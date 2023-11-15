@@ -215,6 +215,7 @@ class MonomericObject:
             ) = unserialize_msa(a3m_lines, self.sequence)
 
         else:
+            print("###### lin 228 will run mmseqs2 with the latest modifications")
             (
                 unpaired_msa,
                 paired_msa,
@@ -222,9 +223,6 @@ class MonomericObject:
                 query_seqs_cardinality,
                 template_features,
             ) = get_msa_and_templates(
-                jobname=self.description,
-                query_sequences=self.sequence,
-                a3m_lines=None,
                 result_dir=plPath(result_dir),
                 msa_mode=msa_mode,
                 use_templates=use_templates,

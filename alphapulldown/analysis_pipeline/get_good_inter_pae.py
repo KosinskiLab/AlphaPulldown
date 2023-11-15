@@ -40,6 +40,7 @@ def obtain_mpdockq(work_dir):
     if complex_score is not None and num_chains>2:
         mpDockq_or_pdockq = calculate_mpDockQ(complex_score)
     elif complex_score is not None and num_chains==2:
+        chain_coords,plddt_per_chain = read_pdb_pdockq(pdb_path)
         mpDockq_or_pdockq = calc_pdockq(chain_coords,plddt_per_chain,t=8)
     else:
         mpDockq_or_pdockq = "None"
@@ -88,9 +89,10 @@ def run_and_summarise_pi_score(workd_dir,jobs,surface_thres):
                     pi_score = pd.DataFrame.from_dict({"pi_score":['SC:  mds: too many atoms']})
                 f.close()
             filtered_df['jobs'] = str(job)
-            filtered_df=pd.merge(filtered_df,pi_score,on='jobs')
+            pi_score['interface'] = pi_score['chains']
+            filtered_df=pd.merge(filtered_df,pi_score,on=['jobs','interface'])
             try:
-                filtered_df.drop(columns=["#PDB","pdb"," pvalue","chains","predicted_class"])
+                filtered_df=filtered_df.drop(columns=["#PDB","pdb"," pvalue","chains","predicted_class"])
             except:
                 pass
         

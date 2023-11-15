@@ -149,6 +149,9 @@ different number if you wish to run an array of jobs in parallel then the progra
 
 :exclamation: ```job_index``` starts from 1
 
+
+✨ **New Features** Now AlphaPulldown supports integrative structural modelling if the user has experimental cross-link data. Please refer to [this manual](run_with_AlphaLink2.md) if you'd like to model your protein complexes with cross-link MS data as extra input.
+
 ### Running on a computer cluster in parallel
 
 On a compute cluster, you may want to run all jobs in parallel as a [job array](https://slurm.schedmd.com/job_array.html). For example, on SLURM queuing system at EMBL we could use the following ```run_multimer_jobs_SLURM.sh``` sbatch script:
