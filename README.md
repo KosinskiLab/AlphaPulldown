@@ -57,7 +57,7 @@ conda create -n AlphaPulldown -c omnia -c bioconda -c conda-forge python==3.10 o
 source activate AlphaPulldown
 
 python3 -m pip install alphapulldown==1.0.0
-pip install jax==0.3.25 jaxlib==0.3.25+cuda11.cudnn805 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+pip install jax==0.4.16 jaxlib==0.4.16+cuda11.cudnn86 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 ```
 
 **Optionally**, if you do not have these software yet on your system, install [HMMER](http://hmmer.org/documentation.html), [HH-suite](https://github.com/soedinglab/hh-suite) from Anaconda
