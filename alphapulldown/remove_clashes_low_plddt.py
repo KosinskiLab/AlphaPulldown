@@ -57,7 +57,7 @@ class MmcifChainFiltered:
         self.input_file_path = input_file_path
         self.chain_id = chain_id
         logging.info("Parsing SEQRES...")
-        self.sequence_atom, self.sequence_seqres = extract_seqs(input_file_path, chain_id)
+        self.sequence_atom, __ = extract_seqs(input_file_path, chain_id)
         if input_file_path.suffix == '.pdb':
             logging.info(f"Converting to mmCIF: {input_file_path}")
             input_file_path = Path(input_file_path)
@@ -70,7 +70,7 @@ class MmcifChainFiltered:
             raise Exception(f"Can't parse mmcif file {input_file_path}: {parsing_result.errors}")
         mmcif_object = parse(file_id=code, mmcif_string=mmcif).mmcif_object
         self.seqres_to_structure = mmcif_object.seqres_to_structure[chain_id]
-        #self.sequence_seqres = mmcif_object.chain_to_seqres[chain_id]
+        self.sequence_seqres = mmcif_object.chain_to_seqres[chain_id]
         self.structure, sequence_atom = self.extract_chain(mmcif_object.structure, chain_id)
         if str(self.sequence_atom) != str(sequence_atom):
             logging.info("Template structure was modified!")
