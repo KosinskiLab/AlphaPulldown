@@ -112,9 +112,9 @@ def parse_csv_file(csv_path, fasta_paths, mmt_dir):
 
     Returns:
         a list of dictionaries with the following structure:
-    [{"protein": protein_name, "templates": [pdb_files], "chains": [chain_id]}, ...]
+    [{"protein": protein_name, , "sequence" :sequence", templates": [pdb_files], "chains": [chain_id]}, ...]}]
     """
-    protein_names = []
+    protein_names = {}
     # Check that fasta files exist
     for fasta_path in fasta_paths:
         logging.info(f"Parsing {fasta_path}...")
@@ -122,9 +122,10 @@ def parse_csv_file(csv_path, fasta_paths, mmt_dir):
             raise FileNotFoundError(f"Fasta file {fasta_path} does not exist. Please check your input file.")
     # Parse all protein names from fasta files
     for curr_seq, curr_desc in iter_seqs(fasta_paths):
-        protein_names.append(curr_desc)
+        if curr_desc in protein_names.keys():
+            continue
+        protein_names[curr_desc] = curr_seq
 
-    protein_names = set(protein_names)
     # Parse csv file
     parsed_dict = {}
     with open(csv_path, newline="") as csvfile:
@@ -145,7 +146,9 @@ def parse_csv_file(csv_path, fasta_paths, mmt_dir):
                         "protein": protein,
                         "templates": [],
                         "chains": [],
+                        "sequence": None,
                     }
+                parsed_dict[protein]["sequence"] = protein_names[protein]
                 parsed_dict[protein]["templates"].append(os.path.join(mmt_dir, template))
                 parsed_dict[protein]["chains"].append(chain)
             else:
@@ -227,16 +230,14 @@ def main(argv):
                 pipeline = create_pipeline()
                 uniprot_runner = None
                 flags_dict = FLAGS.flag_values_dict()
-            for curr_seq, curr_desc in iter_seqs(FLAGS.fasta_paths):
-                if curr_desc and not curr_desc.isspace():
-                    curr_monomer = MonomericObject(curr_desc, curr_seq)
-                    curr_monomer.uniprot_runner = uniprot_runner
-                    create_and_save_monomer_objects(
-                        curr_monomer,
-                        pipeline,
-                        flags_dict,
-                        use_mmseqs2=FLAGS.use_mmseqs2,
-                    )
+            curr_monomer = MonomericObject(feat['protein'], feat['sequence'])
+            curr_monomer.uniprot_runner = uniprot_runner
+            create_and_save_monomer_objects(
+                curr_monomer,
+                pipeline,
+                flags_dict,
+                use_mmseqs2=FLAGS.use_mmseqs2,
+            )
         temp_dir.cleanup()
 
 
