@@ -82,6 +82,11 @@ def create_arguments(flags_dict, feat, temp_dir=None):
     FLAGS.pdb70_database_path = FLAGS.pdb70_database_path or os.path.join(FLAGS.data_dir, "pdb70", "pdb70")
     flags_dict.update({"pdb70_database_path": FLAGS.pdb70_database_path})
 
+    use_small_bfd= FLAGS.db_preset == "reduced_dbs"
+    flags_dict.update({"use_small_bfd": use_small_bfd})
+
+
+def create_custom_db(protein, templates, chains):
     # Create custom template database
     threashold_clashes = FLAGS.threshold_clashes
     hb_allowance = FLAGS.hb_allowance
@@ -90,6 +95,7 @@ def create_arguments(flags_dict, feat, temp_dir=None):
     local_path_to_custom_template_db = Path(temp_dir.name) / "custom_template_db" / protein
     logging.info(f"Path to local database: {local_path_to_custom_template_db}")
     create_db(local_path_to_custom_template_db, templates, chains, threashold_clashes, hb_allowance, plddt_threshold)
+    # Update flags
     FLAGS.pdb_seqres_database_path = os.path.join(local_path_to_custom_template_db, "pdb_seqres", "pdb_seqres.txt")
     flags_dict.update({"pdb_seqres_database_path": FLAGS.pdb_seqres_database_path})
 
@@ -98,9 +104,6 @@ def create_arguments(flags_dict, feat, temp_dir=None):
 
     FLAGS.obsolete_pdbs_path = os.path.join(local_path_to_custom_template_db, "pdb_mmcif", "obsolete.dat")
     flags_dict.update({"obsolete_pdbs_path": FLAGS.obsolete_pdbs_path})
-
-    use_small_bfd= FLAGS.db_preset == "reduced_dbs"
-    flags_dict.update({"use_small_bfd": use_small_bfd})
 
 
 def parse_csv_file(csv_path, fasta_paths, mmt_dir):
@@ -112,7 +115,7 @@ def parse_csv_file(csv_path, fasta_paths, mmt_dir):
 
     Returns:
         a list of dictionaries with the following structure:
-    [{"protein": protein_name, , "sequence" :sequence", templates": [pdb_files], "chains": [chain_id]}, ...]}]
+    [{"protein": protein_name, "sequence" :sequence", templates": [pdb_files], "chains": [chain_id]}, ...]}]
     """
     protein_names = {}
     # Check that fasta files exist
@@ -197,14 +200,18 @@ def main(argv):
     feats = parse_csv_file(FLAGS.description_file, fasta_paths, FLAGS.path_to_mmt)
     logging.info(f"job_index: {FLAGS.job_index} feats: {feats}")
     for idx, feat in enumerate(feats, 1):
-        temp_dir = (tempfile.TemporaryDirectory())  # for each fasta file, create a temp dir
         if (FLAGS.job_index is None) or (FLAGS.job_index == idx):
             for temp in feat["templates"]:
                 if not os.path.isfile:
                     logging.error(f"Template file {temp} does not exist. Please check your input file.")
                     sys.exit()
-            logging.info(f"Processing {feat['protein']}: templates: {feat['templates']} chains: {feat['chains']}")
+            temp_dir = (tempfile.TemporaryDirectory())  # for each protein, create a temp dir
+            protein = feat["protein"]
+            chains = feat["chains"]
+            templates = feat["templates"]
+            logging.info(f"Processing {protein}: templates: {templates} chains: {chains}")
             create_arguments(flags_dict, feat, temp_dir)
+            create_custom_db(protein, templates, chains)
             # Update flags_dict to store data about templates
             flags_dict.update({f"protein_{idx}": feat['protein']})
             flags_dict.update({f"multimeric_templates_{idx}": feat['templates']})
@@ -238,7 +245,7 @@ def main(argv):
                 flags_dict,
                 use_mmseqs2=FLAGS.use_mmseqs2,
             )
-        temp_dir.cleanup()
+            temp_dir.cleanup()
 
 
 if __name__ == "__main__":

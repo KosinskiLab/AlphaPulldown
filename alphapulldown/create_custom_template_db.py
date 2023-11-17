@@ -104,8 +104,9 @@ def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, pldd
     Returns:
         o None
     """
+    out_path = Path(out_path)
     # Create the database structure
-    pdb_mmcif_dir = Path(out_path) / 'pdb_mmcif'
+    pdb_mmcif_dir = out_path / 'pdb_mmcif'
     mmcif_dir = pdb_mmcif_dir / 'mmcif_files'
     seqres_dir = Path(out_path) / 'pdb_seqres'
     templates_dir = Path(out_path) / 'templates'
@@ -132,8 +133,6 @@ def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, pldd
         # Remove clashes and low pLDDT regions for each template
         mmcif_obj.remove_clashes(threshold_clashes, hb_allowance)
         mmcif_obj.remove_low_plddt(plddt_threshold)
-        #Get atom site label seq ids
-        atom_site_label_seq_ids = mmcif_obj.extract_atom_site_label_seq_id()
         # Convert to Protein
         protein = _from_bio_structure(mmcif_obj.structure)
         # Convert to mmCIF
@@ -142,7 +141,7 @@ def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, pldd
                                 "Monomer",
                                 chain_id,
                                 seqres,
-                                atom_site_label_seq_ids)
+                                mmcif_obj.atom_site_label_seq_ids)
         # Save to file
         fn = mmcif_dir / f"{code}.cif"
         with open(fn, 'w') as f:

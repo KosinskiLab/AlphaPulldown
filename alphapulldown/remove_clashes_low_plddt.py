@@ -4,12 +4,14 @@ from pathlib import Path
 from absl import app, flags
 import logging
 import copy
-from alphafold.data.mmcif_parsing import parse
+from alphafold.data.mmcif_parsing import parse, ResidueAtPosition
 from alphafold.common.residue_constants import residue_atoms
-from Bio.PDB import Structure, NeighborSearch, PDBIO, MMCIFIO
+from Bio.PDB import NeighborSearch, PDBIO, MMCIFIO
 from Bio.PDB.Polypeptide import protein_letters_3to1
 from Bio import SeqIO
 from colabfold.batch import convert_pdb_to_mmcif
+from Bio.PDB import Structure, Model, Chain, Residue
+
 
 def extract_seqs(template, chain_id=None):
     """
@@ -57,7 +59,9 @@ class MmcifChainFiltered:
         self.input_file_path = input_file_path
         self.chain_id = chain_id
         logging.info("Parsing SEQRES...")
-        self.sequence_atom, __ = extract_seqs(input_file_path, chain_id)
+        self.sequence_atom, self.sequence_seqres = extract_seqs(input_file_path, chain_id)
+        if not self.sequence_seqres:
+            logging.warning(f"No SEQRES was found in {input_file_path}! Parsing from atoms...")
         if input_file_path.suffix == '.pdb':
             logging.info(f"Converting to mmCIF: {input_file_path}")
             input_file_path = Path(input_file_path)
@@ -68,15 +72,20 @@ class MmcifChainFiltered:
         parsing_result = parse(file_id=code, mmcif_string=mmcif)
         if parsing_result.errors:
             raise Exception(f"Can't parse mmcif file {input_file_path}: {parsing_result.errors}")
-        mmcif_object = parse(file_id=code, mmcif_string=mmcif).mmcif_object
+        mmcif_object = parsing_result.mmcif_object
         self.seqres_to_structure = mmcif_object.seqres_to_structure[chain_id]
-        self.sequence_seqres = mmcif_object.chain_to_seqres[chain_id]
-        self.structure, sequence_atom = self.extract_chain(mmcif_object.structure, chain_id)
+        #DEBUG
+        if not self.sequence_seqres:
+            self.sequence_seqres = mmcif_object.chain_to_seqres[chain_id]
+        structure, sequence_atom = self.extract_chain(mmcif_object.structure, chain_id)
+        self.structure = self.remove_hydrogens_and_irregularities(structure)
         if str(self.sequence_atom) != str(sequence_atom):
-            logging.info("Template structure was modified!")
-            logging.info(f"original ATOM sequence: {self.sequence_atom}")
-            logging.info(f"modified ATOM sequence: {sequence_atom}")
+            logging.warning(f"SeqIO.atomres = {self.sequence_atom}")
+            logging.warning(f"AF.atomres = {sequence_atom}")
             self.sequence_atom = sequence_atom
+        #DEBUG
+
+        self.extract_atom_site_label_seq_id()
         self.structure_modified = False
 
 
@@ -84,18 +93,61 @@ class MmcifChainFiltered:
         return self.structure == other.structure
 
 
+    def remove_hydrogens_and_irregularities(self, structure):
+        """
+        Takes a BioPython Structure object and returns a new Structure object without hydrogen atoms,
+        alternative atom locations, and non-standard amino acids.
+        """
+        STANDARD_AMINO_ACIDS = residue_atoms.keys()
+        new_structure = Structure.Structure(structure.id)
+
+        for model in structure:
+            new_model = Model.Model(model.id)
+            new_structure.add(new_model)
+
+            for chain in model:
+                new_chain = Chain.Chain(chain.id)
+                new_model.add(new_chain)
+
+                for residue in chain:
+                    # Check for standard amino acid
+                    if residue.resname.strip() not in STANDARD_AMINO_ACIDS:
+                        continue
+
+                    new_residue = Residue.Residue(residue.id, residue.resname, residue.segid)
+                    new_chain.add(new_residue)
+
+                    for atom in residue:
+                        # Check for hydrogen atoms and alternative locations
+                        if atom.element != 'H' and atom.get_name() != 'OXT':
+                            if atom.altloc != 'A':
+                                new_residue.add(atom)
+
+        return new_structure
+
     def extract_atom_site_label_seq_id(self):
         """
-        Extracts residue index for atoms.
+        Extracts residue indicies for atoms.
         """
         atoms_label_seq_id = []
-        for label_id, residue in self.seqres_to_structure.items():
-            if residue.is_missing:
-                continue
-            name = residue.name
-            number_of_atoms_in_residue = len(residue_atoms[name])
-            atoms_label_seq_id += [str(label_id + 1)] * number_of_atoms_in_residue
-        return atoms_label_seq_id
+        if self.sequence_seqres:
+            for label_id, residue in self.seqres_to_structure.items():
+                if residue.is_missing or residue.position is None:
+                    continue
+                name = residue.name
+                residue_number = residue.position.residue_number
+                number_of_atoms_in_residue = len(residue_atoms[name])
+                atoms_label_seq_id += [str(residue_number)] * number_of_atoms_in_residue
+            number_of_atoms_in_structure = sum(1 for _ in self.structure.get_atoms())
+
+            if number_of_atoms_in_structure != len(atoms_label_seq_id):
+                error = f"atoms label seq ids: {atoms_label_seq_id}.\n\n"
+                error += f"Mismatch in atom counts between structure {number_of_atoms_in_structure}"
+                error += f" and atom_site_label_seq_ids {len(atoms_label_seq_id)}."
+                raise ValueError(error)
+            self.atom_site_label_seq_ids = atoms_label_seq_id
+        else:
+            self.atom_site_label_seq_ids = None
 
 
     def extract_chain(self, model, chain_id):
@@ -207,6 +259,17 @@ class MmcifChainFiltered:
             chain.detach_child(residue.id)
             ids.append(residue.id[1])
         # and from seqres_to_structure
+        new_seqres_to_structure = {}
+        for k, v in self.seqres_to_structure.items():
+            if v.position:
+                if v.position.residue_number in ids:
+                    new_seqres_to_structure[k] = ResidueAtPosition(
+                        position=None, name=v.name, is_missing=True, hetflag=' '
+                    )
+                    continue
+            new_seqres_to_structure[k] = v
+
+
         self.seqres_to_structure = \
             {k: v for k, v in self.seqres_to_structure.items() if
              v.position.residue_number not in ids}
