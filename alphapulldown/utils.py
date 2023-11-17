@@ -279,6 +279,14 @@ def create_and_save_pae_plots(multimer_object, output_dir):
             multimer_object.input_seqs, order, output_dir, multimer_object.description
         )
 
+def zip_result_pickles(output_path):
+    """A function that remove results pickles in the output directory"""
+    cmd = f"cd {output_path} && gzip --force --verbose *.pkl"
+    try:
+        results = subprocess.run(cmd,shell=True,capture_output=True,text=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error while compressing result pickles: {e.returncode}")
+        print(f"Command output: {e.output}")
 
 def compute_msa_ranges(num_msa, num_extra_msa, num_multimer_predictions):
     """

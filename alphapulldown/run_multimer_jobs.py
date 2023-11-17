@@ -8,7 +8,7 @@ import itertools
 from absl import app, logging
 from alphapulldown.utils import (create_interactors, read_all_proteins, read_custom, make_dir_monomer_dictionary,
                                  load_monomer_objects, check_output_dir, create_model_runners_and_random_seed,
-                                 create_and_save_pae_plots)
+                                 create_and_save_pae_plots,zip_result_pickles)
 from itertools import combinations
 from alphapulldown.objects import MultimericObject
 import os
@@ -367,7 +367,7 @@ def predict_individual_jobs(multimer_object, output_path, model_runners, random_
             seqs=multimer_object.input_seqs,
         )
         create_and_save_pae_plots(multimer_object, output_path)
-
+        zip_result_pickles(output_path)
 
 def predict_multimers(multimers):
     """
