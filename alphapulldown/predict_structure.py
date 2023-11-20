@@ -67,8 +67,8 @@ def get_existing_model_info(output_dir, model_runners):
                     result = pickle.load(f)
             except (EOFError, pickle.UnpicklingError):
                 break
-
             score_name, score = get_score_from_result_pkl(pkl_path)
+            ranking_confidences[model_name] = score
         if os.path.exists(pdb_path) and os.path.exists(pkl_gz_path):
             try:
                 with gzip.open(pkl_gz_path, "rb") as f:
@@ -76,8 +76,7 @@ def get_existing_model_info(output_dir, model_runners):
             except (EOFError, pickle.UnpicklingError):
                 break
             score_name, score = get_score_from_result_pkl_gz(pkl_gz_path)
-
-        ranking_confidences[model_name] = score
+            ranking_confidences[model_name] = score
         with open(pdb_path, "r") as f:
             unrelaxed_pdb_str = f.read()
         unrelaxed_proteins[model_name] = protein.from_pdb_string(unrelaxed_pdb_str)
