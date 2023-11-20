@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import pandas as pd
-import pickle
+import pickle,gzip
 import json
 from collections import defaultdict
 import math
@@ -64,8 +64,15 @@ def read_pdb(pdbfile):
 def get_best_plddt(work_dir):
     json_path = os.path.join(work_dir,'ranking_debug.json')
     best_model = json.load(open(json_path,'r'))['order'][0]
-    best_plddt = pickle.load(open(os.path.join(work_dir,"result_{}.pkl".format(best_model)),'rb'))['plddt']
-    
+    try:
+        best_plddt = pickle.load(open(os.path.join(work_dir,"result_{}.pkl".format(best_model)),'rb'))['plddt']
+        best_plddt = pickle.load(gzip.open(os.path.join(work_dir,"result_{}.pkl.gz".format(best_model)),'rb'))['plddt']
+    except FileNotFoundError:
+        print("result pickle for the best model not found. Now search for zipped pickle.")
+    except FileNotFoundError:
+        print("result zipped pickle for the best model not found. Now search for zipped pickle.")
+    finally:
+        print(f"finished obtainined the plddt values.")
     return best_plddt
 
 def read_plddt(best_plddt, chain_CA_inds):

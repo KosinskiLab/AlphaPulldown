@@ -123,8 +123,10 @@ def main(argv):
                     check_dict = pickle.load(gzip.open(os.path.join(result_subdir,f"result_{best_model}.pkl.gz"),'rb'))
                 except FileNotFoundError:
                     print(os.path.join(result_subdir,f"result_{best_model}.pkl")+" does not exist. Will search for pkl.gz")
+                except FileNotFoundError:
                     print(os.path.join(result_subdir,f"result_{best_model}.pkl.gz")+" does not exist. Will search for pkl")
-                    
+                finally:
+                    print(f"finished reading result pickle for the best model.")
                 seqs = check_dict['seqs']
                 iptm_score = check_dict['iptm']
                 pae_mtx = check_dict['predicted_aligned_error']
