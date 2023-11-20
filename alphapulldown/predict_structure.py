@@ -61,7 +61,7 @@ def get_existing_model_info(output_dir, model_runners):
         pkl_path = os.path.join(output_dir, f"result_{model_name}.pkl")
         pkl_gz_path = os.path.join(output_dir, f"result_{model_name}.pkl.gz")
 
-        if os.path.exists(pdb_path) and os.path.exists(pkl_path):
+        if os.path.exists(pkl_path):
             try:
                 with open(pkl_path, "rb") as f:
                     result = pickle.load(f)
@@ -69,7 +69,7 @@ def get_existing_model_info(output_dir, model_runners):
                 break
             score_name, score = get_score_from_result_pkl(pkl_path)
             ranking_confidences[model_name] = score
-        if os.path.exists(pdb_path) and os.path.exists(pkl_gz_path):
+        if os.path.exists(pkl_gz_path):
             try:
                 with gzip.open(pkl_gz_path, "rb") as f:
                     result = pickle.load(f)
@@ -77,12 +77,12 @@ def get_existing_model_info(output_dir, model_runners):
                 break
             score_name, score = get_score_from_result_pkl_gz(pkl_gz_path)
             ranking_confidences[model_name] = score
-        with open(pdb_path, "r") as f:
-            unrelaxed_pdb_str = f.read()
-        unrelaxed_proteins[model_name] = protein.from_pdb_string(unrelaxed_pdb_str)
-        unrelaxed_pdbs[model_name] = unrelaxed_pdb_str
-
-        processed_models += 1
+        if os.path.exists(pdb_path):
+            with open(pdb_path, "r") as f:
+                unrelaxed_pdb_str = f.read()
+            unrelaxed_proteins[model_name] = protein.from_pdb_string(unrelaxed_pdb_str)
+            unrelaxed_pdbs[model_name] = unrelaxed_pdb_str
+            processed_models += 1
 
     return ranking_confidences, unrelaxed_proteins, unrelaxed_pdbs, processed_models
 
