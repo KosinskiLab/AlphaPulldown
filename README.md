@@ -71,7 +71,7 @@ This usually works, but on some compute systems users may wish to use other vers
 If you haven't updated your databases according to the requirements of AlphaFold 2.3.0, you can still use AlphaPulldown with your older version of AlphaFold database. Please follow the installation instructions on the [dedicated branch](https://github.com/KosinskiLab/AlphaPulldown/tree/AlphaFold-2.2.0)
 
 ## How to develop
-Follow the instructions at [Developing guidelines](./Developing.md)
+Follow the instructions at [Developing guidelines](./manuals/Developing.md)
 
 ------
 
@@ -87,11 +87,11 @@ AlphaPulldown will return models of all interactions, summarize results in a sco
 
 ## Examples
 
-Example 1 is a case where ```pulldown``` mode is used. Manual: [example_1](./example_1.md)
+Example 1 is a case where ```pulldown``` mode is used. Manual: [example_1](./manuals/example_1.md)
 
-Example 2 is a case where ```custom``` and ```homo-oligomer``` modes are used. Manual: [example_2](./example_2.md) 
+Example 2 is a case where ```custom``` and ```homo-oligomer``` modes are used. Manual: [example_2](./manuals/example_2.md) 
 
-Example 3 is demonstrating the usage of multimeric templates for guiding AlphaFold predictions. Manual: [example_3](./example_3.md) 
+Example 3 is demonstrating the usage of multimeric templates for guiding AlphaFold predictions. Manual: [example_3](./manuals/example_3.md) 
 
 ```all_vs_all``` mode can be viewed as a special case of the ```pulldown``` mode thus the instructions of this mode are added as Appendix in both manuals mentioned above. 
 
