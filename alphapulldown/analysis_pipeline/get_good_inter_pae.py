@@ -11,6 +11,7 @@ import pandas as pd
 import subprocess
 from calculate_mpdockq import *
 import sys 
+import gzip
 
 flags.DEFINE_string('output_dir',None,'directory where predicted models are stored')
 flags.DEFINE_float('cutoff',5.0,'cutoff value of PAE. i.e. only pae<cutoff is counted good')
@@ -113,14 +114,18 @@ def main(argv):
         if os.path.isfile(os.path.join(FLAGS.output_dir,job,'ranking_debug.json')):
             count=count +1
             result_subdir = os.path.join(FLAGS.output_dir,job)
-            best_result_pkl = sorted([i for i in os.listdir(result_subdir) if "result_model_" in i])[0]
-            result_path = os.path.join(result_subdir,best_result_pkl)
-            seqs = pickle.load(open(result_path,'rb'))['seqs']
             best_model = json.load(open(os.path.join(result_subdir,"ranking_debug.json"),'rb'))['order'][0]
             data = json.load(open(os.path.join(result_subdir,"ranking_debug.json"),'rb'))
             if "iptm" in data.keys() or "iptm+ptm" in data.keys():
                 iptm_ptm_score = data['iptm+ptm'][best_model]
-                check_dict = pickle.load(open(os.path.join(result_subdir,f"result_{best_model}.pkl"),'rb'))
+                try:
+                    check_dict = pickle.load(open(os.path.join(result_subdir,f"result_{best_model}.pkl"),'rb'))
+                    check_dict = pickle.load(gzip.open(os.path.join(result_subdir,f"result_{best_model}.pkl.gz"),'rb'))
+                except FileNotFoundError:
+                    print(os.path.join(result_subdir,f"result_{best_model}.pkl")+" does not exist. Will search for pkl.gz")
+                    print(os.path.join(result_subdir,f"result_{best_model}.pkl.gz")+" does not exist. Will search for pkl")
+                    
+                seqs = check_dict['seqs']
                 iptm_score = check_dict['iptm']
                 pae_mtx = check_dict['predicted_aligned_error']
                 check = examine_inter_pae(pae_mtx,seqs,cutoff=FLAGS.cutoff)
