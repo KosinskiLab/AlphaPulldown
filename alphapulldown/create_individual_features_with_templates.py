@@ -36,15 +36,10 @@ flags.DEFINE_float("plddt_threshold", 0, "Threshold for pLDDT score (default: 0)
 FLAGS = flags.FLAGS
 MAX_TEMPLATE_HITS = 1000000  # make it large enough to get all templates
 
-flags_dict = FLAGS.flag_values_dict()
 
-
-def create_arguments(flags_dict, feat, temp_dir=None):
+def create_arguments(flags_dict, local_path_to_custom_template_db):
     """Create arguments for alphafold.run()"""
     global use_small_bfd
-
-    protein = feat["protein"]
-    templates, chains = feat["templates"], feat["chains"]
 
     # Path to the Uniref30 database for use by HHblits.
     FLAGS.uniref30_database_path = FLAGS.uniref30_database_path or os.path.join(
@@ -85,25 +80,27 @@ def create_arguments(flags_dict, feat, temp_dir=None):
     use_small_bfd= FLAGS.db_preset == "reduced_dbs"
     flags_dict.update({"use_small_bfd": use_small_bfd})
 
+    # Update pdb related flags
+    FLAGS.pdb_seqres_database_path = os.path.join(local_path_to_custom_template_db, "pdb_seqres", "pdb_seqres.txt")
+    flags_dict.update({"pdb_seqres_database_path": FLAGS.pdb_seqres_database_path})
+    FLAGS.template_mmcif_dir = os.path.join(local_path_to_custom_template_db, "pdb_mmcif", "mmcif_files")
+    flags_dict.update({"template_mmcif_dir": FLAGS.template_mmcif_dir})
+    FLAGS.obsolete_pdbs_path = os.path.join(local_path_to_custom_template_db, "pdb_mmcif", "obsolete.dat")
+    flags_dict.update({"obsolete_pdbs_path": FLAGS.obsolete_pdbs_path})
 
-def create_custom_db(protein, templates, chains):
+
+def create_custom_db(temp_dir, protein, templates, chains):
     # Create custom template database
     threashold_clashes = FLAGS.threshold_clashes
     hb_allowance = FLAGS.hb_allowance
     plddt_threshold = FLAGS.plddt_threshold
     #local_path_to_custom_template_db = Path(".") / "custom_template_db" / protein # DEBUG
-    local_path_to_custom_template_db = Path(temp_dir.name) / "custom_template_db" / protein
+    local_path_to_custom_template_db = Path(temp_dir) / "custom_template_db" / protein
     logging.info(f"Path to local database: {local_path_to_custom_template_db}")
     create_db(local_path_to_custom_template_db, templates, chains, threashold_clashes, hb_allowance, plddt_threshold)
-    # Update flags
-    FLAGS.pdb_seqres_database_path = os.path.join(local_path_to_custom_template_db, "pdb_seqres", "pdb_seqres.txt")
-    flags_dict.update({"pdb_seqres_database_path": FLAGS.pdb_seqres_database_path})
 
-    FLAGS.template_mmcif_dir = os.path.join(local_path_to_custom_template_db, "pdb_mmcif", "mmcif_files")
-    flags_dict.update({"template_mmcif_dir": FLAGS.template_mmcif_dir})
+    return local_path_to_custom_template_db
 
-    FLAGS.obsolete_pdbs_path = os.path.join(local_path_to_custom_template_db, "pdb_mmcif", "obsolete.dat")
-    flags_dict.update({"obsolete_pdbs_path": FLAGS.obsolete_pdbs_path})
 
 
 def parse_csv_file(csv_path, fasta_paths, mmt_dir):
@@ -205,47 +202,48 @@ def main(argv):
                 if not os.path.isfile:
                     logging.error(f"Template file {temp} does not exist. Please check your input file.")
                     sys.exit()
-            temp_dir = (tempfile.TemporaryDirectory())  # for each protein, create a temp dir
             protein = feat["protein"]
             chains = feat["chains"]
             templates = feat["templates"]
             logging.info(f"Processing {protein}: templates: {templates} chains: {chains}")
-            create_arguments(flags_dict, feat, temp_dir)
-            create_custom_db(protein, templates, chains)
-            # Update flags_dict to store data about templates
-            flags_dict.update({f"protein_{idx}": feat['protein']})
-            flags_dict.update({f"multimeric_templates_{idx}": feat['templates']})
-            flags_dict.update({f"multimeric_chains_{idx}": feat['chains']})
+            # For each protein, create a temp dir
+            with tempfile.TemporaryDirectory() as temp_dir:
+                local_path_to_custom_db = create_custom_db(temp_dir, protein, templates, chains)
+                create_arguments(flags_dict, local_path_to_custom_db)
 
-            if not FLAGS.use_mmseqs2:
-                if not FLAGS.max_template_date:
-                    logging.info("You have not provided a max_template_date. Please specify a date and run again.")
-                    sys.exit()
+                # Update flags_dict to store data about templates
+                flags_dict.update({f"protein_{idx}": feat['protein']})
+                flags_dict.update({f"multimeric_templates_{idx}": feat['templates']})
+                flags_dict.update({f"multimeric_chains_{idx}": feat['chains']})
+
+                if not FLAGS.use_mmseqs2:
+                    if not FLAGS.max_template_date:
+                        logging.info("You have not provided a max_template_date. Please specify a date and run again.")
+                        sys.exit()
+                    else:
+                        pipeline = create_pipeline()
+                        uniprot_database_path = os.path.join(FLAGS.data_dir, "uniprot/uniprot.fasta")
+                        flags_dict.update({"uniprot_database_path": uniprot_database_path})
+                        if os.path.isfile(uniprot_database_path):
+                            uniprot_runner = create_uniprot_runner(FLAGS.jackhmmer_binary_path, uniprot_database_path)
+                        else:
+                            logging.info(
+                                f"Failed to find uniprot.fasta under {uniprot_database_path}."
+                                "Please make sure your data_dir has been configured correctly."
+                            )
+                            sys.exit()
                 else:
                     pipeline = create_pipeline()
-                    uniprot_database_path = os.path.join(FLAGS.data_dir, "uniprot/uniprot.fasta")
-                    flags_dict.update({"uniprot_database_path": uniprot_database_path})
-                    if os.path.isfile(uniprot_database_path):
-                        uniprot_runner = create_uniprot_runner(FLAGS.jackhmmer_binary_path, uniprot_database_path)
-                    else:
-                        logging.info(
-                            f"Failed to find uniprot.fasta under {uniprot_database_path}."
-                            "Please make sure your data_dir has been configured correctly."
-                        )
-                        sys.exit()
-            else:
-                pipeline = create_pipeline()
-                uniprot_runner = None
-                flags_dict = FLAGS.flag_values_dict()
-            curr_monomer = MonomericObject(feat['protein'], feat['sequence'])
-            curr_monomer.uniprot_runner = uniprot_runner
-            create_and_save_monomer_objects(
-                curr_monomer,
-                pipeline,
-                flags_dict,
-                use_mmseqs2=FLAGS.use_mmseqs2,
-            )
-            temp_dir.cleanup()
+                    uniprot_runner = None
+                    flags_dict = FLAGS.flag_values_dict()
+                curr_monomer = MonomericObject(feat['protein'], feat['sequence'])
+                curr_monomer.uniprot_runner = uniprot_runner
+                create_and_save_monomer_objects(
+                    curr_monomer,
+                    pipeline,
+                    flags_dict,
+                    use_mmseqs2=FLAGS.use_mmseqs2,
+                )
 
 
 if __name__ == "__main__":

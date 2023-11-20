@@ -13,7 +13,7 @@ from colabfold.batch import convert_pdb_to_mmcif
 from Bio.PDB import Structure, Model, Chain, Residue
 
 
-def extract_seqs(template, chain_id=None):
+def extract_seqs(template, chain_id):
     """
     Extract sequences from PDB/CIF file using Bio.SeqIO.
     o input_file_path - path to the input file
@@ -46,6 +46,40 @@ def extract_seqs(template, chain_id=None):
         logging.warning(f"No SEQRES sequence found for chain {chain_id}")
     return sequence_atom, sequence_seqres
 
+
+def remove_hydrogens_and_irregularities(structure):
+    """
+    Takes a BioPython Structure object and returns a new Structure object without hydrogen atoms,
+    alternative atom locations, and non-standard amino acids.
+    """
+    STANDARD_AMINO_ACIDS = residue_atoms.keys()
+    new_structure = Structure.Structure(structure.id)
+
+    for model in structure:
+        new_model = Model.Model(model.id)
+        new_structure.add(new_model)
+
+        for chain in model:
+            new_chain = Chain.Chain(chain.id)
+            new_model.add(new_chain)
+
+            for residue in chain:
+                # Check for standard amino acid
+                if residue.resname.strip() not in STANDARD_AMINO_ACIDS:
+                    continue
+
+                new_residue = Residue.Residue(residue.id, residue.resname, residue.segid)
+                new_chain.add(new_residue)
+
+                for atom in residue:
+                    # Check for hydrogen atoms and alternative locations
+                    if atom.element != 'H' and atom.get_name() != 'OXT':
+                        if atom.altloc != 'A':
+                            new_residue.add(atom)
+
+    return new_structure
+
+
 class MmcifChainFiltered:
     """
     Takes only one chain from the mmcif file
@@ -56,6 +90,7 @@ class MmcifChainFiltered:
                             {'H': 1.1, 'C': 1.7, 'N': 1.55, 'O': 1.52, 'F': 1.47, 'P': 1.8, 'S': 1.8, 'CL': 1.75})
 
     def __init__(self, input_file_path, code, chain_id=None):
+        self.atom_site_label_seq_ids = None
         self.input_file_path = input_file_path
         self.chain_id = chain_id
         logging.info("Parsing SEQRES...")
@@ -74,56 +109,22 @@ class MmcifChainFiltered:
             raise Exception(f"Can't parse mmcif file {input_file_path}: {parsing_result.errors}")
         mmcif_object = parsing_result.mmcif_object
         self.seqres_to_structure = mmcif_object.seqres_to_structure[chain_id]
-        #DEBUG
+        structure, sequence_atom = self.extract_chain(mmcif_object.structure, chain_id)
+        self.structure = remove_hydrogens_and_irregularities(structure)
+        # Check that SeqIO reads the same sequence as AlphaFold
         if not self.sequence_seqres:
             self.sequence_seqres = mmcif_object.chain_to_seqres[chain_id]
-        structure, sequence_atom = self.extract_chain(mmcif_object.structure, chain_id)
-        self.structure = self.remove_hydrogens_and_irregularities(structure)
         if str(self.sequence_atom) != str(sequence_atom):
-            logging.warning(f"SeqIO.atomres = {self.sequence_atom}")
-            logging.warning(f"AF.atomres = {sequence_atom}")
+            logging.warning(f"SeqIO.atom-res = {self.sequence_atom}")
+            logging.warning(f"Structure.atom-res = {sequence_atom}")
+            logging.warning("Taking sequence from Bio.Structure!")
             self.sequence_atom = sequence_atom
-        #DEBUG
 
         self.extract_atom_site_label_seq_id()
         self.structure_modified = False
 
-
     def __eq__(self, other):
         return self.structure == other.structure
-
-
-    def remove_hydrogens_and_irregularities(self, structure):
-        """
-        Takes a BioPython Structure object and returns a new Structure object without hydrogen atoms,
-        alternative atom locations, and non-standard amino acids.
-        """
-        STANDARD_AMINO_ACIDS = residue_atoms.keys()
-        new_structure = Structure.Structure(structure.id)
-
-        for model in structure:
-            new_model = Model.Model(model.id)
-            new_structure.add(new_model)
-
-            for chain in model:
-                new_chain = Chain.Chain(chain.id)
-                new_model.add(new_chain)
-
-                for residue in chain:
-                    # Check for standard amino acid
-                    if residue.resname.strip() not in STANDARD_AMINO_ACIDS:
-                        continue
-
-                    new_residue = Residue.Residue(residue.id, residue.resname, residue.segid)
-                    new_chain.add(new_residue)
-
-                    for atom in residue:
-                        # Check for hydrogen atoms and alternative locations
-                        if atom.element != 'H' and atom.get_name() != 'OXT':
-                            if atom.altloc != 'A':
-                                new_residue.add(atom)
-
-        return new_structure
 
     def extract_atom_site_label_seq_id(self):
         """
@@ -148,7 +149,6 @@ class MmcifChainFiltered:
             self.atom_site_label_seq_ids = atoms_label_seq_id
         else:
             self.atom_site_label_seq_ids = None
-
 
     def extract_chain(self, model, chain_id):
         """
@@ -269,7 +269,6 @@ class MmcifChainFiltered:
                     continue
             new_seqres_to_structure[k] = v
 
-
         self.seqres_to_structure = \
             {k: v for k, v in self.seqres_to_structure.items() if
              v.position.residue_number not in ids}
@@ -284,6 +283,7 @@ class MmcifChainFiltered:
             io = MMCIFIO()
         io.set_structure(self.structure)
         io.save(output_file_path)
+
 
 def main(argv):
     input_file_path = flags.FLAGS.input_file_path
