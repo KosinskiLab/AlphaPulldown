@@ -5,7 +5,7 @@
 # #
 import json
 import os
-import pickle
+import pickle,gzip
 import time
 from absl import logging
 from alphafold.common import protein
@@ -36,6 +36,20 @@ def get_score_from_result_pkl(pkl_path):
 
     return score_type, score
 
+def get_score_from_result_pkl_gz(pkl_path):
+    """Get the score from the model result pkl file"""
+
+    with gzip.open(pkl_path, "rb") as f:
+        result = pickle.load(f)
+    if "iptm" in result:
+        score_type = "iptm+ptm"
+        score = 0.8 * result["iptm"] + 0.2 * result["ptm"]
+    else:
+        score_type = "plddt"
+        score = np.mean(result["plddt"])
+
+    return score_type, score
+
 def get_existing_model_info(output_dir, model_runners):
     ranking_confidences = {}
     unrelaxed_proteins = {}
@@ -45,19 +59,25 @@ def get_existing_model_info(output_dir, model_runners):
     for model_name, _ in model_runners.items():
         pdb_path = os.path.join(output_dir, f"unrelaxed_{model_name}.pdb")
         pkl_path = os.path.join(output_dir, f"result_{model_name}.pkl")
+        pkl_gz_path = os.path.join(output_dir, f"result_{model_name}.pkl.gz")
 
-        if not (os.path.exists(pdb_path) and os.path.exists(pkl_path)):
-            break
+        if os.path.exists(pdb_path) and os.path.exists(pkl_path):
+            try:
+                with open(pkl_path, "rb") as f:
+                    result = pickle.load(f)
+            except (EOFError, pickle.UnpicklingError):
+                break
 
-        try:
-            with open(pkl_path, "rb") as f:
-                result = pickle.load(f)
-        except (EOFError, pickle.UnpicklingError):
-            break
+            score_name, score = get_score_from_result_pkl(pkl_path)
+        if os.path.exists(pdb_path) and os.path.exists(pkl_gz_path):
+            try:
+                with gzip.open(pkl_gz_path, "rb") as f:
+                    result = pickle.load(f)
+            except (EOFError, pickle.UnpicklingError):
+                break
+            score_name, score = get_score_from_result_pkl_gz(pkl_gz_path)
 
-        score_name, score = get_score_from_result_pkl(pkl_path)
         ranking_confidences[model_name] = score
-
         with open(pdb_path, "r") as f:
             unrelaxed_pdb_str = f.read()
         unrelaxed_proteins[model_name] = protein.from_pdb_string(unrelaxed_pdb_str)
@@ -93,7 +113,6 @@ def predict(
     if allow_resume:
         logging.info("Checking for existing results")
         ranking_confidences, unrelaxed_proteins, unrelaxed_pdbs, START = get_existing_model_info(output_dir, model_runners)
-
         if os.path.exists(ranking_output_path) and len(unrelaxed_pdbs) == len(model_runners):
             logging.info(
                 "ranking_debug.json exists. Skipping prediction. Restoring unrelaxed predictions and ranked order"

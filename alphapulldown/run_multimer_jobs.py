@@ -8,7 +8,7 @@ import itertools
 from absl import app, logging
 from alphapulldown.utils import (create_interactors, read_all_proteins, read_custom, make_dir_monomer_dictionary,
                                  load_monomer_objects, check_output_dir, create_model_runners_and_random_seed,
-                                 create_and_save_pae_plots)
+                                 create_and_save_pae_plots,post_prediction_process)
 from itertools import combinations
 from alphapulldown.objects import MultimericObject
 import os
@@ -80,6 +80,12 @@ flags.DEFINE_string(
 )
 flags.DEFINE_string(
     "unifold_param",None,'Path to UniFold neural network weights'
+)
+flags.DEFINE_boolean(
+    "compress_result_pickles",False,"Whether the result pickles are going to be gzipped. Default False"
+)
+flags.DEFINE_boolean(
+    "remove_result_pickles",False,"Whether the result pickles that do not belong to the best model are going to be removed. Default is False"
 )
 flags.DEFINE_enum("unifold_model_name","multimer_af2",
                   ["multimer_af2","multimer_ft","multimer","multimer_af2_v3","multimer_af2_model45_v3"],"choose unifold model structure")
@@ -193,9 +199,6 @@ def create_custom_info(all_proteins):
         data[f"col_{i+1}"] = [all_proteins[i]]
     return data
 
-
-
-
 def create_multimer_objects(data, monomer_objects_dir, pair_msa=True):
     """
     A function to create multimer objects
@@ -204,8 +207,6 @@ def create_multimer_objects(data, monomer_objects_dir, pair_msa=True):
     data: a dictionary created by create_all_vs_all_info() or create_apms_info()
     monomer_objects_dir: a directory where pre-computed monomer objects are stored
     """
-
-
     multimers = []
     num_jobs = len(data[list(data.keys())[0]])
     job_idxes = list(range(num_jobs))
@@ -231,8 +232,6 @@ def create_multimer_objects(data, monomer_objects_dir, pair_msa=True):
         else:
             logging.info(f"done loading monomer {interactors[0].description}")
             multimers.append(interactors[0])
-
-
     return multimers
 
 
@@ -316,8 +315,7 @@ def predict_individual_jobs(multimer_object, output_path, model_runners, random_
     output_path = os.path.join(output_path, multimer_object.description)
     Path(output_path).mkdir(parents=True, exist_ok=True)
     logging.info(f"now running prediction on {multimer_object.description}")
-
-
+    logging.info(f"output_path is {output_path}")
     if not isinstance(multimer_object, MultimericObject):
         multimer_object.input_seqs = [multimer_object.sequence]
 
@@ -338,13 +336,12 @@ def predict_individual_jobs(multimer_object, output_path, model_runners, random_
                                           seed=42,batch_idx=None,
                                           data_idx=None,is_distillation=False
                                           )
-        logging.info(f"finished configuring the Unifold AlphlaFold model and process numpy features")
+        logging.info(f"finished configuring the Unifold AlphlaFcd old model and process numpy features")
         unifold_predict(model_runner,general_args,processed_features)
 
     elif FLAGS.use_alphalink:
         assert FLAGS.alphalink_weight is not None
         from unifold.alphalink_inference import alphalink_prediction
-        
         from unifold.config import model_config
         logging.info(f"Start using AlphaLink weights and cross-link information")  
         MODEL_NAME = 'model_5_ptm_af2'
@@ -367,7 +364,10 @@ def predict_individual_jobs(multimer_object, output_path, model_runners, random_
             seqs=multimer_object.input_seqs,
         )
         create_and_save_pae_plots(multimer_object, output_path)
-
+        post_prediction_process(output_path,
+                           zip_pickles = FLAGS.compress_result_pickles,
+                           remove_pickles = FLAGS.remove_result_pickles
+                           )
 
 def predict_multimers(multimers):
     """
@@ -414,13 +414,8 @@ def predict_multimers(multimers):
                 random_seed=random_seed,
             )
 
-
-
-
 def main(argv):
     check_output_dir(FLAGS.output_path)
-
-
     if FLAGS.mode == "pulldown":
         bait_proteins = read_all_proteins(FLAGS.protein_lists[0])
         candidate_proteins = []
@@ -451,7 +446,6 @@ def main(argv):
         multimers = create_custom_jobs(
             FLAGS.protein_lists, FLAGS.monomer_objects_dir, job_index=FLAGS.job_index, pair_msa=not FLAGS.no_pair_msa
         )
-
 
     predict_multimers(multimers)
 

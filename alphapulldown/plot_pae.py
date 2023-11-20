@@ -3,10 +3,11 @@
 # #
 import pandas as pd
 import matplotlib
-
+import os
 matplotlib.use("agg")
 import matplotlib.pyplot as plt
 import pickle as pkl
+import gzip
 
 
 def plot_pae(seqs: list, order, feature_dir, job_name):
@@ -22,7 +23,7 @@ def plot_pae(seqs: list, order, feature_dir, job_name):
     matplotlib.use("agg")
     outs = dict()
     for i in order:
-        prediction_result = pkl.load(open(f"{feature_dir}/result_{i}.pkl", "rb"))
+        prediction_result = pkl.load(open(f"{feature_dir}/result_{i}.pkl", "rb")) if os.path.exists(f"{feature_dir}/result_{i}.pkl") else pkl.load(gzip.open(f"{feature_dir}/result_{i}.pkl.gz", "rb"))
         outs[i] = prediction_result["predicted_aligned_error"]
         del prediction_result
 
