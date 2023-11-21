@@ -66,11 +66,9 @@ def get_best_plddt(work_dir):
     best_model = json.load(open(json_path,'r'))['order'][0]
     try:
         best_plddt = pickle.load(open(os.path.join(work_dir,"result_{}.pkl".format(best_model)),'rb'))['plddt']
-        best_plddt = pickle.load(gzip.open(os.path.join(work_dir,"result_{}.pkl.gz".format(best_model)),'rb'))['plddt']
     except FileNotFoundError:
         print("result pickle for the best model not found. Now search for zipped pickle.")
-    except FileNotFoundError:
-        print("result zipped pickle for the best model not found. Now search for zipped pickle.")
+        best_plddt = pickle.load(gzip.open(os.path.join(work_dir,"result_{}.pkl.gz".format(best_model)),'rb'))['plddt']
     finally:
         print(f"finished obtainined the plddt values.")
     return best_plddt

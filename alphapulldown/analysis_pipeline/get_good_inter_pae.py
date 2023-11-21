@@ -120,11 +120,9 @@ def main(argv):
                 iptm_ptm_score = data['iptm+ptm'][best_model]
                 try:
                     check_dict = pickle.load(open(os.path.join(result_subdir,f"result_{best_model}.pkl"),'rb'))
-                    check_dict = pickle.load(gzip.open(os.path.join(result_subdir,f"result_{best_model}.pkl.gz"),'rb'))
                 except FileNotFoundError:
                     print(os.path.join(result_subdir,f"result_{best_model}.pkl")+" does not exist. Will search for pkl.gz")
-                except FileNotFoundError:
-                    print(os.path.join(result_subdir,f"result_{best_model}.pkl.gz")+" does not exist. Will search for pkl")
+                    check_dict = pickle.load(gzip.open(os.path.join(result_subdir,f"result_{best_model}.pkl.gz"),'rb'))
                 finally:
                     print(f"finished reading result pickle for the best model.")
                 seqs = check_dict['seqs']
