@@ -283,7 +283,10 @@ jupyter-lab output.ipynb
 **Feature 2**
 
 We have also provided a singularity image called ```alpha-analysis.sif```to generate a CSV table with structural properties and scores.
-Firstly, download the singularity image from [here](https://www.embl-hamburg.de/AlphaPulldown/downloads/alpha-analysis.sif). Chrome user may not be able to download it after clicking the link. If so, please right click and select "Save link as".
+Firstly, download the singularity image: 
+If your results are from AlphaPulldown prior version 1.0.0: [alpha-analysis_jax_0.3.sif](https://www.embl-hamburg.de/AlphaPulldown/downloads/alpha-analysis_jax_0.3.sif). 
+If your results are from AlphaPulldown with version >=1.0.0: [alpha-analysis_jax_0.4.sif](https://www.embl-hamburg.de/AlphaPulldown/downloads/alpha-analysis_jax_0.4.sif). 
+Chrome user may not be able to download it after clicking the link. If so, please right click and select "Save link as".
 
 
 Then execute the singularity image (i.e. the sif file) by:
@@ -291,7 +294,7 @@ Then execute the singularity image (i.e. the sif file) by:
 singularity exec \
     --no-home \
     --bind /path/to/your/output/dir:/mnt \
-    <path to your downloaded image>/alpha-analysis.sif \
+    <path to your downloaded image>/alpha-analysis_0.4.sif \
     run_get_good_pae.sh \
     --output_dir=/mnt \
     --cutoff=10
