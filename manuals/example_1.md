@@ -166,7 +166,8 @@ run_multimer_jobs.py --mode=pulldown \
 --data_dir=<path to alphafold databases> \ 
 --protein_lists=baits.txt,candidates.txt \
 --monomer_objects_dir=/path/to/monomer_objects_directory \
---job_index=<any number you want>
+--job_index=<any number you want> --compress_result_pickles=True \
+--remove_result_pickles=True
 ```
 
 :memo: To reproduce the results of Lassa virus Z protein vs L protein fragments written in our paper, simply use [baits_Z_protein.txt](./example_data/baits_Z_protein.txt) and [L_protein_fragments.txt](./example_data/L_protein_fragments.txt) as the ```--protein_lists```inputs. This example shows also how to run the interaction screen for fragments of proteins, keeping the original full-length residue numbering in the output!
@@ -184,6 +185,10 @@ Default is `None` and the programme will run predictions one by one in the given
 different number if you wish to run an array of jobs in parallel then the programme will only run the corresponding job specified by the ```job_index```
 
 :exclamation: ```job_index``` starts from 1
+
+🆕 now can reduce the size of the output folders via ```remove_result_pickles``` and ```compress_result_pickles```
+
+By default these 2 are set to False. ```compress_result_pickles=True``` will compress all the result pickles by gzip. ```remove_result_pickles=True``` will remove result pikles that do not belong to the best model. 
 
 ### Running on a computer cluster in parallel
 
