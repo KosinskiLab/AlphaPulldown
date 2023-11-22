@@ -11,8 +11,8 @@ AlphaPulldown is a Python package that streamlines protein-protein interaction s
 * allows modeling fragments of proteins without recalculation of MSAs and keeping the original full-length residue numbering in the models
 * summarizes the results in a CSV table with AlphaFold scores, pDockQ and mpDockQ, PI-score, and various physical parameters of the interface
 * provides a Jupyter notebook for an interactive analysis of PAE plots and models
-* (New) integrates cross-link mass spec data with AlphaFold predictions via [AlphaLink2](https://github.com/Rappsilber-Laboratory/AlphaLink2/tree/main) models
-* (New) allows to integrate experimental models into AlphaFold pipeline using custom multimeric databases
+* 🆕 integrates cross-link mass spec data with AlphaFold predictions via [AlphaLink2](https://github.com/Rappsilber-Laboratory/AlphaLink2/tree/main) models
+* 🆕 allows to integrate experimental models into AlphaFold pipeline using custom multimeric databases
 
 ## Pre-installation
 Check if you have downloaded necessary parameters and databases (e.g. BFD, MGnify etc.) as instructed in [AlphFold's documentation](https://github.com/deepmind/alphafold). You should have a directory like below:
