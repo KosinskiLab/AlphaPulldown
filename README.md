@@ -1,7 +1,8 @@
 # AlphaPulldown
 [![Downloads](https://static.pepy.tech/badge/alphapulldown)](https://pepy.tech/project/alphapulldown)  [![python3.10](https://img.shields.io/badge/python-3.10-blue.svg)](https://www.python.org/downloads/release/python-3100/) ![GPL3 license](https://img.shields.io/badge/license-GPLv3-green)
 
-<span style="color:red">*This is a development version of AlphaPulldown! The stable version is available at [0.30.7 branch](https://github.com/KosinskiLab/AlphaPulldown/tree/temp_main)</span>.
+## 🥳 AlphaPulldown has entered the era of version 1.x
+We have brought some exciting useful features to AlphaPulldown and updated its computing environment. 
 
 
 AlphaPulldown is a Python package that streamlines protein-protein interaction screens and high-throughput modelling of higher-order oligomers using AlphaFold-Multimer:
@@ -10,6 +11,7 @@ AlphaPulldown is a Python package that streamlines protein-protein interaction s
 * allows modeling fragments of proteins without recalculation of MSAs and keeping the original full-length residue numbering in the models
 * summarizes the results in a CSV table with AlphaFold scores, pDockQ and mpDockQ, PI-score, and various physical parameters of the interface
 * provides a Jupyter notebook for an interactive analysis of PAE plots and models
+* (New) integrates cross-link mass spec data with AlphaFold predictions via [AlphaLink2](https://github.com/Rappsilber-Laboratory/AlphaLink2/tree/main) models
 * (New) allows to integrate experimental models into AlphaFold pipeline using custom multimeric databases
 
 ## Pre-installation
