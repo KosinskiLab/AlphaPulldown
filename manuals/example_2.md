@@ -149,6 +149,9 @@ different number if you wish to run an array of jobs in parallel then the progra
 
 :exclamation: ```job_index``` starts from 1
 
+🆕 now can reduce the size of the output folders via ```remove_result_pickles``` and ```compress_result_pickles```
+
+By default these 2 are set to False. ```compress_result_pickles=True``` will compress all the result pickles by gzip. ```remove_result_pickles=True``` will remove result pikles that do not belong to the best model. 
 
 ✨ **New Features** Now AlphaPulldown supports integrative structural modelling if the user has experimental cross-link data. Please refer to [this manual](run_with_AlphaLink2.md) if you'd like to model your protein complexes with cross-link MS data as extra input.
 
