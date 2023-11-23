@@ -11,7 +11,7 @@ from Bio.PDB.Polypeptide import protein_letters_3to1
 from Bio import SeqIO
 from colabfold.batch import convert_pdb_to_mmcif
 from Bio.PDB import Structure, Model, Chain, Residue
-
+from Bio.PDB.MMCIF2Dict import MMCIF2Dict
 
 def extract_seqs(template, chain_id):
     """
@@ -93,9 +93,10 @@ class MmcifChainFiltered:
         self.atom_site_label_seq_ids = None
         self.input_file_path = input_file_path
         self.chain_id = chain_id
+        self.auth_seq_id_to_label_seq_id = self.map_auth_seq_id_to_label_seq_id()
         logging.info("Parsing SEQRES...")
-        self.sequence_atom, self.sequence_seqres = extract_seqs(input_file_path, chain_id)
-        if not self.sequence_seqres:
+        sequence_atom, sequence_seqres = extract_seqs(input_file_path, chain_id)
+        if not sequence_seqres:
             logging.warning(f"No SEQRES was found in {input_file_path}! Parsing from atoms...")
         if input_file_path.suffix == '.pdb':
             logging.info(f"Converting to mmCIF: {input_file_path}")
@@ -111,20 +112,51 @@ class MmcifChainFiltered:
         self.seqres_to_structure = mmcif_object.seqres_to_structure[chain_id]
         structure, sequence_atom = self.extract_chain(mmcif_object.structure, chain_id)
         self.structure = remove_hydrogens_and_irregularities(structure)
-        # Check that SeqIO reads the same sequence as AlphaFold
-        if not self.sequence_seqres:
-            self.sequence_seqres = mmcif_object.chain_to_seqres[chain_id]
-        if str(self.sequence_atom) != str(sequence_atom):
-            logging.warning(f"SeqIO.atom-res = {self.sequence_atom}")
-            logging.warning(f"Structure.atom-res = {sequence_atom}")
-            logging.warning("Taking sequence from Bio.Structure!")
+        self.sequence_atom = sequence_atom
+        self.sequence_seqres = mmcif_object.chain_to_seqres[chain_id]
+        if self.sequence_seqres is None:
+            self.sequence_seqres = sequence_seqres
+        if self.sequence_atom is None:
             self.sequence_atom = sequence_atom
-
         self.extract_atom_site_label_seq_id()
         self.structure_modified = False
 
     def __eq__(self, other):
         return self.structure == other.structure
+
+    def map_auth_seq_id_to_label_seq_id(self):
+        """
+        Maps auth seq id to label seq for a paricular chain of mmcif file
+        """
+        # Path to your 3L4Q CIF file
+        mmcif_file = self.input_file_path
+
+        # Read the mmCIF file into a dictionary
+        mmcif_dict = MMCIF2Dict(mmcif_file)
+
+        # Extract auth_seq_id, label_seq_id, and chain_id
+        auth_seq_ids = mmcif_dict.get('_atom_site.auth_seq_id')
+        label_seq_ids = mmcif_dict.get('_atom_site.label_seq_id')
+        chain_ids = mmcif_dict.get('_atom_site.auth_asym_id')
+
+        # Filter by chain ID and map auth_seq_id to label_seq_id
+        chain = self.chain_id
+        mapping = {}
+
+        if auth_seq_ids and label_seq_ids and chain_ids:
+            for auth_id, label_id, chain_id in zip(auth_seq_ids, label_seq_ids, chain_ids):
+                if chain_id == chain:
+                    if auth_id not in mapping:
+                        mapping[auth_id] = label_id
+                    else:
+                        # Handle cases where the same auth_seq_id maps to multiple label_seq_ids
+                        if mapping[auth_id] != label_id:
+                            logging.info(f"Note: auth_seq_id {auth_id} maps to multiple label_seq_ids in chain {chain}.")
+                    logging.debug(f"Chain {chain} - auth_seq_id: {auth_id} -> label_seq_id: {mapping[auth_id]}")
+        else:
+            raise Exception("Error: No auth_seq_id or label_seq_id in mmCIF file.")
+        return mapping
+
 
     def extract_atom_site_label_seq_id(self):
         """
@@ -136,7 +168,7 @@ class MmcifChainFiltered:
                 if residue.is_missing or residue.position is None:
                     continue
                 name = residue.name
-                residue_number = residue.position.residue_number
+                residue_number = self.auth_seq_id_to_label_seq_id[str(residue.position.residue_number)]
                 number_of_atoms_in_residue = len(residue_atoms[name])
                 atoms_label_seq_id += [str(residue_number)] * number_of_atoms_in_residue
             number_of_atoms_in_structure = sum(1 for _ in self.structure.get_atoms())
