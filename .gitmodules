@@ -10,10 +10,6 @@
 	path = alphapulldown/analysis_pipeline/af2plots
 	url = https://gitlab.com/gchojnowski/af2plots.git
 	branch = main
-[submodule "unifold"]
-	path = unifold
-	url = https://github.com/dingquanyu/Uni-Fold.git
-	branch = main
 [submodule "AlphaLink2"]
 	path = AlphaLink2
 	url = https://github.com/dingquanyu/AlphaLink2.git
