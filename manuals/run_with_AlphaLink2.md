@@ -45,7 +45,7 @@ and ```protein_B.pkl``` already calculated.
 
 Dictionaries like these should be stored in **```.pkl.gz```** files and provided to AlphaPulldown in the next step. You can use the script from [AlphaLink2](https://github.com/Rappsilber-Laboratory/AlphaLink2/tree/main)
 to prepare these pickle files. 
-### **NB** The dictionaries are 0-indexed, i.e., residues start from 0.
+### ⚠️ The dictionaries are 0-indexed, i.e., residues start from 0.
 
 ## 4th step: run with AlphaLink2 prediction via AlphaPulldown
 Within the same conda environment, run in e.g. ```custom``` mode:
@@ -60,6 +60,24 @@ run_multimer_jobs.py --mode=custom \
 --use_alphalink=True --crosslinks=/path/to/crosslinks.pkl.gz 
 ```
 The other modes provided by AlphaPulldown also work in the same way.
+
+## 5th Step: citation
+If you used this feature, please cite AlphaLink2 as well: 
+```
+@article {Stahl2023,
+	author = {Kolja Stahl and Oliver Brock and Juri Rappsilber},
+	title = {Modelling protein complexes with crosslinking mass spectrometry and deep learning},
+	elocation-id = {2023.06.07.544059},
+	year = {2023},
+	doi = {10.1101/2023.06.07.544059},
+	publisher = {Cold Spring Harbor Laboratory},
+	abstract = {Scarcity of structural and evolutionary information on protein complexes poses a challenge to deep learning-based structure modelling. We integrated experimental distance restraints obtained by crosslinking mass spectrometry (MS) into AlphaFold-Multimer, by extending AlphaLink to protein complexes. Integrating crosslinking MS data substantially improves modelling performance on challenging targets, by helping to identify interfaces, focusing sampling, and improving model selection. This extends to single crosslinks from whole-cell crosslinking MS, suggesting the possibility of whole-cell structural investigations driven by experimental data.Competing Interest StatementThe authors have declared no competing interest.},
+	URL = {https://www.biorxiv.org/content/early/2023/06/09/2023.06.07.544059},
+	eprint = {https://www.biorxiv.org/content/early/2023/06/09/2023.06.07.544059.full.pdf},
+	journal = {bioRxiv}
+}
+```
+
 
 
 
