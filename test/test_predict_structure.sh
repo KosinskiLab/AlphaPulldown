@@ -24,8 +24,8 @@
 
 module load Anaconda3
 eval "$(conda shell.bash hook)"
-module load CUDA/11.3.1
-module load cuDNN/8.2.1.32-CUDA-11.3.1
+module load CUDA/11.8.0
+module load cuDNN/8.7.0.84-CUDA-11.8.0
 
 #Print error message if no arguments and help message that explains how to use the script
 if [ $# -eq 0 ]
