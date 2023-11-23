@@ -14,3 +14,7 @@
 	path = unifold
 	url = https://github.com/dingquanyu/Uni-Fold.git
 	branch = main
+[submodule "AlphaLink2"]
+	path = AlphaLink2
+	url = https://github.com/dingquanyu/AlphaLink2.git
+	branch = main
