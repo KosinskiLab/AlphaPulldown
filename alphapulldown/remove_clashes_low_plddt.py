@@ -93,21 +93,21 @@ class MmcifChainFiltered:
         self.atom_site_label_seq_ids = None
         self.input_file_path = input_file_path
         self.chain_id = chain_id
-        self.auth_seq_id_to_label_seq_id = self.map_auth_seq_id_to_label_seq_id()
         logging.info("Parsing SEQRES...")
         sequence_atom, sequence_seqres = extract_seqs(input_file_path, chain_id)
         if not sequence_seqres:
             logging.warning(f"No SEQRES was found in {input_file_path}! Parsing from atoms...")
-        if input_file_path.suffix == '.pdb':
+        file_type = input_file_path.suffix.lower()
+        if file_type == ".pdb":
             logging.info(f"Converting to mmCIF: {input_file_path}")
-            input_file_path = Path(input_file_path)
             convert_pdb_to_mmcif(input_file_path)
-            input_file_path = input_file_path.parent.joinpath(f"{input_file_path.stem}.cif")
-        with open(input_file_path) as f:
+            self.input_file_path = input_file_path.with_suffix(".cif")
+        self.auth_seq_id_to_label_seq_id = self.map_auth_seq_id_to_label_seq_id()
+        with open(self.input_file_path) as f:
             mmcif = f.read()
         parsing_result = parse(file_id=code, mmcif_string=mmcif)
         if parsing_result.errors:
-            raise Exception(f"Can't parse mmcif file {input_file_path}: {parsing_result.errors}")
+            raise Exception(f"Can't parse mmcif file {self.input_file_path}: {parsing_result.errors}")
         mmcif_object = parsing_result.mmcif_object
         self.seqres_to_structure = mmcif_object.seqres_to_structure[chain_id]
         structure, sequence_atom = self.extract_chain(mmcif_object.structure, chain_id)
@@ -128,12 +128,9 @@ class MmcifChainFiltered:
         """
         Maps auth seq id to label seq for a paricular chain of mmcif file
         """
-        # Path to your 3L4Q CIF file
         mmcif_file = self.input_file_path
-
         # Read the mmCIF file into a dictionary
         mmcif_dict = MMCIF2Dict(mmcif_file)
-
         # Extract auth_seq_id, label_seq_id, and chain_id
         auth_seq_ids = mmcif_dict.get('_atom_site.auth_seq_id')
         label_seq_ids = mmcif_dict.get('_atom_site.label_seq_id')
@@ -154,7 +151,7 @@ class MmcifChainFiltered:
                             logging.info(f"Note: auth_seq_id {auth_id} maps to multiple label_seq_ids in chain {chain}.")
                     logging.debug(f"Chain {chain} - auth_seq_id: {auth_id} -> label_seq_id: {mapping[auth_id]}")
         else:
-            raise Exception("Error: No auth_seq_id or label_seq_id in mmCIF file.")
+            raise Exception(f"Error: No auth_seq_id or label_seq_id in mmCIF file {self.input_file_path}")
         return mapping
 
 
