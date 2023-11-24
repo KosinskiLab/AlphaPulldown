@@ -27,7 +27,7 @@ import datetime
 import re
 import hashlib
 import glob
-import importlib
+import importlib.util
 
 COMMON_PATTERNS = [
     r"[Vv]ersion\s*(\d+\.\d+(?:\.\d+)?)",  # version 1.0 or version 1.0.0
@@ -55,20 +55,27 @@ def get_flags_from_af():
     A function to load flags from alphafold imported as a module
     """
     def load_module(file_name, module_name):
+        if module_name in sys.modules:
+            return sys.modules[module_name]
+
         spec = importlib.util.spec_from_file_location(module_name, file_name)
         module = importlib.util.module_from_spec(spec)
         sys.modules[module_name] = module
         spec.loader.exec_module(module)
         return module
+
+    # First try
     PATH_TO_RUN_ALPHAFOLD = os.path.join(os.path.dirname(alphafold.__file__), "run_alphafold.py")
+
+    if not os.path.exists(PATH_TO_RUN_ALPHAFOLD):
+        # Adjust path if file not found
+        PATH_TO_RUN_ALPHAFOLD = os.path.join(os.path.dirname(os.path.dirname(alphafold.__file__)), "run_alphafold.py")
+
     try:
         run_af = load_module(PATH_TO_RUN_ALPHAFOLD, "run_alphafold")
         return run_af.flags
-    except FileNotFoundError:
-        PATH_TO_RUN_ALPHAFOLD = os.path.join(os.path.dirname(os.path.dirname(alphafold.__file__)), "run_alphafold.py")
-        run_af = load_module(PATH_TO_RUN_ALPHAFOLD, "run_alphafold")
-        return run_af.flags
-
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f"Could not find 'run_alphafold.py' at {PATH_TO_RUN_ALPHAFOLD}") from e
 
 def create_uniprot_runner(jackhmmer_binary_path, uniprot_database_path):
     """create a uniprot runner object"""
