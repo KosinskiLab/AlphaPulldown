@@ -48,7 +48,7 @@ jobs:
           eval "$(conda shell.bash hook)"
           export WORKDIRPATH=$PWD
           conda activate AlphaPulldown
-          pip install protobuf==4.23.0 ml-dtypes==0.3.0
+          pip install protobuf==4.23.0 ml-dtypes==0.2.0
       - name: Install Pytorch Dependencies
         run: |
           eval "$(conda shell.bash hook)"
