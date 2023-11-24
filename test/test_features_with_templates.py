@@ -7,6 +7,7 @@ import  numpy as np
 from alphapulldown.remove_clashes_low_plddt import extract_seqs
 import tempfile
 import shutil
+import glob
 
 
 class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
@@ -44,6 +45,41 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
 
         assert Path(f"{self.TEST_DATA_DIR}/fastas/{file_name}_{chain_id}.fasta").exists()
 
+        def create_mock_file(file_path):
+            Path(file_path).parent.mkdir(parents=True, exist_ok=True)
+            Path(file_path).touch(exist_ok=True)
+
+        # Common root directory
+        root_dir = './'
+
+        # Mock databases
+        create_mock_file(root_dir + 'uniref90/uniref90.fasta')
+        create_mock_file(root_dir + '/mgnify/mgy_clusters_2022_05.fa')
+        create_mock_file(root_dir + '/uniprot/uniprot.fasta')
+        create_mock_file(root_dir + '/bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt_hhm.ffindex')
+        create_mock_file(root_dir + '/uniref30/UniRef30_2021_03_hhm.ffindex')
+        create_mock_file(root_dir + '/pdb70/pdb70_hhm.ffindex')
+
+        # Mock hhblits files
+        hhblits_root = root_dir + 'bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt'
+        hhblits_files = ['_a3m.ffdata', '_a3m.ffindex', '_cs219.ffdata', '_cs219.ffindex', '_hhmm.ffdata',
+                         '_hhmm.ffindex']
+        for file in hhblits_files:
+            create_mock_file(hhblits_root + file)
+
+        # Mock uniclust30 files
+        uniclust_db_root = root_dir + 'uniclust30/uniclust30_2018_08/uniclust30_2018_08'
+        uniclust_db_files = ['_a3m_db', '_a3m.ffdata', '_a3m.ffindex', '.cs219', '_cs219.ffdata', '_cs219.ffindex',
+                             '_hhm_db', '_hhm.ffdata', '_hhm.ffindex']
+        for suffix in uniclust_db_files:
+            create_mock_file(f"{uniclust_db_root}{suffix}")
+
+        # Mock uniref30 files - Adjusted for the correct naming convention
+        uniref_db_root = root_dir + 'uniref30/UniRef30_2021_03'
+        uniref_db_files = ['_a3m.ffdata', '_a3m.ffindex', '_hmm.ffdata', '_hmm.ffindex', '_cs.ffdata', '_cs.ffindex']
+        for suffix in uniref_db_files:
+            create_mock_file(f"{uniref_db_root}{suffix}")
+
         # Prepare the command and arguments
         cmd = [
             'python',
@@ -51,7 +87,7 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
             '--use_precomputed_msas', 'True',
             '--save_msa_files', 'True',
             '--skip_existing', 'True',
-            '--data_dir', '/scratch/AlphaFold_DBs/2.3.2',
+            '--data_dir', '.',
             '--max_template_date', '3021-01-01',
             '--threshold_clashes', '1000',
             '--hb_allowance', '0.4',
