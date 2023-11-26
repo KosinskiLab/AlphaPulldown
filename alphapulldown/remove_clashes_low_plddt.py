@@ -1,17 +1,18 @@
 from collections import defaultdict
-from pathlib import Path
-
 from absl import app, flags
 import logging
 import copy
-from alphafold.data.mmcif_parsing import parse, ResidueAtPosition
-from alphafold.common.residue_constants import residue_atoms
+from alphafold.data.mmcif_parsing import parse
+from alphafold.common.residue_constants import residue_atoms, atom_types
 from Bio.PDB import NeighborSearch, PDBIO, MMCIFIO
 from Bio.PDB.Polypeptide import protein_letters_3to1
 from Bio import SeqIO
 from colabfold.batch import convert_pdb_to_mmcif
 from Bio.PDB import Structure, Model, Chain, Residue
 from Bio.PDB.MMCIF2Dict import MMCIF2Dict
+
+STANDARD_AMINO_ACIDS = residue_atoms.keys()
+
 
 def extract_seqs(template, chain_id):
     """
@@ -52,7 +53,6 @@ def remove_hydrogens_and_irregularities(structure):
     Takes a BioPython Structure object and returns a new Structure object without hydrogen atoms,
     alternative atom locations, and non-standard amino acids.
     """
-    STANDARD_AMINO_ACIDS = residue_atoms.keys()
     new_structure = Structure.Structure(structure.id)
 
     for model in structure:
@@ -64,8 +64,8 @@ def remove_hydrogens_and_irregularities(structure):
             new_model.add(new_chain)
 
             for residue in chain:
-                # Check for standard amino acid
-                if residue.resname.strip() not in STANDARD_AMINO_ACIDS:
+                # Check for HETATM and standard amino acid
+                if residue.id[0] == 'H' or residue.resname.strip() not in STANDARD_AMINO_ACIDS:
                     continue
 
                 new_residue = Residue.Residue(residue.id, residue.resname, residue.segid)
@@ -73,7 +73,7 @@ def remove_hydrogens_and_irregularities(structure):
 
                 for atom in residue:
                     # Check for hydrogen atoms and alternative locations
-                    if atom.element != 'H' and atom.get_name() != 'OXT':
+                    if atom.name in atom_types: # != 'H' and atom.get_name() != 'OXT':
                         if atom.altloc != 'A':
                             new_residue.add(atom)
 
@@ -89,7 +89,10 @@ class MmcifChainFiltered:
     VDW_RADII = defaultdict(lambda: 1.5,
                             {'H': 1.1, 'C': 1.7, 'N': 1.55, 'O': 1.52, 'F': 1.47, 'P': 1.8, 'S': 1.8, 'CL': 1.75})
 
+
     def __init__(self, input_file_path, code, chain_id=None):
+        self.atom_site_label_seq_id = None
+        self.atom_to_label_id = None
         self.atom_site_label_seq_ids = None
         self.input_file_path = input_file_path
         self.chain_id = chain_id
@@ -102,7 +105,6 @@ class MmcifChainFiltered:
             logging.info(f"Converting to mmCIF: {input_file_path}")
             convert_pdb_to_mmcif(input_file_path)
             self.input_file_path = input_file_path.with_suffix(".cif")
-        self.auth_seq_id_to_label_seq_id = self.map_auth_seq_id_to_label_seq_id()
         with open(self.input_file_path) as f:
             mmcif = f.read()
         parsing_result = parse(file_id=code, mmcif_string=mmcif)
@@ -111,73 +113,84 @@ class MmcifChainFiltered:
         mmcif_object = parsing_result.mmcif_object
         self.seqres_to_structure = mmcif_object.seqres_to_structure[chain_id]
         structure, sequence_atom = self.extract_chain(mmcif_object.structure, chain_id)
-        self.structure = remove_hydrogens_and_irregularities(structure)
         self.sequence_atom = sequence_atom
         self.sequence_seqres = mmcif_object.chain_to_seqres[chain_id]
         if self.sequence_seqres is None:
             self.sequence_seqres = sequence_seqres
         if self.sequence_atom is None:
             self.sequence_atom = sequence_atom
+        self.structure = remove_hydrogens_and_irregularities(structure)
+        self.map_atoms_to_label_seq_id()
         self.extract_atom_site_label_seq_id()
         self.structure_modified = False
+
 
     def __eq__(self, other):
         return self.structure == other.structure
 
-    def map_auth_seq_id_to_label_seq_id(self):
+
+    def map_atoms_to_label_seq_id(self):
         """
-        Maps auth seq id to label seq for a paricular chain of mmcif file
+        Maps structure atoms to label seq for a particular chain of an mmCIF file.
         """
         mmcif_file = self.input_file_path
-        # Read the mmCIF file into a dictionary
         mmcif_dict = MMCIF2Dict(mmcif_file)
-        # Extract auth_seq_id, label_seq_id, and chain_id
-        auth_seq_ids = mmcif_dict.get('_atom_site.auth_seq_id')
+
+        # Extract label_seq_id, chain_id, and residue number (auth_seq_id)
         label_seq_ids = mmcif_dict.get('_atom_site.label_seq_id')
         chain_ids = mmcif_dict.get('_atom_site.auth_asym_id')
+        residue_numbers = mmcif_dict.get('_atom_site.auth_seq_id')
 
-        # Filter by chain ID and map auth_seq_id to label_seq_id
-        chain = self.chain_id
-        mapping = {}
+        if not (label_seq_ids and chain_ids and residue_numbers):
+            raise Exception(f"Error: Required data not found in mmCIF file {mmcif_file}")
 
-        if auth_seq_ids and label_seq_ids and chain_ids:
-            for auth_id, label_id, chain_id in zip(auth_seq_ids, label_seq_ids, chain_ids):
-                if chain_id == chain:
-                    if auth_id not in mapping:
-                        mapping[auth_id] = label_id
-                    else:
-                        # Handle cases where the same auth_seq_id maps to multiple label_seq_ids
-                        if mapping[auth_id] != label_id:
-                            logging.info(f"Note: auth_seq_id {auth_id} maps to multiple label_seq_ids in chain {chain}.")
-                    logging.debug(f"Chain {chain} - auth_seq_id: {auth_id} -> label_seq_id: {mapping[auth_id]}")
-        else:
-            raise Exception(f"Error: No auth_seq_id or label_seq_id in mmCIF file {self.input_file_path}")
-        return mapping
+        # Pre-process MMCIF data into a map
+        mmcif_map = {(chain_id, residue_number): label_id
+                     for label_id, chain_id, residue_number in zip(label_seq_ids, chain_ids, residue_numbers)}
+
+        # Initialize the list of dictionaries
+        atom_to_labels = []
+
+        # Filter by target chain ID and map atoms to label_seq_id
+        target_chain = self.chain_id
+        for atom in self.structure.get_atoms():
+            atom_chain_id = atom.get_parent().get_parent().id
+            atom_residue_number = atom.get_parent().id[1]
+
+            if atom_chain_id == target_chain and (atom_chain_id, str(atom_residue_number)) in mmcif_map:
+                label_id = mmcif_map[(atom_chain_id, str(atom_residue_number))]
+                atom_to_label = {'atom': atom, 'sequence_id': label_id, 'is_missing': False}
+                atom_to_labels.append(atom_to_label)
+        self.atom_to_label_id = atom_to_labels
 
 
     def extract_atom_site_label_seq_id(self):
         """
         Extracts residue indicies for atoms.
         """
-        atoms_label_seq_id = []
-        if self.sequence_seqres:
-            for label_id, residue in self.seqres_to_structure.items():
-                if residue.is_missing or residue.position is None:
-                    continue
-                name = residue.name
-                residue_number = self.auth_seq_id_to_label_seq_id[str(residue.position.residue_number)]
-                number_of_atoms_in_residue = len(residue_atoms[name])
-                atoms_label_seq_id += [str(residue_number)] * number_of_atoms_in_residue
-            number_of_atoms_in_structure = sum(1 for _ in self.structure.get_atoms())
-
-            if number_of_atoms_in_structure != len(atoms_label_seq_id):
-                error = f"atoms label seq ids: {atoms_label_seq_id}.\n\n"
-                error += f"Mismatch in atom counts between structure {number_of_atoms_in_structure}"
-                error += f" and atom_site_label_seq_ids {len(atoms_label_seq_id)}."
-                raise ValueError(error)
-            self.atom_site_label_seq_ids = atoms_label_seq_id
+        atoms_label_seq_ids = []
+        for atom_to_label in self.atom_to_label_id:
+            if not atom_to_label['is_missing']:
+                atoms_label_seq_ids.append(atom_to_label['sequence_id'])
+        number_of_labels = len(atoms_label_seq_ids)
+        number_of_atoms = sum(1 for _ in self.structure.get_atoms())
+        if number_of_labels == number_of_atoms:
+            len_seq = len(self.sequence_seqres or self.sequence_atom)
+            ids = [int(f) for f in atoms_label_seq_ids]
+            max_id = max(ids)
+            min_id = min(ids)
+            if len_seq < max_id:
+                logging.warning(f"Max sequence id {max_id} refer to non-existent residues! Resetting label ids...")
+                self.atom_site_label_seq_ids = None
+            elif  min_id < 1:
+                logging.warning(f"Min sequence id {min_id} is less than 1! Resetting label ids...")
+                self.atom_site_label_seq_ids = None
+            else:
+                self.atom_site_label_seq_ids = atoms_label_seq_ids
         else:
-            self.atom_site_label_seq_ids = None
+            raise Exception(f"Number of sequence ids {number_of_labels} "
+                            f"is not equal to number of atoms in structure {number_of_atoms}")
+
 
     def extract_chain(self, model, chain_id):
         """
@@ -216,6 +229,7 @@ class MmcifChainFiltered:
 
         return new_structure, seq
 
+
     def is_potential_hbond(self, atom1, atom2):
         """
         Check if two atoms are potential hydrogen bond donors and acceptors.
@@ -224,6 +238,7 @@ class MmcifChainFiltered:
                 (atom2.element in self.DONORS_ACCEPTORS and atom1.element in self.DONORS_ACCEPTORS):
             return True
         return False
+
 
     def remove_clashes(self, threshold=0.9, hb_allowance=0.4):
         """
@@ -255,10 +270,10 @@ class MmcifChainFiltered:
         logging.info(f"Unique clashing atoms: {len(clashing_atoms)} out of {len(list(model.get_atoms()))}")
         logging.info(f"Unique clashing residues: {len(clashing_residues)} out of {len(list(model.get_residues()))}")
         # remove from structure and seqres_to_structure
-        print(clashing_residues)
         if len(clashing_residues) > 0:
             self.remove_residues(clashing_residues)
         self.structure_modified = True
+
 
     def remove_low_plddt(self, plddt_threshold=50):
         """
@@ -277,30 +292,21 @@ class MmcifChainFiltered:
             self.remove_residues(low_plddt_residues)
         self.structure_modified = True
 
+
     def remove_residues(self, residues):
         """
-        Remove residues from the structure
-        and seqres_to_structure (that's enough for atoms_label_seq_id).
+        Remove residues from the structure and modify atom_to_label_id dict
         """
-        ids = []
+        # Remove from structure
         for residue in residues:
             chain = residue.get_parent()
             chain.detach_child(residue.id)
-            ids.append(residue.id[1])
-        # and from seqres_to_structure
-        new_seqres_to_structure = {}
-        for k, v in self.seqres_to_structure.items():
-            if v.position:
-                if v.position.residue_number in ids:
-                    new_seqres_to_structure[k] = ResidueAtPosition(
-                        position=None, name=v.name, is_missing=True, hetflag=' '
-                    )
-                    continue
-            new_seqres_to_structure[k] = v
 
-        self.seqres_to_structure = \
-            {k: v for k, v in self.seqres_to_structure.items() if
-             v.position.residue_number not in ids}
+        # Change is_missing to True for atom_to_label_id list
+        for atom_dict in self.atom_to_label_id:
+            if atom_dict['atom'].get_parent() in residues:
+                atom_dict['is_missing'] = True
+
 
     def save_structure(self, output_file_path):
         """

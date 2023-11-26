@@ -136,12 +136,13 @@ def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, pldd
         # Convert to Protein
         protein = _from_bio_structure(mmcif_obj.structure)
         # Convert to mmCIF
+        sequence_ids = mmcif_obj.atom_site_label_seq_ids
         mmcif_string = to_mmcif(protein,
                                 f"{code}_{chain_id}",
                                 "Monomer",
                                 chain_id,
                                 seqres,
-                                mmcif_obj.atom_site_label_seq_ids)
+                                sequence_ids)
         # Save to file
         fn = mmcif_dir / f"{code}.cif"
         with open(fn, 'w') as f:

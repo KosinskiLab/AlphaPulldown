@@ -169,7 +169,7 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
     def test_5b_gappy_pdb(self):
         self.run_features_generation('GAPPY_PDB', 'B', 'pdb')
 
-    def fails_test_6a_mmseqs2(self):
+    def fails_test_6a_mmseqs2(self): #need to fix API call
         file_name = '3L4Q'
         chain_id = 'A'
         file_extension = 'cif'
@@ -210,6 +210,12 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
         subprocess.run(cmd, check=True)
         assert pkl_path.exists()
         assert a3m_path.exists()
+
+
+    def fails_test_7a_hetatoms(self): #Template is correctly prepared but later ignored, why?!
+        self.run_features_generation('hetatoms', 'A', 'pdb')
+
+
 
 if __name__ == '__main__':
     absltest.main()
