@@ -186,8 +186,7 @@ class MonomericObject:
         Modified from ColabFold: https://github.com/sokrypton/ColabFold
         """
 
-        logging.info("You chose to calculate MSA with mmseq2")
-        logging.info("Debug version")
+        logging.info("You chose to calculate MSA with mmseq2.\nPlease also cite: Mirdita M, Schütze K, Moriwaki Y, Heo L, Ovchinnikov S and Steinegger M. ColabFold: Making protein folding accessible to all. Nature Methods (2022) doi: 10.1038/s41592-022-01488-1")
         msa_mode = "MMseqs2 (UniRef+Environmental)"
         keep_existing_results = True
         result_dir = output_dir
