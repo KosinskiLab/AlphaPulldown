@@ -212,7 +212,7 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
         assert a3m_path.exists()
 
 
-    def fails_test_7a_hetatoms(self): # TODO: compute and commit features and msas
+    def test_7a_hetatoms(self): # TODO: compute and commit features and msas
         self.run_features_generation('hetatoms', 'A', 'pdb')
 
 
