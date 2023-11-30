@@ -167,7 +167,6 @@ def check_existing_objects(output_dir, pickle_name):
 
 
 def create_and_save_monomer_objects(m, pipeline, flags_dict,use_mmseqs2=False):
-    logging.info("You are using the new version")
     if FLAGS.skip_existing and check_existing_objects(
         FLAGS.output_dir, f"{m.description}.pkl"
     ):
