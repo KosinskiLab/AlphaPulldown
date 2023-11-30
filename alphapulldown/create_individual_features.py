@@ -9,7 +9,7 @@ from alphafold.data.pipeline import DataPipeline
 from alphafold.data.tools import hmmsearch
 from alphafold.data import templates
 from absl import logging, app
-from alphapulldown.utils import save_meta_data, create_uniprot_runner, parse_fasta, get_flags_from_af
+from alphapulldown.utils import save_meta_data, create_uniprot_runner, parse_fasta, get_run_alphafold
 import contextlib
 from datetime import datetime
 from pathlib import Path
@@ -24,7 +24,9 @@ def output_meta_file(file_path):
     with open(file_path, "w") as outfile:
         yield outfile.name
 
-flags = get_flags_from_af()
+
+run_af = get_run_alphafold()
+flags = run_af.flags
 flags.DEFINE_bool("save_msa_files", False, "save msa output or not")
 flags.DEFINE_bool(
     "skip_existing", False, "skip existing monomer feature pickles or not"
