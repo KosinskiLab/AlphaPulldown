@@ -14,9 +14,10 @@ from alphapulldown.objects import MultimericObject
 import os
 from pathlib import Path
 from alphapulldown.predict_structure import predict, ModelsToRelax
-from alphafold import run_alphafold as run_af
+from alphapulldown.utils import get_run_alphafold
 
 
+run_af = get_run_alphafold()
 flags = run_af.flags
 
 flags.DEFINE_enum(

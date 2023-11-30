@@ -4,7 +4,7 @@
 #
 
 from alphapulldown.objects import MonomericObject
-from alphapulldown.utils import create_uniprot_runner, get_flags_from_af, convert_fasta_description_to_protein_name
+from alphapulldown.utils import create_uniprot_runner, get_run_alphafold, convert_fasta_description_to_protein_name
 from alphapulldown.create_custom_template_db import create_db
 from alphafold.data.pipeline import DataPipeline
 from alphafold.data.tools import hmmsearch
@@ -18,7 +18,8 @@ import csv
 from create_individual_features import create_and_save_monomer_objects, iter_seqs
 
 
-flags = get_flags_from_af()
+run_af = get_run_alphafold()
+flags = run_af.flags
 
 flags.DEFINE_integer("job_index", None, "index of job in the description file, starting from 1")
 
@@ -94,8 +95,8 @@ def create_custom_db(temp_dir, protein, templates, chains):
     threashold_clashes = FLAGS.threshold_clashes
     hb_allowance = FLAGS.hb_allowance
     plddt_threshold = FLAGS.plddt_threshold
-    #local_path_to_custom_template_db = Path(".") / "custom_template_db" / protein # DEBUG
-    local_path_to_custom_template_db = Path(temp_dir) / "custom_template_db" / protein
+    local_path_to_custom_template_db = Path(".") / "custom_template_db" / protein # DEBUG
+    #local_path_to_custom_template_db = Path(temp_dir) / "custom_template_db" / protein
     logging.info(f"Path to local database: {local_path_to_custom_template_db}")
     create_db(local_path_to_custom_template_db, templates, chains, threashold_clashes, hb_allowance, plddt_threshold)
 

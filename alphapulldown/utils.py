@@ -50,9 +50,9 @@ DB_NAME_TO_URL = {
     'ColabFold' : ["https://wwwuser.gwdg.de/~compbiol/colabfold/colabfold_envdb_202108.tar.gz"],
 }
 
-def get_flags_from_af():
+def get_run_alphafold():
     """
-    A function to load flags from alphafold imported as a module
+    A function that imports run_alphafold
     """
     def load_module(file_name, module_name):
         if module_name in sys.modules:
@@ -73,7 +73,7 @@ def get_flags_from_af():
 
     try:
         run_af = load_module(PATH_TO_RUN_ALPHAFOLD, "run_alphafold")
-        return run_af.flags
+        return run_af
     except FileNotFoundError as e:
         raise FileNotFoundError(f"Could not find 'run_alphafold.py' at {PATH_TO_RUN_ALPHAFOLD}") from e
 

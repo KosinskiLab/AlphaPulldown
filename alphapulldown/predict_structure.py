@@ -12,8 +12,10 @@ from alphafold.common import protein
 from alphafold.common import residue_constants
 from alphafold.relax import relax
 import numpy as np
-from alphafold import run_alphafold as run_af
+from alphapulldown.utils import get_run_alphafold
 
+
+run_af = get_run_alphafold()
 RELAX_MAX_ITERATIONS = run_af.RELAX_MAX_ITERATIONS
 RELAX_ENERGY_TOLERANCE = run_af.RELAX_ENERGY_TOLERANCE
 RELAX_STIFFNESS = run_af.RELAX_STIFFNESS
@@ -131,7 +133,15 @@ def predict(
             feature_dict, random_seed=model_random_seed
         )
         timings[f"process_features_{model_name}"] = time.time() - t_0
-
+        # Die if --multimeric_mode=True but no non-zero templates are in the feature dict
+        if run_af.flags.FLAGS.multimeric_mode:
+            if 'template_all_atom_positions' in processed_feature_dict:
+                if np.any(processed_feature_dict['template_all_atom_positions']):
+                    logging.info("Valid templates found with non-zero positions.")
+                else:
+                    raise ValueError("No valid templates found: all positions are zero.")
+            else:
+                raise ValueError("No template_all_atom_positions key found in processed_feature_dict.")
         t_0 = time.time()
         prediction_result = model_runner.predict(
             processed_feature_dict, random_seed=model_random_seed
