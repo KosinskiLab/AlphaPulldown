@@ -169,7 +169,7 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
     def test_5b_gappy_pdb(self):
         self.run_features_generation('GAPPY_PDB', 'B', 'pdb')
 
-    def fails_test_6a_mmseqs2(self): #need to fix API call
+    def test_6a_mmseqs2(self): #need to fix API call
         file_name = '3L4Q'
         chain_id = 'A'
         file_extension = 'cif'

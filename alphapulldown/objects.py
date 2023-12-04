@@ -170,7 +170,7 @@ class MonomericObject:
         template_featuriser = pipeline.template_featurizer
         hmm_build_runner = pipeline.template_searcher.hmmbuild_runner
         hmm_profile = hmm_build_runner.build_profile_from_a3m(a3m_lines)
-        query_result = hmm_build_runner.query(hmm_profile)
+        query_result = pipeline.template_searcher.query_with_hmm(hmm_profile)
         template_hits = pipeline.template_searcher.get_template_hits(query_result,query_sequence)
         templates_result = template_featuriser.get_templates(
             query_sequence=query_sequence, hits=template_hits
@@ -240,6 +240,7 @@ class MonomericObject:
         # unserialize_msa was from colabfold.batch and originally will only create mock template features
         # below will search against pdb70 database using hhsearch and create real template features
         logging.info("will search for templates in local template database")
+        a3m_lines[0] = "\n".join([line for line in a3m_lines[0].splitlines() if not line.startswith("#")])
         template_features = self.mk_template(a3m_lines[0],
                                               pipeline, query_sequence=self.sequence)
         self.feature_dict = build_monomer_feature(self.sequence, unpaired_msa[0], 

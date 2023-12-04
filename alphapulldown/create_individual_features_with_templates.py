@@ -95,8 +95,8 @@ def create_custom_db(temp_dir, protein, templates, chains):
     threashold_clashes = FLAGS.threshold_clashes
     hb_allowance = FLAGS.hb_allowance
     plddt_threshold = FLAGS.plddt_threshold
-    local_path_to_custom_template_db = Path(".") / "custom_template_db" / protein # DEBUG
-    #local_path_to_custom_template_db = Path(temp_dir) / "custom_template_db" / protein
+    #local_path_to_custom_template_db = Path(".") / "custom_template_db" / protein # DEBUG
+    local_path_to_custom_template_db = Path(temp_dir) / "custom_template_db" / protein
     logging.info(f"Path to local database: {local_path_to_custom_template_db}")
     create_db(local_path_to_custom_template_db, templates, chains, threashold_clashes, hb_allowance, plddt_threshold)
 
