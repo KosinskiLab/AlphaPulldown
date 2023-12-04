@@ -26,18 +26,21 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()  # Clean up the temporary directory
 
-    def run_features_generation(self, file_name, chain_id, file_extension):
+    def run_features_generation(self, file_name, chain_id, file_extension, use_mmseqs2):
         # Ensure directories exist
         (self.TEST_DATA_DIR / 'features').mkdir(parents=True, exist_ok=True)
         (self.TEST_DATA_DIR / 'templates').mkdir(parents=True, exist_ok=True)
         # Remove existing files (should be done by tearDown, but just in case)
         pkl_path = self.TEST_DATA_DIR / 'features' / f'{file_name}_{chain_id}.pkl'
-        sto_path = self.TEST_DATA_DIR / 'features' / f'{file_name}_{chain_id}' / 'pdb_hits.sto'
+        if use_mmseqs2:
+            sto_or_a3m_path = self.TEST_DATA_DIR / 'features' / f'{file_name}_{chain_id}.a3m'
+        else:
+            sto_or_a3m_path  = self.TEST_DATA_DIR / 'features' / f'{file_name}_{chain_id}' / 'pdb_hits.sto'
         template_path = self.TEST_DATA_DIR / 'templates' / f'{file_name}.{file_extension}'
         if pkl_path.exists():
             pkl_path.unlink()
-        if sto_path.exists():
-            sto_path.unlink()
+        if sto_or_a3m_path.exists():
+            sto_or_a3m_path.unlink()
 
         # Generate description.csv
         with open(f"{self.TEST_DATA_DIR}/description.csv", 'w') as desc_file:
@@ -97,6 +100,8 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
             '--description_file', f"{self.TEST_DATA_DIR}/description.csv",
             '--output_dir', f"{self.TEST_DATA_DIR}/features",
         ]
+        if use_mmseqs2:
+            cmd.extend(['--use_mmseqs2', 'True',])
         print(" ".join(cmd))
         # Check the output
         subprocess.run(cmd, check=True)
@@ -109,7 +114,7 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
         print("pkl path")
         print(pkl_path)
         assert pkl_path.exists()
-        assert sto_path.exists()
+        assert sto_or_a3m_path.exists()
 
         with open(pkl_path, 'rb') as f:
             feats = pickle.load(f).feature_dict
@@ -155,65 +160,25 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
         #print(len(residue_has_nonzero_coords))
 
     def test_1a_run_features_generation(self):
-        self.run_features_generation('3L4Q', 'A', 'cif')
+        self.run_features_generation('3L4Q', 'A', 'cif', False)
 
     def test_2c_run_features_generation(self):
-        self.run_features_generation('3L4Q', 'C', 'pdb')
+        self.run_features_generation('3L4Q', 'C', 'pdb', False)
 
     def test_3b_bizarre_filename(self):
-        self.run_features_generation('RANdom_name1_.7-1_0', 'B', 'pdb')
+        self.run_features_generation('RANdom_name1_.7-1_0', 'B', 'pdb', False)
 
     def test_4c_bizarre_filename(self):
-        self.run_features_generation('RANdom_name1_.7-1_0', 'C', 'pdb')
+        self.run_features_generation('RANdom_name1_.7-1_0', 'C', 'pdb', False)
 
     def test_5b_gappy_pdb(self):
-        self.run_features_generation('GAPPY_PDB', 'B', 'pdb')
+        self.run_features_generation('GAPPY_PDB', 'B', 'pdb', False)
 
-    def test_6a_mmseqs2(self): #need to fix API call
-        file_name = '3L4Q'
-        chain_id = 'A'
-        file_extension = 'cif'
-        # Ensure directories exist
-        (self.TEST_DATA_DIR / 'features').mkdir(parents=True, exist_ok=True)
-        (self.TEST_DATA_DIR / 'templates').mkdir(parents=True, exist_ok=True)
-        # Remove existing files (should be done by tearDown, but just in case)
-        pkl_path = self.TEST_DATA_DIR / 'features' / f'{file_name}_{chain_id}.pkl'
-        a3m_path = self.TEST_DATA_DIR / 'features' / f'{file_name}_{chain_id}.a3m'
-        template_path = self.TEST_DATA_DIR / 'templates' / f'{file_name}.{file_extension}'
-        if pkl_path.exists():
-            pkl_path.unlink()
-        if a3m_path.exists():
-            a3m_path.unlink()
+    def test_6a_mmseqs2(self):
+        self.run_features_generation('3L4Q', 'A', 'cif', True)
 
-        # Generate description.csv
-        with open(f"{self.TEST_DATA_DIR}/description.csv", 'w') as desc_file:
-            desc_file.write(f">{file_name}_{chain_id}, {file_name}.{file_extension}, {chain_id}\n")
-
-        # Prepare the command and arguments
-        cmd = [
-            'python',
-            run_features_generation.__file__,
-            '--skip_existing', 'False',
-            '--data_dir', '/scratch/AlphaFold_DBs/2.3.2',
-            '--max_template_date', '3021-01-01',
-            '--threshold_clashes', '1000',
-            '--hb_allowance', '0.4',
-            '--plddt_threshold', '0',
-            '--fasta_paths', f"{self.TEST_DATA_DIR}/fastas/{file_name}_{chain_id}.fasta",
-            '--path_to_mmt', f"{self.TEST_DATA_DIR}/templates",
-            '--description_file', f"{self.TEST_DATA_DIR}/description.csv",
-            '--output_dir', f"{self.TEST_DATA_DIR}/features",
-            '--use_mmseqs2', 'True',
-        ]
-        print(" ".join(cmd))
-        # Check the output
-        subprocess.run(cmd, check=True)
-        assert pkl_path.exists()
-        assert a3m_path.exists()
-
-
-    def test_7a_hetatoms(self): # TODO: compute and commit features and msas
-        self.run_features_generation('hetatoms', 'A', 'pdb')
+    def test_7a_hetatoms(self):
+        self.run_features_generation('hetatoms', 'A', 'pdb', False)
 
 
 
