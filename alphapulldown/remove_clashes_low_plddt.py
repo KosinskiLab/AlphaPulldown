@@ -307,6 +307,9 @@ class MmcifChainFiltered:
             if atom_dict['atom'].get_parent() in residues:
                 atom_dict['is_missing'] = True
 
+        # Update atom site label seq id
+        self.extract_atom_site_label_seq_id()
+
 
     def save_structure(self, output_file_path):
         """
