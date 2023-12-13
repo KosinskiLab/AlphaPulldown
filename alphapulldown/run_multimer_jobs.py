@@ -212,11 +212,16 @@ def create_multimer_objects(data, monomer_objects_dir, pair_msa=True):
     num_jobs = len(data[list(data.keys())[0]])
     job_idxes = list(range(num_jobs))
     import glob
-    path = os.path.join(monomer_objects_dir[0],'*.pkl')
-    pickles = set([os.path.basename(fl) for fl in glob.glob(path)])
+    
+    pickles = set([])
+    for path in monomer_objects_dir:
+        path = os.path.join(path,'*.pkl')
+        pickles.update(set([os.path.basename(fl) for fl in glob.glob(path)]))
+        
     required_pickles = set(key+".pkl" for value_list in data.values()
                     for value_dict in value_list
                     for key in value_dict.keys())
+
     missing_pickles = required_pickles.difference(pickles)
     if len(missing_pickles) > 0:
         raise Exception(f"{missing_pickles} not found in {monomer_objects_dir}")
