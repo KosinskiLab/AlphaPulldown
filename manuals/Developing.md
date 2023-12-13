@@ -5,7 +5,7 @@
     git submodule init
     git submodule update 
     ```
-1. Create the Conda environment and install the latest version of AlphaPulldown as described in https://github.com/KosinskiLab/AlphaPulldown/tree/DevelopReadme#for-users-pip-installation
+1. Create the Conda environment as described in https://github.com/KosinskiLab/AlphaPulldown/blob/installation-intro-update/README.md#create-anaconda-environment 
 1. Add AlphaPulldown package and its submodules to the Conda environment
     ```
     cd AlphaPulldown
