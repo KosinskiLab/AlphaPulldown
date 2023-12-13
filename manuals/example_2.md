@@ -86,8 +86,8 @@ On a compute cluster, you may want to run all jobs in parallel as a [job array](
 #SBATCH --mem=128000
 
 module load Anaconda3 
-module load CUDA/11.3.1
-module load cuDNN/8.2.1.32-CUDA-11.3.1
+module load CUDA/11.8.0
+module load cuDNN/8.7.0.84-CUDA-11.8.0
 source activate AlphaPulldown
 
 MAXRAM=$(echo `ulimit -m` '/ 1024.0'|bc)
@@ -188,8 +188,8 @@ On a compute cluster, you may want to run all jobs in parallel as a [job array](
 #SBATCH --mem=128000
 
 module load Anaconda3 
-module load CUDA/11.3.1
-module load cuDNN/8.2.1.32-CUDA-11.3.1
+module load CUDA/11.8.0
+module load cuDNN/8.7.0.84-CUDA-11.8.0
 source activate AlphaPulldown
 
 MAXRAM=$(echo `ulimit -m` '/ 1024.0'|bc)
