@@ -1,13 +1,16 @@
 name: AlphaPulldown-github-CI
 
-on: [pull_request,push]
+on: [pull_request, push]
 
 jobs:
   build:
     runs-on: ubuntu-20.04
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.10.12"]
+        install-type: ['user', 'developer']
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -26,51 +29,56 @@ jobs:
           pwd
           echo $CONDA/bin >> $GITHUB_PATH
           echo "$GITHUB_WORKSPACE/alphapulldown" >> $GITHUB_PATH
-      - name: Install AlphaPulldown without dependencies
+
+      - name: Install AlphaPulldown for user
+        if: matrix.install-type == 'user'
         run: |
           conda create -n AlphaPulldown -c omnia -c bioconda -c conda-forge python==${{ matrix.python-version }} openmm==8.0 pdbfixer==1.9 kalign2 cctbx-base pytest importlib_metadata       
           eval "$(conda shell.bash hook)"
           conda activate AlphaPulldown
-          #python3 -m pip install alphapulldown==1.0.1
+          pip install alphapulldown
+
+      - name: Install AlphaPulldown for developer
+        if: matrix.install-type == 'developer'
+        run: |
+          conda create -n AlphaPulldown -c omnia -c bioconda -c conda-forge python==${{ matrix.python-version }} openmm==8.0 pdbfixer==1.9 kalign2 cctbx-base pytest importlib_metadata       
+          eval "$(conda shell.bash hook)"
+          conda activate AlphaPulldown
           conda install -c bioconda hmmer hhsuite
           pip install -e .
           pip install -e alphapulldown/ColabFold --no-deps
           pip install -e alphafold --no-deps
-          python -c "import alphafold; import os; print('Alphafold module is located at:', alphafold.__file__); alphafold_dir = os.path.dirname(alphafold.__file__); print('Contents of the Alphafold directory:', os.listdir(alphafold_dir))"
+
       - name: Install dependencies in AlphaLink2 setup.py
         run: |
           eval "$(conda shell.bash hook)"
           export WORKDIRPATH=$PWD
           conda activate AlphaPulldown
           cd $WORKDIRPATH/AlphaLink2 && python3 setup.py install
+
       - name: Install dependencies in AlphaFold setup.py 
         run: |
           eval "$(conda shell.bash hook)"
           export WORKDIRPATH=$PWD
           conda activate AlphaPulldown
           pip install protobuf==4.23.0 ml-dtypes==0.2.0
+
       - name: Install Pytorch Dependencies
         run: |
           eval "$(conda shell.bash hook)"
           conda activate AlphaPulldown
-          # install PyTorch 
           pip install torch --pre -f https://download.pytorch.org/whl/nightly/cu121/torch_nightly.html 
-          #pip install jax==0.4.20 jaxlib==0.4.16+cuda11.cudnn86 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
-          #pip install "absl-py>=0.13.0" dm-haiku "dm-tree>=0.1.6" "h5py>=3.1.0" "ml-collections>=0.1.0" "pandas>=1.3.4" tensorflow "importlib-resources==5.8.0" "nbformat==5.9.2" "py3Dmol==2.0.4" ipython appdirs jupyterlab ipywidgets pytest
+
       - name: Check imports of submodules
         run : |
           eval "$(conda shell.bash hook)"
           conda activate AlphaPulldown
-          # install PyTorch 
           pip install torch --pre -f https://download.pytorch.org/whl/nightly/cu121/torch_nightly.html 
-          # setup unicore
           git clone https://github.com/dptech-corp/Uni-Core.git
           cd Uni-Core
           python3 setup.py install --disable-cuda-ext
           python -c "from colabfold.batch import get_queries, unserialize_msa, get_msa_and_templates, msa_to_str, build_monomer_feature, parse_fasta"
-      #     python -c "from unifold.alphalink_inference import alphalink_prediction"
-      #     python -c "from unifold.dataset import process_ap"
-      #     python -c "from unifold.config import model_config"
+
       - name: Run Tests
         run: |
           eval "$(conda shell.bash hook)"
@@ -78,5 +86,3 @@ jobs:
           pytest -s test/test_custom_db.py
           pytest -s test/test_features_with_templates.py
           pytest -s test/test_remove_clashes_low_plddt.py
-          # python3 -m unittest test/test_crosslink_input.py 
-
