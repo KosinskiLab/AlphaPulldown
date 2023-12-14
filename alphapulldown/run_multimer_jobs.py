@@ -213,7 +213,7 @@ def create_multimer_objects(data, monomer_objects_dir, pair_msa=True):
     job_idxes = list(range(num_jobs))
     import glob
     
-    pickles = set([])
+    pickles = set()
     for path in monomer_objects_dir:
         path = os.path.join(path,'*.pkl')
         pickles.update(set([os.path.basename(fl) for fl in glob.glob(path)]))
