@@ -50,13 +50,13 @@ Check if you have downloaded necessary parameters and databases (e.g. BFD, MGnif
 
 **Firstly**, install [Anaconda](https://www.anaconda.com/) and create AlphaPulldown environment, gathering necessary dependencies 
 ```bash
-conda create -n AlphaPulldown -c omnia -c bioconda -c conda-forge python==3.10 openmm==8.0 pdbfixer==1.9 kalign2 cctbx-base pytest importlib_metadata
+conda create -n AlphaPulldown -c omnia -c bioconda -c conda-forge python==3.10 openmm==8.0 pdbfixer==1.9 kalign2 cctbx-base pytest importlib_metadata hhsuite
 ```
 
-**Optionally**, if you do not have these software yet on your system, install [HMMER](http://hmmer.org/documentation.html), [HH-suite](https://github.com/soedinglab/hh-suite) from Anaconda
+**Optionally**, if you do not have it yet on your system, install [HMMER](http://hmmer.org/documentation.html) from Anaconda
 ```bash
 source activate AlphaPulldown
-conda install -c bioconda hmmer hhsuite
+conda install -c bioconda hmmer
 ```
 This usually works, but on some compute systems users may wish to use other versions or optimized builds of already installed HMMER and HH-suite.
 
@@ -67,7 +67,7 @@ Activate the AlphaPulldown environment and install AlphaPulldown
 source activate AlphaPulldown
 
 python3 -m pip install alphapulldown==1.0.2
-pip install jax==0.4.16 jaxlib==0.4.16+cuda11.cudnn86 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+pip install jax==0.4.20 jaxlib==0.4.16+cuda11.cudnn86 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 ```
 
 **For older versions of AlphaFold**: 
