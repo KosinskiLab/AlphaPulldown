@@ -63,7 +63,7 @@ jobs:
           export WORKDIRPATH=$PWD
           conda activate AlphaPulldown
           pip install protobuf==4.23.0 ml-dtypes==0.2.0
-          pip install jax==0.4.20 jaxlib==0.4.16+cuda11.cudnn86 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+          pip install jax==0.4.23 jaxlib==0.4.23+cuda11.cudnn86 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 
       - name: Install Pytorch Dependencies
         run: |
