@@ -67,7 +67,7 @@ Activate the AlphaPulldown environment and install AlphaPulldown
 source activate AlphaPulldown
 
 python3 -m pip install alphapulldown==1.0.2
-pip install jax==0.4.20 jaxlib==0.4.16+cuda11.cudnn86 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+pip install jax==0.4.23 jaxlib==0.4.23+cuda11.cudnn86 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 ```
 
 **For older versions of AlphaFold**: 
