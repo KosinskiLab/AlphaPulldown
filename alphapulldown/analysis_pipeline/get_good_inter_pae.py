@@ -4,6 +4,8 @@ from math import pi
 from operator import index
 import os 
 import pickle
+import multiprocessing, concurrent
+from concurrent.futures import ProcessPoolExecutor
 from absl import flags,app,logging
 import json
 import numpy as np
@@ -30,7 +32,6 @@ def examine_inter_pae(pae_mtx,seqs,cutoff):
 
     return check
 
-
 def obtain_mpdockq(work_dir):
     """Returns mpDockQ if more than two chains otherwise return pDockQ"""
     pdb_path = os.path.join(work_dir,'ranked_0.pdb')
@@ -47,6 +48,16 @@ def obtain_mpdockq(work_dir):
         mpDockq_or_pdockq = "None"
     return mpDockq_or_pdockq
 
+def run_individual_pi_score_analysis(subdir: str, job: str, pi_score_outputs: str, surface_thres: float):
+    if not os.path.isfile(os.path.join(subdir,"ranked_0.pdb")):
+            print(f"{job} failed. Cannot find ranked_0.pdb in {subdir}")
+            sys.exit()
+    else:
+        pdb_path = os.path.join(subdir,"ranked_0.pdb")
+        output_dir = os.path.join(pi_score_outputs,f"{job}")
+        logging.info(f"pi_score output for {job} will be stored at {output_dir}")
+        subprocess.run(f"source activate pi_score && export PYTHONPATH=/software:$PYTHONPATH && python /software/pi_score/run_piscore_wc.py -p {pdb_path} -o {output_dir} -s {surface_thres} -ps 10",shell=True,executable='/bin/bash')
+
 def run_and_summarise_pi_score(workd_dir,jobs,surface_thres):
 
     """A function to calculate all predicted models' pi_scores and make a pandas df of the results"""
@@ -56,18 +67,11 @@ def run_and_summarise_pi_score(workd_dir,jobs,surface_thres):
         pass
     subprocess.run(f"mkdir {workd_dir}/pi_score_outputs",shell=True,executable='/bin/bash')
     pi_score_outputs = os.path.join(workd_dir,"pi_score_outputs")
-    for job in jobs:
-        subdir = os.path.join(workd_dir,job)
-        if not os.path.isfile(os.path.join(subdir,"ranked_0.pdb")):
-            print(f"{job} failed. Cannot find ranked_0.pdb in {subdir}")
-            sys.exit()
-        else:
-            pdb_path = os.path.join(subdir,"ranked_0.pdb")
-            output_dir = os.path.join(pi_score_outputs,f"{job}")
-            logging.info(f"pi_score output for {job} will be stored at {output_dir}")
-            subprocess.run(f"source activate pi_score && export PYTHONPATH=/software:$PYTHONPATH && python /software/pi_score/run_piscore_wc.py -p {pdb_path} -o {output_dir} -s {surface_thres} -ps 10",shell=True,executable='/bin/bash')
-            
-
+    subdirs = [os.path.join(workd_dir,job) for job in jobs]
+    all_tasks = [(subdir, pi_score_outputs, surface_thres) for subdir in subdirs]
+    with ProcessPoolExecutor(max_workers = multiprocessing.cpu_count()) as executor:
+        results = {task: result for task, result in zip(all_tasks, executor.map(run_individual_pi_score_analysis, all_tasks))}
+    
     output_df = pd.DataFrame()
     for job in jobs:
         subdir = os.path.join(pi_score_outputs,job)
