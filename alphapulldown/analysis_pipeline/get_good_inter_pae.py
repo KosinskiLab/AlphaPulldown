@@ -5,7 +5,7 @@ from operator import index
 import os 
 import pickle
 import multiprocessing, concurrent
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, wait, ALL_COMPLETED
 from absl import flags,app,logging
 import json
 import numpy as np
@@ -70,7 +70,8 @@ def run_and_summarise_pi_score(workd_dir,jobs,surface_thres):
     subdirs = [os.path.join(workd_dir,job) for job in jobs]
     all_tasks = [(subdir, pi_score_outputs, surface_thres) for subdir in subdirs]
     with ProcessPoolExecutor(max_workers = multiprocessing.cpu_count()) as executor:
-        results = {task: result for task, result in zip(all_tasks, executor.map(run_individual_pi_score_analysis, all_tasks))}
+        futures = [executor.submit(run_individual_pi_score_analysis, *task) for task in all_tasks]
+        wait(futures, timeout=None, return_when=ALL_COMPLETED)
     
     output_df = pd.DataFrame()
     for job in jobs:
