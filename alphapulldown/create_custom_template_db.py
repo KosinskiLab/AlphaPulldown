@@ -125,11 +125,11 @@ def _prepare_template(template, code, chain_id, mmcif_dir, seqres_dir, templates
     # Convert to Protein and mmCIF format
     protein = _from_bio_structure(mmcif_obj.structure)
     sequence_ids = mmcif_obj.atom_site_label_seq_ids
-    mmcif_string = to_mmcif(protein, f"{code}_{chain_id}", "Monomer", chain_id, seqres, sequence_ids)
 
     # Save to file and validate
     codes_to_process = [f"{code[:-1]}{i}" for i in range(1, 5)] if duplicate else [code]
     for temp_code in codes_to_process:
+        mmcif_string = to_mmcif(protein, f"{temp_code}_{chain_id}", "Monomer", chain_id, seqres, sequence_ids)
         fn = mmcif_dir / f"{temp_code}.cif"
         with open(fn, 'w') as f:
             f.write(mmcif_string)
@@ -161,6 +161,7 @@ def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, pldd
 
     # Process each template/chain pair
     for template, chain_id in zip(templates, chains):
+        template=Path(template)
         code = parse_code(template)
         logging.info(f"Template code: {code}")
         assert len(code) == 4
