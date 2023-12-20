@@ -4,6 +4,7 @@
 This script generates a custom template database for AlphaFold2 from PDB or mmCIF
 template files.
 Removes steric clashes and low pLDDT regions from the template files.
+Duplicates one template 4 times to increase impact on AF.
 Can be used as a standalone script.
 
 """
@@ -21,7 +22,7 @@ from alphafold.common.protein import _from_bio_structure, to_mmcif
 FLAGS = flags.FLAGS
 
 
-def save_seqres(code, chain, s, path):
+def save_seqres(code, chain, s, path, duplicate):
     """
     o code - four letter PDB-like code
     o chain - chain ID
@@ -31,12 +32,21 @@ def save_seqres(code, chain, s, path):
         o Path to the file
     """
     fn = path / 'pdb_seqres.txt'
-    # Rewrite the file if it exists
+
+    seqres_entries = []
+    if duplicate:
+        for i in range(1, 5):
+            temp_code = f"{code[:-1]}{i}"
+            seqres_entries.append(f">{temp_code}_{chain} mol:protein length:{len(s)}\n{s}\n")
+    else:
+        seqres_entries.append(f">{code}_{chain} mol:protein length:{len(s)}\n{s}\n")
+
     with open(fn, 'a') as f:
-        lines = f">{code}_{chain} mol:protein length:{len(s)}\n{s}\n"
-        logging.info(f'Saving SEQRES for chain {chain} to {fn}!')
-        logging.debug(lines)
-        f.write(lines)
+        for entry in seqres_entries:
+            logging.info(f'Saving SEQRES for chain {chain} to {fn} with code {entry.split()[0][1:]}!')
+            logging.debug(entry)
+            f.write(entry)
+
     return fn
 
 
@@ -91,6 +101,42 @@ def create_tree(pdb_mmcif_dir, mmcif_dir, seqres_dir, templates_dir):
     create_dir_and_remove_files(seqres_dir, ['pdb_seqres.txt'])
 
 
+def _prepare_template(template, code, chain_id, mmcif_dir, seqres_dir, templates_dir,
+                      threshold_clashes, hb_allowance, plddt_threshold, number_of_templates):
+    """
+    Process and prepare each template.
+    """
+    duplicate = number_of_templates == 1
+    new_template = templates_dir / Path(code + Path(template).suffix)
+    shutil.copyfile(template, new_template)
+    logging.info(f"Processing template: {new_template}  Chain {chain_id}")
+
+    # Convert to (our) mmcif object
+    mmcif_obj = MmcifChainFiltered(template, code, chain_id)
+    # Determine the full sequence
+    seqres = mmcif_obj.sequence_seqres if mmcif_obj.sequence_seqres else mmcif_obj.sequence_atom
+    sqrres_path = save_seqres(code, chain_id, seqres, seqres_dir, duplicate)
+    logging.info(f"SEQRES saved to {sqrres_path}!")
+
+    # Remove clashes and low pLDDT regions for each template
+    mmcif_obj.remove_clashes(threshold_clashes, hb_allowance)
+    mmcif_obj.remove_low_plddt(plddt_threshold)
+
+    # Convert to Protein and mmCIF format
+    protein = _from_bio_structure(mmcif_obj.structure)
+    sequence_ids = mmcif_obj.atom_site_label_seq_ids
+    mmcif_string = to_mmcif(protein, f"{code}_{chain_id}", "Monomer", chain_id, seqres, sequence_ids)
+
+    # Save to file and validate
+    codes_to_process = [f"{code[:-1]}{i}" for i in range(1, 5)] if duplicate else [code]
+    for temp_code in codes_to_process:
+        fn = mmcif_dir / f"{temp_code}.cif"
+        with open(fn, 'w') as f:
+            f.write(mmcif_string)
+        validate_and_fix_mmcif(fn)
+        logging.info(f'{new_template} processed with code {temp_code}!')
+
+
 def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, plddt_threshold):
     """
     Main function that creates a custom template database for AlphaFold2
@@ -110,48 +156,18 @@ def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, pldd
     mmcif_dir = pdb_mmcif_dir / 'mmcif_files'
     seqres_dir = Path(out_path) / 'pdb_seqres'
     templates_dir = Path(out_path) / 'templates'
+
     create_tree(pdb_mmcif_dir, mmcif_dir, seqres_dir, templates_dir)
+
     # Process each template/chain pair
     for template, chain_id in zip(templates, chains):
         code = parse_code(template)
         logging.info(f"Template code: {code}")
         assert len(code) == 4
-        # Copy the template to out_path to avoid conflicts with the same file names
-        new_template = templates_dir / Path(code + Path(template).suffix)
-        shutil.copyfile(template, new_template)
-        template = new_template
-        logging.info(f"Processing template: {template}  Chain {chain_id}")
-        # Convert to (our) mmcif object
-        mmcif_obj = MmcifChainFiltered(template, code, chain_id)
-        # full sequence is either SEQRES or parsed from (original) ATOMs
-        if mmcif_obj.sequence_seqres:
-            seqres = mmcif_obj.sequence_seqres
-        else:
-            seqres = mmcif_obj.sequence_atom
-        sqrres_path = save_seqres(code, chain_id, seqres, seqres_dir)
-        logging.info(f"SEQRES saved to {sqrres_path}!")
-        # Remove clashes and low pLDDT regions for each template
-        mmcif_obj.remove_clashes(threshold_clashes, hb_allowance)
-        mmcif_obj.remove_low_plddt(plddt_threshold)
-        # Convert to Protein
-        protein = _from_bio_structure(mmcif_obj.structure)
-        # Convert to mmCIF
-        sequence_ids = mmcif_obj.atom_site_label_seq_ids
-        mmcif_string = to_mmcif(protein,
-                                f"{code}_{chain_id}",
-                                "Monomer",
-                                chain_id,
-                                seqres,
-                                sequence_ids)
-        # Save to file
-        fn = mmcif_dir / f"{code}.cif"
-        with open(fn, 'w') as f:
-            f.write(mmcif_string)
-        # Fix and validate with ColabFold
-        validate_and_fix_mmcif(fn)
-        logging.info(f'{template} is done!')
-
-
+        _prepare_template(
+            template, code, chain_id, mmcif_dir, seqres_dir, templates_dir,
+            threshold_clashes, hb_allowance, plddt_threshold, len(templates)
+        )
 
 
 def main(argv):
