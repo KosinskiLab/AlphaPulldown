@@ -12,8 +12,8 @@ Finally, create a text file with description for generating features (descriptio
 **Please note**, the first column must be an exact copy of the protein description from your fasta files. Please consider shortening them in fasta files using your favorite text editor for convenience. These names will be used to generate pickle files with monomeric features!
 The description.csv for the NS1-P85B complex should look like:
 ```
->sp|P03496|NS1_I34A1, 3L4Q.cif, A
->sp|P23726|P85B_BOVIN, 3L4Q.cif, C
+>sp|P03496|NS1_I34A1,3L4Q.cif,A
+>sp|P23726|P85B_BOVIN,3L4Q.cif,C
 ```
 In this example we refer to the NS1 protein as chain A and to the P85B protein as chain C in multimeric template 3L4Q.cif.
 
@@ -27,7 +27,7 @@ Now run:
     --path_to_mmt=templates/ \
     --data_dir=/scratch/AlphaFold_DBs/2.3.2/ \
     --save_msa_files=True \
-    --output_dir=features\ 
+    --output_dir=features \
     --use_precomputed_msas=True \
     --max_template_date=2050-01-01 \
     --skip_existing=True
