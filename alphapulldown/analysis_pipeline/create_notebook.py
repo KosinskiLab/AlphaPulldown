@@ -13,8 +13,7 @@ import json
 import numpy as np
 import pandas as pd
 import subprocess
-
-from alphafold import data
+import gzip
 
 flags.DEFINE_string("output_dir", '.', "directory where predicted models are stored")
 flags.DEFINE_float(
@@ -99,11 +98,23 @@ def main(argv):
         count = count + 1
         if os.path.isfile(os.path.join(FLAGS.output_dir, job, "ranking_debug.json")):
             result_subdir = os.path.join(FLAGS.output_dir, job)
-            best_result_pkl = sorted(
-                [i for i in os.listdir(result_subdir) if "result_model_" in i]
-            )[0]
-            result_path = os.path.join(result_subdir, best_result_pkl)
-            seqs = pickle.load(open(result_path, "rb"))["seqs"]
+            best_result = json.load(open(os.path.join(FLAGS.output_dir, job, "ranking_debug.json")))['order'][0]
+            best_result = "result_" + best_result
+            if os.path.exists(os.path.join(result_subdir, best_result+'.pkl')) and not os.path.exists(os.path.join(result_subdir, best_result + ".pkl.gz")):
+                result_path = os.path.join(result_subdir, best_result+'.pkl')
+                check_dict = pickle.load(open(result_path, "rb"))
+                seqs = pickle.load(open(result_path, "rb"))["seqs"]         
+            elif not os.path.exists(os.path.join(result_subdir, best_result)) and os.path.exists(os.path.join(result_subdir, best_result + ".pkl.gz")):
+                result_path = os.path.join(result_subdir, best_result+".pkl.gz")
+                check_dict = pickle.load(gzip.open(result_path, "rb"))
+                seqs = pickle.load(gzip.open(result_path, "rb"))["seqs"]
+            elif not os.path.exists(os.path.join(result_subdir, best_result+'.pkl')) and not os.path.exists(os.path.join(result_subdir, best_result + ".pkl.gz")):
+                raise FileNotFoundError(f"Neither result.pkl nor result.pkl.gz is found for {os.path.join(result_subdir,best_result)}. Please check if the directory is corrupted")
+            else:
+                result_path = os.path.join(result_subdir, best_result+'.pkl')
+                check_dict = pickle.load(open(result_path, "rb"))
+                seqs = pickle.load(open(result_path, "rb"))["seqs"]    
+            
             best_model = json.load(
                 open(os.path.join(result_subdir, "ranking_debug.json"), "rb")
             )["order"][0]
@@ -114,10 +125,7 @@ def main(argv):
             )
 
             if "iptm" in data.keys() or "iptm+ptm" in data.keys():
-                iptm_ptm_score = data["iptm+ptm"][best_model]
-                check_dict = pickle.load(
-                    open(os.path.join(result_subdir, f"result_{best_model}.pkl"), "rb")
-                )
+                iptm_ptm_score = data["iptm+ptm"][best_model]   
                 iptm_score = check_dict["iptm"]
                 pae_mtx = check_dict["predicted_aligned_error"]
                 check = examine_inter_pae(pae_mtx, seqs, cutoff=FLAGS.cutoff)
