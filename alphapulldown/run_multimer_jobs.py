@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 # Author: Dingquan Yu
 # A script to create region information for create_multimer_features.py
 # #
@@ -15,6 +14,10 @@ import os
 from pathlib import Path
 from alphapulldown.predict_structure import predict, ModelsToRelax
 from alphapulldown.utils import get_run_alphafold
+from alphapulldown import __version__ as ap_version
+from alphafold.version import __version__ as af_version
+import json
+from datetime import datetime
 
 
 run_af = get_run_alphafold()
@@ -375,6 +378,23 @@ def predict_individual_jobs(multimer_object, output_path, model_runners, random_
                            remove_pickles = FLAGS.remove_result_pickles
                            )
 
+
+
+def is_serializable(obj):
+    """Check if an object is JSON serializable."""
+    try:
+        json.dumps(obj)
+        return True
+    except (TypeError, OverflowError):
+        return False
+
+def write_metadata_to_file(metadata, file_path):
+    """Write metadata to a JSON file, excluding non-serializable objects."""
+    serializable_metadata = {k: v for k, v in metadata.items() if is_serializable(v)}
+
+    with open(file_path, 'w') as file:
+        json.dump(serializable_metadata, file, indent=4)
+
 def predict_multimers(multimers):
     """
     Final function to predict multimers
@@ -387,6 +407,15 @@ def predict_multimers(multimers):
         logging.info('object: '+object.description)
         path_to_models = os.path.join(FLAGS.output_path, object.description)
         logging.info(f"Modeling new interaction for {path_to_models}")
+        # save metadata
+        flags_dict = FLAGS.flag_values_dict()
+        flags_dict["AlphaPulldown"] = ap_version
+        flags_dict["AlphaFold"] = af_version
+        flags_dict = {key: flags_dict[key] for key in sorted(flags_dict)}
+        # Generate filename with current date
+        file_name = f"{object.description}_multimer_metadata_{datetime.now().date()}.json"
+        meta_data_outfile = os.path.join(FLAGS.output_path, file_name)
+        write_metadata_to_file(flags_dict, meta_data_outfile)
         if isinstance(object, MultimericObject):
             model_runners, random_seed = create_model_runners_and_random_seed(
                 "multimer",
