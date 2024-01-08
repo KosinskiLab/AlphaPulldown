@@ -7,7 +7,7 @@ import itertools
 from absl import app, logging
 from alphapulldown.utils import (create_interactors, read_all_proteins, read_custom, make_dir_monomer_dictionary,
                                  load_monomer_objects, check_output_dir, create_model_runners_and_random_seed,
-                                 create_and_save_pae_plots,post_prediction_process)
+                                 create_and_save_pae_plots, post_prediction_process)
 from itertools import combinations
 from alphapulldown.objects import MultimericObject
 import os
@@ -18,7 +18,6 @@ from alphapulldown import __version__ as ap_version
 from alphafold.version import __version__ as af_version
 import json
 from datetime import datetime
-
 
 run_af = get_run_alphafold()
 flags = run_af.flags
@@ -70,29 +69,31 @@ flags.DEFINE_integer(
     "msa_depth", None, "Number of sequences to use from the MSA (by default is taken from AF model config)"
 )
 flags.DEFINE_boolean(
-    "use_unifold",False,"Whether unifold models are going to be used. Default it False"
+    "use_unifold", False, "Whether unifold models are going to be used. Default it False"
 )
 
 flags.DEFINE_boolean(
-    "use_alphalink",False,"Whether alphalink models are going to be used. Default it False"
+    "use_alphalink", False, "Whether alphalink models are going to be used. Default it False"
 )
 flags.DEFINE_string(
-    "crosslinks",None,"Path to crosslink information pickle"
+    "crosslinks", None, "Path to crosslink information pickle"
 )
 flags.DEFINE_string(
-    "alphalink_weight",None,'Path to AlphaLink neural network weights'
+    "alphalink_weight", None, 'Path to AlphaLink neural network weights'
 )
 flags.DEFINE_string(
-    "unifold_param",None,'Path to UniFold neural network weights'
+    "unifold_param", None, 'Path to UniFold neural network weights'
 )
 flags.DEFINE_boolean(
-    "compress_result_pickles",False,"Whether the result pickles are going to be gzipped. Default False"
+    "compress_result_pickles", False, "Whether the result pickles are going to be gzipped. Default False"
 )
 flags.DEFINE_boolean(
-    "remove_result_pickles",False,"Whether the result pickles that do not belong to the best model are going to be removed. Default is False"
+    "remove_result_pickles", False,
+    "Whether the result pickles that do not belong to the best model are going to be removed. Default is False"
 )
-flags.DEFINE_enum("unifold_model_name","multimer_af2",
-                  ["multimer_af2","multimer_ft","multimer","multimer_af2_v3","multimer_af2_model45_v3"],"choose unifold model structure")
+flags.DEFINE_enum("unifold_model_name", "multimer_af2",
+                  ["multimer_af2", "multimer_ft", "multimer", "multimer_af2_v3", "multimer_af2_model45_v3"],
+                  "choose unifold model structure")
 flags.mark_flag_as_required("output_path")
 
 delattr(flags.FLAGS, "models_to_relax")
@@ -135,6 +136,7 @@ for flag in unused_flags:
 
 FLAGS = flags.FLAGS
 
+
 def create_pulldown_info(
         bait_proteins: list, candidate_proteins: list, job_index=None
 ) -> dict:
@@ -149,7 +151,6 @@ def create_pulldown_info(
     all_protein_pairs = list(itertools.product(*[bait_proteins, *candidate_proteins]))
     num_cols = len(candidate_proteins) + 1
     data = dict()
-
 
     if job_index is None:
         for i in range(num_cols):
@@ -168,17 +169,14 @@ def create_pulldown_info(
     return data
 
 
-
-
 def create_all_vs_all_info(all_proteins: list, job_index=None):
     """A function to create all against all i.e. every possible pair of interaction"""
     all_possible_pairs = list(combinations(all_proteins, 2))
     if job_index is not None:
         job_index = job_index - 1
-        combs = [all_possible_pairs[job_index-1]]
+        combs = [all_possible_pairs[job_index - 1]]
     else:
         combs = all_possible_pairs
-
 
     col1 = []
     col2 = []
@@ -186,11 +184,8 @@ def create_all_vs_all_info(all_proteins: list, job_index=None):
         col1.append(comb[0])
         col2.append(comb[1])
 
-
     data = {"col1": col1, "col2": col2}
     return data
-
-
 
 
 def create_custom_info(all_proteins):
@@ -200,8 +195,9 @@ def create_custom_info(all_proteins):
     num_cols = len(all_proteins)
     data = dict()
     for i in range(num_cols):
-        data[f"col_{i+1}"] = [all_proteins[i]]
+        data[f"col_{i + 1}"] = [all_proteins[i]]
     return data
+
 
 def create_multimer_objects(data, monomer_objects_dir, pair_msa=True):
     """
@@ -215,15 +211,15 @@ def create_multimer_objects(data, monomer_objects_dir, pair_msa=True):
     num_jobs = len(data[list(data.keys())[0]])
     job_idxes = list(range(num_jobs))
     import glob
-    
+
     pickles = set()
     for path in monomer_objects_dir:
-        path = os.path.join(path,'*.pkl')
+        path = os.path.join(path, '*.pkl')
         pickles.update(set([os.path.basename(fl) for fl in glob.glob(path)]))
-        
-    required_pickles = set(key+".pkl" for value_list in data.values()
-                    for value_dict in value_list
-                    for key in value_dict.keys())
+
+    required_pickles = set(key + ".pkl" for value_list in data.values()
+                           for value_dict in value_list
+                           for key in value_dict.keys())
 
     missing_pickles = required_pickles.difference(pickles)
     if len(missing_pickles) > 0:
@@ -231,11 +227,11 @@ def create_multimer_objects(data, monomer_objects_dir, pair_msa=True):
     else:
         logging.info("All pickle files have been found")
 
-
     for job_idx in job_idxes:
         interactors = create_interactors(data, monomer_objects_dir, job_idx)
         if len(interactors) > 1:
-            multimer = MultimericObject(interactors=interactors,pair_msa=pair_msa, multimeric_mode = FLAGS.multimeric_mode)
+            multimer = MultimericObject(interactors=interactors, pair_msa=pair_msa,
+                                        multimeric_mode=FLAGS.multimeric_mode)
             logging.info(f"done creating multimer {multimer.description}")
             multimers.append(multimer)
         else:
@@ -244,9 +240,7 @@ def create_multimer_objects(data, monomer_objects_dir, pair_msa=True):
     return multimers
 
 
-
-
-def create_homooligomers(oligomer_state_file, monomer_objects_dir, job_index=None, pair_msa = False):
+def create_homooligomers(oligomer_state_file, monomer_objects_dir, job_index=None, pair_msa=False):
     """a function to read homooligomer state"""
     multimers = []
     monomer_dir_dict = make_dir_monomer_dictionary(monomer_objects_dir)
@@ -256,7 +250,6 @@ def create_homooligomers(oligomer_state_file, monomer_objects_dir, job_index=Non
             job_idxes = [job_index - 1]
         else:
             job_idxes = list(range(len(lines)))
-
 
         for job_idx in job_idxes:
             l = lines[job_idx]
@@ -268,11 +261,10 @@ def create_homooligomers(oligomer_state_file, monomer_objects_dir, job_index=Non
                     protein_name = l.rstrip().split(",")[0]
                     num_units = 1
 
-
                 if num_units > 1:
                     monomer = load_monomer_objects(monomer_dir_dict, protein_name)
                     interactors = [monomer] * num_units
-                    homooligomer = MultimericObject(interactors,pair_msa=pair_msa)
+                    homooligomer = MultimericObject(interactors, pair_msa=pair_msa)
                     homooligomer.description = f"{protein_name}_homo_{num_units}er"
                     multimers.append(homooligomer)
                     logging.info(
@@ -284,8 +276,6 @@ def create_homooligomers(oligomer_state_file, monomer_objects_dir, job_index=Non
                     logging.info(f"finished loading monomer: {protein_name}")
         f.close()
     return multimers
-
-
 
 
 def create_custom_jobs(custom_input_file, monomer_objects_dir, job_index=None, pair_msa=True):
@@ -318,8 +308,6 @@ def create_custom_jobs(custom_input_file, monomer_objects_dir, job_index=None, p
     return multimers
 
 
-
-
 def predict_individual_jobs(multimer_object, output_path, model_runners, random_seed):
     output_path = os.path.join(output_path, multimer_object.description)
     Path(output_path).mkdir(parents=True, exist_ok=True)
@@ -329,7 +317,7 @@ def predict_individual_jobs(multimer_object, output_path, model_runners, random_
         multimer_object.input_seqs = [multimer_object.sequence]
 
     if FLAGS.use_unifold:
-        from unifold.inference import config_args,unifold_config_model,unifold_predict
+        from unifold.inference import config_args, unifold_config_model, unifold_predict
         from unifold.dataset import process_ap
         from unifold.config import model_config
         configs = model_config(FLAGS.unifold_model_name)
@@ -339,27 +327,27 @@ def predict_individual_jobs(multimer_object, output_path, model_runners, random_
         model_runner = unifold_config_model(general_args)
         # First need to add num_recycling_iters to the feature dictionary
         # multimer_object.feature_dict.update({"num_recycling_iters":general_args.max_recycling_iters})
-        processed_features,_ = process_ap(config=configs.data,
-                                          features=multimer_object.feature_dict,
-                                          mode="predict",labels=None,
-                                          seed=42,batch_idx=None,
-                                          data_idx=None,is_distillation=False
-                                          )
+        processed_features, _ = process_ap(config=configs.data,
+                                           features=multimer_object.feature_dict,
+                                           mode="predict", labels=None,
+                                           seed=42, batch_idx=None,
+                                           data_idx=None, is_distillation=False
+                                           )
         logging.info(f"finished configuring the Unifold AlphlaFcd old model and process numpy features")
-        unifold_predict(model_runner,general_args,processed_features)
+        unifold_predict(model_runner, general_args, processed_features)
 
     elif FLAGS.use_alphalink:
         assert FLAGS.alphalink_weight is not None
         from unifold.alphalink_inference import alphalink_prediction
         from unifold.config import model_config
-        logging.info(f"Start using AlphaLink weights and cross-link information")  
+        logging.info(f"Start using AlphaLink weights and cross-link information")
         MODEL_NAME = 'model_5_ptm_af2'
         configs = model_config(MODEL_NAME)
         alphalink_prediction(multimer_object.feature_dict,
-                             os.path.join(FLAGS.output_path,multimer_object.description),
-                             input_seqs = multimer_object.input_seqs,
-                             param_path = FLAGS.alphalink_weight,
-                             configs = configs,crosslinks=FLAGS.crosslinks,
+                             os.path.join(FLAGS.output_path, multimer_object.description),
+                             input_seqs=multimer_object.input_seqs,
+                             param_path=FLAGS.alphalink_weight,
+                             configs=configs, crosslinks=FLAGS.crosslinks,
                              chain_id_map=multimer_object.chain_id_map)
     else:
         predict(
@@ -374,10 +362,9 @@ def predict_individual_jobs(multimer_object, output_path, model_runners, random_
         )
         create_and_save_pae_plots(multimer_object, output_path)
         post_prediction_process(output_path,
-                           zip_pickles = FLAGS.compress_result_pickles,
-                           remove_pickles = FLAGS.remove_result_pickles
-                           )
-
+                                zip_pickles=FLAGS.compress_result_pickles,
+                                remove_pickles=FLAGS.remove_result_pickles
+                                )
 
 
 def is_serializable(obj):
@@ -388,12 +375,14 @@ def is_serializable(obj):
     except (TypeError, OverflowError):
         return False
 
+
 def write_metadata_to_file(metadata, file_path):
     """Write metadata to a JSON file, excluding non-serializable objects."""
     serializable_metadata = {k: v for k, v in metadata.items() if is_serializable(v)}
 
     with open(file_path, 'w') as file:
         json.dump(serializable_metadata, file, indent=4)
+
 
 def predict_multimers(multimers):
     """
@@ -404,19 +393,22 @@ def predict_multimers(multimers):
     or create_custom_jobs() or create_homooligomers()
     """
     for object in multimers:
-        logging.info('object: '+object.description)
+        logging.info('object: ' + object.description)
         path_to_models = os.path.join(FLAGS.output_path, object.description)
         logging.info(f"Modeling new interaction for {path_to_models}")
-        # save metadata
-        flags_dict = FLAGS.flag_values_dict()
-        flags_dict["AlphaPulldown"] = ap_version
-        flags_dict["AlphaFold"] = af_version
-        flags_dict = {key: flags_dict[key] for key in sorted(flags_dict)}
-        # Generate filename with current date
-        file_name = f"{object.description}_multimer_metadata_{datetime.now().date()}.json"
-        meta_data_outfile = os.path.join(FLAGS.output_path, file_name)
-        write_metadata_to_file(flags_dict, meta_data_outfile)
         if isinstance(object, MultimericObject):
+            # Generate meta file
+            file_name = f"{object.description}_multimer_metadata_{datetime.now().date()}.json"
+            meta_data_outfile = os.path.join(FLAGS.output_path, file_name)
+            # save metadata
+            flags_dict = FLAGS.flag_values_dict()
+            flags_dict["AlphaPulldown"] = ap_version
+            flags_dict["AlphaFold"] = af_version
+            if FLAGS.multimeric_mode:
+                for i in object.interactors:
+                    flags_dict[i.description] = i.feature_dict["template_domain_names"]
+            flags_dict = {key: flags_dict[key] for key in sorted(flags_dict)}
+            write_metadata_to_file(flags_dict, meta_data_outfile)
             model_runners, random_seed = create_model_runners_and_random_seed(
                 "multimer",
                 FLAGS.num_cycle,
@@ -448,6 +440,7 @@ def predict_multimers(multimers):
                 model_runners=model_runners,
                 random_seed=random_seed,
             )
+
 
 def main(argv):
     check_output_dir(FLAGS.output_path)
@@ -483,8 +476,6 @@ def main(argv):
         )
 
     predict_multimers(multimers)
-
-
 
 
 if __name__ == "__main__":
