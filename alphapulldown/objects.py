@@ -12,9 +12,7 @@ from alphafold.data import pipeline_multimer
 from alphafold.data import pipeline
 from alphafold.data import msa_pairing
 from alphafold.data import feature_processing
-from alphafold.data import templates
 from pathlib import Path as plPath
-from alphafold.data.tools import hhsearch
 from colabfold.batch import unserialize_msa, get_msa_and_templates, msa_to_str, build_monomer_feature
 
 
@@ -586,3 +584,7 @@ class MultimericObject:
         self.feature_dict = pipeline_multimer.pad_msa(self.feature_dict, 512)
         if self.multimeric_mode:
             self.feature_dict['multichain_mask'] = self.multichain_mask
+            # save used templates
+            for i in self.interactors:
+                logging.info("Used multimeric templates for protein {}".format(i.description))
+                logging.info(i.feature_dict['template_domain_names'])
