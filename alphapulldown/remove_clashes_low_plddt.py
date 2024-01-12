@@ -10,6 +10,7 @@ from Bio import SeqIO
 from colabfold.batch import convert_pdb_to_mmcif
 from Bio.PDB import Structure, Model, Chain, Residue
 from Bio.PDB.MMCIF2Dict import MMCIF2Dict
+from pathlib import Path
 
 STANDARD_AMINO_ACIDS = residue_atoms.keys()
 
@@ -122,6 +123,7 @@ class MmcifChainFiltered:
         self.structure = remove_hydrogens_and_irregularities(structure)
         self.map_atoms_to_label_seq_id()
         self.extract_atom_site_label_seq_id()
+        self.all_chains_structure = mmcif_object.structure  # for removing intra-chain clashes
         self.structure_modified = False
 
 
@@ -246,23 +248,25 @@ class MmcifChainFiltered:
         o threshold - threshold for VDW overlap to identify clashes (default: 0.9)
         o hb_allowance - correction to threshold for hydrogen bonding (default: 0.4)
         """
-        model = self.structure[0]
-        ns = NeighborSearch(list(model.get_atoms()))
+        model = self.structure
+        ns = NeighborSearch(list(self.all_chains_structure.get_atoms()))
         clashing_atoms = set()
 
-        for residue in model.get_residues():
+        for residue in self.structure.get_residues():
             for atom in residue:
-                neighbors = ns.search(atom.get_coord(), self.VDW_RADII[atom.element] + max(self.VDW_RADII.values()))
+                neighbors = ns.search(center=atom.get_coord(),
+                                      radius=self.VDW_RADII[atom.element] + max(self.VDW_RADII.values()),
+                                      level='A')
                 for neighbor in neighbors:
                     if neighbor.get_parent() == atom.get_parent() or \
-                            abs(neighbor.get_parent().id[1] - atom.get_parent().id[1]) <= 1:
+                            abs(neighbor.get_parent().id[1] - residue.id[1]) <= 1 or \
+                            neighbor.get_parent().get_parent() == residue.get_parent():
                         continue
                     overlap = (self.VDW_RADII[atom.element] + self.VDW_RADII[neighbor.element]) - (atom - neighbor)
                     if self.is_potential_hbond(atom, neighbor):
                         overlap -= hb_allowance
                     if overlap >= threshold:
                         clashing_atoms.add(atom)
-                        clashing_atoms.add(neighbor)
                         break
 
         # Remove residues if at least one atom is clashing
@@ -315,22 +319,25 @@ class MmcifChainFiltered:
         """
         Save structure to a file.
         """
+        output_file_path = str(output_file_path)
         if output_file_path.endswith(".pdb"):
             io = PDBIO()
         elif output_file_path.endswith(".cif"):
             io = MMCIFIO()
+        #io.set_structure(self.all_chains_structure[self.chain_id])
         io.set_structure(self.structure)
         io.save(output_file_path)
 
 
 def main(argv):
-    input_file_path = flags.FLAGS.input_file_path
-    output_file_path = flags.FLAGS.output_file_path
+    input_file_path = Path(flags.FLAGS.input_file_path)
+    output_file_path = Path(flags.FLAGS.output_file_path)
+    chain = flags.FLAGS.chain
     threshold = flags.FLAGS.threshold
     hb_allowance = flags.FLAGS.hb_allowance
     plddt_threshold = flags.FLAGS.plddt_threshold
 
-    bio_struct = MmcifChainFiltered(input_file_path, "TEST")
+    bio_struct = MmcifChainFiltered(input_file_path, "TEST", chain)
     bio_struct.remove_clashes(threshold, hb_allowance)
     bio_struct.remove_low_plddt(plddt_threshold)
 
@@ -340,7 +347,8 @@ def main(argv):
 
 if __name__ == '__main__':
     flags.DEFINE_string("input_file_path", None, "Path to the input PDB or CIF file")
-    flags.DEFINE_string("output_file_path", None, "Path to save the output file. Optional if --save is False")
+    flags.DEFINE_string("output_file_path", None, "Path to save the output file.")
+    flags.DEFINE_string("chain", "A", "Chain ID")
     flags.DEFINE_float("threshold", 0.9, "Threshold for VDW overlap to identify clashes")
     flags.DEFINE_float("hb_allowance", 0.4, "Allowance for hydrogen bonding (default: 0.0)")
     flags.DEFINE_float("plddt_threshold", 50, "Threshold for pLDDT score (default: 50)")
