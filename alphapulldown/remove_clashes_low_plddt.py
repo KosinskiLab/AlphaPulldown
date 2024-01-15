@@ -258,10 +258,11 @@ class MmcifChainFiltered:
                                       radius=self.VDW_RADII[atom.element] + max(self.VDW_RADII.values()),
                                       level='A')
                 for neighbor in neighbors:
-                    if neighbor.get_parent() == atom.get_parent() or \
-                            abs(neighbor.get_parent().id[1] - residue.id[1]) <= 1 or \
+                    if neighbor.get_parent() == atom.get_parent():
+                        continue  # Same residue
+                    if abs(neighbor.get_parent().id[1] - residue.id[1]) <= 1 and \
                             neighbor.get_parent().get_parent() == residue.get_parent():
-                        continue
+                        continue  # Neighboring residues in the same chain
                     overlap = (self.VDW_RADII[atom.element] + self.VDW_RADII[neighbor.element]) - (atom - neighbor)
                     if self.is_potential_hbond(atom, neighbor):
                         overlap -= hb_allowance
@@ -349,7 +350,7 @@ if __name__ == '__main__':
     flags.DEFINE_string("input_file_path", None, "Path to the input PDB or CIF file")
     flags.DEFINE_string("output_file_path", None, "Path to save the output file.")
     flags.DEFINE_string("chain", "A", "Chain ID")
-    flags.DEFINE_float("threshold", 0.9, "Threshold for VDW overlap to identify clashes")
+    flags.DEFINE_float("threshold", 1.0, "Threshold for VDW overlap to identify clashes")
     flags.DEFINE_float("hb_allowance", 0.4, "Allowance for hydrogen bonding (default: 0.0)")
     flags.DEFINE_float("plddt_threshold", 50, "Threshold for pLDDT score (default: 50)")
     flags.mark_flags_as_required(["input_file_path"])
