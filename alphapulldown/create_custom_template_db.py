@@ -112,7 +112,7 @@ def _prepare_template(template, code, chain_id, mmcif_dir, seqres_dir, templates
     logging.info(f"Processing template: {new_template}  Chain {chain_id}")
 
     # Convert to (our) mmcif object
-    mmcif_obj = MmcifChainFiltered(template, code, chain_id)
+    mmcif_obj = MmcifChainFiltered(new_template, code, chain_id)
     # Determine the full sequence
     seqres = mmcif_obj.sequence_seqres if mmcif_obj.sequence_seqres else mmcif_obj.sequence_atom
     sqrres_path = save_seqres(code, chain_id, seqres, seqres_dir, duplicate)
