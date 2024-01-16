@@ -189,11 +189,11 @@ class TestScript(_TestBase):
             sys.executable,
             self.script_path,
             "--mode=custom",
-            "--num_cycle=3",
-            "--num_predictions_per_model=3",
+            "--num_cycle=48",
+            "--num_predictions_per_model=5",
             "--multimeric_mode=True",
             "--model_names=model_2_multimer_v3",
-            "--msa_depth=128",
+            "--msa_depth=30",
             f"--output_path={self.output_dir}",
             f"--data_dir={self.data_dir}",
             f"--protein_lists={self.test_data_dir}/true_multimer/custom.txt",
@@ -210,7 +210,7 @@ class TestScript(_TestBase):
         rmsd_chain_c = []
         reference = os.path.join(
             self.test_data_dir, "true_multimer", "modelling", "3L4Q_A_and_3L4Q_C", "ranked_0.pdb")
-        for i in range(3):
+        for i in range(5):
             target = os.path.join(self.output_dir, "3L4Q_A_and_3L4Q_C", f"ranked_{i}.pdb")
             assert os.path.exists(target)
             rmsds = calculate_rmsd(reference, target)
