@@ -6,17 +6,17 @@ On top of the general mmCIF tables, ModelCIF adds information, relevant for a mo
 
 As AlphaPulldown is relying on [AlphaFold](https://github.com/google-deepmind/alphafold) to produce model coordinates, there may be multiple models predicted in a single experiment. Respecting that not always all the models need to be converted to ModelCIF, `convert_to_modelcif.py` offers three major modes:
 
-* Convert all models into ModelCIF in separated files (ToDo: parameters)
+* Convert all models into ModelCIF in separated files
 
-* Only convert a specific single model (ToDo: parameters)
+* Only convert a specific single model
 
-* Convert a specific model to ModelCIF but keep additional models in a Zip archive associated with the representative ModelCIF formatted model (ToDo: parameters)
+* Convert a specific model to ModelCIF but keep additional models in a Zip archive associated with the representative ModelCIF formatted model
 
 ## Usage
 
 To run `convert_to_modelcif.py`, the Python module [modelcif](https://pypi.org/project/modelcif/) is needed in addition to the regular AlphaPulldown Python environments.
 
-The script itself lives in the [`alphapulldown/`](https://github.com/bienchen/AlphaPulldown/tree/main/alphapulldown) subdirectory of the AlphaPulldown repository.
+The script itself lives in the [`alphapulldown/`](https://github.com/KosinskiLab/AlphaPulldown/tree/main/alphapulldown) subdirectory of the AlphaPulldown repository.
 
 ### scenario 1: convert all models to separated ModelCIF files
 
@@ -79,7 +79,7 @@ ap_output
     ...
 ```
 
-Beside `--model_selected`, the arguments are the same as for [scenario 1](#scenario-1:-convert-all-models-to-separated-ModelCIF-files).
+Beside `--model_selected`, the arguments are the same as for [scenario 1](#scenario-1-convert-all-models-to-separated-modelcif-files).
 
 
 ### scenario 3: have a representative model and keep associated models
@@ -95,7 +95,7 @@ $ convert_to_modelcif.py \
   --add-associated
 ```
 
-Arguments are the same as in [scenario 1](#scenario-1:-convert-all-models-to-separated-ModelCIF-files) and [scenario 2](#scenario-2:-only-convert-a-specific-single-model) but for `--add-associated`.
+Arguments are the same as in [scenario 1](#scenario-1-convert-all-models-to-separated-modelcif-files) and [scenario 2](#scenario-2-only-convert-a-specific-single-model) but for `--add-associated`.
 
 The output directory looks like when only converting a single model:
 
@@ -128,7 +128,7 @@ ranked_0.zip
 
 ### associated Zip archives
 
-`convert_to_modelcif.py` produces two kinds of output, ModelCIF files and Zip archives for each model. The latter are called "associated files/ archives" in ModelCIF lingo. Associated files are registered in their corresponding ModelCIF file by categories `ma_entry_associated_files` and `ma_associated_archive_file_details`. Historically, this scheme was created to offload AlphaFolds' pairwise alignment error lists, which drastically increase file size. Nowadays, the Zip archives are used for all kind of supplementary information on models, not handled by ModelCIF.
+`convert_to_modelcif.py` produces two kinds of output, ModelCIF files and Zip archives for each model. The latter are called "associated files/ archives" in ModelCIF lingo. Associated files are registered in their corresponding ModelCIF file by categories [`ma_entry_associated_files`](https://mmcif.wwpdb.org/dictionaries/mmcif_ma.dic/Categories/ma_entry_associated_files.html) and [`ma_associated_archive_file_details`](https://mmcif.wwpdb.org/dictionaries/mmcif_ma.dic/Categories/ma_associated_archive_file_details.html). Historically, this scheme was created to offload AlphaFolds' pairwise alignment error lists, which drastically increase file size. Nowadays, the Zip archives are used for all kind of supplementary information on models, not handled by ModelCIF.
 
 
 ### misc. options
