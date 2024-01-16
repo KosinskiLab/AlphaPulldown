@@ -21,6 +21,9 @@ import pickle
 @contextlib.contextmanager
 def output_meta_file(file_path):
     """function that create temp file"""
+    directory = os.path.dirname(file_path)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
     with open(file_path, "w") as outfile:
         yield outfile.name
 
