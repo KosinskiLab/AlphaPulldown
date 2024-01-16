@@ -3,7 +3,7 @@
 """Take the output of the AlphaPulldown pipeline and turn it into a ModelCIF
 file with a lot of metadata in place."""
 
-from typing import Tuple
+from typing import Tuple, List, Any
 import datetime
 import gzip
 import hashlib
@@ -1227,73 +1227,73 @@ def _add_mdl_to_list(mdl, model_list, mdl_path, score_files):
 
 def _get_model_list(
     ap_dir: str, model_selected: str, get_non_selected: bool
-) -> Tuple[str, str, list, list]:
+) -> tuple[list[str], list[str], list[Any], list[Any]]:
     """Get the list of models to be converted.
 
     If `model_selected` is none, all models will be marked for conversion."""
-    mdl_path = os.path.join(ap_dir, "models")
-    cmplx = os.listdir(mdl_path)
-    # For now, exactly 1 complex is expected in the 'models' subdirectory. If
-    # there are more, the 'model_selected' mechanism needs to be further tuned
-    # to get to the right model.
-    assert len(cmplx) == 1
-    cmplx = cmplx[0]
-    mdl_path = os.path.join(mdl_path, cmplx)
-    models = []
-    # We are going for models with name "rank_?.pdb" as it does not depend on
-    # relaxation. But this means we have to match the pickle files via
-    # ranking_debug.json.
-    ranking_dbg = os.path.join(mdl_path, "ranking_debug.json")
-    _file_exists_or_exit(
-        ranking_dbg,
-        f"Ranking file '{ranking_dbg} does not exist or is no regular file.",
-    )
-    with open(ranking_dbg, "r", encoding="utf8") as jfh:
-        ranking_dbg = json.load(jfh)
-    score_files = {}
-    for i, fle in enumerate(ranking_dbg["order"]):
-        if not fle.startswith("model_"):
-            raise RuntimeError(
-                "Filename does not start with 'model_', can "
-                + f"not determine model ID: '{fle}'"
-            )
-        score_files[i] = (
-            os.path.join(mdl_path, f"result_{fle}.pkl"),
-            fle.split("_")[1],
-            i,
-        )
+    cmplx = os.listdir(ap_dir)
+    mdl_all_paths = [os.path.join(ap_dir, c) for c in cmplx]
+    result_dict = {}
 
-    not_selected_models = []
-    if model_selected is not None:
-        if model_selected not in score_files:
-            logging.info(f"Model of rank {model_selected} not found.")
-            sys.exit()
-
-        _add_mdl_to_list(
-            f"ranked_{model_selected}.pdb", models, mdl_path, score_files
+    for c, specific_mdl_path in zip(cmplx, mdl_all_paths):
+        models = []
+        # We are going for models with name "rank_?.pdb" as it does not depend on
+        # relaxation. But this means we have to match the pickle files via
+        # ranking_debug.json.
+        ranking_dbg = os.path.join(specific_mdl_path, "ranking_debug.json")
+        _file_exists_or_exit(
+            ranking_dbg,
+            f"Ranking file '{ranking_dbg} does not exist or is no regular file.",
         )
-        if get_non_selected:
-            for mdl in os.listdir(mdl_path):
-                if mdl == f"ranked_{model_selected}.pdb":
-                    continue
-                _add_mdl_to_list(
-                    mdl, not_selected_models, mdl_path, score_files
+        with open(ranking_dbg, "r", encoding="utf8") as jfh:
+            ranking_dbg = json.load(jfh)
+        score_files = {}
+        for i, fle in enumerate(ranking_dbg["order"]):
+            if not fle.startswith("model_"):
+                raise RuntimeError(
+                    "Filename does not start with 'model_', can "
+                    + f"not determine model ID: '{fle}'"
                 )
-    else:
-        for mdl in os.listdir(mdl_path):
-            _add_mdl_to_list(mdl, models, mdl_path, score_files)
+            score_files[i] = (
+                os.path.join(specific_mdl_path, f"result_{fle}.pkl"),
+                fle.split("_")[1],
+                i,
+            )
 
-    # check that files actually exist
-    for mdl, scrs, *_ in models:
-        _file_exists_or_exit(
-            mdl, f"Model file '{mdl}' does not exist or is not a regular file."
-        )
-        _file_exists_or_exit(
-            scrs,
-            f"Scores file '{scrs}' does not exist or is not a regular file.",
+        not_selected_models = []
+        if model_selected is not None:
+            if model_selected not in score_files:
+                logging.info(f"Model of rank {model_selected} not found.")
+                sys.exit()
+
+            _add_mdl_to_list(
+                f"ranked_{model_selected}.pdb", models, specific_mdl_path, score_files
+            )
+            if get_non_selected:
+                for mdl in os.listdir(specific_mdl_path):
+                    if mdl == f"ranked_{model_selected}.pdb":
+                        continue
+                    _add_mdl_to_list(
+                        mdl, not_selected_models, specific_mdl_path, score_files
+                    )
+        else:
+            for mdl in os.listdir(specific_mdl_path):
+                _add_mdl_to_list(mdl, models, specific_mdl_path, score_files)
+
+        # check that files actually exist
+        for mdl, scrs, *_ in models:
+            _file_exists_or_exit(
+                mdl, f"Model file '{mdl}' does not exist or is not a regular file."
+            )
+            _file_exists_or_exit(
+                scrs,
+                f"Scores file '{scrs}' does not exist or is not a regular file.",
+            )
+        result_dict.update(
+            {'complex': c, 'path': specific_mdl_path, 'models': models, 'not_selected': not_selected_models}
         )
 
-    return cmplx, mdl_path, models, not_selected_models
+    return result_dict
 
 
 def main(argv):
@@ -1319,36 +1319,41 @@ def main(argv):
     del argv  # Unused.
 
     # get list of selected models and assemble ModelCIF files + associated data
-    complex_name, model_dir, model_list, not_selected = _get_model_list(
+    result_dict = _get_model_list(
         FLAGS.ap_output,
         FLAGS.model_selected,
         FLAGS.add_associated,
     )
-    add_assoc_files = {}
-    if len(not_selected) > 0:
-        # pylint: disable=consider-using-with
-        ns_tmpdir = tempfile.TemporaryDirectory(suffix="_modelcif")
-        for mdl in not_selected:
-            add_assoc_files.update(
-                alphapulldown_model_to_modelcif(
-                    complex_name,
-                    mdl,
-                    ns_tmpdir.name,
-                    FLAGS.ap_output,
-                    FLAGS.monomer_objects_dir,
-                    FLAGS.compress,
+    for d in result_dict:
+        complex_name = d['complex']
+        model_list = d['models']
+        not_selected = d['not_selected']
+        model_dir = d['path']
+        add_assoc_files = {}
+        if len(not_selected) > 0:
+            # pylint: disable=consider-using-with
+            ns_tmpdir = tempfile.TemporaryDirectory(suffix="_modelcif")
+            for mdl in not_selected:
+                add_assoc_files.update(
+                    alphapulldown_model_to_modelcif(
+                        complex_name,
+                        mdl,
+                        ns_tmpdir.name,
+                        FLAGS.ap_output,
+                        FLAGS.monomer_objects_dir,
+                        FLAGS.compress,
+                    )
                 )
+        for mdl in model_list:
+            alphapulldown_model_to_modelcif(
+                complex_name,
+                mdl,
+                model_dir,
+                FLAGS.ap_output,
+                FLAGS.monomer_objects_dir,
+                FLAGS.compress,
+                add_assoc_files,
             )
-    for mdl in model_list:
-        alphapulldown_model_to_modelcif(
-            complex_name,
-            mdl,
-            model_dir,
-            FLAGS.ap_output,
-            FLAGS.monomer_objects_dir,
-            FLAGS.compress,
-            add_assoc_files,
-        )
 
 
 if __name__ == "__main__":
