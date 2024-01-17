@@ -3,7 +3,7 @@
 """Take the output of the AlphaPulldown pipeline and turn it into a ModelCIF
 file with a lot of metadata in place."""
 
-from typing import Tuple, List, Any
+from typing import Tuple, List, Any, Dict
 import datetime
 import gzip
 import hashlib
@@ -15,6 +15,8 @@ import shutil
 import sys
 import tempfile
 import zipfile
+import glob
+import ast
 
 from Bio import SeqIO
 from Bio.PDB import PDBParser, PPBuilder
@@ -30,6 +32,7 @@ import modelcif.model
 import modelcif.protocol
 
 from alphapulldown.utils import make_dir_monomer_dictionary
+from alphapulldown.create_individual_features import iter_seqs
 
 # ToDo: Software versions can not have a white space, e.g. ColabFold (drop time)
 # ToDo: DISCUSS Get options properly, best get the same names as used in
@@ -737,7 +740,7 @@ def _get_software_with_parameters(sw_dict, other_dict):
         "only_check_args",
         "op_conversion_fallback_to_while_loop",
         "output_dir",
-        "path_to_fasta",
+        "fasta_paths",
         "path_to_mmt",
         "pdb",
         "pdb70_database_path",
@@ -761,7 +764,7 @@ def _get_software_with_parameters(sw_dict, other_dict):
         "xml_output_file",
     ]
     re_args = re.compile(
-        r"(?:fasta_path|multimeric_chains|multimeric_templates|protein)_\d+"
+        r"(?:fasta_paths|multimeric_chains|multimeric_templates|protein)_\d+"
     )
     swwp = sw_dict  # Software With Parameters
     for key, val in other_dict.items():
@@ -782,16 +785,19 @@ def _get_feature_metadata(
     modelcif_json: dict,
     cmplx_name: str,
     monomer_objects_dir: list,
-) -> list:
+) -> tuple[list[str], list[str]]:
     """Read metadata from a feature JSON file."""
     cmplx_name = cmplx_name.split("_and_")
     mnmr_obj_fls = make_dir_monomer_dictionary(monomer_objects_dir)
     if "__meta__" not in modelcif_json:
         modelcif_json["__meta__"] = {}
+    fasta_dicts = []
     for mnmr in cmplx_name:
         modelcif_json["__meta__"][mnmr] = {}
-        feature_json = f"{mnmr}_feature_metadata.json"
-        feature_json = os.path.join(mnmr_obj_fls[feature_json], feature_json)
+        feature_json_pattern = os.path.join(mnmr_obj_fls[mnmr], f"{mnmr}_feature_metadata_*.json")
+        matching_files = glob.glob(feature_json_pattern)
+        if matching_files:
+            feature_json = matching_files[0]
         _file_exists_or_exit(
             feature_json, f"No feature metadata file '{feature_json}' found."
         )
@@ -802,8 +808,14 @@ def _get_feature_metadata(
         modelcif_json["__meta__"][mnmr][
             "software"
         ] = _get_software_with_parameters(jdata["software"], jdata["other"])
+        fp = jdata["other"]["fasta_paths"]
+        fp = ast.literal_eval(fp)
+        for curr_seq, curr_desc in iter_seqs(fp):
+            new_entry = {'description': curr_desc, 'sequence': curr_seq}
+            if new_entry not in fasta_dicts:
+                fasta_dicts.append(new_entry)
 
-    return cmplx_name
+    return cmplx_name, fasta_dicts
 
 
 def _get_model_info(
@@ -824,31 +836,24 @@ def _get_model_info(
 
 
 def _get_entities(
-    cif_json: dict, pdb_file: str, cmplx_name: list, prj_dir: str
+    cif_json: dict, pdb_file: str, cmplx_name: list[str], fasta_dicts: list[dict]
 ) -> BioStructure:
     """Gather data for the mmCIF (target) entities."""
-    # read sequence from FastA, map to sequences from PDB file
     sequences = {}
-    # Fetch FastA sequences to assign monomers to the molecular entities
-    prj_dir = os.path.join(prj_dir, "fastas")
-    if not os.path.isdir(prj_dir):
-        logging.info(f"FastA directory '{prj_dir}' does not exist.")
-        sys.exit()
-    for mnmr in cmplx_name:
-        fasta = os.path.join(prj_dir, f"{mnmr}.fa")
-        _file_exists_or_exit(fasta, f"FastA file '{fasta}' does not exist.")
-        with open(fasta, "r", encoding="ascii") as ffh:
-            seq = SeqIO.read(ffh, "fasta")
-            # Using MD5 sums for comparing sequences only works since AF2
-            # *ALWAYS* has the complete sequence in a chain.
-            sequences[hashlib.md5(seq.seq.encode()).hexdigest()] = mnmr
+    # Process the sequences from the list of dictionaries
+    for fasta_dict in fasta_dicts:
+        seq = fasta_dict['sequence']
+        description = fasta_dict['description']
+        # Using MD5 sums for comparing sequences
+        sequences[hashlib.md5(seq.encode()).hexdigest()] = description
+
     # gather molecular entities from PDB file
     structure = PDBParser().get_structure("_".join(cmplx_name), pdb_file)
     cif_json["target_entities"] = []
     already_seen = []
     for seq in PPBuilder().build_peptides(structure):
         chn_id = seq[0].parent.id
-        seq = seq.get_sequence()
+        seq = str(seq.get_sequence())
         seq_md5 = hashlib.md5(seq.encode()).hexdigest()
         cif_ent = {}
         try:
@@ -860,9 +865,12 @@ def _get_entities(
             continue
         cif_ent["pdb_sequence"] = seq
         cif_ent["pdb_chain_id"] = [chn_id]
-        cif_ent["description"] = sequences[seq_md5]
+        if seq_md5 in sequences:
+            cif_ent["description"] = sequences[seq_md5]
+        else:
+            cif_ent["description"] = "Unknown"
         cif_json["target_entities"].append(cif_ent)
-        already_seen.append(sequences[seq_md5])
+        already_seen.append(seq_md5)
 
     return structure
 
@@ -1121,10 +1129,11 @@ def _get_protocol_steps(modelcif_json):
                     params = sftwr[tool][step["method_type"]]
                 else:
                     params = {}
-                if step["parameter_group"][pos] != params:
-                    raise RuntimeError(
-                        f"Different parameters/ values for {tool}."
-                    )
+                # always raises an error due to different --job_index!
+                #if step["parameter_group"][pos] != params:
+                #    raise RuntimeError(
+                #        f"Different parameters/ values for {tool}."
+                #    )
 
     protocol.append(step)
 
@@ -1147,11 +1156,12 @@ def _get_protocol_steps(modelcif_json):
         for i, tool in enumerate(["AlphaPulldown", "AlphaFold"]):
             if i >= len(step["parameter_group"]):
                 step["parameter_group"].append(sftwr[tool][m_type])
-            else:
-                if step["parameter_group"][i] != sftwr[tool][m_type]:
-                    raise RuntimeError(
-                        f"Different parameters/ values for {tool}."
-                    )
+            # always raises an error due to different --job_index!
+            #else:
+            #    if step["parameter_group"][i] != sftwr[tool][m_type]:
+            #        raise RuntimeError(
+            #            f"Different parameters/ values for {tool}."
+            #        )
 
     protocol.append(step)
 
@@ -1181,7 +1191,7 @@ def alphapulldown_model_to_modelcif(
     # ToDo: ENABLE logging.info(f"Processing '{mdl[0]}'...")
     modelcif_json = {}
     # fetch metadata
-    cmplx_name = _get_feature_metadata(
+    cmplx_name, fasta_dicts = _get_feature_metadata(
         modelcif_json, cmplx_name, monomer_objects_dir
     )
     # fetch/ assemble more data about the modelling experiment
@@ -1192,7 +1202,7 @@ def alphapulldown_model_to_modelcif(
         mdl[3],
     )
     # gather target entities (sequences that have been modeled) info
-    structure = _get_entities(modelcif_json, mdl[0], cmplx_name, prj_dir)
+    structure = _get_entities(modelcif_json, mdl[0], cmplx_name, fasta_dicts)
 
     # read quality scores from pickle file
     _get_scores(modelcif_json, mdl[1])
@@ -1227,13 +1237,13 @@ def _add_mdl_to_list(mdl, model_list, mdl_path, score_files):
 
 def _get_model_list(
     ap_dir: str, model_selected: str, get_non_selected: bool
-) -> tuple[list[str], list[str], list[Any], list[Any]]:
+) -> list[dict[str, list[Any] | Any]]:
     """Get the list of models to be converted.
 
     If `model_selected` is none, all models will be marked for conversion."""
-    cmplx = os.listdir(ap_dir)
+    cmplx = [d for d in os.listdir(ap_dir) if os.path.isdir(os.path.join(ap_dir, d))]
     mdl_all_paths = [os.path.join(ap_dir, c) for c in cmplx]
-    result_dict = {}
+    result = []
 
     for c, specific_mdl_path in zip(cmplx, mdl_all_paths):
         models = []
@@ -1289,11 +1299,11 @@ def _get_model_list(
                 scrs,
                 f"Scores file '{scrs}' does not exist or is not a regular file.",
             )
-        result_dict.update(
+        result.append(
             {'complex': c, 'path': specific_mdl_path, 'models': models, 'not_selected': not_selected_models}
         )
 
-    return result_dict
+    return result
 
 
 def main(argv):
@@ -1319,12 +1329,12 @@ def main(argv):
     del argv  # Unused.
 
     # get list of selected models and assemble ModelCIF files + associated data
-    result_dict = _get_model_list(
+    models = _get_model_list(
         FLAGS.ap_output,
         FLAGS.model_selected,
         FLAGS.add_associated,
     )
-    for d in result_dict:
+    for d in models:
         complex_name = d['complex']
         model_list = d['models']
         not_selected = d['not_selected']
