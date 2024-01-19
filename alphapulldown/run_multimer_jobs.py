@@ -404,13 +404,14 @@ def predict_multimers(multimers):
             flags_dict = FLAGS.flag_values_dict()
             flags_dict["AlphaPulldown"] = ap_version
             flags_dict["AlphaFold"] = af_version
+            flags_dict["model_preset"] = "multimer"
             if FLAGS.multimeric_mode:
                 for i in object.interactors:
                     flags_dict[i.description] = i.feature_dict["template_domain_names"]
             flags_dict = {key: flags_dict[key] for key in sorted(flags_dict)}
             write_metadata_to_file(flags_dict, meta_data_outfile)
             model_runners, random_seed = create_model_runners_and_random_seed(
-                "multimer",
+                flags_dict["model_preset"],
                 FLAGS.num_cycle,
                 FLAGS.random_seed,
                 FLAGS.data_dir,
