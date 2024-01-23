@@ -536,7 +536,7 @@ def save_meta_data(flag_dict, outfile):
         elif k == "use_mmseqs2":
             url = DB_NAME_TO_URL["ColabFold"]
             metadata["databases"].update({"ColabFold":
-                                              {"version": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                                              {"version": datetime.datetime.now().strftime('%Y-%m-%d'),
                                                "release_date": None,
                                                "location_url": url}
                                           })
