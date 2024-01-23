@@ -1340,29 +1340,35 @@ def main(argv):
         not_selected = d['not_selected']
         model_dir = d['path']
         add_assoc_files = {}
-        if len(not_selected) > 0:
-            # pylint: disable=consider-using-with
-            ns_tmpdir = tempfile.TemporaryDirectory(suffix="_modelcif")
-            for mdl in not_selected:
-                add_assoc_files.update(
-                    alphapulldown_model_to_modelcif(
-                        complex_name,
-                        mdl,
-                        ns_tmpdir.name,
-                        FLAGS.ap_output,
-                        FLAGS.monomer_objects_dir,
-                        FLAGS.compress,
+        try:
+            if len(not_selected) > 0:
+                # pylint: disable=consider-using-with
+                ns_tmpdir = tempfile.TemporaryDirectory(suffix="_modelcif")
+                for mdl in not_selected:
+                    add_assoc_files.update(
+                        alphapulldown_model_to_modelcif(
+                            complex_name,
+                            mdl,
+                            ns_tmpdir.name,
+                            FLAGS.ap_output,
+                            FLAGS.monomer_objects_dir,
+                            FLAGS.compress,
+                        )
                     )
+            for mdl in model_list:
+                alphapulldown_model_to_modelcif(
+                    complex_name,
+                    mdl,
+                    model_dir,
+                    FLAGS.ap_output,
+                    FLAGS.monomer_objects_dir,
+                    FLAGS.compress,
+                    add_assoc_files,
                 )
-        for mdl in model_list:
-            alphapulldown_model_to_modelcif(
-                complex_name,
-                mdl,
-                model_dir,
-                FLAGS.ap_output,
-                FLAGS.monomer_objects_dir,
-                FLAGS.compress,
-                add_assoc_files,
+        except Exception as exc:
+            logging.error(
+                f"Error while processing model '{mdl[0]}' of complex "
+                + f"'{complex_name}': {exc}"
             )
 
 
