@@ -40,7 +40,7 @@ def plot_pae(seqs: list, order, feature_dir, job_name):
     yticks_labels = []
     for s in seqs:
         yticks_labels.append(str(len(s)))
-    fig, ax1 = plt.subplots(1, 1)
+
     # plt.figure(figsize=(3,18))
     for i in range(len(order)):
         check = outs[order[i]]
@@ -57,6 +57,7 @@ def plot_pae(seqs: list, order, feature_dir, job_name):
             ax1.axvline(t, color="black", linewidth=3.5)
         plt.title("ranked_{}".format(i))
         plt.savefig(f"{feature_dir}/{job_name}_PAE_plot_ranked_{i}.png")
+        plt.close()
 
 def plot_pae_from_matrix(seqs,pae_matrix,figure_name=''):
     xticks = []
