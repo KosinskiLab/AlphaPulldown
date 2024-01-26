@@ -22,6 +22,9 @@ def parse_mmcif_file(file_id:str,mmcif_file:str) -> ParsingResult:
     
     return parsing_result
 
+def create_template_hits():
+    """Create the new template hits and mapping """
+
 def exctract_multimeric_template_features_for_single_chain(
         query_seq:str,
         pdb_id:str,
@@ -48,11 +51,9 @@ def exctract_multimeric_template_features_for_single_chain(
             template_seq = mmcif_chain_seq_map[chain_id]
         except Exception as e:
             print(f"chain: {chain_id} does not exist in {mmcif_file}. Please double check you input.")
-
-        
         try:
             features, realign_warning = _extract_template_features(
                 mmcif_object = mmcif_parse_result.mmcif_object,
                 pdb_id = pdb_id,
-                
+
             )
