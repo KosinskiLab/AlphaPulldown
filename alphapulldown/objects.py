@@ -439,15 +439,19 @@ class MultimericObject:
     interactors: individual interactors that are to be concatenated
     """
 
-    def __init__(self, interactors: list, pair_msa: bool = True, multimeric_mode: bool = False) -> None:
+    def __init__(self, interactors: list, pair_msa: bool = True, 
+                 multimeric_mode: bool = False, multimeric_template_meta_data: dict = None) -> None:
         self.description = ""
         self.interactors = interactors
         self.pair_msa = pair_msa
         self.multimeric_mode = multimeric_mode
         self.chain_id_map = dict()
         self.input_seqs = []
+        self.multimeric_template_meta_data = multimeric_template_meta_data
         self.create_output_name()
         self.create_all_chain_features()
+        if self.multimeric_mode:
+            self.create_multimeric_template_features()
         pass
 
     def get_all_residue_index(self):
@@ -526,6 +530,11 @@ class MultimericObject:
         # DEBUG
         # self.save_binary_matrix(multichain_mask, "multichain_mask.png")
         return multichain_mask
+    
+    def create_multimeric_template_features(self):
+        """A method of creating multimeric template features"""
+        assert self.multimeric_template_meta_data is not None, "You chose to use multimeric mode but multimric template information is missing. Abort"
+        
 
     def pair_and_merge(self, all_chain_features):
         """merge all chain features"""
