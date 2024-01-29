@@ -86,11 +86,12 @@ def exctract_multimeric_template_features_for_single_chain(
                 mmcif_object = mmcif_parse_result.mmcif_object,
                 pdb_id = pdb_id,
                 mapping = mapping,
-                template_seq = template_seq,
+                template_sequence = template_seq,
                 query_sequence = query_seq,
                 template_chain_id = chain_id,
                 kalign_binary_path = obtain_kalign_binary_path()
             )
+            
             features['template_sum_probs'] = [0]
             return SingleHitResult(features=features, error=None, warning=realign_warning)
         except Exception as e:
