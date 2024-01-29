@@ -81,6 +81,7 @@ def exctract_multimeric_template_features_for_single_chain(
             template_seq = mmcif_chain_seq_map[chain_id]
         except Exception as e:
             print(f"chain: {chain_id} does not exist in {mmcif_file}. Please double check you input.")
+  
         try:
             features, realign_warning = _extract_template_features(
                 mmcif_object = mmcif_parse_result.mmcif_object,
@@ -91,7 +92,7 @@ def exctract_multimeric_template_features_for_single_chain(
                 template_chain_id = chain_id,
                 kalign_binary_path = obtain_kalign_binary_path()
             )
-            
+            print("finished extracting features")
             features['template_sum_probs'] = [0]
             return SingleHitResult(features=features, error=None, warning=realign_warning)
         except Exception as e:
