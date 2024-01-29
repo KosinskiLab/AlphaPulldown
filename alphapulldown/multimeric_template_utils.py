@@ -58,7 +58,7 @@ def exctract_multimeric_template_features_for_single_chain(
         pdb_id:str,
         chain_id:str,
         mmcif_file:str,
-        index:int
+        index:int =1,
 
 ) -> SingleHitResult:
     """
