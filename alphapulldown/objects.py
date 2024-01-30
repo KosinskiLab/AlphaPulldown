@@ -14,7 +14,7 @@ from alphafold.data import msa_pairing
 from alphafold.data import feature_processing
 from pathlib import Path as plPath
 from colabfold.batch import unserialize_msa, get_msa_and_templates, msa_to_str, build_monomer_feature
-from alphapulldown.multimeric_template_utils import exctract_multimeric_template_features_for_single_chain
+from alphapulldown.multimeric_template_utils import extract_multimeric_template_features_for_single_chain
 
 @contextlib.contextmanager
 def temp_fasta_file(sequence_str):
@@ -550,9 +550,10 @@ class MultimericObject:
             for k,v in self.multimeric_template_meta_data[monomer_name].items():
                 curr_monomer = self.monomers_mapping[monomer_name]
                 assert k.endswith(".cif"), "The multimeric template file you provided does not seem to be a mmcif file. Please check your format and make sure it ends with .cif"
-                assert os.path.exists(os.path.join(self.multimeric_template_dir.k)), f"Your provided {k} cannot be found in: {self.multimeric_template_dir}. Abort"
+                assert os.path.exists(os.path.join(self.multimeric_template_dir,k)), f"Your provided {k} cannot be found in: {self.multimeric_template_dir}. Abort"
                 pdb_id = k.split('.cif')[0]
-                multimeric_template_features = exctract_multimeric_template_features_for_single_chain(query_seq=curr_monomer.sequence,
+                print(f"query_seq is {curr_monomer.sequence}\npdb_id is {pdb_id}\n chain_id:{v}\nmmcif_file: {os.path.join(self.multimeric_template_dir,k)}")
+                multimeric_template_features = extract_multimeric_template_features_for_single_chain(query_seq=curr_monomer.sequence,
                                                                                                       pdb_id=pdb_id,chain_id=v,
                                                                                                       mmcif_file=os.path.join(self.multimeric_template_dir,k))
                 curr_monomer.feature_dict.update(multimeric_template_features.features)

@@ -1,5 +1,8 @@
 
-from alphafold.data.templates import _read_file, _extract_template_features,_build_query_to_hit_index_mapping
+import os, logging, csv,sys
+from alphafold.data.templates import (_read_file, 
+                                      _extract_template_features,
+                                      _build_query_to_hit_index_mapping)
 from alphafold.data.templates import SingleHitResult
 from alphafold.data import mmcif_parsing
 from alphafold.data.mmcif_parsing import ParsingResult
@@ -7,6 +10,40 @@ from alphafold.data.parsers import TemplateHit
 from typing import Optional
 import shutil
 
+def prepare_multimeric_template_meta_info(csv_path:str, mmt_dir:str) -> dict:
+    """
+    Adapted from https://github.com/KosinskiLab/AlphaPulldown/blob/231863af7faa61fa04d45829c90a3bab9d9e2ff2/alphapulldown/create_individual_features_with_templates.py#L107C1-L159C38
+    by @DimaMolod
+    
+    Args:
+    csv_path: Path to the text file with descriptions
+        features.csv: A coma-separated file with three columns: PROTEIN name, PDB/CIF template, chain ID.
+    mmt_dir: Path to directory with multimeric template mmCIF files
+
+    Returns:
+        a list of dictionaries with the following structure:
+    [{"protein": protein_name, "sequence" :sequence", templates": [pdb_files], "chains": [chain_id]}, ...]}]
+    """
+    # Parse csv file
+    parsed_dict = {}
+    with open(csv_path, newline="") as csvfile:
+        csvreader = csv.reader(csvfile)
+        for row in csvreader:
+            # skip empty lines
+            if not row:
+                continue
+            if len(row) == 3:
+                protein, template, chain = [item.strip() for item in row]
+                assert os.path.exists(os.path.join(mmt_dir,template)), f"Provided {template} cannot be found in {mmt_dir}. Abort"
+                if protein not in parsed_dict:
+                    parsed_dict[protein] = {
+                        template:chain
+                    }
+            else:
+                logging.error(f"Invalid line found in the file {csv_path}: {row}")
+                sys.exit()
+
+    return parsed_dict
 
 def obtain_kalign_binary_path() -> Optional[str]:
     assert shutil.which('kalign') is not None, "Could not find kalign in your environment"
@@ -53,7 +90,7 @@ def create_template_hit(index:int, name:str,query:str) -> TemplateHit:
                        sum_probs = sum_probs,query = query, hit_sequence = hit_sequence,
                        indices_query = indices_query, indices_hit = indices_hit)
 
-def exctract_multimeric_template_features_for_single_chain(
+def extract_multimeric_template_features_for_single_chain(
         query_seq:str,
         pdb_id:str,
         chain_id:str,
@@ -81,7 +118,7 @@ def exctract_multimeric_template_features_for_single_chain(
             template_seq = mmcif_chain_seq_map[chain_id]
         except Exception as e:
             print(f"chain: {chain_id} does not exist in {mmcif_file}. Please double check you input.")
-  
+
         try:
             features, realign_warning = _extract_template_features(
                 mmcif_object = mmcif_parse_result.mmcif_object,
