@@ -552,7 +552,6 @@ class MultimericObject:
                 assert k.endswith(".cif"), "The multimeric template file you provided does not seem to be a mmcif file. Please check your format and make sure it ends with .cif"
                 assert os.path.exists(os.path.join(self.multimeric_template_dir,k)), f"Your provided {k} cannot be found in: {self.multimeric_template_dir}. Abort"
                 pdb_id = k.split('.cif')[0]
-                print(f"query_seq is {curr_monomer.sequence}\npdb_id is {pdb_id}\n chain_id:{v}\nmmcif_file: {os.path.join(self.multimeric_template_dir,k)}")
                 multimeric_template_features = extract_multimeric_template_features_for_single_chain(query_seq=curr_monomer.sequence,
                                                                                                       pdb_id=pdb_id,chain_id=v,
                                                                                                       mmcif_file=os.path.join(self.multimeric_template_dir,k))

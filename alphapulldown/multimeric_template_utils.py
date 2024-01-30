@@ -131,6 +131,9 @@ def extract_multimeric_template_features_for_single_chain(
             )
             print("finished extracting features")
             features['template_sum_probs'] = [0]
+            for k in ['template_sequence','template_domain_names',
+                      'template_aatype']:
+                features[k] = [features[k]]
             return SingleHitResult(features=features, error=None, warning=realign_warning)
         except Exception as e:
             print(f"Failed to extract template features")
