@@ -1,21 +1,27 @@
 import unittest 
 import numpy as np
 import gzip,pickle,shutil
+from alphapulldown.objects import MultimericObject
 from alphafold.data.templates import _build_query_to_hit_index_mapping
-from alphapulldown.multimeric_template_utils import create_template_hit,exctract_multimeric_template_features_for_single_chain
+from alphapulldown import multimeric_template_utils
+from alphapulldown.utils import create_model_runners_and_random_seed
+from alphapulldown.run_multimer_jobs import predict_individual_jobs
 class TestMultimericTemplateFeatures(unittest.TestCase):
     def setUp(self):
         self.mmcif_file = "./test/test_data/true_multimer/3L4Q.cif"
         self.monomer1 = pickle.load(open("./test/test_data/true_multimer/features/3L4Q_A.pkl",'rb'))
         self.monomer2 = pickle.load(open("./test/test_data/true_multimer/features/3L4Q_C.pkl",'rb'))
         self.kalign_binary_path = shutil.which('kalign')
+        self.mmt_dir = './test/test_data/true_multimer/'
+        self.instruction_file = "./test/test_data/true_multimer/description_file.csv"
+        self.data_dir = '/scratch/AlphaFold_DBs/2.3.2'
     
     def test_1_create_template_hit(self):
-        template_hit = create_template_hit(index=1, name='3l4q_A',query=self.monomer1.sequence)
+        template_hit = multimeric_template_utils.create_template_hit(index=1, name='3l4q_A',query=self.monomer1.sequence)
         self.assertEqual(self.monomer1.sequence,template_hit.hit_sequence)
     
     def test_2_build_mapping(self):
-        template_hit = create_template_hit(index=1, name='3l4q_A',query=self.monomer1.sequence)
+        template_hit = multimeric_template_utils.create_template_hit(index=1, name='3l4q_A',query=self.monomer1.sequence)
         expected_mapping = {i:i for i in range(len(self.monomer1.sequence))}
         mapping = _build_query_to_hit_index_mapping(template_hit.query,
                                                     template_hit.hit_sequence,
@@ -25,11 +31,42 @@ class TestMultimericTemplateFeatures(unittest.TestCase):
         self.assertEqual(expected_mapping, mapping)
     
     def test_3_extract_multimeric_template_features(self):
-        single_hit_result = exctract_multimeric_template_features_for_single_chain(self.monomer1.sequence,
-                                                                                   pdb_id='3l4q',
-                                                                                   chain_id='C',
+        single_hit_result = multimeric_template_utils.extract_multimeric_template_features_for_single_chain(self.monomer1.sequence,
+                                                                                   pdb_id='3L4Q',
+                                                                                   chain_id='A',
                                                                                    mmcif_file=self.mmcif_file)
         self.assertIsNotNone(single_hit_result.features)
+    
+    def test_4_parse_instraction_file(self):
+        """Test if the instruction csv table is parsed properly"""
+        multimeric_template_meta = multimeric_template_utils.prepare_multimeric_template_meta_info(self.instruction_file,self.mmt_dir)
+        self.assertIsInstance(multimeric_template_meta, dict)
+        expected_dict = {"3L4Q_A":{"3L4Q.cif":"A"}, "3L4Q_C":{"3L4Q.cif":"C"}}
+        self.assertEqual(multimeric_template_meta,expected_dict)
+    
+    def test_5_predict_model(self):
+        """Test on the predicted model structure based on the multimeric template features"""
+        multimeric_template_meta = multimeric_template_utils.prepare_multimeric_template_meta_info(self.instruction_file,self.mmt_dir)
+        multimer_object = MultimericObject([self.monomer1, self.monomer2],multimeric_mode=True,
+                                           multimeric_template_meta_data=multimeric_template_meta,
+                                           multimeric_template_dir=self.mmt_dir)
+        model_runners, random_seed = create_model_runners_and_random_seed(
+                "multimer",
+                3,
+                42,
+                self.data_dir,
+                1,
+                False,
+                None,
+                None,
+            )
+        predict_individual_jobs(
+                multimer_object,
+                "./",
+                model_runners=model_runners,
+                random_seed=random_seed,
+            )
+        
 
 if __name__ == "__main__":
     unittest.main()
