@@ -38,6 +38,7 @@ jobs:
           conda activate AlphaPulldown
           conda install -c bioconda hmmer hhsuite
           pip install alphapulldown
+          python test/test_python_imports.py
 
       - name: Install AlphaPulldown for developer
         if: matrix.install-type == 'developer'
@@ -49,6 +50,7 @@ jobs:
           pip install -e .
           pip install -e alphapulldown/ColabFold --no-deps
           pip install -e alphafold --no-deps
+          python test/test_python_imports.py
 
       - name: Install dependencies in AlphaLink2 setup.py
         run: |
