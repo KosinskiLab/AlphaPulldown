@@ -9,6 +9,7 @@ from alphafold.data.mmcif_parsing import ParsingResult
 from alphafold.data.parsers import TemplateHit
 from typing import Optional
 import shutil
+import numpy as np
 
 def prepare_multimeric_template_meta_info(csv_path:str, mmt_dir:str) -> dict:
     """
@@ -131,6 +132,8 @@ def extract_multimeric_template_features_for_single_chain(
             )
             print("finished extracting features")
             features['template_sum_probs'] = [0]
+            # add 1 dimension to template_all_atom_positions
+            features['template_all_atom_positions'] = features['template_all_atom_positions'][np.newaxis,:]
             for k in ['template_sequence','template_domain_names',
                       'template_aatype']:
                 features[k] = [features[k]]

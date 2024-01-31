@@ -459,7 +459,8 @@ class MultimericObject:
         self.create_output_name()
 
         if multimeric_template_meta_data is not None:
-            self.multimeric_template_meta_data = prepare_multimeric_template_meta_info(multimeric_template_meta_data)
+            self.multimeric_template_meta_data = prepare_multimeric_template_meta_info(multimeric_template_meta_data,
+                                                                                       self.multimeric_template_dir)
             
         if self.multimeric_mode:
             self.create_multimeric_template_features()
