@@ -14,7 +14,8 @@ from alphafold.data import msa_pairing
 from alphafold.data import feature_processing
 from pathlib import Path as plPath
 from colabfold.batch import unserialize_msa, get_msa_and_templates, msa_to_str, build_monomer_feature
-from alphapulldown.multimeric_template_utils import extract_multimeric_template_features_for_single_chain
+from alphapulldown.multimeric_template_utils import (extract_multimeric_template_features_for_single_chain,
+                                                     prepare_multimeric_template_meta_info)
 
 @contextlib.contextmanager
 def temp_fasta_file(sequence_str):
@@ -439,13 +440,13 @@ class MultimericObject:
     interactors: individual interactors that are to be concatenated
     pair_msa: boolean, tells the programme whether to pair MSA or not
     multimeric_mode: boolean, tells the programme whether use multimeric templates or not
-    multimeric_template_meta_data: dictionary with the format {"monomer_A":{"xxx.cif":"chainID"},"monomer_B":{"yyy.cif":"chainID"}}
+    multimeric_template_meta_data: a csv with the format {"monomer_A":{"xxx.cif":"chainID"},"monomer_B":{"yyy.cif":"chainID"}}
     multimeric_template_dir: a directory where all the multimeric templates mmcifs files are stored
     """
 
     def __init__(self, interactors: list, pair_msa: bool = True, 
                  multimeric_mode: bool = False, 
-                 multimeric_template_meta_data: dict = None,
+                 multimeric_template_meta_data: str = None,
                  multimeric_template_dir:str = None) -> None:
         self.description = ""
         self.interactors = interactors
@@ -454,9 +455,12 @@ class MultimericObject:
         self.multimeric_mode = multimeric_mode
         self.chain_id_map = dict()
         self.input_seqs = []
-        self.multimeric_template_meta_data = multimeric_template_meta_data
         self.multimeric_template_dir = multimeric_template_dir
         self.create_output_name()
+
+        if multimeric_template_meta_data is not None:
+            self.multimeric_template_meta_data = prepare_multimeric_template_meta_info(multimeric_template_meta_data)
+            
         if self.multimeric_mode:
             self.create_multimeric_template_features()
         self.create_all_chain_features()

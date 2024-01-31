@@ -93,7 +93,7 @@ flags.DEFINE_boolean(
     "Whether the result pickles that do not belong to the best model are going to be removed. Default is False"
 )
 flags.DEFINE_string("description_file", None,
-                    "Path to the text file with descriptions")
+                    "Path to the text file with multimeric template instructions")
 flags.DEFINE_string("path_to_mmt", None, "Path to directory with multimeric template mmCIF files")
 flags.DEFINE_enum("unifold_model_name", "multimer_af2",
                   ["multimer_af2", "multimer_ft", "multimer", "multimer_af2_v3", "multimer_af2_model45_v3"],
@@ -235,6 +235,8 @@ def create_multimer_objects(data, monomer_objects_dir, pair_msa=True):
         interactors = create_interactors(data, monomer_objects_dir, job_idx)
         if len(interactors) > 1:
             multimer = MultimericObject(interactors=interactors, pair_msa=pair_msa,
+                                        multimeric_template_meta_data=FLAGS.description_file,
+                                        multimeric_template_dir=FLAGS.path_to_mmt,
                                         multimeric_mode=FLAGS.multimeric_mode)
             logging.info(f"done creating multimer {multimer.description}")
             multimers.append(multimer)
