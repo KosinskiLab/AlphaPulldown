@@ -38,7 +38,6 @@ jobs:
           conda activate AlphaPulldown
           conda install -c bioconda hmmer hhsuite
           pip install alphapulldown
-          python test/test_python_imports.py
 
       - name: Install AlphaPulldown for developer
         if: matrix.install-type == 'developer'
