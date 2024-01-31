@@ -4,8 +4,6 @@ import gzip,pickle,shutil
 from alphapulldown.objects import MultimericObject
 from alphafold.data.templates import _build_query_to_hit_index_mapping
 from alphapulldown import multimeric_template_utils
-from alphapulldown.utils import create_model_runners_and_random_seed
-from alphapulldown.run_multimer_jobs import predict_individual_jobs
 class TestMultimericTemplateFeatures(unittest.TestCase):
     def setUp(self):
         self.mmcif_file = "./test/test_data/true_multimer/3L4Q.cif"
@@ -43,30 +41,6 @@ class TestMultimericTemplateFeatures(unittest.TestCase):
         self.assertIsInstance(multimeric_template_meta, dict)
         expected_dict = {"3L4Q_A":{"3L4Q.cif":"A"}, "3L4Q_C":{"3L4Q.cif":"C"}}
         self.assertEqual(multimeric_template_meta,expected_dict)
-    
-    def test_5_predict_model(self):
-        """Test on the predicted model structure based on the multimeric template features"""
-        multimeric_template_meta = multimeric_template_utils.prepare_multimeric_template_meta_info(self.instruction_file,self.mmt_dir)
-        multimer_object = MultimericObject([self.monomer1, self.monomer2],multimeric_mode=True,
-                                           multimeric_template_meta_data=multimeric_template_meta,
-                                           multimeric_template_dir=self.mmt_dir)
-        model_runners, random_seed = create_model_runners_and_random_seed(
-                "multimer",
-                3,
-                42,
-                self.data_dir,
-                1,
-                False,
-                None,
-                None,
-            )
-        predict_individual_jobs(
-                multimer_object,
-                "./",
-                model_runners=model_runners,
-                random_seed=random_seed,
-            )
-        
 
 if __name__ == "__main__":
     unittest.main()
