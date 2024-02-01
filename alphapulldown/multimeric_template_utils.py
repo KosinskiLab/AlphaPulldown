@@ -134,6 +134,8 @@ def extract_multimeric_template_features_for_single_chain(
             features['template_sum_probs'] = [0]
             # add 1 dimension to template_all_atom_positions
             features['template_all_atom_positions'] = features['template_all_atom_positions'][np.newaxis,:]
+            # replicate all_atom_mask 
+            features['template_all_atom_mask'] = features['template_all_atom_masks'][np.newaxis,:]
             for k in ['template_sequence','template_domain_names',
                       'template_aatype']:
                 features[k] = [features[k]]
