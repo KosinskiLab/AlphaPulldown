@@ -114,31 +114,25 @@ def extract_multimeric_template_features_for_single_chain(
     mapping = _build_query_to_hit_index_mapping(hit.query, hit.hit_sequence, hit.indices_hit, hit.indices_query,query_seq)
     mmcif_parse_result = parse_mmcif_file(pdb_id, mmcif_file)
     if (mmcif_parse_result is not None) and (mmcif_parse_result.mmcif_object is not None):
-        mmcif_chain_seq_map = mmcif_parse_result.mmcif_object.chain_to_seqres
-        try:
-            template_seq = mmcif_chain_seq_map[chain_id]
-        except Exception as e:
-            print(f"chain: {chain_id} does not exist in {mmcif_file}. Please double check you input.")
-
         try:
             features, realign_warning = _extract_template_features(
                 mmcif_object = mmcif_parse_result.mmcif_object,
                 pdb_id = pdb_id,
                 mapping = mapping,
-                template_sequence = template_seq,
+                template_sequence = query_seq,
                 query_sequence = query_seq,
                 template_chain_id = chain_id,
                 kalign_binary_path = obtain_kalign_binary_path()
             )
-            print("finished extracting features")
-            features['template_sum_probs'] = [0]
-            # add 1 dimension to template_all_atom_positions
-            features['template_all_atom_positions'] = features['template_all_atom_positions'][np.newaxis,:]
+            features['template_sum_probs'] = [0]*4
+            # add 1 dimension to template_all_atom_positions and replicate 4 times
+            features['template_all_atom_positions'] = np.tile(features['template_all_atom_positions'],(4,1,1,1))
+            features['template_all_atom_position'] = features['template_all_atom_positions']
             # replicate all_atom_mask 
             features['template_all_atom_mask'] = features['template_all_atom_masks'][np.newaxis,:]
             for k in ['template_sequence','template_domain_names',
                       'template_aatype']:
-                features[k] = [features[k]]
+                features[k] = [features[k]]*4
             return SingleHitResult(features=features, error=None, warning=realign_warning)
         except Exception as e:
             print(f"Failed to extract template features")
