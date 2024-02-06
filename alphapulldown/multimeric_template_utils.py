@@ -51,22 +51,25 @@ def obtain_kalign_binary_path() -> Optional[str]:
     return shutil.which('kalign')
 
 
-def parse_mmcif_file(file_id:str,mmcif_file:str) -> ParsingResult:
+def parse_mmcif_file(file_id:str,template_structure_file:str,is_pdb_file:bool=False) -> ParsingResult:
     """
     Args:
     file_id: A string identifier for this file. Should be unique within the
       collection of files being processed.
-    mmcif_file: path to the target mmcif file
+    template_structure_file: path to the target template structure file, either a .pdb or a .mmcif file
+
     
     Returns:
     A ParsingResult object
     """  
     try:
-        mmcif_string = _read_file(mmcif_file)
-        parsing_result = mmcif_parsing.parse(file_id = file_id,mmcif_string = mmcif_string)
+        mmcif_string = _read_file(template_structure_file)
+        parsing_result = mmcif_parsing.parse(file_id = file_id,
+                                             mmcif_string = mmcif_string,
+                                             is_pdb_file=is_pdb_file)
     except FileNotFoundError as e:
         parsing_result = None
-        print(f"{mmcif_file} could not be found")
+        print(f"{template_structure_file} could not be found")
     
     return parsing_result
 
