@@ -554,11 +554,11 @@ class MultimericObject:
         for monomer_name in self.multimeric_template_meta_data:
             for k,v in self.multimeric_template_meta_data[monomer_name].items():
                 curr_monomer = self.monomers_mapping[monomer_name]
-                assert k.endswith(".cif"), "The multimeric template file you provided does not seem to be a mmcif file. Please check your format and make sure it ends with .cif"
+                assert (k.endswith(".cif") or k.endswith('.pdb')), "The multimeric template file you provided does not seem to be either an mmcif file or a pdb file. Please check your format and make sure it ends with .cif"
                 assert os.path.exists(os.path.join(self.multimeric_template_dir,k)), f"Your provided {k} cannot be found in: {self.multimeric_template_dir}. Abort"
-                pdb_id = k.split('.cif')[0]
+                pdb_id = k.split('.')[0]
                 multimeric_template_features = extract_multimeric_template_features_for_single_chain(query_seq=curr_monomer.sequence,
-                                                                                                      pdb_id=pdb_id,chain_id=v,
+                                                                                                      pdb_id=pdb_id,chain_id=v,is_pdb_file=k.endswith('.pdb'),
                                                                                                       mmcif_file=os.path.join(self.multimeric_template_dir,k))
                 curr_monomer.feature_dict.update(multimeric_template_features.features)
         
