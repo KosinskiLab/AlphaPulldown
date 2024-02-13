@@ -270,8 +270,8 @@ def predict(
             template_aatype = feature_dict['template_aatype'][0]
             template_residue_index = feature_dict.get('residue_index', None)
             chain_index = feature_dict['asym_id']
-            b_factors = np.zeros(template_mask.shape, dtype=float)  # another stub
-            template_sequence = feature_dict['template_sequence']
+            b_factors = np.zeros(template_mask.shape, dtype=float)  # stub
+            #template_sequence = feature_dict['template_sequence'] # doesn't work because we can't store b-strings there
 
             # Create the Protein object
             template_protein = protein.Protein(

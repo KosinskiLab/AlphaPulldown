@@ -589,4 +589,3 @@ class MultimericObject:
             for i in self.interactors:
                 logging.info("Used multimeric templates for protein {}".format(i.description))
                 logging.info(i.feature_dict['template_domain_names'])
-                self.feature_dict['template_sequence'].append(i.feature_dict['template_sequence'][0])
