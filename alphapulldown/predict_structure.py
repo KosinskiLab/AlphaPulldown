@@ -262,6 +262,9 @@ def predict(
             f.write(model)
         # Calculate and report RMSD if multimeric templates were used.
         if run_af.flags.FLAGS.multimeric_mode:
+            # Calculate RMSD
+            from alphapulldown.analysis_pipeline.calculate_rmsd import calculate_rmsd_and_superpose
+            import tempfile
             template_positions = feature_dict['template_all_atom_positions'][0]
             template_mask = feature_dict['template_all_atom_mask'][0]
             template_aatype = feature_dict['template_aatype'][0]
@@ -283,15 +286,13 @@ def predict(
             # Convert to PDB format
             pdb_string = protein.to_pdb(template_protein)
 
-            # Write to a temporary file
-            template_file = "template_structure.pdb"
-            with open(template_file, 'w') as file:
-                file.write(pdb_string)
-            # Calculate RMSD
-            from alphapulldown.analysis_pipeline.calculate_rmsd import calculate_rmsd
-            #TODO: use template_sequence for alignment
-            rmsd = calculate_rmsd(ranked_output_path, template_file)#, template_sequence)
-            logging.info(f"RMSD of model {model_name} to template: {rmsd}")
+            with tempfile.TemporaryDirectory() as temp_dir:
+                template_file_path = f"{temp_dir}/template.pdb"
+                with open(template_file_path, 'w') as file:
+                    file.write(pdb_string)
+                # TODO: use template_sequence for alignment
+                rmsd = calculate_rmsd_and_superpose(template_file_path,
+                                                    ranked_output_path)
 
     if not os.path.exists(ranking_output_path):  # already exists if restored.
         with open(ranking_output_path, "w") as f:

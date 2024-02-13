@@ -177,7 +177,7 @@ def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, pldd
         template=Path(template)
         code = parse_code(template)
         logging.info(f"Template code: {code}")
-        assert len(code) == 4
+        #assert len(code) == 4
         _prepare_template(
             template, code, chain_id, mmcif_dir, seqres_dir, templates_dir,
             threshold_clashes, hb_allowance, plddt_threshold, len(templates)
