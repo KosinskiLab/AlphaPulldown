@@ -1,4 +1,4 @@
-rms"""
+"""
 Running the test script:
 1. Batch job on gpu-el8
 sbatch test_predict_structure.sh
@@ -211,7 +211,7 @@ class TestScript(_TestBase):
         for i in range(5):
             target = os.path.join(self.output_dir, "3L4Q_A_and_3L4Q_C", f"ranked_{i}.pdb")
             assert os.path.exists(target)
-            rmsds = calculate_rmsd(reference, target)
+            rmsds = calculate_rmsd_and_superpose(reference, target)
             print(f"Model {i} RMSD {rmsds}")
         # Best RMSD must be below 2 A
         #TODO: assert min(rmsd_chain_b) < 3.0

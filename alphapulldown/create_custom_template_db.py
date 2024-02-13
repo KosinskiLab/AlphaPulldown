@@ -10,8 +10,8 @@ Can be used as a standalone script.
 """
 
 import os
-import shutil
-import random
+import hashlib
+import base64
 import string
 from pathlib import Path
 from absl import logging, flags, app
@@ -50,6 +50,16 @@ def save_seqres(code, chain, s, path, duplicate):
     return fn
 
 
+def generate_code(filename):
+    # Create a hash of the filename
+    hash_object = hashlib.sha256(filename.encode())
+    # Convert the hash to a base64 encoded string
+    base64_hash = base64.urlsafe_b64encode(hash_object.digest())
+    # Take the first 4 characters of the base64 encoded hash
+    code = base64_hash[:4].decode('utf-8')
+    return code
+
+
 def parse_code(template):
     # Check that the code is 4 letters
     code = Path(template).stem
@@ -58,9 +68,9 @@ def parse_code(template):
             if line.startswith("_entry.id"):
                 code = line.split()[1]
 
-    # Generate a random 4-character code if needed
-    #if len(code) != 4:
-    #    code = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(4))
+    # Generate a deterministic 4-character code if needed
+    if len(code) != 4:
+        code = generate_code(code)
 
     return code.lower()
 
@@ -177,7 +187,7 @@ def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, pldd
         template=Path(template)
         code = parse_code(template)
         logging.info(f"Template code: {code}")
-        #assert len(code) == 4
+        assert len(code) == 4
         _prepare_template(
             template, code, chain_id, mmcif_dir, seqres_dir, templates_dir,
             threshold_clashes, hb_allowance, plddt_threshold, len(templates)

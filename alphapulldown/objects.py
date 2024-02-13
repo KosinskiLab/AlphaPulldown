@@ -521,7 +521,7 @@ class MultimericObject:
         multichain_mask = np.zeros((len(pdb_map), len(pdb_map)), dtype=int)
         for index1, id1 in enumerate(pdb_map):
             for index2, id2 in enumerate(pdb_map):
-                if (id1[:-2] == id2[:-2]):  # and (no_gap_map[index1] and no_gap_map[index2]):
+                if (id1[:4] == id2[:4]):  # and (no_gap_map[index1] and no_gap_map[index2]):
                     multichain_mask[index1, index2] = 1
         # DEBUG
         self.save_binary_matrix(multichain_mask, "multichain_mask.png")

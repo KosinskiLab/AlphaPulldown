@@ -287,6 +287,7 @@ def predict(
             pdb_string = protein.to_pdb(template_protein)
 
             with tempfile.TemporaryDirectory() as temp_dir:
+                # TODO: do not geenrate a new template each time
                 template_file_path = f"{temp_dir}/template.pdb"
                 with open(template_file_path, 'w') as file:
                     file.write(pdb_string)
