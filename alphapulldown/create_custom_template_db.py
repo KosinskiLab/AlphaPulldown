@@ -59,8 +59,8 @@ def parse_code(template):
                 code = line.split()[1]
 
     # Generate a random 4-character code if needed
-    if len(code) != 4:
-        code = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(4))
+    #if len(code) != 4:
+    #    code = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(4))
 
     return code.lower()
 
@@ -101,6 +101,19 @@ def create_tree(pdb_mmcif_dir, mmcif_dir, seqres_dir, templates_dir):
     create_dir_and_remove_files(seqres_dir, ['pdb_seqres.txt'])
 
 
+def copy_file_exclude_lines(starting_with, src, dst):
+    """
+    Copy contents from src to dst excluding lines that start with `starting_with`.
+
+    o starting_with: A string that, if a line starts with it, the line will be excluded.
+    o src: Source file path.
+    o dst: Destination file path.
+    """
+    with open(src, 'r') as infile, open(dst, 'w') as outfile:
+        for line in infile:
+            if not line.startswith(starting_with):
+                outfile.write(line)
+
 def _prepare_template(template, code, chain_id, mmcif_dir, seqres_dir, templates_dir,
                       threshold_clashes, hb_allowance, plddt_threshold, number_of_templates):
     """
@@ -108,7 +121,7 @@ def _prepare_template(template, code, chain_id, mmcif_dir, seqres_dir, templates
     """
     duplicate = number_of_templates == 1
     new_template = templates_dir / Path(code + Path(template).suffix)
-    shutil.copyfile(template, new_template)
+    copy_file_exclude_lines('HETATM', template, new_template)
     logging.info(f"Processing template: {new_template}  Chain {chain_id}")
 
     # Convert to (our) mmcif object

@@ -266,8 +266,9 @@ def predict(
             template_mask = feature_dict['template_all_atom_mask'][0]
             template_aatype = feature_dict['template_aatype'][0]
             template_residue_index = feature_dict.get('residue_index', None)
-            chain_index = np.ones(template_aatype.shape, dtype=int)  # stub
+            chain_index = feature_dict['asym_id']
             b_factors = np.zeros(template_mask.shape, dtype=float)  # another stub
+            template_sequence = feature_dict['template_sequence']
 
             # Create the Protein object
             template_protein = protein.Protein(
@@ -288,7 +289,8 @@ def predict(
                 file.write(pdb_string)
             # Calculate RMSD
             from alphapulldown.analysis_pipeline.calculate_rmsd import calculate_rmsd
-            rmsd = calculate_rmsd(ranked_output_path, template_file)
+            #TODO: use template_sequence for alignment
+            rmsd = calculate_rmsd(ranked_output_path, template_file)#, template_sequence)
             logging.info(f"RMSD of model {model_name} to template: {rmsd}")
 
     if not os.path.exists(ranking_output_path):  # already exists if restored.
