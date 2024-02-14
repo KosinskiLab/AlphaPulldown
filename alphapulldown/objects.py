@@ -524,7 +524,7 @@ class MultimericObject:
                 if (id1[:4] == id2[:4]):  # and (no_gap_map[index1] and no_gap_map[index2]):
                     multichain_mask[index1, index2] = 1
         # DEBUG
-        # self.save_binary_matrix(multichain_mask, "multichain_mask.png")
+        self.save_binary_matrix(multichain_mask, "multichain_mask.png")
         return multichain_mask
 
     def pair_and_merge(self, all_chain_features):
@@ -583,6 +583,7 @@ class MultimericObject:
         )
         self.feature_dict = pipeline_multimer.pad_msa(self.feature_dict, 512)
         if self.multimeric_mode:
+            self.feature_dict['template_sequence'] = []
             self.feature_dict['multichain_mask'] = self.multichain_mask
             # save used templates
             for i in self.interactors:

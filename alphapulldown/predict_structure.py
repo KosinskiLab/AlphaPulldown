@@ -256,9 +256,44 @@ def predict(
         ranked_output_path = os.path.join(output_dir, f'ranked_{idx}.pdb')
         with open(ranked_output_path, 'w') as f:
             if model_name in relaxed_pdbs:
-                f.write(relaxed_pdbs[model_name])
+                model = relaxed_pdbs[model_name]
             else:
-                f.write(unrelaxed_pdbs[model_name])
+                model = unrelaxed_pdbs[model_name]
+            f.write(model)
+        # Calculate and report RMSD if multimeric templates were used.
+        if run_af.flags.FLAGS.multimeric_mode:
+            # Calculate RMSD
+            from alphapulldown.analysis_pipeline.calculate_rmsd import calculate_rmsd_and_superpose
+            import tempfile
+            template_positions = feature_dict['template_all_atom_positions'][0]
+            template_mask = feature_dict['template_all_atom_mask'][0]
+            template_aatype = feature_dict['template_aatype'][0]
+            template_residue_index = feature_dict.get('residue_index', None)
+            chain_index = feature_dict['asym_id']
+            b_factors = np.zeros(template_mask.shape, dtype=float)  # stub
+            #template_sequence = feature_dict['template_sequence'] # doesn't work because we can't store b-strings there
+
+            # Create the Protein object
+            template_protein = protein.Protein(
+                atom_positions=template_positions,
+                atom_mask=template_mask,
+                aatype=template_aatype,
+                residue_index=template_residue_index,
+                chain_index=chain_index,
+                b_factors=b_factors
+            )
+
+            # Convert to PDB format
+            pdb_string = protein.to_pdb(template_protein)
+
+            with tempfile.TemporaryDirectory() as temp_dir:
+                # TODO: do not geenrate a new template each time
+                template_file_path = f"{temp_dir}/template.pdb"
+                with open(template_file_path, 'w') as file:
+                    file.write(pdb_string)
+                # TODO: use template_sequence for alignment
+                rmsd = calculate_rmsd_and_superpose(template_file_path,
+                                                    ranked_output_path)
 
     if not os.path.exists(ranking_output_path):  # already exists if restored.
         with open(ranking_output_path, "w") as f:

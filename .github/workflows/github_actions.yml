@@ -69,16 +69,16 @@ jobs:
         run: |
           eval "$(conda shell.bash hook)"
           conda activate AlphaPulldown
-          pip install torch --pre -f https://download.pytorch.org/whl/nightly/cu121/torch_nightly.html 
+          #pip install torch --pre -f https://download.pytorch.org/whl/nightly/cu121/torch_nightly.html 
 
       - name: Check imports of submodules
         run : |
           eval "$(conda shell.bash hook)"
           conda activate AlphaPulldown
-          pip install torch --pre -f https://download.pytorch.org/whl/nightly/cu121/torch_nightly.html 
-          git clone https://github.com/dptech-corp/Uni-Core.git
-          cd Uni-Core
-          python3 setup.py install --disable-cuda-ext
+          #pip install torch --pre -f https://download.pytorch.org/whl/nightly/cu121/torch_nightly.html 
+          #git clone https://github.com/dptech-corp/Uni-Core.git
+          #cd Uni-Core
+          #python3 setup.py install --disable-cuda-ext
           python -c "from colabfold.batch import get_queries, unserialize_msa, get_msa_and_templates, msa_to_str, build_monomer_feature, parse_fasta"
 
       - name: Run Tests
