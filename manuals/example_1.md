@@ -69,7 +69,7 @@ source activate AlphaPulldown
 
 create_individual_features.py \
   --fasta_paths=baits.fasta,example_1_sequences_shorter.fasta \
-  --data_dir=/scratch/AlphaFold_DBs/2.3.0/ \
+  --data_dir=/scratch/AlphaFold_DBs/2.3.2/ \
   --save_msa_files=False \
   --output_dir=/scratch/user/output/features \
   --use_precomputed_msas=False \
@@ -252,7 +252,7 @@ run_multimer_jobs.py --mode=pulldown \
     --num_cycle=3 \
     --num_predictions_per_model=1 \
     --output_path=/scratch/user/output/models \
-    --data_dir=/scratch/AlphaFold_DBs/2.3.0/ \
+    --data_dir=/scratch/AlphaFold_DBs/2.3.2/ \
     --protein_lists=baits.txt,candidates_shorter.txt \
     --monomer_objects_dir=/scratch/user/output/features \
     --job_index=$SLURM_ARRAY_TASK_ID
