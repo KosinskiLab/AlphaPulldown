@@ -5,9 +5,10 @@
     git submodule init
     git submodule update 
     ```
-1. Create the Conda environment as described in https://github.com/KosinskiLab/AlphaPulldown/blob/installation-intro-update/README.md#create-anaconda-environment 
+1. Create the Conda environment as described in [https://github.com/KosinskiLab/AlphaPulldown/blob/installation-intro-update/README.md#create-anaconda-environment](https://github.com/KosinskiLab/AlphaPulldown/tree/main?tab=readme-ov-file#create-anaconda-environment) 
 1. Add AlphaPulldown package and its submodules to the Conda environment
     ```
+    source activate AlphaPulldown
     cd AlphaPulldown
     pip install -e .
     pip install -e alphapulldown/ColabFold --no-deps
