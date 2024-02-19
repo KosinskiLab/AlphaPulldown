@@ -110,6 +110,7 @@ def calculate_rmsd_and_superpose(reference_pdb, target_pdb, temp_dir=None):
         io.save(f"superposed_{target_structure_id}.pdb")
 
     logging.info(f"RMSD between {reference_pdb} and {target_pdb}: {superimposer.rms:.4f}")
+    return superimposer.rms
 
 
 def main(argv):

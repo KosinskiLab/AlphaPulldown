@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # coding: utf-8
-# I am a quick-and-dirty draft, don't use me yet!
+# Create features for AlphaFold from fasta file(s) or a csv file with descriptions for multimeric templates
 # #
 
 import contextlib
@@ -42,7 +42,8 @@ flags.DEFINE_integer("seq_index", None, "Index of sequence in the fasta file, st
 # Flags related to TrueMultimer
 flags.DEFINE_string("path_to_mmt", None, "Path to directory with multimeric template mmCIF files")
 flags.DEFINE_string("description_file", None, "Path to the text file with descriptions")
-flags.DEFINE_float("threshold_clashes", 1000, "Threshold for VDW overlap to identify clashes (default: 1000, i.e. no threshold, for thresholding, use 0.9)")
+flags.DEFINE_float("threshold_clashes", 1000,
+                   "Threshold for VDW overlap to identify clashes (default: 1000, i.e. no threshold, for thresholding, use 0.9)")
 flags.DEFINE_float("hb_allowance", 0.4, "Allowance for hydrogen bonding (default: 0.4)")
 flags.DEFINE_float("plddt_threshold", 0, "Threshold for pLDDT score (default: 0)")
 
@@ -63,6 +64,7 @@ def ensure_directory_exists(directory):
         logging.info(f"Creating directory: {directory}")
         os.makedirs(directory, exist_ok=True)
 
+
 @contextlib.contextmanager
 def output_meta_file(file_path):
     """
@@ -78,6 +80,7 @@ def output_meta_file(file_path):
     with open(file_path, "w") as outfile:
         yield outfile.name
 
+
 def get_database_path(flag_value, default_subpath):
     """
     Retrieves the database path based on a flag value or a default subpath.
@@ -91,25 +94,27 @@ def get_database_path(flag_value, default_subpath):
     """
     return flag_value or os.path.join(FLAGS.data_dir, default_subpath)
 
-def create_arguments(flags_dict, local_path_to_custom_template_db=None):
+
+def create_arguments(local_path_to_custom_template_db=None):
     """
-    Updates the flags dictionary with paths to various databases required for AlphaFold. If a local path to a
+    Updates the (global) flags dictionary with paths to various databases required for AlphaFold. If a local path to a
     custom template database is provided, pdb-related paths are set to this local database.
 
     Args:
-    flags_dict (dict): The dictionary of flags to be updated with database paths.
     local_path_to_custom_template_db (str, optional): Path to a local custom template database. Defaults to None.
     """
     global use_small_bfd
 
-    FLAGS.uniref30_database_path = get_database_path(FLAGS.uniref30_database_path, "uniref30/UniRef30_2021_03")
+    FLAGS.uniref30_database_path = get_database_path(FLAGS.uniref30_database_path, "uniref30/UniRef30_2023_02")
     FLAGS.uniref90_database_path = get_database_path(FLAGS.uniref90_database_path, "uniref90/uniref90.fasta")
     FLAGS.mgnify_database_path = get_database_path(FLAGS.mgnify_database_path, "mgnify/mgy_clusters_2022_05.fa")
-    FLAGS.bfd_database_path = get_database_path(FLAGS.bfd_database_path, "bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt")
-    FLAGS.small_bfd_database_path = get_database_path(FLAGS.small_bfd_database_path, "small_bfd/bfd-first_non_consensus_sequences.fasta")
+    FLAGS.bfd_database_path = get_database_path(FLAGS.bfd_database_path,
+                                                "bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt")
+    FLAGS.small_bfd_database_path = get_database_path(FLAGS.small_bfd_database_path,
+                                                      "small_bfd/bfd-first_non_consensus_sequences.fasta")
     FLAGS.pdb70_database_path = get_database_path(FLAGS.pdb70_database_path, "pdb70/pdb70")
 
-    use_small_bfd= FLAGS.db_preset == "reduced_dbs"
+    use_small_bfd = FLAGS.db_preset == "reduced_dbs"
     flags_dict.update({"use_small_bfd": use_small_bfd})
 
     # Update pdb related flags
@@ -128,6 +133,7 @@ def create_arguments(flags_dict, local_path_to_custom_template_db=None):
         FLAGS.obsolete_pdbs_path = get_database_path(FLAGS.obsolete_pdbs_path, "pdb_mmcif/obsolete.dat")
         flags_dict.update({"obsolete_pdbs_path": FLAGS.obsolete_pdbs_path})
 
+
 def create_custom_db(temp_dir, protein, templates, chains):
     """
     Creates a custom template database for a specific protein using given templates and chains.
@@ -144,12 +150,13 @@ def create_custom_db(temp_dir, protein, templates, chains):
     threashold_clashes = FLAGS.threshold_clashes
     hb_allowance = FLAGS.hb_allowance
     plddt_threshold = FLAGS.plddt_threshold
-    #local_path_to_custom_template_db = Path(".") / "custom_template_db" / protein # DEBUG
+    # local_path_to_custom_template_db = Path(".") / "custom_template_db" / protein # DEBUG
     local_path_to_custom_template_db = Path(temp_dir) / "custom_template_db" / protein
     logging.info(f"Path to local database: {local_path_to_custom_template_db}")
     create_db(local_path_to_custom_template_db, templates, chains, threashold_clashes, hb_allowance, plddt_threshold)
 
     return local_path_to_custom_template_db
+
 
 def parse_csv_file(csv_path, fasta_paths, mmt_dir):
     """
@@ -189,6 +196,7 @@ def parse_csv_file(csv_path, fasta_paths, mmt_dir):
 
     return list(parsed_dict.values())
 
+
 def create_pipeline():
     """
     Creates and returns a data pipeline for AlphaFold, configured with necessary binary paths and database paths.
@@ -222,20 +230,12 @@ def create_pipeline():
     )
     return monomer_data_pipeline
 
+
 def check_existing_objects(output_dir, pickle_name):
-    """
-    Checks if a specific pickle file exists in a given directory.
-
-    Args:
-    output_dir (str): The directory where the pickle file might exist.
-    pickle_name (str): The name of the pickle file to check.
-
-    Returns:
-    bool: True if the pickle file exists, False otherwise.
-    """
     return os.path.isfile(os.path.join(output_dir, pickle_name))
 
-def create_and_save_monomer_objects(m, pipeline, flags_dict,use_mmseqs2=False):
+
+def create_and_save_monomer_objects(m, pipeline):
     """
     Processes a MonomericObject to create and save its features. If the skip_existing flag is set and the
     monomer object already exists as a pickle, the function skips processing.
@@ -243,11 +243,10 @@ def create_and_save_monomer_objects(m, pipeline, flags_dict,use_mmseqs2=False):
     Args:
     m (MonomericObject): The monomeric object to be processed.
     pipeline (DataPipeline): The AlphaFold DataPipeline for processing.
-    flags_dict (dict): Dictionary containing various flags and their values.
-    use_mmseqs2 (bool, optional): Flag to indicate whether to use mmseqs2. Defaults to False.
     """
+    use_mmseqs2 = FLAGS.use_mmseqs2
     if FLAGS.skip_existing and check_existing_objects(
-        FLAGS.output_dir, f"{m.description}.pkl"
+            FLAGS.output_dir, f"{m.description}.pkl"
     ):
         logging.info(f"Already found {m.description}.pkl in {FLAGS.output_dir} Skipped")
         pass
@@ -269,10 +268,11 @@ def create_and_save_monomer_objects(m, pipeline, flags_dict,use_mmseqs2=False):
         else:
             logging.info("running mmseq now")
             m.make_mmseq_features(DEFAULT_API_SERVER=DEFAULT_API_SERVER,
-                                  pipeline=pipeline,output_dir=FLAGS.output_dir
-            )
+                                  pipeline=pipeline, output_dir=FLAGS.output_dir
+                                  )
         pickle.dump(m, open(f"{FLAGS.output_dir}/{m.description}.pkl", "wb"))
         del m
+
 
 def iter_seqs(fasta_fns):
     """
@@ -295,28 +295,21 @@ def main(argv):
     try:
         Path(FLAGS.output_dir).mkdir(parents=True, exist_ok=True)
     except FileExistsError:
-        logging.info("Multiple processes are trying to create the same folder now.")
-
-    flags_dict = FLAGS.flag_values_dict()
-    create_arguments(flags_dict)
-    pipeline = create_pipeline()
-
+        logging.error("Multiple processes are trying to create the same folder now.")
+        pass
     if not FLAGS.use_mmseqs2:
-        check_template_date_and_uniprot(FLAGS, flags_dict)
+        check_template_date_and_uniprot()
 
     if not FLAGS.path_to_mmt:
-        process_sequences_individual_mode(FLAGS, flags_dict, pipeline)
+        process_sequences_individual_mode()
     else:
-        process_sequences_multimeric_mode(FLAGS, flags_dict, pipeline)
+        process_sequences_multimeric_mode()
 
-def check_template_date_and_uniprot(FLAGS, flags_dict):
+
+def check_template_date_and_uniprot():
     """
     Checks if the max_template_date is provided and updates the flags dictionary with the path to the Uniprot database.
     Exits the script if max_template_date is not provided or if the Uniprot database file is not found.
-
-    Args:
-    FLAGS (absl.flags): Command-line flags passed to the script.
-    flags_dict (dict): Dictionary to be updated with the Uniprot database path.
     """
     if not FLAGS.max_template_date:
         logging.info("You have not provided a max_template_date. Please specify a date and run again.")
@@ -328,18 +321,17 @@ def check_template_date_and_uniprot(FLAGS, flags_dict):
             f"Failed to find uniprot.fasta under {uniprot_database_path}. Please make sure your data_dir has been configured correctly.")
         sys.exit()
 
-def process_sequences_individual_mode(FLAGS, flags_dict, pipeline):
+
+def process_sequences_individual_mode():
     """
     Processes individual sequences specified in the fasta files. For each sequence, it creates a MonomericObject,
     processes it, and saves its features. Skips processing if the sequence index does not match the seq_index flag.
 
-    Args:
-    FLAGS (absl.flags): Command-line flags passed to the script.
-    flags_dict (dict): Dictionary containing various flag values.
-    pipeline (DataPipeline): The AlphaFold DataPipeline for processing sequences.
     """
+    create_arguments()
     uniprot_runner = None if FLAGS.use_mmseqs2 else create_uniprot_runner(FLAGS.jackhmmer_binary_path,
                                                                           FLAGS.uniref90_database_path)
+    pipeline = create_pipeline()
     seq_idx = 0
     for curr_seq, curr_desc in iter_seqs(FLAGS.fasta_paths):
         seq_idx += 1
@@ -347,17 +339,13 @@ def process_sequences_individual_mode(FLAGS, flags_dict, pipeline):
             if curr_desc and not curr_desc.isspace():
                 curr_monomer = MonomericObject(curr_desc, curr_seq)
                 curr_monomer.uniprot_runner = uniprot_runner
-                create_and_save_monomer_objects(curr_monomer, pipeline, flags_dict, use_mmseqs2=FLAGS.use_mmseqs2)
+                create_and_save_monomer_objects(curr_monomer, pipeline)
 
-def process_sequences_multimeric_mode(FLAGS, flags_dict, pipeline):
+
+def process_sequences_multimeric_mode():
     """
     Processes sequences in multimeric mode using descriptions from a CSV file. For each entry in the CSV file,
     it processes the corresponding sequence if it matches the seq_index flag.
-
-    Args:
-    FLAGS (absl.flags): Command-line flags passed to the script.
-    flags_dict (dict): Dictionary containing various flag values.
-    pipeline (DataPipeline): The AlphaFold DataPipeline for processing sequences.
     """
     fasta_paths = flags_dict["fasta_paths"]
     feats = parse_csv_file(FLAGS.description_file, fasta_paths, FLAGS.path_to_mmt)
@@ -365,9 +353,10 @@ def process_sequences_multimeric_mode(FLAGS, flags_dict, pipeline):
 
     for idx, feat in enumerate(feats, 1):
         if FLAGS.seq_index is None or (FLAGS.seq_index == idx):
-            process_multimeric_features(feat, idx, flags_dict, pipeline)
+            process_multimeric_features(feat, idx)
 
-def process_multimeric_features(feat, idx, flags_dict, pipeline):
+
+def process_multimeric_features(feat, idx):
     """
     Processes a multimeric feature from a provided feature dictionary. It checks for the existence of template files
     and creates a custom database for the specified protein. It then processes the protein and saves its features.
@@ -375,11 +364,8 @@ def process_multimeric_features(feat, idx, flags_dict, pipeline):
     Args:
     feat (dict): A dictionary containing protein information and its corresponding templates and chains.
     idx (int): The index of the current protein being processed.
-    flags_dict (dict): Dictionary containing various flag values.
-    pipeline (DataPipeline): The AlphaFold DataPipeline for processing sequences.
     """
     for temp_path in feat["templates"]:
-        #temp_path = os.path.join(FLAGS.path_to_mmt, temp)
         if not os.path.isfile(temp_path):
             logging.error(f"Template file {temp_path} does not exist.")
             raise FileNotFoundError(f"Template file {temp_path} does not exist.")
@@ -391,7 +377,7 @@ def process_multimeric_features(feat, idx, flags_dict, pipeline):
 
     with tempfile.TemporaryDirectory() as temp_dir:
         local_path_to_custom_db = create_custom_db(temp_dir, protein, templates, chains)
-        create_arguments(flags_dict, local_path_to_custom_db)
+        create_arguments(local_path_to_custom_db)
 
         flags_dict.update({f"protein_{idx}": feat['protein'], f"multimeric_templates_{idx}": feat['templates'],
                            f"multimeric_chains_{idx}": feat['chains']})
@@ -400,14 +386,14 @@ def process_multimeric_features(feat, idx, flags_dict, pipeline):
             uniprot_runner = create_uniprot_runner(FLAGS.jackhmmer_binary_path, FLAGS.uniref90_database_path)
         else:
             uniprot_runner = None
-
+        pipeline = create_pipeline()
         curr_monomer = MonomericObject(feat['protein'], feat['sequence'])
         curr_monomer.uniprot_runner = uniprot_runner
-        create_and_save_monomer_objects(curr_monomer, pipeline, flags_dict, use_mmseqs2=FLAGS.use_mmseqs2)
+        create_and_save_monomer_objects(curr_monomer, pipeline)
 
 
 if __name__ == "__main__":
     flags.mark_flags_as_required(
-        ["fasta_paths", "output_dir","max_template_date","data_dir"]
+        ["fasta_paths", "output_dir", "max_template_date", "data_dir"]
     )
     app.run(main)
