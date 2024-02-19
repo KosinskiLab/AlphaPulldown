@@ -75,7 +75,7 @@ class TestScript(_TestBase):
         print(result.stderr)
         self.assertEqual(result.returncode, 0, f"Script failed with output:\n{result.stdout}\n{result.stderr}")
         #Get the name of the first directory in the output directory
-        dirname = os.listdir(self.output_dir)[0]
+        dirname = next(subdir for subdir in os.listdir(self.output_dir) if os.path.isdir(os.path.join(self.output_dir, subdir)))
         #Check if the directory contains five files starting from ranked and ending with .pdb
         self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.startswith("ranked") and f.endswith(".pdb")]), 5)
         #Check if the directory contains five files starting from result and ending with .pkl
