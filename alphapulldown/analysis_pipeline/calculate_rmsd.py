@@ -69,7 +69,7 @@ def process_chain(chain_id, ref_structure, target_structure, alignment):
     return ref_atoms, target_atoms
 
 
-def calculate_rmsd_and_superpose(reference_pdb, target_pdb):
+def calculate_rmsd_and_superpose(reference_pdb, target_pdb, temp_dir=None):
     """Calculates RMSD and superposes the target structure onto the reference."""
     parser = PDBParser(QUIET=True)
     ref_structure = parser.get_structure('reference', reference_pdb)
@@ -100,10 +100,14 @@ def calculate_rmsd_and_superpose(reference_pdb, target_pdb):
     target_structure_id = Path(target_pdb).stem
 
     io.set_structure(ref_structure)
-    io.save(f"superposed_{ref_structure_id}.pdb")
-
     io.set_structure(target_structure)
-    io.save(f"superposed_{target_structure_id}.pdb")
+
+    if temp_dir:
+        io.save(f"{temp_dir}/superposed_{ref_structure_id}.pdb")
+        io.save(f"{temp_dir}/superposed_{target_structure_id}.pdb")
+    else:
+        io.save(f"superposed_{ref_structure_id}.pdb")
+        io.save(f"superposed_{target_structure_id}.pdb")
 
     logging.info(f"RMSD between {reference_pdb} and {target_pdb}: {superimposer.rms:.4f}")
 

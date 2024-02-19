@@ -292,8 +292,7 @@ def predict(
                 with open(template_file_path, 'w') as file:
                     file.write(pdb_string)
                 # TODO: use template_sequence for alignment
-                rmsd = calculate_rmsd_and_superpose(template_file_path,
-                                                    ranked_output_path)
+                calculate_rmsd_and_superpose(template_file_path, ranked_output_path, temp_dir)
 
     if not os.path.exists(ranking_output_path):  # already exists if restored.
         with open(ranking_output_path, "w") as f:
