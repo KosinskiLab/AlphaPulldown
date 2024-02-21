@@ -347,7 +347,7 @@ def process_sequences_multimeric_mode():
     Processes sequences in multimeric mode using descriptions from a CSV file. For each entry in the CSV file,
     it processes the corresponding sequence if it matches the seq_index flag.
     """
-    fasta_paths = flags_dict["fasta_paths"]
+    fasta_paths = FLAGS.fasta_paths
     feats = parse_csv_file(FLAGS.description_file, fasta_paths, FLAGS.path_to_mmt)
     logging.info(f"seq_index: {FLAGS.seq_index}, feats: {feats}")
 
