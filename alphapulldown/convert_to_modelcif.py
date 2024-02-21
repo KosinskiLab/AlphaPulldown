@@ -18,7 +18,6 @@ import zipfile
 import glob
 import ast
 
-from Bio import SeqIO
 from Bio.PDB import PDBParser, PPBuilder
 from Bio.PDB.Structure import Structure as BioStructure
 from absl import app, flags, logging
