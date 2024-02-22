@@ -42,8 +42,13 @@ flags.DEFINE_integer("seq_index", None, "Index of sequence in the fasta file, st
 flags.DEFINE_string("path_to_mmt", None, "Path to directory with multimeric template mmCIF files")
 flags.DEFINE_string("description_file", None, "Path to the text file with descriptions")
 flags.DEFINE_float("threshold_clashes", 1000,
-                   "Threshold for VDW overlap to identify clashes (default: 1000, i.e. no threshold, for thresholding, use 0.9)")
-flags.DEFINE_float("hb_allowance", 0.4, "Allowance for hydrogen bonding (default: 0.4)")
+                   "Threshold for VDW overlap to identify clashes. The VDW overlap between two atoms is defined as "
+                   "the sum of their VDW radii minus the distance between their centers."
+                   "If the overlap exceeds this threshold, the two atoms are considered to be clashing."
+                   "A positive threshold is how far the VDW surfaces are allowed to interpenetrate before considering "
+                   "the atoms to be clashing."
+                   "(default: 1000, i.e. no threshold, for thresholding, use 0.6-0.9)")
+flags.DEFINE_float("hb_allowance", 0.4, "Additional allowance for hydrogen bonding (default: 0.4)")
 flags.DEFINE_float("plddt_threshold", 0, "Threshold for pLDDT score (default: 0)")
 
 FLAGS = flags.FLAGS
@@ -76,9 +81,12 @@ def create_arguments(local_path_to_custom_template_db=None):
     """
     global use_small_bfd
 
-    FLAGS.uniref30_database_path = get_database_path(FLAGS.uniref30_database_path, "uniref30/UniRef30_2023_02")
-    FLAGS.uniref90_database_path = get_database_path(FLAGS.uniref90_database_path, "uniref90/uniref90.fasta")
-    FLAGS.mgnify_database_path = get_database_path(FLAGS.mgnify_database_path, "mgnify/mgy_clusters_2022_05.fa")
+    FLAGS.uniref30_database_path = get_database_path(FLAGS.uniref30_database_path,
+                                                     "uniref30/UniRef30_2023_02")
+    FLAGS.uniref90_database_path = get_database_path(FLAGS.uniref90_database_path,
+                                                     "uniref90/uniref90.fasta")
+    FLAGS.mgnify_database_path = get_database_path(FLAGS.mgnify_database_path,
+                                                   "mgnify/mgy_clusters_2022_05.fa")
     FLAGS.bfd_database_path = get_database_path(FLAGS.bfd_database_path,
                                                 "bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt")
     FLAGS.small_bfd_database_path = get_database_path(FLAGS.small_bfd_database_path,
@@ -105,7 +113,7 @@ def create_arguments(local_path_to_custom_template_db=None):
         flags_dict.update({"obsolete_pdbs_path": FLAGS.obsolete_pdbs_path})
 
 
-def create_custom_db(temp_dir, protein, templates, chains):
+def create_custom_db(temp_dir, protein, template_paths, chains):
     """
     Creates a custom template database for a specific protein using given templates and chains.
 
@@ -124,7 +132,9 @@ def create_custom_db(temp_dir, protein, templates, chains):
     # local_path_to_custom_template_db = Path(".") / "custom_template_db" / protein # DEBUG
     local_path_to_custom_template_db = Path(temp_dir) / "custom_template_db" / protein
     logging.info(f"Path to local database: {local_path_to_custom_template_db}")
-    create_db(local_path_to_custom_template_db, templates, chains, threashold_clashes, hb_allowance, plddt_threshold)
+    create_db(
+        local_path_to_custom_template_db, template_paths, chains, threashold_clashes, hb_allowance, plddt_threshold
+    )
 
     return local_path_to_custom_template_db
 
@@ -221,7 +231,8 @@ def check_template_date_and_uniprot():
     flags_dict.update({"uniprot_database_path": uniprot_database_path})
     if not os.path.isfile(uniprot_database_path):
         logging.info(
-            f"Failed to find uniprot.fasta under {uniprot_database_path}. Please make sure your data_dir has been configured correctly.")
+            f"Failed to find uniprot.fasta under {uniprot_database_path}."
+            f" Please make sure your data_dir has been configured correctly.")
         sys.exit()
 
 
@@ -275,14 +286,14 @@ def process_multimeric_features(feat, idx):
 
     protein = feat["protein"]
     chains = feat["chains"]
-    templates = feat["templates"]
+    template_paths = feat["templates"]
     logging.info(f"Processing {protein}: templates: {templates}, chains: {chains}")
 
     with tempfile.TemporaryDirectory() as temp_dir:
-        local_path_to_custom_db = create_custom_db(temp_dir, protein, templates, chains)
+        local_path_to_custom_db = create_custom_db(temp_dir, protein, template_paths, chains)
         create_arguments(local_path_to_custom_db)
 
-        flags_dict.update({f"protein_{idx}": feat['protein'], f"multimeric_templates_{idx}": feat['templates'],
+        flags_dict.update({f"protein_{idx}": feat['protein'], f"multimeric_templates_{idx}": template_paths,
                            f"multimeric_chains_{idx}": feat['chains']})
 
         if not FLAGS.use_mmseqs2:
@@ -296,6 +307,7 @@ def process_multimeric_features(feat, idx):
 
 
 def main(argv):
+    del argv  # Unused.
     try:
         Path(FLAGS.output_dir).mkdir(parents=True, exist_ok=True)
     except FileExistsError:
@@ -308,6 +320,7 @@ def main(argv):
         process_sequences_individual_mode()
     else:
         process_sequences_multimeric_mode()
+
 
 if __name__ == "__main__":
     flags.mark_flags_as_required(
