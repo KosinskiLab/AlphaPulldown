@@ -1,4 +1,3 @@
-import pytest
 import os
 import alphapulldown
 from alphapulldown.remove_clashes_low_plddt import MmcifChainFiltered

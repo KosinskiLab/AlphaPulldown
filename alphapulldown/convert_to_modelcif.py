@@ -30,8 +30,7 @@ import modelcif.dumper
 import modelcif.model
 import modelcif.protocol
 
-from alphapulldown.utils import make_dir_monomer_dictionary
-from alphapulldown.create_individual_features import iter_seqs
+from alphapulldown.utils import make_dir_monomer_dictionary, iter_seqs
 
 # ToDo: Software versions can not have a white space, e.g. ColabFold (drop time)
 # ToDo: DISCUSS Get options properly, best get the same names as used in

@@ -3,8 +3,6 @@
 # Create features for AlphaFold from fasta file(s) or a csv file with descriptions for multimeric templates
 # #
 
-import contextlib
-import csv
 import os
 import pickle
 import sys
@@ -21,11 +19,12 @@ from colabfold.utils import DEFAULT_API_SERVER
 from alphapulldown.create_custom_template_db import create_db
 from alphapulldown.objects import MonomericObject
 from alphapulldown.utils import (
-    convert_fasta_description_to_protein_name,
+    parse_csv_file,
     create_uniprot_runner,
     get_run_alphafold,
-    parse_fasta,
-    save_meta_data
+    iter_seqs,
+    save_meta_data,
+    output_meta_file,
 )
 
 # Initialize and define flags
@@ -51,34 +50,6 @@ FLAGS = flags.FLAGS
 MAX_TEMPLATE_HITS = 20
 
 flags_dict = FLAGS.flag_values_dict()
-
-
-def ensure_directory_exists(directory):
-    """
-    Ensures that a directory exists. If the directory does not exist, it is created.
-
-    Args:
-    directory (str): The path of the directory to check or create.
-    """
-    if not os.path.exists(directory):
-        logging.info(f"Creating directory: {directory}")
-        os.makedirs(directory, exist_ok=True)
-
-
-@contextlib.contextmanager
-def output_meta_file(file_path):
-    """
-    A context manager that ensures the directory for a file exists and then opens the file for writing.
-
-    Args:
-    file_path (str): The path of the file to be opened.
-
-    Yields:
-    Generator[str]: The name of the file opened.
-    """
-    ensure_directory_exists(os.path.dirname(file_path))
-    with open(file_path, "w") as outfile:
-        yield outfile.name
 
 
 def get_database_path(flag_value, default_subpath):
@@ -158,45 +129,6 @@ def create_custom_db(temp_dir, protein, templates, chains):
     return local_path_to_custom_template_db
 
 
-def parse_csv_file(csv_path, fasta_paths, mmt_dir):
-    """
-    csv_path (str): Path to the text file with descriptions
-        features.csv: A coma-separated file with three columns: PROTEIN name, PDB/CIF template, chain ID.
-    fasta_paths (str): path to fasta file(s)
-    mmt_dir (str): Path to directory with multimeric template mmCIF files
-
-    Returns:
-        a list of dictionaries with the following structure:
-    [{"protein": protein_name, "sequence" :sequence", templates": [pdb_files], "chains": [chain_id]}, ...]}]
-    """
-    protein_names = {}
-    for fasta_path in fasta_paths:
-        if not os.path.isfile(fasta_path):
-            logging.error(f"Fasta file {fasta_path} does not exist.")
-            raise FileNotFoundError(f"Fasta file {fasta_path} does not exist.")
-        for curr_seq, curr_desc in iter_seqs(fasta_paths):
-            protein_names[curr_desc] = curr_seq
-
-    parsed_dict = {}
-    with open(csv_path, newline="") as csvfile:
-        csvreader = csv.reader(csvfile)
-        for row in csvreader:
-            if not row or len(row) != 3:
-                logging.warning(f"Skipping invalid line in {csv_path}: {row}")
-                continue
-            protein, template, chain = map(str.strip, row)
-            protein = convert_fasta_description_to_protein_name(protein)
-            if protein not in protein_names:
-                logging.error(f"Protein {protein} from description.csv is not found in the fasta files.")
-                continue
-            parsed_dict.setdefault(protein, {"protein": protein, "templates": [], "chains": [], "sequence": None})
-            parsed_dict[protein]["sequence"] = protein_names[protein]
-            parsed_dict[protein]["templates"].append(os.path.join(mmt_dir, template))
-            parsed_dict[protein]["chains"].append(chain)
-
-    return list(parsed_dict.values())
-
-
 def create_pipeline():
     """
     Creates and returns a data pipeline for AlphaFold, configured with necessary binary paths and database paths.
@@ -231,79 +163,50 @@ def create_pipeline():
     return monomer_data_pipeline
 
 
-def check_existing_objects(output_dir, pickle_name):
-    return os.path.isfile(os.path.join(output_dir, pickle_name))
-
-
-def create_and_save_monomer_objects(m, pipeline):
+def create_and_save_monomer_objects(monomer, pipeline):
     """
-    Processes a MonomericObject to create and save its features. If the skip_existing flag is set and the
-    monomer object already exists as a pickle, the function skips processing.
+    Processes a MonomericObject to create and save its features. Skips processing if the feature file already exists
+    and skipping is enabled.
 
     Args:
-    m (MonomericObject): The monomeric object to be processed.
-    pipeline (DataPipeline): The AlphaFold DataPipeline for processing.
+    monomer (MonomericObject): The monomeric object to process.
+    pipeline (DataPipeline): The data pipeline object for feature creation.
     """
-    use_mmseqs2 = FLAGS.use_mmseqs2
-    if FLAGS.skip_existing and check_existing_objects(
-            FLAGS.output_dir, f"{m.description}.pkl"
-    ):
-        logging.info(f"Already found {m.description}.pkl in {FLAGS.output_dir} Skipped")
-        pass
-    else:
-        metadata_output_path = os.path.join(
-            FLAGS.output_dir,
-            f"{m.description}_feature_metadata_{datetime.date(datetime.now())}.json",
+    pickle_path = os.path.join(FLAGS.output_dir, f"{monomer.description}.pkl")
+
+    # Check if we should skip existing files
+    if FLAGS.skip_existing and os.path.exists(pickle_path):
+        logging.info(f"Feature file for {monomer.description} already exists. Skipping...")
+        return
+
+    # Save metadata
+    metadata_output_path = os.path.join(FLAGS.output_dir,
+                                        f"{monomer.description}_feature_metadata_{datetime.date(datetime.now())}.json")
+    with output_meta_file(metadata_output_path) as meta_data_outfile:
+        save_meta_data(flags_dict, meta_data_outfile)
+
+    # Create features
+    if FLAGS.use_mmseqs2:
+        logging.info("Running MMseqs2 for feature generation...")
+        monomer.make_mmseq_features(
+            DEFAULT_API_SERVER=DEFAULT_API_SERVER,
+            pipeline=pipeline,
+            output_dir=FLAGS.output_dir
         )
-        with output_meta_file(metadata_output_path) as meta_data_outfile:
-            save_meta_data(flags_dict, meta_data_outfile)
-
-        if not use_mmseqs2:
-            m.make_features(
-                pipeline,
-                output_dir=FLAGS.output_dir,
-                use_precomputed_msa=FLAGS.use_precomputed_msas,
-                save_msa=FLAGS.save_msa_files,
-            )
-        else:
-            logging.info("running mmseq now")
-            m.make_mmseq_features(DEFAULT_API_SERVER=DEFAULT_API_SERVER,
-                                  pipeline=pipeline, output_dir=FLAGS.output_dir
-                                  )
-        pickle.dump(m, open(f"{FLAGS.output_dir}/{m.description}.pkl", "wb"))
-        del m
-
-
-def iter_seqs(fasta_fns):
-    """
-    Generator that yields sequences and descriptions from multiple fasta files.
-
-    Args:
-    fasta_fns (list): A list of fasta file paths.
-
-    Yields:
-    tuple: A tuple containing a sequence and its corresponding description.
-    """
-    for fasta_path in fasta_fns:
-        with open(fasta_path, "r") as f:
-            sequences, descriptions = parse_fasta(f.read())
-            for seq, desc in zip(sequences, descriptions):
-                yield seq, desc
-
-
-def main(argv):
-    try:
-        Path(FLAGS.output_dir).mkdir(parents=True, exist_ok=True)
-    except FileExistsError:
-        logging.error("Multiple processes are trying to create the same folder now.")
-        pass
-    if not FLAGS.use_mmseqs2:
-        check_template_date_and_uniprot()
-
-    if not FLAGS.path_to_mmt:
-        process_sequences_individual_mode()
     else:
-        process_sequences_multimeric_mode()
+        monomer.make_features(
+            pipeline,
+            output_dir=FLAGS.output_dir,
+            use_precomputed_msa=FLAGS.use_precomputed_msas,
+            save_msa=FLAGS.save_msa_files,
+        )
+
+    # Save the processed monomer object
+    with open(pickle_path, "wb") as pickle_file:
+        pickle.dump(monomer, pickle_file)
+
+    # Optional: Clear monomer from memory if necessary
+    del monomer
 
 
 def check_template_date_and_uniprot():
@@ -391,6 +294,20 @@ def process_multimeric_features(feat, idx):
         curr_monomer.uniprot_runner = uniprot_runner
         create_and_save_monomer_objects(curr_monomer, pipeline)
 
+
+def main(argv):
+    try:
+        Path(FLAGS.output_dir).mkdir(parents=True, exist_ok=True)
+    except FileExistsError:
+        logging.error("Multiple processes are trying to create the same folder now.")
+        pass
+    if not FLAGS.use_mmseqs2:
+        check_template_date_and_uniprot()
+
+    if not FLAGS.path_to_mmt:
+        process_sequences_individual_mode()
+    else:
+        process_sequences_multimeric_mode()
 
 if __name__ == "__main__":
     flags.mark_flags_as_required(
