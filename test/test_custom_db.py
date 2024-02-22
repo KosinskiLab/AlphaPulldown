@@ -1,4 +1,3 @@
-import pytest
 from alphapulldown.create_custom_template_db import create_db
 import tempfile
 import os

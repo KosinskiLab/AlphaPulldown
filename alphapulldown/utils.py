@@ -2,6 +2,7 @@
 # Author: Dingquan Yu
 # A script containing utility functions
 # #
+import contextlib
 
 from alphafold.data.tools import jackhmmer
 from alphapulldown.objects import ChoppedObject
@@ -28,6 +29,7 @@ import re
 import hashlib
 import glob
 import importlib.util
+import csv
 
 COMMON_PATTERNS = [
     r"[Vv]ersion\s*(\d+\.\d+(?:\.\d+)?)",  # version 1.0 or version 1.0.0
@@ -82,6 +84,91 @@ def create_uniprot_runner(jackhmmer_binary_path, uniprot_database_path):
     return jackhmmer.Jackhmmer(
         binary_path=jackhmmer_binary_path, database_path=uniprot_database_path
     )
+
+
+
+def ensure_directory_exists(directory):
+    """
+    Ensures that a directory exists. If the directory does not exist, it is created.
+
+    Args:
+    directory (str): The path of the directory to check or create.
+    """
+    if not os.path.exists(directory):
+        logging.info(f"Creating directory: {directory}")
+        os.makedirs(directory, exist_ok=True)
+
+
+@contextlib.contextmanager
+def output_meta_file(file_path):
+    """
+    A context manager that ensures the directory for a file exists and then opens the file for writing.
+
+    Args:
+    file_path (str): The path of the file to be opened.
+
+    Yields:
+    Generator[str]: The name of the file opened.
+    """
+    ensure_directory_exists(os.path.dirname(file_path))
+    with open(file_path, "w") as outfile:
+        yield outfile.name
+
+
+def parse_csv_file(csv_path, fasta_paths, mmt_dir):
+    """
+    csv_path (str): Path to the text file with descriptions
+        features.csv: A coma-separated file with three columns: PROTEIN name, PDB/CIF template, chain ID.
+    fasta_paths (str): path to fasta file(s)
+    mmt_dir (str): Path to directory with multimeric template mmCIF files
+
+    Returns:
+        a list of dictionaries with the following structure:
+    [{"protein": protein_name, "sequence" :sequence", templates": [pdb_files], "chains": [chain_id]}, ...]}]
+    """
+    protein_names = {}
+    for fasta_path in fasta_paths:
+        if not os.path.isfile(fasta_path):
+            logging.error(f"Fasta file {fasta_path} does not exist.")
+            raise FileNotFoundError(f"Fasta file {fasta_path} does not exist.")
+        for curr_seq, curr_desc in iter_seqs(fasta_paths):
+            protein_names[curr_desc] = curr_seq
+
+    parsed_dict = {}
+    with open(csv_path, newline="") as csvfile:
+        csvreader = csv.reader(csvfile)
+        for row in csvreader:
+            if not row or len(row) != 3:
+                logging.warning(f"Skipping invalid line in {csv_path}: {row}")
+                continue
+            protein, template, chain = map(str.strip, row)
+            protein = convert_fasta_description_to_protein_name(protein)
+            if protein not in protein_names:
+                logging.error(f"Protein {protein} from description.csv is not found in the fasta files.")
+                continue
+            parsed_dict.setdefault(protein, {"protein": protein, "templates": [], "chains": [], "sequence": None})
+            parsed_dict[protein]["sequence"] = protein_names[protein]
+            parsed_dict[protein]["templates"].append(os.path.join(mmt_dir, template))
+            parsed_dict[protein]["chains"].append(chain)
+
+    return list(parsed_dict.values())
+
+
+def iter_seqs(fasta_fns):
+    """
+    Generator that yields sequences and descriptions from multiple fasta files.
+
+    Args:
+    fasta_fns (list): A list of fasta file paths.
+
+    Yields:
+    tuple: A tuple containing a sequence and its corresponding description.
+    """
+    for fasta_path in fasta_fns:
+        with open(fasta_path, "r") as f:
+            sequences, descriptions = parse_fasta(f.read())
+            for seq, desc in zip(sequences, descriptions):
+                yield seq, desc
 
 
 def make_dir_monomer_dictionary(monomer_objects_dir):

@@ -75,7 +75,7 @@ class TestScript(_TestBase):
         print(result.stderr)
         self.assertEqual(result.returncode, 0, f"Script failed with output:\n{result.stdout}\n{result.stderr}")
         #Get the name of the first directory in the output directory
-        dirname = os.listdir(self.output_dir)[0]
+        dirname = next(subdir for subdir in os.listdir(self.output_dir) if os.path.isdir(os.path.join(self.output_dir, subdir)))
         #Check if the directory contains five files starting from ranked and ending with .pdb
         self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.startswith("ranked") and f.endswith(".pdb")]), 5)
         #Check if the directory contains five files starting from result and ending with .pkl
@@ -129,7 +129,8 @@ class TestScript(_TestBase):
         self._runCommonTests(result)
 
     def _runAfterRelaxTests(self, result):
-        dirname = os.listdir(self.output_dir)[0]
+        dirname = next(
+            subdir for subdir in os.listdir(self.output_dir) if os.path.isdir(os.path.join(self.output_dir, subdir)))
         #Check if the directory contains five files starting from relaxed and ending with .pdb
         self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.startswith("relaxed") and f.endswith(".pdb")]), 5)
 
@@ -138,7 +139,8 @@ class TestScript(_TestBase):
         result = subprocess.run(self.args, capture_output=True, text=True)
         self._runCommonTests(result)
         #Check that directory does not contain relaxed pdb files
-        dirname = os.listdir(self.output_dir)[0]
+        dirname = next(
+            subdir for subdir in os.listdir(self.output_dir) if os.path.isdir(os.path.join(self.output_dir, subdir)))
         self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.startswith("relaxed") and f.endswith(".pdb")]), 0)
         self.assertIn("Running model model_1_multimer_v3_pred_0", result.stdout + result.stderr)
 
@@ -211,10 +213,11 @@ class TestScript(_TestBase):
         for i in range(5):
             target = os.path.join(self.output_dir, "3L4Q_A_and_3L4Q_C", f"ranked_{i}.pdb")
             assert os.path.exists(target)
-            rmsds = calculate_rmsd_and_superpose(reference, target)
-            print(f"Model {i} RMSD {rmsds}")
-        # Best RMSD must be below 2 A
-        #TODO: assert min(rmsd_chain_b) < 3.0
+            with tempfile.TemporaryDirectory() as temp_dir:
+                rmsds = calculate_rmsd_and_superpose(reference, target, temp_dir=temp_dir)
+                print(f"Model {i} RMSD {rmsds}")
+        # Best RMSD must be below ?? A
+        #TODO: assert min(rmsd_chain_b) < ??
 
 
 
