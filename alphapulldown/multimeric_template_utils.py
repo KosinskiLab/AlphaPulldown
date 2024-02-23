@@ -1,12 +1,13 @@
 
 import os, logging, csv,sys
-from alphafold.data.templates import (_read_file, 
+from pathlib import Path
+from alphafold.data.templates import (
                                       _extract_template_features,
                                       _build_query_to_hit_index_mapping)
 from alphafold.data.templates import SingleHitResult
-from alphafold.data import mmcif_parsing
 from alphafold.data.mmcif_parsing import ParsingResult
 from alphafold.data.parsers import TemplateHit
+from alphapulldown.remove_clashes_low_plddt import MmcifChainFiltered
 from typing import Optional
 import shutil
 import numpy as np
@@ -62,8 +63,8 @@ def parse_mmcif_file(file_id:str,mmcif_file:str) -> ParsingResult:
     A ParsingResult object
     """  
     try:
-        mmcif_string = _read_file(mmcif_file)
-        parsing_result = mmcif_parsing.parse(file_id = file_id,mmcif_string = mmcif_string)
+        mmcif_filtered_obj = MmcifChainFiltered(Path(mmcif_file),file_id)
+        parsing_result = mmcif_filtered_obj.parsing_result
     except FileNotFoundError as e:
         parsing_result = None
         print(f"{mmcif_file} could not be found")
