@@ -3,7 +3,6 @@
 With PDB files now being marked as legacy format, here is a way to convert PDB files produced by the [AlphaPulldown](https://github.com/KosinskiLab/AlphaPulldown) pipeline into [mmCIF](https://mmcif.wwpdb.org) files including the [ModelCIF](https://mmcif.wwpdb.org/dictionaries/mmcif_ma.dic/Index/) extension.
 
 On top of the general mmCIF tables, ModelCIF adds information, relevant for a modeling experiment. There is a bit of target-sequence(s) annotation and a modeling protocol. This describes the process how a model was created including software used with its parameters. To help the user to decide the reliability of a model, various quality metrics can be stored directly in a ModelCIF file, or in associated files registered in the main file. ModelCIF is also the preferred format for [ModelArchive](https://www.modelarchive.org).
-å
 As AlphaPulldown is relying on [AlphaFold](https://github.com/google-deepmind/alphafold) to produce model coordinates, there may be multiple models predicted in a single experiment. Respecting that not always all the models need to be converted to ModelCIF, `convert_to_modelcif.py` offers three major modes:
 
 * Convert all models into ModelCIF in separated files
