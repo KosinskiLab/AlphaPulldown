@@ -207,7 +207,6 @@ class TestScript(_TestBase):
         print(result.stdout)
         print(result.stderr)
         #self._runCommonTests(result) # fails because only one model is run
-        from alphapulldown.analysis_pipeline.calculate_rmsd import calculate_rmsd_and_superpose
         reference = os.path.join(
             self.test_data_dir, "true_multimer", "modelling", "3L4Q_A_and_3L4Q_C", "ranked_0.pdb")
         for i in range(5):
@@ -216,7 +215,7 @@ class TestScript(_TestBase):
             with tempfile.TemporaryDirectory() as temp_dir:
                 rmsds = calculate_rmsd_and_superpose(reference, target, temp_dir=temp_dir)
                 print(f"Model {i} RMSD {rmsds}")
-        # Best RMSD must be below ?? A
+        # Best RMSD must be below ?? A now it's between 20 and 22 A
         #TODO: assert min(rmsd_chain_b) < ??
 
 
