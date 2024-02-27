@@ -95,3 +95,6 @@ output_dir
     |-protein_C.pkl
     ...
 ```
+**NOTE** If you used mmseqs2 in either of these 2 options, please remember to cite: 
+Mirdita M, Schütze K, Moriwaki Y, Heo L, Ovchinnikov S and Steinegger M. ColabFold: Making protein folding accessible to all.
+Nature Methods (2022) doi: 10.1038/s41592-022-01488-1
