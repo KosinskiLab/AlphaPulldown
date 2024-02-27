@@ -4,6 +4,8 @@ from absl.testing import absltest
 import alphapulldown.create_individual_features_new as run_features_generation
 import tempfile
 import shutil
+import time
+import os
 
 
 class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
@@ -11,22 +13,24 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
     def setUp(self):
         super().setUp()
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.TEST_DATA_DIR = Path(self.temp_dir.name)
-        self.original_test_data_dir = Path(__file__).parent / "test_data" / "true_multimer"
-        shutil.copytree(self.original_test_data_dir, self.TEST_DATA_DIR, dirs_exist_ok=True)
-
-        # Ensure the fastas directory is specifically mentioned for clarity and correctness
-        self.fasta_dir = self.TEST_DATA_DIR / 'fastas'
+        self.TEST_DATA_DIR = Path('debug')#Path(self.temp_dir.name)
+        self.logs = self.TEST_DATA_DIR / "logs"
+        self.logs.mkdir(parents=True, exist_ok=True)
+        self.fastas_dir = Path(__file__).parent / "test_data" / "true_multimer" / "fastas"
+        shutil.copytree(self.fastas_dir, self.TEST_DATA_DIR, dirs_exist_ok=True)
 
     def tearDown(self):
+        print(self.TEST_DATA_DIR)
+        print(os.listdir(self.TEST_DATA_DIR))
         self.temp_dir.cleanup()
 
     def generate_slurm_script(self):
-        slurm_script_content = f"""#!/bin/bash
+        slurm_script_content = \
+            f"""#!/bin/bash
 #SBATCH --job-name=array
 #SBATCH --time=10:00:00
-#SBATCH -e create_individual_features_%A_%a_err.txt
-#SBATCH -o create_individual_features_%A_%a_out.txt
+#SBATCH -e {self.logs}/create_individual_features_%A_%a_err.txt
+#SBATCH -o {self.logs}/create_individual_features_%A_%a_out.txt
 #SBATCH --qos=low
 #SBATCH -N 1
 #SBATCH --ntasks=8
@@ -35,29 +39,57 @@ module load Anaconda3
 eval "$(conda shell.bash hook)"
 conda activate AlphaPulldown
 
+SEQ_INDEX=${{SLURM_ARRAY_TASK_ID:-1}}
+USE_MMSEQS2=False
+if [ "$SEQ_INDEX" -eq 1 ] || [ "$SEQ_INDEX" -eq 3 ]; then
+    USE_MMSEQS2=True
+fi
+
 python {run_features_generation.__file__} \\
-    --use_precomputed_msas True \\
-    --save_msa_files True \\
-    --skip_existing True \\
-    --data_dir /scratch/AlphaFold_DBs/2.3.2 \\
-    --max_template_date 3021-01-01 \\
-    --fasta_paths {self.original_test_data_dir}/fastas/3L4Q_A.fasta,{self.original_test_data_dir}/fastas/3L4Q_C.fasta \\
-    --output_dir {self.TEST_DATA_DIR}/features \\
-    --seq_index $SLURM_ARRAY_TASK_ID \\
-    --use_mmseqs2 $(if [ $SLURM_ARRAY_TASK_ID -eq 1 ] || [ $SLURM_ARRAY_TASK_ID -eq 3 ]; then echo True; else echo False; fi)
-"""
+--use_precomputed_msas False \\
+--save_msa_files True \\
+--skip_existing True \\
+--data_dir /scratch/AlphaFold_DBs/2.3.2 \\
+--max_template_date 3021-01-01 \\
+--fasta_paths {self.fastas_dir}/3L4Q_A.fasta,{self.fastas_dir}/3L4Q_C.fasta \\
+--output_dir {self.TEST_DATA_DIR}/features_mmseqs_${{USE_MMSEQS2}} \\
+--seq_index $SEQ_INDEX \\
+--use_mmseqs2 $USE_MMSEQS2
+    """
         script_file = Path(self.TEST_DATA_DIR) / "run_feature_generation.slurm"
         with open(script_file, 'w') as file:
             file.write(slurm_script_content)
         return script_file
 
+    def submit_slurm_job(self, script_file):
+        command = ['sbatch', '--array=1-4', str(script_file)]
+        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        job_id = result.stdout.strip().split()[-1]  # Assumes sbatch output is "Submitted batch job <job_id>"
+        return job_id
+
+    def wait_for_slurm_jobs_to_finish(self, job_id, polling_interval=10):
+        """Polls squeue and waits for the job to no longer be listed."""
+        while True:
+            result = subprocess.run(['squeue', '--job', job_id], capture_output=True, text=True)
+            if job_id not in result.stdout:
+                break  # Job has finished
+            time.sleep(polling_interval)
+
+    def compare_output_files(self):
+        # TODO: Implement comparison of .a3m and .sto files here
+        pass
+
     def test_run_features_generation_all_parallel(self):
         slurm_script_file = self.generate_slurm_script()
         print(f"SLURM script generated at: {slurm_script_file}")
-        with open(slurm_script_file, "r") as file:
-            print(file.read())
-        # Uncomment the next line if you actually want to submit the job
-        subprocess.run(['sbatch', '--array=1-4', str(slurm_script_file)], check=True)
+        job_id = self.submit_slurm_job(slurm_script_file)
+        print(f"Submitted SLURM job {job_id}")
+
+        self.wait_for_slurm_jobs_to_finish(job_id)
+        print("All SLURM jobs have completed.")
+
+        self.compare_output_files()
+
 
 if __name__ == '__main__':
     absltest.main()
