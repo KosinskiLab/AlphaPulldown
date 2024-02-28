@@ -268,7 +268,10 @@ candidates=`grep -c "" candidates_shorter.txt` #count lines even if the last one
 count=$(( $baits * $candidates ))
 sbatch --array=1-$count example_data/run_multimer_jobs_SLURM.sh
 ```
-
+:exclamation: By default AlphaPulldown runs relaxation only for the best model according to the model confidence score. If you want to run relaxation for all models please add this flag to your command:
+```
+--models_to_relax=all
+```
 --------------------
 
 
