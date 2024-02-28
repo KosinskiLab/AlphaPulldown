@@ -219,7 +219,7 @@ class MonomericObject:
                 query_seqs_cardinality,
                 template_features,
             ) = get_msa_and_templates(
-                jobname = '',
+                jobname = self.description,
                 query_sequences=self.sequence,
                 a3m_lines = None,
                 result_dir=plPath(result_dir),
