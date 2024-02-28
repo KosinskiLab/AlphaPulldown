@@ -1,7 +1,7 @@
 import subprocess
 from pathlib import Path
 from absl.testing import absltest
-import alphapulldown.create_individual_features_new as run_features_generation
+import alphapulldown.create_individual_features as run_features_generation
 import pickle
 import  numpy as np
 from alphapulldown.remove_clashes_low_plddt import extract_seqs

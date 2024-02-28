@@ -1,7 +1,7 @@
 import subprocess
 from pathlib import Path
 from absl.testing import absltest
-import alphapulldown.create_individual_features_new as run_features_generation
+import alphapulldown.create_individual_features as run_features_generation
 import tempfile
 import shutil
 import time
@@ -13,7 +13,7 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
     def setUp(self):
         super().setUp()
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.TEST_DATA_DIR = Path('debug')#Path(self.temp_dir.name)
+        self.TEST_DATA_DIR = Path(self.temp_dir.name) #Path('debug')
         self.logs = self.TEST_DATA_DIR / "logs"
         self.logs.mkdir(parents=True, exist_ok=True)
         self.fastas_dir = Path(__file__).parent / "test_data" / "true_multimer" / "fastas"
