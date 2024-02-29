@@ -4,14 +4,16 @@ import ipywidgets as widgets
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import os
+import re
 #from analysis_pipeline.af2hyde_mod import plot_predicted_alignment_error
 from af2plots.plotter import plotter
 
 
 def display_pae_plots(subdir,figsize=(50, 50)):
     """A function to display all the pae plots in the subdir"""
+    pattern = r"ranked_(\d+)\.png"
     images = sorted([i for i in os.listdir(subdir) if ".png" in i],
-                    key= lambda x:float(x.split("ranked_")[1].split(".png")[0]))
+                    key= lambda x: int(re.search(pattern,x).group(1)))
     if len(images) > 0:
         fig, axs = plt.subplots(1, len(images), figsize=figsize)
         for i in range(len(images)):
