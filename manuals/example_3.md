@@ -26,7 +26,7 @@ In this example we refer to the NS1 protein as chain A and to the P85B protein a
 Now run:
 
 ```bash
-  create_individual_features_with_templates.py \
+  create_individual_features.py \
     --description_file=description.csv \
     --fasta_paths=fastas/P03496.fasta,fastas/P23726.fasta \
     --path_to_mmt=templates/ \
@@ -39,7 +39,7 @@ Now run:
 ```
 
 It is also possible to combine all your fasta files into a single fasta file.
-```create_individual_features_with_templates.py``` will compute the features similarly to the create_individual_features.py, but will utilize the provided templates instead of the PDB database.
+```create_individual_features_with.py``` will compute the features utilizing the provided templates instead of the PDB database.
  
  ------------------------
 
