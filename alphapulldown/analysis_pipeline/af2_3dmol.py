@@ -56,7 +56,9 @@ def parse_results(output, color=None, models=5, multimer=False):
 
     datadir = os.path.expanduser(output)
 
-    pdb_fnames = sorted(glob.glob("%s/ranked*.pdb" % datadir))
+    # now sorted numerically
+    pdb_fnames = sorted(glob.glob("%s/ranked*.pdb" % datadir),
+                        key=lambda x: float(x.split('.pdb')[0].split('_')[1]))
 
     ph_array = []
     for idx, fn in enumerate(pdb_fnames[:models]):
@@ -119,8 +121,10 @@ def parse_results_colour_chains(output, color=None, models=5, multimer=False):
         color = ["chain"][0]
 
     datadir = os.path.expanduser(output)
-
-    pdb_fnames = sorted(glob.glob("%s/ranked*.pdb" % datadir))
+    
+    # now sorted numerically
+    pdb_fnames = sorted(glob.glob("%s/ranked*.pdb" % datadir),
+                        key=lambda x: float(x.split('.pdb')[0].split('_')[1]))
 
     ph_array = []
     for idx, fn in enumerate(pdb_fnames[:models]):
