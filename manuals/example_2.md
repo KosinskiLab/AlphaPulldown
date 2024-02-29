@@ -109,6 +109,12 @@ run_multimer_jobs.py  \
   --monomer_objects_dir=/path/to/monomer_objects_directory \
   --job_index=$SLURM_ARRAY_TASK_ID    
 ```
+and then run using:
+```
+mkdir -p logs
+count=`grep -c "" custom_mode.txt` #count lines even if the last one has no end of line
+sbatch --array=1-$count run_multimer_jobs_SLURM.sh
+```
 :exclamation: To speed up computations, by default AlphaPulldown does not run relaxation (energy minimization) of models, which may decrease the quality of local geometry. If you want to enable it either only for the best models or for all predicted models, please add one of these flags to your command:
 ```
 --models_to_relax=best
@@ -116,13 +122,6 @@ run_multimer_jobs.py  \
 or
 ```
 --models_to_relax=all
-```
-and then run using:
-
-```
-mkdir -p logs
-count=`grep -c "" custom_mode.txt` #count lines even if the last one has no end of line
-sbatch --array=1-$count run_multimer_jobs_SLURM.sh
 ```
 
 #### **Task 2**
