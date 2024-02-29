@@ -268,7 +268,7 @@ candidates=`grep -c "" candidates_shorter.txt` #count lines even if the last one
 count=$(( $baits * $candidates ))
 sbatch --array=1-$count example_data/run_multimer_jobs_SLURM.sh
 ```
-:exclamation: By default AlphaPulldown does not run relaxation at all. If you want to enable it either only for the best models or for all predicted models, please add one of these flags to your command:
+:exclamation: To speed up computations, by default AlphaPulldown does not run relaxation (energy minimization) of models, which may decrease the quality of local geometry. If you want to enable it either only for the best models or for all predicted models, please add one of these flags to your command:
 ```
 --models_to_relax=best
 ```
