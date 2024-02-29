@@ -178,5 +178,13 @@ sbatch --array=1-$count create_feature_jobs_SLURM.sh
 count=`grep -c "" custom_mode.txt` #likewise for predictions
 sbatch --array=1-$count run_multimer_jobs_SLURM.sh
 ```
+:exclamation: To speed up computations, by default AlphaPulldown does not run relaxation (energy minimization) of models, which may decrease the quality of local geometry. If you want to enable it either only for the best models or for all predicted models, please add one of these flags to your command:
+```
+--models_to_relax=best
+```
+or
+```
+--models_to_relax=all
+```
 
 After the successful run one can evaluate and visualise the results in a usual manner (see e.g. [Example 2](https://github.com/KosinskiLab/AlphaPulldown/blob/main/manuals/example_2.md#2nd-step-predict-structures-run-on-gpu))
