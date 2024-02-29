@@ -82,6 +82,7 @@ jobs:
           python -c "from colabfold.batch import get_queries, unserialize_msa, get_msa_and_templates, msa_to_str, build_monomer_feature, parse_fasta"
 
       - name: Run Tests
+        if: matrix.install-type == 'developer'
         run: |
           eval "$(conda shell.bash hook)"
           conda activate AlphaPulldown
