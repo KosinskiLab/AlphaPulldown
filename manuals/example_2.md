@@ -109,6 +109,14 @@ run_multimer_jobs.py  \
   --monomer_objects_dir=/path/to/monomer_objects_directory \
   --job_index=$SLURM_ARRAY_TASK_ID    
 ```
+:exclamation: To speed up computations, by default AlphaPulldown does not run relaxation (energy minimization) of models, which may decrease the quality of local geometry. If you want to enable it either only for the best models or for all predicted models, please add one of these flags to your command:
+```
+--models_to_relax=best
+```
+or
+```
+--models_to_relax=all
+```
 and then run using:
 
 ```
