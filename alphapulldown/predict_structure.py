@@ -67,28 +67,55 @@ def get_existing_model_info(output_dir, model_runners):
     unrelaxed_proteins = {}
     unrelaxed_pdbs = {}
     processed_models = 0
+    ranking_debug_path = os.path.join(output_dir, "ranking_debug.json")
+    ranking_debug_temp_path = os.path.join(output_dir, "ranking_debug_temp.json")
+
+    # Attempt to load existing processed model info from ranking_debug.json
+    if os.path.exists(ranking_debug_path):
+        with open(ranking_debug_path, "r") as file:
+            ranking_data = json.load(file)
+            # Extract the 'plddts' scores directly if available
+            ranking_confidences = ranking_data.get("plddts", {})
+            # Use the 'order' list to determine the count of processed models
+            processed_models = len(ranking_data.get("order", []))
+    # Fallback to the temp file if the main ranking_debug.json doesn't exist
+    elif os.path.exists(ranking_debug_temp_path):
+        with open(ranking_debug_temp_path, "r") as file:
+            temp_data = json.load(file)
+            ranking_confidences = temp_data.get("ranking_confidences", {})
+            processed_models = len(ranking_confidences)
 
     for model_name, _ in model_runners.items():
+        if model_name in ranking_confidences:
+            # Skip processing of models already listed in ranking_confidences
+            continue
+
         pdb_path = os.path.join(output_dir, f"unrelaxed_{model_name}.pdb")
         pkl_path = os.path.join(output_dir, f"result_{model_name}.pkl")
         pkl_gz_path = os.path.join(output_dir, f"result_{model_name}.pkl.gz")
 
-        if os.path.exists(pkl_path):
+        # Process .pkl or .pkl.gz files if they exist and haven't been processed
+        score = None
+        if os.path.exists(pkl_path) or os.path.exists(pkl_gz_path):
             try:
-                with open(pkl_path, "rb") as f:
-                    result = pickle.load(f)
+                if os.path.exists(pkl_path):
+                    with open(pkl_path, "rb") as f:
+                        pickle.load(f)
+                    score_name, score = get_score_from_result_pkl(pkl_path)
+                elif os.path.exists(pkl_gz_path):
+                    with gzip.open(pkl_gz_path, "rb") as f:
+                        pickle.load(f)
+                    score_name, score = get_score_from_result_pkl_gz(pkl_gz_path)
             except (EOFError, pickle.UnpicklingError):
-                break
-            score_name, score = get_score_from_result_pkl(pkl_path)
+                continue  # Skip files that cause errors
+
+        if score is not None:
             ranking_confidences[model_name] = score
-        if os.path.exists(pkl_gz_path):
-            try:
-                with gzip.open(pkl_gz_path, "rb") as f:
-                    result = pickle.load(f)
-            except (EOFError, pickle.UnpicklingError):
-                break
-            score_name, score = get_score_from_result_pkl_gz(pkl_gz_path)
-            ranking_confidences[model_name] = score
+            # Update the temp ranking data after processing each model
+            with open(ranking_debug_temp_path, "w") as temp_file:
+                json.dump({"ranking_confidences": ranking_confidences}, temp_file)
+
+        # Read unrelaxed pdb files if present
         if os.path.exists(pdb_path):
             with open(pdb_path, "r") as f:
                 unrelaxed_pdb_str = f.read()
