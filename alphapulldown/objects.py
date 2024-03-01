@@ -146,6 +146,7 @@ class MonomericObject:
             save_msa=True, compress_msa_files=False
     ):
         """a method that make msa and template features"""
+        os.makedirs(os.path.join(output_dir, self.description),exist_ok=True)
         # firstly check if there are zipped msa files. unzip it if there is zipped msa files
         using_zipped_msa_files = MonomericObject.unzip_msa_files(
             os.path.join(output_dir, self.description))
