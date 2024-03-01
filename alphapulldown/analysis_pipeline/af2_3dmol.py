@@ -6,7 +6,7 @@ import os, sys, re
 import glob
 import iotbx
 import iotbx.pdb
-
+import re
 import py3Dmol
 from scitbx import matrix
 from scitbx.math import superpose
@@ -56,7 +56,10 @@ def parse_results(output, color=None, models=5, multimer=False):
 
     datadir = os.path.expanduser(output)
 
-    pdb_fnames = sorted(glob.glob("%s/ranked*.pdb" % datadir))
+    # now sorted numerically
+    pattern = r"ranked_(\d+)\.pdb"
+    pdb_fnames = sorted(glob.glob("%s/ranked*.pdb" % datadir),
+                        key=lambda x: int(re.search(pattern,x).group(1)))
 
     ph_array = []
     for idx, fn in enumerate(pdb_fnames[:models]):
@@ -119,8 +122,11 @@ def parse_results_colour_chains(output, color=None, models=5, multimer=False):
         color = ["chain"][0]
 
     datadir = os.path.expanduser(output)
-
-    pdb_fnames = sorted(glob.glob("%s/ranked*.pdb" % datadir))
+    
+    # now sorted numerically
+    pattern = r"ranked_(\d+)\.pdb"
+    pdb_fnames = sorted(glob.glob("%s/ranked*.pdb" % datadir),
+                        key=lambda x: int(re.search(pattern,x).group(1)))
 
     ph_array = []
     for idx, fn in enumerate(pdb_fnames[:models]):
