@@ -13,11 +13,10 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
         super().setUp()
         self.temp_dir = tempfile.TemporaryDirectory()
         self.TEST_DATA_DIR = Path(self.temp_dir.name)
-        #self.TEST_DATA_DIR = Path('debug')
+        self.TEST_DATA_DIR = Path('debug')
         self.logs = self.TEST_DATA_DIR / "logs"
         self.logs.mkdir(parents=True, exist_ok=True)
-        self.fastas_dir = Path(__file__).parent / "test_data" / "true_multimer" / "fastas"
-        shutil.copytree(self.fastas_dir, self.TEST_DATA_DIR, dirs_exist_ok=True)
+        self.fasta_file = Path(__file__).parent / "test_data" / "true_multimer" / "fastas" / "3L4Q.fa"
 
 
     def tearDown(self):
@@ -50,13 +49,13 @@ fi
 python {run_features_generation.__file__} \\
 --use_precomputed_msas False \\
 --save_msa_files True \\
---skip_existing True \\
+--skip_existing False \\
 --data_dir /scratch/AlphaFold_DBs/2.3.2 \\
 --max_template_date 3021-01-01 \\
---fasta_paths {self.fastas_dir}/3L4Q_A.fasta,{self.fastas_dir}/3L4Q_C.fasta,{self.fastas_dir}/3L4Q_A.fasta,{self.fastas_dir}/3L4Q_C.fasta \\
+--fasta_paths {self.fasta_file} \\
 --output_dir {self.TEST_DATA_DIR}/features_mmseqs_${{USE_MMSEQS2}} \\
---seq_index $SEQ_INDEX \\
---use_mmseqs2 $USE_MMSEQS2
+--seq_index ${{SEQ_INDEX}} \\
+--use_mmseqs2 ${{USE_MMSEQS2}}
     """
         script_file = Path(self.TEST_DATA_DIR) / "run_feature_generation.slurm"
         with open(script_file, 'w') as file:
@@ -82,9 +81,12 @@ python {run_features_generation.__file__} \\
 
     def compare_output_files(self):
         for prefix in ["True", "False"]:
-            for protein in ["3L4Q_A.pkl", "3L4Q_C.pkl"]:
-                assert (self.TEST_DATA_DIR / f"features_mmseqs_{prefix}" / protein).exists()
-
+            if prefix == 'True':
+                for protein in ["3L4Q_A_mmseqs.pkl", "3L4Q_C_mmseqs.pkl"]:
+                    assert (self.TEST_DATA_DIR / f"features_mmseqs_{prefix}" / protein).exists()
+            if prefix == 'False':
+                for protein in ["3L4Q_A.pkl", "3L4Q_C.pkl"]:
+                    assert (self.TEST_DATA_DIR / f"features_mmseqs_{prefix}" / protein).exists()
 
     def test_run_features_generation_all_parallel(self):
         slurm_script_file = self.generate_slurm_script()
