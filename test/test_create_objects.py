@@ -115,8 +115,26 @@ class TestCreateObjects(unittest.TestCase):
         uniprot_runner = create_uniprot_runner(self.jackhmmer_binary_path, self.uniprot_database_path)
         monomer_obj.uniprot_runner = uniprot_runner
         monomer_obj.make_features(monomer_pipeline,self.output_dir,
-                                  use_precomputed_msa=False,save_msa=False)
+                                  use_precomputed_msa=False,save_msa=True)
     
+    def test_6_make_features_from_precomputed_msa(self):
+        monomer_obj = self.test_1_initialise_MonomericObject()
+        monomer_pipeline = self.test_2_initialise_datapipeline()
+        uniprot_runner = create_uniprot_runner(self.jackhmmer_binary_path, self.uniprot_database_path)
+        monomer_obj.uniprot_runner = uniprot_runner
+        monomer_obj.make_features(monomer_pipeline,self.output_dir,
+                                  use_precomputed_msa=True,save_msa=True)
+    
+    def test_7_make_features_and_zip_msa(self):
+        monomer_obj = self.test_1_initialise_MonomericObject()
+        monomer_pipeline = self.test_2_initialise_datapipeline()
+        uniprot_runner = create_uniprot_runner(self.jackhmmer_binary_path, self.uniprot_database_path)
+        monomer_obj.uniprot_runner = uniprot_runner
+        monomer_obj.make_features(monomer_pipeline,self.output_dir,
+                                  use_precomputed_msa=False,save_msa=True,compress_msa_files=True)
+        # Then test whether the zipped msa files can be reused
+        monomer_obj.make_features(monomer_pipeline,self.output_dir,
+                                  use_precomputed_msa=True,save_msa=True)
 
 if __name__ == "__main__":
     unittest.main()
