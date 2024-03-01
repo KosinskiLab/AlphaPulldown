@@ -5,7 +5,7 @@
 import logging
 import tempfile
 import os
-from zipfile import ZipFile
+import subprocess
 import contextlib
 import numpy as np
 from alphafold.data import parsers
@@ -60,10 +60,8 @@ class MonomericObject:
         """
         def zip_individual_file(msa_file: plPath):
             assert os.path.exists(msa_file)
-            with ZipFile(os.path.join(msa_file.parent, msa_files.name+".zip"), "w") as myzip:
-                myzip.write(msa_file)
-                myzip.close()
-            os.remove(msa_file)
+            cmd = f"gzip {msa_file}"
+            _ = subprocess.run(cmd, shell=True, capture_output=True, text=True)
 
         msa_file_endings = ['.a3m', '.fasta', '.sto', '.hmm']
         msa_files = [i for i in plPath(
@@ -71,6 +69,25 @@ class MonomericObject:
         if len(msa_files) > 0:
             for msa_file in msa_files:
                 zip_individual_file(msa_file)
+
+    @staticmethod
+    def unzip_msa_files(msa_output_path: str):
+        """
+        A static method that unzip msa files in a folder if they exist
+        """
+        def unzip_individual_file(msa_file: plPath):
+            assert os.path.exists(msa_file)
+            cmd = f"gunzip {msa_file}"
+            _ = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+
+        zipped_files = [i for i in plPath(
+            msa_output_path).iterdir() if i.suffix == '.gz']
+        if len(zipped_files) > 0:
+            for zipped_file in zipped_files:
+                unzip_individual_file(zipped_file)
+            return True  # means it has used zipped msa files
+        else:
+            return False
 
     def all_seq_msa_features(
             self,
@@ -125,9 +142,14 @@ class MonomericObject:
 
     def make_features(
             self, pipeline, output_dir=None,
-            use_precomputed_msa=False, save_msa=True, compress_msa_files=False
+            use_precomputed_msa=False, 
+            save_msa=True, compress_msa_files=False
     ):
         """a method that make msa and template features"""
+        # firstly check if there are zipped msa files. unzip it if there is zipped msa files
+        using_zipped_msa_files = MonomericObject.unzip_msa_files(
+            os.path.join(output_dir, self.description))
+
         if not use_precomputed_msa:
             if not save_msa:
                 """this means no msa files are going to be saved"""
@@ -183,6 +205,10 @@ class MonomericObject:
                 )
                 self.feature_dict.update(pairing_results)
 
+        if using_zipped_msa_files:
+            MonomericObject.zip_msa_files(
+                os.path.join(output_dir, self.description))
+
     def mk_template(self, a3m_lines,
                     pipeline, query_sequence):
         """
@@ -214,7 +240,10 @@ class MonomericObject:
         A method to use mmseq_remote to calculate msa
         Modified from ColabFold: https://github.com/sokrypton/ColabFold
         """
-
+        # first check if there are zipped a3m files
+        using_zipped_msa_files = MonomericObject.unzip_msa_files(
+            os.path.join(output_dir, self.description))
+        
         logging.info("You chose to calculate MSA with mmseq2.\nPlease also cite: Mirdita M, Schütze K, Moriwaki Y, Heo L, Ovchinnikov S and Steinegger M. ColabFold: Making protein folding accessible to all. Nature Methods (2022) doi: 10.1038/s41592-022-01488-1")
         msa_mode = "MMseqs2 (UniRef+Environmental)"
         keep_existing_results = True
@@ -268,12 +297,13 @@ class MonomericObject:
                 unpaired_msa, paired_msa, query_seqs_unique, query_seqs_cardinality
             )
             plPath(os.path.join(result_dir, self.description + ".a3m")
-                    ).write_text(msa)
+                   ).write_text(msa)
             a3m_lines = [
                 plPath(os.path.join(result_dir, self.description + ".a3m")).read_text()]
-            
+
             if compress_msa_files:
-                MonomericObject.zip_msa_files(os.path.join(result_dir, self.description))
+                MonomericObject.zip_msa_files(
+                    os.path.join(result_dir, self.description))
         # unserialize_msa was from colabfold.batch and originally will only create mock template features
         # below will search against pdb70 database using hhsearch and create real template features
         logging.info("will search for templates in local template database")
@@ -294,6 +324,9 @@ class MonomericObject:
         }
         self.feature_dict.update(feats)
 
+        if using_zipped_msa_files:
+            MonomericObject.zip_msa_files(
+                os.path.join(output_dir, self.description))
 
 class ChoppedObject(MonomericObject):
     """chopped monomeric objects"""
