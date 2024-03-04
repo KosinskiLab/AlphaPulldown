@@ -526,13 +526,6 @@ class MultimericObject:
         self.create_all_chain_features()
         pass
 
-    def get_all_residue_index(self):
-        """get all residue indexes from subunits"""
-        self.res_indexes = []
-        for i in self.interactors:
-            curr_res_idx = i.feature_dict['residue_index']
-            self.res_indexes.append([curr_res_idx[0], curr_res_idx[-1]])
-
     def create_output_name(self):
         """a method to create output name"""
         for i in range(len(self.interactors)):
@@ -647,7 +640,6 @@ class MultimericObject:
         if self.multimeric_mode:
             logging.info("Running in TrueMultimer mode")
             self.multichain_mask = self.create_multichain_mask()
-        self.get_all_residue_index()
         self.create_chain_id_map()
         all_chain_features = {}
         sequence_features = {}
