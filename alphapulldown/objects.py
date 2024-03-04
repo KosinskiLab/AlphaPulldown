@@ -17,6 +17,7 @@ from pathlib import Path as plPath
 from colabfold.batch import (unserialize_msa,
                              get_msa_and_templates,
                              msa_to_str, build_monomer_feature)
+from typing import List, Dict
 
 
 @contextlib.contextmanager
@@ -142,11 +143,11 @@ class MonomericObject:
 
     def make_features(
             self, pipeline, output_dir=None,
-            use_precomputed_msa=False, 
+            use_precomputed_msa=False,
             save_msa=True, compress_msa_files=False
     ):
         """a method that make msa and template features"""
-        os.makedirs(os.path.join(output_dir, self.description),exist_ok=True)
+        os.makedirs(os.path.join(output_dir, self.description), exist_ok=True)
         # firstly check if there are zipped msa files. unzip it if there is zipped msa files
         using_zipped_msa_files = MonomericObject.unzip_msa_files(
             os.path.join(output_dir, self.description))
@@ -244,7 +245,7 @@ class MonomericObject:
         # first check if there are zipped a3m files
         using_zipped_msa_files = MonomericObject.unzip_msa_files(
             os.path.join(output_dir, self.description))
-        
+
         logging.info("You chose to calculate MSA with mmseq2.\nPlease also cite: Mirdita M, Schütze K, Moriwaki Y, Heo L, Ovchinnikov S and Steinegger M. ColabFold: Making protein folding accessible to all. Nature Methods (2022) doi: 10.1038/s41592-022-01488-1")
         msa_mode = "MMseqs2 (UniRef+Environmental)"
         keep_existing_results = True
@@ -328,6 +329,7 @@ class MonomericObject:
         if using_zipped_msa_files:
             MonomericObject.zip_msa_files(
                 os.path.join(output_dir, self.description))
+
 
 class ChoppedObject(MonomericObject):
     """chopped monomeric objects"""
@@ -602,11 +604,32 @@ class MultimericObject:
         self.save_binary_matrix(multichain_mask, "multichain_mask.png")
         return multichain_mask
 
+    @staticmethod
+    def remove_all_seq_features(np_chain_list: List[Dict]) -> List[Dict]:
+        """
+        Because AlphaPulldown will calculate Uniprot MSA during the feature creating step automatically,
+        thus, if the user wants to model multimeric structures without paired MSAs, this method will be called 
+        within the pair_and_merge method 
+
+        Args:
+        np_chain_list: A list of dictionary that corresponds to individual chain's feature matrices
+
+
+        Return:
+        A new list of chain features without all these xxx_all_seq features
+        """
+        output_list = []
+        for feat_dict in np_chain_list:
+            new_chain = {k: v for k, v in feat_dict.items()
+                         if '_all_seq' not in k}
+            output_list.append(new_chain)
+        return output_list
+
     def pair_and_merge(self, all_chain_features):
         """merge all chain features"""
+        feature_processing.process_unmerged_features(all_chain_features)
         MAX_TEMPLATES = 4
         MSA_CROP_SIZE = 2048
-        feature_processing.process_unmerged_features(all_chain_features)
         np_chains_list = list(all_chain_features.values())
         pair_msa_sequences = self.pair_msa and not feature_processing._is_homomer_or_monomer(
             np_chains_list)
@@ -614,6 +637,9 @@ class MultimericObject:
             np_chains_list = msa_pairing.create_paired_features(
                 chains=np_chains_list)
             np_chains_list = msa_pairing.deduplicate_unpaired_sequences(
+                np_chains_list)
+        else:
+            np_chains_list = MultimericObject.remove_all_seq_features(
                 np_chains_list)
         np_chains_list = feature_processing.crop_chains(
             np_chains_list,
@@ -655,6 +681,7 @@ class MultimericObject:
         self.all_chain_features = pipeline_multimer.add_assembly_features(
             all_chain_features
         )
+
         self.feature_dict = self.pair_and_merge(
             all_chain_features=self.all_chain_features
         )
