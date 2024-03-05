@@ -2,12 +2,13 @@
 # scripts to create objects (e.g. monomeric object, multimeric objects)
 #
 # #
-import logging
+from absl import logging
 import tempfile
 import os
 import subprocess
 import contextlib
 import numpy as np
+from alphafold.data.tools import jackhmmer
 from alphafold.data import parsers
 from alphafold.data import pipeline_multimer
 from alphafold.data import pipeline
@@ -92,43 +93,43 @@ class MonomericObject:
 
     def all_seq_msa_features(
             self,
-            input_fasta_path,
-            uniprot_msa_runner,
-            save_msa,
-            output_dir=None,
-            use_precomuted_msa=False
-    ):
+            input_fasta_path: str,
+            uniprot_msa_runner: jackhmmer.Jackhmmer,
+            save_msa: bool,
+            output_dir: str = None,
+            use_precomuted_msa: bool = False
+    ) -> None:
         """Get MSA features for unclustered uniprot, for pairing later on."""
-        if not use_precomuted_msa:
-            if not save_msa:
-                with tempfile.TemporaryDirectory() as tempdir:
-                    logging.info("now going to run uniprot runner")
-                    result = pipeline.run_msa_tool(
-                        uniprot_msa_runner,
-                        input_fasta_path,
-                        f"{tempdir}/uniprot.sto",
-                        "sto",
-                        use_precomuted_msa,
-                    )
-            elif save_msa and (output_dir is not None):
-                logging.info(
-                    f"now going to run uniprot runner and save uniprot alignment in {output_dir}"
-                )
-                result = pipeline.run_msa_tool(
-                    uniprot_msa_runner,
-                    input_fasta_path,
-                    f"{output_dir}/uniprot.sto",
-                    "sto",
-                    use_precomuted_msa,
-                )
-        else:
+
+        def execute_uniprot_msa_runner(uniprot_msa_runner: jackhmmer.Jackhmmer,
+                                       input_fasta_path: str,
+                                       output_path: str, use_precomputed_msa: bool,
+                                       format: str = "sto"):
             result = pipeline.run_msa_tool(
                 uniprot_msa_runner,
                 input_fasta_path,
-                f"{output_dir}/uniprot.sto",
-                "sto",
-                use_precomuted_msa,
+                output_path,
+                format,
+                use_precomputed_msa,
             )
+            return result
+
+        if not save_msa:
+            with tempfile.TemporaryDirectory() as tempdir:
+                logging.info("now going to run uniprot runner")
+                result = execute_uniprot_msa_runner(uniprot_msa_runner=uniprot_msa_runner,
+                                                    input_fasta_path=input_fasta_path,
+                                                    output_path=f"{tempdir}/uniprot.sto",
+                                                    use_precomputed_msa=use_precomuted_msa)
+        elif save_msa and (output_dir is not None):
+            logging.info(
+                f"now going to run uniprot runner and save uniprot alignment in {output_dir}"
+            )
+            result = execute_uniprot_msa_runner(uniprot_msa_runner=uniprot_msa_runner,
+                                                input_fasta_path=input_fasta_path,
+                                                output_path=f"{output_dir}/uniprot.sto",
+                                                use_precomputed_msa=use_precomuted_msa)
+
         msa = parsers.parse_stockholm(result["sto"])
         msa = msa.truncate(max_seqs=50000)
         all_seq_features = pipeline.make_msa_features([msa])
