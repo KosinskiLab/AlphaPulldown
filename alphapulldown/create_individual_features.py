@@ -202,12 +202,10 @@ def create_and_save_monomer_objects(monomer, pipeline):
         logging.info("Running MMseqs2 for feature generation...")
         monomer.make_mmseq_features(
             DEFAULT_API_SERVER=DEFAULT_API_SERVER,
-            pipeline=pipeline,
             output_dir=FLAGS.output_dir
         )
     else:
         monomer.make_features(
-            pipeline,
             output_dir=FLAGS.output_dir,
             use_precomputed_msa=FLAGS.use_precomputed_msas,
             save_msa=FLAGS.save_msa_files,
