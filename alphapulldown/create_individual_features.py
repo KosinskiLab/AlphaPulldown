@@ -206,6 +206,7 @@ def create_and_save_monomer_objects(monomer, pipeline):
         )
     else:
         monomer.make_features(
+            pipeline = pipeline,
             output_dir=FLAGS.output_dir,
             use_precomputed_msa=FLAGS.use_precomputed_msas,
             save_msa=FLAGS.save_msa_files,

@@ -135,7 +135,7 @@ class MonomericObject:
 
     def make_features(
             self, pipeline, output_dir: str,
-            use_precomputed_msa: bool = True,
+            use_precomputed_msa: bool = False,
             save_msa: bool = True, compress_msa_files: bool = False
     ):
         """a method that make msa and template features"""
