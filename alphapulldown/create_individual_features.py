@@ -32,7 +32,7 @@ run_af = get_run_alphafold()
 flags = run_af.flags
 
 # All flags
-flags.DEFINE_string("use_mmseqs2", "false", "Use mmseqs2 remotely or not. 'true' or 'false', default is 'false'")
+flags.DEFINE_bool("use_mmseqs2", False, "Use mmseqs2 remotely or not. 'true' or 'false', default is 'false'")
 flags.DEFINE_bool("save_msa_files", False, "Save MSA output or not")
 flags.DEFINE_bool("skip_existing", False, "Skip existing monomer feature pickles or not")
 flags.DEFINE_string("new_uniclust_dir", None, "Directory where new version of uniclust is stored")
@@ -196,7 +196,6 @@ def create_and_save_monomer_objects(monomer, pipeline):
     with output_meta_file(metadata_output_path) as meta_data_outfile:
         save_meta_data(flags_dict, meta_data_outfile)
 
-    FLAGS.use_mmseqs2 = FLAGS.use_mmseqs2.lower() == 'true'
     # Create features
     if FLAGS.use_mmseqs2:
         logging.info("Running MMseqs2 for feature generation...")
