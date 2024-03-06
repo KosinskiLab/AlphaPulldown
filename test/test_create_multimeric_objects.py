@@ -11,8 +11,8 @@ class TestCreateMultimericObject(unittest.TestCase):
     """A class that test major functions of creating feature_dict of a MultimericObject object"""
 
     def setUp(self) -> None:
-        self.monomer1 = pickle.load(open("./example_data/H1142_A.pkl", "rb"))
-        self.monomer2 = pickle.load(open("./example_data/H1142_B.pkl", "rb"))
+        self.monomer1 = pickle.load(open("./test/test_data/H1142_A.pkl", "rb"))
+        self.monomer2 = pickle.load(open("./test/example_data/H1142_B.pkl", "rb"))
     
     def test_1_initiate_default_multimericobject(self) -> MultimericObject:
         multimer_obj = MultimericObject([self.monomer1, self.monomer2])
@@ -28,7 +28,6 @@ class TestCreateMultimericObject(unittest.TestCase):
         seq_2_length = self.monomer2.feature_dict['seq_length'][0]
         expected_residue_index=np.array(list(range(seq_1_length)) + list(range(seq_2_length)))
         self.assertTrue(np.array_equal(multimer_obj.feature_dict['residue_index'],expected_residue_index))
-
 
 if __name__=="__main__":
     unittest.main()

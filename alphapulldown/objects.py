@@ -1,7 +1,7 @@
 # Author Dingquan Yu
 # scripts to create objects (e.g. monomeric object, multimeric objects)
 #
-# #
+#
 from absl import logging
 import tempfile
 import os
@@ -184,7 +184,7 @@ class MonomericObject:
             os.path.join(output_dir, self.description))
         logging.info("You chose to calculate MSA with mmseq2.\nPlease also cite: Mirdita M, Schütze K, Moriwaki Y, Heo L, Ovchinnikov S and Steinegger M. ColabFold: Making protein folding accessible to all. Nature Methods (2022) doi: 10.1038/s41592-022-01488-1")
         
-        msa_mode = "MMseqs2 (UniRef+Environmental)"
+        msa_mode = "mmseqs2_uniref_env"
         keep_existing_results = True
         result_dir = output_dir
         use_templates = False
