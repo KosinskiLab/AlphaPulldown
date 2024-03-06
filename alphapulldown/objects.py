@@ -192,56 +192,36 @@ class MonomericObject:
         result_zip = os.path.join(result_dir, self.description, ".result.zip")
         if keep_existing_results and plPath(result_zip).is_file():
             logging.info(f"Skipping {self.description} (result.zip)")
+        
+        (
+            unpaired_msa,
+            paired_msa,
+            query_seqs_unique,
+            query_seqs_cardinality,
+            template_features,
+        ) = get_msa_and_templates(
+            jobname=self.description,
+            query_sequences=self.sequence,
+            a3m_lines=None,
+            result_dir=plPath(result_dir),
+            msa_mode=msa_mode,
+            use_templates=use_templates,
+            custom_template_path=None,
+            pair_mode="none",
+            host_url=DEFAULT_API_SERVER,
+            user_agent='alphapulldown'
+        )
+        msa = msa_to_str(
+            unpaired_msa, paired_msa, query_seqs_unique, query_seqs_cardinality
+        )
+        plPath(os.path.join(result_dir, self.description + ".a3m")
+                ).write_text(msa)
+        a3m_lines = [
+            plPath(os.path.join(result_dir, self.description + ".a3m")).read_text()]
 
-        logging.info(
-            f"looking for possible precomputed a3m at {os.path.join(result_dir, self.description + '.a3m')}")
-        try:
-            logging.info(
-                f"input is {os.path.join(result_dir, self.description + '.a3m')}")
-            input_path = os.path.join(result_dir, self.description + '.a3m')
-            a3m_lines = [plPath(input_path).read_text()]
-        except:
-            a3m_lines = None
-
-        if a3m_lines is not None:
-            (
-                unpaired_msa,
-                paired_msa,
-                query_seqs_unique,
-                query_seqs_cardinality,
-                template_features,
-            ) = unserialize_msa(a3m_lines, self.sequence)
-
-        else:
-            (
-                unpaired_msa,
-                paired_msa,
-                query_seqs_unique,
-                query_seqs_cardinality,
-                template_features,
-            ) = get_msa_and_templates(
-                jobname=self.description,
-                query_sequences=self.sequence,
-                a3m_lines=None,
-                result_dir=plPath(result_dir),
-                msa_mode=msa_mode,
-                use_templates=use_templates,
-                custom_template_path=None,
-                pair_mode="none",
-                host_url=DEFAULT_API_SERVER,
-                user_agent='alphapulldown'
-            )
-            msa = msa_to_str(
-                unpaired_msa, paired_msa, query_seqs_unique, query_seqs_cardinality
-            )
-            plPath(os.path.join(result_dir, self.description + ".a3m")
-                   ).write_text(msa)
-            a3m_lines = [
-                plPath(os.path.join(result_dir, self.description + ".a3m")).read_text()]
-
-            if compress_msa_files:
-                MonomericObject.zip_msa_files(
-                    os.path.join(result_dir, self.description))
+        if compress_msa_files:
+            MonomericObject.zip_msa_files(
+                os.path.join(result_dir, self.description))
         # unserialize_msa was from colabfold.batch and originally will only create mock template features
         a3m_lines[0] = "\n".join(
             [line for line in a3m_lines[0].splitlines() if not line.startswith("#")])
