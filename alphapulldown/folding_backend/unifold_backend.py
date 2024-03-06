@@ -16,7 +16,7 @@ class UnifoldBackend(FoldingBackend):
     A backend class for running protein structure predictions using the UniFold model.
     """
 
-    def create_model_runner(
+    def setup(
         model_name: str,
         model_dir: str,
         output_dir: str,
@@ -76,13 +76,13 @@ class UnifoldBackend(FoldingBackend):
         ----------
         model_runner
             The configured model runner for predictions obtained
-            from :py:meth:`UnifoldBackend.create_model_runner`.
+            from :py:meth:`UnifoldBackend.setup`.
         model_args
             Arguments used for running the UniFold prediction obtained from
-            from :py:meth:`UnifoldBackend.create_model_runner`.
+            from :py:meth:`UnifoldBackend.setup`.
         model_config : Dict
             Configuration dictionary for the UniFold model obtained from
-            from :py:meth:`UnifoldBackend.create_model_runner`.
+            from :py:meth:`UnifoldBackend.setup`.
         multimeric_object : MultimericObject
             An object containing the features of the multimeric protein to predict.
         random_seed : int, optional

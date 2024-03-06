@@ -15,7 +15,7 @@ class FoldingBackend(ABC):
     """
 
     @abstractmethod
-    def create_model_runner(**kwargs) -> Dict:
+    def setup(**kwargs) -> Dict:
         """
         Initializes and configures a model runner for protein folding predictions. The
         created dictionary will be passed to :py:meth:`FoldingBackend.predict` function of

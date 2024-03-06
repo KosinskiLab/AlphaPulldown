@@ -172,7 +172,7 @@ def predict_multimer(
     output_directory : str
         The directory path where the prediction results will be saved.
     model_flags : Dict
-        Dictionary of flags passed to the respective backend's create_model_runners function.
+        Dictionary of flags passed to the respective backend's setup function.
     random_seed : int, optional
         The random seed for initializing the prediction process to ensure reproducibility.
         Default is 42.
@@ -181,7 +181,7 @@ def predict_multimer(
     """
     backend.change_backend(backend_name=fold_backend)
 
-    model_runners = backend.create_model_runners(**model_flags, multimeric_object = multimeric_object)
+    model_runners = backend.setup(**model_flags, multimeric_object = multimeric_object)
 
     backend.predict(
         **model_runners,

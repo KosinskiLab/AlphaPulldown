@@ -5,8 +5,7 @@
     Author: Valentin Maurer <valentin.maurer@embl-hamburg.de>
 """
 from typing import Dict
-from os.path import join
-import os
+from os.path import join, exists
 from alphapulldown.objects import MultimericObject
 
 from .folding_backend import FoldingBackend
@@ -17,7 +16,7 @@ class AlphaLinkBackend(FoldingBackend):
     A backend class for running protein structure predictions using the AlphaLink model.
     """
 
-    def create_model_runner(
+    def setup(
         alphalink_weight: str,
         crosslinks_path: str,
         model_name: str = "multimer_af2_crop",
@@ -40,15 +39,19 @@ class AlphaLinkBackend(FoldingBackend):
         Returns
         -------
         Dict
-            A dictionary records the path to the AlphaLink2 neural network weights i.e. a pytorch checkpoint file,
-            crosslink information, and Pytorch model configs
+            A dictionary records the path to the AlphaLink2 neural network weights
+            i.e. a pytorch checkpoint file, crosslink information,
+            and Pytorch model configs
         """
         from unifold.config import model_config
 
-        assert os.path.exists(
-            alphalink_weight), f"AlphaLink2 neural network's weight does not exist in: {alphalink_weight}"
-        assert alphalink_weight.endswith(
-            '.pt'), f"Your provided file: {alphalink_weight} does not seem to be a pytorch checkpoint. Please double check."
+        if not exists(alphalink_weight):
+            raise FileNotFoundError(
+                f"AlphaLink2 network weight does not exist at: {alphalink_weight}"
+            )
+        if not alphalink_weight.endswith(".pt"):
+            f"{alphalink_weight} does not seem to be a pytorch checkpoint."
+
         configs = model_config(model_name)
 
         return {
@@ -59,6 +62,9 @@ class AlphaLinkBackend(FoldingBackend):
 
     @staticmethod
     def predict(
+        configs: Dict,
+        param_path: str,
+        crosslinks: str,
         multimeric_object: MultimericObject,
         output_dir: str,
         **kwargs,
@@ -70,7 +76,7 @@ class AlphaLinkBackend(FoldingBackend):
         ----------
         model_config : Dict
             Configuration dictionary for the AlphaLink model obtained from
-            py:meth:`AlphaLinkBackend.create_model_runner`.
+            py:meth:`AlphaLinkBackend.setup`.
         multimeric_object : MultimericObject
             An object containing the features of the multimeric protein to predict.
         output_dir : str
@@ -86,7 +92,9 @@ class AlphaLinkBackend(FoldingBackend):
             join(output_dir, multimeric_object.description),
             input_seqs=multimeric_object.input_seqs,
             chain_id_map=multimeric_object.chain_id_map,
-            **kwargs,
+            configs=configs,
+            param_path=param_path,
+            crosslinks=crosslinks,
         )
 
     def postprocess(**kwargs) -> None:
