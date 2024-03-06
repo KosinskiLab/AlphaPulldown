@@ -59,7 +59,6 @@ class AlphaLinkBackend(FoldingBackend):
 
     @staticmethod
     def predict(
-        model_config: Dict,
         multimeric_object: MultimericObject,
         output_dir: str,
         **kwargs,
@@ -87,7 +86,7 @@ class AlphaLinkBackend(FoldingBackend):
             join(output_dir, multimeric_object.description),
             input_seqs=multimeric_object.input_seqs,
             chain_id_map=multimeric_object.chain_id_map,
-            **model_config,
+            **kwargs,
         )
 
     def postprocess(**kwargs) -> None:
