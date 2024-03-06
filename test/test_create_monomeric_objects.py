@@ -9,7 +9,7 @@ from alphafold.data.pipeline import DataPipeline
 from alphafold.data.tools import hmmsearch
 from alphapulldown.utils import parse_fasta, create_uniprot_runner, create_model_runners_and_random_seed, templates
 import os
-
+from colabfold.utils import DEFAULT_API_SERVER
 
 class TestCreateObjects(unittest.TestCase):
     def setUp(self) -> None:
@@ -18,13 +18,11 @@ class TestCreateObjects(unittest.TestCase):
         self.hhblits_binary_path = shutil.which("hhblits")
         self.kalign_binary_path = shutil.which("kalign")
         self.hmmbuild_binary_path = shutil.which("hmmbuild")
-        self.fasta_paths = "./example_data/test_input.fasta"
-        self.monomer_object_dir = "./example_data/"
-        self.output_dir = "./example_data/"
+        self.fasta_paths = "./test/test_data/test_input.fasta"
+        self.monomer_object_dir = "./test/test_data/"
+        self.output_dir = "./test/test_data/"
         self.data_dir = "/scratch/AlphaFold_DBs/2.3.2/"
         self.max_template_date = "2200-01-01"
-        self.oligomer_state_file = "./example_data/oligomer_state_file.txt"
-        self.custom = "./example_data/custom.txt"
         self.uniref30_database_path = os.path.join(self.data_dir, "uniref30", "UniRef30_2021_03")
         self.uniref90_database_path = os.path.join(self.data_dir, "uniref90", "uniref90.fasta")
         self.mgnify_database_path = os.path.join(self.data_dir, "mgnify", "mgy_clusters_2022_05.fa")
@@ -117,6 +115,38 @@ class TestCreateObjects(unittest.TestCase):
         monomer_obj.make_features(monomer_pipeline,self.output_dir,
                                   use_precomputed_msa=False,save_msa=True)
     
+    def test_5_run_alignments_with_mmseqs2(self):
+        # Firstly test mmseqs2 remote mode 
+        monomer_obj = self.test_1_initialise_MonomericObject()
+        if os.path.exists(os.path.join("./test/test_data",f"{monomer_obj.description}.a3m")):
+            os.remove(os.path.join("./test/test_data",f"{monomer_obj.description}.a3m"))
+        monomer_obj.make_mmseq_features(
+            DEFAULT_API_SERVER=DEFAULT_API_SERVER,
+            output_dir=self.output_dir
+        )
+        # then test running mmseqs2 if the a3m file already exists
+        monomer_obj.make_mmseq_features(
+            DEFAULT_API_SERVER=DEFAULT_API_SERVER,
+            output_dir=self.output_dir
+        )
+
+    def test_5_run_alignments_with_mmseqs2_zipped_msa(self):
+        # Firstly test mmseqs2 remote mode 
+        monomer_obj = self.test_1_initialise_MonomericObject()
+        if os.path.exists(os.path.join("./test/test_data",f"{monomer_obj.description}.a3m")):
+            os.remove(os.path.join("./test/test_data",f"{monomer_obj.description}.a3m"))
+        if os.path.exists(os.path.join("./test/test_data",f"{monomer_obj.description}.a3m.gz")):
+            os.remove(os.path.join("./test/test_data",f"{monomer_obj.description}.a3m.gz"))
+        monomer_obj.make_mmseq_features(
+            DEFAULT_API_SERVER=DEFAULT_API_SERVER,
+            output_dir=self.output_dir,compress_msa_files=True
+        )
+        # then test running mmseqs2 if the a3m file already exists
+        monomer_obj.make_mmseq_features(
+            DEFAULT_API_SERVER=DEFAULT_API_SERVER,
+            output_dir=self.output_dir,compress_msa_files=True
+        )
+
     def test_6_make_features_from_precomputed_msa(self):
         monomer_obj = self.test_1_initialise_MonomericObject()
         monomer_pipeline = self.test_2_initialise_datapipeline()
