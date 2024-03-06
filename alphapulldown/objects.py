@@ -180,14 +180,15 @@ class MonomericObject:
         Modified from ColabFold: https://github.com/sokrypton/ColabFold
         """
         # first check if there are zipped a3m files
+        os.makedirs(output_dir, exist_ok=True)
         using_zipped_msa_files = MonomericObject.unzip_msa_files(
-            os.path.join(output_dir, self.description))
+            output_dir)
         logging.info("You chose to calculate MSA with mmseq2.\nPlease also cite: Mirdita M, Schütze K, Moriwaki Y, Heo L, Ovchinnikov S and Steinegger M. ColabFold: Making protein folding accessible to all. Nature Methods (2022) doi: 10.1038/s41592-022-01488-1")
         
         msa_mode = "mmseqs2_uniref_env"
         keep_existing_results = True
         result_dir = output_dir
-        use_templates = False
+        use_templates = True
         result_zip = os.path.join(result_dir, self.description, ".result.zip")
         if keep_existing_results and plPath(result_zip).is_file():
             logging.info(f"Skipping {self.description} (result.zip)")
@@ -259,7 +260,7 @@ class MonomericObject:
 
         if using_zipped_msa_files:
             MonomericObject.zip_msa_files(
-                os.path.join(output_dir, self.description))
+                output_dir)
 
 
 class ChoppedObject(MonomericObject):
