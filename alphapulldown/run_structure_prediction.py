@@ -5,12 +5,13 @@
 
     Author: Valentin Maurer <valentin.maurer@embl-hamburg.de>
 """
+from typing import Dict
 import argparse
 from os import makedirs
 from os.path import exists, join
 
 from alphapulldown.run_multimer_jobs import create_custom_info
-from alphapulldown.utils import create_model_runners_and_random_seed, create_interactors
+from alphapulldown.utils import create_interactors
 from alphapulldown.objects import MultimericObject
 from alphapulldown.folding_backend import backend
 
@@ -153,14 +154,9 @@ def parse_args():
 
 
 def predict_multimer(
-    multimer: MultimericObject,
-    num_recycles: int,
-    data_directory: str,
-    num_predictions_per_model: int,
-    output_directory: str,
-    gradient_msa_depth: bool = False,
-    model_names: str = None,
-    msa_depth: int = None,
+    multimeric_object: MultimericObject,
+    output_dir: str,
+    model_flags : Dict,
     random_seed: int = 42,
     fold_backend: str = "alphafold",
 ) -> None:
@@ -173,60 +169,29 @@ def predict_multimer(
         An instance of `MultimericObject` representing the multimeric structure(s) for which
         predictions are to be made. These objects should be created using functions like
         `create_multimer_objects()`, `create_custom_jobs()`, or `create_homooligomers()`.
-    num_recycles : int
-        The number of recycles to be used during the prediction process.
-    data_directory : str
-        The directory path where input data for the prediction process is stored.
-    num_predictions_per_model : int
-        The number of predictions to generate per model.
     output_directory : str
         The directory path where the prediction results will be saved.
-    gradient_msa_depth : bool, optional
-        A flag indicating whether to adjust the MSA depth based on gradients. Default is False.
-    model_names : str, optional
-        The names of the models to be used for prediction. If not provided, a default set of
-        models is used. Default is None.
-    msa_depth : int, optional
-        Specifies the depth of the MSA (Multiple Sequence Alignment) to be used. If not
-        provided, a default value based on the model configuration is used. Default is None.
+    model_flags : Dict
+        Dictionary of flags passed to the respective backend's create_model_runners function.
     random_seed : int, optional
         The random seed for initializing the prediction process to ensure reproducibility.
         Default is 42.
     fold_backend : str, optional
         Backend used for folding, defaults to alphafold.
     """
-
-    flags_dict = {
-        "model_preset": "monomer_ptm",
-        "random_seed": random_seed,
-        "num_cycle": num_recycles,
-        "data_dir": data_directory,
-        "num_multimer_predictions_per_model": num_predictions_per_model,
-    }
-
-    if isinstance(multimer, MultimericObject):
-        flags_dict["model_preset"] = "multimer"
-        flags_dict["gradient_msa_depth"] = gradient_msa_depth
-        flags_dict["model_names_custom"] = model_names
-        flags_dict["msa_depth"] = msa_depth
-    else:
-        multimer.input_seqs = [multimer.sequence]
-
-    model_runners, random_seed = create_model_runners_and_random_seed(**flags_dict)
-
     backend.change_backend(backend_name=fold_backend)
 
+    model_runners = backend.create_model_runners(**model_flags, multimeric_object = multimeric_object)
+
     backend.predict(
-        model_runners=model_runners,
-        output_dir=output_directory,
-        feature_dict=multimer.feature_dict,
+        **model_runners,
+        multimeric_object=multimeric_object,
+        output_dir=output_dir,
         random_seed=random_seed,
-        fasta_name=multimer.description,
-        seqs=multimer.input_seqs,
     )
     backend.postprocess(
-        multimer=multimer,
-        output_path=output_directory,
+        multimeric_object=multimeric_object,
+        output_dir=output_dir,
         zip_pickles=False,
         remove_pickles=False,
     )
@@ -245,15 +210,30 @@ def main():
             multimeric_mode=args.multimeric_template,
         )
 
+    if not isinstance(multimer, MultimericObject):
+        multimer.input_seqs = [multimer.sequence]
+
+
+    # TODO: Add backend specific flags here
+    flags_dict = {
+        "model_name": "monomer_ptm",
+        "num_cycle": args.num_cycle,
+        "model_dir": args.data_directory,
+        "num_multimer_predictions_per_model": args.num_predictions_per_model,
+        "multimeric_object" : multimer,
+    }
+
+    if isinstance(multimer, MultimericObject):
+        flags_dict["model_name"] = "multimer"
+        flags_dict["gradient_msa_depth"] = args.gradient_msa_depth,
+        flags_dict["model_names_custom"] = args.model_names
+        flags_dict["msa_depth"] = args.msa_depth
+
     predict_multimer(
-        multimer=multimer,
-        num_recycles=args.num_cycle,
-        data_directory=args.data_directory,
-        num_predictions_per_model=args.num_predictions_per_model,
+        multimeric_object=multimer,
         output_directory=args.output_directory,
-        gradient_msa_depth=args.gradient_msa_depth,
-        model_names=args.model_names,
-        msa_depth=args.msa_depth,
+        model_flags = flags_dict,
+        fold_backend = "alphafold"
     )
 
 

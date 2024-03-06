@@ -4,15 +4,13 @@
 
     Author: Valentin Maurer <valentin.maurer@embl-hamburg.de>
 """
-
 import time
 import json
 import pickle
+from typing import Dict
+from os.path import join, exists
 
 import numpy as np
-from os.path import join, exists
-from typing import List, Dict
-
 import jax.numpy as jnp
 from alphapulldown.predict_structure import get_existing_model_info
 from alphapulldown.objects import MultimericObject
@@ -20,6 +18,7 @@ from alphapulldown.utils import (
     create_and_save_pae_plots,
     post_prediction_process,
 )
+
 # Avoid module not found error by importing after AP
 import run_alphafold
 from run_alphafold import ModelsToRelax
@@ -43,64 +42,159 @@ class AlphaFold(FoldingBackend):
     """
     A backend to perform structure prediction using AlphaFold.
     """
-    @staticmethod
-    def predict(
-        model_runners : Dict,
-        output_dir : Dict,
-        feature_dict : Dict,
-        random_seed : int,
-        fasta_name: str,
-        models_to_relax: object = ModelsToRelax,
-        allow_resume: bool = True,
-        seqs: List = [],
-        use_gpu_relax: bool = True,
-        multimeric_mode: bool = False,
-        **kwargs):
+
+    def create_model_runners(
+        model_name: str,
+        num_cycle: int,
+        model_dir: str,
+        num_multimer_predictions_per_model: int,
+        gradient_msa_depth=False,
+        model_names_custom: str = None,
+        msa_depth=None,
+        **kwargs,
+    ) -> Dict:
         """
-        Predicts the structure of proteins using a specified set of models and features.
+        Initializes and configures multiple AlphaFold model runners.
 
         Parameters
         ----------
-        model_runners : dict
-            A dictionary of model names to their respective runners obtained from
-            :py:meth:`alphapulldown.utils.create_model_runners_and_random_seed.
+        model_name : str
+            The preset model configuration name.
+        num_cycle : int
+            The number of recycling iterations to be used in prediction.
+        model_dir : str
+            The directory containing model parameters.
+        num_multimer_predictions_per_model : int
+            The number of multimer predictions to perform for each model.
+        gradient_msa_depth : bool, optional
+            Whether to adjust MSA depth based on a gradient, default is False.
+        model_names_custom : str, optional
+            Comma-separated custom model names to use instead of the default preset,
+            default is None.
+        msa_depth : int or None, optional
+            A specific MSA depth to use, default is None.
+        **kwargs : dict
+            Additional keyword arguments for model runner configuration.
+
+        Returns
+        -------
+        Dict
+            A dictionary containing the configured model runners.
+
+        Raises
+        ------
+        Exception
+            If provided custom model names are not part of the available models.
+        """
+
+        from alphafold.model import config
+        from alphafold.model import data, model
+
+        num_ensemble = 1
+        model_runners = {}
+        model_names = config.MODEL_PRESETS[model_name]
+
+        if model_names_custom:
+            model_names_custom = tuple(model_names_custom.split(","))
+            if all(x in model_names for x in model_names_custom):
+                model_names = model_names_custom
+            else:
+                raise Exception(
+                    f"Provided model names {model_names_custom} not part of available {model_names}"
+                )
+
+        for model_name in model_names:
+            model_config = config.model_config(model_name)
+            model_config.model.num_ensemble_eval = num_ensemble
+            model_config["model"].update({"num_recycle": num_cycle})
+
+            model_params = data.get_model_haiku_params(
+                model_name=model_name, data_dir=model_dir
+            )
+            model_runner = model.RunModel(model_config, model_params)
+
+            if gradient_msa_depth or msa_depth:
+                embeddings_and_evo = model_config["model"]["embeddings_and_evoformer"]
+                num_msa = embeddings_and_evo["num_msa"]
+                num_extra_msa = embeddings_and_evo["num_extra_msa"]
+
+                msa_ranges = np.rint(
+                    np.logspace(
+                        np.log10(16),
+                        np.log10(num_msa),
+                        num_multimer_predictions_per_model,
+                    )
+                ).astype(int)
+
+                extra_msa_ranges = np.rint(
+                    np.logspace(
+                        np.log10(32),
+                        np.log10(num_extra_msa),
+                        num_multimer_predictions_per_model,
+                    )
+                ).astype(int)
+
+            for i in range(num_multimer_predictions_per_model):
+                if msa_depth or gradient_msa_depth:
+                    if msa_depth:
+                        num_msa = int(msa_depth)
+                        # approx. 4x the number of msa, as in the AF2 config file
+                        num_extra_msa = num_msa * 4
+                    elif gradient_msa_depth:
+                        num_msa = msa_ranges[i]
+                        num_extra_msa = extra_msa_ranges[i]
+
+                    embeddings_and_evo.update(
+                        {"num_msa": num_msa, "num_extra_msa": num_extra_msa}
+                    )
+
+                    model_runners[f"{model_name}_pred_{i}_msa_{num_msa}"] = model_runner
+                else:
+                    model_runners[f"{model_name}_pred_{i}"] = model_runner
+
+        return {"model_runner": model_runners}
+
+    @staticmethod
+    def predict(
+        model_runner: Dict,
+        multimeric_object: MultimericObject,
+        output_dir: Dict,
+        models_to_relax: object = ModelsToRelax,
+        random_seed: int = 42,
+        allow_resume: bool = True,
+        use_gpu_relax: bool = True,
+        multimeric_mode: bool = False,
+        **kwargs,
+    ) -> None:
+        """
+        Executes structure predictions using configured AlphaFold models.
+
+        Parameters
+        ----------
+        model_runner : Dict
+            Configured model runners with model names as keys.
+        multimeric_object : MultimericObject
+            An object containing features of the multimeric proteins.
         output_dir : str
-            The directory where prediction results, including PDB files and metrics,
-            will be saved.
-        feature_dict : dict
-            A dictionary containing the features required by the models for prediction.
-        random_seed : int
-            A seed for random number generation to ensure reproducibility obtained
-             from :py:meth:`alphapulldown.utils.create_model_runners_and_random_seed.
-        fasta_name : str
-            The name of the fasta file, used for naming the output files.
+            The directory to save prediction results and PDB files.
         models_to_relax : object, optional
-            An enum indicating which models' predictions to relax. Defaults to
-            ModelsToRelax which should be an enum type.
+            Specifies which models' predictions to relax, defaults to ModelsToRelax enum.
+        random_seed : int, optional
+            A seed for random number generation to ensure reproducibility, default is 42.
         allow_resume : bool, optional
-            If True, attempts to resume prediction from partially completed runs.
-            Default is True.
-        seqs : List, optional
-            A list of sequences for which predictions are being made.
-            Default is an empty list.
+            If set to True, resumes prediction from partially completed runs, default is True.
         use_gpu_relax : bool, optional
-            If True, uses GPU acceleration for the relaxation step. Default is True.
+            If set to True, utilizes GPU acceleration for the relaxation step, default is True.
         multimeric_mode : bool, optional
-            If True, enables multimeric prediction mode. Default is False.
-        **kwargs
-            Additional keyword arguments passed to model prediction and processing.
+            Enables multimeric prediction mode, default is False.
+        **kwargs : dict
+            Additional keyword arguments for prediction.
 
         Raises
         ------
         ValueError
-            If multimeric mode is enabled but no valid templates are found in
-            the feature dictionary.
-
-        Notes
-        -----
-        This function is a cleaned up version of alphapulldown.predict_structure.predict
+            If multimeric mode is enabled but no valid templates are found.
         """
-
         timings = {}
         unrelaxed_pdbs = {}
         relaxed_pdbs = {}
@@ -118,22 +212,20 @@ class AlphaFold(FoldingBackend):
                 unrelaxed_proteins,
                 unrelaxed_pdbs,
                 START,
-            ) = get_existing_model_info(output_dir, model_runners)
+            ) = get_existing_model_info(output_dir, model_runner)
 
-            if exists(ranking_output_path) and len(unrelaxed_pdbs) == len(
-                model_runners
-            ):
-                START = len(model_runners)
+            if exists(ranking_output_path) and len(unrelaxed_pdbs) == len(model_runner):
+                START = len(model_runner)
 
-        num_models = len(model_runners)
-        for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
+        num_models = len(model_runner)
+        for model_index, (model_name, model_runner) in enumerate(model_runner.items()):
             if model_index < START:
                 continue
             t_0 = time.time()
 
             model_random_seed = model_index + random_seed * num_models
             processed_feature_dict = model_runner.process_features(
-                feature_dict, random_seed=model_random_seed
+                multimeric_object.feature_dict, random_seed=model_random_seed
             )
             timings[f"process_features_{model_name}"] = time.time() - t_0
             # Die if --multimeric_mode=True but no non-zero templates are in the feature dict
@@ -156,7 +248,7 @@ class AlphaFold(FoldingBackend):
             )
 
             # update prediction_result with input seqs
-            prediction_result.update({"seqs": seqs})
+            prediction_result.update({"seqs": multimeric_object.seq})
 
             t_diff = time.time() - t_0
             timings[f"predict_and_compile_{model_name}"] = t_diff
@@ -187,7 +279,6 @@ class AlphaFold(FoldingBackend):
             unrelaxed_pdb_path = join(output_dir, f"unrelaxed_{model_name}.pdb")
             with open(unrelaxed_pdb_path, "w") as f:
                 f.write(unrelaxed_pdbs[model_name])
-
 
         # Rank by model confidence.
         ranked_order = [
@@ -258,25 +349,24 @@ class AlphaFold(FoldingBackend):
             with open(relax_metrics_path, "w") as f:
                 f.write(json.dumps(relax_metrics, indent=4))
 
-
     @staticmethod
     def postprocess(
-        multimer: MultimericObject,
-        output_path: str,
+        multimeric_object: MultimericObject,
+        output_dir: str,
         zip_pickles: bool = False,
         remove_pickles: bool = False,
         **kwargs: Dict,
     ) -> None:
         """
         Performs post-processing operations on predicted protein structures and
-        writes results and plots to output_path.
+        writes results and plots to output_dir.
 
         Parameters
         ----------
-        multimer : MultimericObject
+        multimeric_object : MultimericObject
             The multimeric object containing the predicted structures and
             associated data.
-        output_path : str
+        output_dir : str
             The directory where post-processed files and plots will be saved.
         zip_pickles : bool, optional
             If True, zips the pickle files containing prediction results.
@@ -288,9 +378,9 @@ class AlphaFold(FoldingBackend):
             Additional keyword arguments for future extensions or custom
             post-processing steps.
         """
-        create_and_save_pae_plots(multimer, output_path)
+        create_and_save_pae_plots(multimeric_object, output_dir)
         post_prediction_process(
-            output_path,
+            output_dir,
             zip_pickles=zip_pickles,
             remove_pickles=remove_pickles,
         )

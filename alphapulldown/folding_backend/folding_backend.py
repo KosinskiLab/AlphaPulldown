@@ -4,13 +4,34 @@
 
     Author: Valentin Maurer <valentin.maurer@embl-hamburg.de>
 """
+from typing import Dict
 
 from abc import ABC, abstractmethod
+
 
 class FoldingBackend(ABC):
     """
     A strategy class for structure prediction using various folding backends.
     """
+
+    @abstractmethod
+    def create_model_runner(**kwargs) -> Dict:
+        """
+        Initializes and configures a model runner for protein folding predictions. The
+        created dictionary will be passed to :py:meth:`FoldingBackend.predict` function of
+        the respective child class.
+
+        Parameters
+        ----------
+        **kwargs : dict
+            Keyword arguments necessary for configuring the model runner.
+
+        Returns
+        -------
+        Dict
+            A dictionary containing essential elements for structure predictions.
+        """
+
     @abstractmethod
     def predict(self, **kwargs) -> None:
         """
@@ -28,9 +49,8 @@ class FoldingBackend(ABC):
             model configuration, and other prediction-related parameters.
         """
 
-
     @abstractmethod
-    def postprocess(self, **kwargs):
+    def postprocess(self, **kwargs) -> None:
         """
         Abstract method for post-processing predicted protein structures.
 
@@ -45,4 +65,3 @@ class FoldingBackend(ABC):
             A flexible set of keyword arguments that can include paths to prediction results, \
             options for file handling, and other post-processing related parameters.
         """
-

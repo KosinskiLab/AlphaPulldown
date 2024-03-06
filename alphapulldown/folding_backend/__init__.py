@@ -9,6 +9,7 @@ from typing import Dict, List
 
 from .alphafold_backend import AlphaFold
 
+
 class FoldingBackendManager:
     """
     Manager for structure prediction backends.
