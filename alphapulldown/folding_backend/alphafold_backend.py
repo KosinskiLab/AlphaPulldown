@@ -43,7 +43,7 @@ class AlphaFold(FoldingBackend):
     A backend to perform structure prediction using AlphaFold.
     """
 
-    def create_model_runners(
+    def create_model_runner(
         model_name: str,
         num_cycle: int,
         model_dir: str,
