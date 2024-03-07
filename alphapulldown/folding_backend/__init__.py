@@ -7,7 +7,9 @@
 
 from typing import Dict, List
 
-from .alphafold_backend import AlphaFold
+from .alphafold_backend import AlphaFoldBackend
+from .alphalink_backend import AlphaLinkBackend
+from .unifold_backend import UnifoldBackend
 
 
 class FoldingBackendManager:
@@ -29,10 +31,12 @@ class FoldingBackendManager:
 
     def __init__(self):
         self._BACKEND_REGISTRY = {
-            "alphafold": AlphaFold,
+            "alphafold": AlphaFoldBackend,
+            "unifold": AlphaLinkBackend,
+            "alphalink": UnifoldBackend,
         }
-        self._backend = AlphaFold()
         self._backend_name = "alphafold"
+        self._backend = self._BACKEND_REGISTRY[self._backend_name]()
         self._backend_args = {}
 
     def __repr__(self):

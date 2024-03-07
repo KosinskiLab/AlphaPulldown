@@ -7,6 +7,7 @@
 import time
 import json
 import pickle
+import tempfile
 from typing import Dict
 from os.path import join, exists
 
@@ -18,6 +19,7 @@ from alphapulldown.utils import (
     create_and_save_pae_plots,
     post_prediction_process,
 )
+from alphapulldown.analysis_pipeline.calculate_rmsd import calculate_rmsd_and_superpose
 
 # Avoid module not found error by importing after AP
 import run_alphafold
@@ -38,7 +40,7 @@ def _jnp_to_np(output):
     return output
 
 
-class AlphaFold(FoldingBackend):
+class AlphaFoldBackend(FoldingBackend):
     """
     A backend to perform structure prediction using AlphaFold.
     """
@@ -326,20 +328,44 @@ class AlphaFold(FoldingBackend):
         for idx, model_name in enumerate(ranked_order):
             ranked_output_path = join(output_dir, f"ranked_{idx}.pdb")
             with open(ranked_output_path, "w") as f:
-                if model_name in relaxed_pdbs:
-                    model = relaxed_pdbs[model_name]
-                else:
+                model = relaxed_pdbs.get(model_name, None)
+                if model is None:
                     model = unrelaxed_pdbs[model_name]
                 f.write(model)
 
-        if not exists(ranking_output_path):  # already exists if restored.
-            with open(ranking_output_path, "w") as f:
-                label = "iptm+ptm" if "iptm" in prediction_result else "plddts"
-                f.write(
-                    json.dumps(
-                        {label: ranking_confidences, "order": ranked_order}, indent=4
-                    )
+            if multimeric_mode:
+                feature_dict = multimeric_object.feature_dict
+                template_mask = feature_dict["template_all_atom_mask"][0]
+                template_protein = protein.Protein(
+                    atom_positions=feature_dict["template_all_atom_positions"][0],
+                    atom_mask=template_mask,
+                    aatype=feature_dict["template_aatype"][0],
+                    residue_index=feature_dict.get("residue_index", None),
+                    chain_index=feature_dict["asym_id"],
+                    b_factors=np.zeros(template_mask.shape, dtype=float),
                 )
+                pdb_string = protein.to_pdb(template_protein)
+
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    # TODO: do not generate a new template each time
+                    template_file_path = f"{temp_dir}/template.pdb"
+                    with open(template_file_path, "w") as file:
+                        file.write(pdb_string)
+                    # TODO: use template_sequence for alignment
+                    calculate_rmsd_and_superpose(
+                        template_file_path, ranked_output_path, temp_dir
+                    )
+
+            # already exists if restored
+            if not exists(ranking_output_path):
+                with open(ranking_output_path, "w") as f:
+                    label = "iptm+ptm" if "iptm" in prediction_result else "plddts"
+                    f.write(
+                        json.dumps(
+                            {label: ranking_confidences, "order": ranked_order},
+                            indent=4,
+                        )
+                    )
 
         timings_output_path = join(output_dir, "timings.json")
         with open(timings_output_path, "w") as f:

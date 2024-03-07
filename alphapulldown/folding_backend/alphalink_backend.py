@@ -6,6 +6,7 @@
 """
 from typing import Dict
 from os.path import join, exists
+
 from alphapulldown.objects import MultimericObject
 
 from .folding_backend import FoldingBackend
