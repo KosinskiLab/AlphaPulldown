@@ -15,10 +15,10 @@ from alphafold.data import pipeline
 from alphafold.data import msa_pairing
 from alphafold.data import feature_processing
 from pathlib import Path as plPath
-from colabfold.batch import (unserialize_msa,
-                             get_msa_and_templates,
-                             msa_to_str, build_monomer_feature)
 from typing import List, Dict
+from colabfold.batch import unserialize_msa, get_msa_and_templates, msa_to_str, build_monomer_feature
+from alphapulldown.multimeric_template_utils import (extract_multimeric_template_features_for_single_chain,
+                                                     prepare_multimeric_template_meta_info)
 
 
 @contextlib.contextmanager
@@ -427,18 +427,38 @@ class MultimericObject:
     Args
     index: assign a unique index ranging from 0 just to identify different multimer jobs
     interactors: individual interactors that are to be concatenated
+    pair_msa: boolean, tells the programme whether to pair MSA or not
+    multimeric_mode: boolean, tells the programme whether use multimeric templates or not
+    multimeric_template_meta_data: a csv with the format {"monomer_A":{"xxx.cif":"chainID"},"monomer_B":{"yyy.cif":"chainID"}}
+    multimeric_template_dir: a directory where all the multimeric templates mmcifs files are stored
     """
 
-    def __init__(self, interactors: list, pair_msa: bool = True, multimeric_mode: bool = False) -> None:
+    def __init__(self, interactors: list, pair_msa: bool = True, 
+                 multimeric_mode: bool = False, 
+                 multimeric_template_meta_data: str = None,
+                 multimeric_template_dir:str = None) -> None:
         self.description = ""
         self.interactors = interactors
+        self.build_description_monomer_mapping()
         self.pair_msa = pair_msa
         self.multimeric_mode = multimeric_mode
         self.chain_id_map = dict()
         self.input_seqs = []
+        self.multimeric_template_dir = multimeric_template_dir
         self.create_output_name()
+
+        if multimeric_template_meta_data is not None:
+            self.multimeric_template_meta_data = prepare_multimeric_template_meta_info(multimeric_template_meta_data,
+                                                                                       self.multimeric_template_dir)
+            
+        if self.multimeric_mode:
+            self.create_multimeric_template_features()
         self.create_all_chain_features()
         pass
+    
+    def build_description_monomer_mapping(self):
+        """This method constructs a dictionary {description: monomer}"""
+        self.monomers_mapping = {m.description: m for m in self.interactors}
 
     def create_output_name(self):
         """a method to create output name"""
@@ -515,6 +535,21 @@ class MultimericObject:
         # DEBUG
         self.save_binary_matrix(multichain_mask, "multichain_mask.png")
         return multichain_mask
+    
+    def create_multimeric_template_features(self):
+        """A method of creating multimeric template features"""
+        assert self.multimeric_template_meta_data is not None, "You chose to use multimeric template mode but multimric template information is missing. Abort"
+        for monomer_name in self.multimeric_template_meta_data:
+            for k,v in self.multimeric_template_meta_data[monomer_name].items():
+                curr_monomer = self.monomers_mapping[monomer_name]
+                assert k.endswith(".cif"), "The multimeric template file you provided does not seem to be a mmcif file. Please check your format and make sure it ends with .cif"
+                assert os.path.exists(os.path.join(self.multimeric_template_dir,k)), f"Your provided {k} cannot be found in: {self.multimeric_template_dir}. Abort"
+                pdb_id = k.split('.cif')[0]
+                multimeric_template_features = extract_multimeric_template_features_for_single_chain(query_seq=curr_monomer.sequence,
+                                                                                                      pdb_id=pdb_id,chain_id=v,
+                                                                                                      mmcif_file=os.path.join(self.multimeric_template_dir,k))
+                curr_monomer.feature_dict.update(multimeric_template_features.features)
+        
 
     @staticmethod
     def remove_all_seq_features(np_chain_list: List[Dict]) -> List[Dict]:

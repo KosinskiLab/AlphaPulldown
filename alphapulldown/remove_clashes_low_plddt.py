@@ -108,10 +108,10 @@ class MmcifChainFiltered:
             self.input_file_path = input_file_path.with_suffix(".cif")
         with open(self.input_file_path) as f:
             mmcif = f.read()
-        parsing_result = parse(file_id=code, mmcif_string=mmcif)
-        if parsing_result.errors:
-            raise Exception(f"Can't parse mmcif file {self.input_file_path}: {parsing_result.errors}")
-        mmcif_object = parsing_result.mmcif_object
+        self.parsing_result = parse(file_id=code, mmcif_string=mmcif)
+        if self.parsing_result.errors:
+            raise Exception(f"Can't parse mmcif file {self.input_file_path}: {self.parsing_result.errors}")
+        mmcif_object = self.parsing_result.mmcif_object
         self.seqres_to_structure = mmcif_object.seqres_to_structure[chain_id]
         structure, sequence_atom = self.extract_chain(mmcif_object.structure, chain_id)
         self.sequence_atom = sequence_atom
