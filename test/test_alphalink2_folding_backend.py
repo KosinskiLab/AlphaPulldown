@@ -16,7 +16,7 @@ class TestAlphaLink2Backend(unittest.TestCase):
     
     def test_1_initialise_folding_backend(self):
         beckend = AlphaLinkBackend
-        model_config = beckend.create_model_runner(self.alphalink2_weights,
+        model_config = beckend.setup(self.alphalink2_weights,
                                                              self.xl_info)
         beckend.predict(**model_config,multimeric_object = self.multimericObj,output_dir= "./test/test_data")
 
