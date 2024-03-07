@@ -3,7 +3,6 @@
 With PDB files now being marked as legacy format, here is a way to convert PDB files produced by the [AlphaPulldown](https://github.com/KosinskiLab/AlphaPulldown) pipeline into [mmCIF](https://mmcif.wwpdb.org) files including the [ModelCIF](https://mmcif.wwpdb.org/dictionaries/mmcif_ma.dic/Index/) extension.
 
 On top of the general mmCIF tables, ModelCIF adds information, relevant for a modeling experiment. There is a bit of target-sequence(s) annotation and a modeling protocol. This describes the process how a model was created including software used with its parameters. To help the user to decide the reliability of a model, various quality metrics can be stored directly in a ModelCIF file, or in associated files registered in the main file. ModelCIF is also the preferred format for [ModelArchive](https://www.modelarchive.org).
-
 As AlphaPulldown is relying on [AlphaFold](https://github.com/google-deepmind/alphafold) to produce model coordinates, there may be multiple models predicted in a single experiment. Respecting that not always all the models need to be converted to ModelCIF, `convert_to_modelcif.py` offers three major modes:
 
 * Convert all models into ModelCIF in separated files
@@ -14,13 +13,14 @@ As AlphaPulldown is relying on [AlphaFold](https://github.com/google-deepmind/al
 
 ## Usage
 
-To run `convert_to_modelcif.py`, the Python module [modelcif](https://pypi.org/project/modelcif/) is needed in addition to the regular AlphaPulldown Python environments.
+To run `convert_to_modelcif.py`, the Python module [modelcif](https://pypi.org/project/modelcif/) is needed in addition to the regular AlphaPulldown Python environments. It is recommended to install it with conda command:
+`conda install -c conda-forge modelcif`
 
 The script itself lives in the [`alphapulldown/`](https://github.com/KosinskiLab/AlphaPulldown/tree/main/alphapulldown) subdirectory of the AlphaPulldown repository.
 
 ### scenario 1: convert all models to separated ModelCIF files
 
-The most general call of the conversion script, without any non-mandatory arguments, will create a ModelCIF file and an associated Zip archive for each model found:
+The most general call of the conversion script, without any non-mandatory arguments, will create a ModelCIF file and an associated Zip archive for each model of each complex found in `--ap_output` directory:
 
 ```bash
 $ source activate AlphaPulldown
@@ -35,25 +35,27 @@ The output is stored in the path that `--ap_output` points to. After a run of `c
 
 ```
 ap_output
-    |-ranked_0.cif
-    |-ranked_0.pdb
-    |-ranked_0.zip
-    |-ranked_1.cif
-    |-ranked_1.pdb
-    |-ranked_1.zip
-    |-ranked_2.cif
-    |-ranked_2.pdb
-    |-ranked_2.zip
-    |-ranked_3.cif
-    |-ranked_3.pdb
-    |-ranked_3.zip
-    |-ranked_4.cif
-    |-ranked_4.pdb
-    |-ranked_4.zip
+    protein1_and_protein2
+        |-ranked_0.cif
+        |-ranked_0.pdb
+        |-ranked_0.zip
+        |-ranked_1.cif
+        |-ranked_1.pdb
+        |-ranked_1.zip
+        |-ranked_2.cif
+        |-ranked_2.pdb
+        |-ranked_2.zip
+        |-ranked_3.cif
+        |-ranked_3.pdb
+        |-ranked_3.zip
+        |-ranked_4.cif
+        |-ranked_4.pdb
+        |-ranked_4.zip
+        ...
     ...
 ```
 
-### scenario 2: only convert a specific single model
+### scenario 2: only convert a specific single model for each complex
 
 If only a single model should be translated to ModelCIF, the option `--model_selected` is used. As a value, provide the ranking of the model. For example, the following command converts the model from rank 0:
 
@@ -69,13 +71,15 @@ That will create only one ModelCIF file and Zip archive in the path pointed at b
 
 ```
 ap_output
-    |-ranked_0.cif
-    |-ranked_0.pdb
-    |-ranked_0.zip
-    |-ranked_1.pdb
-    |-ranked_2.pdb
-    |-ranked_3.pdb
-    |-ranked_4.pdb
+    protein1_and_protein2
+        |-ranked_0.cif
+        |-ranked_0.pdb
+        |-ranked_0.zip
+        |-ranked_1.pdb
+        |-ranked_2.pdb
+        |-ranked_3.pdb
+        |-ranked_4.pdb
+        ...
     ...
 ```
 
@@ -101,13 +105,15 @@ The output directory looks like when only converting a single model:
 
 ```
 ap_output
-    |-ranked_0.cif
-    |-ranked_0.pdb
-    |-ranked_0.zip
-    |-ranked_1.pdb
-    |-ranked_2.pdb
-    |-ranked_3.pdb
-    |-ranked_4.pdb
+    protein1_and_protein2
+        |-ranked_0.cif
+        |-ranked_0.pdb
+        |-ranked_0.zip
+        |-ranked_1.pdb
+        |-ranked_2.pdb
+        |-ranked_3.pdb
+        |-ranked_4.pdb
+        ...
     ...
 ```
 

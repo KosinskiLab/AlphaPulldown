@@ -1,7 +1,7 @@
 import subprocess
 from pathlib import Path
 from absl.testing import absltest
-import alphapulldown.create_individual_features_with_templates as run_features_generation
+import alphapulldown.create_individual_features as run_features_generation
 import pickle
 import  numpy as np
 from alphapulldown.remove_clashes_low_plddt import extract_seqs
@@ -61,6 +61,7 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
         create_mock_file(root_dir / 'uniprot/uniprot.fasta')
         create_mock_file(root_dir / 'bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt_hhm.ffindex')
         create_mock_file(root_dir / 'uniref30/UniRef30_2021_03_hhm.ffindex')
+        create_mock_file(root_dir / 'uniref30/UniRef30_2023_02_hhm.ffindex')
         create_mock_file(root_dir / 'pdb70/pdb70_hhm.ffindex')
 
         # Mock hhblits files
@@ -78,7 +79,8 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
             create_mock_file(f"{uniclust_db_root}{suffix}")
 
         # Mock uniref30 files - Adjusted for the correct naming convention
-        uniref_db_root = root_dir / 'uniref30/UniRef30_2021_03'
+        #uniref_db_root = root_dir / 'uniref30/UniRef30_2021_03'
+        uniref_db_root = root_dir / 'uniref30/UniRef30_2023_02'
         uniref_db_files = ['_a3m.ffdata', '_a3m.ffindex', '_hmm.ffdata', '_hmm.ffindex', '_cs.ffdata', '_cs.ffindex']
         for suffix in uniref_db_files:
             create_mock_file(f"{uniref_db_root}{suffix}")
