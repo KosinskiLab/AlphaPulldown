@@ -193,19 +193,6 @@ def get_hash(filename):
             md5_hash.update(byte_block)
         return (md5_hash.hexdigest())
 
-def create_and_save_pae_plots(multimer_object, output_dir):
-    """A function to produce pae plots"""
-    ranking_path = os.path.join(output_dir, "ranking_debug.json")
-    if not os.path.isfile(ranking_path):
-        logging.info(
-            "Predictions have failed. please check standard error and output and run again."
-        )
-    else:
-        order = json.load(open(ranking_path, "r"))["order"]
-        plot_pae(
-            multimer_object.input_seqs, order, output_dir, multimer_object.description
-        )
-
 def ensure_directory_exists(directory):
     """
     Ensures that a directory exists. If the directory does not exist, it is created.

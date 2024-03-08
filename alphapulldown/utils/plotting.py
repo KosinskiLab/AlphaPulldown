@@ -3,12 +3,12 @@
 # #
 import pandas as pd
 import matplotlib
-import os
+import os,json
 matplotlib.use("agg")
 import matplotlib.pyplot as plt
 import pickle as pkl
 import gzip
-
+from absl import logging
 
 def plot_pae(seqs: list, order, feature_dir, job_name):
     """
@@ -89,3 +89,16 @@ def plot_pae_from_matrix(seqs,pae_matrix,figure_name=''):
         ax1.axvline(t, color="black", linewidth=3.5)
     plt.title("ranked_{}".format(i))
     plt.savefig(figure_name)
+
+def create_and_save_pae_plots(multimer_object, output_dir):
+    """A function to produce pae plots"""
+    ranking_path = os.path.join(output_dir, "ranking_debug.json")
+    if not os.path.isfile(ranking_path):
+        logging.info(
+            "Predictions have failed. please check standard error and output and run again."
+        )
+    else:
+        order = json.load(open(ranking_path, "r"))["order"]
+        plot_pae(
+            multimer_object.input_seqs, order, output_dir, multimer_object.description
+        )
