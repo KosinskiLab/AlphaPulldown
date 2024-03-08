@@ -13,3 +13,4 @@
 [submodule "ColabFold"]
 	path = ColabFold
 	url = https://github.com/sokrypton/ColabFold.git
+	branch = main
