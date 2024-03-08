@@ -1,6 +1,17 @@
 import os
 from absl import logging
 import csv
+import contextlib
+
+@contextlib.contextmanager
+def temp_fasta_file(sequence_str):
+    """function that create temp file"""
+    with tempfile.NamedTemporaryFile("w", suffix=".fasta") as fasta_file:
+        fasta_file.write(sequence_str)
+        fasta_file.seek(0)
+        yield fasta_file.name
+
+
 def parse_csv_file(csv_path, fasta_paths, mmt_dir):
     """
     csv_path (str): Path to the text file with descriptions

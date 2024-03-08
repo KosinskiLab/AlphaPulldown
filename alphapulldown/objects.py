@@ -6,7 +6,6 @@ from absl import logging
 import tempfile
 import os
 import subprocess
-import contextlib
 import numpy as np
 from alphafold.data.tools import jackhmmer
 from alphafold.data import parsers
@@ -19,16 +18,7 @@ from typing import List, Dict
 from colabfold.batch import unserialize_msa, get_msa_and_templates, msa_to_str, build_monomer_feature
 from alphapulldown.multimeric_template_utils import (extract_multimeric_template_features_for_single_chain,
                                                      prepare_multimeric_template_meta_info)
-
-
-@contextlib.contextmanager
-def temp_fasta_file(sequence_str):
-    """function that create temp file"""
-    with tempfile.NamedTemporaryFile("w", suffix=".fasta") as fasta_file:
-        fasta_file.write(sequence_str)
-        fasta_file.seek(0)
-        yield fasta_file.name
-
+from alphapulldown.utils.file_handling_utils import temp_fasta_file
 
 class MonomericObject:
     """
