@@ -10,3 +10,6 @@
 	path = AlphaLink2
 	url = https://github.com/dingquanyu/AlphaLink2.git
 	branch = main
+[submodule "ColabFold"]
+	path = ColabFold
+	url = https://github.com/sokrypton/ColabFold.git
