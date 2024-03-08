@@ -9,8 +9,7 @@ from alphafold.version import __version__ as AF_VERSION
 import json
 import os
 from absl import logging
-from alphapulldown.utils.plotting_utils import plot_pae
-
+from alphapulldown.utils.file_handlings import ensure_directory_exists
 import subprocess
 import datetime
 import re
@@ -192,18 +191,6 @@ def get_hash(filename):
         for byte_block in iter(lambda: f.read(4096), b""):
             md5_hash.update(byte_block)
         return (md5_hash.hexdigest())
-
-def ensure_directory_exists(directory):
-    """
-    Ensures that a directory exists. If the directory does not exist, it is created.
-
-    Args:
-    directory (str): The path of the directory to check or create.
-    """
-    if not os.path.exists(directory):
-        logging.info(f"Creating directory: {directory}")
-        os.makedirs(directory, exist_ok=True)
-
 
 @contextlib.contextmanager
 def output_meta_file(file_path):
