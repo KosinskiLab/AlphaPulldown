@@ -1,7 +1,7 @@
 #
 # Author: Dingquan Yu
 # A script containing utility functions
-# #
+# 
 from alphafold.data.tools import jackhmmer
 from alphapulldown.core.objects import ChoppedObject
 import os
