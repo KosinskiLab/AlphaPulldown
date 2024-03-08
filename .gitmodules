@@ -1,7 +1,3 @@
-[submodule "alphapulldown/ColabFold"]
-	path = alphapulldown/ColabFold
-	url = https://github.com/sokrypton/ColabFold.git
-	branch = main
 [submodule "alphafold"]
 	path = alphafold
 	url = https://github.com/KosinskiLab/alphafold.git
