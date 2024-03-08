@@ -263,7 +263,7 @@ def predict(
         # Calculate and report RMSD if multimeric templates were used.
         if run_af.flags.FLAGS.multimeric_mode:
             # Calculate RMSD
-            from alphapulldown.analysis_pipeline.calculate_rmsd import calculate_rmsd_and_superpose
+            from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
             import tempfile
             template_positions = feature_dict['template_all_atom_positions'][0]
             template_mask = feature_dict['template_all_atom_mask'][0]
