@@ -55,7 +55,7 @@ def parse_args():
         dest="data_directory",
         type=str,
         required=True,
-        help="Path to data directory.",
+        help="Path to directory containing model weights and parameters.",
     ),
     parser.add_argument(
         "--features_directory",
@@ -104,8 +104,55 @@ def parse_args():
         "--protein_delimiter",
         dest="protein_delimiter",
         type=str,
-        default=";",
-        help="Delimiter for proteins of a singel fold.",
+        default="_",
+        help="Delimiter for proteins of a single fold.",
+    ),
+    parser.add_argument(
+        "--fold_backend",
+        dest="fold_backend",
+        type=str,
+        default="alphafold",
+        choices=list(backend._BACKEND_REGISTRY.keys()),
+        help="Folding backend that should be used for structure prediction.",
+    ),
+    parser.add_argument(
+        "--crosslinks",
+        dest="crosslinks",
+        type=str,
+        default=None,
+        required=False,
+        help="Path to crosslink information pickle for AlphaLink.",
+    ),
+    parser.add_argument(
+        "--description_file",
+        dest="description_file",
+        type=str,
+        default=None,
+        required=False,
+        help="Path to the text file with multimeric template instruction.",
+    ),
+    parser.add_argument(
+        "--path_to_mmt",
+        dest="path_to_mmt",
+        type=str,
+        default=None,
+        required=False,
+        help="Path to directory with multimeric template mmCIF files.",
+    ),
+    parser.add_argument(
+        "--compress_result_pickles",
+        dest="compress_result_pickles",
+        action="store_true",
+        required=False,
+        help="Whether the result pickles are going to be gzipped. Default False.",
+    ),
+    parser.add_argument(
+        "--remove_result_pickles",
+        dest="remove_result_pickles",
+        action="store_true",
+        required=False,
+        help="Whether the result pickles that do not belong to the best"
+        "model are going to be removed. Default is False.",
     ),
     args = parser.parse_args()
 
@@ -153,10 +200,11 @@ def parse_args():
     return args
 
 
-def predict_multimer(
+def predict_structure(
     multimeric_object: MultimericObject,
     output_dir: str,
-    model_flags : Dict,
+    model_flags: Dict,
+    postprocess_flags: Dict,
     random_seed: int = 42,
     fold_backend: str = "alphafold",
 ) -> None:
@@ -173,6 +221,8 @@ def predict_multimer(
         The directory path where the prediction results will be saved.
     model_flags : Dict
         Dictionary of flags passed to the respective backend's setup function.
+    model_flags : Dict
+        Dictionary of flags passed to the respective backend's postprocess function.
     random_seed : int, optional
         The random seed for initializing the prediction process to ensure reproducibility.
         Default is 42.
@@ -181,7 +231,7 @@ def predict_multimer(
     """
     backend.change_backend(backend_name=fold_backend)
 
-    model_runners = backend.setup(**model_flags, multimeric_object = multimeric_object)
+    model_runners = backend.setup(**model_flags, multimeric_object=multimeric_object)
 
     backend.predict(
         **model_runners,
@@ -190,10 +240,9 @@ def predict_multimer(
         random_seed=random_seed,
     )
     backend.postprocess(
+        **postprocess_flags,
         multimeric_object=multimeric_object,
         output_dir=output_dir,
-        zip_pickles=False,
-        remove_pickles=False,
     )
 
 
@@ -208,11 +257,12 @@ def main():
             interactors=interactors,
             pair_msa=not args.no_pair_msa,
             multimeric_mode=args.multimeric_template,
+            multimeric_template_meta_data=args.description_file,
+            multimeric_template_dir=args.path_to_mmt,
         )
 
     if not isinstance(multimer, MultimericObject):
         multimer.input_seqs = [multimer.sequence]
-
 
     # TODO: Add backend specific flags here
     flags_dict = {
@@ -220,20 +270,27 @@ def main():
         "num_cycle": args.num_cycle,
         "model_dir": args.data_directory,
         "num_multimer_predictions_per_model": args.num_predictions_per_model,
-        "multimeric_object" : multimer,
+        "multimeric_object": multimer,
+        "crosslinks": args.crosslinks,
     }
 
     if isinstance(multimer, MultimericObject):
         flags_dict["model_name"] = "multimer"
-        flags_dict["gradient_msa_depth"] = args.gradient_msa_depth,
+        flags_dict["gradient_msa_depth"] = (args.gradient_msa_depth,)
         flags_dict["model_names_custom"] = args.model_names
         flags_dict["msa_depth"] = args.msa_depth
 
-    predict_multimer(
+    postprocess_flags = {
+        "zip_pickles": args.compress_result_pickles,
+        "remove_pickles": args.remove_result_pickles,
+    }
+
+    predict_structure(
         multimeric_object=multimer,
         output_directory=args.output_directory,
-        model_flags = flags_dict,
-        fold_backend = "alphafold"
+        model_flags=flags_dict,
+        fold_backend=args.fold_backend,
+        postprocess_flags=postprocess_flags,
     )
 
 
