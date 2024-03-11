@@ -1,6 +1,5 @@
 from collections import defaultdict
-from absl import app, flags
-import logging
+from absl import app, flags,logging
 import copy
 from alphafold.data.mmcif_parsing import parse
 from alphafold.common.residue_constants import residue_atoms, atom_types
@@ -96,7 +95,10 @@ class MmcifChainFiltered:
         self.atom_to_label_id = None
         self.atom_site_label_seq_ids = None
         self.input_file_path = input_file_path
-        self.chain_id = chain_id
+        if chain_id is not None:
+            self.chain_id = chain_id 
+        else:
+            raise ValueError(f"You have to specify a chain id when using multimeric template modelling")
         logging.info("Parsing SEQRES...")
         sequence_atom, sequence_seqres = extract_seqs(input_file_path, chain_id)
         if not sequence_seqres:
