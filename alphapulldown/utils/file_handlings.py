@@ -66,7 +66,10 @@ def convert_fasta_description_to_protein_name(line):
     for symbol in unwanted_symbols:
         if symbol in line:
             line = line.replace(symbol, "_")
-    return line[1:]  # Remove the '>' at the beginning.
+    if line.startswith(">"):
+        return line[1:]  # Remove the '>' at the beginning.
+    else:
+        return line
 
 def iter_seqs(fasta_fns):
     """
