@@ -1,23 +1,30 @@
 
 from absl import logging
-import os, csv,sys
+import os
+import csv
+import sys
 from pathlib import Path
 from alphafold.data.templates import (
-                                      _extract_template_features,
-                                      _build_query_to_hit_index_mapping)
+    _extract_template_features,
+    _build_query_to_hit_index_mapping)
 from alphafold.data.templates import SingleHitResult
 from alphafold.data.mmcif_parsing import ParsingResult
-from alphafold.data.parsers import TemplateHit
+import tempfile
 from alphapulldown.utils.remove_clashes_low_plddt import MmcifChainFiltered
-from typing import Optional
+from typing import Optional, Dict
 import shutil
 import numpy as np
+from Bio import AlignIO
+from Bio.Align.Applications import ClustalwCommandline
+from alphapulldown.utils.file_handlings import temp_fasta_file
+from alphafold.data import parsers
 
-def prepare_multimeric_template_meta_info(csv_path:str, mmt_dir:str) -> dict:
+
+def prepare_multimeric_template_meta_info(csv_path: str, mmt_dir: str) -> dict:
     """
     Adapted from https://github.com/KosinskiLab/AlphaPulldown/blob/231863af7faa61fa04d45829c90a3bab9d9e2ff2/alphapulldown/create_individual_features_with_templates.py#L107C1-L159C38
     by @DimaMolod
-    
+
     Args:
     csv_path: Path to the text file with descriptions
         features.csv: A coma-separated file with three columns: PROTEIN name, PDB/CIF template, chain ID.
@@ -37,74 +44,94 @@ def prepare_multimeric_template_meta_info(csv_path:str, mmt_dir:str) -> dict:
                 continue
             if len(row) == 3:
                 protein, template, chain = [item.strip() for item in row]
-                assert os.path.exists(os.path.join(mmt_dir,template)), f"Provided {template} cannot be found in {mmt_dir}. Abort"
+                assert os.path.exists(os.path.join(
+                    mmt_dir, template)), f"Provided {template} cannot be found in {mmt_dir}. Abort"
                 if protein not in parsed_dict:
                     parsed_dict[protein] = {
-                        template:chain
+                        template: chain
                     }
             else:
-                logging.error(f"Invalid line found in the file {csv_path}: {row}")
+                logging.error(
+                    f"Invalid line found in the file {csv_path}: {row}")
                 sys.exit()
 
     return parsed_dict
 
+
 def obtain_kalign_binary_path() -> Optional[str]:
-    assert shutil.which('kalign') is not None, "Could not find kalign in your environment"
+    assert shutil.which(
+        'kalign') is not None, "Could not find kalign in your environment"
     return shutil.which('kalign')
 
 
-def parse_mmcif_file(file_id:str,mmcif_file:str,chain_id:str) -> ParsingResult:
+def parse_mmcif_file(file_id: str, mmcif_file: str, chain_id: str) -> ParsingResult:
     """
     Args:
     file_id: A string identifier for this file. Should be unique within the
       collection of files being processed.
     mmcif_file: path to the target mmcif file
-    
+
     Returns:
     A ParsingResult object
-    """  
+    """
     try:
-        mmcif_filtered_obj = MmcifChainFiltered(Path(mmcif_file),file_id,chain_id = chain_id)
+        mmcif_filtered_obj = MmcifChainFiltered(
+            Path(mmcif_file), file_id, chain_id=chain_id)
         parsing_result = mmcif_filtered_obj.parsing_result
     except FileNotFoundError as e:
         parsing_result = None
         print(f"{mmcif_file} could not be found")
-    
+
     return parsing_result
 
-def create_template_hit(index:int, name:str,
-                        query:str,chain_id:str,
-                        parsed_mmcif_object:MmcifChainFiltered) -> TemplateHit:
+
+def _obtain_mapping(mmcif_parse_result: ParsingResult, chain_id: str,
+                    original_query_sequence: str) -> Dict[int,int]:
     """
-    Create the new template hits and mapping. Currently only supports the cases
-    where the query sequence and the template sequence are identical
-    
+    A function to obtain teh mapping between query sequence and the selected
+    chain from customerised template(a pdb or mmcif file)
+
     Args:
-    index: index of the hit e.g. numberXX of the customised templates
-    name: name of the hit e.g. pdbid_CHAIN
-    query: query sequence 
+    mmcif_parse_result: a ParsingResult object from parse_mmcif_file() function
+    chain_id: id of the chain to use from the mmcif/pdb file
+    original_query_sequence: original protein sequence that to be modelled, without gaps
 
-    Returns:
-    A TemplateHit object in which hit and query sequences are identical
+    Return:
+    mapping: a dictionary {int:int} that maps original query sequence to chain sequence in the PDB/mmcif file
+    e.g. if query sequence is ACDES and chain sequence is MHADE then mapping will be 
+    {0:2, 2:3, 3:4}
     """
-    mmcif_object = parsed_mmcif_object.parse_result.mmcif_object
+    mmcif_object = mmcif_parse_result.mmcif_object
     parsed_resseq = mmcif_object.chain_to_seqres[chain_id]
+    sequence_str = f">query\n{original_query_sequence}\n>template_hit\n{parsed_resseq}"
+    with temp_fasta_file(sequence_str) as fasta_file, tempfile.TemporaryDirectory() as temp_dir:
+        aligned_fasta_file = f"{temp_dir}/fake_alignment.aln"
+        msa_aligner = ClustalwCommandline(cmd=shutil.which('clustalw'),
+                                          infile=fasta_file,
+                                          output='clustal', outfile=aligned_fasta_file)
+        msa_aligner()
+        alignments = AlignIO.read(aligned_fasta_file, format='clustal')
+        for alignment in alignments:
+            if alignment.id != 'query':
+                template_hit_seq = str(alignment.seq)
+                hit_indices = parsers._get_indices(template_hit_seq, start=0)
+            else:
+                aligned_query_sequence = str(alignment.seq)
+                query_indecies = parsers._get_indices(
+                    aligned_query_sequence, start=0)
 
-    aligned_cols = len(query)
-    sum_probs = None
-    hit_sequence = query 
-    indices_hit, indices_query = list(range(aligned_cols)),list(range(aligned_cols))
-    return TemplateHit(index=index, name=name,aligned_cols = aligned_cols,
-                       sum_probs = sum_probs,query = query, hit_sequence = hit_sequence,
-                       indices_query = indices_query, indices_hit = indices_hit)
+    mapping = _build_query_to_hit_index_mapping(aligned_query_sequence,
+                                                template_hit_seq,
+                                                hit_indices,
+                                                query_indecies, original_query_sequence)
+    return mapping
+
 
 def extract_multimeric_template_features_for_single_chain(
-        query_seq:str,
-        pdb_id:str,
-        chain_id:str,
-        mmcif_file:str,
-        index:int =1,
-
+        query_seq: str,
+        pdb_id: str,
+        chain_id: str,
+        mmcif_file: str,
 ) -> SingleHitResult:
     """
     Args:
@@ -117,27 +144,31 @@ def extract_multimeric_template_features_for_single_chain(
     Returns:
     A SingleHitResult object
     """
-    hit = create_template_hit(index, name=f"{pdb_id}_{chain_id}", query=query_seq)
-    mapping = _build_query_to_hit_index_mapping(hit.query, hit.hit_sequence, hit.indices_hit, hit.indices_query,query_seq)
-    mmcif_parse_result = parse_mmcif_file(pdb_id, mmcif_file,chain_id=chain_id)
+    mmcif_parse_result = parse_mmcif_file(
+        pdb_id, mmcif_file, chain_id=chain_id)
     if (mmcif_parse_result is not None) and (mmcif_parse_result.mmcif_object is not None):
+        mapping = _obtain_mapping(mmcif_parse_result=mmcif_parse_result,
+                                  chain_id=chain_id,
+                                  original_query_sequence=query_seq)
+
         try:
             features, realign_warning = _extract_template_features(
-                mmcif_object = mmcif_parse_result.mmcif_object,
-                pdb_id = pdb_id,
-                mapping = mapping,
-                template_sequence = query_seq,
-                query_sequence = query_seq,
-                template_chain_id = chain_id,
-                kalign_binary_path = obtain_kalign_binary_path()
+                mmcif_object=mmcif_parse_result.mmcif_object,
+                pdb_id=pdb_id,
+                mapping=mapping,
+                template_sequence=query_seq,
+                query_sequence=query_seq,
+                template_chain_id=chain_id,
+                kalign_binary_path=obtain_kalign_binary_path()
             )
             features['template_sum_probs'] = [0]*4
             # add 1 dimension to template_all_atom_positions and replicate 4 times
-            features['template_all_atom_positions'] = np.tile(features['template_all_atom_positions'],(4,1,1,1))
+            features['template_all_atom_positions'] = np.tile(
+                features['template_all_atom_positions'], (4, 1, 1, 1))
             features['template_all_atom_position'] = features['template_all_atom_positions']
-            # replicate all_atom_mask 
-            features['template_all_atom_mask'] = features['template_all_atom_masks'][np.newaxis,:]
-            for k in ['template_sequence','template_domain_names',
+            # replicate all_atom_mask
+            features['template_all_atom_mask'] = features['template_all_atom_masks'][np.newaxis, :]
+            for k in ['template_sequence', 'template_domain_names',
                       'template_aatype']:
                 features[k] = [features[k]]*4
             return SingleHitResult(features=features, error=None, warning=realign_warning)
