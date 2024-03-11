@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-""" A script to create region information for create_multimer_features.py
+""" A script to perform structure prediction.
 
     Copyright (c) 2024 European Molecular Biology Laboratory
 
