@@ -72,7 +72,9 @@ def parse_mmcif_file(file_id:str,mmcif_file:str,chain_id:str) -> ParsingResult:
     
     return parsing_result
 
-def create_template_hit(index:int, name:str,query:str) -> TemplateHit:
+def create_template_hit(index:int, name:str,
+                        query:str,chain_id:str,
+                        parsed_mmcif_object:MmcifChainFiltered) -> TemplateHit:
     """
     Create the new template hits and mapping. Currently only supports the cases
     where the query sequence and the template sequence are identical
@@ -85,6 +87,9 @@ def create_template_hit(index:int, name:str,query:str) -> TemplateHit:
     Returns:
     A TemplateHit object in which hit and query sequences are identical
     """
+    mmcif_object = parsed_mmcif_object.parse_result.mmcif_object
+    parsed_resseq = mmcif_object.chain_to_seqres[chain_id]
+
     aligned_cols = len(query)
     sum_probs = None
     hit_sequence = query 
