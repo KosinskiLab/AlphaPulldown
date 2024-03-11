@@ -20,7 +20,7 @@ import sys
 import os
 import subprocess
 import json
-
+from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
 import alphapulldown
 from alphapulldown import predict_structure
 
