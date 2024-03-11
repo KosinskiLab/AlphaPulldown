@@ -1,5 +1,6 @@
 
-import os, logging, csv,sys
+from absl import logging
+import os, csv,sys
 from pathlib import Path
 from alphafold.data.templates import (
                                       _extract_template_features,
@@ -7,7 +8,7 @@ from alphafold.data.templates import (
 from alphafold.data.templates import SingleHitResult
 from alphafold.data.mmcif_parsing import ParsingResult
 from alphafold.data.parsers import TemplateHit
-from alphapulldown.remove_clashes_low_plddt import MmcifChainFiltered
+from alphapulldown.utils.remove_clashes_low_plddt import MmcifChainFiltered
 from typing import Optional
 import shutil
 import numpy as np
