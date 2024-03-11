@@ -53,7 +53,7 @@ def obtain_kalign_binary_path() -> Optional[str]:
     return shutil.which('kalign')
 
 
-def parse_mmcif_file(file_id:str,mmcif_file:str) -> ParsingResult:
+def parse_mmcif_file(file_id:str,mmcif_file:str,chain_id:str) -> ParsingResult:
     """
     Args:
     file_id: A string identifier for this file. Should be unique within the
@@ -64,7 +64,7 @@ def parse_mmcif_file(file_id:str,mmcif_file:str) -> ParsingResult:
     A ParsingResult object
     """  
     try:
-        mmcif_filtered_obj = MmcifChainFiltered(Path(mmcif_file),file_id)
+        mmcif_filtered_obj = MmcifChainFiltered(Path(mmcif_file),file_id,chain_id = chain_id)
         parsing_result = mmcif_filtered_obj.parsing_result
     except FileNotFoundError as e:
         parsing_result = None
@@ -114,7 +114,7 @@ def extract_multimeric_template_features_for_single_chain(
     """
     hit = create_template_hit(index, name=f"{pdb_id}_{chain_id}", query=query_seq)
     mapping = _build_query_to_hit_index_mapping(hit.query, hit.hit_sequence, hit.indices_hit, hit.indices_query,query_seq)
-    mmcif_parse_result = parse_mmcif_file(pdb_id, mmcif_file)
+    mmcif_parse_result = parse_mmcif_file(pdb_id, mmcif_file,chain_id=chain_id)
     if (mmcif_parse_result is not None) and (mmcif_parse_result.mmcif_object is not None):
         try:
             features, realign_warning = _extract_template_features(
