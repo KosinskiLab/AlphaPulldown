@@ -18,7 +18,7 @@ from typing import List, Dict
 from colabfold.batch import unserialize_msa, get_msa_and_templates, msa_to_str, build_monomer_feature
 from alphapulldown.utils.multimeric_template_utils import (extract_multimeric_template_features_for_single_chain,
                                                      prepare_multimeric_template_meta_info)
-from alphapulldown.utils.file_handlings import temp_fasta_file
+from alphapulldown.utils.file_handling import temp_fasta_file
 
 class MonomericObject:
     """

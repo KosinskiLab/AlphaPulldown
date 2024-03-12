@@ -43,6 +43,7 @@ class AlphaFoldBackend(FoldingBackend):
     A backend to perform structure prediction using AlphaFold.
     """
 
+    @staticmethod
     def setup(
         model_name: str,
         num_cycle: int,
@@ -139,11 +140,12 @@ class AlphaFoldBackend(FoldingBackend):
                     if msa_depth:
                         num_msa = int(msa_depth)
                         # approx. 4x the number of msa, as in the AF2 config file
-                        num_extra_msa = num_msa * 4
+                        num_extra_msa = int(num_msa * 4)
                     elif gradient_msa_depth:
-                        num_msa = msa_ranges[i]
-                        num_extra_msa = extra_msa_ranges[i]
+                        num_msa = int(msa_ranges[i])
+                        num_extra_msa = int(extra_msa_ranges[i])
 
+                    # Conversion to int before because num_msa could be None
                     embeddings_and_evo.update(
                         {"num_msa": num_msa, "num_extra_msa": num_extra_msa}
                     )

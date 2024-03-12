@@ -160,15 +160,15 @@ for flag in unused_flags:
 FLAGS = flags.FLAGS
 
 
-def main():
+def main(argv):
     protein_lists = FLAGS.protein_lists
     if FLAGS.mode == "all_vs_all":
         protein_lists = [FLAGS.protein_lists[0], FLAGS.protein_lists[0]]
     elif FLAGS.mode == "homo-oligomer":
+        protein_lists = [FLAGS.oligomer_state_file]
         warnings.warn(
             "Mode homo-oligomer is deprecated. Please switch to the new custom format.",
             DeprecationWarning,
-            stacklevel=2,
         )
 
     buffer = io.StringIO()
@@ -176,22 +176,24 @@ def main():
     buffer.seek(0)
     all_folds = buffer.readlines()
     all_folds = [x.strip().replace(",", ":") for x in all_folds]
+    all_folds = [x.strip().replace(";", "_") for x in all_folds]
 
     job_indices = list(range(len(all_folds)))
-    if flags.job_index is not None:
-        if flags.job_index >= len(all_folds):
+    if FLAGS.job_index is not None:
+        job_index = FLAGS.job_index - 1
+        if job_index >= len(all_folds):
             raise IndexError(
-                f"Job Index can be no larger than {len(all_folds)}"
+                f"Job index can be no larger than {len(all_folds)} (got {job_index})."
                 )
-        job_indices = [flags.job_index - 1]
+        job_indices = [job_index, ]
 
-    base_command = ["python3", "run_structure_prediction.py"]
+    base_command = ["run_structure_prediction.py"]
 
     fold_backend, model_dir = "alphafold", FLAGS.data_dir
     if FLAGS.use_alphalink:
         fold_backend, model_dir = "alphalink", FLAGS.alphalink_weight
     elif FLAGS.use_unifold:
-        fold_backend.model_dir = "unifold", FLAGS.unifold_param
+        fold_backend, model_dir = "unifold", FLAGS.unifold_param
 
     constant_args = {
         "--input": None,
@@ -202,26 +204,34 @@ def main():
         "--features_directory": FLAGS.monomer_objects_dir,
         "--no_pair_msa": FLAGS.no_pair_msa,
         "--gradient_msa_depth": FLAGS.gradient_msa_depth,
-        "--multimeric_template": FLAGS.multimeric_template,
+        "--multimeric_template": FLAGS.multimeric_mode,
         "--model_names": FLAGS.model_names,
         "--msa_depth": FLAGS.msa_depth,
         "--crosslinks": FLAGS.crosslinks,
         "--fold_backend": fold_backend,
+        "--description_file" : FLAGS.description_file,
+        "--path_to_mmt" : FLAGS.path_to_mmt,
+        "--compress_result_pickles" : FLAGS.compress_result_pickles,
+        "--remove_result_pickles" : FLAGS.remove_result_pickles,
     }
 
-    if FLAGS.description_file is not None:
-        constant_args["--description_file"] = FLAGS.description_file
-
-    if FLAGS.path_to_mmt is not None:
-        constant_args["--path_to_mmt"] = FLAGS.path_to_mmt
-
+    command_args = {}
+    for k, v in constant_args.items():
+        if v is None or v is False:
+            continue
+        elif v is True:
+            command_args[k] = ""
+        elif isinstance(v, list):
+            command_args[k] = ",".join([str(x) for x in v])
+        else:
+            command_args[k] = v
 
     for job_index in job_indices:
-        constant_args["--input"] = all_folds[job_index]
+        command_args["--input"] = all_folds[job_index]
         command = base_command.copy()
 
-        for arg, value in constant_args.items():
-            command.extend([arg, value])
+        for arg, value in command_args.items():
+            command.extend([str(arg), str(value)])
 
         subprocess.run(command, check=True)
 

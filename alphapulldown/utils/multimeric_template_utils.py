@@ -16,7 +16,7 @@ import shutil
 import numpy as np
 from Bio import AlignIO
 from Bio.Align.Applications import ClustalwCommandline
-from alphapulldown.utils.file_handlings import temp_fasta_file
+from alphapulldown.utils.file_handling import temp_fasta_file
 from alphafold.data import parsers
 
 

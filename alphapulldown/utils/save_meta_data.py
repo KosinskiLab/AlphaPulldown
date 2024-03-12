@@ -9,7 +9,7 @@ from alphafold.version import __version__ as AF_VERSION
 import json
 import os
 from absl import logging
-from alphapulldown.utils.file_handlings import ensure_directory_exists
+from alphapulldown.utils.file_handling import ensure_directory_exists
 import subprocess
 import datetime
 import re

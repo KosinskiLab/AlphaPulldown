@@ -240,7 +240,7 @@ def predict_structure(
         An instance of `MultimericObject` representing the multimeric structure(s) for which
         predictions are to be made. These objects should be created using functions like
         `create_multimer_objects()`, `create_custom_jobs()`, or `create_homooligomers()`.
-    output_directory : str
+    output_dir : str
         The directory path where the prediction results will be saved.
     model_flags : Dict
         Dictionary of flags passed to the respective backend's setup function.
@@ -293,7 +293,6 @@ def main():
         "num_cycle": args.num_cycle,
         "model_dir": args.data_directory,
         "num_multimer_predictions_per_model": args.num_predictions_per_model,
-        "multimeric_object": multimer,
         "crosslinks": args.crosslinks,
     }
 
@@ -310,7 +309,7 @@ def main():
 
     predict_structure(
         multimeric_object=multimer,
-        output_directory=args.output_directory,
+        output_dir=args.output_directory,
         model_flags=flags_dict,
         fold_backend=args.fold_backend,
         postprocess_flags=postprocess_flags,
