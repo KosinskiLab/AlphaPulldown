@@ -164,7 +164,6 @@ def parse_args():
     ),
     args = parser.parse_args()
 
-    makedirs(args.output_directory, exist_ok=True)
     formatted_folds, missing_features, unique_features = [], [], []
     protein_folds = [x.split(":") for x in args.input.split(args.protein_delimiter)]
     for protein_fold in protein_folds:
@@ -314,6 +313,7 @@ def main():
     output_dir = args.output_directory
     if args.use_ap_style:
         output_dir = join(args.output_directory,multimer.description)
+    makedirs(args.output_directory, exist_ok=True)
 
     predict_structure(
         multimeric_object=multimer,
