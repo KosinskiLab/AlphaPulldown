@@ -1,4 +1,4 @@
-from alphapulldown.create_custom_template_db import create_db
+from alphapulldown.utils.create_custom_template_db import create_db
 import tempfile
 import os
 from alphafold.data import mmcif_parsing
