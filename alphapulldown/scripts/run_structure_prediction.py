@@ -313,7 +313,7 @@ def main():
     output_dir = args.output_directory
     if args.use_ap_style:
         output_dir = join(args.output_directory,multimer.description)
-    makedirs(args.output_directory, exist_ok=True)
+    makedirs(output_dir, exist_ok=True)
 
     predict_structure(
         multimeric_object=multimer,
