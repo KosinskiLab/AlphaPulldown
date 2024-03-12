@@ -15,7 +15,7 @@ import base64
 import string
 from pathlib import Path
 from absl import logging, flags, app
-from alphapulldown.remove_clashes_low_plddt import MmcifChainFiltered
+from alphapulldown.utils.remove_clashes_low_plddt import MmcifChainFiltered
 from colabfold.batch import validate_and_fix_mmcif
 from alphafold.common.protein import _from_bio_structure, to_mmcif
 
