@@ -15,7 +15,6 @@ import shutil
 import numpy as np
 
 from alphafold.data.tools import kalign
-from alphapulldown.utils.file_handlings import temp_fasta_file
 from alphafold.data import parsers
 
 
