@@ -48,6 +48,9 @@ python alphapulldown/alphapulldown/scripts/run_multimer_jobs_refactor.py \
 The majority of parameters are old familiar fiends except:
 <ul>
   <li>
+    --multimeric_mode: add this to your command line to turn on multimeric modelling. If you do not want multimeric modelling then remove it from the command line.
+  </li>
+  <li>
     --msa_depth: The user can also specify the depth of the MSA that is taken for modelling to increase the influence of the template on the predicted model
     Sometimes AlphaFold failed to follow the template if msa_depth is too high. Thus, in the example command shown above, 4 was used.
   </li>
