@@ -307,7 +307,7 @@ def main():
 
     predict_structure(
         multimeric_object=multimer,
-        output_dir=args.output_directory,
+        output_dir=join(args.output_directory,multimer.description),
         model_flags=flags_dict,
         fold_backend=args.fold_backend,
         postprocess_flags=postprocess_flags,
