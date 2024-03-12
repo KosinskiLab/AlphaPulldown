@@ -13,14 +13,9 @@ from alphapulldown.utils.remove_clashes_low_plddt import MmcifChainFiltered
 from typing import Optional, Dict
 import shutil
 import numpy as np
-<<<<<<< HEAD
-from Bio import AlignIO
-from Bio.Align.Applications import ClustalwCommandline
-from alphapulldown.utils.file_handling import temp_fasta_file
-=======
+
 from alphafold.data.tools import kalign
 from alphapulldown.utils.file_handlings import temp_fasta_file
->>>>>>> substitute clustalw with kalign
 from alphafold.data import parsers
 
 
