@@ -129,6 +129,12 @@ flags.DEFINE_enum_class(
     "in case you are having issues with the relaxation "
     "stage.",
 )
+flags.DEFINE_boolean(
+    "use_ap_style",
+    True,
+    "Whether to use multimeric object's description to create output folder"
+    "Remember to turn it off if you are using snakemake"
+)
 
 unused_flags = (
     "bfd_database_path",
@@ -213,7 +219,7 @@ def main(argv):
         "--path_to_mmt" : FLAGS.path_to_mmt,
         "--compress_result_pickles" : FLAGS.compress_result_pickles,
         "--remove_result_pickles" : FLAGS.remove_result_pickles,
-        "--use-ap-style" : True
+        "--use_ap_style" : FLAGS.use_ap_style
     }
 
     command_args = {}
