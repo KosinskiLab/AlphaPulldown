@@ -157,7 +157,7 @@ def parse_args():
     args = parser.parse_args()
 
     makedirs(args.output_directory, exist_ok=True)
-
+    features_directory = args.features_directory[0].split(",")
     formatted_folds, missing_features, unique_features = [], [], []
     protein_folds = [x.split(":") for x in args.input.split(args.protein_delimiter)]
     for protein_fold in protein_folds:
@@ -173,7 +173,7 @@ def parse_args():
                     region = protein_fold[1].split("-")
             case 3:
                 name, number, region = protein_fold
-
+        
         number = int(number)
         if len(region) != 2 and region != "all":
             raise ValueError(f"Region {region} is malformatted expected start-stop.")
@@ -182,9 +182,7 @@ def parse_args():
             region = [tuple(int(x) for x in region)]
 
         unique_features.append(name)
-        for monomer_dir in args.features_directory:
-            if exists(join(monomer_dir, f"{name}.pkl")):
-                continue
+        if not any([exists(join(monomer_dir, f"{name}.pkl")) for monomer_dir in features_directory]):
             missing_features.append(name)
 
         formatted_folds.extend([{name: region} for _ in range(number)])
@@ -192,11 +190,11 @@ def parse_args():
     missing_features = set(missing_features)
     if len(missing_features):
         raise FileNotFoundError(
-            f"{missing_features} not found in {args.features_directory}"
+            f"{missing_features} not found in {features_directory}"
         )
 
     args.parsed_input = formatted_folds
-
+    args.features_directory = features_directory
     return args
 
 def create_custom_info(all_proteins : List[Dict[str, str]]):
