@@ -9,7 +9,7 @@ import io
 import warnings
 import subprocess
 from absl import app
-
+import os
 from alphapulldown.predict_structure import ModelsToRelax
 from alphapulldown.utils.modelling_setup import get_run_alphafold
 from alphapulldown.utils.create_combinations import process_files
@@ -186,8 +186,8 @@ def main(argv):
                 f"Job index can be no larger than {len(all_folds)} (got {job_index})."
                 )
         job_indices = [job_index, ]
-
-    base_command = ["run_structure_prediction.py"]
+    parent_dir = os.path.dirname(os.path.abspath(__file__))
+    base_command = [f"python3 {parent_dir}/run_structure_prediction.py"]
 
     fold_backend, model_dir = "alphafold", FLAGS.data_dir
     if FLAGS.use_alphalink:
@@ -233,7 +233,7 @@ def main(argv):
         for arg, value in command_args.items():
             command.extend([str(arg), str(value)])
 
-        subprocess.run(command, check=True)
+        subprocess.run(" ".join(command), check=True,shell=True)
 
 
 if __name__ == "__main__":
