@@ -47,7 +47,7 @@ jobs:
           conda activate AlphaPulldown
           conda install -c bioconda hmmer hhsuite
           pip install -e .
-          pip install -e alphapulldown/ColabFold --no-deps
+          pip install -e ColabFold --no-deps
           pip install -e alphafold --no-deps
           python test/test_python_imports.py
 
