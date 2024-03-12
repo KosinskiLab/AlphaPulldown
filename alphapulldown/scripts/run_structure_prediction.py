@@ -181,9 +181,7 @@ def parse_args():
             region = [tuple(int(x) for x in region)]
 
         unique_features.append(name)
-        for monomer_dir in args.features_directory:
-            if exists(join(monomer_dir, f"{name}.pkl")):
-                break
+        if not any([exists(join(monomer_dir, f"{name}.pkl")) for monomer_dir in args.features_directory]):
             missing_features.append(name)
 
         formatted_folds.extend([{name: region} for _ in range(number)])
