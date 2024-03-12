@@ -2,23 +2,26 @@
 # Author: Dingquan Yu
 # A script containing utility functions
 # 
-from alphafold.data.tools import jackhmmer
-from alphapulldown.core.objects import ChoppedObject
+
 import os
+import sys
+import random
 import pickle
 import logging
+import importlib.util
+from pathlib import Path
+
+import numpy as np
 import alphafold
+from alphafold.data import parsers
+from alphafold.data.tools import jackhmmer
 from alphafold.model import config
 from alphafold.model import model
 from alphafold.model import data
 from alphafold.data import templates
-import random
-from alphafold.data import parsers
-from pathlib import Path
-import numpy as np
-import sys
-import importlib.util
-from alphapulldown.utils.file_handling_utils import make_dir_monomer_dictionary
+
+from alphapulldown.objects import ChoppedObject
+from alphapulldown.utils.file_handling import make_dir_monomer_dictionary
 
 def get_run_alphafold():
     """

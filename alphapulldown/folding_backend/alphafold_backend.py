@@ -15,11 +15,9 @@ import numpy as np
 import jax.numpy as jnp
 from alphapulldown.predict_structure import get_existing_model_info
 from alphapulldown.objects import MultimericObject
-from alphapulldown.utils import (
-    create_and_save_pae_plots,
-    post_prediction_process,
-)
-from alphapulldown.analysis_pipeline.calculate_rmsd import calculate_rmsd_and_superpose
+from alphapulldown.utils.plotting import create_and_save_pae_plots
+from alphapulldown.utils.post_modelling import post_prediction_process
+from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
 
 # Avoid module not found error by importing after AP
 import run_alphafold

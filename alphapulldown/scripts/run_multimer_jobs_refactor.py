@@ -9,10 +9,10 @@ import io
 import warnings
 import subprocess
 from absl import app
-from alphapulldown.utils import get_run_alphafold
-from alphapulldown.predict_structure import ModelsToRelax
 
-from create_combinations import process_files
+from alphapulldown.predict_structure import ModelsToRelax
+from alphapulldown.utils.modelling_setup import get_run_alphafold
+from alphapulldown.utils.create_combinations import process_files
 
 run_af = get_run_alphafold()
 flags = run_af.flags

@@ -5,15 +5,15 @@
 
     Author: Valentin Maurer <valentin.maurer@embl-hamburg.de>
 """
-from typing import Dict
+
 import argparse
 from os import makedirs
+from typing import Dict, List
 from os.path import exists, join
 
-from alphapulldown.run_multimer_jobs import create_custom_info
-from alphapulldown.utils import create_interactors
-from alphapulldown.objects import MultimericObject
 from alphapulldown.folding_backend import backend
+from alphapulldown.objects import MultimericObject
+from alphapulldown.utils.modelling_setup import create_interactors
 
 
 def parse_args():
@@ -199,6 +199,29 @@ def parse_args():
 
     return args
 
+def create_custom_info(all_proteins : List[Dict[str, str]]):
+    """
+    Create a dictionary representation of data for a custom input file.
+
+    Parameters
+    ----------
+    all_proteins : List[Dict[str, str]]
+        A list of protein names or sequences to be included in the data.
+
+    Returns
+    -------
+    Dict[str, List[str]]
+        A dictionary where each key is a column name following the
+        pattern 'col_X' where X is the column index starting from 1.
+        Each key maps to a list containing a single protein name or
+        sequence from the input list.
+
+    """
+    num_cols = len(all_proteins)
+    data = dict()
+    for i in range(num_cols):
+        data[f"col_{i + 1}"] = [all_proteins[i]]
+    return data
 
 def predict_structure(
     multimeric_object: MultimericObject,
