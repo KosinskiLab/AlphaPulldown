@@ -1,5 +1,6 @@
 
 from absl import logging
+logging.set_verbosity(logging.INFO)
 import os
 import csv
 import sys
@@ -112,7 +113,7 @@ def _obtain_mapping(mmcif_parse_result: ParsingResult, chain_id: str,
                                                 aligned_template_hit,
                                                 hit_indices,
                                                 query_indecies, original_query_sequence)
-    return mapping
+    return mapping,parsed_resseq
 
 
 def extract_multimeric_template_features_for_single_chain(
@@ -135,7 +136,7 @@ def extract_multimeric_template_features_for_single_chain(
     mmcif_parse_result = parse_mmcif_file(
         pdb_id, mmcif_file, chain_id=chain_id)
     if (mmcif_parse_result is not None) and (mmcif_parse_result.mmcif_object is not None):
-        mapping = _obtain_mapping(mmcif_parse_result=mmcif_parse_result,
+        mapping,template_sequence = _obtain_mapping(mmcif_parse_result=mmcif_parse_result,
                                   chain_id=chain_id,
                                   original_query_sequence=query_seq)
 
@@ -144,11 +145,15 @@ def extract_multimeric_template_features_for_single_chain(
                 mmcif_object=mmcif_parse_result.mmcif_object,
                 pdb_id=pdb_id,
                 mapping=mapping,
-                template_sequence=query_seq,
+                template_sequence=template_sequence,
                 query_sequence=query_seq,
                 template_chain_id=chain_id,
                 kalign_binary_path=obtain_kalign_binary_path()
             )
+        except Exception as e:
+            logging.warning(f"Failed to extract template features")
+            return SingleHitResult(features=None, error=None, warning=None)
+        try:
             features['template_sum_probs'] = [0]*4
             # add 1 dimension to template_all_atom_positions and replicate 4 times
             features['template_all_atom_positions'] = np.tile(
@@ -161,5 +166,4 @@ def extract_multimeric_template_features_for_single_chain(
                 features[k] = [features[k]]*4
             return SingleHitResult(features=features, error=None, warning=realign_warning)
         except Exception as e:
-            print(f"Failed to extract template features")
-            return SingleHitResult(features=None, error=None, warning=None)
+            logging.warning("Failed to construct SingleHitResult")
