@@ -250,7 +250,7 @@ class AlphaFoldBackend(FoldingBackend):
             )
 
             # update prediction_result with input seqs
-            prediction_result.update({"seqs": multimeric_object.seq})
+            prediction_result.update({"seqs": multimeric_object.sequence})
 
             t_diff = time.time() - t_0
             timings[f"predict_and_compile_{model_name}"] = t_diff
