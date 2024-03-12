@@ -3,6 +3,7 @@
 #
 #
 from absl import logging
+logging.set_verbosity(logging.INFO)
 import tempfile
 import os
 import subprocess
@@ -529,6 +530,7 @@ class MultimericObject:
     def create_multimeric_template_features(self):
         """A method of creating multimeric template features"""
         assert self.multimeric_template_meta_data is not None, "You chose to use multimeric template mode but multimric template information is missing. Abort"
+        
         for monomer_name in self.multimeric_template_meta_data:
             for k,v in self.multimeric_template_meta_data[monomer_name].items():
                 curr_monomer = self.monomers_mapping[monomer_name]
