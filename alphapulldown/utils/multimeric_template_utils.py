@@ -9,14 +9,18 @@ from alphafold.data.templates import (
     _build_query_to_hit_index_mapping)
 from alphafold.data.templates import SingleHitResult
 from alphafold.data.mmcif_parsing import ParsingResult
-import tempfile
 from alphapulldown.utils.remove_clashes_low_plddt import MmcifChainFiltered
 from typing import Optional, Dict
 import shutil
 import numpy as np
+<<<<<<< HEAD
 from Bio import AlignIO
 from Bio.Align.Applications import ClustalwCommandline
 from alphapulldown.utils.file_handling import temp_fasta_file
+=======
+from alphafold.data.tools import kalign
+from alphapulldown.utils.file_handlings import temp_fasta_file
+>>>>>>> substitute clustalw with kalign
 from alphafold.data import parsers
 
 
@@ -103,25 +107,15 @@ def _obtain_mapping(mmcif_parse_result: ParsingResult, chain_id: str,
     """
     mmcif_object = mmcif_parse_result.mmcif_object
     parsed_resseq = mmcif_object.chain_to_seqres[chain_id]
-    sequence_str = f">query\n{original_query_sequence}\n>template_hit\n{parsed_resseq}"
-    with temp_fasta_file(sequence_str) as fasta_file, tempfile.TemporaryDirectory() as temp_dir:
-        aligned_fasta_file = f"{temp_dir}/fake_alignment.aln"
-        msa_aligner = ClustalwCommandline(cmd=shutil.which('clustalw'),
-                                          infile=fasta_file,
-                                          output='clustal', outfile=aligned_fasta_file)
-        msa_aligner()
-        alignments = AlignIO.read(aligned_fasta_file, format='clustal')
-        for alignment in alignments:
-            if alignment.id != 'query':
-                template_hit_seq = str(alignment.seq)
-                hit_indices = parsers._get_indices(template_hit_seq, start=0)
-            else:
-                aligned_query_sequence = str(alignment.seq)
-                query_indecies = parsers._get_indices(
+    aligner = kalign.Kalign(binary_path = obtain_kalign_binary_path())
+    parsed_a3m = parsers.parse_a3m(aligner.align([original_query_sequence,parsed_resseq]))
+    aligned_query_sequence, aligned_template_hit = parsed_a3m.sequences
+    hit_indices = parsers._get_indices(aligned_template_hit, start=0)
+    query_indecies = parsers._get_indices(
                     aligned_query_sequence, start=0)
 
     mapping = _build_query_to_hit_index_mapping(aligned_query_sequence,
-                                                template_hit_seq,
+                                                aligned_template_hit,
                                                 hit_indices,
                                                 query_indecies, original_query_sequence)
     return mapping
