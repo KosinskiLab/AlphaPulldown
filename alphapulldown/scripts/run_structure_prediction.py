@@ -154,6 +154,14 @@ def parse_args():
         help="Whether the result pickles that do not belong to the best"
         "model are going to be removed. Default is False.",
     ),
+    parser.add_argument(
+        "--use_ap_style",
+        dest="use_ap_style",
+        action="store_true",
+        required=False,
+        help="Change output directory to include a description of the fold as seen "
+        "in previous alphapulldown versions.",
+    ),
     args = parser.parse_args()
 
     makedirs(args.output_directory, exist_ok=True)
@@ -303,9 +311,13 @@ def main():
         "remove_pickles": args.remove_result_pickles,
     }
 
+    output_dir = args.output_directory
+    if args.use_ap_style:
+        output_dir = join(args.output_directory,multimer.description)
+
     predict_structure(
         multimeric_object=multimer,
-        output_dir=join(args.output_directory,multimer.description),
+        output_dir=output_dir,
         model_flags=flags_dict,
         fold_backend=args.fold_backend,
         postprocess_flags=postprocess_flags,

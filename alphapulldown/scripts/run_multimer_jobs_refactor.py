@@ -213,6 +213,7 @@ def main(argv):
         "--path_to_mmt" : FLAGS.path_to_mmt,
         "--compress_result_pickles" : FLAGS.compress_result_pickles,
         "--remove_result_pickles" : FLAGS.remove_result_pickles,
+        "--use-ap-style" : True
     }
 
     command_args = {}
