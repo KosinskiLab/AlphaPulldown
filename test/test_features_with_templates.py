@@ -1,14 +1,13 @@
+import shutil
+import pickle
+import tempfile
 import subprocess
 from pathlib import Path
-from absl.testing import absltest
-import alphapulldown.create_individual_features as run_features_generation
-import pickle
-import  numpy as np
-from alphapulldown.remove_clashes_low_plddt import extract_seqs
-import tempfile
-import shutil
-import glob
 
+import numpy as np
+from absl.testing import absltest
+
+from alphapulldown.remove_clashes_low_plddt import extract_seqs
 
 class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
 
@@ -87,8 +86,7 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
 
         # Prepare the command and arguments
         cmd = [
-            'python',
-            run_features_generation.__file__,
+            'create_individual_features.py',
             '--use_precomputed_msas', 'True',
             '--save_msa_files', 'True',
             '--skip_existing', 'True',
