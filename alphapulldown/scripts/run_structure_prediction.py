@@ -162,6 +162,13 @@ def parse_args():
         help="Change output directory to include a description of the fold as seen "
         "in previous alphapulldown versions.",
     ),
+    parser.add_argument(
+        "--use_gpu_relax",
+        dest="use_gpu_relax",
+        action="store_true",
+        required=False,
+        help="Whether to run Amber relaxation on GPU. Default is True"
+    )
     args = parser.parse_args()
 
     formatted_folds, missing_features, unique_features = [], [], []
@@ -233,6 +240,7 @@ def predict_structure(
     postprocess_flags: Dict,
     random_seed: int = 42,
     fold_backend: str = "alphafold",
+    use_gpu_relax: bool = True
 ) -> None:
     """
     Predict structural features of multimers using specified models and configurations.
@@ -264,6 +272,7 @@ def predict_structure(
         multimeric_object=multimeric_object,
         output_dir=output_dir,
         random_seed=random_seed,
+        use_gpu_relax=use_gpu_relax
     )
     backend.postprocess(
         **postprocess_flags,
@@ -321,6 +330,7 @@ def main():
         model_flags=flags_dict,
         fold_backend=args.fold_backend,
         postprocess_flags=postprocess_flags,
+        use_gpu_relax=args.use_gpu_relax
     )
 
 

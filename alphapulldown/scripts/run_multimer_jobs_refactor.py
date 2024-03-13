@@ -219,7 +219,8 @@ def main(argv):
         "--path_to_mmt" : FLAGS.path_to_mmt,
         "--compress_result_pickles" : FLAGS.compress_result_pickles,
         "--remove_result_pickles" : FLAGS.remove_result_pickles,
-        "--use_ap_style" : FLAGS.use_ap_style
+        "--use_ap_style" : FLAGS.use_ap_style,
+        "--use_gpu_relax" : FLAGS.use_gpu_relax
     }
 
     command_args = {}
