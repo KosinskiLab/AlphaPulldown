@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 from absl.testing import absltest
 
-from alphapulldown.remove_clashes_low_plddt import extract_seqs
+from alphapulldown.utils.remove_clashes_low_plddt import extract_seqs
 
 class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
 
