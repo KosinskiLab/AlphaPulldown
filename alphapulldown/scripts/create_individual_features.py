@@ -16,16 +16,11 @@ from alphafold.data.pipeline import DataPipeline
 from alphafold.data.tools import hmmsearch, hhsearch
 from colabfold.utils import DEFAULT_API_SERVER
 
-from alphapulldown.create_custom_template_db import create_db
+from alphapulldown.utils.create_custom_template_db import create_db
 from alphapulldown.objects import MonomericObject
-from alphapulldown.utils import (
-    parse_csv_file,
-    create_uniprot_runner,
-    get_run_alphafold,
-    iter_seqs,
-    save_meta_data,
-    output_meta_file,
-)
+from alphapulldown.utils.file_handling import iter_seqs,parse_csv_file
+from alphapulldown.utils.modelling_setup import get_run_alphafold,create_uniprot_runner
+from alphapulldown.utils import save_meta_data
 
 # Initialize and define flags
 run_af = get_run_alphafold()
@@ -233,8 +228,8 @@ def create_and_save_monomer_objects(monomer, pipeline):
     # Save metadata
     metadata_output_path = os.path.join(FLAGS.output_dir,
                                         f"{monomer.description}_feature_metadata_{datetime.date(datetime.now())}.json")
-    with output_meta_file(metadata_output_path) as meta_data_outfile:
-        save_meta_data(flags_dict, meta_data_outfile)
+    with save_meta_data.output_meta_file(metadata_output_path) as meta_data_outfile:
+        save_meta_data.save_meta_data(flags_dict, meta_data_outfile)
 
     # Create features
     if FLAGS.use_mmseqs2:
