@@ -54,10 +54,6 @@ The majority of parameters are old familiar fiends except:
     --msa_depth: The user can also specify the depth of the MSA that is taken for modelling to increase the influence of the template on the predicted model
     Sometimes AlphaFold failed to follow the template if msa_depth is too high. Thus, in the example command shown above, 4 was used.
   </li>
-  <li>
-    --model_names: Please note, that only the first 2 AlphaFold models are guided by the templates. If you only want models that created by these 2 AlphaFold settings then you should add: --model_names=model_1_multimer_v3,model_2_multimer_v3. 
-
-  </li> 
 </ul> 
 
 ## Extra features:
