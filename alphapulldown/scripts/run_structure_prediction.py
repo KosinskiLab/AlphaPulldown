@@ -239,8 +239,7 @@ def predict_structure(
     model_flags: Dict,
     postprocess_flags: Dict,
     random_seed: int = 42,
-    fold_backend: str = "alphafold",
-    use_gpu_relax: bool = True
+    fold_backend: str = "alphafold"
 ) -> None:
     """
     Predict structural features of multimers using specified models and configurations.
@@ -272,7 +271,7 @@ def predict_structure(
         multimeric_object=multimeric_object,
         output_dir=output_dir,
         random_seed=random_seed,
-        use_gpu_relax=use_gpu_relax
+        use_gpu_relax=model_flags["use_gpu_relax"]
     )
     backend.postprocess(
         **postprocess_flags,
@@ -306,6 +305,7 @@ def main():
         "model_dir": args.data_directory,
         "num_multimer_predictions_per_model": args.num_predictions_per_model,
         "crosslinks": args.crosslinks,
+        "use_gpu_relax": args.use_gpu_relax
     }
 
     if isinstance(multimer, MultimericObject):
@@ -329,8 +329,7 @@ def main():
         output_dir=output_dir,
         model_flags=flags_dict,
         fold_backend=args.fold_backend,
-        postprocess_flags=postprocess_flags,
-        use_gpu_relax=args.use_gpu_relax
+        postprocess_flags=postprocess_flags
     )
 
 
