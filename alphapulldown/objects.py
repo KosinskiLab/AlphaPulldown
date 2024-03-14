@@ -1,7 +1,9 @@
-# Author Dingquan Yu
-# scripts to create objects (e.g. monomeric object, multimeric objects)
-#
-#
+""" Create monomeric or multimeric objects with corresponding import features for the modelling backends
+
+    Copyright (c) 2024 European Molecular Biology Laboratory
+
+    Author: Dingquan Yu <dingquan.yu@embl-hamburg.de>
+"""
 from absl import logging
 logging.set_verbosity(logging.INFO)
 import tempfile
