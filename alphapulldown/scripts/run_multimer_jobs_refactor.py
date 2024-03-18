@@ -173,7 +173,7 @@ FLAGS = flags.FLAGS
 
 
 def main(argv):
-    logging.info(f"AlphaPullDown version: {__version__}")
+    logging.info(f"AlphaPulldown version: {__version__}")
     protein_lists = FLAGS.protein_lists
     if FLAGS.mode == "all_vs_all":
         protein_lists = [FLAGS.protein_lists[0], FLAGS.protein_lists[0]]
@@ -251,7 +251,12 @@ def main(argv):
         for arg, value in command_args.items():
             command.extend([str(arg), str(value)])
 
-        subprocess.run(" ".join(command), check=True,shell=True)
+        try:
+            command_line = " ".join(command)
+            subprocess.run(command_line, check=True,shell=True)
+            logging.info("Job finished successfully.")
+        except subprocess.CalledProcessError as e:
+            logging.error(f"{command_line} failed with return code {e.returncode}")
 
 
 if __name__ == "__main__":
