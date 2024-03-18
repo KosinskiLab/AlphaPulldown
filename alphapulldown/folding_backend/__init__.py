@@ -32,8 +32,8 @@ class FoldingBackendManager:
     def __init__(self):
         self._BACKEND_REGISTRY = {
             "alphafold": AlphaFoldBackend,
-            "unifold": AlphaLinkBackend,
-            "alphalink": UnifoldBackend,
+            "unifold": UnifoldBackend,
+            "alphalink": AlphaLinkBackend
         }
         self._backend_name = "alphafold"
         self._backend = self._BACKEND_REGISTRY[self._backend_name]()
