@@ -15,7 +15,7 @@ class UnifoldBackend(FoldingBackend):
     """
     A backend class for running protein structure predictions using the UniFold model.
     """
-
+    @staticmethod
     def setup(
         model_name: str,
         model_dir: str,

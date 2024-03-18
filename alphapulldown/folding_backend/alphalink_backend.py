@@ -16,7 +16,7 @@ class AlphaLinkBackend(FoldingBackend):
     """
     A backend class for running protein structure predictions using the AlphaLink model.
     """
-
+    @staticmethod
     def setup(
         model_dir: str,
         crosslinks_path: str,
