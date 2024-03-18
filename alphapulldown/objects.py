@@ -5,8 +5,7 @@
     Author: Dingquan Yu <dingquan.yu@embl-hamburg.de>
 """
 from absl import logging
-logging.set_verbosity(logging.INFO)
-import tempfile
+
 import os
 import subprocess
 import numpy as np
@@ -18,7 +17,7 @@ from alphafold.data import msa_pairing
 from alphafold.data import feature_processing
 from pathlib import Path as plPath
 from typing import List, Dict
-from colabfold.batch import unserialize_msa, get_msa_and_templates, msa_to_str, build_monomer_feature
+from colabfold.batch import get_msa_and_templates, msa_to_str, build_monomer_feature
 from alphapulldown.utils.multimeric_template_utils import (extract_multimeric_template_features_for_single_chain,
                                                      prepare_multimeric_template_meta_info)
 from alphapulldown.utils.file_handling import temp_fasta_file
@@ -103,7 +102,7 @@ class MonomericObject:
     ) -> None:
         """Get MSA features for unclustered uniprot, for pairing later on."""
 
-        logging.info(
+        logging.debug(
             f"now going to run uniprot runner and save uniprot alignment in {output_dir}"
         )
         result = pipeline.run_msa_tool(
@@ -156,7 +155,8 @@ class MonomericObject:
         if (not save_msa) and (not use_precomputed_msa):
             MonomericObject.remove_msa_files(msa_output_path=msa_output_dir)
         elif (not save_msa) and use_precomputed_msa:
-            logging.warning("You chose not to save MSA files but still want to use precomputed MSA files thus the precomputed MSA files will NOT be removed.")     
+            logging.warning("You chose not to save MSA files but still want to use precomputed MSA files "
+                            "thus the precomputed MSA files will NOT be removed.")
         if compress_msa_files:
             MonomericObject.zip_msa_files(msa_output_dir)
         if using_zipped_msa_files:
@@ -176,7 +176,10 @@ class MonomericObject:
         os.makedirs(output_dir, exist_ok=True)
         using_zipped_msa_files = MonomericObject.unzip_msa_files(
             output_dir)
-        logging.info("You chose to calculate MSA with mmseq2.\nPlease also cite: Mirdita M, Schütze K, Moriwaki Y, Heo L, Ovchinnikov S and Steinegger M. ColabFold: Making protein folding accessible to all. Nature Methods (2022) doi: 10.1038/s41592-022-01488-1")
+        logging.info("You chose to calculate MSA with mmseq2.\n"
+                     "Please also cite: Mirdita M, Schütze K, Moriwaki Y, Heo L, Ovchinnikov S and Steinegger M. "
+                     "ColabFold: Making protein folding accessible to all. Nature Methods (2022) "
+                     "doi: 10.1038/s41592-022-01488-1")
         
         msa_mode = "mmseqs2_uniref_env"
         keep_existing_results = True
@@ -632,6 +635,6 @@ class MultimericObject:
             self.feature_dict['multichain_mask'] = self.multichain_mask
             # save used templates
             for i in self.interactors:
-                logging.info(
+                logging.debug(
                     "Used multimeric templates for protein {}".format(i.description))
                 logging.info(i.feature_dict['template_domain_names'])

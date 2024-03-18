@@ -621,8 +621,7 @@ def _get_model_details(cmplx_name: str, data_json: dict) -> str:
 def _file_exists_or_exit(path, msg):
     """Check if a file exists, otherwise exit."""
     if not os.path.isfile(path):
-        logging.info(msg)
-        sys.exit()
+        logging.fatal(msg)
 
 
 def _cast_param(val):
@@ -773,8 +772,7 @@ def _get_software_with_parameters(sw_dict, other_dict):
                 _assemble_params(key, known_args, swwp)
         else:
             if key not in ignored_args and re.match(re_args, key) is None:
-                logging.info(f"Found unknown key in 'other': {key}")
-                sys.exit()
+                logging.fatal(f"Found unknown key in 'other': {key}")
 
     return swwp
 
@@ -1271,8 +1269,7 @@ def _get_model_list(
         not_selected_models = []
         if model_selected is not None:
             if model_selected not in score_files:
-                logging.info(f"Model of rank {model_selected} not found.")
-                sys.exit()
+                logging.fatal(f"Model of rank {model_selected} not found.")
 
             _add_mdl_to_list(
                 f"ranked_{model_selected}.pdb", models, specific_mdl_path, score_files

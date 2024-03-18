@@ -7,7 +7,7 @@ import os
 import sys
 import random
 import pickle
-import logging
+from absl import logging
 import importlib.util
 from pathlib import Path
 
@@ -22,6 +22,7 @@ from alphafold.data import templates
 
 from alphapulldown.objects import ChoppedObject
 from alphapulldown.utils.file_handling import make_dir_monomer_dictionary
+
 
 def get_run_alphafold():
     """
@@ -185,7 +186,7 @@ def read_custom(line) -> list:
 
 def check_existing_objects(output_dir, pickle_name):
     """check whether the wanted monomer object already exists in the output_dir"""
-    logging.info(f"checking if {os.path.join(output_dir, pickle_name)} already exists")
+    logging.debug(f"checking if {os.path.join(output_dir, pickle_name)} already exists")
     return os.path.isfile(os.path.join(output_dir, pickle_name))
 
 
@@ -226,7 +227,7 @@ def check_output_dir(path):
     A function to automatically the output directory provided by the user
     if the user hasn't already created the directory
     """
-    logging.info(f"checking if output_dir exists {path}")
+    logging.debug(f"checking if output_dir exists {path}")
     if not os.path.isdir(path):
         Path(path).mkdir(parents=True, exist_ok=True)
 

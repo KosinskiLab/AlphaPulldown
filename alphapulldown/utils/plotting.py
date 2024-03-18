@@ -1,11 +1,11 @@
 #
 # the script to plot PAEs after predicting structures
 # #
-import pandas as pd
 import matplotlib
-import os,json
 matplotlib.use("agg")
 import matplotlib.pyplot as plt
+import os
+import json
 import pickle as pkl
 import gzip
 from absl import logging
@@ -23,7 +23,9 @@ def plot_pae(seqs: list, order, feature_dir, job_name):
     matplotlib.use("agg")
     outs = dict()
     for i in order:
-        prediction_result = pkl.load(open(f"{feature_dir}/result_{i}.pkl", "rb")) if os.path.exists(f"{feature_dir}/result_{i}.pkl") else pkl.load(gzip.open(f"{feature_dir}/result_{i}.pkl.gz", "rb"))
+        prediction_result = pkl.load(open(f"{feature_dir}/result_{i}.pkl", "rb")) \
+            if os.path.exists(f"{feature_dir}/result_{i}.pkl") \
+            else pkl.load(gzip.open(f"{feature_dir}/result_{i}.pkl.gz", "rb"))
         outs[i] = prediction_result["predicted_aligned_error"]
         del prediction_result
 
@@ -94,7 +96,7 @@ def create_and_save_pae_plots(multimer_object, output_dir):
     """A function to produce pae plots"""
     ranking_path = os.path.join(output_dir, "ranking_debug.json")
     if not os.path.isfile(ranking_path):
-        logging.info(
+        logging.fatal(
             "Predictions have failed. please check standard error and output and run again."
         )
     else:

@@ -3,6 +3,7 @@ from absl import logging
 import csv
 import contextlib
 import tempfile
+
 @contextlib.contextmanager
 def temp_fasta_file(sequence_str):
     """function that create temp file"""

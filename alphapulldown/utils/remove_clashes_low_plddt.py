@@ -42,7 +42,7 @@ def extract_seqs(template, chain_id):
                 elif format_type.endswith('seqres'):
                     sequence_seqres = str(record.seq)
     if sequence_atom is None:
-        logging.error(f"No atom sequence found for chain {chain_id}")
+        logging.fatal(f"No atom sequence found for chain {chain_id}")
     if sequence_seqres is None:
         logging.warning(f"No SEQRES sequence found for chain {chain_id}")
     return sequence_atom, sequence_seqres
@@ -105,7 +105,7 @@ class MmcifChainFiltered:
             logging.warning(f"No SEQRES was found in {input_file_path}! Parsing from atoms...")
         file_type = input_file_path.suffix.lower()
         if file_type == ".pdb":
-            logging.info(f"Converting to mmCIF: {input_file_path}")
+            logging.debug(f"Converting to mmCIF: {input_file_path}")
             convert_pdb_to_mmcif(input_file_path)
             self.input_file_path = input_file_path.with_suffix(".cif")
         with open(self.input_file_path) as f:
@@ -223,7 +223,7 @@ class MmcifChainFiltered:
                         one_letter = protein_letters_3to1[resi.resname]
                         seq += one_letter
                     except KeyError:
-                        logging.info(f'Skipping residue {resi.resname} with id {resi.id}, chain {chain_id}')
+                        logging.debug(f'Skipping residue {resi.resname} with id {resi.id}, chain {chain_id}')
 
                 for resi in residues_to_remove:
                     chain.detach_child(resi.id)
