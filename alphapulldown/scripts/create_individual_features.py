@@ -250,6 +250,7 @@ def create_and_save_monomer_objects(monomer, pipeline):
     # Save the processed monomer object
     with open(pickle_path, "wb") as pickle_file:
         pickle.dump(monomer, pickle_file)
+    logging.info(f"{monomer.description} features saved to {pickle_path}")
 
     # Optional: Clear monomer from memory if necessary
     del monomer
