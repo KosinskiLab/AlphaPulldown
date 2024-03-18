@@ -26,8 +26,7 @@ flags.DEFINE_enum(
 flags.DEFINE_string(
     "output_path", None, "output directory where the region data is going to be stored"
 )
-flags.DEFINE_string("oligomer_state_file", None,
-                    "path to oligomer state files")
+flags.DEFINE_string("oligomer_state_file", None, "path to oligomer state files")
 flags.DEFINE_list(
     "monomer_objects_dir",
     None,
@@ -83,8 +82,7 @@ flags.DEFINE_string("crosslinks", None, "Path to crosslink information pickle")
 flags.DEFINE_string(
     "alphalink_weight", None, "Path to AlphaLink neural network weights"
 )
-flags.DEFINE_string("unifold_param", None,
-                    "Path to UniFold neural network weights")
+flags.DEFINE_string("unifold_param", None, "Path to UniFold neural network weights")
 flags.DEFINE_boolean(
     "compress_result_pickles",
     False,
@@ -115,8 +113,6 @@ flags.DEFINE_enum(
     ],
     "choose unifold model structure",
 )
-flags.DEFINE_string("protein_delimiter",
-                    "+", "delimiter that separates different modelling tasks. Default is +")
 flags.mark_flag_as_required("output_path")
 
 delattr(flags.FLAGS, "models_to_relax")
@@ -194,12 +190,16 @@ def main(argv):
         if job_index >= len(all_folds):
             raise IndexError(
                 f"Job index can be no larger than {len(all_folds)} (got {job_index})."
-            )
+                )
         job_indices = [job_index, ]
     parent_dir = os.path.dirname(os.path.abspath(__file__))
     base_command = [f"python3 {parent_dir}/run_structure_prediction.py"]
 
     fold_backend, model_dir = "alphafold", FLAGS.data_dir
+    if FLAGS.use_alphalink:
+        fold_backend, model_dir = "alphalink", FLAGS.alphalink_weight
+    elif FLAGS.use_unifold:
+        fold_backend, model_dir = "unifold", FLAGS.unifold_param
 
     constant_args = {
         "--input": None,
@@ -213,24 +213,15 @@ def main(argv):
         "--multimeric_template": FLAGS.multimeric_mode,
         "--model_names": FLAGS.model_names,
         "--msa_depth": FLAGS.msa_depth,
+        "--crosslinks": FLAGS.crosslinks,
         "--fold_backend": fold_backend,
-        "--description_file": FLAGS.description_file,
-        "--path_to_mmt": FLAGS.path_to_mmt,
-        "--compress_result_pickles": FLAGS.compress_result_pickles,
-        "--remove_result_pickles": FLAGS.remove_result_pickles,
-        "--use_ap_style": FLAGS.use_ap_style,
-        "--use_gpu_relax": FLAGS.use_gpu_relax,
-        "--protein_delimiter": FLAGS.protein_delimiter
+        "--description_file" : FLAGS.description_file,
+        "--path_to_mmt" : FLAGS.path_to_mmt,
+        "--compress_result_pickles" : FLAGS.compress_result_pickles,
+        "--remove_result_pickles" : FLAGS.remove_result_pickles,
+        "--use_ap_style" : FLAGS.use_ap_style,
+        "--use_gpu_relax" : FLAGS.use_gpu_relax
     }
-    if FLAGS.use_alphalink:
-        fold_backend, alphalink_weight, crosslinks = "alphalink", FLAGS.alphalink_weight, FLAGS.crosslinks
-        constant_args.update({"--fold_backend": fold_backend,
-                              "--alphalink_weight": alphalink_weight,
-                              "--crosslinks": crosslinks})
-    elif FLAGS.use_unifold:
-        fold_backend, model_dir = "unifold", FLAGS.unifold_param
-        constant_args.update({"--fold_backend": fold_backend,
-                              "--data_directory": model_dir})
 
     command_args = {}
     for k, v in constant_args.items():
@@ -250,7 +241,7 @@ def main(argv):
         for arg, value in command_args.items():
             command.extend([str(arg), str(value)])
 
-        subprocess.run(" ".join(command), check=True, shell=True)
+        subprocess.run(" ".join(command), check=True,shell=True)
 
 
 if __name__ == "__main__":
