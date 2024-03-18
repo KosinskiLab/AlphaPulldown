@@ -103,7 +103,8 @@ def predict(
     fasta_name,
     allow_resume=True,
     seqs=[],
-    use_gpu_relax=True
+    use_gpu_relax=True,
+    skip_templates=False,
 ):
     """
     The actual function that predicts protein structures

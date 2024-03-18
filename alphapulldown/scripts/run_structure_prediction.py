@@ -169,6 +169,13 @@ def parse_args():
         required=False,
         help="Whether to run Amber relaxation on GPU. Default is True"
     )
+    parser.add_argument(
+        "--skip_templates",
+        dest="skip_templates",
+        action="store_false",
+        required=False,
+        help="Whether to skip templates. Default is False"
+    )
     args = parser.parse_args()
 
     formatted_folds, missing_features, unique_features = [], [], []
@@ -271,7 +278,8 @@ def predict_structure(
         multimeric_object=multimeric_object,
         output_dir=output_dir,
         random_seed=random_seed,
-        use_gpu_relax=model_flags["use_gpu_relax"]
+        use_gpu_relax=model_flags["use_gpu_relax"],
+        skip_templates=False
     )
     backend.postprocess(
         **postprocess_flags,
@@ -305,7 +313,8 @@ def main():
         "model_dir": args.data_directory,
         "num_multimer_predictions_per_model": args.num_predictions_per_model,
         "crosslinks": args.crosslinks,
-        "use_gpu_relax": args.use_gpu_relax
+        "use_gpu_relax": args.use_gpu_relax,
+        "skip_templates": args.skip_templates
     }
 
     if isinstance(multimer, MultimericObject):

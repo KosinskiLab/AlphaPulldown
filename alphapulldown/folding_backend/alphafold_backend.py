@@ -166,6 +166,7 @@ class AlphaFoldBackend(FoldingBackend):
         allow_resume: bool = True,
         use_gpu_relax: bool = True,
         multimeric_mode: bool = False,
+        skip_templates: bool = False,
         **kwargs,
     ) -> None:
         """
@@ -189,6 +190,8 @@ class AlphaFoldBackend(FoldingBackend):
             If set to True, utilizes GPU acceleration for the relaxation step, default is True.
         multimeric_mode : bool, optional
             Enables multimeric prediction mode, default is False.
+        skip_templates : bool, optional
+            Do not use templates for prediction, default is False.
         **kwargs : dict
             Additional keyword arguments for prediction.
 
@@ -229,6 +232,17 @@ class AlphaFoldBackend(FoldingBackend):
             processed_feature_dict = model_runner.process_features(
                 multimeric_object.feature_dict, random_seed=model_random_seed
             )
+            if skip_templates:
+                processed_feature_dict["template_all_atom_positions"] = jnp.zeros(
+                    processed_feature_dict["template_all_atom_positions"].shape
+                )
+                processed_feature_dict["template_all_atom_mask"] = jnp.zeros(
+                    processed_feature_dict["template_all_atom_mask"].shape
+                )
+                processed_feature_dict["template_aatype"] = jnp.zeros(
+                    processed_feature_dict["template_aatype"].shape
+                )
+            processed_feature_dict['num_templates'] = 0
             timings[f"process_features_{model_name}"] = time.time() - t_0
             # Die if --multimeric_mode=True but no non-zero templates are in the feature dict
             if multimeric_mode:

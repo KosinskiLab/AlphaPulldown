@@ -142,6 +142,11 @@ flags.DEFINE_boolean(
     False,
     "Report number of jobs that would be run and exit without running them"
 )
+flags.DEFINE_boolean(
+    "skip_templates",
+    False,
+    "Skip templates and predict solely from the MSA"
+)
 unused_flags = (
     "bfd_database_path",
     "db_preset",
@@ -225,12 +230,13 @@ def main(argv):
         "--msa_depth": FLAGS.msa_depth,
         "--crosslinks": FLAGS.crosslinks,
         "--fold_backend": fold_backend,
-        "--description_file" : FLAGS.description_file,
-        "--path_to_mmt" : FLAGS.path_to_mmt,
-        "--compress_result_pickles" : FLAGS.compress_result_pickles,
-        "--remove_result_pickles" : FLAGS.remove_result_pickles,
-        "--use_ap_style" : FLAGS.use_ap_style,
-        "--use_gpu_relax" : FLAGS.use_gpu_relax
+        "--description_file": FLAGS.description_file,
+        "--path_to_mmt": FLAGS.path_to_mmt,
+        "--compress_result_pickles": FLAGS.compress_result_pickles,
+        "--remove_result_pickles": FLAGS.remove_result_pickles,
+        "--use_ap_style": FLAGS.use_ap_style,
+        "--use_gpu_relax": FLAGS.use_gpu_relax,
+        "--skip_templates": FLAGS.skip_templates,
     }
 
     command_args = {}
@@ -253,7 +259,7 @@ def main(argv):
 
         try:
             command_line = " ".join(command)
-            subprocess.run(command_line, check=True,shell=True)
+            subprocess.run(command_line, check=True, shell=True)
             logging.info("Job finished successfully.")
         except subprocess.CalledProcessError as e:
             logging.error(f"{command_line} failed with return code {e.returncode}")
