@@ -73,8 +73,8 @@ def parse_args():
         help="Do not pair the MSAs when constructing multimer objects.",
     ),
     parser.add_argument(
-        "--gradient_msa_depth",
-        dest="gradient_msa_depth",
+        "--msa_depth_scan",
+        dest="msa_depth_scan",
         action="store_true",
         default=None,
         help="Run predictions for each model with logarithmically distributed MSA depth.",
@@ -310,7 +310,7 @@ def main():
 
     if isinstance(multimer, MultimericObject):
         flags_dict["model_name"] = "multimer"
-        flags_dict["gradient_msa_depth"] = (args.gradient_msa_depth,)
+        flags_dict["msa_depth"] = (args.msa_depth_scan,)
         flags_dict["model_names_custom"] = args.model_names
         flags_dict["msa_depth"] = args.msa_depth
 

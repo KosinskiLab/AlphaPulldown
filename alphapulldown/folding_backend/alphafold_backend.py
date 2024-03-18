@@ -49,7 +49,7 @@ class AlphaFoldBackend(FoldingBackend):
         num_cycle: int,
         model_dir: str,
         num_multimer_predictions_per_model: int,
-        gradient_msa_depth=False,
+        msa_depth_scan=False,
         model_names_custom: str = None,
         msa_depth=None,
         **kwargs,
@@ -67,8 +67,8 @@ class AlphaFoldBackend(FoldingBackend):
             The directory containing model parameters.
         num_multimer_predictions_per_model : int
             The number of multimer predictions to perform for each model.
-        gradient_msa_depth : bool, optional
-            Whether to adjust MSA depth based on a gradient, default is False.
+        msa_depth_scan : bool, optional
+            Whether to adjust MSA depth logarithmically, default is False.
         model_names_custom : str, optional
             Comma-separated custom model names to use instead of the default preset,
             default is None.
@@ -114,7 +114,7 @@ class AlphaFoldBackend(FoldingBackend):
             )
             model_runner = model.RunModel(model_config, model_params)
 
-            if gradient_msa_depth or msa_depth:
+            if msa_depth_scan or msa_depth:
                 embeddings_and_evo = model_config["model"]["embeddings_and_evoformer"]
                 num_msa = embeddings_and_evo["num_msa"]
                 num_extra_msa = embeddings_and_evo["num_extra_msa"]
@@ -136,12 +136,12 @@ class AlphaFoldBackend(FoldingBackend):
                 ).astype(int)
 
             for i in range(num_multimer_predictions_per_model):
-                if msa_depth or gradient_msa_depth:
+                if msa_depth or msa_depth_scan:
                     if msa_depth:
                         num_msa = int(msa_depth)
                         # approx. 4x the number of msa, as in the AF2 config file
                         num_extra_msa = int(num_msa * 4)
-                    elif gradient_msa_depth:
+                    elif msa_depth_scan:
                         num_msa = int(msa_ranges[i])
                         num_extra_msa = int(extra_msa_ranges[i])
 

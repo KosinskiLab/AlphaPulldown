@@ -251,7 +251,7 @@ def update_model_config(model_config, num_msa, num_extra_msa):
 def create_model_runners_and_random_seed(
         model_preset, num_cycle, random_seed, data_dir,
         num_multimer_predictions_per_model,
-        gradient_msa_depth=False, model_names_custom=None,
+        msa_depth_scan=False, model_names_custom=None,
         msa_depth=None):
     num_ensemble = 1
     model_runners = {}
@@ -272,17 +272,17 @@ def create_model_runners_and_random_seed(
         model_params = data.get_model_haiku_params(model_name=model_name, data_dir=data_dir)
         model_runner = model.RunModel(model_config, model_params)
 
-        if gradient_msa_depth or msa_depth:
+        if msa_depth_scan or msa_depth:
             num_msa, num_extra_msa = get_default_msa(model_config)
             msa_ranges, extra_msa_ranges = compute_msa_ranges(num_msa, num_extra_msa,
                                                               num_multimer_predictions_per_model)
 
         for i in range(num_multimer_predictions_per_model):
-            if msa_depth or gradient_msa_depth:
+            if msa_depth or msa_depth_scan:
                 if msa_depth:
                     num_msa = int(msa_depth)
                     num_extra_msa = num_msa * 4  # approx. 4x the number of msa, as in the AF2 config file
-                elif gradient_msa_depth:
+                elif msa_depth_scan:
                     num_msa = msa_ranges[i]
                     num_extra_msa = extra_msa_ranges[i]
                 update_model_config(model_config, num_msa, num_extra_msa)
