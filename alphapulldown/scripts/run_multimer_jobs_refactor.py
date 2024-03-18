@@ -8,8 +8,9 @@
 import io
 import warnings
 import subprocess
-from absl import app
+from absl import app, logging
 import os
+import sys
 from alphapulldown.predict_structure import ModelsToRelax
 from alphapulldown.utils.modelling_setup import get_run_alphafold
 from alphapulldown.utils.create_combinations import process_files
@@ -135,7 +136,11 @@ flags.DEFINE_boolean(
     "Whether to use multimeric object's description to create output folder"
     "Remember to turn it off if you are using snakemake"
 )
-
+flags.DEFINE_boolean(
+    "dry_run",
+    False,
+    "Report number of jobs that would be run and exit without running them"
+)
 unused_flags = (
     "bfd_database_path",
     "db_preset",
@@ -184,6 +189,9 @@ def main(argv):
     all_folds = [x.strip().replace(",", ":") for x in all_folds]
     all_folds = [x.strip().replace(";", "_") for x in all_folds]
 
+    if FLAGS.dry_run:
+        logging.info(f"Dry run: the total number of jobs to be run: {len(all_folds)}")
+        sys.exit(0)
     job_indices = list(range(len(all_folds)))
     if FLAGS.job_index is not None:
         job_index = FLAGS.job_index - 1
