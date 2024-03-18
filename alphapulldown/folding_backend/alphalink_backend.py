@@ -16,10 +16,10 @@ class AlphaLinkBackend(FoldingBackend):
     """
     A backend class for running protein structure predictions using the AlphaLink model.
     """
-
+    @staticmethod
     def setup(
-        alphalink_weight: str,
-        crosslinks_path: str,
+        model_dir: str,
+        crosslinks: str,
         model_name: str = "multimer_af2_crop",
         **kwargs,
     ) -> Dict:
@@ -30,9 +30,9 @@ class AlphaLinkBackend(FoldingBackend):
         ----------
         model_name : str
             The name of the model to use for prediction. Set to be multimer_af2_crop as used in AlphaLink2
-        alphalink_weight : str
+        model_dir : str
             Path to the pytorch checkpoint that corresponds to the neural network weights from AlphaLink2.
-        crosslinks_path : str
+        crosslinks : str
             The path to the file containing crosslinking data.
         **kwargs : dict
             Additional keyword arguments for model configuration.
@@ -46,18 +46,18 @@ class AlphaLinkBackend(FoldingBackend):
         """
         from unifold.config import model_config
 
-        if not exists(alphalink_weight):
+        if not exists(model_dir):
             raise FileNotFoundError(
-                f"AlphaLink2 network weight does not exist at: {alphalink_weight}"
+                f"AlphaLink2 network weight does not exist at: {model_dir}"
             )
-        if not alphalink_weight.endswith(".pt"):
-            f"{alphalink_weight} does not seem to be a pytorch checkpoint."
+        if not model_dir.endswith(".pt"):
+            f"{model_dir} does not seem to be a pytorch checkpoint."
 
         configs = model_config(model_name)
 
         return {
-            "crosslinks": crosslinks_path,
-            "param_path": alphalink_weight,
+            "crosslinks": crosslinks,
+            "param_path": model_dir,
             "configs": configs,
         }
 

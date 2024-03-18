@@ -103,6 +103,9 @@ flags.DEFINE_string(
 flags.DEFINE_string(
     "path_to_mmt", None, "Path to directory with multimeric template mmCIF files"
 )
+flags.DEFINE_string(
+    "protein_delimiter", "+", "Delimiter that separate different prediction jobs. Default is +"
+)
 flags.DEFINE_enum(
     "unifold_model_name",
     "multimer_af2",
@@ -230,13 +233,14 @@ def main(argv):
         "--msa_depth": FLAGS.msa_depth,
         "--crosslinks": FLAGS.crosslinks,
         "--fold_backend": fold_backend,
-        "--description_file": FLAGS.description_file,
-        "--path_to_mmt": FLAGS.path_to_mmt,
-        "--compress_result_pickles": FLAGS.compress_result_pickles,
-        "--remove_result_pickles": FLAGS.remove_result_pickles,
-        "--use_ap_style": FLAGS.use_ap_style,
-        "--use_gpu_relax": FLAGS.use_gpu_relax,
         "--skip_templates": FLAGS.skip_templates,
+        "--description_file" : FLAGS.description_file,
+        "--path_to_mmt" : FLAGS.path_to_mmt,
+        "--compress_result_pickles" : FLAGS.compress_result_pickles,
+        "--remove_result_pickles" : FLAGS.remove_result_pickles,
+        "--use_ap_style" : FLAGS.use_ap_style,
+        "--use_gpu_relax" : FLAGS.use_gpu_relax,
+        "--protein_delimiter" : FLAGS.protein_delimiter
     }
 
     command_args = {}

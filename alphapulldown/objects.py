@@ -530,19 +530,26 @@ class MultimericObject:
     
     def create_multimeric_template_features(self):
         """A method of creating multimeric template features"""
-        assert self.multimeric_template_meta_data is not None, "You chose to use multimeric template mode but multimric template information is missing. Abort"
-        
-        for monomer_name in self.multimeric_template_meta_data:
-            for k,v in self.multimeric_template_meta_data[monomer_name].items():
-                curr_monomer = self.monomers_mapping[monomer_name]
-                assert k.endswith(".cif"), "The multimeric template file you provided does not seem to be a mmcif file. Please check your format and make sure it ends with .cif"
-                assert os.path.exists(os.path.join(self.multimeric_template_dir,k)), f"Your provided {k} cannot be found in: {self.multimeric_template_dir}. Abort"
-                pdb_id = k.split('.cif')[0]
-                multimeric_template_features = extract_multimeric_template_features_for_single_chain(query_seq=curr_monomer.sequence,
-                                                                                                      pdb_id=pdb_id,chain_id=v,
-                                                                                                      mmcif_file=os.path.join(self.multimeric_template_dir,k))
-                curr_monomer.feature_dict.update(multimeric_template_features.features)
-        
+        if any( x is None for x in (self.multimeric_template_dir, self.multimeric_template_meta_data)):
+            logging.warning(f"""
+You chose to use multimeric template modelling 
+but did not give path to multimeric_template_dir or the descrption File. 
+This suggests you have already created template features from your desired multimeric models when runnign 
+create_individual_features.py 
+                            """)
+            pass
+        else:
+            for monomer_name in self.multimeric_template_meta_data:
+                for k,v in self.multimeric_template_meta_data[monomer_name].items():
+                    curr_monomer = self.monomers_mapping[monomer_name]
+                    assert k.endswith(".cif"), "The multimeric template file you provided does not seem to be a mmcif file. Please check your format and make sure it ends with .cif"
+                    assert os.path.exists(os.path.join(self.multimeric_template_dir,k)), f"Your provided {k} cannot be found in: {self.multimeric_template_dir}. Abort"
+                    pdb_id = k.split('.cif')[0]
+                    multimeric_template_features = extract_multimeric_template_features_for_single_chain(query_seq=curr_monomer.sequence,
+                                                                                                        pdb_id=pdb_id,chain_id=v,
+                                                                                                        mmcif_file=os.path.join(self.multimeric_template_dir,k))
+                    curr_monomer.feature_dict.update(multimeric_template_features.features)
+            
 
     @staticmethod
     def remove_all_seq_features(np_chain_list: List[Dict]) -> List[Dict]:
