@@ -76,14 +76,14 @@ def parse_args():
         "--gradient_msa_depth",
         dest="gradient_msa_depth",
         action="store_true",
-        default=False,
+        default=None,
         help="Run predictions for each model with logarithmically distributed MSA depth.",
     ),
     parser.add_argument(
         "--multimeric_template",
         dest="multimeric_template",
         action="store_true",
-        default=False,
+        default=None,
         help="Whether to use multimeric templates.",
     ),
     parser.add_argument(
@@ -122,14 +122,6 @@ def parse_args():
         default=None,
         required=False,
         help="Path to crosslink information pickle for AlphaLink.",
-    ),
-    parser.add_argument(
-        "--alphalink_weight",
-        dest = "alphalink_weight",
-        type = str,
-        default = None,
-        required = False,
-        help="Path to the PyTorch checkpoint file for AlphaLink2.",
     ),
     parser.add_argument(
         "--description_file",
@@ -312,8 +304,7 @@ def main():
         "num_cycle": args.num_cycle,
         "model_dir": args.data_directory,
         "num_multimer_predictions_per_model": args.num_predictions_per_model,
-        "crosslinks_path": args.crosslinks,
-        "alphalink_weight": args.alphalink_weight,
+        "crosslinks": args.crosslinks,
         "use_gpu_relax": args.use_gpu_relax
     }
 
@@ -332,6 +323,7 @@ def main():
     if args.use_ap_style:
         output_dir = join(args.output_directory,multimer.description)
     makedirs(output_dir, exist_ok=True)
+
     predict_structure(
         multimeric_object=multimer,
         output_dir=output_dir,
