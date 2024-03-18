@@ -21,6 +21,7 @@ from alphapulldown.objects import MonomericObject
 from alphapulldown.utils.file_handling import iter_seqs,parse_csv_file
 from alphapulldown.utils.modelling_setup import get_run_alphafold,create_uniprot_runner
 from alphapulldown.utils import save_meta_data
+from alphapulldown import __version__
 
 # Initialize and define flags
 run_af = get_run_alphafold()
@@ -349,6 +350,7 @@ def process_multimeric_features(feat, idx):
 
 
 def main(argv):
+    logging.info(f"AlphaPulldown version: {__version__}")
     del argv  # Unused.
     try:
         Path(FLAGS.output_dir).mkdir(parents=True, exist_ok=True)
