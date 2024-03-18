@@ -14,6 +14,7 @@ import sys
 from alphapulldown.predict_structure import ModelsToRelax
 from alphapulldown.utils.modelling_setup import get_run_alphafold
 from alphapulldown.utils.create_combinations import process_files
+from alphapulldown import __version__
 
 run_af = get_run_alphafold()
 flags = run_af.flags
@@ -172,6 +173,7 @@ FLAGS = flags.FLAGS
 
 
 def main(argv):
+    logging.info(f"AlphaPullDown version: {__version__}")
     protein_lists = FLAGS.protein_lists
     if FLAGS.mode == "all_vs_all":
         protein_lists = [FLAGS.protein_lists[0], FLAGS.protein_lists[0]]
