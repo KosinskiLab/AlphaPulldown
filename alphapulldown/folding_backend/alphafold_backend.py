@@ -242,7 +242,7 @@ class AlphaFoldBackend(FoldingBackend):
                 processed_feature_dict["template_aatype"] = jnp.zeros(
                     processed_feature_dict["template_aatype"].shape
                 )
-            processed_feature_dict['num_templates'] = 0
+            processed_feature_dict['num_templates'] = np.asarray(0, dtype=np.int32)
             timings[f"process_features_{model_name}"] = time.time() - t_0
             # Die if --multimeric_mode=True but no non-zero templates are in the feature dict
             if multimeric_mode:

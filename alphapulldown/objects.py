@@ -530,11 +530,11 @@ class MultimericObject:
     
     def create_multimeric_template_features(self):
         """A method of creating multimeric template features"""
-        if any( x is None for x in (self.multimeric_template_dir, self.multimeric_template_meta_data)):
+        if self.multimeric_template_dir is None or not hasattr(self,"multimeric_template_meta_data"):
             logging.warning(f"""
 You chose to use multimeric template modelling 
-but did not give path to multimeric_template_dir or the descrption File. 
-This suggests you have already created template features from your desired multimeric models when runnign 
+but did not give path to multimeric_template_dir or the description file. 
+This suggests you have already created template features from your desired multimeric models when running 
 create_individual_features.py 
                             """)
             pass
