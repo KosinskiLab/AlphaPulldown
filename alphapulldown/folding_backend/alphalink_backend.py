@@ -19,7 +19,7 @@ class AlphaLinkBackend(FoldingBackend):
     @staticmethod
     def setup(
         model_dir: str,
-        crosslinks_path: str,
+        crosslinks: str,
         model_name: str = "multimer_af2_crop",
         **kwargs,
     ) -> Dict:
@@ -32,7 +32,7 @@ class AlphaLinkBackend(FoldingBackend):
             The name of the model to use for prediction. Set to be multimer_af2_crop as used in AlphaLink2
         model_dir : str
             Path to the pytorch checkpoint that corresponds to the neural network weights from AlphaLink2.
-        crosslinks_path : str
+        crosslinks : str
             The path to the file containing crosslinking data.
         **kwargs : dict
             Additional keyword arguments for model configuration.
@@ -56,7 +56,7 @@ class AlphaLinkBackend(FoldingBackend):
         configs = model_config(model_name)
 
         return {
-            "crosslinks": crosslinks_path,
+            "crosslinks": crosslinks,
             "param_path": model_dir,
             "configs": configs,
         }
