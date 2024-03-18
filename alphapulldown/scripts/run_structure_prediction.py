@@ -104,7 +104,7 @@ def parse_args():
         "--protein_delimiter",
         dest="protein_delimiter",
         type=str,
-        default="_",
+        default="+",
         help="Delimiter for proteins of a single fold.",
     ),
     parser.add_argument(
