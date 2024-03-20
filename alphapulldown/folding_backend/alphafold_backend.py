@@ -208,19 +208,18 @@ class AlphaFoldBackend(FoldingBackend):
                 else:
                     model_runners[f"{model_name}_pred_{i}"] = model_runner
 
-        return {"model_runner": model_runners,
+        return {"model_runners": model_runners,
                 "allow_resume": allow_resume,
-                "use_gpu_relax": use_gpu_relax,
                 "skip_templates": skip_templates}
 
     @staticmethod
     def predict(
-        model_runner: Dict,
+        model_runners: Dict,
+        allow_resume: bool,
+        skip_templates: bool,
         multimeric_object: MultimericObject,
         output_dir: Dict,
         random_seed: int = 42,
-        allow_resume: bool = True,
-        skip_templates: bool = False,
         **kwargs,
     ) -> None:
         """
@@ -228,7 +227,7 @@ class AlphaFoldBackend(FoldingBackend):
 
         Parameters
         ----------
-        model_runner : Dict
+        model_runners : Dict
             Configured model runners with model names as keys.
         multimeric_object : MultimericObject
             An object containing features of the multimeric proteins.
@@ -259,15 +258,15 @@ class AlphaFoldBackend(FoldingBackend):
         multimeric_mode = multimeric_object.multimeric_mode
 
         if allow_resume:
-            for model_index, (model_name, model_runner) in enumerate(model_runner.items()):
+            for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
                 unrelaxed_pdb_path = join(output_dir, f"unrelaxed_{model_name}.pdb")
                 if exists(unrelaxed_pdb_path):
                     START = model_index + 1
                 else:
                     break
 
-        num_models = len(model_runner)
-        for model_index, (model_name, model_runner) in enumerate(model_runner.items()):
+        num_models = len(model_runners.keys())
+        for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
             if model_index < START:
                 continue
             t_0 = time.time()
