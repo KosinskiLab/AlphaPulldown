@@ -287,6 +287,8 @@ class AlphaFoldBackend(FoldingBackend):
                     if not np.any(
                         processed_feature_dict["template_all_atom_positions"]
                     ):
+                        if skip_templates:
+                            raise ValueError("You cannot skip templates in multimeric mode.")
                         raise ValueError(
                             "No valid templates found: all positions are zero."
                         )
