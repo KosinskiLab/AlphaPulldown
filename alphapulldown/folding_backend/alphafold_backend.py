@@ -19,6 +19,8 @@ from alphapulldown.utils.plotting import plot_pae_from_matrix
 from alphapulldown.utils.post_modelling import post_prediction_process
 from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
 
+from colabfold.batch import mk_mock_template
+
 # Avoid module not found error by importing after AP
 from run_alphafold import ModelsToRelax
 from alphafold.relax import relax
@@ -273,16 +275,11 @@ class AlphaFoldBackend(FoldingBackend):
                 multimeric_object.feature_dict, random_seed=model_random_seed
             )
             if skip_templates:
-                processed_feature_dict["template_all_atom_positions"] = jnp.zeros(
-                    processed_feature_dict["template_all_atom_positions"].shape
+                template_features = mk_mock_template(
+                    processed_feature_dict["seq_length"],
                 )
-                processed_feature_dict["template_all_atom_mask"] = jnp.zeros(
-                    processed_feature_dict["template_all_atom_mask"].shape
-                )
-                processed_feature_dict["template_aatype"] = jnp.zeros(
-                    processed_feature_dict["template_aatype"].shape
-                )
-            processed_feature_dict['num_templates'] = np.asarray(0, dtype=np.int32)
+                for key, value in template_features.items():
+                    processed_feature_dict[key] = value
             timings[f"process_features_{model_name}"] = time.time() - t_0
             # Die if --multimeric_mode=True but no non-zero templates are in the feature dict
             if multimeric_mode:
