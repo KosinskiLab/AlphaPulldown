@@ -20,7 +20,6 @@ from alphapulldown.utils.post_modelling import post_prediction_process
 from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
 
 # Avoid module not found error by importing after AP
-import run_alphafold
 from run_alphafold import ModelsToRelax
 from alphafold.relax import relax
 from alphafold.common import protein, residue_constants, confidence
@@ -383,12 +382,12 @@ class AlphaFoldBackend(FoldingBackend):
         multimeric_mode = multimeric_object.multimeric_mode
         ranking_path = join(output_dir, "ranking_debug.json")
 
-        # Save plddt and PAE json files.
+        # Save plddt json files.
         for model_name, prediction_result in prediction_results.items():
             plddt = prediction_result['plddt']
             _save_confidence_json_file(plddt, output_dir, model_name)
             ranking_confidences[model_name] = prediction_result['ranking_confidence']
-            # Save PAE if predicting multimer.
+            # Save and plot PAE if predicting multimer.
             if (
                     'predicted_aligned_error' in prediction_result
                     and 'max_predicted_aligned_error' in prediction_result
@@ -396,6 +395,7 @@ class AlphaFoldBackend(FoldingBackend):
                 pae = prediction_result['predicted_aligned_error']
                 max_pae = prediction_result['max_predicted_aligned_error']
                 _save_pae_json_file(pae, float(max_pae), output_dir, model_name)
+                plot_pae_from_matrix(pae_matrix=pae, max_pae=max_pae, output_dir=output_dir, model_name=model_name)
 
         # Rank by model confidence.
         ranked_order = [
