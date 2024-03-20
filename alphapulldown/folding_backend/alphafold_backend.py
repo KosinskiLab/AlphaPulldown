@@ -9,13 +9,13 @@ import json
 import pickle
 import tempfile
 from typing import Dict
+import os
 from os.path import join, exists
 
 import numpy as np
 import jax.numpy as jnp
-from alphapulldown.predict_structure import get_existing_model_info
 from alphapulldown.objects import MultimericObject
-from alphapulldown.utils.plotting import create_and_save_pae_plots
+from alphapulldown.utils.plotting import plot_pae_from_matrix
 from alphapulldown.utils.post_modelling import post_prediction_process
 from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
 
@@ -23,10 +23,16 @@ from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
 import run_alphafold
 from run_alphafold import ModelsToRelax
 from alphafold.relax import relax
-from alphafold.common import protein, residue_constants
+from alphafold.common import protein, residue_constants, confidence
 
 from .folding_backend import FoldingBackend
 
+MAX_TEMPLATE_HITS = 20
+RELAX_MAX_ITERATIONS = 0
+RELAX_ENERGY_TOLERANCE = 2.39
+RELAX_STIFFNESS = 10.0
+RELAX_EXCLUDE_RESIDUES = []
+RELAX_MAX_OUTER_ITERATIONS = 3
 
 def _jnp_to_np(output):
     """Recursively changes jax arrays to numpy arrays."""
@@ -36,6 +42,50 @@ def _jnp_to_np(output):
         elif isinstance(v, jnp.ndarray):
             output[k] = np.array(v)
     return output
+
+
+def _save_pae_json_file(
+    pae: np.ndarray, max_pae: float, output_dir: str, model_name: str
+) -> None:
+  """Check prediction result for PAE data and save to a JSON file if present.
+
+  Args:
+    pae: The n_res x n_res PAE array.
+    max_pae: The maximum possible PAE value.
+    output_dir: Directory to which files are saved.
+    model_name: Name of a model.
+  """
+  pae_json = confidence.pae_json(pae, max_pae)
+
+  # Save the PAE json.
+  pae_json_output_path = os.path.join(output_dir, f'pae_{model_name}.json')
+  with open(pae_json_output_path, 'w') as f:
+    f.write(pae_json)
+
+
+def _save_confidence_json_file(
+    plddt: np.ndarray, output_dir: str, model_name: str
+) -> None:
+  confidence_json = confidence.confidence_json(plddt)
+
+  # Save the confidence json.
+  confidence_json_output_path = os.path.join(
+      output_dir, f'confidence_{model_name}.json'
+  )
+  with open(confidence_json_output_path, 'w') as f:
+    f.write(confidence_json)
+
+
+def _read_from_json_if_exists(
+    json_path: str
+) -> Dict:
+    """Reads a JSON file or creates it with default data if it does not exist."""
+    if exists(json_path):
+        with open(json_path, "r") as f:
+            data = json.load(f)
+    else:
+        data = {}
+    return data
 
 
 class AlphaFoldBackend(FoldingBackend):
@@ -161,11 +211,8 @@ class AlphaFoldBackend(FoldingBackend):
         model_runner: Dict,
         multimeric_object: MultimericObject,
         output_dir: Dict,
-        models_to_relax: object = ModelsToRelax,
         random_seed: int = 42,
         allow_resume: bool = True,
-        use_gpu_relax: bool = True,
-        multimeric_mode: bool = False,
         skip_templates: bool = False,
         **kwargs,
     ) -> None:
@@ -188,12 +235,15 @@ class AlphaFoldBackend(FoldingBackend):
             If set to True, resumes prediction from partially completed runs, default is True.
         use_gpu_relax : bool, optional
             If set to True, utilizes GPU acceleration for the relaxation step, default is True.
-        multimeric_mode : bool, optional
-            Enables multimeric prediction mode, default is False.
         skip_templates : bool, optional
             Do not use templates for prediction, default is False.
         **kwargs : dict
             Additional keyword arguments for prediction.
+
+        Returns
+        -------
+        Dict
+            A dictionary mapping model names with corresponding prediction results.
 
         Raises
         ------
@@ -201,26 +251,17 @@ class AlphaFoldBackend(FoldingBackend):
             If multimeric mode is enabled but no valid templates are found.
         """
         timings = {}
-        unrelaxed_pdbs = {}
-        relaxed_pdbs = {}
-        relax_metrics = {}
-        ranking_confidences = {}
-        unrelaxed_proteins = {}
-        prediction_result = {}
+        prediction_results = {}
         START = 0
-
-        ranking_output_path = join(output_dir, "ranking_debug.json")
+        multimeric_mode = multimeric_object.multimeric_mode
 
         if allow_resume:
-            (
-                ranking_confidences,
-                unrelaxed_proteins,
-                unrelaxed_pdbs,
-                START,
-            ) = get_existing_model_info(output_dir, model_runner)
-
-            if exists(ranking_output_path) and len(unrelaxed_pdbs) == len(model_runner):
-                START = len(model_runner)
+            for model_index, (model_name, model_runner) in enumerate(model_runner.items()):
+                unrelaxed_pdb_path = join(output_dir, f"unrelaxed_{model_name}.pdb")
+                if exists(unrelaxed_pdb_path):
+                    START = model_index + 1
+                else:
+                    break
 
         num_models = len(model_runner)
         for model_index, (model_name, model_runner) in enumerate(model_runner.items()):
@@ -257,97 +298,162 @@ class AlphaFoldBackend(FoldingBackend):
                     raise ValueError(
                         "No template_all_atom_positions key found in processed_feature_dict."
                     )
-
             t_0 = time.time()
             prediction_result = model_runner.predict(
                 processed_feature_dict, random_seed=model_random_seed
             )
-
-            # update prediction_result with input seqs
-            prediction_result.update({"seqs": multimeric_object.input_seqs})
-
             t_diff = time.time() - t_0
             timings[f"predict_and_compile_{model_name}"] = t_diff
-
-            plddt = prediction_result["plddt"]
-            ranking_confidences[model_name] = prediction_result["ranking_confidence"]
-
-            # Remove jax dependency from results.
-            np_prediction_result = _jnp_to_np(dict(prediction_result))
-
-            result_output_path = join(output_dir, f"result_{model_name}.pkl")
-            with open(result_output_path, "wb") as f:
-                pickle.dump(np_prediction_result, f, protocol=4)
-
+            # update prediction_result with input seqs
+            prediction_result.update({"seqs": multimeric_object.input_seqs})
             plddt_b_factors = np.repeat(
-                plddt[:, None], residue_constants.atom_type_num, axis=-1
+                prediction_result['plddt'][:, None], residue_constants.atom_type_num, axis=-1
             )
-
             unrelaxed_protein = protein.from_prediction(
                 features=processed_feature_dict,
                 result=prediction_result,
                 b_factors=plddt_b_factors,
                 remove_leading_feature_dimension=not model_runner.multimer_mode,
             )
-
-            unrelaxed_proteins[model_name] = unrelaxed_protein
-            unrelaxed_pdbs[model_name] = protein.to_pdb(unrelaxed_protein)
+            # Remove jax dependency from results.
+            np_prediction_result = _jnp_to_np(dict(prediction_result))
+            # Save prediction results to pickle file
+            result_output_path = join(output_dir, f"result_{model_name}.pkl")
+            with open(result_output_path, "wb") as f:
+                pickle.dump(np_prediction_result, f, protocol=4)
+            prediction_result.update({"unrelaxed_protein": unrelaxed_protein})
+            prediction_results.update({model_name: prediction_result})
+            # Save predictions to pdb files
             unrelaxed_pdb_path = join(output_dir, f"unrelaxed_{model_name}.pdb")
             with open(unrelaxed_pdb_path, "w") as f:
-                f.write(unrelaxed_pdbs[model_name])
+                f.write(protein.to_pdb(unrelaxed_protein))
+            # Save timings to json file
+            timings_output_path = join(output_dir, "timings.json")
+            with open(timings_output_path, "w") as f:
+                f.write(json.dumps(timings, indent=4))
+
+        return prediction_results
+
+    @staticmethod
+    def postprocess(
+        multimeric_object: MultimericObject,
+        prediction_results: Dict,
+        output_dir: str,
+        zip_pickles: bool = False,
+        remove_pickles: bool = False,
+        models_to_relax: object = ModelsToRelax,
+        use_gpu_relax: bool = True,
+        **kwargs: Dict,
+    ) -> None:
+        """
+        Performs post-processing operations on predicted protein structures and
+        writes results and plots to output_dir.
+
+        Parameters
+        ----------
+        multimeric_object : MultimericObject
+            The multimeric object containing the predicted structures and
+            associated data.
+        prediction_results: Dict
+            A dictionary mapping model names with corresponding prediction results.
+        output_dir : str
+            The directory where post-processed files and plots will be saved.
+        zip_pickles : bool, optional
+            If True, zips the pickle files containing prediction results.
+            Default is False.
+        remove_pickles : bool, optional
+            If True, removes the pickle files after post-processing is complete.
+            Default is False.
+        models_to_relax : object, optional
+            Specifies which models' predictions to relax, defaults to ModelsToRelax enum.
+        use_gpu_relax : bool, optional
+            If set to True, utilizes GPU acceleration for the relaxation step, default is True.
+        **kwargs : dict
+            Additional keyword arguments for future extensions or custom
+            post-processing steps.
+        """
+        relaxed_pdbs = {}
+        unrelaxed_pdbs = {}
+        ranking_confidences = {}
+        # Read timings.json if exists
+        timings_path = os.path.join(output_dir, 'timings.json')
+        timings = _read_from_json_if_exists(timings_path)
+        relax_metrics_path = os.path.join(output_dir, 'relax_metrics.json')
+        relax_metrics = _read_from_json_if_exists(relax_metrics_path)
+        multimeric_mode = multimeric_object.multimeric_mode
+        ranking_path = join(output_dir, "ranking_debug.json")
+
+        # Save plddt and PAE json files.
+        for model_name, prediction_result in prediction_results.items():
+            plddt = prediction_result['plddt']
+            _save_confidence_json_file(plddt, output_dir, model_name)
+            ranking_confidences[model_name] = prediction_result['ranking_confidence']
+            # Save PAE if predicting multimer.
+            if (
+                    'predicted_aligned_error' in prediction_result
+                    and 'max_predicted_aligned_error' in prediction_result
+            ):
+                pae = prediction_result['predicted_aligned_error']
+                max_pae = prediction_result['max_predicted_aligned_error']
+                _save_pae_json_file(pae, float(max_pae), output_dir, model_name)
 
         # Rank by model confidence.
         ranked_order = [
-            model_name
-            for model_name, confidence in sorted(
-                ranking_confidences.items(), key=lambda x: x[1], reverse=True
-            )
-        ]
+            model_name for model_name, confidence in
+            sorted(ranking_confidences.items(), key=lambda x: x[1], reverse=True)]
 
-        # Relax predictions.
+        # Save ranking_debug.json
+        with open(ranking_path, 'w') as f:
+            label = 'iptm+ptm' if 'iptm' in prediction_result else 'plddts'
+            f.write(json.dumps(
+                {label: ranking_confidences, 'order': ranked_order}, indent=4))
+
+        # Relax.
         amber_relaxer = relax.AmberRelaxation(
-            max_iterations=run_alphafold.RELAX_MAX_ITERATIONS,
-            tolerance=run_alphafold.RELAX_ENERGY_TOLERANCE,
-            stiffness=run_alphafold.RELAX_STIFFNESS,
-            exclude_residues=run_alphafold.RELAX_EXCLUDE_RESIDUES,
-            max_outer_iterations=run_alphafold.RELAX_MAX_OUTER_ITERATIONS,
-            use_gpu=use_gpu_relax,
-        )
+            max_iterations=RELAX_MAX_ITERATIONS,
+            tolerance=RELAX_ENERGY_TOLERANCE,
+            stiffness=RELAX_STIFFNESS,
+            exclude_residues=RELAX_EXCLUDE_RESIDUES,
+            max_outer_iterations=RELAX_MAX_OUTER_ITERATIONS,
+            use_gpu=use_gpu_relax)
 
-        to_relax = []
         if models_to_relax == ModelsToRelax.BEST:
             to_relax = [ranked_order[0]]
         elif models_to_relax == ModelsToRelax.ALL:
             to_relax = ranked_order
+        elif models_to_relax == ModelsToRelax.NONE:
+            to_relax = []
 
         for model_name in to_relax:
+            if f'relax_{model_name}' in timings:
+                continue
             t_0 = time.time()
+            unrelaxed_protein = prediction_results[model_name]['unrelaxed_protein']
             relaxed_pdb_str, _, violations = amber_relaxer.process(
-                prot=unrelaxed_proteins[model_name]
-            )
+                prot=unrelaxed_protein)
             relax_metrics[model_name] = {
-                "remaining_violations": violations,
-                "remaining_violations_count": sum(violations),
+                'remaining_violations': violations,
+                'remaining_violations_count': sum(violations)
             }
-            timings[f"relax_{model_name}"] = time.time() - t_0
+            timings[f'relax_{model_name}'] = time.time() - t_0
 
+        with open(timings_path, 'w') as f:
+            f.write(json.dumps(timings, indent=4))
+        if models_to_relax != ModelsToRelax.NONE:
+            relax_metrics_path = os.path.join(output_dir, 'relax_metrics.json')
+            with open(relax_metrics_path, 'w') as f:
+                f.write(json.dumps(relax_metrics, indent=4))
             relaxed_pdbs[model_name] = relaxed_pdb_str
+            unrelaxed_pdbs[model_name] = protein.to_pdb(unrelaxed_protein)
 
             # Save the relaxed PDB.
-            relaxed_output_path = join(output_dir, f"relaxed_{model_name}.pdb")
-            with open(relaxed_output_path, "w") as f:
+            relaxed_output_path = os.path.join(
+                output_dir, f'relaxed_{model_name}.pdb')
+            with open(relaxed_output_path, 'w') as f:
                 f.write(relaxed_pdb_str)
 
-        # Write out relaxed PDBs in rank order.
-        for idx, model_name in enumerate(ranked_order):
-            ranked_output_path = join(output_dir, f"ranked_{idx}.pdb")
-            with open(ranked_output_path, "w") as f:
-                model = relaxed_pdbs.get(model_name, None)
-                if model is None:
-                    model = unrelaxed_pdbs[model_name]
-                f.write(model)
-
-            if multimeric_mode:
+        # Extract multimeric template if multimeric mode is enabled.
+        if multimeric_mode:
                 feature_dict = multimeric_object.feature_dict
                 template_mask = feature_dict["template_all_atom_mask"][0]
                 template_protein = protein.Protein(
@@ -360,8 +466,18 @@ class AlphaFoldBackend(FoldingBackend):
                 )
                 pdb_string = protein.to_pdb(template_protein)
 
+        # Write out PDBs in rank order.
+        for idx, model_name in enumerate(ranked_order):
+            if model_name in relaxed_pdbs:
+                protein_instance = relaxed_pdbs[model_name]
+            else:
+                protein_instance = unrelaxed_pdbs[model_name]
+            ranked_output_path = os.path.join(output_dir, f'ranked_{idx}.pdb')
+            with open(ranked_output_path, 'w') as f:
+                f.write(protein_instance)
+            # Check RMSD between the predicted model and the multimeric template
+            if multimeric_mode:
                 with tempfile.TemporaryDirectory() as temp_dir:
-                    # TODO: do not generate a new template each time
                     template_file_path = f"{temp_dir}/template.pdb"
                     with open(template_file_path, "w") as file:
                         file.write(pdb_string)
@@ -370,55 +486,6 @@ class AlphaFoldBackend(FoldingBackend):
                         template_file_path, ranked_output_path, temp_dir
                     )
 
-            # already exists if restored
-            if not exists(ranking_output_path):
-                with open(ranking_output_path, "w") as f:
-                    label = "iptm+ptm" if "iptm" in prediction_result else "plddts"
-                    f.write(
-                        json.dumps(
-                            {label: ranking_confidences, "order": ranked_order},
-                            indent=4,
-                        )
-                    )
-
-        timings_output_path = join(output_dir, "timings.json")
-        with open(timings_output_path, "w") as f:
-            f.write(json.dumps(timings, indent=4))
-        if models_to_relax != ModelsToRelax.NONE:
-            relax_metrics_path = join(output_dir, "relax_metrics.json")
-            with open(relax_metrics_path, "w") as f:
-                f.write(json.dumps(relax_metrics, indent=4))
-
-    @staticmethod
-    def postprocess(
-        multimeric_object: MultimericObject,
-        output_dir: str,
-        zip_pickles: bool = False,
-        remove_pickles: bool = False,
-        **kwargs: Dict,
-    ) -> None:
-        """
-        Performs post-processing operations on predicted protein structures and
-        writes results and plots to output_dir.
-
-        Parameters
-        ----------
-        multimeric_object : MultimericObject
-            The multimeric object containing the predicted structures and
-            associated data.
-        output_dir : str
-            The directory where post-processed files and plots will be saved.
-        zip_pickles : bool, optional
-            If True, zips the pickle files containing prediction results.
-            Default is False.
-        remove_pickles : bool, optional
-            If True, removes the pickle files after post-processing is complete.
-            Default is False.
-        **kwargs : dict
-            Additional keyword arguments for future extensions or custom
-            post-processing steps.
-        """
-        create_and_save_pae_plots(multimeric_object, output_dir)
         post_prediction_process(
             output_dir,
             zip_pickles=zip_pickles,
