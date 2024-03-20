@@ -103,6 +103,9 @@ class AlphaFoldBackend(FoldingBackend):
         msa_depth_scan=False,
         model_names_custom: str = None,
         msa_depth=None,
+        allow_resume: bool = True,
+        use_gpu_relax: bool = True,
+        skip_templates: bool = False,
         **kwargs,
     ) -> Dict:
         """
@@ -205,15 +208,20 @@ class AlphaFoldBackend(FoldingBackend):
                 else:
                     model_runners[f"{model_name}_pred_{i}"] = model_runner
 
-        return {"model_runner": model_runners}
+        return {"model_runner": model_runners,
+                "allow_resume": allow_resume,
+                "use_gpu_relax": use_gpu_relax,
+                "skip_templates": skip_templates}
 
     @staticmethod
     def predict(
         model_runner: Dict,
         multimeric_object: MultimericObject,
         output_dir: Dict,
+        models_to_relax: ModelsToRelax,
         random_seed: int = 42,
         allow_resume: bool = True,
+        use_gpu_relax: bool = True,
         skip_templates: bool = False,
         **kwargs,
     ) -> None:
@@ -334,13 +342,10 @@ class AlphaFoldBackend(FoldingBackend):
 
     @staticmethod
     def postprocess(
-        multimeric_object: MultimericObject,
         prediction_results: Dict,
+        multimeric_object: MultimericObject,
         output_dir: str,
-        zip_pickles: bool = False,
-        remove_pickles: bool = False,
-        models_to_relax: object = ModelsToRelax,
-        use_gpu_relax: bool = True,
+        models_to_relax: ModelsToRelax,
         **kwargs: Dict,
     ) -> None:
         """
@@ -370,6 +375,10 @@ class AlphaFoldBackend(FoldingBackend):
             Additional keyword arguments for future extensions or custom
             post-processing steps.
         """
+        zip_pickles = kwargs.get('zip_pickles', False)
+        remove_pickles = kwargs.get('remove_pickles', False)
+        use_gpu_relax = kwargs.get('use_gpu_relax', True)
+
         relaxed_pdbs = {}
         unrelaxed_pdbs = {}
         ranking_confidences = {}
