@@ -218,10 +218,8 @@ class AlphaFoldBackend(FoldingBackend):
         model_runner: Dict,
         multimeric_object: MultimericObject,
         output_dir: Dict,
-        models_to_relax: ModelsToRelax,
         random_seed: int = 42,
         allow_resume: bool = True,
-        use_gpu_relax: bool = True,
         skip_templates: bool = False,
         **kwargs,
     ) -> None:
@@ -236,14 +234,10 @@ class AlphaFoldBackend(FoldingBackend):
             An object containing features of the multimeric proteins.
         output_dir : str
             The directory to save prediction results and PDB files.
-        models_to_relax : object, optional
-            Specifies which models' predictions to relax, defaults to ModelsToRelax enum.
         random_seed : int, optional
             A seed for random number generation to ensure reproducibility, default is 42.
         allow_resume : bool, optional
             If set to True, resumes prediction from partially completed runs, default is True.
-        use_gpu_relax : bool, optional
-            If set to True, utilizes GPU acceleration for the relaxation step, default is True.
         skip_templates : bool, optional
             Do not use templates for prediction, default is False.
         **kwargs : dict
