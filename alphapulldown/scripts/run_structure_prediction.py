@@ -172,7 +172,7 @@ def parse_args():
     parser.add_argument(
         "--skip_templates",
         dest="skip_templates",
-        action="store_false",
+        action="store_true",
         required=False,
         help="Whether to skip templates. Default is False"
     )

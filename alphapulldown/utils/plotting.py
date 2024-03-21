@@ -9,6 +9,7 @@ import json
 import pickle as pkl
 import gzip
 from absl import logging
+import numpy as np
 
 def plot_pae(seqs: list, order, feature_dir, job_name):
     """
@@ -61,36 +62,44 @@ def plot_pae(seqs: list, order, feature_dir, job_name):
         plt.savefig(f"{feature_dir}/{job_name}_PAE_plot_ranked_{i}.png")
         plt.close()
 
-def plot_pae_from_matrix(seqs,pae_matrix,figure_name=''):
-    xticks = []
-    initial_tick = 0
-    for s in seqs:
-        initial_tick = initial_tick + len(s)
-        xticks.append(initial_tick)
 
-    xticks_labels = []
-    for i, t in enumerate(xticks):
-        xticks_labels.append(str(i + 1))
+def plot_pae_from_matrix(seqs, pae_matrix, figure_name=''):
+    """
+    Plots the Predicted Aligned Error (PAE) matrix for a given set of sequences.
 
-    yticks_labels = []
-    for s in seqs:
-        yticks_labels.append(str(len(s)))
-    fig, ax1 = plt.subplots(1, 1)
-    # plt.figure(figsize=(3,18))
-    check = pae_matrix
-    fig, ax1 = plt.subplots(1, 1)
-    pos = ax1.imshow(check, cmap="bwr", vmin=0, vmax=30)
-    ax1.set_xticks(xticks)
-    ax1.set_yticks(xticks)
+    Parameters:
+    - seqs: List of sequences for the subunits.
+    - pae_matrix: PAE matrix to be plotted.
+    - figure_name: The name of the file to save the figure to.
+    """
+    tick_positions = [len(s) for s in seqs]
+    cum_tick_positions = np.cumsum(tick_positions)[:-1]
+    # Generate tick labels for sequences
+    tick_labels = tick_positions[:-1]
 
-    ax1.set_xticklabels(xticks_labels, size="large")
-    ax1.set_yticklabels(yticks_labels,size="large")
-    fig.colorbar(pos).ax.set_title("unit: Angstrom")
-    for t in xticks:
-        ax1.axhline(t, color="black", linewidth=3.5)
-        ax1.axvline(t, color="black", linewidth=3.5)
-    plt.title("ranked_{}".format(i))
-    plt.savefig(figure_name)
+    # Create plot
+    fig, ax1 = plt.subplots()
+    pos = ax1.imshow(pae_matrix, cmap="Greens_r", vmin=0, vmax=30)
+    fig.colorbar(pos, fraction=0.046, pad=0.04).ax.set_title("unit: Angstrom")
+
+    # Set ticks and labels
+    ax1.set_xticks(cum_tick_positions)
+    ax1.set_yticks(cum_tick_positions)
+    ax1.set_xticklabels(tick_labels, size="large")
+    ax1.set_yticklabels(tick_labels, size="large")
+    plt.xlabel(f"{sum(tick_positions)}", loc='right', fontsize='large')
+
+    # Draw lines at chain boundaries if there are multiple chains
+    if len(seqs) > 1:
+        for pos in cum_tick_positions:
+            ax1.axhline(pos, color='red', linewidth=1.5, linestyle='--')
+            ax1.axvline(pos, color='red', linewidth=1.5, linestyle='--')
+
+    # Set title and save the figure
+    #plt.title("PAE Plot")
+    plt.savefig(figure_name if figure_name else 'PAE_plot.png')
+    plt.close()
+
 
 def create_and_save_pae_plots(multimer_object, output_dir):
     """A function to produce pae plots"""
