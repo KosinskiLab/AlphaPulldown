@@ -19,7 +19,6 @@ from alphapulldown.utils.plotting import plot_pae_from_matrix
 from alphapulldown.utils.post_modelling import post_prediction_process
 from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
 
-from colabfold.batch import mk_mock_template
 
 # Avoid module not found error by importing after AP
 from run_alphafold import ModelsToRelax
@@ -87,6 +86,28 @@ def _read_from_json_if_exists(
     else:
         data = {}
     return data
+
+
+def _reset_template_features(feature_dict: Dict) -> None:
+    """
+    Resets specific features within a dictionary to their default state.
+    - 'template_aatype' and 'template_all_atom_positions' are reset to zeros.
+    - 'template_all_atom_masks' is reset to ones.
+    - 'num_templates' is also reset to a default value (assumed ones for this example).
+
+    Parameters:
+    feature_dict (Dict[str, np.ndarray]): The feature dictionary to be modified.
+    """
+    seq_length = feature_dict["seq_length"]
+    for key, value in feature_dict.items():
+        if key == "template_aatype":
+            feature_dict[key] = np.zeros((1, seq_length), dtype='int64')
+        elif key == "template_all_atom_positions":
+            feature_dict[key] = np.zeros((1, seq_length, 37, 3), dtype='float32')
+        elif key == "template_all_atom_mask":
+            feature_dict[key] = np.ones((1, seq_length, 37), dtype='float32')
+        elif key == "num_templates":
+            feature_dict[key] = np.ones_like(value)
 
 
 class AlphaFoldBackend(FoldingBackend):
@@ -292,13 +313,9 @@ class AlphaFoldBackend(FoldingBackend):
                 prediction_results.update({model_name: prediction_result})
                 continue
             t_0 = time.time()
-
+            #TODO: re-predict models if previous predictions were done with templates
             if skip_templates:
-                template_features = mk_mock_template(
-                    processed_feature_dict["seq_length"],
-                )
-                for key, value in template_features.items():
-                    processed_feature_dict[key] = value
+                _reset_template_features(processed_feature_dict)
             timings[f"process_features_{model_name}"] = time.time() - t_0
             # Die if --multimeric_mode=True but no non-zero templates are in the feature dict
             if multimeric_mode:
