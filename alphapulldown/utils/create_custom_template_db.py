@@ -12,6 +12,7 @@ Can be used as a standalone script.
 import os
 import hashlib
 import base64
+import string
 from pathlib import Path
 from absl import logging, flags, app
 from alphapulldown.utils.remove_clashes_low_plddt import MmcifChainFiltered
@@ -42,7 +43,7 @@ def save_seqres(code, chain, s, path, duplicate):
 
     with open(fn, 'a') as f:
         for entry in seqres_entries:
-            logging.debug(f'Saving SEQRES for chain {chain} to {fn} with code {entry.split()[0][1:]}!')
+            logging.info(f'Saving SEQRES for chain {chain} to {fn} with code {entry.split()[0][1:]}!')
             logging.debug(entry)
             f.write(entry)
 
@@ -78,8 +79,8 @@ def create_dir_and_remove_files(dir_path, files_to_remove=[]):
     try:
         Path(dir_path).mkdir(parents=True)
     except FileExistsError:
-        logging.warning(f"{dir_path} already exists!")
-        logging.warning("The existing database will be overwritten!")
+        logging.info(f"{dir_path} already exists!")
+        logging.info("The existing database will be overwritten!")
         for f in files_to_remove:
             target_file = dir_path / Path(f)
             if target_file.exists():
@@ -131,14 +132,14 @@ def _prepare_template(template, code, chain_id, mmcif_dir, seqres_dir, templates
     duplicate = number_of_templates == 1
     new_template = templates_dir / Path(code + Path(template).suffix)
     copy_file_exclude_lines('HETATM', template, new_template)
-    logging.debug(f"Processing template: {new_template}  Chain {chain_id}")
+    logging.info(f"Processing template: {new_template}  Chain {chain_id}")
 
     # Convert to (our) mmcif object
     mmcif_obj = MmcifChainFiltered(new_template, code, chain_id)
     # Determine the full sequence
     seqres = mmcif_obj.sequence_seqres if mmcif_obj.sequence_seqres else mmcif_obj.sequence_atom
     sqrres_path = save_seqres(code, chain_id, seqres, seqres_dir, duplicate)
-    logging.debug(f"SEQRES saved to {sqrres_path}!")
+    logging.info(f"SEQRES saved to {sqrres_path}!")
 
     # Remove clashes and low pLDDT regions for each template
     mmcif_obj.remove_clashes(threshold_clashes, hb_allowance)
@@ -156,7 +157,7 @@ def _prepare_template(template, code, chain_id, mmcif_dir, seqres_dir, templates
         with open(fn, 'w') as f:
             f.write(mmcif_string)
         validate_and_fix_mmcif(fn)
-        logging.debug(f'{new_template} processed with code {temp_code}!')
+        logging.info(f'{new_template} processed with code {temp_code}!')
 
 
 def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, plddt_threshold):
@@ -185,7 +186,7 @@ def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, pldd
     for template, chain_id in zip(templates, chains):
         template=Path(template)
         code = parse_code(template)
-        logging.debug(f"Template code: {code}")
+        logging.info(f"Template code: {code}")
         assert len(code) == 4
         _prepare_template(
             template, code, chain_id, mmcif_dir, seqres_dir, templates_dir,

@@ -8,13 +8,11 @@
 import io
 import warnings
 import subprocess
-from absl import app, logging
+from absl import app
 import os
-import sys
 from alphapulldown.predict_structure import ModelsToRelax
 from alphapulldown.utils.modelling_setup import get_run_alphafold
 from alphapulldown.utils.create_combinations import process_files
-from alphapulldown import __version__
 
 run_af = get_run_alphafold()
 flags = run_af.flags
@@ -55,7 +53,7 @@ flags.DEFINE_boolean(
     "Run with multimeric template ",
 )
 flags.DEFINE_boolean(
-    "msa_depth_scan",
+    "gradient_msa_depth",
     False,
     "Run predictions for each model with logarithmically distributed MSA depth",
 )
@@ -140,16 +138,7 @@ flags.DEFINE_boolean(
     "Whether to use multimeric object's description to create output folder"
     "Remember to turn it off if you are using snakemake"
 )
-flags.DEFINE_boolean(
-    "dry_run",
-    False,
-    "Report number of jobs that would be run and exit without running them"
-)
-flags.DEFINE_boolean(
-    "skip_templates",
-    False,
-    "Skip templates and predict solely from the MSA"
-)
+
 unused_flags = (
     "bfd_database_path",
     "db_preset",
@@ -181,7 +170,6 @@ FLAGS = flags.FLAGS
 
 
 def main(argv):
-    logging.info(f"AlphaPulldown version: {__version__}")
     protein_lists = FLAGS.protein_lists
     if FLAGS.mode == "all_vs_all":
         protein_lists = [FLAGS.protein_lists[0], FLAGS.protein_lists[0]]
@@ -199,9 +187,6 @@ def main(argv):
     all_folds = [x.strip().replace(",", ":") for x in all_folds]
     all_folds = [x.strip().replace(";", "_") for x in all_folds]
 
-    if FLAGS.dry_run:
-        logging.info(f"Dry run: the total number of jobs to be run: {len(all_folds)}")
-        sys.exit(0)
     job_indices = list(range(len(all_folds)))
     if FLAGS.job_index is not None:
         job_index = FLAGS.job_index - 1
@@ -227,13 +212,12 @@ def main(argv):
         "--data_directory": model_dir,
         "--features_directory": FLAGS.monomer_objects_dir,
         "--no_pair_msa": FLAGS.no_pair_msa,
-        "--msa_depth_scan": FLAGS.msa_depth_scan,
+        "--gradient_msa_depth": FLAGS.gradient_msa_depth,
         "--multimeric_template": FLAGS.multimeric_mode,
         "--model_names": FLAGS.model_names,
         "--msa_depth": FLAGS.msa_depth,
         "--crosslinks": FLAGS.crosslinks,
         "--fold_backend": fold_backend,
-        "--skip_templates": FLAGS.skip_templates,
         "--description_file" : FLAGS.description_file,
         "--path_to_mmt" : FLAGS.path_to_mmt,
         "--compress_result_pickles" : FLAGS.compress_result_pickles,
@@ -261,12 +245,7 @@ def main(argv):
         for arg, value in command_args.items():
             command.extend([str(arg), str(value)])
 
-        try:
-            command_line = " ".join(command)
-            subprocess.run(command_line, check=True, shell=True)
-            logging.info("Job finished successfully.")
-        except subprocess.CalledProcessError as e:
-            logging.error(f"{command_line} failed with return code {e.returncode}")
+        subprocess.run(" ".join(command), check=True,shell=True)
 
 
 if __name__ == "__main__":

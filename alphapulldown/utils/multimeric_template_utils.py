@@ -1,7 +1,9 @@
 
 from absl import logging
+logging.set_verbosity(logging.INFO)
 import os
 import csv
+import sys
 from pathlib import Path
 from alphafold.data.templates import (
     _extract_template_features,
@@ -48,7 +50,9 @@ def prepare_multimeric_template_meta_info(csv_path: str, mmt_dir: str) -> dict:
                         template: chain
                     }
             else:
-                logging.fatal(f"Invalid line found in the file {csv_path}: {row}")
+                logging.error(
+                    f"Invalid line found in the file {csv_path}: {row}")
+                sys.exit()
 
     return parsed_dict
 
@@ -75,7 +79,7 @@ def parse_mmcif_file(file_id: str, mmcif_file: str, chain_id: str) -> ParsingRes
         parsing_result = mmcif_filtered_obj.parsing_result
     except FileNotFoundError as e:
         parsing_result = None
-        logging.error(f"{mmcif_file} could not be found")
+        print(f"{mmcif_file} could not be found")
 
     return parsing_result
 
@@ -162,4 +166,4 @@ def extract_multimeric_template_features_for_single_chain(
                 features[k] = [features[k]]*4
             return SingleHitResult(features=features, error=None, warning=realign_warning)
         except Exception as e:
-            logging.error(f"Failed to construct SingleHitResult: {e}")
+            logging.warning("Failed to construct SingleHitResult")
