@@ -5,8 +5,7 @@
     Author: Dingquan Yu <dingquan.yu@embl-hamburg.de>
 """
 from absl import logging
-logging.set_verbosity(logging.INFO)
-import tempfile
+
 import os
 import subprocess
 import numpy as np
@@ -18,7 +17,7 @@ from alphafold.data import msa_pairing
 from alphafold.data import feature_processing
 from pathlib import Path as plPath
 from typing import List, Dict
-from colabfold.batch import unserialize_msa, get_msa_and_templates, msa_to_str, build_monomer_feature
+from colabfold.batch import get_msa_and_templates, msa_to_str, build_monomer_feature
 from alphapulldown.utils.multimeric_template_utils import (extract_multimeric_template_features_for_single_chain,
                                                      prepare_multimeric_template_meta_info)
 from alphapulldown.utils.file_handling import temp_fasta_file
@@ -534,8 +533,8 @@ class MultimericObject:
         if self.multimeric_template_dir is None or not hasattr(self,"multimeric_template_meta_data"):
             logging.warning(f"""
 You chose to use multimeric template modelling 
-but did not give path to multimeric_template_dir or the descrption File. 
-This suggests you have already created template features from your desired multimeric models when runnign 
+but did not give path to multimeric_template_dir or the description file. 
+This suggests you have already created template features from your desired multimeric models when running 
 create_individual_features.py 
                             """)
             pass

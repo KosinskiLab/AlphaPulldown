@@ -21,6 +21,7 @@ from alphapulldown.objects import MonomericObject
 from alphapulldown.utils.file_handling import iter_seqs,parse_csv_file
 from alphapulldown.utils.modelling_setup import get_run_alphafold,create_uniprot_runner
 from alphapulldown.utils import save_meta_data
+from alphapulldown import __version__
 
 # Initialize and define flags
 run_af = get_run_alphafold()
@@ -249,6 +250,7 @@ def create_and_save_monomer_objects(monomer, pipeline):
     # Save the processed monomer object
     with open(pickle_path, "wb") as pickle_file:
         pickle.dump(monomer, pickle_file)
+    logging.info(f"{monomer.description} features saved to {pickle_path}")
 
     # Optional: Clear monomer from memory if necessary
     del monomer
@@ -260,17 +262,14 @@ def check_template_date_and_uniprot():
     Exits the script if max_template_date is not provided or if the Uniprot database file is not found.
     """
     if not FLAGS.max_template_date:
-        logging.info(
-            "You have not provided a max_template_date. Please specify a date and run again.")
-        sys.exit()
+        logging.fatal("You have not provided a max_template_date. Please specify a date and run again.")
     uniprot_database_path = os.path.join(
         FLAGS.data_dir, "uniprot/uniprot.fasta")
     flags_dict.update({"uniprot_database_path": uniprot_database_path})
     if not os.path.isfile(uniprot_database_path):
-        logging.info(
+        logging.fatal(
             f"Failed to find uniprot.fasta under {uniprot_database_path}."
             f" Please make sure your data_dir has been configured correctly.")
-        sys.exit()
 
 
 def process_sequences_individual_mode():
@@ -301,7 +300,7 @@ def process_sequences_multimeric_mode():
     fasta_paths = FLAGS.fasta_paths
     feats = parse_csv_file(FLAGS.description_file,
                            fasta_paths, FLAGS.path_to_mmt)
-    logging.info(f"seq_index: {FLAGS.seq_index}, feats: {feats}")
+    logging.debug(f"seq_index: {FLAGS.seq_index}, feats: {feats}")
 
     for idx, feat in enumerate(feats, 1):
         if FLAGS.seq_index is None or (FLAGS.seq_index == idx):
@@ -319,14 +318,12 @@ def process_multimeric_features(feat, idx):
     """
     for temp_path in feat["templates"]:
         if not os.path.isfile(temp_path):
-            logging.error(f"Template file {temp_path} does not exist.")
-            raise FileNotFoundError(
-                f"Template file {temp_path} does not exist.")
+            logging.fatal(f"Template file {temp_path} does not exist.")
 
     protein = feat["protein"]
     chains = feat["chains"]
     template_paths = feat["templates"]
-    logging.info(
+    logging.debug(
         f"Processing {protein}: templates: {templates}, chains: {chains}")
 
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -349,6 +346,7 @@ def process_multimeric_features(feat, idx):
 
 
 def main(argv):
+    logging.info(f"AlphaPulldown version: {__version__}")
     del argv  # Unused.
     try:
         Path(FLAGS.output_dir).mkdir(parents=True, exist_ok=True)

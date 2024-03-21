@@ -2,20 +2,19 @@
 # Author: Dingquan Yu
 # A script containing utility functions
 # 
-import contextlib
 
-from alphapulldown import __version__ as AP_VERSION
-from alphafold.version import __version__ as AF_VERSION
 import json
 import os
 from absl import logging
-from alphapulldown.utils.file_handling import ensure_directory_exists
 import subprocess
 import datetime
 import re
 import hashlib
 import glob
 import contextlib
+from alphapulldown import __version__ as AP_VERSION
+from alphafold.version import __version__ as AF_VERSION
+from alphapulldown.utils.file_handling import ensure_directory_exists
 
 
 COMMON_PATTERNS = [
@@ -157,7 +156,7 @@ def get_last_modified_date(path):
         if os.path.isfile(path):
             return datetime.datetime.fromtimestamp(os.path.getmtime(path)).strftime('%Y-%m-%d %H:%M:%S')
 
-        logging.info(f"Getting last modified date for {path}")
+        logging.debug(f"Getting last modified date for {path}")
         most_recent_timestamp = max((entry.stat().st_mtime for entry in glob.glob(path + '*') if entry.is_file()),
                                     default=0.0)
 
