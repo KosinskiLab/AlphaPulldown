@@ -14,7 +14,7 @@ from os.path import exists, join
 from alphapulldown.folding_backend import backend
 from alphapulldown.objects import MultimericObject
 from alphapulldown.utils.modelling_setup import create_interactors
-from alphapulldown.predict_structure import ModelsToRelax
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Run protein folding.")
@@ -73,8 +73,8 @@ def parse_args():
         help="Do not pair the MSAs when constructing multimer objects.",
     ),
     parser.add_argument(
-        "--msa_depth_scan",
-        dest="msa_depth_scan",
+        "--gradient_msa_depth",
+        dest="gradient_msa_depth",
         action="store_true",
         default=None,
         help="Run predictions for each model with logarithmically distributed MSA depth.",
@@ -169,20 +169,6 @@ def parse_args():
         required=False,
         help="Whether to run Amber relaxation on GPU. Default is True"
     )
-    parser.add_argument(
-        "--skip_templates",
-        dest="skip_templates",
-        action="store_true",
-        required=False,
-        help="Whether to skip templates. Default is False"
-    )
-    parser.add_argument(
-        "--models_to_relax",
-        dest="models_to_relax",
-        default=ModelsToRelax.NONE,
-        required=False,
-        help="What models to relax. Default is None"
-    )
     args = parser.parse_args()
 
     formatted_folds, missing_features, unique_features = [], [], []
@@ -267,8 +253,8 @@ def predict_structure(
     output_dir : str
         The directory path where the prediction results will be saved.
     model_flags : Dict
-        Dictionary of flags passed to the respective backend's predict function.
-    postprocess_flags : Dict
+        Dictionary of flags passed to the respective backend's setup function.
+    model_flags : Dict
         Dictionary of flags passed to the respective backend's postprocess function.
     random_seed : int, optional
         The random seed for initializing the prediction process to ensure reproducibility.
@@ -278,18 +264,18 @@ def predict_structure(
     """
     backend.change_backend(backend_name=fold_backend)
 
-    setup_dict = backend.setup(**model_flags, multimeric_object=multimeric_object)
+    model_runners = backend.setup(**model_flags, multimeric_object=multimeric_object)
 
-    prediction_results = backend.predict(
-        **setup_dict,
+    backend.predict(
+        **model_runners,
         multimeric_object=multimeric_object,
         output_dir=output_dir,
         random_seed=random_seed,
+        use_gpu_relax=model_flags["use_gpu_relax"]
     )
     backend.postprocess(
         **postprocess_flags,
         multimeric_object=multimeric_object,
-        prediction_results=prediction_results,
         output_dir=output_dir,
     )
 
@@ -313,27 +299,24 @@ def main():
         multimer.input_seqs = [multimer.sequence]
 
     # TODO: Add backend specific flags here
-    predict_flags = {
+    flags_dict = {
         "model_name": "monomer_ptm",
         "num_cycle": args.num_cycle,
         "model_dir": args.data_directory,
         "num_multimer_predictions_per_model": args.num_predictions_per_model,
         "crosslinks": args.crosslinks,
-        "skip_templates": args.skip_templates
+        "use_gpu_relax": args.use_gpu_relax
     }
 
     if isinstance(multimer, MultimericObject):
-        predict_flags["model_name"] = "multimer"
-        predict_flags["msa_depth"] = (args.msa_depth_scan,)
-        predict_flags["model_names_custom"] = args.model_names
-        predict_flags["msa_depth"] = args.msa_depth
-
+        flags_dict["model_name"] = "multimer"
+        flags_dict["gradient_msa_depth"] = (args.gradient_msa_depth,)
+        flags_dict["model_names_custom"] = args.model_names
+        flags_dict["msa_depth"] = args.msa_depth
 
     postprocess_flags = {
         "zip_pickles": args.compress_result_pickles,
         "remove_pickles": args.remove_result_pickles,
-        "use_gpu_relax" : args.use_gpu_relax,
-        "models_to_relax": args.models_to_relax
     }
 
     output_dir = args.output_directory
@@ -344,7 +327,7 @@ def main():
     predict_structure(
         multimeric_object=multimer,
         output_dir=output_dir,
-        model_flags=predict_flags,
+        model_flags=flags_dict,
         fold_backend=args.fold_backend,
         postprocess_flags=postprocess_flags
     )

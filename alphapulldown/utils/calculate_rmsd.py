@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from absl import logging
+import logging
 from Bio.PDB import PDBParser, Superimposer, PDBIO
 from Bio.Align import PairwiseAligner
 from Bio.PDB.Polypeptide import three_to_one
@@ -11,6 +11,11 @@ flags.DEFINE_string('reference_pdb', None, 'Path to the reference PDB file')
 flags.DEFINE_string('target_pdb', None, 'Path to the target PDB file')
 
 FLAGS = flags.FLAGS
+
+
+def setup_logging():
+    """Set up the logging format and level."""
+    logging.basicConfig(format='%(asctime)s - %(levelname)s: %(message)s', level=logging.INFO)
 
 
 def extract_ca_sequence(structure):
@@ -24,6 +29,7 @@ def extract_ca_sequence(structure):
                 sequence += '-'
     return sequence
 
+
 def align_sequences(seq1, seq2):
     """Aligns two sequences and returns the best alignment."""
     aligner = PairwiseAligner()
@@ -35,6 +41,7 @@ def align_sequences(seq1, seq2):
     alignment = aligner.align(seq1, seq2)[0]
     return alignment
 
+
 def get_common_atoms(ref_res, target_res):
     """Returns atoms common to both reference and target residues."""
     common_atoms = []
@@ -42,6 +49,7 @@ def get_common_atoms(ref_res, target_res):
         if atom.get_id() in target_res:
             common_atoms.append((atom, target_res[atom.get_id()]))
     return common_atoms
+
 
 def process_chain(chain_id, ref_structure, target_structure, alignment):
     """Processes a single chain and extracts atoms for superposition."""
@@ -59,6 +67,7 @@ def process_chain(chain_id, ref_structure, target_structure, alignment):
             target_atoms.append(target_atom)
 
     return ref_atoms, target_atoms
+
 
 def calculate_rmsd_and_superpose(reference_pdb, target_pdb, temp_dir=None):
     """Calculates RMSD and superposes the target structure onto the reference."""
@@ -106,9 +115,11 @@ def calculate_rmsd_and_superpose(reference_pdb, target_pdb, temp_dir=None):
 
 def main(argv):
     del argv  # Unused
+    setup_logging()
 
     if not FLAGS.reference_pdb or not FLAGS.target_pdb:
-        logging.fatal("Both reference and target PDB paths must be provided.")
+        logging.error("Both reference and target PDB paths must be provided.")
+        return
 
     calculate_rmsd_and_superpose(FLAGS.reference_pdb, FLAGS.target_pdb)
 
