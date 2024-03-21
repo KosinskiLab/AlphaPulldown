@@ -10,7 +10,7 @@ import pickle
 import tempfile
 from typing import Dict
 from os.path import join, exists
-
+from absl import logging
 import numpy as np
 import jax.numpy as jnp
 from alphapulldown.predict_structure import get_existing_model_info
@@ -207,7 +207,7 @@ class AlphaFoldBackend(FoldingBackend):
         START = 0
 
         ranking_output_path = join(output_dir, "ranking_debug.json")
-
+        logging.info(f"Now runing predictions on {multimeric_object.description}")
         if allow_resume:
             (
                 ranking_confidences,
