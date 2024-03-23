@@ -36,7 +36,7 @@ def plot_clustering_result(X, labels, cluster_centers):
     total_num = len(labels)
     labels_unique = np.unique(labels)
     n_clusters_ = len(labels_unique)
-    cmap = plt.cm.get_cmap('tab20')  # Example: 'tab10' colormap with 10 colors
+    cmap = plt.cm.get_cmap('tab20')
 
     norm = plt.Normalize(vmin=min(labels_unique), vmax=max(labels_unique))
     color_template = {label: cmap(norm(label)) for label in labels_unique}
@@ -54,7 +54,8 @@ def plot_clustering_result(X, labels, cluster_centers):
         )
     plt.xlabel('seq_length')
     plt.ylabel("msa_depth")
-    plt.title(f"Total number of jobs: {total_num} Estimated number of clusters: {n_clusters_}")
+    plt.title(
+        f"Total number of jobs: {total_num} Estimated number of clusters: {n_clusters_}")
     plt.savefig('clustered_prediction_jobs.png')
 
 
@@ -68,7 +69,8 @@ def cluster_jobs(all_folds, args):
     cluster = MeanShift(bandwidth=estimated_bandwidth)
     result = cluster.fit(X)
     labels, cluster_centres = result.labels_, result.cluster_centers_
-    plot_clustering_result(X,labels,cluster_centres)
+    plot_clustering_result(X, labels, cluster_centres)
+
 
 def main():
     parser = argparse.ArgumentParser(description="Run protein folding.")
@@ -107,7 +109,8 @@ def main():
     all_folds = buffer.readlines()
     all_folds = [x.strip().replace(",", ":") for x in all_folds]
     # all_folds = [x.strip().replace(";", "+") for x in all_folds]
-    cluster_jobs(all_folds,args)
+    cluster_jobs(all_folds, args)
+
 
 if __name__ == "__main__":
     main()
