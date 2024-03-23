@@ -13,7 +13,7 @@ from os.path import exists, join
 
 from alphapulldown.folding_backend import backend
 from alphapulldown.objects import MultimericObject
-from alphapulldown.utils.modelling_setup import create_interactors
+from alphapulldown.utils.modelling_setup import create_interactors, parse_fold,create_custom_info
 
 
 def parse_args():
@@ -170,68 +170,8 @@ def parse_args():
         help="Whether to run Amber relaxation on GPU. Default is True"
     )
     args = parser.parse_args()
+    return parse_fold(args)
 
-    formatted_folds, missing_features, unique_features = [], [], []
-    protein_folds = [x.split(":") for x in args.input.split(args.protein_delimiter)]
-    for protein_fold in protein_folds:
-        name, number, region = None, 1, "all"
-
-        match len(protein_fold):
-            case 1:
-                name = protein_fold[0]
-            case 2:
-                name, number = protein_fold[0], protein_fold[1]
-                if ("-") in protein_fold[1]:
-                    number = 1
-                    region = protein_fold[1].split("-")
-            case 3:
-                name, number, region = protein_fold
-        
-        number = int(number)
-        if len(region) != 2 and region != "all":
-            raise ValueError(f"Region {region} is malformatted expected start-stop.")
-
-        if len(region) == 2:
-            region = [tuple(int(x) for x in region)]
-
-        unique_features.append(name)
-        if not any([exists(join(monomer_dir, f"{name}.pkl")) for monomer_dir in args.features_directory]):
-            missing_features.append(name)
-
-        formatted_folds.extend([{name: region} for _ in range(number)])
-
-    missing_features = set(missing_features)
-    if len(missing_features):
-        raise FileNotFoundError(
-            f"{missing_features} not found in {args.features_directory}"
-        )
-
-    args.parsed_input = formatted_folds
-    return args
-
-def create_custom_info(all_proteins : List[Dict[str, str]]):
-    """
-    Create a dictionary representation of data for a custom input file.
-
-    Parameters
-    ----------
-    all_proteins : List[Dict[str, str]]
-        A list of protein names or sequences to be included in the data.
-
-    Returns
-    -------
-    Dict[str, List[str]]
-        A dictionary where each key is a column name following the
-        pattern 'col_X' where X is the column index starting from 1.
-        Each key maps to a list containing a single protein name or
-        sequence from the input list.
-
-    """
-    num_cols = len(all_proteins)
-    data = dict()
-    for i in range(num_cols):
-        data[f"col_{i + 1}"] = [all_proteins[i]]
-    return data
 
 def predict_structure(
     multimeric_object: MultimericObject,
