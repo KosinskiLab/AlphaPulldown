@@ -32,7 +32,8 @@ def profile_all_jobs_and_cluster(all_folds: List[str], args):
     return pd.DataFrame.from_dict(output)
 
 
-def plot_clustering_result(X, labels, cluster_centers):
+def plot_clustering_result(X : np.array, labels : List[float | int], 
+                           cluster_centers : list, output_dir: str) -> None:
     total_num = len(labels)
     labels_unique = np.unique(labels)
     n_clusters_ = len(labels_unique)
@@ -56,7 +57,7 @@ def plot_clustering_result(X, labels, cluster_centers):
     plt.ylabel("msa_depth")
     plt.title(
         f"Total number of jobs: {total_num} Estimated number of clusters: {n_clusters_}")
-    plt.savefig('clustered_prediction_jobs.png')
+    plt.savefig(f"{output_dir}/clustered_prediction_jobs.png")
 
 
 def cluster_jobs(all_folds, args):
@@ -98,6 +99,14 @@ def main():
         nargs="+",
         required=True,
         help="Path to computed monomer features.",
+    )
+    parser.add_argument(
+        "--output_dir",
+        dest="output_dir",
+        type=str,
+        default="./",
+        required=False,
+        help="output directory"
     )
     args = parser.parse_args()
     args.mode = "custom"
