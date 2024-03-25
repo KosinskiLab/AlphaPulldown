@@ -15,7 +15,7 @@ from os.path import join, exists
 import numpy as np
 import jax.numpy as jnp
 from alphapulldown.objects import MultimericObject
-from alphapulldown.utils.plotting import plot_pae_from_matrix
+from alphapulldown.utils.plotting import plot_pae_from_matrix, create_and_save_pae_plots
 from alphapulldown.utils.post_modelling import post_prediction_process
 from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
 
@@ -382,6 +382,7 @@ class AlphaFoldBackend(FoldingBackend):
         zip_pickles: bool = False,
         remove_pickles: bool = False,
         use_gpu_relax: bool = True,
+        pae_plot_style: str = "red_blue",
         **kwargs: Dict,
     ) -> None:
         """
@@ -407,6 +408,8 @@ class AlphaFoldBackend(FoldingBackend):
             Default is False.
         use_gpu_relax : bool, optional
             If set to True, utilizes GPU acceleration for the relaxation step, default is True.
+        pae_plot_style : str, optional
+            The style of the PAE plot, red and blue or AF database style, default is "red_blue".
         **kwargs : dict
             Additional keyword arguments for future extensions or custom
             post-processing steps.
@@ -446,8 +449,16 @@ class AlphaFoldBackend(FoldingBackend):
         # Save pae plots as *.png files.
         for idx, model_name in enumerate(ranked_order):
             prediction_result = prediction_results[model_name]
-            figure_name = join(output_dir, f"PAE_plot_ranked_{idx}_{model_name}.png")
-            plot_pae_from_matrix(seqs=prediction_result['seqs'], pae_matrix=pae, figure_name=figure_name)
+            if pae_plot_style == "alphafold_db":
+                figure_name = join(output_dir, f"PAE_plot_ranked_{idx}_{model_name}.png")
+                plot_pae_from_matrix(
+                    seqs=prediction_result['seqs'],
+                    pae_matrix=pae,
+                    figure_name=figure_name,
+                    pae_plot_style=pae_plot_style
+                )
+            elif pae_plot_style == "red_blue":
+                create_and_save_pae_plots(multimeric_object,output_dir)
 
         # Save ranking_debug.json.
         with open(ranking_path, 'w') as f:

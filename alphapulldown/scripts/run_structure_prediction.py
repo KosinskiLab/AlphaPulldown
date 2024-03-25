@@ -183,6 +183,9 @@ def parse_args():
         required=False,
         help="What models to relax. Default is None"
     )
+    parser.add_argument('--pae_plot_style', type=str, choices=['red_blue', 'alphafold_db'],
+                        default='red_blue',
+                        help='Specify the PAE plot style.')
     args = parser.parse_args()
 
     formatted_folds, missing_features, unique_features = [], [], []
@@ -332,8 +335,9 @@ def main():
     postprocess_flags = {
         "zip_pickles": args.compress_result_pickles,
         "remove_pickles": args.remove_result_pickles,
-        "use_gpu_relax" : args.use_gpu_relax,
-        "models_to_relax": args.models_to_relax
+        "use_gpu_relax": args.use_gpu_relax,
+        "models_to_relax": args.models_to_relax,
+        "pae_plot_style": args.pae_plot_style
     }
 
     output_dir = args.output_directory
