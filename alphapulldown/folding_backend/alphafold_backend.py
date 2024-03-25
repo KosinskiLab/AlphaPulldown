@@ -280,6 +280,7 @@ class AlphaFoldBackend(FoldingBackend):
         prediction_results = {}
         START = 0
         multimeric_mode = multimeric_object.multimeric_mode
+        t_0 = time.time()
 
         # Check the model index to resume from
         if allow_resume:
@@ -316,7 +317,7 @@ class AlphaFoldBackend(FoldingBackend):
                     prediction_result.update({"unrelaxed_protein": unrelaxed_protein})
                 prediction_results.update({model_name: prediction_result})
                 continue
-            t_0 = time.time()
+
             #TODO: re-predict models if --allow_resume and previous predictions were done with templates
             if skip_templates:
                 _reset_template_features(processed_feature_dict)
