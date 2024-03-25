@@ -183,8 +183,7 @@ def parse_args():
         required=False,
         help="What models to relax. Default is None"
     )
-    parser.add_argument('
-                        --pae_plot_style', 
+    parser.add_argument('--pae_plot_style',
                         type=str, 
                         choices=['red_blue', 'alphafold_db'],
                         default='red_blue',
