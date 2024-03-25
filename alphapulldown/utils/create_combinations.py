@@ -13,7 +13,7 @@ from typing import List, Union, TextIO
 def read_file(filepath : str):
     with open(filepath, mode = "r", encoding = "utf-8") as file:
         lines = file.read().splitlines()
-    return list(set(line for line in lines if line))
+    return list(line for line in lines if line)
 
 def process_files(input_files : List[str], output_path : Union[str, TextIO], delimiter : str=','):
     """Process the input files to compute the Cartesian product and write to the output file."""
@@ -23,7 +23,7 @@ def process_files(input_files : List[str], output_path : Union[str, TextIO], del
     context_manager = nullcontext(output_path)
     if isinstance(output_path, str):
         context_manager = open(output_path, mode = "w", encoding = "utf-8")
-
+    
     with context_manager as output_file:
         for combination in cartesian_product:
             output_file.write(delimiter.join(combination) + '\n')

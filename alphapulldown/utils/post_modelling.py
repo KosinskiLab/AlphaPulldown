@@ -1,7 +1,4 @@
-import subprocess
-import json
-import os
-from absl import logging
+import subprocess,json,os
 
 def zip_result_pickles(output_path):
     """A function that remove results pickles in the output directory"""
@@ -9,8 +6,8 @@ def zip_result_pickles(output_path):
     try:
         results = subprocess.run(cmd,shell=True,capture_output=True,text=True)
     except subprocess.CalledProcessError as e:
-        logging.error(f"Error while compressing result pickles: {e.returncode}")
-        logging.error(f"Command output: {e.output}")
+        print(f"Error while compressing result pickles: {e.returncode}")
+        print(f"Command output: {e.output}")
 
 def post_prediction_process(output_path,zip_pickles = False,remove_pickles = False):
     """A function to process resulted files after the prediction"""
@@ -25,9 +22,9 @@ def remove_irrelavent_pickles(output_path):
         best_model = json.load(open(os.path.join(output_path,"ranking_debug.json"),'rb'))['order'][0]
         pickle_to_remove = [i for i in os.listdir(output_path) if (i.endswith('pkl')) and (best_model not in i)]
         cmd = ['rm'] + pickle_to_remove
-        subprocess.run(cmd)
+        results = subprocess.run(cmd)
     except FileNotFoundError:
-        logging.error(f"ranking_debug.json does not exist in : {output_path}. Please check your inputs.")
+        print(f"ranking_debug.json does not exist in : {output_path}. Please check your inputs.")
     except subprocess.CalledProcessError as e:
-        logging.error(f"Error while removing result pickles: {e.returncode}")
-        logging.error(f"Command output: {e.output}")
+        print(f"Error while removing result pickles: {e.returncode}")
+        print(f"Command output: {e.output}")      

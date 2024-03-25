@@ -6,18 +6,17 @@
     Author: Dingquan Yu <dingquan.yu@embl-hamburg.de>
 """
 
-import gzip
 import json
 import os
-import pickle
+import pickle,gzip
 import time
-
-import numpy as np
 from absl import logging
-
 from alphafold.common import protein
 from alphafold.common import residue_constants
 from alphafold.relax import relax
+import numpy as np
+import jax.numpy as jnp
+
 from alphapulldown.utils.modelling_setup import get_run_alphafold
 
 run_af = get_run_alphafold()
@@ -103,8 +102,7 @@ def predict(
     fasta_name,
     allow_resume=True,
     seqs=[],
-    use_gpu_relax=True,
-    skip_templates=False,
+    use_gpu_relax=True
 ):
     """
     The actual function that predicts protein structures
@@ -147,9 +145,9 @@ def predict(
         if run_af.flags.FLAGS.multimeric_mode:
             if 'template_all_atom_positions' in processed_feature_dict:
                 if np.any(processed_feature_dict['template_all_atom_positions']):
-                    logging.debug("Valid templates found with non-zero positions.")
+                    logging.info("Valid templates found with non-zero positions.")
                 else:
-                    logging.fatal("No valid templates found: all positions are zero.")
+                    raise ValueError("No valid templates found: all positions are zero.")
             else:
                 raise ValueError("No template_all_atom_positions key found in processed_feature_dict.")
         t_0 = time.time()

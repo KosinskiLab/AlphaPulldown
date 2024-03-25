@@ -11,7 +11,7 @@ import tempfile
 from typing import Dict
 import os
 from os.path import join, exists
-
+from absl import logging
 import numpy as np
 import jax.numpy as jnp
 from alphapulldown.objects import MultimericObject
@@ -338,6 +338,7 @@ class AlphaFoldBackend(FoldingBackend):
                         "No template_all_atom_positions key found in processed_feature_dict."
                     )
             t_0 = time.time()
+            logging.info(f"Now runing predictions on {multimeric_object.description}")
             prediction_result = model_runner.predict(
                 processed_feature_dict, random_seed=model_random_seed
             )

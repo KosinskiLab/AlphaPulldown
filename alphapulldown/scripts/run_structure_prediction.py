@@ -183,9 +183,13 @@ def parse_args():
         required=False,
         help="What models to relax. Default is None"
     )
-    parser.add_argument('--pae_plot_style', type=str, choices=['red_blue', 'alphafold_db'],
+    parser.add_argument('
+                        --pae_plot_style', 
+                        type=str, 
+                        choices=['red_blue', 'alphafold_db'],
                         default='red_blue',
-                        help='Specify the PAE plot style.')
+                        help='Specify the PAE plot style.'
+                       )
     args = parser.parse_args()
 
     formatted_folds, missing_features, unique_features = [], [], []

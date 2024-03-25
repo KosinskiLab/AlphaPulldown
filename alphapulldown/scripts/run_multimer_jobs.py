@@ -59,7 +59,7 @@ flags.DEFINE_boolean(
     "Run with multimeric template ",
 )
 flags.DEFINE_boolean(
-    "msa_depth_scan",
+    "gradient_msa_depth",
     False,
     "Run predictions for each model with logarithmically distributed MSA depth",
 )
@@ -422,7 +422,7 @@ def predict_multimers(multimers):
                 FLAGS.random_seed,
                 FLAGS.data_dir,
                 FLAGS.num_predictions_per_model,
-                FLAGS.msa_depth_scan,
+                FLAGS.gradient_msa_depth,
                 FLAGS.model_names,
                 FLAGS.msa_depth,
             )
