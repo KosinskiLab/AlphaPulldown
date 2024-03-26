@@ -139,12 +139,10 @@ def main():
     protein_lists = args.protein_lists
     if args.mode == "all_vs_all":
         protein_lists = [args.protein_lists[0], args.protein_lists[0]]
-    # buffer = io.StringIO()
+
     import time
     start = time.time()
-    all_combinations = process_files(input_files=protein_lists, output_path="buffer")
-    # buffer.seek(0)
-    # all_folds = buffer.readlines()
+    all_combinations = process_files(input_files=protein_lists)
     all_folds = ["+".join(combo) for combo in all_combinations]
     all_folds = [x.strip().replace(",", ":") for x in all_folds]
     all_folds = [x.strip().replace(";", "+") for x in all_folds]
