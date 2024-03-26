@@ -15,20 +15,22 @@ def read_file(filepath : str):
         lines = file.read().splitlines()
     return list(line.lstrip().rstrip() for line in lines if line)
 
-def process_files(input_files : List[str], output_path : Union[str, TextIO], delimiter : str='+'):
+def process_files(input_files : List[str], 
+                  output_path : Union[str, TextIO] = None, 
+                  delimiter : str = '+'):
     """Process the input files to compute the Cartesian product and write to the output file."""
     lists_of_lines = [read_file(filepath) for filepath in input_files]
-    return itertools.product(*lists_of_lines)
-    # cartesian_product = list(itertools.product(*lists_of_lines))
-
-    # context_manager = nullcontext(output_path)
-    # if isinstance(output_path, str):
-    #     context_manager = open(output_path, mode = "w", encoding = "utf-8")
-    
-    # with context_manager as output_file:
-    #     for combination in cartesian_product:
-    #         print(f"line 29 create_combinations: {delimiter.join(combination)}")
-    #         output_file.write(delimiter.join(combination) + '\n')
+    cartesian_product = list(itertools.product(*lists_of_lines))
+    if output_path is None:
+        return itertools.product(*lists_of_lines)
+    else:
+        context_manager = nullcontext(output_path)
+        if isinstance(output_path, str):
+            context_manager = open(output_path, mode = "w", encoding = "utf-8")
+        
+        with context_manager as output_file:
+            for combination in cartesian_product:
+                output_file.write(delimiter.join(combination) + '\n')
 
 def main():
     parser = argparse.ArgumentParser(
