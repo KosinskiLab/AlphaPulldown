@@ -8,23 +8,22 @@ import time
 import json
 import pickle
 import tempfile
-from typing import Dict
+from typing import Dict, Union
 from os.path import join, exists
 from absl import logging
 import numpy as np
 import jax.numpy as jnp
 from alphapulldown.predict_structure import get_existing_model_info
-from alphapulldown.objects import MultimericObject
+from alphapulldown.objects import MultimericObject, MonomericObject
 from alphapulldown.utils.plotting import create_and_save_pae_plots
 from alphapulldown.utils.post_modelling import post_prediction_process
 from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
-
+from alphapulldown.utils.modelling_setup import update_muiltimer_model_config, pad_input_features
 # Avoid module not found error by importing after AP
 import run_alphafold
 from run_alphafold import ModelsToRelax
 from alphafold.relax import relax
 from alphafold.common import protein, residue_constants
-
 from .folding_backend import FoldingBackend
 
 
@@ -154,12 +153,13 @@ class AlphaFoldBackend(FoldingBackend):
                 else:
                     model_runners[f"{model_name}_pred_{i}"] = model_runner
 
-        return {"model_runner": model_runners}
+        return {"model_runner": model_runners,
+                "model_config": model_config}
 
     @staticmethod
     def predict(
         model_runner: Dict,
-        multimeric_object: MultimericObject,
+        multimeric_object: Union[MultimericObject, MonomericObject],
         output_dir: Dict,
         models_to_relax: object = ModelsToRelax,
         random_seed: int = 42,
@@ -176,7 +176,8 @@ class AlphaFoldBackend(FoldingBackend):
         model_runner : Dict
             Configured model runners with model names as keys.
         multimeric_object : MultimericObject
-            An object containing features of the multimeric proteins.
+            An object containing features of the multimeric proteins or monomeric protein,
+            for the sake of simplicity, it is named as multimeric_object but can be a MonomericObject.
         output_dir : str
             The directory to save prediction results and PDB files.
         models_to_relax : object, optional
@@ -207,7 +208,8 @@ class AlphaFoldBackend(FoldingBackend):
         START = 0
 
         ranking_output_path = join(output_dir, "ranking_debug.json")
-        logging.info(f"Now runing predictions on {multimeric_object.description}")
+        logging.info(
+            f"Now runing predictions on {multimeric_object.description}")
         if allow_resume:
             (
                 ranking_confidences,
@@ -219,6 +221,16 @@ class AlphaFoldBackend(FoldingBackend):
             if exists(ranking_output_path) and len(unrelaxed_pdbs) == len(model_runner):
                 START = len(model_runner)
 
+        # first check whether the desired num_res and num_msa are specified for padding
+        desired_num_res, desired_num_msa = kwargs.get(
+            "desired_num_res", None), kwargs.get("desired_num_msa", None)
+        if (desired_num_res is not None) and (desired_num_msa is not None):
+            # This means padding is required to speed up the process
+            model_config = kwargs.get('model_config')
+            update_muiltimer_model_config(model_config)
+            pad_input_features(model_config=model_config, feature_dict=multimeric_object.feature_dict,
+                               desired_num_msa=desired_num_msa, desired_num_res=desired_num_res)
+            
         num_models = len(model_runner)
         for model_index, (model_name, model_runner) in enumerate(model_runner.items()):
             if model_index < START:
@@ -254,7 +266,7 @@ class AlphaFoldBackend(FoldingBackend):
 
             t_diff = time.time() - t_0
             timings[f"predict_and_compile_{model_name}"] = t_diff
-
+            logging.info(f"prediction costs : {t_diff} s")
             plddt = prediction_result["plddt"]
             ranking_confidences[model_name] = prediction_result["ranking_confidence"]
 
@@ -278,7 +290,8 @@ class AlphaFoldBackend(FoldingBackend):
 
             unrelaxed_proteins[model_name] = unrelaxed_protein
             unrelaxed_pdbs[model_name] = protein.to_pdb(unrelaxed_protein)
-            unrelaxed_pdb_path = join(output_dir, f"unrelaxed_{model_name}.pdb")
+            unrelaxed_pdb_path = join(
+                output_dir, f"unrelaxed_{model_name}.pdb")
             with open(unrelaxed_pdb_path, "w") as f:
                 f.write(unrelaxed_pdbs[model_name])
 
