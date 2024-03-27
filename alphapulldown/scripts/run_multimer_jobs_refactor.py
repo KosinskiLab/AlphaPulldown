@@ -104,6 +104,12 @@ flags.DEFINE_string(
 flags.DEFINE_string(
     "protein_delimiter", "+", "Delimiter that separate different prediction jobs. Default is +"
 )
+flags.DEFINE_integer(
+    "desired_num_res", None, "A desired number of residues to pad"
+)
+flags.DEFINE_integer(
+    "desired_num_msa", None, "A desired number of residues to pad"
+)
 flags.DEFINE_enum(
     "unifold_model_name",
     "multimer_af2",
