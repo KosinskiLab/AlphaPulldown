@@ -124,14 +124,16 @@ def add_alphafold_settings(parser : argparse.ArgumentParser) -> None:
         dest="desired_num_res",
         type=int,
         required=False,
+        default=None,
         help="A desired number of residues to pad"
     )
     parser.add_argument(
-        "--desired_num_res",
-        dest="desired_num_res",
+        "--desired_num_msa",
+        dest="desired_num_msa",
         type=int,
         required=False,
-        help="A desired number of residues to pad"
+        default=None,
+        help="A desired number of msa to pad"
     )
 
 def add_alphalink2_settings(parser : argparse.ArgumentParser) -> None:
@@ -239,7 +241,7 @@ def predict_structure(
         multimeric_object=multimeric_object,
         output_dir=output_dir,
         random_seed=random_seed,
-        use_gpu_relax=model_flags["use_gpu_relax"]
+        **model_flags
     )
     backend.postprocess(
         **postprocess_flags,
@@ -273,7 +275,9 @@ def main():
         "model_dir": args.data_directory,
         "num_multimer_predictions_per_model": args.num_predictions_per_model,
         "crosslinks": args.crosslinks,
-        "use_gpu_relax": args.use_gpu_relax
+        "use_gpu_relax": args.use_gpu_relax,
+        "desired_num_res": args.desired_num_res,
+        "desired_num_msa": args.desired_num_msa
     }
 
     if isinstance(multimer, MultimericObject):
