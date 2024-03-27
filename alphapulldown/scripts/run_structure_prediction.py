@@ -144,7 +144,7 @@ def add_alphalink2_settings(parser : argparse.ArgumentParser) -> None:
         help="Path to crosslink information pickle for AlphaLink.",
     )
 
-def add_post_processing_settgins(parser : argparse.ArgumentParser) -> :
+def add_post_processing_settgins(parser : argparse.ArgumentParser) -> None:
     parser.add_argument(
             "--compress_result_pickles",
             dest="compress_result_pickles",
