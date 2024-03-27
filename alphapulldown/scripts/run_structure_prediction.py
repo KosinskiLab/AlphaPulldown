@@ -15,9 +15,10 @@ from alphapulldown.folding_backend import backend
 from alphapulldown.objects import MultimericObject
 from alphapulldown.utils.modelling_setup import create_interactors, parse_fold,create_custom_info
 
-
-def parse_args():
-    parser = argparse.ArgumentParser(description="Run protein folding.")
+def add_required_args(parser : argparse.ArgumentParser) -> None :
+    """
+    Parse arguments are are required
+    """
     parser.add_argument(
         "-i",
         "--input",
@@ -25,7 +26,7 @@ def parse_args():
         type=str,
         required=True,
         help="Folds in format [fasta_path:number:start-stop],[...],.",
-    ),
+    )
     parser.add_argument(
         "-o",
         "--output_directory",
@@ -33,30 +34,14 @@ def parse_args():
         type=str,
         required=True,
         help="Path to output directory. Will be created if not exists.",
-    ),
-    parser.add_argument(
-        "--num_cycle",
-        dest="num_cycle",
-        type=int,
-        required=False,
-        default=3,
-        help="Number of recycles, defaults to 3.",
-    ),
-    parser.add_argument(
-        "--num_predictions_per_model",
-        dest="num_predictions_per_model",
-        type=int,
-        required=False,
-        default=1,
-        help="Number of predictions per model, defaults to 1.",
-    ),
+    )
     parser.add_argument(
         "--data_directory",
         dest="data_directory",
         type=str,
         required=True,
         help="Path to directory containing model weights and parameters.",
-    ),
+    )
     parser.add_argument(
         "--features_directory",
         dest="features_directory",
@@ -64,42 +49,135 @@ def parse_args():
         nargs="+",
         required=True,
         help="Path to computed monomer features.",
-    ),
+    )
+
+def add_alphafold_settings(parser : argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--num_cycle",
+        dest="num_cycle",
+        type=int,
+        required=False,
+        default=3,
+        help="Number of recycles, defaults to 3.",
+    )
+    parser.add_argument(
+        "--num_predictions_per_model",
+        dest="num_predictions_per_model",
+        type=int,
+        required=False,
+        default=1,
+        help="Number of predictions per model, defaults to 1.",
+    )
     parser.add_argument(
         "--no_pair_msa",
         dest="no_pair_msa",
         action="store_true",
         default=False,
         help="Do not pair the MSAs when constructing multimer objects.",
-    ),
+    )
     parser.add_argument(
         "--gradient_msa_depth",
         dest="gradient_msa_depth",
         action="store_true",
         default=None,
         help="Run predictions for each model with logarithmically distributed MSA depth.",
-    ),
+    )
     parser.add_argument(
         "--multimeric_template",
         dest="multimeric_template",
         action="store_true",
         default=None,
         help="Whether to use multimeric templates.",
-    ),
+    )
     parser.add_argument(
         "--model_names",
         dest="model_names",
         type=str,
         default=None,
         help="Names of models to use, e.g. model_2_multimer_v3 (default: all models).",
-    ),
+    )
     parser.add_argument(
         "--msa_depth",
         dest="msa_depth",
         type=int,
         default=None,
         help="Number of sequences to use from the MSA (by default is taken from AF model config).",
-    ),
+    )
+    parser.add_argument(
+        "--description_file",
+        dest="description_file",
+        type=str,
+        default=None,
+        required=False,
+        help="Path to the text file with multimeric template instruction.",
+    )
+    parser.add_argument(
+        "--path_to_mmt",
+        dest="path_to_mmt",
+        type=str,
+        default=None,
+        required=False,
+        help="Path to directory with multimeric template mmCIF files.",
+    )
+    parser.add_argument(
+        "--desired_num_res",
+        dest="desired_num_res",
+        type=int,
+        required=False,
+        help="A desired number of residues to pad"
+    )
+    parser.add_argument(
+        "--desired_num_res",
+        dest="desired_num_res",
+        type=int,
+        required=False,
+        help="A desired number of residues to pad"
+    )
+
+def add_alphalink2_settings(parser : argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--crosslinks",
+        dest="crosslinks",
+        type=str,
+        default=None,
+        required=False,
+        help="Path to crosslink information pickle for AlphaLink.",
+    )
+
+def add_post_processing_settgins(parser : argparse.ArgumentParser) -> :
+    parser.add_argument(
+            "--compress_result_pickles",
+            dest="compress_result_pickles",
+            action="store_true",
+            required=False,
+            help="Whether the result pickles are going to be gzipped. Default False.",
+        )
+    parser.add_argument(
+        "--remove_result_pickles",
+        dest="remove_result_pickles",
+        action="store_true",
+        required=False,
+        help="Whether the result pickles that do not belong to the best"
+        "model are going to be removed. Default is False.",
+    )
+    parser.add_argument(
+        "--use_ap_style",
+        dest="use_ap_style",
+        action="store_true",
+        required=False,
+        help="Change output directory to include a description of the fold as seen "
+        "in previous alphapulldown versions.",
+    )
+    parser.add_argument(
+        "--use_gpu_relax",
+        dest="use_gpu_relax",
+        action="store_true",
+        required=False,
+        help="Whether to run Amber relaxation on GPU. Default is True"
+    )
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Run protein folding.")
     parser.add_argument(
         "--protein_delimiter",
         dest="protein_delimiter",
@@ -114,61 +192,11 @@ def parse_args():
         default="alphafold",
         choices=list(backend._BACKEND_REGISTRY.keys()),
         help="Folding backend that should be used for structure prediction.",
-    ),
-    parser.add_argument(
-        "--crosslinks",
-        dest="crosslinks",
-        type=str,
-        default=None,
-        required=False,
-        help="Path to crosslink information pickle for AlphaLink.",
-    ),
-    parser.add_argument(
-        "--description_file",
-        dest="description_file",
-        type=str,
-        default=None,
-        required=False,
-        help="Path to the text file with multimeric template instruction.",
-    ),
-    parser.add_argument(
-        "--path_to_mmt",
-        dest="path_to_mmt",
-        type=str,
-        default=None,
-        required=False,
-        help="Path to directory with multimeric template mmCIF files.",
-    ),
-    parser.add_argument(
-        "--compress_result_pickles",
-        dest="compress_result_pickles",
-        action="store_true",
-        required=False,
-        help="Whether the result pickles are going to be gzipped. Default False.",
-    ),
-    parser.add_argument(
-        "--remove_result_pickles",
-        dest="remove_result_pickles",
-        action="store_true",
-        required=False,
-        help="Whether the result pickles that do not belong to the best"
-        "model are going to be removed. Default is False.",
-    ),
-    parser.add_argument(
-        "--use_ap_style",
-        dest="use_ap_style",
-        action="store_true",
-        required=False,
-        help="Change output directory to include a description of the fold as seen "
-        "in previous alphapulldown versions.",
-    ),
-    parser.add_argument(
-        "--use_gpu_relax",
-        dest="use_gpu_relax",
-        action="store_true",
-        required=False,
-        help="Whether to run Amber relaxation on GPU. Default is True"
     )
+    add_required_args(parser)
+    add_alphafold_settings(parser)
+    add_alphalink2_settings(parser)
+    add_post_processing_settgins(parser)
     args = parser.parse_args()
     return parse_fold(args)
 
@@ -204,10 +232,10 @@ def predict_structure(
     """
     backend.change_backend(backend_name=fold_backend)
 
-    model_runners = backend.setup(**model_flags, multimeric_object=multimeric_object)
+    model_runners_and_configs = backend.setup(**model_flags, multimeric_object=multimeric_object)
 
     backend.predict(
-        **model_runners,
+        **model_runners_and_configs,
         multimeric_object=multimeric_object,
         output_dir=output_dir,
         random_seed=random_seed,
