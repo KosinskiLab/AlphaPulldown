@@ -19,9 +19,11 @@ from alphafold.model import config
 from alphafold.model import model
 from alphafold.model import data
 from alphafold.data import templates
+from alphafold.model.tf.data_transforms import make_fixed_size
 from os.path import exists,join
 from alphapulldown.objects import ChoppedObject
 from alphapulldown.utils.file_handling import make_dir_monomer_dictionary
+from ml_collections import ConfigDict
 
 def parse_fold(args):
     formatted_folds, missing_features, unique_features = [], [], []
@@ -61,6 +63,52 @@ def parse_fold(args):
 
     args.parsed_input = formatted_folds
     return args
+
+def update_muiltimer_model_config(multimer_model_config : ConfigDict) -> None:
+    """
+    A function that update multimer model based on the schema from 
+    monomer models config before padding 
+
+    Args:
+        model_config: a ConfigDict from alphafold.model.config
+    """
+    model_config = config.model_config("model_1_ptm")
+    multimer_model_config.update({'eval': model_config.data.eval}) # added eval to multimer config
+
+    # below update multimer-specific settings
+    ONE_DIMENTIONAL_PADDINGS = ['asym_id','sym_id','entity_id','entity_mask','deletion_mean','num_alignments']
+    multimer_model_config['eval']['feat'].update({"msa":multimer_model_config['eval']['feat']['msa_feat'][0:2],
+                                                  "template_all_atom_mask":multimer_model_config['eval']['feat']['template_all_atom_masks'],
+                                                  "deletion_matrix":multimer_model_config['eval']['feat']['msa_feat'][0:2],
+                                                  "cluster_bias_mask":multimer_model_config['eval']['feat']['msa_feat'][0:1]})
+    
+    for k in ONE_DIMENTIONAL_PADDINGS:
+        multimer_model_config['eval']['feat'].update({k:multimer_model_config['eval']['feat']['residue_index']})
+
+def pad_input_features(model_config : ConfigDict, feature_dict: dict, 
+                       desired_num_res : int, desired_num_msa : int) -> None:
+    
+    """
+    A function that pads input feature numpy arrays based on desired number of residues 
+    and desired number of msas 
+
+    Args:
+        model_config: ConfigDict from alphafold.model.config
+        feature_dict : feature_dict attribute from either a MonomericObject or a MultimericObject
+        desired_num_res: desired number of residues 
+        desired_num_msa: desired number of msa 
+    """
+    NUM_EXTRA_MSA = 2048
+    NUM_TEMPLATES = 4
+    make_fixed_size_fn = make_fixed_size(model_config.eval.feat, 
+                                         desired_num_msa,NUM_EXTRA_MSA,
+                                         desired_num_res,NUM_TEMPLATES)
+    
+    assembly_num_chains = feature_dict.pop('assembly_num_chains')
+    num_templates = feature_dict.pop('num_templates')
+    make_fixed_size_fn(feature_dict)
+    feature_dict['assembly_num_chains'] = assembly_num_chains
+    feature_dict['num_templates'] = num_templates
 
 def create_custom_info(all_proteins : List[Dict[str, str]]):
     """
