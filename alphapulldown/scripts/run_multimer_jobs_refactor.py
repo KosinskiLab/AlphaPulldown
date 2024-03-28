@@ -8,12 +8,13 @@
 import io
 import warnings
 import subprocess
-from absl import app
+from absl import app, logging
 import os
 from alphapulldown.predict_structure import ModelsToRelax
 from alphapulldown.utils.modelling_setup import get_run_alphafold
 from alphapulldown.utils.create_combinations import process_files
 
+logging.set_verbosity(logging.INFO)
 run_af = get_run_alphafold()
 flags = run_af.flags
 
@@ -26,7 +27,8 @@ flags.DEFINE_enum(
 flags.DEFINE_string(
     "output_path", None, "output directory where the region data is going to be stored"
 )
-flags.DEFINE_string("oligomer_state_file", None, "path to oligomer state files")
+flags.DEFINE_string("oligomer_state_file", None,
+                    "path to oligomer state files")
 flags.DEFINE_list(
     "monomer_objects_dir",
     None,
@@ -82,7 +84,8 @@ flags.DEFINE_string("crosslinks", None, "Path to crosslink information pickle")
 flags.DEFINE_string(
     "alphalink_weight", None, "Path to AlphaLink neural network weights"
 )
-flags.DEFINE_string("unifold_param", None, "Path to UniFold neural network weights")
+flags.DEFINE_string("unifold_param", None,
+                    "Path to UniFold neural network weights")
 flags.DEFINE_boolean(
     "compress_result_pickles",
     False,
@@ -191,16 +194,8 @@ def main(argv):
     buffer.seek(0)
     all_folds = buffer.readlines()
     all_folds = [x.strip().replace(",", ":") for x in all_folds]
-    all_folds = [x.strip().replace(";", "_") for x in all_folds]
+    all_folds = [x.strip().replace(";", "+") for x in all_folds]
 
-    job_indices = list(range(len(all_folds)))
-    if FLAGS.job_index is not None:
-        job_index = FLAGS.job_index - 1
-        if job_index >= len(all_folds):
-            raise IndexError(
-                f"Job index can be no larger than {len(all_folds)} (got {job_index})."
-                )
-        job_indices = [job_index, ]
     parent_dir = os.path.dirname(os.path.abspath(__file__))
     base_command = [f"python3 {parent_dir}/run_structure_prediction.py"]
 
@@ -224,13 +219,15 @@ def main(argv):
         "--msa_depth": FLAGS.msa_depth,
         "--crosslinks": FLAGS.crosslinks,
         "--fold_backend": fold_backend,
-        "--description_file" : FLAGS.description_file,
-        "--path_to_mmt" : FLAGS.path_to_mmt,
-        "--compress_result_pickles" : FLAGS.compress_result_pickles,
-        "--remove_result_pickles" : FLAGS.remove_result_pickles,
-        "--use_ap_style" : FLAGS.use_ap_style,
-        "--use_gpu_relax" : FLAGS.use_gpu_relax,
-        "--protein_delimiter" : FLAGS.protein_delimiter
+        "--description_file": FLAGS.description_file,
+        "--path_to_mmt": FLAGS.path_to_mmt,
+        "--compress_result_pickles": FLAGS.compress_result_pickles,
+        "--remove_result_pickles": FLAGS.remove_result_pickles,
+        "--use_ap_style": FLAGS.use_ap_style,
+        "--use_gpu_relax": FLAGS.use_gpu_relax,
+        "--protein_delimiter": FLAGS.protein_delimiter,
+        "--desired_num_res": FLAGS.desired_num_res,
+        "--desired_num_msa": FLAGS.desired_num_msa
     }
 
     command_args = {}
@@ -244,14 +241,32 @@ def main(argv):
         else:
             command_args[k] = v
 
-    for job_index in job_indices:
-        command_args["--input"] = all_folds[job_index]
+    job_indices = list(range(len(all_folds)))
+    if FLAGS.job_index is not None:
+        job_index = FLAGS.job_index - 1
+        if job_index >= len(all_folds):
+            raise IndexError(
+                f"Job index can be no larger than {len(all_folds)} (got {job_index})."
+            )
+        job_indices = [job_index, ]
+
+    if (FLAGS.desired_num_res is not None) and (FLAGS.desired_num_msa is not None):
+        # This means all the folds in all_folds are going to be modelled together
+        # then no need to iterate through the job_indices
+        command_args["--input"] = " ".join(all_folds)
         command = base_command.copy()
 
         for arg, value in command_args.items():
             command.extend([str(arg), str(value)])
+        subprocess.run(" ".join(command), check=True, shell=True)
+    else:
+        for job_index in job_indices:
+            command_args["--input"] = all_folds[job_index]
+            command = base_command.copy()
 
-        subprocess.run(" ".join(command), check=True,shell=True)
+            for arg, value in command_args.items():
+                command.extend([str(arg), str(value)])
+            subprocess.run(" ".join(command), check=True, shell=True)
 
 
 if __name__ == "__main__":
