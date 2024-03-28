@@ -12,6 +12,7 @@ from typing import Dict, List, Union, Tuple
 from os.path import exists, join
 from absl import logging
 from alphapulldown.folding_backend import backend
+from alphapulldown.predict_structure import ModelsToRelax
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
 from alphapulldown.utils.modelling_setup import create_interactors, parse_fold,create_custom_info
 
@@ -79,8 +80,8 @@ def add_alphafold_settings(parser : argparse.ArgumentParser) -> None:
         help="Do not pair the MSAs when constructing multimer objects.",
     )
     parser.add_argument(
-        "--gradient_msa_depth",
-        dest="gradient_msa_depth",
+        "--msa_depth_scan",
+        dest="msa_depth_scan",
         action="store_true",
         default=None,
         help="Run predictions for each model with logarithmically distributed MSA depth.",
@@ -224,8 +225,8 @@ def predict_structure(
     `create_multimer_objects()`, `create_custom_jobs()`, or `create_homooligomers()`.
     The value of each dictionary is the corresponding output_dir to save the modelling results. 
     model_flags : Dict
-        Dictionary of flags passed to the respective backend's setup function.
-    model_flags : Dict
+        Dictionary of flags passed to the respective backend's predict function.
+    postprocess_flags : Dict
         Dictionary of flags passed to the respective backend's postprocess function.
     random_seed : int, optional
         The random seed for initializing the prediction process to ensure reproducibility.
@@ -234,6 +235,7 @@ def predict_structure(
         Backend used for folding, defaults to alphafold.
     """
     backend.change_backend(backend_name=fold_backend)
+
     model_runners_and_configs = backend.setup(**model_flags)
 
     backend.predict(
@@ -281,7 +283,7 @@ def pre_modelling_setup(interactors : List[Union[MonomericObject, ChoppedObject]
         object_to_model.input_seqs = [object_to_model.sequence]
 
     # TODO: Add backend specific flags here
-    flags_dict = {
+   flags_dict = {
         "model_name": "monomer_ptm",
         "num_cycle": args.num_cycle,
         "model_dir": args.data_directory,
@@ -289,7 +291,8 @@ def pre_modelling_setup(interactors : List[Union[MonomericObject, ChoppedObject]
         "crosslinks": args.crosslinks,
         "use_gpu_relax": args.use_gpu_relax,
         "desired_num_res": args.desired_num_res,
-        "desired_num_msa": args.desired_num_msa
+        "desired_num_msa": args.desired_num_msa,
+        "skip_templates": args.skip_templates
     }
 
     if isinstance(object_to_model, MultimericObject):
@@ -301,6 +304,9 @@ def pre_modelling_setup(interactors : List[Union[MonomericObject, ChoppedObject]
     postprocess_flags = {
         "zip_pickles": args.compress_result_pickles,
         "remove_pickles": args.remove_result_pickles,
+        "use_gpu_relax": args.use_gpu_relax,
+        "models_to_relax": args.models_to_relax,
+        "pae_plot_style": args.pae_plot_style
     }
 
     output_dir = args.output_directory
