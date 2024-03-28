@@ -80,6 +80,20 @@ def add_alphafold_settings(parser : argparse.ArgumentParser) -> None:
         help="Do not pair the MSAs when constructing multimer objects.",
     )
     parser.add_argument(
+        "--skip_templates",
+        dest="skip_templates",
+        action="store_true",
+        default=False,
+        help="Do not use template features when modelling",
+    )
+    parser.add_argument(
+        "--models_to_relax",
+        dest="models_to_relax",
+        default=ModelsToRelax.NONE,
+        required=False,
+        help="What models to relax. Default is None"
+    )
+    parser.add_argument(
         "--msa_depth_scan",
         dest="msa_depth_scan",
         action="store_true",
@@ -297,7 +311,7 @@ def pre_modelling_setup(interactors : List[Union[MonomericObject, ChoppedObject]
 
     if isinstance(object_to_model, MultimericObject):
         flags_dict["model_name"] = "multimer"
-        flags_dict["gradient_msa_depth"] = (args.gradient_msa_depth,)
+        flags_dict["gradient_msa_depth"] = args.msa_depth_scan
         flags_dict["model_names_custom"] = args.model_names
         flags_dict["msa_depth"] = args.msa_depth
 
@@ -305,8 +319,7 @@ def pre_modelling_setup(interactors : List[Union[MonomericObject, ChoppedObject]
         "zip_pickles": args.compress_result_pickles,
         "remove_pickles": args.remove_result_pickles,
         "use_gpu_relax": args.use_gpu_relax,
-        "models_to_relax": args.models_to_relax,
-        "pae_plot_style": args.pae_plot_style
+        "models_to_relax": args.models_to_relax
     }
 
     output_dir = args.output_directory
