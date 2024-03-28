@@ -8,23 +8,21 @@ import time
 import json
 import pickle
 import tempfile
-from typing import Dict
-import os
+from typing import Dict, Union
 from os.path import join, exists
 from absl import logging
 import numpy as np
 import jax.numpy as jnp
-from alphapulldown.objects import MultimericObject
 from alphapulldown.utils.plotting import plot_pae_from_matrix, create_and_save_pae_plots
+from alphapulldown.predict_structure import get_existing_model_info
+from alphapulldown.objects import MultimericObject, MonomericObject
 from alphapulldown.utils.post_modelling import post_prediction_process
 from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
-
-
+from alphapulldown.utils.modelling_setup import update_muiltimer_model_config, pad_input_features
 # Avoid module not found error by importing after AP
 from run_alphafold import ModelsToRelax
 from alphafold.relax import relax
 from alphafold.common import protein, residue_constants, confidence
-
 from .folding_backend import FoldingBackend
 
 MAX_TEMPLATE_HITS = 20
@@ -232,14 +230,15 @@ class AlphaFoldBackend(FoldingBackend):
 
         return {"model_runners": model_runners,
                 "allow_resume": allow_resume,
-                "skip_templates": skip_templates}
+                "skip_templates": skip_templates,
+                 "model_config": model_config}
 
     @staticmethod
     def predict(
-        model_runners: Dict,
+        model_runner: Dict,
+        multimeric_object: Union[MultimericObject, MonomericObject],
         allow_resume: bool,
         skip_templates: bool,
-        multimeric_object: MultimericObject,
         output_dir: Dict,
         random_seed: int = 42,
         **kwargs,
@@ -256,7 +255,8 @@ class AlphaFoldBackend(FoldingBackend):
         skip_templates : bool
             Do not use templates for prediction.
         multimeric_object : MultimericObject
-            An object containing features of the multimeric proteins.
+            An object containing features of the multimeric proteins or monomeric protein,
+            for the sake of simplicity, it is named as multimeric_object but can be a MonomericObject.
         output_dir : str
             The directory to save prediction results and PDB files.
         random_seed : int, optional
@@ -282,7 +282,9 @@ class AlphaFoldBackend(FoldingBackend):
         multimeric_mode = multimeric_object.multimeric_mode
         t_0 = time.time()
 
-        # Check the model index to resume from
+        ranking_output_path = join(output_dir, "ranking_debug.json")
+        logging.info(
+            f"Now runing predictions on {multimeric_object.description}")
         if allow_resume:
             for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
                 unrelaxed_pdb_path = join(output_dir, f"unrelaxed_{model_name}.pdb")
@@ -291,6 +293,22 @@ class AlphaFoldBackend(FoldingBackend):
                     START = model_index + 1
                 else:
                     break
+
+        # first check whether the desired num_res and num_msa are specified for padding
+        desired_num_res, desired_num_msa = kwargs.get(
+            "desired_num_res", None), kwargs.get("desired_num_msa", None)
+        if (desired_num_res is not None) and (desired_num_msa is not None):
+            # This means padding is required to speed up the process
+            model_config = kwargs.get('model_config')
+            update_muiltimer_model_config(model_config)
+            pad_input_features(model_config=model_config, feature_dict=multimeric_object.feature_dict,
+                               desired_num_msa=desired_num_msa, desired_num_res=desired_num_res)
+            
+        num_models = len(model_runner)
+        for model_index, (model_name, model_runner) in enumerate(model_runner.items()):
+            if model_index < START:
+                continue
+            t_0 = time.time()
 
         num_models = len(model_runners.keys())
         for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
@@ -344,6 +362,8 @@ class AlphaFoldBackend(FoldingBackend):
             )
             t_diff = time.time() - t_0
             timings[f"predict_and_compile_{model_name}"] = t_diff
+            logging.info(f"prediction costs : {t_diff} s")
+            
             # Update prediction_result with input seqs and unrelaxed protein
             prediction_result.update({"seqs": multimeric_object.input_seqs})
             plddt_b_factors = np.repeat(
@@ -355,6 +375,7 @@ class AlphaFoldBackend(FoldingBackend):
                 b_factors=plddt_b_factors,
                 remove_leading_feature_dimension=not model_runner.multimer_mode,
             )
+            
             # Remove jax dependency from results
             np_prediction_result = _jnp_to_np(dict(prediction_result))
             # Save prediction results to pickle file
@@ -365,6 +386,8 @@ class AlphaFoldBackend(FoldingBackend):
             prediction_results.update({model_name: prediction_result})
             # Save predictions to pdb files
             unrelaxed_pdb_path = join(output_dir, f"unrelaxed_{model_name}.pdb")
+
+
             with open(unrelaxed_pdb_path, "w") as f:
                 f.write(protein.to_pdb(unrelaxed_protein))
             # Save timings to json file
