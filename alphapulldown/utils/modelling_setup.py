@@ -10,7 +10,7 @@ import pickle
 import logging
 import importlib.util
 from pathlib import Path
-from typing import List,Dict
+from typing import List,Dict,Union
 import numpy as np
 import alphafold
 from alphafold.data import parsers
@@ -19,6 +19,7 @@ from alphafold.model import config
 from alphafold.model import model
 from alphafold.model import data
 from alphafold.data import templates
+from alphapulldown.objects import MonomericObject, ChoppedObject
 from alphafold.model.tf.data_transforms import make_fixed_size
 from os.path import exists,join
 from alphapulldown.objects import ChoppedObject
@@ -310,35 +311,45 @@ def check_existing_objects(output_dir, pickle_name):
     return os.path.isfile(os.path.join(output_dir, pickle_name))
 
 
-def create_interactors(data, monomer_objects_dir, i):
+def create_interactors(data : List[Dict[str, List[str]]], 
+                       monomer_objects_dir : List[str], i : int = 0) -> List[List[Union[MonomericObject, ChoppedObject]]]:
     """
     A function to a list of monomer objects
 
     Args
     data: a dictionary object storing interactors' names and regions
+
+    Return:
+    A list in which each element is a list of MonomericObject/ChoppedObject
     """
+    def process_each_dict(data,monomer_objects_dir):
+        interactors = []
+        monomer_dir_dict = make_dir_monomer_dictionary(monomer_objects_dir)
+        for k in data.keys():
+            for curr_interactor_name, curr_interactor_region in data[k][i].items():
+                monomer = load_monomer_objects(monomer_dir_dict, curr_interactor_name)
+                if check_empty_templates(monomer.feature_dict):
+                    monomer.feature_dict = mk_mock_template(monomer.feature_dict)
+                else:
+                    if curr_interactor_region == "all":
+                        interactors.append(monomer)
+                    elif (
+                            isinstance(curr_interactor_region, list)
+                            and len(curr_interactor_region) != 0
+                    ):
+                        chopped_object = ChoppedObject(
+                            monomer.description,
+                            monomer.sequence,
+                            monomer.feature_dict,
+                            curr_interactor_region,
+                        )
+                        chopped_object.prepare_final_sliced_feature_dict()
+                        interactors.append(chopped_object)
+        return interactors
+
     interactors = []
-    monomer_dir_dict = make_dir_monomer_dictionary(monomer_objects_dir)
-    for k in data.keys():
-        for curr_interactor_name, curr_interactor_region in data[k][i].items():
-            monomer = load_monomer_objects(monomer_dir_dict, curr_interactor_name)
-            if check_empty_templates(monomer.feature_dict):
-                monomer.feature_dict = mk_mock_template(monomer.feature_dict)
-            else:
-                if curr_interactor_region == "all":
-                    interactors.append(monomer)
-                elif (
-                        isinstance(curr_interactor_region, list)
-                        and len(curr_interactor_region) != 0
-                ):
-                    chopped_object = ChoppedObject(
-                        monomer.description,
-                        monomer.sequence,
-                        monomer.feature_dict,
-                        curr_interactor_region,
-                    )
-                    chopped_object.prepare_final_sliced_feature_dict()
-                    interactors.append(chopped_object)
+    for d in data:
+        interactors.append(process_each_dict(d, monomer_objects_dir))
     return interactors
 
 
