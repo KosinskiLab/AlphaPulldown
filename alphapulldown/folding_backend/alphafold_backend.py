@@ -120,8 +120,6 @@ class AlphaFoldBackend(FoldingBackend):
         model_names_custom: str = None,
         msa_depth=None,
         allow_resume: bool = True,
-        use_gpu_relax: bool = True,
-        skip_templates: bool = False,
         **kwargs,
     ) -> Dict:
         """
@@ -146,17 +144,13 @@ class AlphaFoldBackend(FoldingBackend):
             A specific MSA depth to use, default is None.
         allow_resume : bool, optional
             If set to True, resumes prediction from partially completed runs, default is True.
-        use_gpu_relax : bool, optional
-            If set to True, utilizes GPU acceleration for the relaxation step, default is True.
-        skip_templates : bool, optional
-            Do not use templates for prediction, default is False.
         **kwargs : dict
             Additional keyword arguments for model runner configuration.
 
         Returns
         -------
         Dict
-            A dictionary containing the configured model runners, allow_resume and skip_templates flags.
+            A dictionary containing the configured model runners, and other settings
 
         Raises
         ------
@@ -232,8 +226,6 @@ class AlphaFoldBackend(FoldingBackend):
 
         return {"model_runners": model_runners,
                 "allow_resume": allow_resume,
-                "skip_templates": skip_templates,
-                "use_gpu_relax": use_gpu_relax,
                 "model_config": model_config}
 
     @staticmethod
@@ -308,8 +300,8 @@ class AlphaFoldBackend(FoldingBackend):
             pad_input_features(model_config=model_config, feature_dict=multimeric_object.feature_dict,
                                desired_num_msa=desired_num_msa, desired_num_res=desired_num_res)
 
-        num_models = len(model_runner)
-        for model_index, (model_name, model_runner) in enumerate(model_runner.items()):
+        num_models = len(model_runners)
+        for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
             if model_index < START:
                 continue
             t_0 = time.time()

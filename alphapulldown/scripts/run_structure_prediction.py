@@ -308,7 +308,6 @@ def pre_modelling_setup(interactors : List[Union[MonomericObject, ChoppedObject]
         "model_dir": args.data_directory,
         "num_multimer_predictions_per_model": args.num_predictions_per_model,
         "crosslinks": args.crosslinks,
-        "use_gpu_relax": args.use_gpu_relax,
         "desired_num_res": args.desired_num_res,
         "desired_num_msa": args.desired_num_msa,
         "skip_templates": args.skip_templates
