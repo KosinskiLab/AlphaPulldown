@@ -283,7 +283,7 @@ def pre_modelling_setup(interactors : List[Union[MonomericObject, ChoppedObject]
         object_to_model.input_seqs = [object_to_model.sequence]
 
     # TODO: Add backend specific flags here
-   flags_dict = {
+    flags_dict = {
         "model_name": "monomer_ptm",
         "num_cycle": args.num_cycle,
         "model_dir": args.data_directory,
