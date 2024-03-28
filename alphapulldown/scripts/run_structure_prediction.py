@@ -8,7 +8,7 @@
 
 import argparse
 from os import makedirs
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Tuple
 from os.path import exists, join
 from absl import logging
 from alphapulldown.folding_backend import backend
@@ -247,7 +247,25 @@ def predict_structure(
         multimeric_object=objects_to_model
     )
 
-def pre_modelling_setup(interactors, args):
+def pre_modelling_setup(interactors : List[Union[MonomericObject, ChoppedObject]], 
+                        args) -> Tuple[Union[MultimericObject,
+                                            MonomericObject, 
+                                            ChoppedObject], dict, dict, str]:
+    """
+    A function that sets up objects that to be modelled 
+    and settings dictionaries 
+
+    Args:
+    inteactors: A list of MOnomericobejct or ChoppedObject. If len(interactors) ==1, 
+    that means a monomeric modelling job should be done. Otherwise, it will be a multimeric modelling job
+    args: argparse results
+
+    Return:
+    A MultimericObject or MonomericObject
+    A dictionary of flags_dict
+    A dicionatry of postprocessing_flags
+    output_directory of this particular modelling job
+    """
     if len(interactors) > 1:
         # this means it's going to be a MultimericObject
         object_to_model = MultimericObject(
