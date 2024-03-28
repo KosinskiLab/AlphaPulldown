@@ -8,12 +8,14 @@
 
 import argparse
 from os import makedirs
-from typing import Dict, List
+from typing import Dict, List, Union
 from os.path import exists, join
-
+from absl import logging
 from alphapulldown.folding_backend import backend
-from alphapulldown.objects import MultimericObject
+from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
 from alphapulldown.utils.modelling_setup import create_interactors, parse_fold,create_custom_info
+
+logging.set_verbosity(logging.INFO)
 
 def add_required_args(parser : argparse.ArgumentParser) -> None :
     """
@@ -24,6 +26,7 @@ def add_required_args(parser : argparse.ArgumentParser) -> None :
         "--input",
         dest="input",
         type=str,
+        nargs="+",
         required=True,
         help="Folds in format [fasta_path:number:start-stop],[...],.",
     )
@@ -204,8 +207,7 @@ def parse_args():
 
 
 def predict_structure(
-    multimeric_object: MultimericObject,
-    output_dir: str,
+    objects_to_model: List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject], str]],
     model_flags: Dict,
     postprocess_flags: Dict,
     random_seed: int = 42,
@@ -216,12 +218,11 @@ def predict_structure(
 
     Parameters
     ----------
-    multimer : MultimericObject
-        An instance of `MultimericObject` representing the multimeric structure(s) for which
-        predictions are to be made. These objects should be created using functions like
-        `create_multimer_objects()`, `create_custom_jobs()`, or `create_homooligomers()`.
-    output_dir : str
-        The directory path where the prediction results will be saved.
+    objects_to_model : A list of dictionareis. Each dicionary has a key of MultimericObject or MonomericObject or ChoppedObject
+       which is an instance of `MultimericObject` representing the multimeric/monomeric structure(s).
+       for which predictions are to be made. These objects should be created using functions like
+    `create_multimer_objects()`, `create_custom_jobs()`, or `create_homooligomers()`.
+    The value of each dictionary is the corresponding output_dir to save the modelling results. 
     model_flags : Dict
         Dictionary of flags passed to the respective backend's setup function.
     model_flags : Dict
@@ -233,40 +234,33 @@ def predict_structure(
         Backend used for folding, defaults to alphafold.
     """
     backend.change_backend(backend_name=fold_backend)
-
-    model_runners_and_configs = backend.setup(**model_flags, multimeric_object=multimeric_object)
+    model_runners_and_configs = backend.setup(**model_flags)
 
     backend.predict(
         **model_runners_and_configs,
-        multimeric_object=multimeric_object,
-        output_dir=output_dir,
+        multimeric_object=objects_to_model,
         random_seed=random_seed,
         **model_flags
     )
     backend.postprocess(
         **postprocess_flags,
-        multimeric_object=multimeric_object,
-        output_dir=output_dir,
+        multimeric_object=objects_to_model
     )
 
-
-def main():
-    args = parse_args()
-
-    data = create_custom_info(args.parsed_input)
-    interactors = create_interactors(data, args.features_directory, 0)
-    multimer = interactors[0]
+def pre_modelling_setup(interactors, args):
     if len(interactors) > 1:
-        multimer = MultimericObject(
+        # this means it's going to be a MultimericObject
+        object_to_model = MultimericObject(
             interactors=interactors,
             pair_msa=not args.no_pair_msa,
             multimeric_mode=args.multimeric_template,
             multimeric_template_meta_data=args.description_file,
             multimeric_template_dir=args.path_to_mmt,
         )
-
-    if not isinstance(multimer, MultimericObject):
-        multimer.input_seqs = [multimer.sequence]
+    else:
+        # means it's going to be a MonomericObject or a ChoppedObject
+        object_to_model= interactors[0]
+        object_to_model.input_seqs = [object_to_model.sequence]
 
     # TODO: Add backend specific flags here
     flags_dict = {
@@ -280,7 +274,7 @@ def main():
         "desired_num_msa": args.desired_num_msa
     }
 
-    if isinstance(multimer, MultimericObject):
+    if isinstance(object_to_model, MultimericObject):
         flags_dict["model_name"] = "multimer"
         flags_dict["gradient_msa_depth"] = (args.gradient_msa_depth,)
         flags_dict["model_names_custom"] = args.model_names
@@ -293,12 +287,22 @@ def main():
 
     output_dir = args.output_directory
     if args.use_ap_style:
-        output_dir = join(args.output_directory,multimer.description)
+        output_dir = join(args.output_directory,object_to_model.description)
     makedirs(output_dir, exist_ok=True)
+    return object_to_model, flags_dict, postprocess_flags,output_dir
+
+def main():
+    args = parse_args()
+
+    data = create_custom_info(args.parsed_input)
+    all_interactors = create_interactors(data, args.features_directory)
+    objects_to_model = [] 
+    for interactors in all_interactors:
+        object_to_model, flags_dict, postprocess_flags, output_dir= pre_modelling_setup(interactors, args)
+        objects_to_model.append({object_to_model : output_dir})
 
     predict_structure(
-        multimeric_object=multimer,
-        output_dir=output_dir,
+        multimeric_object=objects_to_model,
         model_flags=flags_dict,
         fold_backend=args.fold_backend,
         postprocess_flags=postprocess_flags
