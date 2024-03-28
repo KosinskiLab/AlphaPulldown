@@ -13,8 +13,7 @@ from os.path import join, exists
 from absl import logging
 import numpy as np
 import jax.numpy as jnp
-from alphapulldown.utils.plotting import plot_pae_from_matrix, create_and_save_pae_plots
-from alphapulldown.predict_structure import get_existing_model_info
+from alphapulldown.utils.plotting import plot_pae_from_matrix
 from alphapulldown.objects import MultimericObject, MonomericObject
 from alphapulldown.utils.post_modelling import post_prediction_process
 from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
@@ -31,6 +30,7 @@ RELAX_ENERGY_TOLERANCE = 2.39
 RELAX_STIFFNESS = 10.0
 RELAX_EXCLUDE_RESIDUES = []
 RELAX_MAX_OUTER_ITERATIONS = 3
+
 
 def _jnp_to_np(output):
     """Recursively changes jax arrays to numpy arrays."""
@@ -67,7 +67,8 @@ def _save_confidence_json_file(plddt: np.ndarray, output_dir: str, model_name: s
         model_name: Name of a model.
     """
     confidence_json = confidence.confidence_json(plddt)
-    confidence_json_output_path = os.path.join(output_dir, f'confidence_{model_name}.json')
+    confidence_json_output_path = os.path.join(
+        output_dir, f'confidence_{model_name}.json')
     with open(confidence_json_output_path, 'w') as f:
         f.write(confidence_json)
 
@@ -96,7 +97,8 @@ def _reset_template_features(feature_dict: Dict) -> None:
         if key == "template_aatype":
             feature_dict[key] = np.zeros((1, seq_length), dtype='int64')
         elif key == "template_all_atom_positions":
-            feature_dict[key] = np.zeros((1, seq_length, 37, 3), dtype='float32')
+            feature_dict[key] = np.zeros(
+                (1, seq_length, 37, 3), dtype='float32')
         elif key == "template_all_atom_mask":
             feature_dict[key] = np.ones((1, seq_length, 37), dtype='float32')
         elif key == "num_templates":
@@ -231,7 +233,8 @@ class AlphaFoldBackend(FoldingBackend):
         return {"model_runners": model_runners,
                 "allow_resume": allow_resume,
                 "skip_templates": skip_templates,
-                 "model_config": model_config}
+                "use_gpu_relax": use_gpu_relax,
+                "model_config": model_config}
 
     @staticmethod
     def predict(
@@ -287,8 +290,10 @@ class AlphaFoldBackend(FoldingBackend):
             f"Now runing predictions on {multimeric_object.description}")
         if allow_resume:
             for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
-                unrelaxed_pdb_path = join(output_dir, f"unrelaxed_{model_name}.pdb")
-                result_output_path = join(output_dir, f"result_{model_name}.pkl")
+                unrelaxed_pdb_path = join(
+                    output_dir, f"unrelaxed_{model_name}.pdb")
+                result_output_path = join(
+                    output_dir, f"result_{model_name}.pkl")
                 if exists(unrelaxed_pdb_path) and exists(result_output_path):
                     START = model_index + 1
                 else:
@@ -303,7 +308,7 @@ class AlphaFoldBackend(FoldingBackend):
             update_muiltimer_model_config(model_config)
             pad_input_features(model_config=model_config, feature_dict=multimeric_object.feature_dict,
                                desired_num_msa=desired_num_msa, desired_num_res=desired_num_res)
-            
+
         num_models = len(model_runner)
         for model_index, (model_name, model_runner) in enumerate(model_runner.items()):
             if model_index < START:
@@ -318,13 +323,16 @@ class AlphaFoldBackend(FoldingBackend):
             )
             # Read prediction results from results.pkl und unrelaxed.pdb
             if model_index < START:
-                result_output_path = join(output_dir, f"result_{model_name}.pkl")
+                result_output_path = join(
+                    output_dir, f"result_{model_name}.pkl")
                 with open(result_output_path, "rb") as f:
                     prediction_result = pickle.load(f)
                     # Update prediction_result with input seqs and unrelaxed protein
-                    prediction_result.update({"seqs": multimeric_object.input_seqs})
+                    prediction_result.update(
+                        {"seqs": multimeric_object.input_seqs})
                     plddt_b_factors = np.repeat(
-                        prediction_result['plddt'][:, None], residue_constants.atom_type_num, axis=-1
+                        prediction_result['plddt'][:,
+                                                   None], residue_constants.atom_type_num, axis=-1
                     )
                     unrelaxed_protein = protein.from_prediction(
                         features=processed_feature_dict,
@@ -332,11 +340,12 @@ class AlphaFoldBackend(FoldingBackend):
                         b_factors=plddt_b_factors,
                         remove_leading_feature_dimension=not model_runner.multimer_mode,
                     )
-                    prediction_result.update({"unrelaxed_protein": unrelaxed_protein})
+                    prediction_result.update(
+                        {"unrelaxed_protein": unrelaxed_protein})
                 prediction_results.update({model_name: prediction_result})
                 continue
 
-            #TODO: re-predict models if --allow_resume and previous predictions were done with templates
+            # TODO: re-predict models if --allow_resume and previous predictions were done with templates
             if skip_templates:
                 _reset_template_features(processed_feature_dict)
             timings[f"process_features_{model_name}"] = time.time() - t_0
@@ -347,7 +356,8 @@ class AlphaFoldBackend(FoldingBackend):
                         processed_feature_dict["template_all_atom_positions"]
                     ):
                         if skip_templates:
-                            raise ValueError("You cannot skip templates in multimeric mode.")
+                            raise ValueError(
+                                "You cannot skip templates in multimeric mode.")
                         raise ValueError(
                             "No valid templates found: all positions are zero."
                         )
@@ -356,18 +366,20 @@ class AlphaFoldBackend(FoldingBackend):
                         "No template_all_atom_positions key found in processed_feature_dict."
                     )
             t_0 = time.time()
-            logging.info(f"Now runing predictions on {multimeric_object.description}")
+            logging.info(
+                f"Now runing predictions on {multimeric_object.description}")
             prediction_result = model_runner.predict(
                 processed_feature_dict, random_seed=model_random_seed
             )
             t_diff = time.time() - t_0
             timings[f"predict_and_compile_{model_name}"] = t_diff
             logging.info(f"prediction costs : {t_diff} s")
-            
+
             # Update prediction_result with input seqs and unrelaxed protein
             prediction_result.update({"seqs": multimeric_object.input_seqs})
             plddt_b_factors = np.repeat(
-                prediction_result['plddt'][:, None], residue_constants.atom_type_num, axis=-1
+                prediction_result['plddt'][:,
+                                           None], residue_constants.atom_type_num, axis=-1
             )
             unrelaxed_protein = protein.from_prediction(
                 features=processed_feature_dict,
@@ -375,7 +387,7 @@ class AlphaFoldBackend(FoldingBackend):
                 b_factors=plddt_b_factors,
                 remove_leading_feature_dimension=not model_runner.multimer_mode,
             )
-            
+
             # Remove jax dependency from results
             np_prediction_result = _jnp_to_np(dict(prediction_result))
             # Save prediction results to pickle file
@@ -385,8 +397,8 @@ class AlphaFoldBackend(FoldingBackend):
             prediction_result.update({"unrelaxed_protein": unrelaxed_protein})
             prediction_results.update({model_name: prediction_result})
             # Save predictions to pdb files
-            unrelaxed_pdb_path = join(output_dir, f"unrelaxed_{model_name}.pdb")
-
+            unrelaxed_pdb_path = join(
+                output_dir, f"unrelaxed_{model_name}.pdb")
 
             with open(unrelaxed_pdb_path, "w") as f:
                 f.write(protein.to_pdb(unrelaxed_protein))
@@ -441,9 +453,9 @@ class AlphaFoldBackend(FoldingBackend):
         relaxed_pdbs = {}
         ranking_confidences = {}
         # Read timings.json if exists
-        timings_path = os.path.join(output_dir, 'timings.json')
+        timings_path = join(output_dir, 'timings.json')
         timings = _read_from_json_if_exists(timings_path)
-        relax_metrics_path = os.path.join(output_dir, 'relax_metrics.json')
+        relax_metrics_path = join(output_dir, 'relax_metrics.json')
         relax_metrics = _read_from_json_if_exists(relax_metrics_path)
         multimeric_mode = multimeric_object.multimeric_mode
         ranking_path = join(output_dir, "ranking_debug.json")
@@ -463,7 +475,8 @@ class AlphaFoldBackend(FoldingBackend):
             ):
                 pae = prediction_result['predicted_aligned_error']
                 max_pae = prediction_result['max_predicted_aligned_error']
-                _save_pae_json_file(pae, float(max_pae), output_dir, model_name)
+                _save_pae_json_file(pae, float(max_pae),
+                                    output_dir, model_name)
 
         # Rank by model confidence.
         ranked_order = [
@@ -473,16 +486,13 @@ class AlphaFoldBackend(FoldingBackend):
         # Save pae plots as *.png files.
         for idx, model_name in enumerate(ranked_order):
             prediction_result = prediction_results[model_name]
-            if pae_plot_style == "alphafold_db":
-                figure_name = join(output_dir, f"PAE_plot_ranked_{idx}_{model_name}.png")
-                plot_pae_from_matrix(
-                    seqs=prediction_result['seqs'],
-                    pae_matrix=pae,
-                    figure_name=figure_name,
-                    pae_plot_style=pae_plot_style
-                )
-            elif pae_plot_style == "red_blue":
-                create_and_save_pae_plots(multimeric_object,output_dir)
+            figure_name = join(
+                    output_dir, f"{multimeric_object.description}_pae_plot_ranked_{idx}_{model_name}.png")
+            plot_pae_from_matrix(
+                seqs=prediction_result['seqs'],
+                pae_matrix=pae,
+                figure_name=figure_name
+            )
 
         # Save ranking_debug.json.
         with open(ranking_path, 'w') as f:
@@ -517,12 +527,12 @@ class AlphaFoldBackend(FoldingBackend):
                 'remaining_violations_count': sum(violations)
             }
             timings[f'relax_{model_name}'] = time.time() - t_0
-            relax_metrics_path = os.path.join(output_dir, 'relax_metrics.json')
+            relax_metrics_path = join(output_dir, 'relax_metrics.json')
             with open(relax_metrics_path, 'w') as f:
                 f.write(json.dumps(relax_metrics, indent=4))
             relaxed_pdbs[model_name] = relaxed_pdb_str
             # Save the relaxed PDB.
-            relaxed_output_path = os.path.join(
+            relaxed_output_path = join(
                 output_dir, f'relaxed_{model_name}.pdb')
             with open(relaxed_output_path, 'w') as f:
                 f.write(relaxed_pdb_str)
@@ -532,25 +542,26 @@ class AlphaFoldBackend(FoldingBackend):
 
         # Extract multimeric template if multimeric mode is enabled.
         if multimeric_mode:
-                feature_dict = multimeric_object.feature_dict
-                template_mask = feature_dict["template_all_atom_mask"][0]
-                template_protein = protein.Protein(
-                    atom_positions=feature_dict["template_all_atom_positions"][0],
-                    atom_mask=template_mask,
-                    aatype=feature_dict["template_aatype"][0],
-                    residue_index=feature_dict.get("residue_index", None),
-                    chain_index=feature_dict["asym_id"],
-                    b_factors=np.zeros(template_mask.shape, dtype=float),
-                )
-                pdb_string = protein.to_pdb(template_protein)
+            feature_dict = multimeric_object.feature_dict
+            template_mask = feature_dict["template_all_atom_mask"][0]
+            template_protein = protein.Protein(
+                atom_positions=feature_dict["template_all_atom_positions"][0],
+                atom_mask=template_mask,
+                aatype=feature_dict["template_aatype"][0],
+                residue_index=feature_dict.get("residue_index", None),
+                chain_index=feature_dict["asym_id"],
+                b_factors=np.zeros(template_mask.shape, dtype=float),
+            )
+            pdb_string = protein.to_pdb(template_protein)
 
         # Write out PDBs in rank order.
         for idx, model_name in enumerate(ranked_order):
             if model_name in relaxed_pdbs:
                 protein_instance = relaxed_pdbs[model_name]
             else:
-                protein_instance = protein.to_pdb(prediction_results[model_name]['unrelaxed_protein'])
-            ranked_output_path = os.path.join(output_dir, f'ranked_{idx}.pdb')
+                protein_instance = protein.to_pdb(
+                    prediction_results[model_name]['unrelaxed_protein'])
+            ranked_output_path = join(output_dir, f'ranked_{idx}.pdb')
             with open(ranked_output_path, 'w') as f:
                 f.write(protein_instance)
             # Check RMSD between the predicted model and the multimeric template.
