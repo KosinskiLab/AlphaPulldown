@@ -59,7 +59,7 @@ def parse_fold(args):
                 missing_features.append(name)
 
             formatted_folds.extend([{name: region} for _ in range(number)])
-            all_folding_jobs.append(formatted_folds)
+        all_folding_jobs.append(formatted_folds)
         missing_features = set(missing_features)
         if len(missing_features):
             raise FileNotFoundError(
