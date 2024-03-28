@@ -8,13 +8,13 @@ import time
 import json
 import pickle
 import tempfile
-from typing import Dict, Union
+from typing import Dict, Union, List
 from os.path import join, exists
 from absl import logging
 import numpy as np
 import jax.numpy as jnp
 from alphapulldown.utils.plotting import plot_pae_from_matrix
-from alphapulldown.objects import MultimericObject, MonomericObject
+from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
 from alphapulldown.utils.post_modelling import post_prediction_process
 from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
 from alphapulldown.utils.modelling_setup import update_muiltimer_model_config, pad_input_features
@@ -237,17 +237,17 @@ class AlphaFoldBackend(FoldingBackend):
                 "model_config": model_config}
 
     @staticmethod
-    def predict(
-        model_runner: Dict,
+    def predict_individual_job(
+        model_runners: Dict,
         multimeric_object: Union[MultimericObject, MonomericObject],
         allow_resume: bool,
         skip_templates: bool,
         output_dir: Dict,
         random_seed: int = 42,
         **kwargs,
-    ) -> None:
+    ) -> dict:
         """
-        Executes structure predictions using configured AlphaFold models.
+        Executes structure predictions using configured AlphaFold models on one individual job.
 
         Parameters
         ----------
@@ -285,7 +285,6 @@ class AlphaFoldBackend(FoldingBackend):
         multimeric_mode = multimeric_object.multimeric_mode
         t_0 = time.time()
 
-        ranking_output_path = join(output_dir, "ranking_debug.json")
         logging.info(
             f"Now runing predictions on {multimeric_object.description}")
         if allow_resume:
@@ -410,6 +409,27 @@ class AlphaFoldBackend(FoldingBackend):
         return prediction_results
 
     @staticmethod
+    def predict(model_runners: Dict,
+                objects_to_model: List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject], str]],
+                allow_resume: bool,
+                skip_templates: bool,
+                random_seed: int = 42,
+                **kwargs):
+        for m in objects_to_model:
+            object_to_model, output_dir = next(iter(m.items()))
+            prediction_results = AlphaFoldBackend.predict_individual_job(
+                model_runners=model_runners,
+                multimeric_object=object_to_model,
+                allow_resume=allow_resume,
+                skip_templates=skip_templates,
+                output_dir=output_dir,
+                random_seed=random_seed,
+                **kwargs
+            )
+            yield {object_to_model: {"prediction_results": prediction_results,
+                                     "output_dir": output_dir}}
+
+    @staticmethod
     def postprocess(
         prediction_results: Dict,
         multimeric_object: MultimericObject,
@@ -487,7 +507,7 @@ class AlphaFoldBackend(FoldingBackend):
         for idx, model_name in enumerate(ranked_order):
             prediction_result = prediction_results[model_name]
             figure_name = join(
-                    output_dir, f"{multimeric_object.description}_pae_plot_ranked_{idx}_{model_name}.png")
+                output_dir, f"{multimeric_object.description}_pae_plot_ranked_{idx}_{model_name}.png")
             plot_pae_from_matrix(
                 seqs=prediction_result['seqs'],
                 pae_matrix=pae,

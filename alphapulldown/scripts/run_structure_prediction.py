@@ -252,16 +252,21 @@ def predict_structure(
 
     model_runners_and_configs = backend.setup(**model_flags)
 
-    backend.predict(
+    predicted_jobs = backend.predict(
         **model_runners_and_configs,
-        multimeric_object=objects_to_model,
+        objects_to_model=objects_to_model,
         random_seed=random_seed,
         **model_flags
     )
-    backend.postprocess(
-        **postprocess_flags,
-        multimeric_object=objects_to_model
-    )
+
+    for predicted_job in predicted_jobs:
+        object_to_model, prediction_results = next(iter(predicted_job.items()))
+        backend.postprocess(
+            **postprocess_flags,
+            multimeric_object=object_to_model,
+            prediction_results = prediction_results['prediction_results'],
+            output_dir = prediction_results['output_dir']
+        )
 
 def pre_modelling_setup(interactors : List[Union[MonomericObject, ChoppedObject]], 
                         args) -> Tuple[Union[MultimericObject,
@@ -339,7 +344,7 @@ def main():
         objects_to_model.append({object_to_model : output_dir})
 
     predict_structure(
-        multimeric_object=objects_to_model,
+        objects_to_model=objects_to_model,
         model_flags=flags_dict,
         fold_backend=args.fold_backend,
         postprocess_flags=postprocess_flags
