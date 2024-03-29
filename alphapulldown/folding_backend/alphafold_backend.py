@@ -351,12 +351,13 @@ class AlphaFoldBackend(FoldingBackend):
         objects_to_model: list,
         **kwargs: Dict,):
 
-        for model_name, predictions in prediction_results.items():
-            for mutimeric_object, results in predictions:
+        for _, predictions in prediction_results.items():
+            for results in predictions:
+                multimeric_object, output_dir = next(iter(results.items()))
                 AlphaFoldBackend.postprocess_individual_finished_job(
                     prediction_results=results['prediction_result'],
-                    multimeric_object=mutimeric_object,
-                    output_dir=results['output_dir'],
+                    multimeric_object=multimeric_object,
+                    output_dir=output_dir,
                     **kwargs
                 ) 
 
