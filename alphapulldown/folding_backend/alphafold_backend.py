@@ -229,118 +229,27 @@ class AlphaFoldBackend(FoldingBackend):
                 "model_config": model_config}
 
     @staticmethod
-    def predict_individual_job(
-        model_runners: Dict,
-        multimeric_object: Union[MultimericObject, MonomericObject],
-        allow_resume: bool,
-        skip_templates: bool,
-        output_dir: Dict,
-        random_seed: int = 42,
-        **kwargs,
-    ) -> dict:
-        """
-        Executes structure predictions using configured AlphaFold models on one individual job.
+    def run_individual_model_runner(model_runner, objects_to_model: List[Dict],
+                                    model_index: int, random_seed: int,
+                                    num_models: int, model_name: str,
+                                    skip_templates: bool = False) -> dict:
+        prediction_results_per_model_runner = {model_name : []}
 
-        Parameters
-        ----------
-        model_runners : Dict
-            Configured model runners with model names as keys.
-        allow_resume : bool
-            If set to True, resumes prediction from partially completed runs.
-        skip_templates : bool
-            Do not use templates for prediction.
-        multimeric_object : MultimericObject
-            An object containing features of the multimeric proteins or monomeric protein,
-            for the sake of simplicity, it is named as multimeric_object but can be a MonomericObject.
-        output_dir : str
-            The directory to save prediction results and PDB files.
-        random_seed : int, optional
-            A seed for random number generation to ensure reproducibility, default is 42.
-        **kwargs : dict
-            Additional keyword arguments for prediction.
-
-        Returns
-        -------
-        Dict
-            A dictionary mapping model names with corresponding prediction results and predicted proteins.
-
-        Raises
-        ------
-        ValueError
-            If multimeric mode is enabled but no valid templates are found.
-        ValueError
-            If multimeric mode and skip templates are enabled at the same time
-        """
-        timings = {}
-        prediction_results = {}
-        START = 0
-        multimeric_mode = multimeric_object.multimeric_mode
-        t_0 = time.time()
-
-        if allow_resume:
-            for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
-                unrelaxed_pdb_path = join(
-                    output_dir, f"unrelaxed_{model_name}.pdb")
-                result_output_path = join(
-                    output_dir, f"result_{model_name}.pkl")
-                if exists(unrelaxed_pdb_path) and exists(result_output_path):
-                    START = model_index + 1
-                else:
-                    break
-
-        # first check whether the desired num_res and num_msa are specified for padding
-        desired_num_res, desired_num_msa = kwargs.get(
-            "desired_num_res", None), kwargs.get("desired_num_msa", None)
-        if (desired_num_res is not None) and (desired_num_msa is not None):
-            # This means padding is required to speed up the process
-            model_config = kwargs.get('model_config')
-            update_muiltimer_model_config(model_config)
-            pad_input_features(model_config=model_config, feature_dict=multimeric_object.feature_dict,
-                               desired_num_msa=desired_num_msa, desired_num_res=desired_num_res)
-
-        num_models = len(model_runners)
-        for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
-            if model_index < START:
-                continue
-            t_0 = time.time()
-
-        num_models = len(model_runners.keys())
-        for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
+        for m in objects_to_model:
+            object_to_model, output_dir = next(iter(m.items()))
+            prediction_result = {}
+            timings = {}
             model_random_seed = model_index + random_seed * num_models
             processed_feature_dict = model_runner.process_features(
-                multimeric_object.feature_dict, random_seed=model_random_seed
+                object_to_model.feature_dict, random_seed=model_random_seed
             )
-
-            # Read prediction results from results.pkl und unrelaxed.pdb
-            if model_index < START:
-                result_output_path = join(
-                    output_dir, f"result_{model_name}.pkl")
-                with open(result_output_path, "rb") as f:
-                    prediction_result = pickle.load(f)
-                    # Update prediction_result with input seqs and unrelaxed protein
-                    prediction_result.update(
-                        {"seqs": multimeric_object.input_seqs})
-                    plddt_b_factors = np.repeat(
-                        prediction_result['plddt'][:,
-                                                   None], residue_constants.atom_type_num, axis=-1
-                    )
-                    unrelaxed_protein = protein.from_prediction(
-                        features=processed_feature_dict,
-                        result=prediction_result,
-                        b_factors=plddt_b_factors,
-                        remove_leading_feature_dimension=not model_runner.multimer_mode,
-                    )
-                    prediction_result.update(
-                        {"unrelaxed_protein": unrelaxed_protein})
-                prediction_results.update({model_name: prediction_result})
-                continue
 
             # TODO: re-predict models if --allow_resume and previous predictions were done with templates
             if skip_templates:
                 _reset_template_features(processed_feature_dict)
             timings[f"process_features_{model_name}"] = time.time() - t_0
             # Die if --multimeric_mode=True but no non-zero templates are in the feature dict
-            if multimeric_mode:
+            if object_to_model.multimeric_mode:
                 if "template_all_atom_positions" in processed_feature_dict:
                     if not np.any(
                         processed_feature_dict["template_all_atom_positions"]
@@ -357,7 +266,7 @@ class AlphaFoldBackend(FoldingBackend):
                     )
             t_0 = time.time()
             logging.info(
-                f"Now runing predictions on {multimeric_object.description}")
+                f"Now runing predictions on {object_to_model.description} using {model_name}")
             prediction_result = model_runner.predict(
                 processed_feature_dict, random_seed=model_random_seed
             )
@@ -366,7 +275,7 @@ class AlphaFoldBackend(FoldingBackend):
             logging.info(f"prediction costs : {t_diff} s")
 
             # Update prediction_result with input seqs and unrelaxed protein
-            prediction_result.update({"seqs": multimeric_object.input_seqs})
+            prediction_result.update({"seqs": object_to_model.input_seqs})
             plddt_b_factors = np.repeat(
                 prediction_result['plddt'][:,
                                            None], residue_constants.atom_type_num, axis=-1
@@ -385,7 +294,6 @@ class AlphaFoldBackend(FoldingBackend):
             with open(result_output_path, "wb") as f:
                 pickle.dump(np_prediction_result, f, protocol=4)
             prediction_result.update({"unrelaxed_protein": unrelaxed_protein})
-            prediction_results.update({model_name: prediction_result})
             # Save predictions to pdb files
             unrelaxed_pdb_path = join(
                 output_dir, f"unrelaxed_{model_name}.pdb")
@@ -396,8 +304,12 @@ class AlphaFoldBackend(FoldingBackend):
             timings_output_path = join(output_dir, "timings.json")
             with open(timings_output_path, "w") as f:
                 f.write(json.dumps(timings, indent=4))
-
-        return prediction_results
+            prediction_results_per_model_runner[model_name].append({
+                object_to_model : {"prediction_result" : prediction_result,
+                                   "output_dir" : output_dir}
+            })
+        
+        return prediction_results_per_model_runner
 
     @staticmethod
     def predict(model_runners: Dict,
@@ -405,23 +317,50 @@ class AlphaFoldBackend(FoldingBackend):
                 allow_resume: bool,
                 skip_templates: bool,
                 random_seed: int = 42,
-                **kwargs):
+                **kwargs) -> dict:
+        prediction_results = {}
+        NUM_MODELS = len(model_runners)
         for m in objects_to_model:
-            object_to_model, output_dir = next(iter(m.items()))
-            prediction_results = AlphaFoldBackend.predict_individual_job(
-                model_runners=model_runners,
-                multimeric_object=object_to_model,
-                allow_resume=allow_resume,
-                skip_templates=skip_templates,
-                output_dir=output_dir,
+            # first check whether the desired num_res and num_msa are specified for padding
+            desired_num_res, desired_num_msa = kwargs.get(
+                "desired_num_res", None), kwargs.get("desired_num_msa", None)
+            if (desired_num_res is not None) and (desired_num_msa is not None):
+                # This means padding is required to speed up the process
+                model_config = kwargs.get('model_config')
+                update_muiltimer_model_config(model_config)
+                pad_input_features(model_config=model_config, feature_dict=m.feature_dict,
+                                   desired_num_msa=desired_num_msa, desired_num_res=desired_num_res)
+
+        for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
+            prediction_result = AlphaFoldBackend.run_individual_model_runner(
+                model_runner=model_runner,
+                objects_to_model=objects_to_model,
+                model_index=model_index,
+                num_models=NUM_MODELS,
+                model_name=model_name,
                 random_seed=random_seed,
-                **kwargs
+                skip_templates=skip_templates
             )
-            yield {object_to_model: {"prediction_results": prediction_results,
-                                     "output_dir": output_dir}}
+            prediction_results.update(prediction_result)
+        return prediction_results
+    
+    @staticmethod
+    def postprocess(prediction_results: Dict,
+        objects_to_model: list,
+        **kwargs: Dict,):
+
+        for model_name, predictions in prediction_results.items():
+            for mutimeric_object, results in predictions:
+                AlphaFoldBackend.postprocess_individual_finished_job(
+                    prediction_results=results['prediction_result'],
+                    multimeric_object=mutimeric_object,
+                    output_dir=results['output_dir'],
+                    **kwargs
+                ) 
+
 
     @staticmethod
-    def postprocess(
+    def postprocess_individual_finished_job(
         prediction_results: Dict,
         multimeric_object: MultimericObject,
         output_dir: str,
