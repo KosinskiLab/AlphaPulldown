@@ -26,6 +26,7 @@ from alphapulldown.objects import ChoppedObject
 from alphapulldown.utils.file_handling import make_dir_monomer_dictionary
 from ml_collections import ConfigDict
 from absl import logging
+import tensorflow as tf
 logging.set_verbosity(logging.INFO)
 
 def parse_fold(args):
@@ -111,6 +112,10 @@ def pad_input_features(model_config : ConfigDict, feature_dict: dict,
     assembly_num_chains = feature_dict.pop('assembly_num_chains')
     num_templates = feature_dict.pop('num_templates')
     make_fixed_size_fn(feature_dict)
+    # make sure all matrices are numpy ndarray otherwise throught dtype errors
+    for k,v in feature_dict.items():
+        if isinstance(v, tf.Tensor):
+            feature_dict[k] = v.numpy()
     feature_dict['assembly_num_chains'] = assembly_num_chains
     feature_dict['num_templates'] = num_templates
 

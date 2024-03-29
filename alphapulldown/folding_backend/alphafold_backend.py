@@ -277,8 +277,6 @@ class AlphaFoldBackend(FoldingBackend):
         multimeric_mode = multimeric_object.multimeric_mode
         t_0 = time.time()
 
-        logging.info(
-            f"Now runing predictions on {multimeric_object.description}")
         if allow_resume:
             for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
                 unrelaxed_pdb_path = join(
@@ -312,6 +310,7 @@ class AlphaFoldBackend(FoldingBackend):
             processed_feature_dict = model_runner.process_features(
                 multimeric_object.feature_dict, random_seed=model_random_seed
             )
+
             # Read prediction results from results.pkl und unrelaxed.pdb
             if model_index < START:
                 result_output_path = join(
