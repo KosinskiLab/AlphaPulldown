@@ -53,7 +53,7 @@ def _save_pae_json_file(pae: np.ndarray, max_pae: float, output_dir: str, model_
     model_name: Name of a model.
     """
     pae_json = confidence.pae_json(pae, max_pae)
-    pae_json_output_path = os.path.join(output_dir, f'pae_{model_name}.json')
+    pae_json_output_path = join(output_dir, f'pae_{model_name}.json')
     with open(pae_json_output_path, 'w') as f:
         f.write(pae_json)
 
@@ -67,7 +67,7 @@ def _save_confidence_json_file(plddt: np.ndarray, output_dir: str, model_name: s
         model_name: Name of a model.
     """
     confidence_json = confidence.confidence_json(plddt)
-    confidence_json_output_path = os.path.join(
+    confidence_json_output_path = join(
         output_dir, f'confidence_{model_name}.json')
     with open(confidence_json_output_path, 'w') as f:
         f.write(confidence_json)
