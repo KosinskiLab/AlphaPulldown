@@ -239,6 +239,7 @@ class AlphaFoldBackend(FoldingBackend):
             object_to_model, output_dir = next(iter(m.items()))
             prediction_result = {}
             timings = {}
+            t_0 = time.time()
             model_random_seed = model_index + random_seed * num_models
             processed_feature_dict = model_runner.process_features(
                 object_to_model.feature_dict, random_seed=model_random_seed
@@ -321,6 +322,7 @@ class AlphaFoldBackend(FoldingBackend):
         prediction_results = {}
         NUM_MODELS = len(model_runners)
         for m in objects_to_model:
+            object_to_model, _ = next(iter(m.items()))
             # first check whether the desired num_res and num_msa are specified for padding
             desired_num_res, desired_num_msa = kwargs.get(
                 "desired_num_res", None), kwargs.get("desired_num_msa", None)
@@ -328,7 +330,7 @@ class AlphaFoldBackend(FoldingBackend):
                 # This means padding is required to speed up the process
                 model_config = kwargs.get('model_config')
                 update_muiltimer_model_config(model_config)
-                pad_input_features(model_config=model_config, feature_dict=m.feature_dict,
+                pad_input_features(model_config=model_config, feature_dict=object_to_model.feature_dict,
                                    desired_num_msa=desired_num_msa, desired_num_res=desired_num_res)
 
         for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
