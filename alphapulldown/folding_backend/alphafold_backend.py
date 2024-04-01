@@ -53,7 +53,7 @@ def _save_pae_json_file(pae: np.ndarray, max_pae: float, output_dir: str, model_
     model_name: Name of a model.
     """
     pae_json = confidence.pae_json(pae, max_pae)
-    pae_json_output_path = os.path.join(output_dir, f'pae_{model_name}.json')
+    pae_json_output_path = join(output_dir, f'pae_{model_name}.json')
     with open(pae_json_output_path, 'w') as f:
         f.write(pae_json)
 
@@ -67,7 +67,7 @@ def _save_confidence_json_file(plddt: np.ndarray, output_dir: str, model_name: s
         model_name: Name of a model.
     """
     confidence_json = confidence.confidence_json(plddt)
-    confidence_json_output_path = os.path.join(
+    confidence_json_output_path = join(
         output_dir, f'confidence_{model_name}.json')
     with open(confidence_json_output_path, 'w') as f:
         f.write(confidence_json)
@@ -277,9 +277,9 @@ class AlphaFoldBackend(FoldingBackend):
         multimeric_mode = multimeric_object.multimeric_mode
         t_0 = time.time()
 
-        logging.info(
-            f"Now runing predictions on {multimeric_object.description}")
         if allow_resume:
+            logging.info(
+            f"Now runing predictions on {multimeric_object.description}. Checking existing results...")
             for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
                 unrelaxed_pdb_path = join(
                     output_dir, f"unrelaxed_{model_name}.pdb")
@@ -358,7 +358,7 @@ class AlphaFoldBackend(FoldingBackend):
                     )
             t_0 = time.time()
             logging.info(
-                f"Now runing predictions on {multimeric_object.description}")
+                f"Now runing predictions on {multimeric_object.description} using {model_name}")
             prediction_result = model_runner.predict(
                 processed_feature_dict, random_seed=model_random_seed
             )
