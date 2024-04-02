@@ -299,7 +299,8 @@ class AlphaFoldBackend(FoldingBackend):
             update_muiltimer_model_config(model_config)
             pad_input_features(model_config=model_config, feature_dict=multimeric_object.feature_dict,
                                desired_num_msa=desired_num_msa, desired_num_res=desired_num_res)
-
+            multimeric_object.description = "padded_multimeric_object"
+            
         num_models = len(model_runners)
         for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
             if model_index < START:
