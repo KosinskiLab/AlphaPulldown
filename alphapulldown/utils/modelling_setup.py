@@ -186,9 +186,14 @@ def create_uniprot_runner(jackhmmer_binary_path, uniprot_database_path):
 
 def check_empty_templates(feature_dict: dict) -> bool:
     """A function to check wether the pickle has empty templates"""
-    return (feature_dict["template_all_atom_masks"].size == 0) or (
-            feature_dict["template_aatype"].size == 0
-    )
+    if "template_all_atom_masks" in feature_dict:
+        return (feature_dict["template_all_atom_masks"].size == 0) or (
+                feature_dict["template_aatype"].size == 0
+        )
+    elif "template_all_atom_mask" in feature_dict:
+        return (feature_dict["template_all_atom_mask"].size == 0) or (
+                feature_dict["template_aatype"].size == 0
+        )
 
 
 def mk_mock_template(feature_dict: dict):
