@@ -300,7 +300,7 @@ class AlphaFoldBackend(FoldingBackend):
             pad_input_features(model_config=model_config, feature_dict=multimeric_object.feature_dict,
                                desired_num_msa=desired_num_msa, desired_num_res=desired_num_res)
             multimeric_object.description = "padded_multimeric_object"
-            
+
         num_models = len(model_runners)
         for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
             if model_index < START:
@@ -554,39 +554,40 @@ class AlphaFoldBackend(FoldingBackend):
             f.write(json.dumps(timings, indent=4))
 
         # Extract multimeric template if multimeric mode is enabled.
-        if multimeric_mode:
-            feature_dict = multimeric_object.feature_dict
-            template_mask = feature_dict["template_all_atom_mask"][0]
-            template_protein = protein.Protein(
-                atom_positions=feature_dict["template_all_atom_positions"][0],
-                atom_mask=template_mask,
-                aatype=feature_dict["template_aatype"][0],
-                residue_index=feature_dict.get("residue_index", None),
-                chain_index=feature_dict["asym_id"],
-                b_factors=np.zeros(template_mask.shape, dtype=float),
-            )
-            pdb_string = protein.to_pdb(template_protein)
+        # if multimeric_mode:
+        #     feature_dict = multimeric_object.feature_dict
+        #     template_mask = feature_dict["template_all_atom_mask"][0]
+        #     template_protein = protein.Protein(
+        #         atom_positions=feature_dict["template_all_atom_positions"][0],
+        #         atom_mask=template_mask,
+        #         aatype=feature_dict["template_aatype"][0],
+        #         residue_index=feature_dict.get("residue_index", None),
+        #         chain_index=feature_dict["asym_id"],
+        #         b_factors=np.zeros(template_mask.shape, dtype=float),
+        #     )
+        #     logging.info(f"template_aatype: {feature_dict['template_aatype'][0]}")
+        #     pdb_string = protein.to_pdb(template_protein)
 
-        # Write out PDBs in rank order.
-        for idx, model_name in enumerate(ranked_order):
-            if model_name in relaxed_pdbs:
-                protein_instance = relaxed_pdbs[model_name]
-            else:
-                protein_instance = protein.to_pdb(
-                    prediction_results[model_name]['unrelaxed_protein'])
-            ranked_output_path = join(output_dir, f'ranked_{idx}.pdb')
-            with open(ranked_output_path, 'w') as f:
-                f.write(protein_instance)
-            # Check RMSD between the predicted model and the multimeric template.
-            if multimeric_mode:
-                with tempfile.TemporaryDirectory() as temp_dir:
-                    template_file_path = f"{temp_dir}/template.pdb"
-                    with open(template_file_path, "w") as file:
-                        file.write(pdb_string)
-                    # TODO: use template_sequence for alignment
-                    calculate_rmsd_and_superpose(
-                        template_file_path, ranked_output_path, temp_dir
-                    )
+        # # Write out PDBs in rank order.
+        # for idx, model_name in enumerate(ranked_order):
+        #     if model_name in relaxed_pdbs:
+        #         protein_instance = relaxed_pdbs[model_name]
+        #     else:
+        #         protein_instance = protein.to_pdb(
+        #             prediction_results[model_name]['unrelaxed_protein'])
+        #     ranked_output_path = join(output_dir, f'ranked_{idx}.pdb')
+        #     with open(ranked_output_path, 'w') as f:
+        #         f.write(protein_instance)
+        #     # Check RMSD between the predicted model and the multimeric template.
+        #     if multimeric_mode:
+        #         with tempfile.TemporaryDirectory() as temp_dir:
+        #             template_file_path = f"{temp_dir}/template.pdb"
+        #             with open(template_file_path, "w") as file:
+        #                 file.write(pdb_string)
+        #             # TODO: use template_sequence for alignment
+        #             calculate_rmsd_and_superpose(
+        #                 template_file_path, ranked_output_path, temp_dir
+        #             )
 
         post_prediction_process(
             output_dir,
