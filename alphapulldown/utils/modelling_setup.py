@@ -10,7 +10,7 @@ import pickle
 import logging
 import importlib.util
 from pathlib import Path
-
+from typing import List,Dict,Union
 import numpy as np
 import alphafold
 from alphafold.data import parsers
@@ -19,9 +19,136 @@ from alphafold.model import config
 from alphafold.model import model
 from alphafold.model import data
 from alphafold.data import templates
-
+from alphapulldown.objects import MonomericObject, ChoppedObject
+from alphafold.model.tf.data_transforms import make_fixed_size
+from os.path import exists,join
 from alphapulldown.objects import ChoppedObject
 from alphapulldown.utils.file_handling import make_dir_monomer_dictionary
+from ml_collections import ConfigDict
+from absl import logging
+import tensorflow as tf
+logging.set_verbosity(logging.INFO)
+
+def parse_fold(args):
+    all_folding_jobs = []
+    for i in args.input:
+        formatted_folds, missing_features, unique_features = [], [], []
+        protein_folds = [x.split(":") for x in i.split(args.protein_delimiter)]
+        for protein_fold in protein_folds:
+            name, number, region = None, 1, "all"
+
+            match len(protein_fold):
+                case 1:
+                    name = protein_fold[0]
+                case 2:
+                    name, number = protein_fold[0], protein_fold[1]
+                    if ("-") in protein_fold[1]:
+                        number = 1
+                        region = protein_fold[1].split("-")
+                case 3:
+                    name, number, region = protein_fold
+            
+            number = int(number)
+            if len(region) != 2 and region != "all":
+                raise ValueError(f"Region {region} is malformatted expected start-stop.")
+
+            if len(region) == 2:
+                region = [tuple(int(x) for x in region)]
+
+            unique_features.append(name)
+            if not any([exists(join(monomer_dir, f"{name}.pkl")) for monomer_dir in args.features_directory]):
+                missing_features.append(name)
+
+            formatted_folds.extend([{name: region} for _ in range(number)])
+        all_folding_jobs.append(formatted_folds)
+        missing_features = set(missing_features)
+        if len(missing_features):
+            raise FileNotFoundError(
+                f"{missing_features} not found in {args.features_directory}"
+            )
+    args.parsed_input = all_folding_jobs
+    return args
+
+def update_muiltimer_model_config(multimer_model_config : ConfigDict) -> None:
+    """
+    A function that update multimer model based on the schema from 
+    monomer models config before padding 
+
+    Args:
+        model_config: a ConfigDict from alphafold.model.config
+    """
+    model_config = config.model_config("model_1_ptm")
+    multimer_model_config.update({'eval': model_config.data.eval}) # added eval to multimer config
+
+    # below update multimer-specific settings
+    ONE_DIMENTIONAL_PADDINGS = ['asym_id','sym_id','entity_id','entity_mask','deletion_mean','num_alignments']
+    multimer_model_config['eval']['feat'].update({"msa":multimer_model_config['eval']['feat']['msa_feat'][0:2],
+                                                  "template_all_atom_mask":multimer_model_config['eval']['feat']['template_all_atom_masks'],
+                                                  "deletion_matrix":multimer_model_config['eval']['feat']['msa_feat'][0:2],
+                                                  "cluster_bias_mask":multimer_model_config['eval']['feat']['msa_feat'][0:1]})
+    
+    for k in ONE_DIMENTIONAL_PADDINGS:
+        multimer_model_config['eval']['feat'].update({k:multimer_model_config['eval']['feat']['residue_index']})
+
+def pad_input_features(model_config : ConfigDict, feature_dict: dict, 
+                       desired_num_res : int, desired_num_msa : int) -> None:
+    
+    """
+    A function that pads input feature numpy arrays based on desired number of residues 
+    and desired number of msas 
+
+    Args:
+        model_config: ConfigDict from alphafold.model.config
+        feature_dict : feature_dict attribute from either a MonomericObject or a MultimericObject
+        desired_num_res: desired number of residues 
+        desired_num_msa: desired number of msa 
+    """
+    NUM_EXTRA_MSA = 2048
+    NUM_TEMPLATES = 4
+    make_fixed_size_fn = make_fixed_size(model_config.eval.feat, 
+                                         desired_num_msa,NUM_EXTRA_MSA,
+                                         desired_num_res,NUM_TEMPLATES)
+    
+    assembly_num_chains = feature_dict.pop('assembly_num_chains')
+    num_templates = feature_dict.pop('num_templates')
+    make_fixed_size_fn(feature_dict)
+    # make sure all matrices are numpy ndarray otherwise throught dtype errors
+    for k,v in feature_dict.items():
+        if isinstance(v, tf.Tensor):
+            feature_dict[k] = v.numpy()
+    feature_dict['assembly_num_chains'] = assembly_num_chains
+    feature_dict['num_templates'] = num_templates
+
+def create_custom_info(all_proteins : List[List[Dict[str, str]]]) -> List[Dict[str, List[str]]]:
+    """
+    Create a dictionary representation of data for a custom input file.
+
+    Parameters
+    ----------
+    all_proteins : List[List[Dict[str, str]]]
+       A list of lists of protein names or sequences. Each element
+       of the list is a nother list of dictionaries thats should be included in the data.
+
+    Returns
+    -------
+     List[Dict[str, List[str]]]
+        A list of dictionaries. Within each dictionary: each key is a column name following the
+        pattern 'col_X' where X is the column index starting from 1.
+        Each key maps to a list containing a single protein name or
+        sequence from the input list.
+
+    """
+    output = []
+    def process_single_dictionary(all_proteins):
+        num_cols = len(all_proteins)
+        data = dict()
+        for i in range(num_cols):
+            data[f"col_{i + 1}"] = [all_proteins[i]]
+        return data
+    for i in all_proteins:
+        curr_data = process_single_dictionary(i)
+        output.append(curr_data)
+    return output
 
 def get_run_alphafold():
     """
@@ -59,9 +186,14 @@ def create_uniprot_runner(jackhmmer_binary_path, uniprot_database_path):
 
 def check_empty_templates(feature_dict: dict) -> bool:
     """A function to check wether the pickle has empty templates"""
-    return (feature_dict["template_all_atom_masks"].size == 0) or (
-            feature_dict["template_aatype"].size == 0
-    )
+    if "template_all_atom_masks" in feature_dict:
+        return (feature_dict["template_all_atom_masks"].size == 0) or (
+                feature_dict["template_aatype"].size == 0
+        )
+    elif "template_all_atom_mask" in feature_dict:
+        return (feature_dict["template_all_atom_mask"].size == 0) or (
+                feature_dict["template_aatype"].size == 0
+        )
 
 
 def mk_mock_template(feature_dict: dict):
@@ -189,35 +321,45 @@ def check_existing_objects(output_dir, pickle_name):
     return os.path.isfile(os.path.join(output_dir, pickle_name))
 
 
-def create_interactors(data, monomer_objects_dir, i):
+def create_interactors(data : List[Dict[str, List[str]]], 
+                       monomer_objects_dir : List[str], i : int = 0) -> List[List[Union[MonomericObject, ChoppedObject]]]:
     """
     A function to a list of monomer objects
 
     Args
     data: a dictionary object storing interactors' names and regions
+
+    Return:
+    A list in which each element is a list of MonomericObject/ChoppedObject
     """
+    def process_each_dict(data,monomer_objects_dir):
+        interactors = []
+        monomer_dir_dict = make_dir_monomer_dictionary(monomer_objects_dir)
+        for k in data.keys():
+            for curr_interactor_name, curr_interactor_region in data[k][i].items():
+                monomer = load_monomer_objects(monomer_dir_dict, curr_interactor_name)
+                if check_empty_templates(monomer.feature_dict):
+                    monomer.feature_dict = mk_mock_template(monomer.feature_dict)
+                else:
+                    if curr_interactor_region == "all":
+                        interactors.append(monomer)
+                    elif (
+                            isinstance(curr_interactor_region, list)
+                            and len(curr_interactor_region) != 0
+                    ):
+                        chopped_object = ChoppedObject(
+                            monomer.description,
+                            monomer.sequence,
+                            monomer.feature_dict,
+                            curr_interactor_region,
+                        )
+                        chopped_object.prepare_final_sliced_feature_dict()
+                        interactors.append(chopped_object)
+        return interactors
+
     interactors = []
-    monomer_dir_dict = make_dir_monomer_dictionary(monomer_objects_dir)
-    for k in data.keys():
-        for curr_interactor_name, curr_interactor_region in data[k][i].items():
-            monomer = load_monomer_objects(monomer_dir_dict, curr_interactor_name)
-            if check_empty_templates(monomer.feature_dict):
-                monomer.feature_dict = mk_mock_template(monomer.feature_dict)
-            else:
-                if curr_interactor_region == "all":
-                    interactors.append(monomer)
-                elif (
-                        isinstance(curr_interactor_region, list)
-                        and len(curr_interactor_region) != 0
-                ):
-                    chopped_object = ChoppedObject(
-                        monomer.description,
-                        monomer.sequence,
-                        monomer.feature_dict,
-                        curr_interactor_region,
-                    )
-                    chopped_object.prepare_final_sliced_feature_dict()
-                    interactors.append(chopped_object)
+    for d in data:
+        interactors.append(process_each_dict(d, monomer_objects_dir))
     return interactors
 
 
