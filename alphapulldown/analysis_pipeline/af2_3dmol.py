@@ -202,7 +202,7 @@ def parse_results_colour_chains(output, color=None, models=5, multimer=False):
 def set_b_to_plddtbands(ph):
 
     plddt_lims = np.array([_[0] for _ in PLDDT_BANDS])
-    for resi in protomer_ph.residue_groups():
+    for resi in ph.residue_groups():
         resi.atoms().set_b(new_b=cctbx.array_family.flex.double(resi.atoms().size(), float(np.argmax(plddt_lims>resi.atoms()[0].b))))
 
 # ------------------------------------------------------
