@@ -551,7 +551,16 @@ class AlphaFoldBackend(FoldingBackend):
 
         with open(timings_path, 'w') as f:
             f.write(json.dumps(timings, indent=4))
-
+              # Write out PDBs in rank order.
+        for idx, model_name in enumerate(ranked_order):
+            if model_name in relaxed_pdbs:
+                protein_instance = relaxed_pdbs[model_name]
+            else:
+                protein_instance = protein.to_pdb(
+                    prediction_results[model_name]['unrelaxed_protein'])
+            ranked_output_path = join(output_dir, f'ranked_{idx}.pdb')
+            with open(ranked_output_path, 'w') as f:
+                f.write(protein_instance)
         # Extract multimeric template if multimeric mode is enabled.
         # if multimeric_mode:
         #     feature_dict = multimeric_object.feature_dict
@@ -566,17 +575,6 @@ class AlphaFoldBackend(FoldingBackend):
         #     )
         #     logging.info(f"template_aatype: {feature_dict['template_aatype'][0]}")
         #     pdb_string = protein.to_pdb(template_protein)
-
-        # # Write out PDBs in rank order.
-        # for idx, model_name in enumerate(ranked_order):
-        #     if model_name in relaxed_pdbs:
-        #         protein_instance = relaxed_pdbs[model_name]
-        #     else:
-        #         protein_instance = protein.to_pdb(
-        #             prediction_results[model_name]['unrelaxed_protein'])
-        #     ranked_output_path = join(output_dir, f'ranked_{idx}.pdb')
-        #     with open(ranked_output_path, 'w') as f:
-        #         f.write(protein_instance)
         #     # Check RMSD between the predicted model and the multimeric template.
         #     if multimeric_mode:
         #         with tempfile.TemporaryDirectory() as temp_dir:
