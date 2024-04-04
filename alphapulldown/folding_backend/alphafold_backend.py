@@ -23,6 +23,7 @@ from run_alphafold import ModelsToRelax
 from alphafold.relax import relax
 from alphafold.common import protein, residue_constants, confidence
 from .folding_backend import FoldingBackend
+logging.set_verbosity(logging.INFO)
 
 MAX_TEMPLATE_HITS = 20
 RELAX_MAX_ITERATIONS = 0
@@ -299,7 +300,7 @@ class AlphaFoldBackend(FoldingBackend):
             update_muiltimer_model_config(model_config)
             pad_input_features(model_config=model_config, feature_dict=multimeric_object.feature_dict,
                                desired_num_msa=desired_num_msa, desired_num_res=desired_num_res)
-            
+            multimeric_object.feature_dict['num_alignments'] = np.array([desired_num_msa])
         num_models = len(model_runners)
         for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
             if model_index < START:
