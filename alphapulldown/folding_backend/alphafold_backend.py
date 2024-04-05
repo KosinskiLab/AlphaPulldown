@@ -303,9 +303,6 @@ class AlphaFoldBackend(FoldingBackend):
             if model_index < START:
                 continue
             t_0 = time.time()
-
-        num_models = len(model_runners.keys())
-        for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
             model_random_seed = model_index + random_seed * num_models
             processed_feature_dict = model_runner.process_features(
                 multimeric_object.feature_dict, random_seed=model_random_seed
