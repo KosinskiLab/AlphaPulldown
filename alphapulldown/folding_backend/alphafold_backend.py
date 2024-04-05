@@ -300,9 +300,6 @@ class AlphaFoldBackend(FoldingBackend):
             multimeric_object.feature_dict['num_alignments'] = np.array([desired_num_msa])
         num_models = len(model_runners)
         for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
-            if model_index < START:
-                continue
-            t_0 = time.time()
             model_random_seed = model_index + random_seed * num_models
             processed_feature_dict = model_runner.process_features(
                 multimeric_object.feature_dict, random_seed=model_random_seed
@@ -572,15 +569,14 @@ class AlphaFoldBackend(FoldingBackend):
         #     logging.info(f"template_aatype: {feature_dict['template_aatype'][0]}")
         #     pdb_string = protein.to_pdb(template_protein)
         #     # Check RMSD between the predicted model and the multimeric template.
-        #     if multimeric_mode:
-        #         with tempfile.TemporaryDirectory() as temp_dir:
-        #             template_file_path = f"{temp_dir}/template.pdb"
-        #             with open(template_file_path, "w") as file:
-        #                 file.write(pdb_string)
-        #             # TODO: use template_sequence for alignment
-        #             calculate_rmsd_and_superpose(
-        #                 template_file_path, ranked_output_path, temp_dir
-        #             )
+        #     with tempfile.TemporaryDirectory() as temp_dir:
+        #         template_file_path = f"{temp_dir}/template.pdb"
+        #         with open(template_file_path, "w") as file:
+        #             file.write(pdb_string)
+        #         # TODO: use template_sequence for alignment
+        #         calculate_rmsd_and_superpose(
+        #             template_file_path, ranked_output_path, temp_dir
+        #         )
 
         post_prediction_process(
             output_dir,
