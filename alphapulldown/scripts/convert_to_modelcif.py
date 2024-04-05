@@ -30,7 +30,7 @@ import modelcif.dumper
 import modelcif.model
 import modelcif.protocol
 
-from alphapulldown.utils import make_dir_monomer_dictionary, iter_seqs
+from alphapulldown.utils.file_handling import make_dir_monomer_dictionary, iter_seqs
 
 # ToDo: Software versions can not have a white space, e.g. ColabFold (drop time)
 # ToDo: DISCUSS Get options properly, best get the same names as used in
@@ -783,7 +783,7 @@ def _get_feature_metadata(
     modelcif_json: dict,
     cmplx_name: str,
     monomer_objects_dir: list,
-) -> tuple[list[str], list[str]]:
+) -> Tuple[List[str], List[str]]:
     """Read metadata from a feature JSON file."""
     cmplx_name = cmplx_name.split("_and_")
     mnmr_obj_fls = make_dir_monomer_dictionary(monomer_objects_dir)
@@ -834,7 +834,7 @@ def _get_model_info(
 
 
 def _get_entities(
-    cif_json: dict, pdb_file: str, cmplx_name: list[str], fasta_dicts: list[dict]
+    cif_json: dict, pdb_file: str, cmplx_name: List[str], fasta_dicts: List[dict]
 ) -> BioStructure:
     """Gather data for the mmCIF (target) entities."""
     sequences = {}
@@ -1235,7 +1235,7 @@ def _add_mdl_to_list(mdl, model_list, mdl_path, score_files):
 
 def _get_model_list(
     ap_dir: str, model_selected: str, get_non_selected: bool
-) -> list[dict[str, list[Any] | Any]]:
+) -> List[Dict[str, List[Any] | Any]]:
     """Get the list of models to be converted.
 
     If `model_selected` is none, all models will be marked for conversion."""

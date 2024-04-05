@@ -1,8 +1,11 @@
-#
-# This script is
-# based on run_alphafold.py by DeepMind from https://github.com/deepmind/alphafold
-# and contains code copied from the script run_alphafold.py.
-# #
+""" Predict protein structures with input features from objects.py
+
+    This script is based on run_alphafold.py by DeepMind from https://github.com/deepmind/alphafold
+    and contains code copied from the script run_alphafold.py.
+
+    Author: Dingquan Yu <dingquan.yu@embl-hamburg.de>
+"""
+
 import json
 import os
 import pickle,gzip
@@ -12,9 +15,9 @@ from alphafold.common import protein
 from alphafold.common import residue_constants
 from alphafold.relax import relax
 import numpy as np
-from alphapulldown.utils import get_run_alphafold
 import jax.numpy as jnp
 
+from alphapulldown.utils.modelling_setup import get_run_alphafold
 
 run_af = get_run_alphafold()
 RELAX_MAX_ITERATIONS = run_af.RELAX_MAX_ITERATIONS
@@ -24,15 +27,6 @@ RELAX_EXCLUDE_RESIDUES = run_af.RELAX_EXCLUDE_RESIDUES
 RELAX_MAX_OUTER_ITERATIONS = run_af.RELAX_MAX_OUTER_ITERATIONS
 
 ModelsToRelax = run_af.ModelsToRelax
-
-def _jnp_to_np(output):
-  """Recursively changes jax arrays to numpy arrays."""
-  for k, v in output.items():
-    if isinstance(v, dict):
-      output[k] = _jnp_to_np(v)
-    elif isinstance(v, jnp.ndarray):
-      output[k] = np.array(v)
-  return output
 
 def get_score_from_result_pkl(pkl_path):
     """Get the score from the model result pkl file"""
@@ -110,6 +104,10 @@ def predict(
     seqs=[],
     use_gpu_relax=True
 ):
+    """
+    The actual function that predicts protein structures
+    Modified from https://github.com/google-deepmind/alphafold/blob/032e2f26732d1473ec5db7ff5b8572754576e459/run_alphafold.py#L232
+    """
     timings = {}
     unrelaxed_pdbs = {}
     relaxed_pdbs = {}
@@ -187,7 +185,7 @@ def predict(
         ranking_confidences[model_name] = prediction_result["ranking_confidence"]
 
         # Remove jax dependency from results.
-        np_prediction_result = _jnp_to_np(dict(prediction_result))
+        np_prediction_result = run_af._jnp_to_np(dict(prediction_result))
 
         result_output_path = os.path.join(output_dir, f"result_{model_name}.pkl")
         with open(result_output_path, "wb") as f:
@@ -263,7 +261,7 @@ def predict(
         # Calculate and report RMSD if multimeric templates were used.
         if run_af.flags.FLAGS.multimeric_mode:
             # Calculate RMSD
-            from alphapulldown.analysis_pipeline.calculate_rmsd import calculate_rmsd_and_superpose
+            from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
             import tempfile
             template_positions = feature_dict['template_all_atom_positions'][0]
             template_mask = feature_dict['template_all_atom_mask'][0]

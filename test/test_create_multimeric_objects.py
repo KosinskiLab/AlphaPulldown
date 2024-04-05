@@ -1,10 +1,7 @@
 import unittest
 from alphapulldown.objects import MultimericObject
-import shutil
 import pickle
 import numpy as np
-from alphafold.data.pipeline import DataPipeline
-from alphafold.data.tools import hmmsearch
 
 
 class TestCreateMultimericObject(unittest.TestCase):

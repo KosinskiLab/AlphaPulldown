@@ -1,12 +1,14 @@
-# Author Dingquan Yu
-# scripts to create objects (e.g. monomeric object, multimeric objects)
-#
-#
+""" Create monomeric or multimeric objects with corresponding import features for the modelling backends
+
+    Copyright (c) 2024 European Molecular Biology Laboratory
+
+    Author: Dingquan Yu <dingquan.yu@embl-hamburg.de>
+"""
 from absl import logging
+logging.set_verbosity(logging.INFO)
 import tempfile
 import os
 import subprocess
-import contextlib
 import numpy as np
 from alphafold.data.tools import jackhmmer
 from alphafold.data import parsers
@@ -17,18 +19,9 @@ from alphafold.data import feature_processing
 from pathlib import Path as plPath
 from typing import List, Dict
 from colabfold.batch import unserialize_msa, get_msa_and_templates, msa_to_str, build_monomer_feature
-from alphapulldown.multimeric_template_utils import (extract_multimeric_template_features_for_single_chain,
+from alphapulldown.utils.multimeric_template_utils import (extract_multimeric_template_features_for_single_chain,
                                                      prepare_multimeric_template_meta_info)
-
-
-@contextlib.contextmanager
-def temp_fasta_file(sequence_str):
-    """function that create temp file"""
-    with tempfile.NamedTemporaryFile("w", suffix=".fasta") as fasta_file:
-        fasta_file.write(sequence_str)
-        fasta_file.seek(0)
-        yield fasta_file.name
-
+from alphapulldown.utils.file_handling import temp_fasta_file
 
 class MonomericObject:
     """
@@ -538,18 +531,26 @@ class MultimericObject:
     
     def create_multimeric_template_features(self):
         """A method of creating multimeric template features"""
-        assert self.multimeric_template_meta_data is not None, "You chose to use multimeric template mode but multimric template information is missing. Abort"
-        for monomer_name in self.multimeric_template_meta_data:
-            for k,v in self.multimeric_template_meta_data[monomer_name].items():
-                curr_monomer = self.monomers_mapping[monomer_name]
-                assert k.endswith(".cif"), "The multimeric template file you provided does not seem to be a mmcif file. Please check your format and make sure it ends with .cif"
-                assert os.path.exists(os.path.join(self.multimeric_template_dir,k)), f"Your provided {k} cannot be found in: {self.multimeric_template_dir}. Abort"
-                pdb_id = k.split('.cif')[0]
-                multimeric_template_features = extract_multimeric_template_features_for_single_chain(query_seq=curr_monomer.sequence,
-                                                                                                      pdb_id=pdb_id,chain_id=v,
-                                                                                                      mmcif_file=os.path.join(self.multimeric_template_dir,k))
-                curr_monomer.feature_dict.update(multimeric_template_features.features)
-        
+        if self.multimeric_template_dir is None or not hasattr(self,"multimeric_template_meta_data"):
+            logging.warning(f"""
+You chose to use multimeric template modelling 
+but did not give path to multimeric_template_dir or the descrption File. 
+This suggests you have already created template features from your desired multimeric models when runnign 
+create_individual_features.py 
+                            """)
+            pass
+        else:
+            for monomer_name in self.multimeric_template_meta_data:
+                for k,v in self.multimeric_template_meta_data[monomer_name].items():
+                    curr_monomer = self.monomers_mapping[monomer_name]
+                    assert k.endswith(".cif"), "The multimeric template file you provided does not seem to be a mmcif file. Please check your format and make sure it ends with .cif"
+                    assert os.path.exists(os.path.join(self.multimeric_template_dir,k)), f"Your provided {k} cannot be found in: {self.multimeric_template_dir}. Abort"
+                    pdb_id = k.split('.cif')[0]
+                    multimeric_template_features = extract_multimeric_template_features_for_single_chain(query_seq=curr_monomer.sequence,
+                                                                                                        pdb_id=pdb_id,chain_id=v,
+                                                                                                        mmcif_file=os.path.join(self.multimeric_template_dir,k))
+                    curr_monomer.feature_dict.update(multimeric_template_features.features)
+            
 
     @staticmethod
     def remove_all_seq_features(np_chain_list: List[Dict]) -> List[Dict]:
@@ -633,6 +634,10 @@ class MultimericObject:
             all_chain_features=self.all_chain_features
         )
         self.feature_dict = pipeline_multimer.pad_msa(self.feature_dict, 512)
+
+        # make integer to np.array
+        for k in ['num_alignments']:
+            self.feature_dict[k] = np.array([self.feature_dict[k]])
         if self.multimeric_mode:
             self.feature_dict['template_sequence'] = []
             self.feature_dict['multichain_mask'] = self.multichain_mask

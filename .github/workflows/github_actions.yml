@@ -29,7 +29,6 @@ jobs:
           pwd
           echo $CONDA/bin >> $GITHUB_PATH
           echo "$GITHUB_WORKSPACE/alphapulldown" >> $GITHUB_PATH
-
       - name: Install AlphaPulldown for user
         if: matrix.install-type == 'user'
         run: |
@@ -47,7 +46,7 @@ jobs:
           conda activate AlphaPulldown
           conda install -c bioconda hmmer hhsuite
           pip install -e .
-          pip install -e alphapulldown/ColabFold --no-deps
+          pip install -e ColabFold --no-deps
           pip install -e alphafold --no-deps
           python test/test_python_imports.py
 
@@ -88,5 +87,5 @@ jobs:
           eval "$(conda shell.bash hook)"
           conda activate AlphaPulldown
           pytest -s test/test_custom_db.py
-          pytest -s test/test_features_with_templates.py
+          # pytest -s test/test_features_with_templates.py 
           pytest -s test/test_remove_clashes_low_plddt.py

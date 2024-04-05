@@ -1,6 +1,6 @@
 import os
 import alphapulldown
-from alphapulldown.remove_clashes_low_plddt import MmcifChainFiltered
+from alphapulldown.utils.remove_clashes_low_plddt import MmcifChainFiltered
 from pathlib import Path
 
 alphapulldown_dir = os.path.dirname(alphapulldown.__file__)
