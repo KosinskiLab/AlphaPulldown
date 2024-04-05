@@ -3,6 +3,8 @@
     Copyright (c) 2024 European Molecular Biology Laboratory
 
     Author: Valentin Maurer <valentin.maurer@embl-hamburg.de>
+            Dmitry Molodenskiy <dmitry.molodenskiy@embl-hamburg.de> 
+            Dingquan Yu <dingquan.yu@embl-hamburg.de>
 """
 import time
 import json
