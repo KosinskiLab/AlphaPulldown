@@ -17,7 +17,7 @@ from alphapulldown.utils.plotting import plot_pae_from_matrix
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
 from alphapulldown.utils.post_modelling import post_prediction_process
 from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
-from alphapulldown.utils.modelling_setup import update_muiltimer_model_config, pad_input_features
+from alphapulldown.utils.modelling_setup import pad_input_features
 # Avoid module not found error by importing after AP
 from run_alphafold import ModelsToRelax
 from alphafold.relax import relax
@@ -226,8 +226,7 @@ class AlphaFoldBackend(FoldingBackend):
                     model_runners[f"{model_name}_pred_{i}"] = model_runner
 
         return {"model_runners": model_runners,
-                "allow_resume": allow_resume,
-                "model_config": model_config}
+                "allow_resume": allow_resume}
 
     @staticmethod
     def predict_individual_job(
@@ -296,9 +295,7 @@ class AlphaFoldBackend(FoldingBackend):
             "desired_num_res", None), kwargs.get("desired_num_msa", None)
         if (desired_num_res is not None) and (desired_num_msa is not None):
             # This means padding is required to speed up the process
-            model_config = kwargs.get('model_config')
-            update_muiltimer_model_config(model_config)
-            pad_input_features(model_config=model_config, feature_dict=multimeric_object.feature_dict,
+            pad_input_features(feature_dict=multimeric_object.feature_dict,
                                desired_num_msa=desired_num_msa, desired_num_res=desired_num_res)
             multimeric_object.feature_dict['num_alignments'] = np.array([desired_num_msa])
         num_models = len(model_runners)
