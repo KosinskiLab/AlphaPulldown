@@ -55,7 +55,7 @@ flags.DEFINE_boolean(
     "Run with multimeric template ",
 )
 flags.DEFINE_boolean(
-    "gradient_msa_depth",
+    "msa_depth_scan",
     False,
     "Run predictions for each model with logarithmically distributed MSA depth",
 )
@@ -213,7 +213,7 @@ def main(argv):
         "--data_directory": model_dir,
         "--features_directory": FLAGS.monomer_objects_dir,
         "--no_pair_msa": FLAGS.no_pair_msa,
-        "--gradient_msa_depth": FLAGS.gradient_msa_depth,
+        "--msa_depth_scan": FLAGS.msa_depth_scan,
         "--multimeric_template": FLAGS.multimeric_mode,
         "--model_names": FLAGS.model_names,
         "--msa_depth": FLAGS.msa_depth,

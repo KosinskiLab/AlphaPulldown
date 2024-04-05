@@ -315,7 +315,7 @@ def pre_modelling_setup(interactors : List[Union[MonomericObject, ChoppedObject]
 
     if isinstance(object_to_model, MultimericObject):
         flags_dict["model_name"] = "multimer"
-        flags_dict["gradient_msa_depth"] = args.msa_depth_scan
+        flags_dict["msa_depth_scan"] = args.msa_depth_scan
         flags_dict["model_names_custom"] = args.model_names
         flags_dict["msa_depth"] = args.msa_depth
 
