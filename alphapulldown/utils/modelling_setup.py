@@ -69,28 +69,7 @@ def parse_fold(args):
     args.parsed_input = all_folding_jobs
     return args
 
-def update_muiltimer_model_config(multimer_model_config : ConfigDict) -> None:
-    """
-    A function that update multimer model based on the schema from 
-    monomer models config before padding 
-
-    Args:
-        model_config: a ConfigDict from alphafold.model.config
-    """
-    model_config = config.model_config("model_1_ptm")
-    multimer_model_config.update({'eval': model_config.data.eval}) # added eval to multimer config
-
-    # below update multimer-specific settings
-    ONE_DIMENTIONAL_PADDINGS = ['asym_id','sym_id','entity_id','entity_mask','deletion_mean','num_alignments']
-    multimer_model_config['eval']['feat'].update({"msa":multimer_model_config['eval']['feat']['msa_feat'][0:2],
-                                                  "template_all_atom_mask":multimer_model_config['eval']['feat']['template_all_atom_masks'],
-                                                  "deletion_matrix":multimer_model_config['eval']['feat']['msa_feat'][0:2],
-                                                  "cluster_bias_mask":multimer_model_config['eval']['feat']['msa_feat'][0:1]})
-    
-    for k in ONE_DIMENTIONAL_PADDINGS:
-        multimer_model_config['eval']['feat'].update({k:multimer_model_config['eval']['feat']['residue_index']})
-
-def pad_input_features(model_config : ConfigDict, feature_dict: dict, 
+def pad_input_features(feature_dict: dict, 
                        desired_num_res : int, desired_num_msa : int) -> None:
     
     """
@@ -98,24 +77,39 @@ def pad_input_features(model_config : ConfigDict, feature_dict: dict,
     and desired number of msas 
 
     Args:
-        model_config: ConfigDict from alphafold.model.config
         feature_dict : feature_dict attribute from either a MonomericObject or a MultimericObject
         desired_num_res: desired number of residues 
         desired_num_msa: desired number of msa 
     """
-    NUM_EXTRA_MSA = 2048
-    NUM_TEMPLATES = 4
-    make_fixed_size_fn = make_fixed_size(model_config.eval.feat, 
-                                         desired_num_msa,NUM_EXTRA_MSA,
-                                         desired_num_res,NUM_TEMPLATES)
-    
+    def pad_individual_matrix(v, axis_indexes, shape, nums_to_add):
+        pad_width = [(0,0) for _ in shape]
+        for idx, num_to_add in zip(axis_indexes, nums_to_add):
+            pad_width[idx] = (0,num_to_add)
+        return np.pad(v, pad_width=pad_width)
+
     assembly_num_chains = feature_dict.pop('assembly_num_chains')
     num_templates = feature_dict.pop('num_templates')
-    make_fixed_size_fn(feature_dict)
-    # make sure all matrices are numpy ndarray otherwise throught dtype errors
+    seq_length = feature_dict.pop('seq_length')
+    num_alignments = feature_dict.pop('num_alignments')
+    original_num_msa , original_num_res = feature_dict['msa'].shape
+    num_res_to_pad = desired_num_res - original_num_res
+    num_msa_to_pad = desired_num_msa - original_num_msa
+
     for k,v in feature_dict.items():
-        if isinstance(v, tf.Tensor):
-            feature_dict[k] = v.numpy()
+        axies_to_pad = []
+        nums_to_pad = []
+        if original_num_msa in v.shape:
+            msa_axis = v.shape.index(original_num_msa)
+            axies_to_pad.append(msa_axis)
+            nums_to_pad.append(num_msa_to_pad)
+        if original_num_res in v.shape:
+            res_axis = v.shape.index(original_num_res)
+            nums_to_pad.append(num_res_to_pad)
+            axies_to_pad.append(res_axis)
+        output = pad_individual_matrix(v, axies_to_pad, v.shape, nums_to_pad)
+        feature_dict[k] = output 
+    feature_dict['seq_length'] = np.array([desired_num_res])
+    feature_dict['num_alignments'] = np.array([desired_num_msa])
     feature_dict['assembly_num_chains'] = assembly_num_chains
     feature_dict['num_templates'] = num_templates
 

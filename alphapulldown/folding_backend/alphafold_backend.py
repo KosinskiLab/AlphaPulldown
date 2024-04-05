@@ -17,12 +17,13 @@ from alphapulldown.utils.plotting import plot_pae_from_matrix
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
 from alphapulldown.utils.post_modelling import post_prediction_process
 from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
-from alphapulldown.utils.modelling_setup import update_muiltimer_model_config, pad_input_features
+from alphapulldown.utils.modelling_setup import pad_input_features
 # Avoid module not found error by importing after AP
 from run_alphafold import ModelsToRelax
 from alphafold.relax import relax
 from alphafold.common import protein, residue_constants, confidence
 from .folding_backend import FoldingBackend
+logging.set_verbosity(logging.INFO)
 
 MAX_TEMPLATE_HITS = 20
 RELAX_MAX_ITERATIONS = 0
@@ -225,8 +226,7 @@ class AlphaFoldBackend(FoldingBackend):
                     model_runners[f"{model_name}_pred_{i}"] = model_runner
 
         return {"model_runners": model_runners,
-                "allow_resume": allow_resume,
-                "model_config": model_config}
+                "allow_resume": allow_resume}
 
     @staticmethod
     def predict_individual_job(
@@ -295,11 +295,9 @@ class AlphaFoldBackend(FoldingBackend):
             "desired_num_res", None), kwargs.get("desired_num_msa", None)
         if (desired_num_res is not None) and (desired_num_msa is not None):
             # This means padding is required to speed up the process
-            model_config = kwargs.get('model_config')
-            update_muiltimer_model_config(model_config)
-            pad_input_features(model_config=model_config, feature_dict=multimeric_object.feature_dict,
+            pad_input_features(feature_dict=multimeric_object.feature_dict,
                                desired_num_msa=desired_num_msa, desired_num_res=desired_num_res)
-            
+            multimeric_object.feature_dict['num_alignments'] = np.array([desired_num_msa])
         num_models = len(model_runners)
         for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
             if model_index < START:
@@ -472,12 +470,12 @@ class AlphaFoldBackend(FoldingBackend):
         multimeric_mode = multimeric_object.multimeric_mode
         ranking_path = join(output_dir, "ranking_debug.json")
         label = 'plddts'
-
+        total_num_res = sum([len(s) for s in multimeric_object.input_seqs])
         # Save plddt json files.
         for model_name, prediction_result in prediction_results.items():
             if 'iptm' in prediction_result:
                 label = 'iptm+ptm'
-            plddt = prediction_result['plddt']
+            plddt = prediction_result['plddt'][:total_num_res]
             _save_confidence_json_file(plddt, output_dir, model_name)
             ranking_confidences[model_name] = prediction_result['ranking_confidence']
             # Save and plot PAE if predicting multimer.
@@ -485,7 +483,8 @@ class AlphaFoldBackend(FoldingBackend):
                     'predicted_aligned_error' in prediction_result
                     and 'max_predicted_aligned_error' in prediction_result
             ):
-                pae = prediction_result['predicted_aligned_error']
+                pae = prediction_result['predicted_aligned_error'][:total_num_res,:total_num_res]
+
                 max_pae = prediction_result['max_predicted_aligned_error']
                 _save_pae_json_file(pae, float(max_pae),
                                     output_dir, model_name)
