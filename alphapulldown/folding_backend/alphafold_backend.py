@@ -473,12 +473,12 @@ class AlphaFoldBackend(FoldingBackend):
         multimeric_mode = multimeric_object.multimeric_mode
         ranking_path = join(output_dir, "ranking_debug.json")
         label = 'plddts'
-
+        total_num_res = sum([len(s) for s in multimeric_object.input_seqs])
         # Save plddt json files.
         for model_name, prediction_result in prediction_results.items():
             if 'iptm' in prediction_result:
                 label = 'iptm+ptm'
-            plddt = prediction_result['plddt']
+            plddt = prediction_result['plddt'][:total_num_res]
             _save_confidence_json_file(plddt, output_dir, model_name)
             ranking_confidences[model_name] = prediction_result['ranking_confidence']
             # Save and plot PAE if predicting multimer.
@@ -486,7 +486,8 @@ class AlphaFoldBackend(FoldingBackend):
                     'predicted_aligned_error' in prediction_result
                     and 'max_predicted_aligned_error' in prediction_result
             ):
-                pae = prediction_result['predicted_aligned_error']
+                pae = prediction_result['predicted_aligned_error'][:total_num_res,:total_num_res]
+
                 max_pae = prediction_result['max_predicted_aligned_error']
                 _save_pae_json_file(pae, float(max_pae),
                                     output_dir, model_name)
