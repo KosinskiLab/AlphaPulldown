@@ -16,7 +16,7 @@ run_multimer_jobs.py --mode=pulldown \
 among the 294 structures and the deepest MSA depth among these jobs.
 
 ## How could we determine ```desired_num_res``` and ```desired_num_msa```?
-AlphaPulldown V2 now provides you with the script [split_jobs_into_clusters.py](https://github.com/KosinskiLab/AlphaPulldown/blob/main/alphapulldown/scripts/split_jobs_into_clusters.py). At the moment, this part of AlphaPulldown is still being benchmarked and tested so this script is not yet executable directly from the command line. You can still use it by:
+AlphaPulldown V2 now provides you with the script [split_jobs_into_clusters.py]([../../alphapulldown/scripts/split_jobs_into_clusters.py](https://github.com/KosinskiLab/AlphaPulldown/blob/manuals-2.0-beta/alphapulldown/scripts/split_jobs_into_clusters.py)). At the moment, this part of AlphaPulldown is still being benchmarked and tested so this script is not yet executable directly from the command line. You can still use it by:
 
 ```
 python split_jobs_into_clusters.py  --protein_lists baits.txt,candidates.txt \
