@@ -229,6 +229,13 @@ class MonomericObject:
         feats = {
             f"{k}_all_seq": v for k, v in self.feature_dict.items() if k in valid_feats
         }
+
+        # add template_confidence_scores if it does not exist 
+        template_confidence_scores = self.feature_dict.get('template_confidence_scores', None)
+        if template_confidence_scores is None:
+            self.feature_dict.update(
+                {'template_confidence_scores': np.array([[1] * len(self.sequence)])}
+            )
         self.feature_dict.update(feats)
 
         if using_zipped_msa_files:
