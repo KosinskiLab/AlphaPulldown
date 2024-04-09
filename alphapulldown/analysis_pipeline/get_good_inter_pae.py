@@ -136,21 +136,24 @@ def main(argv):
                     iptm.append(iptm_score)
                     mpDockq_scores.append(mpDockq_score)
             logging.info(f"done for {job} {count} out of {len(jobs)} finished.")
-    other_measurements_df=pd.DataFrame.from_dict({
-        "jobs":good_jobs,
-        "iptm_ptm":iptm_ptm,
-        "iptm":iptm,
-        "mpDockQ/pDockQ":mpDockq_scores
-    })
-    pi_score_df = run_and_summarise_pi_score(FLAGS.output_dir,good_jobs,FLAGS.surface_thres)
-    pi_score_df=pd.merge(pi_score_df,other_measurements_df,on="jobs")
-    columns = list(pi_score_df.columns.values)
-    columns.pop(columns.index('jobs'))
-    pi_score_df = pi_score_df[['jobs'] + columns]
-    pi_score_df = pi_score_df.sort_values(by='iptm',ascending=False)
+    if len(good_jobs) > 0:
+        other_measurements_df=pd.DataFrame.from_dict({
+            "jobs":good_jobs,
+            "iptm_ptm":iptm_ptm,
+            "iptm":iptm,
+            "mpDockQ/pDockQ":mpDockq_scores
+        }) 
+        pi_score_df = run_and_summarise_pi_score(FLAGS.output_dir,good_jobs,FLAGS.surface_thres)
+        pi_score_df=pd.merge(pi_score_df,other_measurements_df,on="jobs")
+        columns = list(pi_score_df.columns.values)
+        columns.pop(columns.index('jobs'))
+        pi_score_df = pi_score_df[['jobs'] + columns]
+        pi_score_df = pi_score_df.sort_values(by='iptm',ascending=False)
+        
+        pi_score_df.to_csv(os.path.join(FLAGS.output_dir,"predictions_with_good_interpae.csv"),index=False)
     
-    pi_score_df.to_csv(os.path.join(FLAGS.output_dir,"predictions_with_good_interpae.csv"),index=False)
-    
+    else:
+        print(f"Unfortunately, none of your protein models had at least one PAE on the interface below your cutoff value : {FLAGS.cutoff}.\n Please consider using a larger cutoff.")
 
 if __name__ =='__main__':
     app.run(main)
