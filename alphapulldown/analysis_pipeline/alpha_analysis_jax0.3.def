@@ -1,0 +1,14 @@
+Bootstrap: docker 
+From: geoffreyyu/alpha_analysis_basis_jax0.3:latest
+
+%files
+    ./*.py /app/alpha-analysis/
+    ./*.sh /app/
+
+%environment 
+    export PATH="/app/alpha-analysis:$PATH"
+    export PYTHONPATH="/app:$PYTHONPATH"
+    chmod +x /app/run_get_good_pae.sh
+    chmod +x /app/run_execute_notebook.sh
+    chmod +x /app/run_pi_score.sh
+    chmod +x /app/alpha-analysis/get_good_inter_pae.py
