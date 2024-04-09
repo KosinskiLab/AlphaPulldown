@@ -2,7 +2,7 @@ Bootstrap: docker
 From: geoffreyyu/alpha_analysis_basis_jax0.4:latest
 
 %files
-    ./*py /app/alpha-analysis/
+    ./*.py /app/alpha-analysis/
     ./*.sh /app/
 
 %environment 
