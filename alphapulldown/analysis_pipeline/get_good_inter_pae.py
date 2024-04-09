@@ -121,10 +121,10 @@ def main(argv):
                 try:
                     check_dict = pickle.load(open(os.path.join(result_subdir,f"result_{best_model}.pkl"),'rb'))
                 except FileNotFoundError:
-                    print(os.path.join(result_subdir,f"result_{best_model}.pkl")+" does not exist. Will search for pkl.gz")
+                    logging.info(os.path.join(result_subdir,f"result_{best_model}.pkl")+" does not exist. Will search for pkl.gz")
                     check_dict = pickle.load(gzip.open(os.path.join(result_subdir,f"result_{best_model}.pkl.gz"),'rb'))
                 finally:
-                    print(f"finished reading result pickle for the best model.")
+                    logging.info(f"finished reading result pickle for the best model.")
                 seqs = check_dict['seqs']
                 iptm_score = check_dict['iptm']
                 pae_mtx = check_dict['predicted_aligned_error']
@@ -153,7 +153,7 @@ def main(argv):
         pi_score_df.to_csv(os.path.join(FLAGS.output_dir,"predictions_with_good_interpae.csv"),index=False)
     
     else:
-        print(f"Unfortunately, none of your protein models had at least one PAE on the interface below your cutoff value : {FLAGS.cutoff}.\n Please consider using a larger cutoff.")
+        logging.info(f"Unfortunately, none of your protein models had at least one PAE on the interface below your cutoff value : {FLAGS.cutoff}.\n Please consider using a larger cutoff.")
 
 if __name__ =='__main__':
     app.run(main)
