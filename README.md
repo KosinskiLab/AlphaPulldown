@@ -1,7 +1,7 @@
 # AlphaPulldown
 [![Downloads](https://static.pepy.tech/badge/alphapulldown)](https://pepy.tech/project/alphapulldown)  [![python3.10](https://img.shields.io/badge/python-3.10-blue.svg)](https://www.python.org/downloads/release/python-3100/) ![GPL3 license](https://img.shields.io/badge/license-GPLv3-green)
 
-## 🥳 AlphaPulldown has entered the era of version 1.x
+## 🥳 AlphaPulldown has entered the era of version 2.0 (beta)
 We have brought some exciting useful features to AlphaPulldown and updated its computing environment. 
 
 
@@ -11,8 +11,9 @@ AlphaPulldown is a Python package that streamlines protein-protein interaction s
 * allows modeling fragments of proteins without recalculation of MSAs and keeping the original full-length residue numbering in the models
 * summarizes the results in a CSV table with AlphaFold scores, pDockQ and mpDockQ, PI-score, and various physical parameters of the interface
 * provides a Jupyter notebook for an interactive analysis of PAE plots and models
+* 🆕 refactorised codes and removed redundancy
+* 🆕 added a new way of integrating experimental models into AlphaFold pipeline using custom multimeric databases
 * 🆕 integrates cross-link mass spec data with AlphaFold predictions via [AlphaLink2](https://github.com/Rappsilber-Laboratory/AlphaLink2/tree/main) models
-* 🆕 able to integrate experimental models into AlphaFold pipeline using custom multimeric databases
 
 ## Pre-installation
 Check if you have downloaded necessary parameters and databases (e.g. BFD, MGnify etc.) as instructed in [AlphFold's documentation](https://github.com/deepmind/alphafold). You should have a directory like below:
@@ -66,7 +67,7 @@ Activate the AlphaPulldown environment and install AlphaPulldown
 ```bash
 source activate AlphaPulldown
 
-python3 -m pip install alphapulldown==1.0.4
+python3 -m pip install alphapulldown==2.0.0b1
 pip install jax==0.4.23 jaxlib==0.4.23+cuda11.cudnn86 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 ```
 
