@@ -72,17 +72,21 @@ def write_individual_job_cluster(all_jobs : pd.DataFrame,
 def cluster_jobs(all_folds, args):
     all_jobs = profile_all_jobs_and_cluster(all_folds, args)
     seq_lengths = all_jobs['seq_length'].values
-    max_diff = 150 
-    num_cluster = int((np.max(seq_lengths) - np.min(seq_lengths)) / max_diff) + 1
-    # Assign elements to bins
-    labels = []
-    for value in seq_lengths:
-        bin_index = int((value - np.min(seq_lengths)) // max_diff)
-        labels.append(bin_index)
+    if args.cluster:
+        max_diff = 150 
+        num_cluster = int((np.max(seq_lengths) - np.min(seq_lengths)) / max_diff) + 1
+        # Assign elements to bins
+        labels = []
+        for value in seq_lengths:
+            bin_index = int((value - np.min(seq_lengths)) // max_diff)
+            labels.append(bin_index)
 
-    write_individual_job_cluster(all_jobs, labels, args.output_dir)
-    X = all_jobs.loc[:, ['seq_length', 'msa_depth']].values
-    plot_clustering_result(X, labels, num_cluster,args.output_dir)
+        write_individual_job_cluster(all_jobs, labels, args.output_dir)
+        X = all_jobs.loc[:, ['seq_length', 'msa_depth']].values
+        plot_clustering_result(X, labels, num_cluster,args.output_dir)
+    else:
+        max_length, max_num_msas = max(all_jobs['seq_length']), max(all_jobs['msa_depth'])
+        logger.info(f"Maximum number of residues: {max_length} maximum number of MSAs: {max_num_msas}")
 
 
 def main():
@@ -103,6 +107,13 @@ def main():
         default="+",
         required=False,
         help="protein list files"
+    )
+    parser.add_argument(
+        "--cluster",
+        dest="cluster",
+        action='store_true',
+        required=False,
+        help="whether to cluster jobs into clusters"
     )
     parser.add_argument(
         "--mode",
