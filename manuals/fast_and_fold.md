@@ -7,7 +7,7 @@ will inform AlphaPulldown to generate 294 different modelling tasks and reserve 
 you can model all of them on just **1** GPU and faster by the following command:
 ```bash
 run_multimer_jobs.py --mode=pulldown \
---output_path=/path/to/output_dir \--data_dir=/scratch/AlphaFold_DBs/2.3.0 \
+--output_path=/path/to/output_dir --data_dir=/scratch/AlphaFold_DBs/2.3.0 \
 --monomer_objects_dir=/path/to/monomer/features \
 --protein_lists=baits.txt,candidates.txt \
 --desired_num_res=2600 --desired_num_msa=4090
@@ -16,3 +16,11 @@ run_multimer_jobs.py --mode=pulldown \
 among the 294 structures and the deepest MSA depth among these jobs.
 
 ## How could we determin ```desired_num_res``` and ```desired_num_msa```?
+AlphaPulldown V2 now provides you with the script [split_jobs_into_clusters.py](https://github.com/KosinskiLab/AlphaPulldown/blob/main/alphapulldown/scripts/split_jobs_into_clusters.py). At the moment, this part of AlphaPulldown is still being benchmarked and tested so this script is not yet executable directly from the command line. You can still use it by:
+
+```
+python split_jobs_into_clusters.py  --protein_lists baits.txt,candidates.txt \
+--output_dir /path/to/output_dir --mode pulldown \
+--features_directory /path/to/monomer/features
+```
+and your desired number of residues and your desired number of MSAs will be print out in the command line.
