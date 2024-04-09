@@ -10,5 +10,9 @@ run_multimer_jobs.py --mode=pulldown \
 --output_path=/path/to/output_dir \--data_dir=/scratch/AlphaFold_DBs/2.3.0 \
 --monomer_objects_dir=/path/to/monomer/features \
 --protein_lists=baits.txt,candidates.txt \
---desired_num_res=893 --desired_num_msa=2653
+--desired_num_res=2600 --desired_num_msa=4090
 ```
+2 extra parameters need to be defined: ```desired_num_res``` and ```desired_num_msa```, which correspond to the longest protein complex
+among the 294 structures and the deepest MSA depth among these jobs.
+
+## How could we determin ```desired_num_res``` and ```desired_num_msa```?
