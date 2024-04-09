@@ -51,7 +51,7 @@ def run_and_summarise_pi_score(workd_dir,jobs,surface_thres):
 
     """A function to calculate all predicted models' pi_scores and make a pandas df of the results"""
     try:
-        os.remove(f"mkdir {workd_dir}/pi_score_outputs")
+        os.rmdir(f"{workd_dir}/pi_score_outputs")
     except:
         pass
     subprocess.run(f"mkdir {workd_dir}/pi_score_outputs",shell=True,executable='/bin/bash')
