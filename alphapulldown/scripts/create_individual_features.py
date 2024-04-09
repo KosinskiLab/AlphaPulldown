@@ -282,7 +282,7 @@ def process_sequences_individual_mode():
     create_arguments()
     uniprot_runner = None if FLAGS.use_mmseqs2 else create_uniprot_runner(FLAGS.jackhmmer_binary_path,
                                                                           FLAGS.uniref90_database_path)
-    pipeline = create_pipeline()
+    pipeline = None if FLAGS.use_mmseqs2 else create_pipeline()
     seq_idx = 0
     for curr_seq, curr_desc in iter_seqs(FLAGS.fasta_paths):
         seq_idx += 1
