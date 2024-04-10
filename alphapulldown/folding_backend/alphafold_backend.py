@@ -458,6 +458,7 @@ class AlphaFoldBackend(FoldingBackend):
         """
         relaxed_pdbs = {}
         ranking_confidences = {}
+        iptm_scores = {}
         # Read timings.json if exists
         timings_path = join(output_dir, 'timings.json')
         timings = _read_from_json_if_exists(timings_path)
@@ -474,6 +475,7 @@ class AlphaFoldBackend(FoldingBackend):
             plddt = prediction_result['plddt'][:total_num_res]
             _save_confidence_json_file(plddt, output_dir, model_name)
             ranking_confidences[model_name] = prediction_result['ranking_confidence']
+            iptm_scores[model_name] = prediction_result['iptm']
             # Save and plot PAE if predicting multimer.
             if (
                     'predicted_aligned_error' in prediction_result
@@ -504,7 +506,7 @@ class AlphaFoldBackend(FoldingBackend):
         # Save ranking_debug.json.
         with open(ranking_path, 'w') as f:
             f.write(json.dumps(
-                {label: ranking_confidences, 'order': ranked_order}, indent=4))
+                {label: ranking_confidences, 'order': ranked_order, "iptm": iptm_scores}, indent=4))
 
         # Relax.
         amber_relaxer = relax.AmberRelaxation(
