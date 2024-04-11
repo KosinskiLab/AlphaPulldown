@@ -26,11 +26,12 @@ FLAGS = flags.FLAGS
 def examine_inter_pae(pae_mtx, seq_lengths, cutoff):
     """A function that checks inter-pae values in multimer prediction jobs"""
     old_lenth = 0
+    mtx = pae_mtx.copy()
     for length in seq_lengths:
         new_length = old_lenth + length
-        pae_mtx[old_lenth:new_length, old_lenth:new_length] = 50
+        mtx[old_lenth:new_length, old_lenth:new_length] = 50
         old_lenth = new_length
-    check = np.where(pae_mtx < cutoff)[0].size != 0
+    check = np.where(mtx < cutoff)[0].size != 0
 
     return check
 
@@ -128,21 +129,20 @@ def obtain_pae_and_iptm(result_subdir: str, best_model: str) -> Tuple[np.array, 
         pae_results = json.load(
             open(f"{result_subdir}/pae_{best_model}.json"))[0]['predicted_aligned_error']
         pae_mtx = np.array(pae_results)
-    else:
-        if iptm_score == "None":
-            try:
-                check_dict = pickle.load(
-                    open(os.path.join(result_subdir, f"result_{best_model}.pkl"), 'rb'))
-            except FileNotFoundError:
-                logging.info(os.path.join(
-                    result_subdir, f"result_{best_model}.pkl")+" does not exist. Will search for pkl.gz")
-                check_dict = pickle.load(gzip.open(os.path.join(
-                    result_subdir, f"result_{best_model}.pkl.gz"), 'rb'))
-                iptm_score = check_dict['iptm']
-            finally:
-                logging.info(f"finished reading result pickle for the best model.")
-                pae_mtx = check_dict['predicted_aligned_error']
-                iptm_score = check_dict['iptm']
+        
+    if iptm_score == "None":
+        try:
+            check_dict = pickle.load(
+                open(os.path.join(result_subdir, f"result_{best_model}.pkl"), 'rb'))
+        except FileNotFoundError:
+            logging.info(os.path.join(
+                result_subdir, f"result_{best_model}.pkl")+" does not exist. Will search for pkl.gz")
+            check_dict = pickle.load(gzip.open(os.path.join(
+                result_subdir, f"result_{best_model}.pkl.gz"), 'rb'))
+        finally:
+            logging.info(f"finished reading result pickle for the best model.")
+            pae_mtx = check_dict['predicted_aligned_error']
+            iptm_score = check_dict['iptm']
     return pae_mtx, iptm_score
 
 

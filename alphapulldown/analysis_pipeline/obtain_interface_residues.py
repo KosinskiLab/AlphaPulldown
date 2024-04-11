@@ -50,8 +50,9 @@ class PDBAnalyser:
         Note:
         Will retrieve C-alpha atom coords if the residue is a glycine
         """
-        subdf = chain_df.loc[(chain_df['atom_name'] == 'CB') or (
-            (chain_df['residue_name'] == 'GLY') and (chain_df['atom_name'] == 'CA'))]
+        mask = (chain_df['atom_name'] == 'CB') | (
+            (chain_df['residue_name'] == 'GLY') & (chain_df['atom_name'] == 'CA'))
+        subdf = chain_df[mask]
         return subdf[['x_coord', 'y_coord', 'z_coord']].values
 
     def obtain_interface_residues(self, chain_df_1: pd.DataFrame, chain_df_2: pd.DataFrame, cutoff: int = 12):
@@ -105,7 +106,7 @@ class PDBAnalyser:
         float: average PAE value of the interface residues
         """
         plddt_sum = 0
-        total_num = len(set(chain_1_residues) + set(chain_2_residues))
+        total_num = len(set(chain_1_residues)) + len(set(chain_2_residues))
         for i, j in zip(set(chain_1_residues), set(chain_2_residues)):
             plddt_sum += chain_1_plddt[i]
             plddt_sum += chain_1_plddt[j]
