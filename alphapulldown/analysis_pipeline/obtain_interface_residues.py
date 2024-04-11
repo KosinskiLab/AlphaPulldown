@@ -112,7 +112,7 @@ class PDBAnalyser:
 
         return plddt_sum / total_num
 
-    def __call__(self, pae_mtx: np.ndarray, plddt: Dict[str: List[float]], cutoff: float = 12) -> Any:
+    def __call__(self, pae_mtx: np.ndarray, plddt: Dict[str, List[float]], cutoff: float = 12) -> Any:
         """
         Obtain interface residues and calculate average PAE, average plDDT of the interface residues
 
@@ -127,7 +127,7 @@ class PDBAnalyser:
             print(
                 f"Your PDB structure seems to be a monomeric structure. The programme will stop.")
         else:
-            for k, v in self.chain_combinations.itmes():
+            for k, v in self.chain_combinations.items():
                 chain_1_id, chain_2_id = v
                 chain_1_df, chain_2_df = self.pdb_df[self.pdb_df['chain_id'] ==
                                                      chain_1_id], self.pdb_df[self.pdb_df['chain_id'] == chain_2_id]
