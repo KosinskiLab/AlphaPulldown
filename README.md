@@ -13,7 +13,7 @@ AlphaPulldown is a Python package that streamlines protein-protein interaction s
 * provides a Jupyter notebook for an interactive analysis of PAE plots and models
 * 🆕 refactorised codes and removed redundancy
 * 🆕 **Fast and Fold!**: pads input matrices to the same shape thereby improving computing efficiency: [fast_and_fold.md](manuals/fast_and_fold.md) 
-* 🆕 added a new way of integrating experimental models into AlphaFold pipeline using custom multimeric databases: [new_multimeric_template_modelling.md](manuals/new_multimeric_template_modelling.md)
+* 🆕 added an alternative way of using custom multimeric templates: [new_multimeric_template_modelling.md](manuals/multimeric_template_modelling2.md)
 * 🆕 integrates cross-link mass spec data with AlphaFold predictions via [AlphaLink2](https://github.com/Rappsilber-Laboratory/AlphaLink2/tree/main) models
 
 ## Pre-installation
