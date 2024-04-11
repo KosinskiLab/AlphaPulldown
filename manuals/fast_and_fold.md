@@ -12,6 +12,8 @@ run_multimer_jobs.py --mode=pulldown \
 --protein_lists=baits.txt,candidates.txt \
 --desired_num_res=2600 --desired_num_msa=4090
 ```
+two extra parameters need to be defined: ```desired_num_res``` and ```desired_num_msa```, which correspond to the longest protein complex
+```suggestion
 2 extra parameters need to be defined: ```desired_num_res``` and ```desired_num_msa```, which correspond to the longest protein complex
 among the 294 structures and the deepest MSA depth among these jobs.
 
