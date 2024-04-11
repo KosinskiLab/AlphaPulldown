@@ -129,7 +129,7 @@ def obtain_pae_and_iptm(result_subdir: str, best_model: str) -> Tuple[np.array, 
         pae_results = json.load(
             open(f"{result_subdir}/pae_{best_model}.json"))[0]['predicted_aligned_error']
         pae_mtx = np.array(pae_results)
-        
+
     if iptm_score == "None":
         try:
             check_dict = pickle.load(
@@ -174,7 +174,8 @@ def main(argv):
     for job in jobs:
         logging.info(f"now processing {job}")
         if os.path.isfile(os.path.join(FLAGS.output_dir, job, 'ranking_debug.json')):
-            pdb_analyser = PDBAnalyser(os.path.join(FLAGS.output_dir, job,"ranked_0.pdb"))
+            pdb_analyser = PDBAnalyser(os.path.join(
+                FLAGS.output_dir, job, "ranked_0.pdb"))
             count = count + 1
             result_subdir = os.path.join(FLAGS.output_dir, job)
             best_model = json.load(
@@ -188,10 +189,11 @@ def main(argv):
                 seq_lengths = obtain_seq_lengths(result_subdir)
                 check = examine_inter_pae(
                     pae_mtx, seq_lengths, cutoff=FLAGS.cutoff)
-                mpDockq_score,plddt_per_chain = obtain_mpdockq(
+                mpDockq_score, plddt_per_chain = obtain_mpdockq(
                     os.path.join(FLAGS.output_dir, job))
                 if check:
-                    average_interface_pae, average_interface_plddt = pdb_analyser(pae_mtx, plddt_per_chain)
+                    average_interface_pae, average_interface_plddt = pdb_analyser(
+                        pae_mtx, plddt_per_chain)
                     good_jobs.append(str(job))
                     iptm_ptm.append(iptm_ptm_score)
                     iptm.append(iptm_score)
@@ -209,17 +211,17 @@ def main(argv):
             "average_interface_plddt": average_interface_plddts,
             "mpDockQ/pDockQ": mpDockq_scores
         })
-        other_measurements_df.to_csv("output.csv",index=False)
-        # pi_score_df = run_and_summarise_pi_score(
-        #     FLAGS.output_dir, good_jobs, FLAGS.surface_thres)
-        # pi_score_df = pd.merge(pi_score_df, other_measurements_df, on="jobs")
-        # columns = list(pi_score_df.columns.values)
-        # columns.pop(columns.index('jobs'))
-        # pi_score_df = pi_score_df[['jobs'] + columns]
-        # pi_score_df = pi_score_df.sort_values(by='iptm', ascending=False)
+        other_measurements_df.to_csv("output.csv", index=False)
+        pi_score_df = run_and_summarise_pi_score(
+            FLAGS.output_dir, good_jobs, FLAGS.surface_thres)
+        pi_score_df = pd.merge(other_measurements_df, pi_score_df, on="jobs")
+        columns = list(pi_score_df.columns.values)
+        columns.pop(columns.index('jobs'))
+        pi_score_df = pi_score_df[['jobs'] + columns]
+        pi_score_df = pi_score_df.sort_values(by='iptm', ascending=False)
 
-        # pi_score_df.to_csv(os.path.join(
-        #     FLAGS.output_dir, "predictions_with_good_interpae.csv"), index=False)
+        pi_score_df.to_csv(os.path.join(
+            FLAGS.output_dir, "predictions_with_good_interpae.csv"), index=False)
 
     else:
         logging.info(
