@@ -8,7 +8,6 @@
 from biopandas.pdb import PandasPdb
 from pyrosetta.io import pose_from_pdb
 from pyrosetta.rosetta.core.scoring import get_score_function
-from pyrosetta.rosetta.core.import_pose import pose_from_pdbstring
 import pyrosetta; pyrosetta.init()
 from Bio.PDB import PDBParser, PDBIO
 import pandas as pd
@@ -16,6 +15,8 @@ from itertools import combinations
 import numpy as np
 from typing import Any, List, Dict
 import tempfile 
+import os
+from utils import run_and_summarise_pi_score
 
 class PDBAnalyser:
     """
@@ -119,7 +120,7 @@ class PDBAnalyser:
 
         return plddt_sum / total_num
     
-    def calculate_binding_energy(self, chain_1_id: str, chain_2_id: str):
+    def calculate_binding_energy(self, chain_1_id: str, chain_2_id: str) -> float:
         """Calculate binding energer of 2 chains using pyRosetta"""
         chain_1_structure, chain_2_structure = self.pdb[chain_1_id], self.pdb[chain_2_id]
         with tempfile.NamedTemporaryFile(suffix='.pdb') as temp:
@@ -143,6 +144,19 @@ class PDBAnalyser:
         complex_energy = sfxn(complex_pose)
         chain_1_energy, chain_2_energy = sfxn(chain_1_pose), sfxn(chain_2_pose)
         return complex_energy - chain_1_energy - chain_2_energy 
+    
+    def calculate_pi_score(self, chain_1_id: str, chain_2_id: str):
+        """Run the PI-score pipeline between the 2 chains"""
+        chain_1_structure, chain_2_structure = self.pdb[chain_1_id], self.pdb[chain_2_id]
+        with tempfile.mkdtemp() as tmpdir:
+            pi_score_output_dir = os.path.join(tmpdir, "pi_score_outputs")
+            pdb_output_file = os.path.join(tmpdir, "complex.pdb")
+            pdbio = PDBIO()
+            pdbio.set_structure(chain_1_structure)
+            pdbio.set_structure(chain_2_structure)
+            pdbio.save(pdb_output_file)
+            subprocess.run(
+                f"source activate pi_score && export PYTHONPATH=/software:$PYTHONPATH && python /software/pi_score/run_piscore_wc.py -p {pdb_path} -o {output_dir} -s {surface_thres} -ps 10", shell=True, executable='/bin/bash')
     
     def __call__(self, pae_mtx: np.ndarray, plddt: Dict[str, List[float]], cutoff: float = 12) -> Any:
         """
