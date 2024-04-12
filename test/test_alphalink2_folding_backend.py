@@ -1,8 +1,7 @@
-import gzip
 import unittest
 from alphapulldown.objects import MultimericObject
 import pickle
-from folding_backend.alphalink_backend import AlphaLinkBackend
+from alphapulldown.folding_backend.alphalink_backend import AlphaLinkBackend
 
 class TestAlphaLink2Backend(unittest.TestCase):
 

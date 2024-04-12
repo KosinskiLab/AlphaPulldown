@@ -22,7 +22,7 @@ import subprocess
 import json
 from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
 import alphapulldown
-from alphapulldown import predict_structure
+
 
 FAST=True
 if FAST:
@@ -232,7 +232,7 @@ class TestFunctions(_TestBase):
         #Call the setUp method of the parent class
         super().setUp()
         
-        from alphapulldown.utils import create_model_runners_and_random_seed
+        from alphapulldown.utils.modelling_setup import create_model_runners_and_random_seed
         self.model_runners, random_seed = create_model_runners_and_random_seed(
             "multimer",
             3,

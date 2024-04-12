@@ -9,10 +9,10 @@
 import argparse
 from os import makedirs
 from typing import Dict, List, Union, Tuple
-from os.path import exists, join
+from os.path import join
 from absl import logging
 from alphapulldown.folding_backend import backend
-from alphapulldown.predict_structure import ModelsToRelax
+from alphafold.run_alphafold import ModelsToRelax
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
 from alphapulldown.utils.modelling_setup import create_interactors, parse_fold,create_custom_info
 

@@ -19,15 +19,13 @@ from alphafold.model import config
 from alphafold.model import model
 from alphafold.model import data
 from alphafold.data import templates
-from alphapulldown.objects import MonomericObject, ChoppedObject
-from alphafold.model.tf.data_transforms import make_fixed_size
+from alphapulldown.objects import MonomericObject
 from os.path import exists,join
 from alphapulldown.objects import ChoppedObject
 from alphapulldown.utils.file_handling import make_dir_monomer_dictionary
-from ml_collections import ConfigDict
 from absl import logging
-import tensorflow as tf
 logging.set_verbosity(logging.INFO)
+
 
 def parse_fold(args):
     all_folding_jobs = []

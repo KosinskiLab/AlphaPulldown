@@ -1,9 +1,8 @@
 import subprocess
 from pathlib import Path
 from absl.testing import absltest
-import alphapulldown.create_individual_features as run_features_generation
+import alphapulldown.scripts.create_individual_features as run_features_generation
 import tempfile
-import shutil
 import time
 import os
 

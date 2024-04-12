@@ -10,7 +10,7 @@ import warnings
 import subprocess
 from absl import app, logging
 import os
-from alphapulldown.predict_structure import ModelsToRelax
+from alphafold.run_alphafold import ModelsToRelax
 from alphapulldown.utils.modelling_setup import get_run_alphafold
 from alphapulldown.utils.create_combinations import process_files
 
