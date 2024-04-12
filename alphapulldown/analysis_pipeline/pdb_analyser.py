@@ -6,6 +6,7 @@
     Author:Dingquan Yu <dingquan.yu@embl-hamburg.de>
 """
 from biopandas.pdb import PandasPdb
+from pyrosetta.io import pose_from_pdb
 import pandas as pd
 from itertools import combinations
 import numpy as np
@@ -19,8 +20,8 @@ class PDBAnalyser:
     """
 
     def __init__(self, pdb_file_path: str) -> None:
-        self.pdb = PandasPdb().read_pdb(pdb_file_path)
-        self.pdb_df = self.pdb.df['ATOM']
+        self.pdb_pandas = PandasPdb().read_pdb(pdb_file_path)
+        self.pdb_df = self.pdb_pandas.df['ATOM']
         self.chain_combinations = {}
         self.get_all_combinations_of_chains()
         pass
