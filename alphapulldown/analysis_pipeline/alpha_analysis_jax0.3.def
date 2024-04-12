@@ -8,6 +8,7 @@ From: geoffreyyu/alpha_analysis_basis_jax0.3:latest
 %environment 
     export PATH="/app/alpha-analysis:$PATH"
     export PYTHONPATH="/app:$PYTHONPATH"
+    pip install biopandas==0.4.1
     chmod +x /app/run_get_good_pae.sh
     chmod +x /app/run_execute_notebook.sh
     chmod +x /app/run_pi_score.sh
