@@ -7,11 +7,15 @@
 """
 from biopandas.pdb import PandasPdb
 from pyrosetta.io import pose_from_pdb
+from pyrosetta.rosetta.core.scoring import get_score_function
+from pyrosetta.rosetta.core.import_pose import pose_from_pdbstring
+import pyrosetta; pyrosetta.init()
+from Bio.PDB import PDBParser, PDBIO
 import pandas as pd
 from itertools import combinations
 import numpy as np
 from typing import Any, List, Dict
-
+import tempfile 
 
 class PDBAnalyser:
     """
@@ -21,6 +25,7 @@ class PDBAnalyser:
 
     def __init__(self, pdb_file_path: str) -> None:
         self.pdb_pandas = PandasPdb().read_pdb(pdb_file_path)
+        self.pdb = PDBParser().get_structure("ranked_0",pdb_file_path)[0]
         self.pdb_df = self.pdb_pandas.df['ATOM']
         self.chain_combinations = {}
         self.get_all_combinations_of_chains()
@@ -110,10 +115,35 @@ class PDBAnalyser:
         total_num = len(set(chain_1_residues)) + len(set(chain_2_residues))
         for i, j in zip(set(chain_1_residues), set(chain_2_residues)):
             plddt_sum += chain_1_plddt[i]
-            plddt_sum += chain_1_plddt[j]
+            plddt_sum += chain_2_plddt[j]
 
         return plddt_sum / total_num
-
+    
+    def calculate_binding_energy(self, chain_1_id: str, chain_2_id: str):
+        """Calculate binding energer of 2 chains using pyRosetta"""
+        chain_1_structure, chain_2_structure = self.pdb[chain_1_id], self.pdb[chain_2_id]
+        with tempfile.NamedTemporaryFile(suffix='.pdb') as temp:
+            pdbio = PDBIO()
+            pdbio.set_structure(chain_1_structure)
+            pdbio.set_structure(chain_2_structure)
+            pdbio.save(temp.name)
+            complex_pose = pose_from_pdb(temp.name)
+        
+        with tempfile.NamedTemporaryFile(suffix='.pdb') as temp1, tempfile.NamedTemporaryFile(suffix='.pdb') as temp2:
+            pdbio = PDBIO()
+            pdbio.set_structure(chain_1_structure)
+            pdbio.save(file = temp1.name)
+            chain_1_pose = pose_from_pdb(temp1.name)
+            pdbio = PDBIO()
+            pdbio.set_structure(chain_2_structure)
+            pdbio.save(file = temp2.name)
+            chain_2_pose = pose_from_pdb(temp2.name)
+        
+        sfxn = get_score_function(True)
+        complex_energy = sfxn(complex_pose)
+        chain_1_energy, chain_2_energy = sfxn(chain_1_pose), sfxn(chain_2_pose)
+        return complex_energy - chain_1_energy - chain_2_energy 
+    
     def __call__(self, pae_mtx: np.ndarray, plddt: Dict[str, List[float]], cutoff: float = 12) -> Any:
         """
         Obtain interface residues and calculate average PAE, average plDDT of the interface residues
@@ -144,5 +174,6 @@ class PDBAnalyser:
                 else:
                     average_interface_pae = "None"
                     average_interface_plddt = "None"
+                binding_energy = self.calculate_binding_energy(chain_1_id, chain_2_id)
 
-        return average_interface_pae, average_interface_plddt
+        return average_interface_pae, average_interface_plddt, binding_energy
