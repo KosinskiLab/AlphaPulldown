@@ -145,7 +145,7 @@ class PDBAnalyser:
         chain_1_energy, chain_2_energy = sfxn(chain_1_pose), sfxn(chain_2_pose)
         return complex_energy - chain_1_energy - chain_2_energy 
     
-    def calculate_pi_score(self, chain_1_id: str, chain_2_id: str):
+    def calculate_pi_score(self, chain_1_id: str, chain_2_id: str) -> pd.DataFrame:
         """Run the PI-score pipeline between the 2 chains"""
         chain_1_structure, chain_2_structure = self.pdb[chain_1_id], self.pdb[chain_2_id]
         with tempfile.mkdtemp() as tmpdir:
@@ -155,8 +155,9 @@ class PDBAnalyser:
             pdbio.set_structure(chain_1_structure)
             pdbio.set_structure(chain_2_structure)
             pdbio.save(pdb_output_file)
-            subprocess.run(
-                f"source activate pi_score && export PYTHONPATH=/software:$PYTHONPATH && python /software/pi_score/run_piscore_wc.py -p {pdb_path} -o {output_dir} -s {surface_thres} -ps 10", shell=True, executable='/bin/bash')
+            pi_score_df = run_and_summarise_pi_score(pi_score_output_dir, pdb_output_file)
+            pi_score_df['interface'] = f"{chain_1_id}_{chain_2_id}"
+        return pi_score_df
     
     def __call__(self, pae_mtx: np.ndarray, plddt: Dict[str, List[float]], cutoff: float = 12) -> Any:
         """
@@ -172,6 +173,8 @@ class PDBAnalyser:
         if type(self.chain_combinations) != dict:
             print(
                 f"Your PDB structure seems to be a monomeric structure. The programme will stop.")
+            import sys
+            sys.exit()
         else:
             for k, v in self.chain_combinations.items():
                 chain_1_id, chain_2_id = v
@@ -189,5 +192,6 @@ class PDBAnalyser:
                     average_interface_pae = "None"
                     average_interface_plddt = "None"
                 binding_energy = self.calculate_binding_energy(chain_1_id, chain_2_id)
+                pi_score = self.calculate_pi_score(chain_1_id, chain_2_id)
 
-        return average_interface_pae, average_interface_plddt, binding_energy
+                return average_interface_pae, average_interface_plddt, binding_energy
