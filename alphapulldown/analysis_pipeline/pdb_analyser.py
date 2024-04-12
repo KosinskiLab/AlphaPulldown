@@ -170,6 +170,7 @@ class PDBAnalyser:
         if the distance between two C-Beta is smaller than cutoff
 
         """
+        output_df = pd.DataFrame
         if type(self.chain_combinations) != dict:
             print(
                 f"Your PDB structure seems to be a monomeric structure. The programme will stop.")
@@ -192,6 +193,12 @@ class PDBAnalyser:
                     average_interface_pae = "None"
                     average_interface_plddt = "None"
                 binding_energy = self.calculate_binding_energy(chain_1_id, chain_2_id)
-                pi_score = self.calculate_pi_score(chain_1_id, chain_2_id)
+                other_measurements_df = pd.DataFrame.from_dict({
+                    "average_interface_pae": average_interface_pae,
+                    "average_interface_plddt": average_interface_plddt,
+                    "binding_energy": binding_energy
+                })
+                pi_score_df = self.calculate_pi_score(chain_1_id, chain_2_id)
 
-                return average_interface_pae, average_interface_plddt, binding_energy
+                output_df = pd.concat(output_df, pd.concat([other_measurements_df, pi_score_df], axis=1))
+        return output_df
