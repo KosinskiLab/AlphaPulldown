@@ -170,7 +170,7 @@ class PDBAnalyser:
         if the distance between two C-Beta is smaller than cutoff
 
         """
-        output_df = pd.DataFrame
+        output_df = pd.DataFrame()
         if type(self.chain_combinations) != dict:
             print(
                 f"Your PDB structure seems to be a monomeric structure. The programme will stop.")
@@ -199,6 +199,5 @@ class PDBAnalyser:
                     "binding_energy": binding_energy
                 })
                 pi_score_df = self.calculate_pi_score(chain_1_id, chain_2_id)
-
                 output_df = pd.concat(output_df, pd.concat([other_measurements_df, pi_score_df], axis=1))
         return output_df

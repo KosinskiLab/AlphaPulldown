@@ -104,12 +104,9 @@ def obtain_seq_lengths(result_subdir: str) -> list:
 
 def main(argv):
     jobs = os.listdir(FLAGS.output_dir)
-    good_jobs = []
-    iptm_ptm = list()
-    iptm = list()
-    mpDockq_scores = list()
-    average_interface_paes, average_interface_plddts = [], []
     count = 0
+    good_jobs = []
+    output_df = pd.DataFrame()
     for job in jobs:
         logging.info(f"now processing {job}")
         if os.path.isfile(os.path.join(FLAGS.output_dir, job, 'ranking_debug.json')):
@@ -131,30 +128,21 @@ def main(argv):
                 mpDockq_score, plddt_per_chain = obtain_mpdockq(
                     os.path.join(FLAGS.output_dir, job))
                 if check:
-                    average_interface_pae, average_interface_plddt = pdb_analyser(
+                    good_jobs.append(job)
+                    score_df = pdb_analyser(
                         pae_mtx, plddt_per_chain)
-                    good_jobs.append(str(job))
-                    iptm_ptm.append(iptm_ptm_score)
-                    iptm.append(iptm_score)
-                    mpDockq_scores.append(mpDockq_score)
-                    average_interface_paes.append(average_interface_pae)
-                    average_interface_plddts.append(average_interface_plddt)
+                    score_df['jobs'] = str(job)
+                    score_df['iptm_ptm'] = iptm_ptm_score
+                    score_df['iptm'] = iptm_score
+                    score_df['mpDockq_scores'] = mpDockq_score
+                    output_df = pd.concat([output_df, score_df])
             logging.info(
                 f"done for {job} {count} out of {len(jobs)} finished.")
-    if len(good_jobs) > 0:
-        other_measurements_df = pd.DataFrame.from_dict({
-            "jobs": good_jobs,
-            "iptm_ptm": iptm_ptm,
-            "iptm": iptm,
-            "average_interface_pae": average_interface_paes,
-            "average_interface_plddt": average_interface_plddts,
-            "mpDockQ/pDockQ": mpDockq_scores
-        })
-        other_measurements_df.to_csv("output.csv", index=False)
-    else:
+    if len(good_jobs) == 0:
         logging.info(
             f"Unfortunately, none of your protein models had at least one PAE on the interface below your cutoff value : {FLAGS.cutoff}.\n Please consider using a larger cutoff.")
-
+    else:
+        output_df.to_csv(os.path.join(FLAGS.output_dir,"predictions_with_good_interpae.csv"),index=False)
 
 if __name__ == '__main__':
     app.run(main)
