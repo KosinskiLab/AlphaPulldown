@@ -32,38 +32,3 @@ def display_pae_plots(subdir,figsize=(50, 50)):
         ff = af2o.plot_predicted_alignment_error(dd)
 
     plt.show()
-
-def run_and_summarise_pi_score(work_dir, pdb_path, surface_thres: int = 2) -> pd.DataFrame:
-    """A function to calculate all predicted models' pi_scores and make a pandas df of the results"""
-
-    subprocess.run(
-    f"source activate pi_score && export PYTHONPATH=/software:$PYTHONPATH && python /software/pi_score/run_piscore_wc.py -p {pdb_path} -o {work_dir} -s {surface_thres} -ps 10", shell=True, executable='/bin/bash')
-    
-    csv_files = [f for f in os.listdir(
-        work_dir) if 'filter_intf_features' in f]
-    pi_score_files = [f for f in os.listdir(work_dir) if 'pi_score_' in f]
-    filtered_df = pd.read_csv(os.path.join(work_dir, csv_files[0]))
-
-    if filtered_df.shape[0] == 0:
-        for column in filtered_df.columns:
-            filtered_df[column] = ["None"]
-        filtered_df['pi_score'] = "No interface detected"
-    else:
-        with open(os.path.join(work_dir, pi_score_files[0]), 'r') as f:
-            lines = [l for l in f.readlines() if "#" not in l]
-            if len(lines) > 0:
-                pi_score = pd.read_csv(
-                    os.path.join(work_dir, pi_score_files[0]))
-            else:
-                pi_score = pd.DataFrame.from_dict(
-                    {"pi_score": ['SC:  mds: too many atoms']})
-            f.close()
-        pi_score['interface'] = pi_score['chains']
-        filtered_df = pd.merge(filtered_df, pi_score, on=['interface'])
-        try:
-            filtered_df = filtered_df.drop(
-                columns=["#PDB", "pdb", " pvalue", "chains", "predicted_class"])
-        except:
-            pass
-
-    return filtered_df

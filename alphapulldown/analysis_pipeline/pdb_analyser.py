@@ -16,7 +16,7 @@ import numpy as np
 from typing import Any, List, Dict
 import tempfile 
 import os
-from utils import run_and_summarise_pi_score
+import subprocess
 
 class PDBAnalyser:
     """
@@ -145,17 +145,54 @@ class PDBAnalyser:
         chain_1_energy, chain_2_energy = sfxn(chain_1_pose), sfxn(chain_2_pose)
         return complex_energy - chain_1_energy - chain_2_energy 
     
+    def run_and_summarise_pi_score(self, work_dir, pdb_path, 
+                                   surface_thres: int = 2) -> pd.DataFrame:
+        
+        """A function to calculate all predicted models' pi_scores and make a pandas df of the results"""
+
+        subprocess.run(
+        f"source activate pi_score && export PYTHONPATH=/software:$PYTHONPATH && python /software/pi_score/run_piscore_wc.py -p {pdb_path} -o {work_dir} -s {surface_thres} -ps 10", shell=True, executable='/bin/bash')
+        
+        csv_files = [f for f in os.listdir(
+            work_dir) if 'filter_intf_features' in f]
+        pi_score_files = [f for f in os.listdir(work_dir) if 'pi_score_' in f]
+        filtered_df = pd.read_csv(os.path.join(work_dir, csv_files[0]))
+
+        if filtered_df.shape[0] == 0:
+            for column in filtered_df.columns:
+                filtered_df[column] = ["None"]
+            filtered_df['pi_score'] = "No interface detected"
+        else:
+            with open(os.path.join(work_dir, pi_score_files[0]), 'r') as f:
+                lines = [l for l in f.readlines() if "#" not in l]
+                if len(lines) > 0:
+                    pi_score = pd.read_csv(
+                        os.path.join(work_dir, pi_score_files[0]))
+                else:
+                    pi_score = pd.DataFrame.from_dict(
+                        {"pi_score": ['SC:  mds: too many atoms']})
+                f.close()
+            pi_score['interface'] = pi_score['chains']
+            filtered_df = pd.merge(filtered_df, pi_score, on=['interface'])
+            try:
+                filtered_df = filtered_df.drop(
+                    columns=["#PDB", "pdb", " pvalue", "chains", "predicted_class"])
+            except:
+                pass
+
+        return filtered_df
+
     def calculate_pi_score(self, chain_1_id: str, chain_2_id: str) -> pd.DataFrame:
         """Run the PI-score pipeline between the 2 chains"""
         chain_1_structure, chain_2_structure = self.pdb[chain_1_id], self.pdb[chain_2_id]
-        with tempfile.mkdtemp() as tmpdir:
+        with tempfile.TemporaryDirectory() as tmpdir:
             pi_score_output_dir = os.path.join(tmpdir, "pi_score_outputs")
             pdb_output_file = os.path.join(tmpdir, "complex.pdb")
             pdbio = PDBIO()
             pdbio.set_structure(chain_1_structure)
             pdbio.set_structure(chain_2_structure)
             pdbio.save(pdb_output_file)
-            pi_score_df = run_and_summarise_pi_score(pi_score_output_dir, pdb_output_file)
+            pi_score_df = self.run_and_summarise_pi_score(pi_score_output_dir, pdb_output_file)
             pi_score_df['interface'] = f"{chain_1_id}_{chain_2_id}"
         return pi_score_df
     
@@ -194,10 +231,10 @@ class PDBAnalyser:
                     average_interface_plddt = "None"
                 binding_energy = self.calculate_binding_energy(chain_1_id, chain_2_id)
                 other_measurements_df = pd.DataFrame.from_dict({
-                    "average_interface_pae": average_interface_pae,
-                    "average_interface_plddt": average_interface_plddt,
-                    "binding_energy": binding_energy
+                    "average_interface_pae": [average_interface_pae],
+                    "average_interface_plddt": [average_interface_plddt],
+                    "binding_energy": [binding_energy]
                 })
                 pi_score_df = self.calculate_pi_score(chain_1_id, chain_2_id)
-                output_df = pd.concat(output_df, pd.concat([other_measurements_df, pi_score_df], axis=1))
+                output_df = pd.concat([output_df, pd.concat([other_measurements_df, pi_score_df], axis=1)])
         return output_df
