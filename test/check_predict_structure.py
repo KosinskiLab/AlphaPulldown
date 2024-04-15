@@ -20,6 +20,10 @@ import sys
 import os
 import subprocess
 import json
+import pickle
+import gzip
+import numpy as np
+from alphafold.common import protein
 from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
 import alphapulldown
 
@@ -241,6 +245,72 @@ class TestFunctions(_TestBase):
             1,
         )
 
+    def get_score_from_result_pkl(pkl_path):
+        """Get the score from the model result pkl file.
+
+        Parameters:
+            pkl_path (str): The file path to the pickle file.
+
+        Returns:
+            tuple: A tuple containing the score type (str) and the score (float).
+        """
+        try:
+            with open(pkl_path, "rb") as f:
+                result = pickle.load(f)
+        except (EOFError, FileNotFoundError) as e:
+            try:
+                with gzip.open(pkl_path, "rb") as f:
+                    result = pickle.load(f)
+            except Exception as e:
+                raise IOError("Failed to load the pickle file.") from e
+
+        if "iptm" in result and "ptm" in result:
+            score_type = "iptm+ptm"
+            score = 0.8 * result["iptm"] + 0.2 * result["ptm"]
+        elif "plddt" in result:
+            score_type = "plddt"
+            score = np.mean(result["plddt"])
+        else:
+            raise ValueError("Result does not contain expected keys.")
+
+        return score_type, score
+
+    def get_existing_model_info(self, output_dir, model_runners):
+        ranking_confidences = {}
+        unrelaxed_proteins = {}
+        unrelaxed_pdbs = {}
+        processed_models = 0
+
+        for model_name, _ in model_runners.items():
+            pdb_path = os.path.join(output_dir, f"unrelaxed_{model_name}.pdb")
+            pkl_path = os.path.join(output_dir, f"result_{model_name}.pkl")
+            pkl_gz_path = os.path.join(output_dir, f"result_{model_name}.pkl.gz")
+
+            if os.path.exists(pkl_path):
+                try:
+                    with open(pkl_path, "rb") as f:
+                        pickle.load(f)
+                except (EOFError, pickle.UnpicklingError):
+                    break
+                score_name, score = self.get_score_from_result_pkl(pkl_path)
+                ranking_confidences[model_name] = score
+            if os.path.exists(pkl_gz_path):
+                try:
+                    with gzip.open(pkl_gz_path, "rb") as f:
+                        pickle.load(f)
+                except (EOFError, pickle.UnpicklingError):
+                    break
+                score_name, score = self.get_score_from_result_pkl_gz(pkl_gz_path)
+                ranking_confidences[model_name] = score
+            if os.path.exists(pdb_path):
+                with open(pdb_path, "r") as f:
+                    unrelaxed_pdb_str = f.read()
+                unrelaxed_proteins[model_name] = protein.from_pdb_string(unrelaxed_pdb_str)
+                unrelaxed_pdbs[model_name] = unrelaxed_pdb_str
+                processed_models += 1
+
+        return ranking_confidences, unrelaxed_proteins, unrelaxed_pdbs, processed_models
+
     def test_get_1(self):
         """Oligomer: Check that iptm+ptm are equal in json and result pkl"""
         self.output_dir = os.path.join(self.test_data_dir, "P0DPR3_and_P0DPR3")
@@ -251,13 +321,13 @@ class TestFunctions(_TestBase):
             expected_iptm_ptm = results["iptm+ptm"]["model_1_multimer_v3_pred_0"]
         
         pkl_path = os.path.join(self.test_data_dir, "P0DPR3_and_P0DPR3", "result_model_1_multimer_v3_pred_0.pkl")
-        out = predict_structure.get_score_from_result_pkl(pkl_path)
+        out = self.get_score_from_result_pkl(pkl_path)
         self.assertTupleEqual(out, ('iptm+ptm', expected_iptm_ptm))
 
     def test_get_2(self):
         """Oligomer: Check get_existing_model_info for all models finished"""
         self.output_dir = os.path.join(self.test_data_dir, "P0DPR3_and_P0DPR3")
-        ranking_confidences, unrelaxed_proteins, unrelaxed_pdbs, START = predict_structure.get_existing_model_info(self.output_dir, self.model_runners)
+        ranking_confidences, unrelaxed_proteins, unrelaxed_pdbs, START = self.get_existing_model_info(self.output_dir, self.model_runners)
         self.assertEqual(len(ranking_confidences), len(unrelaxed_proteins))
         self.assertEqual(len(ranking_confidences), len(unrelaxed_pdbs))
         self.assertEqual(len(ranking_confidences), len(self.model_runners))
@@ -271,7 +341,7 @@ class TestFunctions(_TestBase):
     def test_get_3(self):
         """Oligomer: Check get_existing_model_info, resume after 2 models finished"""
         self.output_dir = os.path.join(self.test_data_dir, "P0DPR3_and_P0DPR3_partial")
-        ranking_confidences, unrelaxed_proteins, unrelaxed_pdbs, START = predict_structure.get_existing_model_info(self.output_dir, self.model_runners)
+        ranking_confidences, unrelaxed_proteins, unrelaxed_pdbs, START = self..get_existing_model_info(self.output_dir, self.model_runners)
         self.assertEqual(len(ranking_confidences), len(unrelaxed_proteins))
         self.assertEqual(len(ranking_confidences), len(unrelaxed_pdbs))
         self.assertNotEqual(len(ranking_confidences), len(self.model_runners))
