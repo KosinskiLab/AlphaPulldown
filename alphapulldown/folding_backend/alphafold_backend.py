@@ -475,6 +475,7 @@ class AlphaFoldBackend(FoldingBackend):
             plddt = prediction_result['plddt'][:total_num_res]
             _save_confidence_json_file(plddt, output_dir, model_name)
             ranking_confidences[model_name] = prediction_result['ranking_confidence']
+            logging.info(f"post-prediction processing {model_name} with {prediction_result['ranking_confidence']}")
             iptm_scores[model_name] = prediction_result['iptm']
             # Save and plot PAE if predicting multimer.
             if (
@@ -499,8 +500,8 @@ class AlphaFoldBackend(FoldingBackend):
                 output_dir, f"{multimeric_object.description}_pae_plot_ranked_{idx}_{model_name}.png")
             plot_pae_from_matrix(
                 seqs=prediction_result['seqs'],
-                pae_matrix=pae,
-                figure_name=figure_name
+                pae_matrix=prediction_result['predicted_aligned_error'][:total_num_res,:total_num_res],
+                figure_name=figure_name,ranking=idx
             )
 
         # Save ranking_debug.json.
