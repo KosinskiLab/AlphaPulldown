@@ -276,7 +276,7 @@ class AlphaFoldBackend(FoldingBackend):
         timings = {}
         prediction_results = {}
         START = 0
-        multimeric_mode = multimeric_object.multimeric_mode
+        multimeric_mode = multimeric_object.multimeric_mode if hasattr(multimeric_object, "multimeric_mode") else None
         t_0 = time.time()
 
         if allow_resume:
