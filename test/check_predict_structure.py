@@ -55,7 +55,7 @@ class TestScript(_TestBase):
         #Get path of the alphapulldown module
         alphapulldown_path = alphapulldown.__path__[0]
         #join the path with the script name
-        self.script_path = os.path.join(alphapulldown_path, "run_multimer_jobs.py")
+        self.script_path = os.path.join(alphapulldown_path, "scripts/run_multimer_jobs.py")
         print(sys.executable)
         print(self.script_path)
         self.args = [
@@ -341,7 +341,7 @@ class TestFunctions(_TestBase):
     def test_get_3(self):
         """Oligomer: Check get_existing_model_info, resume after 2 models finished"""
         self.output_dir = os.path.join(self.test_data_dir, "P0DPR3_and_P0DPR3_partial")
-        ranking_confidences, unrelaxed_proteins, unrelaxed_pdbs, START = self..get_existing_model_info(self.output_dir, self.model_runners)
+        ranking_confidences, unrelaxed_proteins, unrelaxed_pdbs, START = self.get_existing_model_info(self.output_dir, self.model_runners)
         self.assertEqual(len(ranking_confidences), len(unrelaxed_proteins))
         self.assertEqual(len(ranking_confidences), len(unrelaxed_pdbs))
         self.assertNotEqual(len(ranking_confidences), len(self.model_runners))

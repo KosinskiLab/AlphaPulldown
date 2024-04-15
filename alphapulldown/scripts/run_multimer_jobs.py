@@ -34,7 +34,6 @@ flags.DEFINE_list(
 )
 flags.DEFINE_list("protein_lists", None, "protein list files")
 
-delattr(flags.FLAGS, "data_dir")
 flags.DEFINE_string("data_dir", None, "Path to params directory")
 
 flags.DEFINE_integer("num_cycle", 3, help="number of recycles")
@@ -125,7 +124,6 @@ flags.DEFINE_enum(
 )
 flags.mark_flag_as_required("output_path")
 
-delattr(flags.FLAGS, "models_to_relax")
 flags.DEFINE_enum_class(
     "models_to_relax",
     ModelsToRelax.NONE,
@@ -145,33 +143,10 @@ flags.DEFINE_boolean(
     "Whether to use multimeric object's description to create output folder"
     "Remember to turn it off if you are using snakemake"
 )
-
-unused_flags = (
-    "bfd_database_path",
-    "db_preset",
-    "fasta_paths",
-    "hhblits_binary_path",
-    "hhsearch_binary_path",
-    "hmmbuild_binary_path",
-    "hmmsearch_binary_path",
-    "jackhmmer_binary_path",
-    "kalign_binary_path",
-    "max_template_date",
-    "mgnify_database_path",
-    "num_multimer_predictions_per_model",
-    "obsolete_pdbs_path",
-    "output_dir",
-    "pdb70_database_path",
-    "pdb_seqres_database_path",
-    "small_bfd_database_path",
-    "template_mmcif_dir",
-    "uniprot_database_path",
-    "uniref30_database_path",
-    "uniref90_database_path",
-)
-
-for flag in unused_flags:
-    delattr(flags.FLAGS, flag)
+flags.DEFINE_boolean('use_gpu_relax', None, 'Whether to relax on GPU. '
+                     'Relax on GPU can be much faster than CPU, so it is '
+                     'recommended to enable if possible. GPUs must be available'
+                     ' if this setting is enabled.')
 
 FLAGS = flags.FLAGS
 
