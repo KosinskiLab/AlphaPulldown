@@ -224,12 +224,13 @@ class PDBAnalyser:
                 if interface_residues is not None:
                     average_interface_pae = self.calculate_average_pae(pae_mtx,
                                                                        interface_residues[0], interface_residues[1])
+                    binding_energy = self.calculate_binding_energy(chain_1_id, chain_2_id)
                     average_interface_plddt = self.calculate_average_plddt(chain_1_plddt, chain_2_plddt,
                                                                            interface_residues[0], interface_residues[1])
                 else:
-                    average_interface_pae = "None"
-                    average_interface_plddt = "None"
-                binding_energy = self.calculate_binding_energy(chain_1_id, chain_2_id)
+                    average_interface_pae = "No interface residues detected"
+                    average_interface_plddt = "No interface residues detected"
+                    binding_energy = "None"
                 other_measurements_df = pd.DataFrame.from_dict({
                     "average_interface_pae": [average_interface_pae],
                     "average_interface_plddt": [average_interface_plddt],
