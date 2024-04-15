@@ -8,15 +8,13 @@
 import io
 import warnings
 import subprocess
-from absl import app, logging
+from absl import app, logging, flags
 import os
-from alphafold.run_alphafold import ModelsToRelax
-from alphapulldown.utils.modelling_setup import get_run_alphafold
+from alphapulldown.folding_backend.alphafold_backend import ModelsToRelax
 from alphapulldown.utils.create_combinations import process_files
 
 logging.set_verbosity(logging.INFO)
-run_af = get_run_alphafold()
-flags = run_af.flags
+
 
 flags.DEFINE_enum(
     "mode",
