@@ -26,16 +26,19 @@ class distogram_parser:
             selects from datadir a pkl/distogram corresponding to a top-ranked model 
         """
 
-        model_ranking = []
+        top_ranked_dgram = (None, None, 0.0)
         for fn in glob.glob(os.path.join(datadir, "*.pkl")):
             with open(fn, 'rb') as ifile:
                 d=pickle.load(ifile)
-            model_ranking.append([fn, d.get('ranking_confidence',0)])
+            if d.get('ranking_confidence',0)>top_ranked_dgram[-1]:
+                top_ranked_dgram = (fn, d, d.get('ranking_confidence',0))
 
-        top_ranked_fn = sorted(model_ranking, key=lambda x:x[1])[-1]
+        if top_ranked_dgram[0] is None: return []
 
-        if verbose: 
-            print(f"Selected {os.path.basename(top_ranked_fn[0])} with ranking confidence {top_ranked_fn[1]:.2f}")
+        if verbose:
+            print(f"Selected {os.path.basename(top_ranked_dgram[0])} with ranking confidence {top_ranked_drgam[-1]:.2f}")
+
+        d = top_ranked_dgram[1]
 
         # reparse top ditogram; avoids storing all pickles in memory         
         with open(fn, 'rb') as ifile:
