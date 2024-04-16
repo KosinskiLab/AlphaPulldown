@@ -10,8 +10,6 @@ from absl import flags, app, logging
 import json
 import numpy as np
 import pandas as pd
-import subprocess
-import sys
 import gzip
 from typing import Tuple
 
@@ -79,7 +77,7 @@ def obtain_pae_and_iptm(result_subdir: str, best_model: str) -> Tuple[np.array, 
             check_dict = pickle.load(gzip.open(os.path.join(
                 result_subdir, f"result_{best_model}.pkl.gz"), 'rb'))
         finally:
-            logging.info(f"finished reading result pickle for the best model.")
+            logging.info(f"finished reading results for the best model.")
             pae_mtx = check_dict['predicted_aligned_error']
             iptm_score = check_dict['iptm']
     return pae_mtx, iptm_score
@@ -131,11 +129,13 @@ def main(argv):
                     good_jobs.append(job)
                     score_df = pdb_analyser(
                         pae_mtx, plddt_per_chain)
-                    score_df['jobs'] = str(job)
+                    score_df['jobs']=job
                     score_df['iptm_ptm'] = iptm_ptm_score
                     score_df['iptm'] = iptm_score
-                    score_df['mpDockq_scores'] = mpDockq_score
-                    output_df = pd.concat([output_df, score_df])
+                    score_df['pDockQ/mpDockQ'] = mpDockq_score
+                    for i in ['pDockQ/mpDockQ', 'iptm', 'iptm_ptm','jobs']:
+                        score_df.insert(0, i, score_df.pop(i))
+                    output_df = pd.concat([score_df,output_df])
             logging.info(
                 f"done for {job} {count} out of {len(jobs)} finished.")
     if len(good_jobs) == 0:

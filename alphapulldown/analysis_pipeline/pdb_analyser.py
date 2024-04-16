@@ -17,6 +17,7 @@ from typing import Any, List, Dict
 import tempfile 
 import os
 import subprocess
+from absl import logging
 
 class PDBAnalyser:
     """
@@ -25,6 +26,7 @@ class PDBAnalyser:
     """
 
     def __init__(self, pdb_file_path: str) -> None:
+        self.pdb_file_path = pdb_file_path
         self.pdb_pandas = PandasPdb().read_pdb(pdb_file_path)
         self.pdb = PDBParser().get_structure("ranked_0",pdb_file_path)[0]
         self.pdb_df = self.pdb_pandas.df['ATOM']
@@ -155,6 +157,7 @@ class PDBAnalyser:
         
         csv_files = [f for f in os.listdir(
             work_dir) if 'filter_intf_features' in f]
+        
         pi_score_files = [f for f in os.listdir(work_dir) if 'pi_score_' in f]
         filtered_df = pd.read_csv(os.path.join(work_dir, csv_files[0]))
 
@@ -177,23 +180,21 @@ class PDBAnalyser:
             try:
                 filtered_df = filtered_df.drop(
                     columns=["#PDB", "pdb", " pvalue", "chains", "predicted_class"])
+                for interface in filtered_df.interface:
+                    chain_1, chain_2 = interface.split("_")
+                    subdf = filtered_df[filtered_df['interface'] == interface]
+                    subdf['interface'] = f"{chain_2}_{chain_1}"
+                    filtered_df = pd.concat([filtered_df,subdf])
             except:
                 pass
 
         return filtered_df
 
-    def calculate_pi_score(self, chain_1_id: str, chain_2_id: str) -> pd.DataFrame:
+    def calculate_pi_score(self) -> pd.DataFrame:
         """Run the PI-score pipeline between the 2 chains"""
-        chain_1_structure, chain_2_structure = self.pdb[chain_1_id], self.pdb[chain_2_id]
         with tempfile.TemporaryDirectory() as tmpdir:
             pi_score_output_dir = os.path.join(tmpdir, "pi_score_outputs")
-            pdb_output_file = os.path.join(tmpdir, "complex.pdb")
-            pdbio = PDBIO()
-            pdbio.set_structure(chain_1_structure)
-            pdbio.set_structure(chain_2_structure)
-            pdbio.save(pdb_output_file)
-            pi_score_df = self.run_and_summarise_pi_score(pi_score_output_dir, pdb_output_file)
-            pi_score_df['interface'] = f"{chain_1_id}_{chain_2_id}"
+            pi_score_df = self.run_and_summarise_pi_score(pi_score_output_dir, self.pdb_file_path)
         return pi_score_df
     
     def __call__(self, pae_mtx: np.ndarray, plddt: Dict[str, List[float]], cutoff: float = 12) -> Any:
@@ -214,6 +215,7 @@ class PDBAnalyser:
             import sys
             sys.exit()
         else:
+            pi_score_df = self.calculate_pi_score()
             for k, v in self.chain_combinations.items():
                 chain_1_id, chain_2_id = v
                 chain_1_df, chain_2_df = self.pdb_df[self.pdb_df['chain_id'] ==
@@ -234,8 +236,8 @@ class PDBAnalyser:
                 other_measurements_df = pd.DataFrame.from_dict({
                     "average_interface_pae": [average_interface_pae],
                     "average_interface_plddt": [average_interface_plddt],
-                    "binding_energy": [binding_energy]
+                    "binding_energy": [binding_energy],
+                    "interface": [f"{chain_1_id}_{chain_2_id}"]
                 })
-                pi_score_df = self.calculate_pi_score(chain_1_id, chain_2_id)
-                output_df = pd.concat([output_df, pd.concat([other_measurements_df, pi_score_df], axis=1)])
-        return output_df
+                output_df = pd.concat([output_df, other_measurements_df])
+        return pd.merge(output_df, pi_score_df, how='left',on='interface')
