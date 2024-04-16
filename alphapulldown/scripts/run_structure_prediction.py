@@ -14,11 +14,9 @@ from absl import logging
 from alphapulldown.folding_backend import backend
 from alphapulldown.folding_backend.alphafold_backend import ModelsToRelax
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
-from alphapulldown.utils.modelling_setup import create_interactors, parse_fold,create_custom_info
+from alphapulldown.utils.modelling_setup import create_interactors, create_custom_info
 
 logging.set_verbosity(logging.INFO)
-
-FLAGS = flags.FLAGS
 
 # Required arguments
 flags.DEFINE_multi_string(
@@ -61,6 +59,21 @@ flags.DEFINE_integer('desired_num_res', None,
                      'A desired number of residues to pad')
 flags.DEFINE_integer('desired_num_msa', None,
                      'A desired number of msa to pad')
+flags.DEFINE_boolean("remove_result_pickles", True,
+    "Whether the result pickles are going to be removed. Default is True",)
+flags.DEFINE_enum_class(
+    "models_to_relax",
+    ModelsToRelax.NONE,
+    ModelsToRelax,
+    "The models to run the final relaxation step on. "
+    "If `all`, all models are relaxed, which may be time "
+    "consuming. If `best`, only the most confident model "
+    "is relaxed. If `none`, relaxation is not run. Turning "
+    "off relaxation might result in predictions with "
+    "distracting stereochemical violations but might help "
+    "in case you are having issues with the relaxation "
+    "stage.",
+)
 
 # AlphaLink2 settings
 flags.DEFINE_string('crosslinks', None, 'Path to crosslink information pickle for AlphaLink.')
@@ -81,7 +94,7 @@ flags.DEFINE_string('protein_delimiter', '+', 'Delimiter for proteins of a singl
 flags.DEFINE_string('fold_backend', 'alphafold',
                     'Folding backend that should be used for structure prediction.')
 
-
+FLAGS = flags.FLAGS
 
 def predict_structure(
     objects_to_model: List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject], str]],
@@ -131,7 +144,7 @@ def predict_structure(
         )
 
 def pre_modelling_setup(interactors : List[Union[MonomericObject, ChoppedObject]], 
-                        args) -> Tuple[Union[MultimericObject,
+                        flags) -> Tuple[Union[MultimericObject,
                                             MonomericObject, 
                                             ChoppedObject], dict, dict, str]:
     """
@@ -153,10 +166,10 @@ def pre_modelling_setup(interactors : List[Union[MonomericObject, ChoppedObject]
         # this means it's going to be a MultimericObject
         object_to_model = MultimericObject(
             interactors=interactors,
-            pair_msa=not args.no_pair_msa,
-            multimeric_mode=args.multimeric_template,
-            multimeric_template_meta_data=args.description_file,
-            multimeric_template_dir=args.path_to_mmt,
+            pair_msa=not flags.no_pair_msa,
+            multimeric_mode=flags.multimeric_template,
+            multimeric_template_meta_data=flags.description_file,
+            multimeric_template_dir=flags.path_to_mmt,
         )
     else:
         # means it's going to be a MonomericObject or a ChoppedObject
@@ -166,32 +179,32 @@ def pre_modelling_setup(interactors : List[Union[MonomericObject, ChoppedObject]
     # TODO: Add backend specific flags here
     flags_dict = {
         "model_name": "monomer_ptm",
-        "num_cycle": args.num_cycle,
-        "model_dir": args.data_directory,
-        "num_multimer_predictions_per_model": args.num_predictions_per_model,
-        "crosslinks": args.crosslinks,
-        "desired_num_res": args.desired_num_res,
-        "desired_num_msa": args.desired_num_msa,
-        "skip_templates": args.skip_templates
+        "num_cycle": flags.num_cycle,
+        "model_dir": flags.data_directory,
+        "num_multimer_predictions_per_model": flags.num_predictions_per_model,
+        "crosslinks": flags.crosslinks,
+        "desired_num_res": flags.desired_num_res,
+        "desired_num_msa": flags.desired_num_msa,
+        "skip_templates": flags.skip_templates
     }
 
     if isinstance(object_to_model, MultimericObject):
         flags_dict["model_name"] = "multimer"
-        flags_dict["msa_depth_scan"] = args.msa_depth_scan
-        flags_dict["model_names_custom"] = args.model_names
-        flags_dict["msa_depth"] = args.msa_depth
+        flags_dict["msa_depth_scan"] = flags.msa_depth_scan
+        flags_dict["model_names_custom"] = flags.model_names
+        flags_dict["msa_depth"] = flags.msa_depth
 
     postprocess_flags = {
-        "zip_pickles": args.compress_result_pickles,
-        "remove_pickles": args.remove_result_pickles,
-        "use_gpu_relax": args.use_gpu_relax,
-        "models_to_relax": args.models_to_relax,
-        "features_directory": args.features_directory,
+        "zip_pickles": flags.compress_result_pickles,
+        "remove_pickles": flags.remove_result_pickles,
+        "use_gpu_relax": flags.use_gpu_relax,
+        "models_to_relax": flags.models_to_relax,
+        "features_directory": flags.features_directory,
     }
 
-    output_dir = args.output_directory
-    if args.use_ap_style:
-        output_dir = join(args.output_directory,object_to_model.description)
+    output_dir = flags.output_directory
+    if flags.use_ap_style:
+        output_dir = join(flags.output_directory,object_to_model.description)
     makedirs(output_dir, exist_ok=True)
     return object_to_model, flags_dict, postprocess_flags, output_dir
 
