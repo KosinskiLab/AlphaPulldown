@@ -9,8 +9,7 @@
 import time
 import json
 import pickle
-import tempfile
-from typing import Dict, Union, List
+from typing import Dict, Union, List, Any
 from os.path import join, exists
 from absl import logging
 import numpy as np
@@ -414,6 +413,44 @@ class AlphaFoldBackend(FoldingBackend):
             )
             yield {object_to_model: {"prediction_results": prediction_results,
                                      "output_dir": output_dir}}
+            
+    @staticmethod
+    def recalculate_confidence(prediction_results: Dict, multimer_mode:bool, 
+                               total_num_res: int) -> Dict[str, Any]:
+        if type(prediction_results['predicted_aligned_error']) == np.ndarray:
+            return prediction_results
+        else:
+            plddt = confidence.compute_plddt(
+                prediction_results['predicted_lddt']['logits'])
+            plddt = plddt[:total_num_res]
+            if 'predicted_aligned_error' in prediction_results:
+                pae = confidence.compute_predicted_aligned_error(
+                logits=prediction_results['predicted_aligned_error']['logits'],
+                breaks=prediction_results['predicted_aligned_error']['breaks'])
+                pae = pae[:total_num_res, :total_num_res]
+
+                ptm = confidence.predicted_tm_score(
+                logits=prediction_results['predicted_aligned_error']['logits'][:total_num_res,:total_num_res],
+                breaks=prediction_results['predicted_aligned_error']['breaks'],
+                asym_id=prediction_results['predicted_aligned_error']['asym_id'][:total_num_res])
+                if multimer_mode:
+                # Compute the ipTM only for the multimer model.
+                    iptm = confidence.predicted_tm_score(
+                    logits=prediction_results['predicted_aligned_error']['logits'][:total_num_res,:total_num_res],
+                    breaks=prediction_results['predicted_aligned_error']['breaks'],
+                    asym_id=prediction_results['predicted_aligned_error']['asym_id'][:total_num_res],
+                    interface=True)
+
+                    ranking_confidence = 0.8 * iptm + 0.2 * ptm
+
+                if not multimer_mode:
+                    # Monomer models use mean pLDDT for model ranking.
+                    ranking_confidence =  np.mean(
+                        plddt)
+            
+            return {'ranking_confidence' : ranking_confidence,
+                    'iptm' : iptm,
+                    'predicted_aligned_error' : pae}
 
     @staticmethod
     def postprocess(
@@ -459,20 +496,23 @@ class AlphaFoldBackend(FoldingBackend):
         relaxed_pdbs = {}
         ranking_confidences = {}
         iptm_scores = {}
+        multimer_mode = type(multimeric_object) == MultimericObject
         # Read timings.json if exists
         timings_path = join(output_dir, 'timings.json')
         timings = _read_from_json_if_exists(timings_path)
         relax_metrics_path = join(output_dir, 'relax_metrics.json')
         relax_metrics = _read_from_json_if_exists(relax_metrics_path)
-        multimeric_mode = multimeric_object.multimeric_mode
+        multimeric_mode = multimeric_object.multimeric_mode if hasattr(multimeric_object, "multimeric_mode") else None
         ranking_path = join(output_dir, "ranking_debug.json")
         label = 'plddts'
-        total_num_res = sum([len(s) for s in multimeric_object.input_seqs])
+        total_num_res = sum([len(s) for s in multimeric_object.input_seqs]) if multimer_mode else len(multimeric_object.sequence)
         # Save plddt json files.
         for model_name, prediction_result in prediction_results.items():
+            prediction_result.update(AlphaFoldBackend.recalculate_confidence(prediction_result,multimer_mode,
+                                                                         total_num_res))
             if 'iptm' in prediction_result:
                 label = 'iptm+ptm'
-            plddt = prediction_result['plddt'][:total_num_res]
+            plddt = prediction_result['plddt']
             _save_confidence_json_file(plddt, output_dir, model_name)
             ranking_confidences[model_name] = prediction_result['ranking_confidence']
             iptm_scores[model_name] = float(prediction_result['iptm'])
@@ -481,7 +521,7 @@ class AlphaFoldBackend(FoldingBackend):
                     'predicted_aligned_error' in prediction_result
                     and 'max_predicted_aligned_error' in prediction_result
             ):
-                pae = prediction_result['predicted_aligned_error'][:total_num_res,:total_num_res]
+                pae = prediction_result['predicted_aligned_error']
 
                 max_pae = prediction_result['max_predicted_aligned_error']
                 _save_pae_json_file(pae, float(max_pae),
@@ -499,7 +539,7 @@ class AlphaFoldBackend(FoldingBackend):
                 output_dir, f"{multimeric_object.description}_pae_plot_ranked_{idx}_{model_name}.png")
             plot_pae_from_matrix(
                 seqs=prediction_result['seqs'],
-                pae_matrix=prediction_result['predicted_aligned_error'][:total_num_res,:total_num_res],
+                pae_matrix=prediction_result['predicted_aligned_error'],
                 figure_name=figure_name,ranking=idx
             )
 
