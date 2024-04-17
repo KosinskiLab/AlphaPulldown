@@ -39,7 +39,7 @@ class TestScript(_TestBase):
         super().setUp()
 
         #Create a temporary directory for the output
-        self.output_dir = "OUTPUT_1"#tempfile.mkdtemp()
+        self.output_dir = tempfile.mkdtemp()
         self.protein_lists = os.path.join(self.test_data_dir, "tiny_monomeric_features_homodimer.txt")
         self.monomer_objects_dir = self.test_data_dir
 
@@ -75,6 +75,8 @@ class TestScript(_TestBase):
         self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.startswith("ranked") and f.endswith(".pdb")]), 5)
         #Check if the directory contains five files starting from result and ending with .pkl
         self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.startswith("result") and f.endswith(".pkl")]), 5)
+        #Check if the directory contains five files starting from pae and ending with .json
+        self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.startswith("pae") and f.endswith(".json")]), 5)
         #Check if the directory contains five files ending with png
         self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.endswith(".png")]), 5)
         #Check if the directory contains ranking_debug.json
@@ -129,7 +131,7 @@ class TestScript(_TestBase):
         #Check if the directory contains five files starting from relaxed and ending with .pdb
         self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.startswith("relaxed") and f.endswith(".pdb")]), 5)
 
-    @parameterized.named_parameters(('relax', ModelsToRelax.ALL),('no_relax', ModelsToRelax.NONE))
+    #@parameterized.named_parameters(('relax', ModelsToRelax.ALL),('no_relax', ModelsToRelax.NONE))
     def testRun_2(self):
         """test run without amber relaxation"""
         result = subprocess.run(self.args, capture_output=True, text=True)
