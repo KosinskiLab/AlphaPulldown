@@ -484,7 +484,7 @@ class AlphaFoldBackend(FoldingBackend):
             if 'iptm' in prediction_result:
                 label = 'iptm+ptm'
             plddt = prediction_result['plddt'][:total_num_res]
-            _save_confidence_json_file(plddt, output_dir, model_name)
+            #_save_confidence_json_file(plddt, output_dir, model_name)
             ranking_confidences[model_name] = prediction_result['ranking_confidence']
             # Save and plot PAE if predicting multimer.
             if (
@@ -598,15 +598,15 @@ class AlphaFoldBackend(FoldingBackend):
                   f"--ap_output {output_dir} " \
                   f"--monomer_objects_dir {''.join(features_directory)}"
 
-        result = subprocess.run(command,
-                                check=True,
-                                shell=True,
-                                capture_output=True,
-                                text=True)
+        #result = subprocess.run(command,
+        #                        check=True,
+        #                        shell=True,
+        #                        capture_output=True,
+        #                        text=True)
 
-        logging.info(result.stdout)
-        if result.stderr:
-            logging.error("Error:", result.stderr)
+        #logging.info(result.stdout)
+        #if result.stderr:
+        #    logging.error("Error:", result.stderr)
 
         #post_prediction_process(
         #    output_dir,
