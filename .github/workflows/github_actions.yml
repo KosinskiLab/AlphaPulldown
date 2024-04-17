@@ -2,13 +2,7 @@ name: AlphaPulldown-CI-CD
 
 on:
   pull_request:
-    branches:
-      - main
   push:
-    branches:
-      - main
-  release:
-    types: [created]
 
 jobs:
   build-and-test:
@@ -57,7 +51,7 @@ jobs:
           pytest -s test/test_remove_clashes_low_plddt.py
 
   build-docker:
-    if: github.event_name == 'release' && github.event.action == 'created'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -69,6 +63,6 @@ jobs:
       - uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./workflow/docker/pulldown.dockerfile
+          file: ./docker/pulldown.dockerfile #TODO: Add analysis.dockerfile
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/fold:latest
