@@ -13,6 +13,7 @@ from typing import Dict, Union, List, Any
 from os.path import join, exists
 from absl import logging
 import numpy as np
+from copy import copy
 import jax.numpy as jnp
 from alphapulldown.utils.plotting import plot_pae_from_matrix
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
@@ -277,10 +278,11 @@ class AlphaFoldBackend(FoldingBackend):
         START = 0
         multimeric_mode = multimeric_object.multimeric_mode if hasattr(multimeric_object, "multimeric_mode") else None
         t_0 = time.time()
-
+        original_feature_dict = copy(multimeric_object.feature_dict)
+        total_num_res = sum([len(s) for s in multimeric_object.input_seqs]) if hasattr(multimeric_object, "input_seqs") else len(multimeric_object.sequence)
         if allow_resume:
             logging.info(
-            f"Now runing predictions on {multimeric_object.description}. Checking existing results...")
+            f"Now running predictions on {multimeric_object.description}. Checking existing results...")
             for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
                 unrelaxed_pdb_path = join(
                     output_dir, f"unrelaxed_{model_name}.pdb")
@@ -290,20 +292,19 @@ class AlphaFoldBackend(FoldingBackend):
                     START = model_index + 1
                 else:
                     break
-
         # first check whether the desired num_res and num_msa are specified for padding
         desired_num_res, desired_num_msa = kwargs.get(
             "desired_num_res", None), kwargs.get("desired_num_msa", None)
         if (desired_num_res is not None) and (desired_num_msa is not None) and type(multimeric_object) == MultimericObject:
             # This means padding is required to speed up the process
-            pad_input_features(feature_dict=multimeric_object.feature_dict,
+            pad_input_features(feature_dict=original_feature_dict,
                                desired_num_msa=desired_num_msa, desired_num_res=desired_num_res)
-            multimeric_object.feature_dict['num_alignments'] = np.array([desired_num_msa])
+            original_feature_dict['num_alignments'] = np.array([desired_num_msa])
         num_models = len(model_runners)
         for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
             model_random_seed = model_index + random_seed * num_models
             processed_feature_dict = model_runner.process_features(
-                multimeric_object.feature_dict, random_seed=model_random_seed
+                original_feature_dict, random_seed=model_random_seed
             )
             # Read prediction results from results.pkl und unrelaxed.pdb
             if model_index < START:
@@ -313,7 +314,7 @@ class AlphaFoldBackend(FoldingBackend):
                     prediction_result = pickle.load(f)
                     # Update prediction_result with input seqs and unrelaxed protein
                     prediction_result.update(
-                        {"seqs": multimeric_object.input_seqs})
+                        {"seqs": multimeric_object.input_seqs if hasattr(multimeric_object,"input_seqs") else [multimeric_object.sequence]})
                     plddt_b_factors = np.repeat(
                         prediction_result['plddt'][:,
                                                    None], residue_constants.atom_type_num, axis=-1
@@ -351,7 +352,7 @@ class AlphaFoldBackend(FoldingBackend):
                     )
             t_0 = time.time()
             logging.info(
-                f"Now runing predictions on {multimeric_object.description} using {model_name}")
+                f"Now running predictions on {multimeric_object.description} using {model_name}")
             prediction_result = model_runner.predict(
                 processed_feature_dict, random_seed=model_random_seed
             )
@@ -365,7 +366,7 @@ class AlphaFoldBackend(FoldingBackend):
                                            None], residue_constants.atom_type_num, axis=-1
             )
             unrelaxed_protein = protein.from_prediction(
-                features=processed_feature_dict,
+                features=multimeric_object.feature_dict,
                 result=prediction_result,
                 b_factors=plddt_b_factors,
                 remove_leading_feature_dimension=not model_runner.multimer_mode,
@@ -410,12 +411,14 @@ class AlphaFoldBackend(FoldingBackend):
                 random_seed=random_seed,
                 **kwargs
             )
+            
             yield {object_to_model: {"prediction_results": prediction_results,
                                      "output_dir": output_dir}}
             
     @staticmethod
     def recalculate_confidence(prediction_results: Dict, multimer_mode:bool, 
                                total_num_res: int) -> Dict[str, Any]:
+        """A method that remove pae values of padded residues and recalculate iptm_ptm score again """
         if type(prediction_results['predicted_aligned_error']) == np.ndarray:
             return prediction_results
         else:
@@ -431,6 +434,7 @@ class AlphaFoldBackend(FoldingBackend):
                 logits=prediction_results['predicted_aligned_error']['logits'],
                 breaks=prediction_results['predicted_aligned_error']['breaks'])
                 max_pae = pae.pop('max_predicted_aligned_error')
+                
                 for k,v in pae.items():
                     output.update({k:v[:total_num_res, :total_num_res]})
                 pae['max_predicted_aligned_error'] = max_pae
