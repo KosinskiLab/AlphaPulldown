@@ -428,20 +428,20 @@ class MultimericObject:
     index: assign a unique index ranging from 0 just to identify different multimer jobs
     interactors: individual interactors that are to be concatenated
     pair_msa: boolean, tells the programme whether to pair MSA or not
-    multimeric_mode: boolean, tells the programme whether use multimeric templates or not
+    multimeric_template: boolean, tells the programme whether use multimeric templates or not
     multimeric_template_meta_data: a csv with the format {"monomer_A":{"xxx.cif":"chainID"},"monomer_B":{"yyy.cif":"chainID"}}
     multimeric_template_dir: a directory where all the multimeric templates mmcifs files are stored
     """
 
     def __init__(self, interactors: list, pair_msa: bool = True, 
-                 multimeric_mode: bool = False, 
+                 multimeric_template: bool = False,
                  multimeric_template_meta_data: str = None,
                  multimeric_template_dir:str = None) -> None:
         self.description = ""
         self.interactors = interactors
         self.build_description_monomer_mapping()
         self.pair_msa = pair_msa
-        self.multimeric_mode = multimeric_mode
+        self.multimeric_template = multimeric_template
         self.chain_id_map = dict()
         self.input_seqs = []
         self.multimeric_template_dir = multimeric_template_dir
@@ -451,7 +451,7 @@ class MultimericObject:
             self.multimeric_template_meta_data = prepare_multimeric_template_meta_info(multimeric_template_meta_data,
                                                                                        self.multimeric_template_dir)
             
-        if self.multimeric_mode:
+        if self.multimeric_template:
             self.create_multimeric_template_features()
         self.create_all_chain_features()
         pass
@@ -618,7 +618,7 @@ create_individual_features.py
         uniprot_runner: a jackhammer runner with path to the uniprot database
         msa_pairing: boolean pairs msas or not
         """
-        if self.multimeric_mode:
+        if self.multimeric_template:
             logging.info("Running in TrueMultimer mode")
             self.multichain_mask = self.create_multichain_mask()
         self.create_chain_id_map()
@@ -645,7 +645,7 @@ create_individual_features.py
         # make integer to np.array
         for k in ['num_alignments']:
             self.feature_dict[k] = np.array([self.feature_dict[k]])
-        if self.multimeric_mode:
+        if self.multimeric_template:
             self.feature_dict['template_sequence'] = []
             self.feature_dict['multichain_mask'] = self.multichain_mask
             # save used templates

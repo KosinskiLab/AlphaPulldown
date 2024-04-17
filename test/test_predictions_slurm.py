@@ -22,6 +22,12 @@ def test_sbatch_command():
     conda_env = os.environ.get('CONDA_DEFAULT_ENV')
     if conda_env is None:
         pytest.fail("CONDA_DEFAULT_ENV not set")
-
-    command = ["sbatch", "test/test_predict_structure.sh", conda_env]
-    subprocess.run(command, check=True)
+    number_of_tests = 6 #adust this number to the number of tests
+    for i in range(1, number_of_tests + 1):
+        command = [
+            "sbatch",
+            f"--array={i}",
+            f"--output=%j.testRun_{i}.log",
+            "test/test_predict_structure.sh",
+            conda_env]
+        subprocess.run(command, check=True)

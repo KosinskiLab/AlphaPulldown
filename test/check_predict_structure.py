@@ -179,7 +179,7 @@ class TestScript(_TestBase):
 
     def testRun_6(self):
         """
-        Test running structure prediction with --multimeric_mode=True
+        Test running structure prediction with --multimeric_template=True
         Checks that the output model follows provided template (RMSD < 3 A)
         """
         #checks that features contain pickle files
@@ -193,7 +193,7 @@ class TestScript(_TestBase):
             "--mode=custom",
             "--num_cycle=48",
             "--num_predictions_per_model=5",
-            "--multimeric_mode=True",
+            "--multimeric_template=True",
             "--model_names=model_2_multimer_v3",
             "--msa_depth=30",
             f"--output_path={self.output_dir}",

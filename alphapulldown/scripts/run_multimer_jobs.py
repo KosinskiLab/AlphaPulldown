@@ -72,7 +72,7 @@ def main(argv):
         "--features_directory": FLAGS.monomer_objects_dir,
         "--no_pair_msa": FLAGS.no_pair_msa,
         "--msa_depth_scan": FLAGS.msa_depth_scan,
-        "--multimeric_template": FLAGS.multimeric_mode,
+        "--multimeric_template": FLAGS.multimeric_template,
         "--model_names": FLAGS.model_names,
         "--msa_depth": FLAGS.msa_depth,
         "--crosslinks": FLAGS.crosslinks,
