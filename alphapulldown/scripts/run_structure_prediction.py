@@ -45,7 +45,7 @@ flags.DEFINE_boolean('skip_templates', False,
                      'Do not use template features when modelling')
 flags.DEFINE_boolean('msa_depth_scan', False,
                      'Run predictions for each model with logarithmically distributed MSA depth.')
-flags.DEFINE_boolean('multimeric_template', False,
+flags.DEFINE_boolean('multimeric_mode', False,
                      'Whether to use multimeric templates.')
 flags.DEFINE_string('model_names', None,
                     'Names of models to use, e.g. model_2_multimer_v3 (default: all models).')
@@ -178,7 +178,7 @@ def pre_modelling_setup(interactors : List[Union[MonomericObject, ChoppedObject]
         object_to_model = MultimericObject(
             interactors=interactors,
             pair_msa=not flags.no_pair_msa,
-            multimeric_mode=flags.multimeric_template,
+            multimeric_mode=flags.multimeric_mode,
             multimeric_template_meta_data=flags.description_file,
             multimeric_template_dir=flags.path_to_mmt,
         )

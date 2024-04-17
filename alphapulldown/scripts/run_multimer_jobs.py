@@ -19,9 +19,7 @@ logging.set_verbosity(logging.INFO)
 flags.DEFINE_enum("mode", "pulldown", ["pulldown", "all_vs_all", "homo-oligomer", "custom"],
                   "choose the mode of running multimer jobs")
 flags.DEFINE_string("oligomer_state_file", None, "path to oligomer state files")
-flags.DEFINE_list("monomer_objects_dir", None, "a list of directories where monomer objects are stored")
 flags.DEFINE_list("protein_lists", None, "protein list files")
-flags.DEFINE_string("data_dir", None, "Path to params directory")
 flags.DEFINE_string("alphalink_weight", None, "Path to AlphaLink neural network weights")
 flags.DEFINE_string("unifold_param", None, "Path to UniFold neural network weights")
 flags.DEFINE_boolean("use_unifold", False,
@@ -31,6 +29,11 @@ flags.DEFINE_boolean("use_alphalink", False,
 flags.DEFINE_enum("unifold_model_name", "multimer_af2",
                   ["multimer_af2", "multimer_ft", "multimer", "multimer_af2_v3", "multimer_af2_model45_v3"],
                   "choose unifold model structure")
+flags.DEFINE_integer("job_index", None, "index of sequence in the fasta file, starting from 1")
+#Different flag names from alphafold
+flags.DEFINE_list("monomer_objects_dir", None, "a list of directories where monomer objects are stored")
+flags.DEFINE_string("output_path", None, "output directory where the region data is going to be stored")
+flags.DEFINE_string("data_dir", None, "Path to params directory")
 
 
 def main(argv):
