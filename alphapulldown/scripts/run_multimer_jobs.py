@@ -255,7 +255,6 @@ def main(argv):
         # then no need to iterate through the job_indices
         command_args["--input"] = " ".join(all_folds)
         command = base_command.copy()
-
         for arg, value in command_args.items():
             command.extend([str(arg), str(value)])
         subprocess.run(" ".join(command), check=True, shell=True)
@@ -263,7 +262,6 @@ def main(argv):
         for job_index in job_indices:
             command_args["--input"] = all_folds[job_index]
             command = base_command.copy()
-
             for arg, value in command_args.items():
                 command.extend([str(arg), str(value)])
             subprocess.run(" ".join(command), check=True, shell=True)
