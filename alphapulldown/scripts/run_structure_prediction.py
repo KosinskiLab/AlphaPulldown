@@ -14,7 +14,7 @@ from absl import logging
 from alphapulldown.folding_backend import backend
 from alphapulldown.folding_backend.alphafold_backend import ModelsToRelax
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
-from alphapulldown.utils.modelling_setup import create_interactors, create_custom_info
+from alphapulldown.utils.modelling_setup import create_interactors, create_custom_info, parse_fold
 
 logging.set_verbosity(logging.INFO)
 
@@ -59,8 +59,6 @@ flags.DEFINE_integer('desired_num_res', None,
                      'A desired number of residues to pad')
 flags.DEFINE_integer('desired_num_msa', None,
                      'A desired number of msa to pad')
-flags.DEFINE_boolean("remove_result_pickles", True,
-    "Whether the result pickles are going to be removed. Default is True",)
 flags.DEFINE_enum_class(
     "models_to_relax",
     ModelsToRelax.NONE,
@@ -74,15 +72,28 @@ flags.DEFINE_enum_class(
     "in case you are having issues with the relaxation "
     "stage.",
 )
-
+flags.DEFINE_enum('model_preset', 'monomer',
+                  ['monomer', 'monomer_casp14', 'monomer_ptm', 'multimer'],
+                  'Choose preset model configuration - the monomer model, '
+                  'the monomer model with extra ensembling, monomer model with '
+                  'pTM head, or multimer model')
+flags.DEFINE_boolean('benchmark', False, 'Run multiple JAX model evaluations '
+                     'to obtain a timing that excludes the compilation time, '
+                     'which should be more indicative of the time required for '
+                     'inferencing many proteins.')
+flags.DEFINE_integer('random_seed', None, 'The random seed for the data '
+                     'pipeline. By default, this is randomly generated. Note '
+                     'that even if this is set, Alphafold may still not be '
+                     'deterministic, because processes like GPU inference are '
+                     'nondeterministic.')
 # AlphaLink2 settings
 flags.DEFINE_string('crosslinks', None, 'Path to crosslink information pickle for AlphaLink.')
 
 # Post-processing settings
 flags.DEFINE_boolean('compress_result_pickles', False,
                      'Whether the result pickles are going to be gzipped. Default False.')
-flags.DEFINE_boolean('remove_result_pickles', False,
-                     'Whether the result pickles that do not belong to the best model are going to be removed')
+flags.DEFINE_boolean('remove_result_pickles', True,
+                     'Whether the result pickles are going to be removed')
 flags.DEFINE_boolean('use_ap_style', False,
                      'Change output directory to include a description of the fold '
                      'as seen in previous alphapulldown versions.')
@@ -209,8 +220,8 @@ def pre_modelling_setup(interactors : List[Union[MonomericObject, ChoppedObject]
     return object_to_model, flags_dict, postprocess_flags, output_dir
 
 def main(argv):
-
-    data = create_custom_info(FLAGS.parsed_input)
+    parsed_input = parse_fold(FLAGS.input, FLAGS.features_directory, FLAGS.protein_delimiter)
+    data = create_custom_info(parsed_input)
     all_interactors = create_interactors(data, FLAGS.features_directory)
     objects_to_model = [] 
     for interactors in all_interactors:

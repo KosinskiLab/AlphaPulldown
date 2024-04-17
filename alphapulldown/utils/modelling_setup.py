@@ -27,11 +27,11 @@ from absl import logging
 logging.set_verbosity(logging.INFO)
 
 
-def parse_fold(args):
+def parse_fold(input, features_directory, protein_delimiter):
     all_folding_jobs = []
-    for i in args.input:
+    for i in input:
         formatted_folds, missing_features, unique_features = [], [], []
-        protein_folds = [x.split(":") for x in i.split(args.protein_delimiter)]
+        protein_folds = [x.split(":") for x in i.split(protein_delimiter)]
         for protein_fold in protein_folds:
             name, number, region = None, 1, "all"
 
@@ -54,7 +54,7 @@ def parse_fold(args):
                 region = [tuple(int(x) for x in region)]
 
             unique_features.append(name)
-            if not any([exists(join(monomer_dir, f"{name}.pkl")) for monomer_dir in args.features_directory]):
+            if not any([exists(join(monomer_dir, f"{name}.pkl")) for monomer_dir in features_directory]):
                 missing_features.append(name)
 
             formatted_folds.extend([{name: region} for _ in range(number)])
@@ -62,10 +62,9 @@ def parse_fold(args):
         missing_features = set(missing_features)
         if len(missing_features):
             raise FileNotFoundError(
-                f"{missing_features} not found in {args.features_directory}"
+                f"{missing_features} not found in {features_directory}"
             )
-    args.parsed_input = all_folding_jobs
-    return args
+    return all_folding_jobs
 
 def pad_input_features(feature_dict: dict, 
                        desired_num_res : int, desired_num_msa : int) -> None:

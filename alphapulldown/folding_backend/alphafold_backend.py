@@ -608,8 +608,8 @@ class AlphaFoldBackend(FoldingBackend):
         if result.stderr:
             logging.error("Error:", result.stderr)
 
-        post_prediction_process(
-            output_dir,
-            zip_pickles=zip_pickles,
-            remove_pickles=remove_pickles,
-        )
+        #post_prediction_process(
+        #    output_dir,
+        #    zip_pickles=zip_pickles,
+        #    remove_pickles=remove_pickles,
+        #)
