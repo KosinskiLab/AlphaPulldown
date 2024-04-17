@@ -175,7 +175,7 @@ rule alphafold_inference:
             --output_directory={params.output_directory} \
             --num_cycle={params.n_recycles} \
             --num_predictions_per_model={params.predictions_per_model} \
-            --data_dir={params.data_directory} \
+            --data_directory={params.data_directory} \
             --features_directory={params.feature_directory} \
             --protein_delimiter {params.protein_delimiter}
         echo "Completed" > {output}
