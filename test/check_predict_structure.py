@@ -1,28 +1,24 @@
 """
 Running the test script:
 1. Batch job on gpu-el8
-sbatch test_predict_structure.sh
+sbatch --array={test_number} test_predict_structure.sh {conda_env}
 
 2. Interactive session on gpu-el8
-salloc -p gpu-el8 --ntasks 1 --cpus-per-task 8 --qos=highest --mem=16000 -C gaming -N 1 --gres=gpu:1 -t 05:00:00 
-
-module load Anaconda3 
-module load CUDA/11.3.1
-module load cuDNN/8.2.1.32-CUDA-11.3.1
-conda activate AlphaPulldown
+salloc -p gpu-el8 --ntasks 1 --cpus-per-task 8 --qos=highest --mem=16000 -C gaming -N 1 --gres=gpu:1 -t 05:00:00
 srun python test/check_predict_structure.py # this will be slower due to the slow compilation error
 
 """
 import shutil
 import tempfile
-import unittest
 import sys
 import os
 import subprocess
 import json
 from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
 import alphapulldown
-
+from absl.testing import absltest
+from absl.testing import parameterized
+from alphapulldown.folding_backend.alphafold_backend import ModelsToRelax
 
 FAST=True
 if FAST:
@@ -30,7 +26,7 @@ if FAST:
     config.CONFIG_MULTIMER.model.embeddings_and_evoformer.evoformer_num_block = 1
     #TODO: can it be done faster? For P0DPR3_and_P0DPR3 example, I think most of the time is taken by jax model compilation.
 
-class _TestBase(unittest.TestCase):
+class _TestBase(parameterized.TestCase):
     def setUp(self) -> None:
         self.data_dir = "/scratch/AlphaFold_DBs/2.3.2/"
         #Get test_data directory as relative path to this script
@@ -43,8 +39,7 @@ class TestScript(_TestBase):
         super().setUp()
 
         #Create a temporary directory for the output
-        self.output_dir = tempfile.mkdtemp()
-        self.test_data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_data")
+        self.output_dir = "OUTPUT_1"#tempfile.mkdtemp()
         self.protein_lists = os.path.join(self.test_data_dir, "tiny_monomeric_features_homodimer.txt")
         self.monomer_objects_dir = self.test_data_dir
 
@@ -134,6 +129,7 @@ class TestScript(_TestBase):
         #Check if the directory contains five files starting from relaxed and ending with .pdb
         self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.startswith("relaxed") and f.endswith(".pdb")]), 5)
 
+    @parameterized.named_parameters(('relax', ModelsToRelax.ALL),('no_relax', ModelsToRelax.NONE))
     def testRun_2(self):
         """test run without amber relaxation"""
         result = subprocess.run(self.args, capture_output=True, text=True)
@@ -230,4 +226,4 @@ class TestScript(_TestBase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    absltest.main()

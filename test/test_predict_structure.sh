@@ -1,20 +1,11 @@
 #!/bin/bash
 #SBATCH --job-name=test_predict_structure
 #SBATCH --time=01:00:00
-
-#log files:
-#SBATCH -o %j.testRun_${SLURM_ARRAY_TASK_ID}.out
-
 #SBATCH --qos=normal
-
 #SBATCH -p gpu-el8
 #SBATCH -C gaming
 #SBATCH --gres=gpu:1
-
-#Limit the run to a single node
 #SBATCH -N 1
-
-#Adjust this depending on the node
 #SBATCH --ntasks=8
 #SBATCH --mem=16000
 
