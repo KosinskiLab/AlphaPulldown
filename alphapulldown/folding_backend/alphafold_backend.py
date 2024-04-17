@@ -294,7 +294,7 @@ class AlphaFoldBackend(FoldingBackend):
         # first check whether the desired num_res and num_msa are specified for padding
         desired_num_res, desired_num_msa = kwargs.get(
             "desired_num_res", None), kwargs.get("desired_num_msa", None)
-        if (desired_num_res is not None) and (desired_num_msa is not None):
+        if (desired_num_res is not None) and (desired_num_msa is not None) and type(multimeric_object) == MultimericObject:
             # This means padding is required to speed up the process
             pad_input_features(feature_dict=multimeric_object.feature_dict,
                                desired_num_msa=desired_num_msa, desired_num_res=desired_num_res)
