@@ -533,7 +533,7 @@ class MultimericObject:
                 if (id1[:4] == id2[:4]):
                     multichain_mask[index1, index2] = 1
         # DEBUG
-        self.save_binary_matrix(multichain_mask, "multichain_mask.png")
+        #self.save_binary_matrix(multichain_mask, "multichain_mask.png")
         return multichain_mask
     
     def create_multimeric_template_features(self):
