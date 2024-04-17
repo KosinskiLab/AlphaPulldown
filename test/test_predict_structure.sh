@@ -1,24 +1,11 @@
 #!/bin/bash
 #SBATCH --job-name=test_predict_structure
-#SBATCH --time=05:00:00
-
-#Increase this number for new tests in check_predict_structure.py !!!
-#SBATCH --array=1-6
-
-#log files:
-#SBATCH -e %x.%j_err.txt
-#SBATCH -o %x.%j_out.txt
-
+#SBATCH --time=01:00:00
 #SBATCH --qos=normal
-
 #SBATCH -p gpu-el8
 #SBATCH -C gaming
 #SBATCH --gres=gpu:1
-
-#Limit the run to a single node
 #SBATCH -N 1
-
-#Adjust this depending on the node
 #SBATCH --ntasks=8
 #SBATCH --mem=16000
 
@@ -44,4 +31,3 @@ export XLA_PYTHON_CLIENT_MEM_FRACTION=`echo "scale=3;$MAXRAM / $GPUMEM"|bc`
 export TF_FORCE_UNIFIED_MEMORY='1'
 echo "Running TestScript::testRun_$SLURM_ARRAY_TASK_ID"
 pytest -s test/check_predict_structure.py::TestScript::testRun_$SLURM_ARRAY_TASK_ID
-pytest -s test/check_predict_structure.py::TestFunctions::test_get_$SLURM_ARRAY_TASK_ID

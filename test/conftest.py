@@ -1,6 +1,6 @@
 import pytest
 
-@pytest.mark.tryfirst
+@pytest.hookimpl(tryfirst=True)
 def pytest_itemcollected(item):
     par = item.parent.obj
     node = item.obj

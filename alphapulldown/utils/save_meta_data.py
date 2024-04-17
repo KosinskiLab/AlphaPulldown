@@ -1,9 +1,7 @@
 #
 # Author: Dingquan Yu
 # A script containing utility functions
-# 
-import contextlib
-
+#
 from alphapulldown import __version__ as AP_VERSION
 from alphafold.version import __version__ as AF_VERSION
 import json

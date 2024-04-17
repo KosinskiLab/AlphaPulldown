@@ -12,7 +12,6 @@ Can be used as a standalone script.
 import os
 import hashlib
 import base64
-import string
 from pathlib import Path
 from absl import logging, flags, app
 from alphapulldown.utils.remove_clashes_low_plddt import MmcifChainFiltered

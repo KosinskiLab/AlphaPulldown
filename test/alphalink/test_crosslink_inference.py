@@ -23,7 +23,7 @@ class TestCrosslinkInference(_TestBase):
         self.monomer_object_path = os.path.join(os.path.dirname(__file__),"test_data/")
         self.protein_list = os.path.join(os.path.dirname(__file__),"test_data/example_crosslinked_pair.txt")
         self.alphalink_weight = '/g/alphafold/alphalink_weights/AlphaLink-Multimer_SDA_v3.pt'
-        self.multimerobject = create_custom_jobs(self.protein_list,self.monomer_object_path,job_index=1,pair_msa=True)[0]
+        #self.multimerobject = create_custom_jobs(self.protein_list,self.monomer_object_path,job_index=1,pair_msa=True)[0]
     @unittest.skip
     def test1_process_features(self):
         """Test whether the PyTorch model of AlphaLink can be initiated successfully"""

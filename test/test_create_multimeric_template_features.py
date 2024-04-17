@@ -1,9 +1,9 @@
 import unittest 
-import numpy as np
 import gzip,pickle,shutil
-from alphapulldown.objects import MultimericObject
 from alphafold.data.templates import _build_query_to_hit_index_mapping
 from alphapulldown.utils import multimeric_template_utils
+
+
 class TestMultimericTemplateFeatures(unittest.TestCase):
     def setUp(self):
         self.mmcif_file = "./test/test_data/true_multimer/3L4Q.cif"

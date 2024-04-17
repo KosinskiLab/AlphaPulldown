@@ -9,7 +9,10 @@
 import time
 import json
 import pickle
+import subprocess
+import enum
 from typing import Dict, Union, List, Any
+import os
 from os.path import join, exists
 from absl import logging
 import numpy as np
@@ -18,21 +21,28 @@ import jax.numpy as jnp
 from alphapulldown.utils.plotting import plot_pae_from_matrix
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
 from alphapulldown.utils.post_modelling import post_prediction_process
-from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
+#from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
 from alphapulldown.utils.modelling_setup import pad_input_features
-# Avoid module not found error by importing after AP
-from run_alphafold import ModelsToRelax
 from alphafold.relax import relax
 from alphafold.common import protein, residue_constants, confidence
 from .folding_backend import FoldingBackend
 logging.set_verbosity(logging.INFO)
 
+
+# Relaxation parameters.
 MAX_TEMPLATE_HITS = 20
 RELAX_MAX_ITERATIONS = 0
 RELAX_ENERGY_TOLERANCE = 2.39
 RELAX_STIFFNESS = 10.0
 RELAX_EXCLUDE_RESIDUES = []
 RELAX_MAX_OUTER_ITERATIONS = 3
+
+
+@enum.unique
+class ModelsToRelax(enum.Enum):
+  ALL = 0
+  BEST = 1
+  NONE = 2
 
 
 def _jnp_to_np(output):
@@ -56,7 +66,7 @@ def _save_pae_json_file(pae: np.ndarray, max_pae: float, output_dir: str, model_
     model_name: Name of a model.
     """
     pae_json = confidence.pae_json(pae, max_pae)
-    pae_json_output_path = join(output_dir, f'pae_{model_name}.json')
+    pae_json_output_path = os.path.join(output_dir, f'pae_{model_name}.json')
     with open(pae_json_output_path, 'w') as f:
         f.write(pae_json)
 
@@ -70,7 +80,7 @@ def _save_confidence_json_file(plddt: np.ndarray, output_dir: str, model_name: s
         model_name: Name of a model.
     """
     confidence_json = confidence.confidence_json(plddt)
-    confidence_json_output_path = join(
+    confidence_json_output_path = os.path.join(
         output_dir, f'confidence_{model_name}.json')
     with open(confidence_json_output_path, 'w') as f:
         f.write(confidence_json)
@@ -78,7 +88,7 @@ def _save_confidence_json_file(plddt: np.ndarray, output_dir: str, model_name: s
 
 def _read_from_json_if_exists(json_path: str) -> Dict:
     """Reads a JSON file or creates it with default data if it does not exist."""
-    if exists(json_path):
+    if os.path.exists(json_path):
         with open(json_path, "r") as f:
             data = json.load(f)
     else:
@@ -284,11 +294,11 @@ class AlphaFoldBackend(FoldingBackend):
             logging.info(
             f"Now running predictions on {multimeric_object.description}. Checking existing results...")
             for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
-                unrelaxed_pdb_path = join(
+                unrelaxed_pdb_path = os.path.join(
                     output_dir, f"unrelaxed_{model_name}.pdb")
-                result_output_path = join(
+                result_output_path = os.path.join(
                     output_dir, f"result_{model_name}.pkl")
-                if exists(unrelaxed_pdb_path) and exists(result_output_path):
+                if os.path.exists(unrelaxed_pdb_path) and os.path.exists(result_output_path):
                     START = model_index + 1
                 else:
                     break
@@ -308,7 +318,7 @@ class AlphaFoldBackend(FoldingBackend):
             )
             # Read prediction results from results.pkl und unrelaxed.pdb
             if model_index < START:
-                result_output_path = join(
+                result_output_path = os.path.join(
                     output_dir, f"result_{model_name}.pkl")
                 with open(result_output_path, "rb") as f:
                     prediction_result = pickle.load(f)
@@ -375,19 +385,19 @@ class AlphaFoldBackend(FoldingBackend):
             # Remove jax dependency from results
             np_prediction_result = _jnp_to_np(dict(prediction_result))
             # Save prediction results to pickle file
-            result_output_path = join(output_dir, f"result_{model_name}.pkl")
+            result_output_path = os.path.join(output_dir, f"result_{model_name}.pkl")
             with open(result_output_path, "wb") as f:
                 pickle.dump(np_prediction_result, f, protocol=4)
             prediction_result.update({"unrelaxed_protein": unrelaxed_protein})
             prediction_results.update({model_name: prediction_result})
             # Save predictions to pdb files
-            unrelaxed_pdb_path = join(
+            unrelaxed_pdb_path = os.path.join(
                 output_dir, f"unrelaxed_{model_name}.pdb")
 
             with open(unrelaxed_pdb_path, "w") as f:
                 f.write(protein.to_pdb(unrelaxed_protein))
             # Save timings to json file
-            timings_output_path = join(output_dir, "timings.json")
+            timings_output_path = os.path.join(output_dir, "timings.json")
             with open(timings_output_path, "w") as f:
                 f.write(json.dumps(timings, indent=4))
 
@@ -461,11 +471,13 @@ class AlphaFoldBackend(FoldingBackend):
         prediction_results: Dict,
         multimeric_object: MultimericObject,
         output_dir: str,
+        features_directory: str,
         models_to_relax: ModelsToRelax,
         zip_pickles: bool = False,
         remove_pickles: bool = False,
         use_gpu_relax: bool = True,
         pae_plot_style: str = "red_blue",
+
         **kwargs: Dict,
     ) -> None:
         """
@@ -481,6 +493,8 @@ class AlphaFoldBackend(FoldingBackend):
             associated data.
         output_dir : str
             The directory where post-processed files and plots will be saved.
+        features_directory: str
+            The directory containing the features used for prediction. Used by the convert_to_modelcif script.
         models_to_relax : object
             Specifies which models' predictions to relax, defaults to ModelsToRelax enum.
         zip_pickles : bool, optional
@@ -502,12 +516,14 @@ class AlphaFoldBackend(FoldingBackend):
         iptm_scores = {}
         multimer_mode = type(multimeric_object) == MultimericObject
         # Read timings.json if exists
-        timings_path = join(output_dir, 'timings.json')
+        timings_path = os.path.join(output_dir, 'timings.json')
         timings = _read_from_json_if_exists(timings_path)
-        relax_metrics_path = join(output_dir, 'relax_metrics.json')
+        relax_metrics_path = os.path.join(output_dir, 'relax_metrics.json')
         relax_metrics = _read_from_json_if_exists(relax_metrics_path)
+
+        ranking_path = os.path.join(output_dir, "ranking_debug.json")
         multimeric_mode = multimeric_object.multimeric_mode if hasattr(multimeric_object, "multimeric_mode") else None
-        ranking_path = join(output_dir, "ranking_debug.json")
+
         label = 'plddts'
         total_num_res = sum([len(s) for s in multimeric_object.input_seqs]) if multimer_mode else len(multimeric_object.sequence)
         # Save plddt json files.
@@ -539,7 +555,7 @@ class AlphaFoldBackend(FoldingBackend):
         # Save pae plots as *.png files.
         for idx, model_name in enumerate(ranked_order):
             prediction_result = prediction_results[model_name]
-            figure_name = join(
+            figure_name = os.path.join(
                 output_dir, f"{multimeric_object.description}_pae_plot_ranked_{idx}_{model_name}.png")
             plot_pae_from_matrix(
                 seqs=prediction_result['seqs'],
@@ -580,12 +596,12 @@ class AlphaFoldBackend(FoldingBackend):
                 'remaining_violations_count': sum(violations)
             }
             timings[f'relax_{model_name}'] = time.time() - t_0
-            relax_metrics_path = join(output_dir, 'relax_metrics.json')
+            relax_metrics_path = os.path.join(output_dir, 'relax_metrics.json')
             with open(relax_metrics_path, 'w') as f:
                 f.write(json.dumps(relax_metrics, indent=4))
             relaxed_pdbs[model_name] = relaxed_pdb_str
             # Save the relaxed PDB.
-            relaxed_output_path = join(
+            relaxed_output_path = os.path.join(
                 output_dir, f'relaxed_{model_name}.pdb')
             with open(relaxed_output_path, 'w') as f:
                 f.write(relaxed_pdb_str)
@@ -599,7 +615,7 @@ class AlphaFoldBackend(FoldingBackend):
             else:
                 protein_instance = protein.to_pdb(
                     prediction_results[model_name]['unrelaxed_protein'])
-            ranked_output_path = join(output_dir, f'ranked_{idx}.pdb')
+            ranked_output_path = os.path.join(output_dir, f'ranked_{idx}.pdb')
             with open(ranked_output_path, 'w') as f:
                 f.write(protein_instance)
         # Extract multimeric template if multimeric mode is enabled.
@@ -626,8 +642,24 @@ class AlphaFoldBackend(FoldingBackend):
         #             template_file_path, ranked_output_path, temp_dir
         #         )
 
-        post_prediction_process(
-            output_dir,
-            zip_pickles=zip_pickles,
-            remove_pickles=remove_pickles,
-        )
+        #Call convert_to_modelcif script
+        parent_dir = os.path.dirname(os.path.dirname((os.path.abspath(__file__))))
+        command = f"python3 {parent_dir}/scripts/convert_to_modelcif.py " \
+                  f"--ap_output {output_dir} " \
+                  f"--monomer_objects_dir {''.join(features_directory)}"
+
+        #result = subprocess.run(command,
+        #                        check=True,
+        #                        shell=True,
+        #                        capture_output=True,
+        #                        text=True)
+
+        #logging.info(result.stdout)
+        #if result.stderr:
+        #    logging.error("Error:", result.stderr)
+
+        #post_prediction_process(
+        #    output_dir,
+        #    zip_pickles=zip_pickles,
+        #    remove_pickles=remove_pickles,
+        #)
