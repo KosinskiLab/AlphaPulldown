@@ -1,0 +1,22 @@
+input_files :
+  - config/sample_sheet.csv
+  - config/sample_sheet.csv
+output_directory : /scratch/vmaurer/fold_temp
+alphafold_data_directory : /scratch/AlphaFold_DBs/2.3.2
+
+protein_delimiter : "_"
+
+save_msa : False
+use_precomputed_msa : True
+
+predictions_per_model : 5
+number_of_recycles : 24
+
+report_cutoff : 5.0
+
+alphafold_inference_threads : 8
+alphafold_inference : >
+  gres=gpu:1 partition=gpu-el8
+  qos=high constraint=gpu=3090
+
+only_generate_features: False
