@@ -13,7 +13,6 @@ import subprocess
 import enum
 from typing import Dict, Union, List, Any
 import os
-from os.path import join, exists
 from absl import logging
 import numpy as np
 from copy import copy
@@ -643,10 +642,10 @@ class AlphaFoldBackend(FoldingBackend):
         #         )
 
         #Call convert_to_modelcif script
-        parent_dir = os.path.dirname(os.path.dirname((os.path.abspath(__file__))))
-        command = f"python3 {parent_dir}/scripts/convert_to_modelcif.py " \
-                  f"--ap_output {output_dir} " \
-                  f"--monomer_objects_dir {''.join(features_directory)}"
+        # parent_dir = os.path.dirname(os.path.dirname((os.path.abspath(__file__))))
+        # command = f"python3 {parent_dir}/scripts/convert_to_modelcif.py " \
+        #           f"--ap_output {output_dir} " \
+        #           f"--monomer_objects_dir {''.join(features_directory)}"
 
         #result = subprocess.run(command,
         #                        check=True,
