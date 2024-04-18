@@ -584,7 +584,7 @@ class AlphaFoldBackend(FoldingBackend):
             to_relax = ranked_order
         elif models_to_relax == ModelsToRelax.NONE:
             to_relax = []
-
+            
         for model_name in to_relax:
             if f'relax_{model_name}' in timings:
                 continue
