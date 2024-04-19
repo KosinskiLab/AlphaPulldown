@@ -1,7 +1,7 @@
 # AlphaPulldown
 [![Downloads](https://static.pepy.tech/badge/alphapulldown)](https://pepy.tech/project/alphapulldown)  [![python3.10](https://img.shields.io/badge/python-3.10-blue.svg)](https://www.python.org/downloads/release/python-3100/) ![GPL3 license](https://img.shields.io/badge/license-GPLv3-green)
 
-## 🥳 AlphaPulldown has entered the era of version 2.0 (beta)
+## 🥳 AlphaPulldown has entered the era of version 2.0 (beta version 2.0.0b2)
 We have brought some exciting useful features to AlphaPulldown and updated its computing environment. 
 
 
