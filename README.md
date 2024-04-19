@@ -67,7 +67,7 @@ Activate the AlphaPulldown environment and install AlphaPulldown
 ```bash
 source activate AlphaPulldown
 
-python3 -m pip install alphapulldown==2.0.0b2
+python3 -m pip install alphapulldown==1.0.4
 pip install jax==0.4.23 jaxlib==0.4.23+cuda11.cudnn86 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 ```
 
