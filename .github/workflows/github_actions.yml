@@ -51,7 +51,7 @@ jobs:
           pytest -s test/test_remove_clashes_low_plddt.py
 
   build-docker:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
