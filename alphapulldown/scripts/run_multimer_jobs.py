@@ -38,6 +38,8 @@ del(FLAGS.models_to_relax)
 flags.DEFINE_enum("models_to_relax",'None',['None','All','Best'], "Which models to relax. Default is None, mening no model will be relaxed")
 
 def main(argv):
+    FLAGS(argv)
+    logging.info(f"remove_pickles is {FLAGS.remove_result_pickles}")
     protein_lists = FLAGS.protein_lists
     if FLAGS.mode == "all_vs_all":
         protein_lists = [FLAGS.protein_lists[0], FLAGS.protein_lists[0]]
@@ -92,8 +94,11 @@ def main(argv):
 
     command_args = {}
     for k, v in constant_args.items():
-        if v is None or v is False:
+        if v is None:
             continue
+        elif v is False:
+            updated_key = f"--no{k.split('--')[-1]}"
+            command_args[updated_key] = ""
         elif v is True:
             command_args[k] = ""
         elif isinstance(v, list):
@@ -124,6 +129,7 @@ def main(argv):
             command = base_command.copy()
             for arg, value in command_args.items():
                 command.extend([str(arg), str(value)])
+            cmd = " ".join(command)
             subprocess.run(" ".join(command), check=True, shell=True)
 
 
