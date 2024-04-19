@@ -19,13 +19,19 @@ COPY software/muscle-5.1/src/Linux/muscle /software/
 COPY software/pi_score/ /software/pi_score/
 COPY software/uniprot_sprot.fasta /database/
 COPY alpha-analysis/pi_score_env.yml /app/pi_score_env.yml
-COPY alpha-analysis/*py /app/alpha-analysis/
-COPY alpha-analysis/*.sh /app/
+# COPY alpha-analysis/*py /app/alpha-analysis/
+# COPY alpha-analysis/*.sh /app/
 RUN apt-get update
 RUN apt-get install -y build-essential
 # RUN conda env create -f /app/programme_notebook.yml
 RUN conda env create -f /app/pi_score_env.yml
 RUN pip install absl-py
+RUN pip install biopandas==0.4.1
+RUN pip install pyrosetta-installer 
+RUN python -c 'import pyrosetta_installer; pyrosetta_installer.install_pyrosetta()'
+RUN pip install biopython==1.81
+# RUN pip install "jax[cuda]==0.3.25" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+
 RUN pip install jax==0.4.16 jaxlib==0.4.16+cuda11.cudnn86 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 # RUN ["/bin/bash","-c","source activate programme_notebook && conda install -c conda-forge cctbx-base"]
 RUN ["/bin/bash","-c","source activate pi_score && pip install numpy==1.16.6 scikit-learn==0.20.4"]
@@ -51,13 +57,13 @@ RUN ["/bin/bash","-c","test -d $CCP4_SCR || echo 'Unable to assign CCP4_SCR. Thi
 ENV CLIBD="/software/lib64/data"
 ENV PATH="/app:$PATH"
 ENV PATH="/software:$PATH"
-ENV PATH="/app/alpha-analysis:$PATH"
+# ENV PATH="/app/alpha-analysis:$PATH"
 ENV PYTHONPATH="/app:$PYTHONPATH"
 ENV LD_LIBRARY_PATH="/software/lib64:$LD_LIBRARY_PATH"
 # Below have to relink the libz:
 RUN ["/bin/bash","-c","cd /software/lib64 && mv libz.so.1 libz.so.1.old && ln -s /lib/x86_64-linux-gnu/libz.so.1"]
-RUN chmod +x /app/run_get_good_pae.sh
-RUN chmod +x /app/run_execute_notebook.sh
-RUN chmod +x /app/run_pi_score.sh
-RUN chmod +x /app/alpha-analysis/get_good_inter_pae.py
+# RUN chmod +x /app/run_get_good_pae.sh
+# RUN chmod +x /app/run_execute_notebook.sh
+# RUN chmod +x /app/run_pi_score.sh
+# RUN chmod +x /app/alpha-analysis/get_good_inter_pae.py
 ENTRYPOINT [ "bash" ]

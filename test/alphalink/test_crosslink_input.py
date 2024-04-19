@@ -4,6 +4,7 @@ from alphafold.data.pipeline_multimer import _FastaChain
 import numpy as np
 import gzip,pickle
 import torch
+
 class TestCreateObjects(unittest.TestCase):
     def setUp(self) -> None:
         self.crosslink_info ="./test/test_data/test_xl_input.pkl.gz"
@@ -15,7 +16,7 @@ class TestCreateObjects(unittest.TestCase):
         }
         self.bins = torch.arange(0,1.05,0.05)
         return super().setUp()
-    
+
     def test1_calculate_offsets(self):
         offsets = calculate_offsets(self.asym_id)
         offsets = offsets.tolist()

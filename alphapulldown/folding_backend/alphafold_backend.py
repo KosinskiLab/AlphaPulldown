@@ -9,30 +9,39 @@
 import time
 import json
 import pickle
-import tempfile
-from typing import Dict, Union, List
-from os.path import join, exists
+import subprocess
+import enum
+from typing import Dict, Union, List, Any
+import os
 from absl import logging
 import numpy as np
+from copy import copy
 import jax.numpy as jnp
 from alphapulldown.utils.plotting import plot_pae_from_matrix
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
 from alphapulldown.utils.post_modelling import post_prediction_process
-from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
+#from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
 from alphapulldown.utils.modelling_setup import pad_input_features
-# Avoid module not found error by importing after AP
-from run_alphafold import ModelsToRelax
 from alphafold.relax import relax
 from alphafold.common import protein, residue_constants, confidence
 from .folding_backend import FoldingBackend
 logging.set_verbosity(logging.INFO)
 
+
+# Relaxation parameters.
 MAX_TEMPLATE_HITS = 20
 RELAX_MAX_ITERATIONS = 0
 RELAX_ENERGY_TOLERANCE = 2.39
 RELAX_STIFFNESS = 10.0
 RELAX_EXCLUDE_RESIDUES = []
 RELAX_MAX_OUTER_ITERATIONS = 3
+
+
+@enum.unique
+class ModelsToRelax(enum.Enum):
+  ALL = 0
+  BEST = 1
+  NONE = 2
 
 
 def _jnp_to_np(output):
@@ -56,7 +65,7 @@ def _save_pae_json_file(pae: np.ndarray, max_pae: float, output_dir: str, model_
     model_name: Name of a model.
     """
     pae_json = confidence.pae_json(pae, max_pae)
-    pae_json_output_path = join(output_dir, f'pae_{model_name}.json')
+    pae_json_output_path = os.path.join(output_dir, f'pae_{model_name}.json')
     with open(pae_json_output_path, 'w') as f:
         f.write(pae_json)
 
@@ -70,7 +79,7 @@ def _save_confidence_json_file(plddt: np.ndarray, output_dir: str, model_name: s
         model_name: Name of a model.
     """
     confidence_json = confidence.confidence_json(plddt)
-    confidence_json_output_path = join(
+    confidence_json_output_path = os.path.join(
         output_dir, f'confidence_{model_name}.json')
     with open(confidence_json_output_path, 'w') as f:
         f.write(confidence_json)
@@ -78,7 +87,7 @@ def _save_confidence_json_file(plddt: np.ndarray, output_dir: str, model_name: s
 
 def _read_from_json_if_exists(json_path: str) -> Dict:
     """Reads a JSON file or creates it with default data if it does not exist."""
-    if exists(json_path):
+    if os.path.exists(json_path):
         with open(json_path, "r") as f:
             data = json.load(f)
     else:
@@ -276,45 +285,45 @@ class AlphaFoldBackend(FoldingBackend):
         timings = {}
         prediction_results = {}
         START = 0
-        multimeric_mode = multimeric_object.multimeric_mode
+        multimeric_mode = multimeric_object.multimeric_mode if hasattr(multimeric_object, "multimeric_mode") else None
         t_0 = time.time()
-
+        original_feature_dict = copy(multimeric_object.feature_dict)
+        total_num_res = sum([len(s) for s in multimeric_object.input_seqs]) if hasattr(multimeric_object, "input_seqs") else len(multimeric_object.sequence)
         if allow_resume:
             logging.info(
-            f"Now runing predictions on {multimeric_object.description}. Checking existing results...")
+            f"Now running predictions on {multimeric_object.description}. Checking existing results...")
             for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
-                unrelaxed_pdb_path = join(
+                unrelaxed_pdb_path = os.path.join(
                     output_dir, f"unrelaxed_{model_name}.pdb")
-                result_output_path = join(
+                result_output_path = os.path.join(
                     output_dir, f"result_{model_name}.pkl")
-                if exists(unrelaxed_pdb_path) and exists(result_output_path):
+                if os.path.exists(unrelaxed_pdb_path) and os.path.exists(result_output_path):
                     START = model_index + 1
                 else:
                     break
-
         # first check whether the desired num_res and num_msa are specified for padding
         desired_num_res, desired_num_msa = kwargs.get(
             "desired_num_res", None), kwargs.get("desired_num_msa", None)
-        if (desired_num_res is not None) and (desired_num_msa is not None):
+        if (desired_num_res is not None) and (desired_num_msa is not None) and type(multimeric_object) == MultimericObject:
             # This means padding is required to speed up the process
-            pad_input_features(feature_dict=multimeric_object.feature_dict,
+            pad_input_features(feature_dict=original_feature_dict,
                                desired_num_msa=desired_num_msa, desired_num_res=desired_num_res)
-            multimeric_object.feature_dict['num_alignments'] = np.array([desired_num_msa])
+            original_feature_dict['num_alignments'] = np.array([desired_num_msa])
         num_models = len(model_runners)
         for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
             model_random_seed = model_index + random_seed * num_models
             processed_feature_dict = model_runner.process_features(
-                multimeric_object.feature_dict, random_seed=model_random_seed
+                original_feature_dict, random_seed=model_random_seed
             )
             # Read prediction results from results.pkl und unrelaxed.pdb
             if model_index < START:
-                result_output_path = join(
+                result_output_path = os.path.join(
                     output_dir, f"result_{model_name}.pkl")
                 with open(result_output_path, "rb") as f:
                     prediction_result = pickle.load(f)
                     # Update prediction_result with input seqs and unrelaxed protein
                     prediction_result.update(
-                        {"seqs": multimeric_object.input_seqs})
+                        {"seqs": multimeric_object.input_seqs if hasattr(multimeric_object,"input_seqs") else [multimeric_object.sequence]})
                     plddt_b_factors = np.repeat(
                         prediction_result['plddt'][:,
                                                    None], residue_constants.atom_type_num, axis=-1
@@ -352,7 +361,7 @@ class AlphaFoldBackend(FoldingBackend):
                     )
             t_0 = time.time()
             logging.info(
-                f"Now runing predictions on {multimeric_object.description} using {model_name}")
+                f"Now running predictions on {multimeric_object.description} using {model_name}")
             prediction_result = model_runner.predict(
                 processed_feature_dict, random_seed=model_random_seed
             )
@@ -361,7 +370,6 @@ class AlphaFoldBackend(FoldingBackend):
             logging.info(f"prediction costs : {t_diff} s")
 
             # Update prediction_result with input seqs and unrelaxed protein
-            prediction_result.update({"seqs": multimeric_object.input_seqs})
             plddt_b_factors = np.repeat(
                 prediction_result['plddt'][:,
                                            None], residue_constants.atom_type_num, axis=-1
@@ -376,19 +384,21 @@ class AlphaFoldBackend(FoldingBackend):
             # Remove jax dependency from results
             np_prediction_result = _jnp_to_np(dict(prediction_result))
             # Save prediction results to pickle file
-            result_output_path = join(output_dir, f"result_{model_name}.pkl")
+            result_output_path = os.path.join(output_dir, f"result_{model_name}.pkl")
             with open(result_output_path, "wb") as f:
                 pickle.dump(np_prediction_result, f, protocol=4)
+            prediction_result.update(
+                        {"seqs": multimeric_object.input_seqs if hasattr(multimeric_object,"input_seqs") else [multimeric_object.sequence]})
             prediction_result.update({"unrelaxed_protein": unrelaxed_protein})
             prediction_results.update({model_name: prediction_result})
             # Save predictions to pdb files
-            unrelaxed_pdb_path = join(
+            unrelaxed_pdb_path = os.path.join(
                 output_dir, f"unrelaxed_{model_name}.pdb")
 
             with open(unrelaxed_pdb_path, "w") as f:
                 f.write(protein.to_pdb(unrelaxed_protein))
             # Save timings to json file
-            timings_output_path = join(output_dir, "timings.json")
+            timings_output_path = os.path.join(output_dir, "timings.json")
             with open(timings_output_path, "w") as f:
                 f.write(json.dumps(timings, indent=4))
 
@@ -412,19 +422,63 @@ class AlphaFoldBackend(FoldingBackend):
                 random_seed=random_seed,
                 **kwargs
             )
+            
             yield {object_to_model: {"prediction_results": prediction_results,
                                      "output_dir": output_dir}}
+            
+    @staticmethod
+    def recalculate_confidence(prediction_results: Dict, multimer_mode:bool, 
+                               total_num_res: int) -> Dict[str, Any]:
+        """A method that remove pae values of padded residues and recalculate iptm_ptm score again """
+        if type(prediction_results['predicted_aligned_error']) == np.ndarray:
+            return prediction_results
+        else:
+            output = {}
+            plddt = prediction_results['plddt'][:total_num_res]
+            if 'predicted_aligned_error' in prediction_results:
+                ptm = confidence.predicted_tm_score(
+                logits=prediction_results['predicted_aligned_error']['logits'][:total_num_res,:total_num_res],
+                breaks=prediction_results['predicted_aligned_error']['breaks'],
+                asym_id=None)
+                
+                pae = confidence.compute_predicted_aligned_error(
+                logits=prediction_results['predicted_aligned_error']['logits'],
+                breaks=prediction_results['predicted_aligned_error']['breaks'])
+                max_pae = pae.pop('max_predicted_aligned_error')
+                
+                for k,v in pae.items():
+                    output.update({k:v[:total_num_res, :total_num_res]})
+                output['max_predicted_aligned_error'] = max_pae
+                if multimer_mode:
+                # Compute the ipTM only for the multimer model.
+                    iptm = confidence.predicted_tm_score(
+                    logits=prediction_results['predicted_aligned_error']['logits'][:total_num_res,:total_num_res],
+                    breaks=prediction_results['predicted_aligned_error']['breaks'],
+                    asym_id=prediction_results['predicted_aligned_error']['asym_id'][:total_num_res],
+                    interface=True)
+                    output.update({'iptm' : iptm})
+                    ranking_confidence = 0.8 * iptm + 0.2 * ptm
+                    output.update({'ranking_confidence' : ranking_confidence})
+                if not multimer_mode:
+                    # Monomer models use mean pLDDT for model ranking.
+                    ranking_confidence =  np.mean(
+                        plddt)
+                    output.update({'ranking_confidence' : ranking_confidence})
+            
+            return output
 
     @staticmethod
     def postprocess(
         prediction_results: Dict,
         multimeric_object: MultimericObject,
         output_dir: str,
+        features_directory: str,
         models_to_relax: ModelsToRelax,
         zip_pickles: bool = False,
         remove_pickles: bool = False,
         use_gpu_relax: bool = True,
         pae_plot_style: str = "red_blue",
+
         **kwargs: Dict,
     ) -> None:
         """
@@ -440,6 +494,8 @@ class AlphaFoldBackend(FoldingBackend):
             associated data.
         output_dir : str
             The directory where post-processed files and plots will be saved.
+        features_directory: str
+            The directory containing the features used for prediction. Used by the convert_to_modelcif script.
         models_to_relax : object
             Specifies which models' predictions to relax, defaults to ModelsToRelax enum.
         zip_pickles : bool, optional
@@ -458,20 +514,27 @@ class AlphaFoldBackend(FoldingBackend):
         """
         relaxed_pdbs = {}
         ranking_confidences = {}
+        iptm_scores = {}
+        multimer_mode = type(multimeric_object) == MultimericObject
         # Read timings.json if exists
-        timings_path = join(output_dir, 'timings.json')
+        timings_path = os.path.join(output_dir, 'timings.json')
         timings = _read_from_json_if_exists(timings_path)
-        relax_metrics_path = join(output_dir, 'relax_metrics.json')
+        relax_metrics_path = os.path.join(output_dir, 'relax_metrics.json')
         relax_metrics = _read_from_json_if_exists(relax_metrics_path)
-        multimeric_mode = multimeric_object.multimeric_mode
-        ranking_path = join(output_dir, "ranking_debug.json")
+
+        ranking_path = os.path.join(output_dir, "ranking_debug.json")
+        multimeric_mode = multimeric_object.multimeric_mode if hasattr(multimeric_object, "multimeric_mode") else None
+
         label = 'plddts'
-        total_num_res = sum([len(s) for s in multimeric_object.input_seqs])
+        total_num_res = sum([len(s) for s in multimeric_object.input_seqs]) if multimer_mode else len(multimeric_object.sequence)
         # Save plddt json files.
         for model_name, prediction_result in prediction_results.items():
+            prediction_result.update(AlphaFoldBackend.recalculate_confidence(prediction_result,multimer_mode,
+                                                                         total_num_res))
             if 'iptm' in prediction_result:
                 label = 'iptm+ptm'
-            plddt = prediction_result['plddt'][:total_num_res]
+                iptm_scores[model_name] = float(prediction_result['iptm'])
+            plddt = prediction_result['plddt']
             _save_confidence_json_file(plddt, output_dir, model_name)
             ranking_confidences[model_name] = prediction_result['ranking_confidence']
             # Save and plot PAE if predicting multimer.
@@ -479,7 +542,7 @@ class AlphaFoldBackend(FoldingBackend):
                     'predicted_aligned_error' in prediction_result
                     and 'max_predicted_aligned_error' in prediction_result
             ):
-                pae = prediction_result['predicted_aligned_error'][:total_num_res,:total_num_res]
+                pae = prediction_result['predicted_aligned_error']
 
                 max_pae = prediction_result['max_predicted_aligned_error']
                 _save_pae_json_file(pae, float(max_pae),
@@ -493,18 +556,18 @@ class AlphaFoldBackend(FoldingBackend):
         # Save pae plots as *.png files.
         for idx, model_name in enumerate(ranked_order):
             prediction_result = prediction_results[model_name]
-            figure_name = join(
+            figure_name = os.path.join(
                 output_dir, f"{multimeric_object.description}_pae_plot_ranked_{idx}_{model_name}.png")
             plot_pae_from_matrix(
                 seqs=prediction_result['seqs'],
-                pae_matrix=pae,
-                figure_name=figure_name
+                pae_matrix=prediction_result['predicted_aligned_error'],
+                figure_name=figure_name,ranking=idx
             )
 
         # Save ranking_debug.json.
         with open(ranking_path, 'w') as f:
             f.write(json.dumps(
-                {label: ranking_confidences, 'order': ranked_order}, indent=4))
+                {label: ranking_confidences, 'order': ranked_order, "iptm": iptm_scores}, indent=4))
 
         # Relax.
         amber_relaxer = relax.AmberRelaxation(
@@ -534,12 +597,12 @@ class AlphaFoldBackend(FoldingBackend):
                 'remaining_violations_count': sum(violations)
             }
             timings[f'relax_{model_name}'] = time.time() - t_0
-            relax_metrics_path = join(output_dir, 'relax_metrics.json')
+            relax_metrics_path = os.path.join(output_dir, 'relax_metrics.json')
             with open(relax_metrics_path, 'w') as f:
                 f.write(json.dumps(relax_metrics, indent=4))
             relaxed_pdbs[model_name] = relaxed_pdb_str
             # Save the relaxed PDB.
-            relaxed_output_path = join(
+            relaxed_output_path = os.path.join(
                 output_dir, f'relaxed_{model_name}.pdb')
             with open(relaxed_output_path, 'w') as f:
                 f.write(relaxed_pdb_str)
@@ -553,7 +616,7 @@ class AlphaFoldBackend(FoldingBackend):
             else:
                 protein_instance = protein.to_pdb(
                     prediction_results[model_name]['unrelaxed_protein'])
-            ranked_output_path = join(output_dir, f'ranked_{idx}.pdb')
+            ranked_output_path = os.path.join(output_dir, f'ranked_{idx}.pdb')
             with open(ranked_output_path, 'w') as f:
                 f.write(protein_instance)
         # Extract multimeric template if multimeric mode is enabled.
@@ -580,8 +643,23 @@ class AlphaFoldBackend(FoldingBackend):
         #             template_file_path, ranked_output_path, temp_dir
         #         )
 
+        #Call convert_to_modelcif script
+        # parent_dir = os.path.dirname(os.path.dirname((os.path.abspath(__file__))))
+        # command = f"python3 {parent_dir}/scripts/convert_to_modelcif.py " \
+        #           f"--ap_output {output_dir} " \
+        #           f"--monomer_objects_dir {''.join(features_directory)}"
+
+        #result = subprocess.run(command,
+        #                        check=True,
+        #                        shell=True,
+        #                        capture_output=True,
+        #                        text=True)
+
+        #logging.info(result.stdout)
+        #if result.stderr:
+        #    logging.error("Error:", result.stderr)
         post_prediction_process(
-            output_dir,
-            zip_pickles=zip_pickles,
-            remove_pickles=remove_pickles,
+           output_dir,
+           zip_pickles=zip_pickles,
+           remove_pickles=remove_pickles,
         )

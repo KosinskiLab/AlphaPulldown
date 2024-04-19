@@ -7,7 +7,8 @@ from alphapulldown.objects import MonomericObject
 import shutil
 from alphafold.data.pipeline import DataPipeline
 from alphafold.data.tools import hmmsearch
-from alphapulldown.utils import parse_fasta, create_uniprot_runner, create_model_runners_and_random_seed, templates
+from alphapulldown.utils.file_handling import parse_fasta
+from alphapulldown.utils.modelling_setup import create_uniprot_runner, create_model_runners_and_random_seed, templates
 import os
 from colabfold.utils import DEFAULT_API_SERVER
 

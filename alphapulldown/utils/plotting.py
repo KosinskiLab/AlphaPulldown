@@ -6,7 +6,7 @@ matplotlib.use("agg")
 import matplotlib.pyplot as plt
 
 
-def plot_pae_from_matrix(seqs,pae_matrix,figure_name=''):
+def plot_pae_from_matrix(seqs,pae_matrix,figure_name='',ranking:int = 0):
     xticks = []
     initial_tick = 0
     for s in seqs:
@@ -34,5 +34,5 @@ def plot_pae_from_matrix(seqs,pae_matrix,figure_name=''):
     for t in xticks:
         ax1.axhline(t, color="black", linewidth=3.5)
         ax1.axvline(t, color="black", linewidth=3.5)
-    plt.title("ranked_{}".format(i))
+    plt.title(f"ranked_{ranking}".format(i))
     plt.savefig(figure_name)
