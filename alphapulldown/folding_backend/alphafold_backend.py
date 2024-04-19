@@ -375,7 +375,7 @@ class AlphaFoldBackend(FoldingBackend):
                                            None], residue_constants.atom_type_num, axis=-1
             )
             unrelaxed_protein = protein.from_prediction(
-                features=multimeric_object.feature_dict,
+                features=processed_feature_dict,
                 result=prediction_result,
                 b_factors=plddt_b_factors,
                 remove_leading_feature_dimension=not model_runner.multimer_mode,
@@ -387,6 +387,8 @@ class AlphaFoldBackend(FoldingBackend):
             result_output_path = os.path.join(output_dir, f"result_{model_name}.pkl")
             with open(result_output_path, "wb") as f:
                 pickle.dump(np_prediction_result, f, protocol=4)
+            prediction_result.update(
+                        {"seqs": multimeric_object.input_seqs if hasattr(multimeric_object,"input_seqs") else [multimeric_object.sequence]})
             prediction_result.update({"unrelaxed_protein": unrelaxed_protein})
             prediction_results.update({model_name: prediction_result})
             # Save predictions to pdb files
@@ -446,7 +448,7 @@ class AlphaFoldBackend(FoldingBackend):
                 
                 for k,v in pae.items():
                     output.update({k:v[:total_num_res, :total_num_res]})
-                pae['max_predicted_aligned_error'] = max_pae
+                output['max_predicted_aligned_error'] = max_pae
                 if multimer_mode:
                 # Compute the ipTM only for the multimer model.
                     iptm = confidence.predicted_tm_score(
@@ -656,9 +658,8 @@ class AlphaFoldBackend(FoldingBackend):
         #logging.info(result.stdout)
         #if result.stderr:
         #    logging.error("Error:", result.stderr)
-
-        #post_prediction_process(
-        #    output_dir,
-        #    zip_pickles=zip_pickles,
-        #    remove_pickles=remove_pickles,
-        #)
+        post_prediction_process(
+           output_dir,
+           zip_pickles=zip_pickles,
+           remove_pickles=remove_pickles,
+        )

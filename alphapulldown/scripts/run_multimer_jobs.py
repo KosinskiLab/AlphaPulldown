@@ -34,9 +34,12 @@ flags.DEFINE_integer("job_index", None, "index of sequence in the fasta file, st
 flags.DEFINE_list("monomer_objects_dir", None, "a list of directories where monomer objects are stored")
 flags.DEFINE_string("output_path", None, "output directory where the region data is going to be stored")
 flags.DEFINE_string("data_dir", None, "Path to params directory")
-
+del(FLAGS.models_to_relax)
+flags.DEFINE_enum("models_to_relax",'None',['None','All','Best'], "Which models to relax. Default is None, mening no model will be relaxed")
 
 def main(argv):
+    FLAGS(argv)
+    logging.info(f"remove_pickles is {FLAGS.remove_result_pickles}")
     protein_lists = FLAGS.protein_lists
     if FLAGS.mode == "all_vs_all":
         protein_lists = [FLAGS.protein_lists[0], FLAGS.protein_lists[0]]
@@ -85,13 +88,17 @@ def main(argv):
         "--use_gpu_relax": FLAGS.use_gpu_relax,
         "--protein_delimiter": FLAGS.protein_delimiter,
         "--desired_num_res": FLAGS.desired_num_res,
-        "--desired_num_msa": FLAGS.desired_num_msa
+        "--desired_num_msa": FLAGS.desired_num_msa,
+        "--models_to_relax": FLAGS.models_to_relax
     }
 
     command_args = {}
     for k, v in constant_args.items():
-        if v is None or v is False:
+        if v is None:
             continue
+        elif v is False:
+            updated_key = f"--no{k.split('--')[-1]}"
+            command_args[updated_key] = ""
         elif v is True:
             command_args[k] = ""
         elif isinstance(v, list):
@@ -122,6 +129,7 @@ def main(argv):
             command = base_command.copy()
             for arg, value in command_args.items():
                 command.extend([str(arg), str(value)])
+            cmd = " ".join(command)
             subprocess.run(" ".join(command), check=True, shell=True)
 
 
