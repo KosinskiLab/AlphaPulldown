@@ -173,8 +173,8 @@ class TestScript(_TestBase):
         shutil.copytree(os.path.join(self.test_data_dir, "P0DPR3_and_P0DPR3_partial"), os.path.join(self.output_dir, "P0DPR3_and_P0DPR3"))
         result = subprocess.run(self.args, capture_output=True, text=True)
         # self.assertIn("Found existing results, continuing from there", result.stdout + result.stderr) # this part of logging has been removed
-        self.assertNotIn("model_1_multimer_v3_pred_0", result.stdout + result.stderr)
-        self.assertNotIn("model_2_multimer_v3_pred_0", result.stdout + result.stderr)
+        self.assertNotIn("using model_1_multimer_v3_pred_0", result.stdout + result.stderr)
+        self.assertNotIn("using model_2_multimer_v3_pred_0", result.stdout + result.stderr)
 
         self._runCommonTests(result)
 
@@ -239,7 +239,6 @@ class TestScript(_TestBase):
                 f"--description_file={self.test_data_dir}/true_multimer/description_file.csv",
                 f"--output_path={tmpdir}",
                 f"--data_dir={self.data_dir}",
-                f"--models_to_relax=all",
                 f"--protein_lists={self.test_data_dir}/true_multimer/custom.txt",
                 f"--monomer_objects_dir={self.test_data_dir}/true_multimer/features",
                 "--job_index=1"
@@ -257,13 +256,11 @@ class TestScript(_TestBase):
                 "--num_cycle=3",
                 "--num_predictions_per_model=1",
                 "--multimeric_template=True",
-                "--model_names=model_2_multimer_v3,model_1_multimer_v3",
                 "--msa_depth=16",
                 f"--path_to_mmt={self.test_data_dir}/true_multimer",
                 f"--description_file={self.test_data_dir}/true_multimer/description_file.csv",
                 f"--output_path={tmpdir}",
                 f"--data_dir={self.data_dir}",
-                f"--models_to_relax=best",
                 f"--protein_lists={self.test_data_dir}/true_multimer/custom.txt",
                 f"--monomer_objects_dir={self.test_data_dir}/true_multimer/features",
                 f"--remove_result_pickles",
@@ -272,9 +269,61 @@ class TestScript(_TestBase):
             result = subprocess.run(self.args, capture_output=True, text=True)
             print(f"{result.stderr}")
             self.assertTrue("ranking_debug.json" in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C")))
-            self.assertEqual(len([f for f in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C")) if f.startswith("result") and f.endswith(".pkl")]), 0)
+            self.assertEqual(len([f for f in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C")) if f.startswith("result") and f.endswith(".pkl")]), 1)
         pass
 
+    def testRun_8(self):
+        """Test modelling with padding"""
+        self.assertTrue(os.path.exists(os.path.join(
+            self.test_data_dir, "true_multimer", "features", "3L4Q_A.pkl")))
+        self.assertTrue(os.path.exists(os.path.join(
+            self.test_data_dir, "true_multimer", "features", "3L4Q_C.pkl")))
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Firstly test running with padding AND multimeric template modelling
+            self.args = [
+                sys.executable,
+                self.script_path,
+                "--mode=custom",
+                "--num_cycle=3",
+                "--num_predictions_per_model=1",
+                "--multimeric_template=True",
+                "--model_names=model_2_multimer_v3",
+                f"--path_to_mmt={self.test_data_dir}/true_multimer",
+                f"--description_file={self.test_data_dir}/true_multimer/description_file.csv",
+                f"--output_path={tmpdir}",
+                f"--data_dir={self.data_dir}",
+                f"--protein_lists={self.test_data_dir}/true_multimer/custom.txt",
+                f"--monomer_objects_dir={self.test_data_dir}/true_multimer/features",
+                "--desired_num_res=500",
+                "--desired_num_msa=2000"
+            ]
+            result = subprocess.run(self.args, capture_output=True, text=True)
+            print(f"{result.stderr}")
+            self.assertTrue("ranking_debug.json" in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C")))
+            self.assertEqual(len([f for f in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C")) if f.startswith("pae") and f.endswith(".json")]), 1)
+            self.assertEqual(len([f for f in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C")) if f.startswith("result") and f.endswith(".pkl")]), 1)
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Then test running with padding WITHOUT multimeric template modelling
+            self.args = [
+                sys.executable,
+                self.script_path,
+                "--mode=custom",
+                "--num_cycle=3",
+                "--num_predictions_per_model=1",
+                f"--output_path={tmpdir}",
+                f"--data_dir={self.data_dir}",
+                f"--protein_lists={self.test_data_dir}/true_multimer/custom.txt",
+                f"--monomer_objects_dir={self.test_data_dir}/true_multimer/features",
+                f"--noremove_result_pickles",
+                "--desired_num_res=500",
+                "--desired_num_msa=2000"
+            ]
+            result = subprocess.run(self.args, capture_output=True, text=True)
+            print(f"{result.stderr}")
+            self.assertTrue("ranking_debug.json" in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C")))
+            self.assertEqual(len([f for f in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C")) if f.startswith("result") and f.endswith(".pkl")]), 5)
+        pass
 #TODO: Add tests for other modeling examples subclassing the class above
 #TODO: Add tests that assess that the modeling results are as expected from native AlphaFold2
 #TODO: Add tests that assess that the ranking is correct
