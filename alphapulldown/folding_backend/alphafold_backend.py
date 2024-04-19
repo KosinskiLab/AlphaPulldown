@@ -584,7 +584,7 @@ class AlphaFoldBackend(FoldingBackend):
             to_relax = ranked_order
         elif models_to_relax == ModelsToRelax.NONE:
             to_relax = []
-            
+
         for model_name in to_relax:
             if f'relax_{model_name}' in timings:
                 continue
@@ -658,7 +658,6 @@ class AlphaFoldBackend(FoldingBackend):
         #logging.info(result.stdout)
         #if result.stderr:
         #    logging.error("Error:", result.stderr)
-
         post_prediction_process(
            output_dir,
            zip_pickles=zip_pickles,
