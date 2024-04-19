@@ -116,7 +116,7 @@ def main(argv):
                 open(os.path.join(result_subdir, "ranking_debug.json"), 'r'))['order'][0]
             data = json.load(
                 open(os.path.join(result_subdir, "ranking_debug.json"), 'r'))
-            if "iptm" in data.keys() or "iptm+ptm" in data.keys():
+            if "iptm" in data.keys() and "iptm+ptm" in data.keys():
                 iptm_ptm_score = data['iptm+ptm'][best_model]
                 pae_mtx, iptm_score = obtain_pae_and_iptm(
                     result_subdir, best_model)
