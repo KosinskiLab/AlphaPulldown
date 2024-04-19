@@ -1,6 +1,7 @@
 input_files :
   - config/sample_sheet.csv
   - config/sample_sheet.csv
+
 output_directory : /scratch/vmaurer/fold_temp
 alphafold_data_directory : /scratch/AlphaFold_DBs/2.3.2
 

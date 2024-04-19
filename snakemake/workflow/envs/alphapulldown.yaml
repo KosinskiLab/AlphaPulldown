@@ -1,0 +1,20 @@
+name: AlphaPulldown
+channels:
+  - bioconda
+  - conda-forge
+  - nvidia
+  - omnia
+dependencies:
+  - python==3.10
+  - openmm==8.0
+  - pdbfixer==1.9
+  - hmmer
+  - kalign2
+  - cctbx-base
+  - pytest
+  - importlib_metadata
+  - hhsuite
+  - jax==0.4.23
+  - jaxlib=*=*cuda*
+  - pip:
+    - alphapulldown==1.0.4

@@ -14,8 +14,8 @@
 
 # Extended by Valentin Maurer <valentin.maurer@embl-hamburg.de>
 
-ARG CUDA=11.1.1
-FROM nvidia/cuda:${CUDA}-cudnn8-runtime-ubuntu18.04
+ARG CUDA=11.8.0
+FROM nvidia/cuda:${CUDA}-cudnn8-runtime-ubuntu20.04
 ARG CUDA
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -61,6 +61,8 @@ RUN conda install -y -c conda-forge -c bioconda \
       pip \
       python=3.10 \
       && conda clean --all --force-pkgs-dirs --yes
+
+RUN conda install -y -c nvidia cuda-nvcc
 
 COPY . /app/alphafold
 RUN wget -q -P /app/alphafold/alphafold/common/ \

@@ -51,17 +51,35 @@ jobs:
           pytest -s test/test_remove_clashes_low_plddt.py
 
   build-docker:
+
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/login-action@v3
+      -
+        name: Checkout
+        uses: actions/checkout@v4
+      -
+        name: Login to Docker Hub
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v5
+      -
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      -
+        name: Build and push fold container
+        uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./docker/pulldown.dockerfile #TODO: Add analysis.dockerfile
+          file: ./snakemake/workflow/docker/pulldown.dockerfile
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/fold:latest
+
+      -
+        name: Build and push analysis container
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./snakemake/workflow/docker/analysis.dockerfile
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/fold_analysis:latest

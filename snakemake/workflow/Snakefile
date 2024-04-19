@@ -7,11 +7,39 @@
 
 import sys
 import tempfile
+import itertools
+from typing import List, Union, TextIO
+
 from sys import exit
 from os import makedirs
+from contextlib import nullcontext
 from os.path import abspath, join, splitext, basename
+
 from source.input_parser import InputParser
-from scripts.create_combinations import process_files
+
+
+def read_file(filepath : str):
+    with open(filepath, mode = "r", encoding = "utf-8") as file:
+        lines = file.read().splitlines()
+    return list(line.lstrip().rstrip() for line in lines if line)
+
+def process_files(input_files : List[str],
+                  output_path : Union[str, TextIO] = None,
+                  delimiter : str = '+'):
+    """Process the input files to compute the Cartesian product and write to the output file."""
+    lists_of_lines = [read_file(filepath) for filepath in input_files]
+    cartesian_product = list(itertools.product(*lists_of_lines))
+    if output_path is None:
+        return itertools.product(*lists_of_lines)
+    else:
+        context_manager = nullcontext(output_path)
+        if isinstance(output_path, str):
+            context_manager = open(output_path, mode = "w", encoding = "utf-8")
+
+        with context_manager as output_file:
+            for combination in cartesian_product:
+                output_file.write(delimiter.join(combination) + '\n')
+
 
 configfile: "config/config.yaml"
 config["output_directory"] = abspath(config["output_directory"])
@@ -118,7 +146,7 @@ rule create_features:
         attempt = lambda wildcards, attempt: attempt,
     threads: 8, # everything is harcoded in AF anyways ...
     container:
-       "docker://dquz/fold:latest",
+       "docker://kosinskilab/fold:latest",
     shell:"""
         create_individual_features.py \
             --fasta_paths={input} \
@@ -131,7 +159,7 @@ rule create_features:
         """
 
 memscaling_inference = config["alphafold_inference_threads"] / 8
-rule alphafold_inference:
+rule structure_inference:
     input:
         lambda wildcards : [join(
             config["output_directory"], "features", f"{feature}.pkl")
@@ -163,14 +191,14 @@ rule alphafold_inference:
     threads:
         config["alphafold_inference_threads"],
     container:
-       "docker://dquz/fold:latest",
+       "docker://kosinskilab/fold:latest",
     shell:"""
         #MAXRAM=$(bc <<< "$(ulimit -m) / 1024.0")
         #GPUMEM=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits | tail -1)
         #export XLA_PYTHON_CLIENT_MEM_FRACTION=$(echo "scale=3; $MAXRAM / $GPUMEM" | bc)
         #export TF_FORCE_UNIFIED_MEMORY='1'
 
-        python3 workflow/source/run_structure_prediction.py \
+        run_structure_prediction.py \
             --input {params.requested_fold} \
             --output_directory={params.output_directory} \
             --num_cycle={params.n_recycles} \
@@ -226,7 +254,7 @@ rule generate_report:
         report_dir = join(config["output_directory"], "reports"),
         report_cutoff = config["report_cutoff"],
     container:
-       "docker://dquz/fold:latest",
+       "docker://kosinskilab/fold:latest",
     shell:"""
         cd {params.prediction_dir}
         create_notebook.py \
