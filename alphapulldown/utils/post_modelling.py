@@ -11,16 +11,19 @@ def zip_result_pickles(output_path):
 
 def post_prediction_process(output_path,zip_pickles = False,remove_pickles = False):
     """A function to process resulted files after the prediction"""
-    if remove_pickles:
+    if remove_pickles and zip_pickles:
         remove_irrelavent_pickles(output_path)
-    if zip_pickles:
-        zip_result_pickles(output_path)
+    else:
+        if zip_pickles:
+            zip_result_pickles(output_path)
+        if remove_pickles:
+            remove_irrelavent_pickles(output_path)
 
 def remove_irrelavent_pickles(output_path):
     """Remove result pickles that do not belong to the best model"""
     try:
         best_model = json.load(open(os.path.join(output_path,"ranking_debug.json"),'rb'))['order'][0]
-        pickle_to_remove = [i for i in os.listdir(output_path) if (i.endswith('pkl')) and (best_model not in i)]
+        pickle_to_remove = [os.path.join(output_path,i) for i in os.listdir(output_path) if (i.endswith('pkl')) and (best_model not in i)]
         cmd = ['rm'] + pickle_to_remove
         results = subprocess.run(cmd)
     except FileNotFoundError:
