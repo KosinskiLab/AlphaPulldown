@@ -51,6 +51,7 @@ jobs:
           pytest -s test/test_remove_clashes_low_plddt.py
 
   build-fold-container:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -71,8 +72,10 @@ jobs:
           tags: ${{ secrets.DOCKER_USERNAME }}/fold:latest
 
   build-analysis-container:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
+      # https://github.com/orgs/community/discussions/25678
       - name: Delete huge unnecessary tools folder
         run: rm -rf /opt/hostedtoolcache
       - name: Checkout

@@ -226,16 +226,16 @@ rule compute_stats:
         report_dir = join(config["output_directory"], "reports"),
         report_cutoff = config["report_cutoff"],
     container:
-       "docker://dquz/fold_analysis:latest",
+       "docker://kosinskilab/fold_analysis:latest",
     shell:"""
         cd {params.prediction_dir}
 
         run_get_good_pae.sh \
             --output_dir={params.prediction_dir} \
             --cutoff={params.report_cutoff}
-        mv r4s.res {params.report_dir}
-        mv pi_score_outputs {params.report_dir}
-        mv predictions_with_good_interpae.csv {output}
+        mv -f r4s.res {params.report_dir}
+        mv -f pi_score_outputs {params.report_dir}
+        mv -f predictions_with_good_interpae.csv {output}
         """
 
 rule generate_report:
