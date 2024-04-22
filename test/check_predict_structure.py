@@ -337,7 +337,6 @@ class TestScript(_TestBase):
         with tempfile.TemporaryDirectory() as tmpdir:
             # First check the msa matrix shape without msa pairing
             self.args = [
-                sys.executable,
                 "run_multimer_jobs.py",
                 "--mode=custom",
                 "--num_cycle=3",
@@ -358,7 +357,6 @@ class TestScript(_TestBase):
         with tempfile.TemporaryDirectory() as tmpdir:
             # First check the msa matrix shape with msa pairing, msa should be paired even though pair_msa is not added to the command
             self.args = [
-                sys.executable,
                 "run_multimer_jobs.py",
                 "--mode=custom",
                 "--num_cycle=3",
@@ -380,7 +378,6 @@ class TestScript(_TestBase):
         with tempfile.TemporaryDirectory() as tmpdir:
             # First check the msa matrix shape with msa pairing, msa should be paired even though pair_msa is not added to the command
             self.args = [
-                sys.executable,
                 "run_multimer_jobs.py",
                 "--mode=custom",
                 "--num_cycle=3",
