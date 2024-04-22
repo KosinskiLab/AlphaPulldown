@@ -39,7 +39,6 @@ flags.DEFINE_enum("models_to_relax",'None',['None','All','Best'], "Which models 
 
 def main(argv):
     FLAGS(argv)
-    logging.info(f"remove_pickles is {FLAGS.remove_result_pickles}")
     protein_lists = FLAGS.protein_lists
     if FLAGS.mode == "all_vs_all":
         protein_lists = [FLAGS.protein_lists[0], FLAGS.protein_lists[0]]
@@ -73,7 +72,7 @@ def main(argv):
         "--num_predictions_per_model": FLAGS.num_predictions_per_model,
         "--data_directory": model_dir,
         "--features_directory": FLAGS.monomer_objects_dir,
-        "--no_pair_msa": FLAGS.no_pair_msa,
+        "--pair_msa": FLAGS.pair_msa,
         "--msa_depth_scan": FLAGS.msa_depth_scan,
         "--multimeric_template": FLAGS.multimeric_template,
         "--model_names": FLAGS.model_names,
