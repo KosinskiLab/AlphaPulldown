@@ -39,8 +39,8 @@ flags.DEFINE_integer('num_cycle', 3,
                      'Number of recycles, defaults to 3.')
 flags.DEFINE_integer('num_predictions_per_model', 1,
                      'Number of predictions per model, defaults to 1.')
-flags.DEFINE_boolean('no_pair_msa', False,
-                     'Do not pair the MSAs when constructing multimer objects.')
+flags.DEFINE_boolean('pair_msa', True,
+                     'Whether to pair the MSAs when constructing multimer objects. Default is True')
 flags.DEFINE_boolean('skip_templates', False,
                      'Do not use template features when modelling')
 flags.DEFINE_boolean('msa_depth_scan', False,
@@ -177,7 +177,7 @@ def pre_modelling_setup(interactors : List[Union[MonomericObject, ChoppedObject]
         # this means it's going to be a MultimericObject
         object_to_model = MultimericObject(
             interactors=interactors,
-            pair_msa=not flags.no_pair_msa,
+            pair_msa= flags.pair_msa,
             multimeric_template=flags.multimeric_template,
             multimeric_template_meta_data=flags.description_file,
             multimeric_template_dir=flags.path_to_mmt,
