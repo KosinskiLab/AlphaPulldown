@@ -73,7 +73,7 @@ def main(argv):
         "--num_predictions_per_model": FLAGS.num_predictions_per_model,
         "--data_directory": model_dir,
         "--features_directory": FLAGS.monomer_objects_dir,
-        "--pair_msa": FLAGS.pair_msa,
+        "--no_pair_msa": FLAGS.no_pair_msa,
         "--msa_depth_scan": FLAGS.msa_depth_scan,
         "--multimeric_template": FLAGS.multimeric_template,
         "--model_names": FLAGS.model_names,
@@ -94,8 +94,11 @@ def main(argv):
 
     command_args = {}
     for k, v in constant_args.items():
-        if (v is None) or (v is False):
+        if v is None:
             continue
+        elif v is False:
+            updated_key = f"--no{k.split('--')[-1]}"
+            command_args[updated_key] = ""
         elif v is True:
             command_args[k] = ""
         elif isinstance(v, list):
