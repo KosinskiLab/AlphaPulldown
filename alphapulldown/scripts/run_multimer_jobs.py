@@ -129,7 +129,6 @@ def main(argv):
             command = base_command.copy()
             for arg, value in command_args.items():
                 command.extend([str(arg), str(value)])
-            cmd = " ".join(command)
             subprocess.run(" ".join(command), check=True, shell=True)
 
 
