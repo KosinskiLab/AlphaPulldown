@@ -218,6 +218,8 @@ class AlphaFoldBackend(FoldingBackend):
                 ).astype(int)
 
             for i in range(num_multimer_predictions_per_model):
+                logging.debug(f"msa_depth is type : {type(msa_depth)} value: {msa_depth}")
+                logging.debug(f"msa_depth_scan is type: {type(msa_depth_scan)} value: {msa_depth_scan}")
                 if msa_depth or msa_depth_scan:
                     if msa_depth:
                         num_msa = int(msa_depth)
