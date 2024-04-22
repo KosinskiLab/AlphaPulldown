@@ -306,6 +306,7 @@ class TestScript(_TestBase):
         pass
 
     def testRun_9(self):
+        """Test modelling with padding"""
         with tempfile.TemporaryDirectory() as tmpdir:
             # Then test running with padding WITHOUT multimeric template modelling
             self.args = [
@@ -326,6 +327,78 @@ class TestScript(_TestBase):
             print(f"{result.stderr}")
             self.assertTrue("ranking_debug.json" in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C")))
             self.assertEqual(len([f for f in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C")) if f.startswith("result") and f.endswith(".pkl")]), 5)
+    
+    def testRun_10(self):
+        """
+        Test no_pair_msa flag and the shape of the msa matrix
+        msa shape = (1778, 328) when msa is paired
+        msa shape = (1779, 328) when msa is not paired
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # First check the msa matrix shape without msa pairing
+            self.args = [
+                sys.executable,
+                "run_multimer_jobs.py",
+                "--mode=custom",
+                "--num_cycle=3",
+                "--num_predictions_per_model=1",
+                f"--output_path={tmpdir}",
+                f"--data_dir={self.data_dir}",
+                f"--protein_lists={self.test_data_dir}/true_multimer/custom.txt",
+                f"--monomer_objects_dir={self.test_data_dir}/true_multimer/features",
+                f"--noremove_result_pickles",
+            ]
+            result = subprocess.run(self.args, capture_output=True, text=True)
+            print(f"{result.stderr}")
+            self.assertNotIn("(1778, 328)", result.stdout + result.stderr) 
+            self.assertIn("(1779, 328)", result.stdout + result.stderr)
+            self.assertTrue("ranking_debug.json" in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C")))
+            self.assertEqual(len([f for f in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C")) if f.startswith("result") and f.endswith(".pkl")]), 5)
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # First check the msa matrix shape with msa pairing, msa should be paired even though pair_msa is not added to the command
+            self.args = [
+                sys.executable,
+                "run_multimer_jobs.py",
+                "--mode=custom",
+                "--num_cycle=3",
+                "--num_predictions_per_model=1",
+                f"--output_path={tmpdir}",
+                f"--data_dir={self.data_dir}",
+                f"--protein_lists={self.test_data_dir}/true_multimer/custom.txt",
+                f"--monomer_objects_dir={self.test_data_dir}/true_multimer/features",
+                f"--noremove_result_pickles",
+                "--no_pair_msa"
+            ]
+            result = subprocess.run(self.args, capture_output=True, text=True)
+            print(f"{result.stderr}")
+            self.assertIn("(1778, 328)", result.stdout + result.stderr)
+            self.assertNotIn("(1779, 328)", result.stdout + result.stderr)
+            self.assertTrue("ranking_debug.json" in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C")))
+            self.assertEqual(len([f for f in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C")) if f.startswith("result") and f.endswith(".pkl")]), 5)
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # First check the msa matrix shape with msa pairing, msa should be paired even though pair_msa is not added to the command
+            self.args = [
+                sys.executable,
+                "run_multimer_jobs.py",
+                "--mode=custom",
+                "--num_cycle=3",
+                "--num_predictions_per_model=1",
+                f"--output_path={tmpdir}",
+                f"--data_dir={self.data_dir}",
+                f"--protein_lists={self.test_data_dir}/true_multimer/custom.txt",
+                f"--monomer_objects_dir={self.test_data_dir}/true_multimer/features",
+                f"--noremove_result_pickles",
+                f"--nono_pair_msa"
+            ]
+            result = subprocess.run(self.args, capture_output=True, text=True)
+            print(f"{result.stderr}")
+            self.assertNotIn("(1779, 328)", result.stdout + result.stderr)
+            self.assertIn("(1778, 328)", result.stdout + result.stderr)
+            self.assertTrue("ranking_debug.json" in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C")))
+            self.assertEqual(len([f for f in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C")) if f.startswith("result") and f.endswith(".pkl")]), 5)
+
 #TODO: Add tests for other modeling examples subclassing the class above
 #TODO: Add tests that assess that the modeling results are as expected from native AlphaFold2
 #TODO: Add tests that assess that the ranking is correct
