@@ -335,7 +335,7 @@ class TestScript(_TestBase):
         msa shape = (1779, 328) when msa is not paired
         """
         with tempfile.TemporaryDirectory() as tmpdir:
-            # First check the msa matrix shape without msa pairing
+            # First check the msa matrix shape with msa pairing
             self.args = [
                 "run_multimer_jobs.py",
                 "--mode=custom",
@@ -349,8 +349,8 @@ class TestScript(_TestBase):
             ]
             result = subprocess.run(self.args, capture_output=True, text=True)
             print(f"{result.stderr}")
-            self.assertNotIn("(1778, 328)", result.stdout + result.stderr) 
-            self.assertIn("(1779, 328)", result.stdout + result.stderr)
+            self.assertIn("(1778, 328)", result.stdout + result.stderr) 
+            self.assertNotIn("(1779, 328)", result.stdout + result.stderr)
             self.assertTrue("ranking_debug.json" in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C")))
             self.assertEqual(len([f for f in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C")) if f.startswith("result") and f.endswith(".pkl")]), 5)
         
@@ -370,8 +370,8 @@ class TestScript(_TestBase):
             ]
             result = subprocess.run(self.args, capture_output=True, text=True)
             print(f"{result.stderr}")
-            self.assertIn("(1778, 328)", result.stdout + result.stderr)
-            self.assertNotIn("(1779, 328)", result.stdout + result.stderr)
+            self.assertNotIn("(1778, 328)", result.stdout + result.stderr)
+            self.assertIn("(1779, 328)", result.stdout + result.stderr)
             self.assertTrue("ranking_debug.json" in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C")))
             self.assertEqual(len([f for f in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C")) if f.startswith("result") and f.endswith(".pkl")]), 5)
         
