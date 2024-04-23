@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 import subprocess
 import gzip
+from analysis_pipeline.utils import obtain_seq_lengths,obtain_pae_and_iptm
 
 flags.DEFINE_string("output_dir", '.', "directory where predicted models are stored")
 flags.DEFINE_float(
@@ -25,11 +26,10 @@ flags.DEFINE_integer("pae_figsize",50,"figsize of pae_plot, default is 50")
 FLAGS = flags.FLAGS
 
 
-def examine_inter_pae(pae_mtx, seqs, cutoff):
+def examine_inter_pae(pae_mtx, seq_lengths, cutoff):
     """A function that checks inter-pae values in multimer prediction jobs"""
-    lens = [len(seq) for seq in seqs]
     old_lenth = 0
-    for length in lens:
+    for length in seq_lengths:
         new_length = old_lenth + length
         pae_mtx[old_lenth:new_length, old_lenth:new_length] = 50
         old_lenth = new_length
@@ -100,20 +100,7 @@ def main(argv):
             result_subdir = os.path.join(FLAGS.output_dir, job)
             best_result = json.load(open(os.path.join(FLAGS.output_dir, job, "ranking_debug.json")))['order'][0]
             best_result = "result_" + best_result
-            if os.path.exists(os.path.join(result_subdir, best_result+'.pkl')) and not os.path.exists(os.path.join(result_subdir, best_result + ".pkl.gz")):
-                result_path = os.path.join(result_subdir, best_result+'.pkl')
-                check_dict = pickle.load(open(result_path, "rb"))
-                seqs = pickle.load(open(result_path, "rb"))["seqs"]         
-            elif not os.path.exists(os.path.join(result_subdir, best_result)) and os.path.exists(os.path.join(result_subdir, best_result + ".pkl.gz")):
-                result_path = os.path.join(result_subdir, best_result+".pkl.gz")
-                check_dict = pickle.load(gzip.open(result_path, "rb"))
-                seqs = pickle.load(gzip.open(result_path, "rb"))["seqs"]
-            elif not os.path.exists(os.path.join(result_subdir, best_result+'.pkl')) and not os.path.exists(os.path.join(result_subdir, best_result + ".pkl.gz")):
-                raise FileNotFoundError(f"Neither result.pkl nor result.pkl.gz is found for {os.path.join(result_subdir,best_result)}. Please check if the directory is corrupted")
-            else:
-                result_path = os.path.join(result_subdir, best_result+'.pkl')
-                check_dict = pickle.load(open(result_path, "rb"))
-                seqs = pickle.load(open(result_path, "rb"))["seqs"]    
+            seq_lengths = obtain_seq_lengths(os.path.join(FLAGS.output_dir, job))    
             
             best_model = json.load(
                 open(os.path.join(result_subdir, "ranking_debug.json"), "rb")
@@ -126,9 +113,9 @@ def main(argv):
 
             if "iptm" in data.keys() or "iptm+ptm" in data.keys():
                 iptm_ptm_score = data["iptm+ptm"][best_model]   
-                iptm_score = check_dict["iptm"]
-                pae_mtx = check_dict["predicted_aligned_error"]
-                check = examine_inter_pae(pae_mtx, seqs, cutoff=FLAGS.cutoff)
+                pae_mtx,iptm_score = obtain_pae_and_iptm(result_subdir=os.path.join(FLAGS.output_dir, job),
+                                              best_model=best_model)
+                check = examine_inter_pae(pae_mtx, seq_lengths, cutoff=FLAGS.cutoff)
                 if check:
                     good_jobs.append(str(job))
                     iptm_ptm.append(iptm_ptm_score)
