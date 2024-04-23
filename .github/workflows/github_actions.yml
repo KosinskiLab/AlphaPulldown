@@ -67,12 +67,12 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./snakemake/workflow/docker/pulldown.dockerfile
+          file: ./docker/pulldown.dockerfile
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/fold:latest
 
   build-analysis-container:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    #if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       # https://github.com/orgs/community/discussions/25678
@@ -91,6 +91,6 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./snakemake/workflow/docker/analysis.dockerfile
+          file: ./docker/analysis.dockerfile
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/fold_analysis:latest
