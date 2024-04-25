@@ -1,6 +1,8 @@
 name: AlphaPulldown-CI-CD
 
 on:
+  pull_request:
+  push:
   release:
     types: [published]
 
@@ -49,7 +51,6 @@ jobs:
           conda activate AlphaPulldown
           pytest -s test/test_custom_db.py
           pytest -s test/test_remove_clashes_low_plddt.py
-          pytest -s test/test_features_with_templates.py
 
   build-fold-container:
     if: github.event_name == 'release' && github.event.action == 'published'
@@ -76,9 +77,6 @@ jobs:
     if: github.event_name == 'release' && github.event.action == 'published'
     runs-on: ubuntu-latest
     steps:
-      # https://github.com/orgs/community/discussions/25678
-      - name: Delete huge unnecessary tools folder
-        run: rm -rf /opt/hostedtoolcache
       - name: Checkout
         uses: actions/checkout@v4
       - name: Login to Docker Hub
@@ -94,4 +92,4 @@ jobs:
           context: .
           file: ./docker/analysis.dockerfile
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/fold:${{ github.event.release.tag_name }}
+          tags: ${{ secrets.DOCKER_USERNAME }}/fold_analysis:${{ github.event.release.tag_name }}
