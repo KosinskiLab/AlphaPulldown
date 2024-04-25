@@ -45,6 +45,7 @@ def parse_fold(input, features_directory, protein_delimiter):
                         region = protein_fold[1].split("-")
                 case 3:
                     name, number, region = protein_fold
+                    region = protein_fold[1].split("-")
             
             number = int(number)
             if len(region) != 2 and region != "all":
