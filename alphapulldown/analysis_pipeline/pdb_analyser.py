@@ -162,8 +162,6 @@ class PDBAnalyser:
             filtered_df = pd.read_csv(os.path.join(work_dir, csv_files[0]))
         except:
             logging.warning(f"PI score calculation has failed. Will proceed with the rest of the jobs")
-            
-        finally:
             filtered_df = dict()
             for k in "pdb,chains,Num_intf_residues,Polar,Hydrophobhic,Charged,contact_pairs,contact_pairs, sc, hb, sb, int_solv_en, int_area, pvalue,pi_score".split(","):
                 filtered_df.update({k:["None"]})
@@ -171,6 +169,7 @@ class PDBAnalyser:
                 filtered_df
             })
             filtered_df['interface'] = interface_name
+            
 
         if filtered_df.shape[0] == 0:
             for column in filtered_df.columns:
@@ -226,9 +225,9 @@ class PDBAnalyser:
             import sys
             sys.exit()
         else:
-            pi_score_df = self.calculate_pi_score(interface=f"{chain_1_id}_{chain_2_id}")
             for k, v in self.chain_combinations.items():
                 chain_1_id, chain_2_id = v
+                pi_score_df = self.calculate_pi_score(interface=f"{chain_1_id}_{chain_2_id}")
                 chain_1_df, chain_2_df = self.pdb_df[self.pdb_df['chain_id'] ==
                                                      chain_1_id], self.pdb_df[self.pdb_df['chain_id'] == chain_2_id]
                 chain_1_plddt, chain_2_plddt = plddt[chain_1_id], plddt[chain_2_id]
