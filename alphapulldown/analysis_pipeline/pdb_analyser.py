@@ -185,7 +185,7 @@ class PDBAnalyser:
                     pi_score = pd.DataFrame.from_dict(
                         {"pi_score": ['SC:  mds: too many atoms']})
                 f.close()
-            pi_score['interface'] = pi_score['chains']
+            pi_score['interface'] = interface_name
             filtered_df = pd.merge(filtered_df, pi_score, on=['interface'])
             try:
                 filtered_df = filtered_df.drop(
