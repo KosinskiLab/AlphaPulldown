@@ -18,7 +18,7 @@ import tempfile
 import os
 import subprocess
 from absl import logging
-
+logging.set_verbosity(logging.INFO)
 class PDBAnalyser:
     """
     A class that store pandas dataframe of all the information 
@@ -162,6 +162,8 @@ class PDBAnalyser:
             filtered_df = pd.read_csv(os.path.join(work_dir, csv_files[0]))
         except:
             logging.warning(f"PI score calculation has failed. Will proceed with the rest of the jobs")
+            
+        finally:
             filtered_df = dict()
             for k in "pdb,chains,Num_intf_residues,Polar,Hydrophobhic,Charged,contact_pairs,contact_pairs, sc, hb, sb, int_solv_en, int_area, pvalue,pi_score".split(","):
                 filtered_df.update({k:["None"]})
