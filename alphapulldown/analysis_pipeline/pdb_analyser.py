@@ -148,18 +148,27 @@ class PDBAnalyser:
         return complex_energy - chain_1_energy - chain_2_energy 
     
     def run_and_summarise_pi_score(self, work_dir, pdb_path, 
-                                   surface_thres: int = 2) -> pd.DataFrame:
+                                   surface_thres: int = 2, interface_name:str ="") -> pd.DataFrame:
         
         """A function to calculate all predicted models' pi_scores and make a pandas df of the results"""
-
-        subprocess.run(
-        f"source activate pi_score && export PYTHONPATH=/software:$PYTHONPATH && python /software/pi_score/run_piscore_wc.py -p {pdb_path} -o {work_dir} -s {surface_thres} -ps 10", shell=True, executable='/bin/bash')
-        
-        csv_files = [f for f in os.listdir(
-            work_dir) if 'filter_intf_features' in f]
-        
-        pi_score_files = [f for f in os.listdir(work_dir) if 'pi_score_' in f]
-        filtered_df = pd.read_csv(os.path.join(work_dir, csv_files[0]))
+        try:
+            subprocess.run(
+            f"source activate pi_score && export PYTHONPATH=/software:$PYTHONPATH && python /software/pi_score/run_piscore_wc.py -p {pdb_path} -o {work_dir} -s {surface_thres} -ps 10", shell=True, executable='/bin/bash')
+            
+            csv_files = [f for f in os.listdir(
+                work_dir) if 'filter_intf_features' in f]
+            
+            pi_score_files = [f for f in os.listdir(work_dir) if 'pi_score_' in f]
+            filtered_df = pd.read_csv(os.path.join(work_dir, csv_files[0]))
+        except:
+            logging.warning(f"PI score calculation has failed. Will proceed with the rest of the jobs")
+            filtered_df = dict()
+            for k in "pdb,chains,Num_intf_residues,Polar,Hydrophobhic,Charged,contact_pairs,contact_pairs, sc, hb, sb, int_solv_en, int_area, pvalue,pi_score".split(","):
+                filtered_df.update({k:["None"]})
+            filtered_df = pd.DataFrame.from_dict({
+                filtered_df
+            })
+            filtered_df['interface'] = interface_name
 
         if filtered_df.shape[0] == 0:
             for column in filtered_df.columns:
@@ -190,11 +199,11 @@ class PDBAnalyser:
 
         return filtered_df
 
-    def calculate_pi_score(self) -> pd.DataFrame:
+    def calculate_pi_score(self, interface:int = "") -> pd.DataFrame:
         """Run the PI-score pipeline between the 2 chains"""
         with tempfile.TemporaryDirectory() as tmpdir:
             pi_score_output_dir = os.path.join(tmpdir, "pi_score_outputs")
-            pi_score_df = self.run_and_summarise_pi_score(pi_score_output_dir, self.pdb_file_path)
+            pi_score_df = self.run_and_summarise_pi_score(pi_score_output_dir, self.pdb_file_path,interface_name=interface)
         return pi_score_df
     
     def __call__(self, pae_mtx: np.ndarray, plddt: Dict[str, List[float]], cutoff: float = 12) -> Any:
@@ -215,7 +224,7 @@ class PDBAnalyser:
             import sys
             sys.exit()
         else:
-            pi_score_df = self.calculate_pi_score()
+            pi_score_df = self.calculate_pi_score(interface=f"{chain_1_id}_{chain_2_id}")
             for k, v in self.chain_combinations.items():
                 chain_1_id, chain_2_id = v
                 chain_1_df, chain_2_df = self.pdb_df[self.pdb_df['chain_id'] ==
