@@ -8,7 +8,6 @@ from unifold.modules.alphafold import AlphaFold
 from unifold.alphalink_inference import prepare_model_runner
 from unifold.dataset import process_ap
 from unifold.config import model_config
-from alphapulldown.utils import create
 
 class _TestBase(unittest.TestCase):
     def setUp(self) -> None:

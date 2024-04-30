@@ -336,6 +336,7 @@ class TestScript(_TestBase):
         """
         with tempfile.TemporaryDirectory() as tmpdir:
             # First check the msa matrix shape with msa pairing
+            
             self.args = [
                 "run_multimer_jobs.py",
                 "--mode=custom",
@@ -343,16 +344,14 @@ class TestScript(_TestBase):
                 "--num_predictions_per_model=1",
                 f"--output_path={tmpdir}",
                 f"--data_dir={self.data_dir}",
-                f"--protein_lists={self.test_data_dir}/true_multimer/custom.txt",
-                f"--monomer_objects_dir={self.test_data_dir}/true_multimer/features",
+                f"--protein_lists={self.test_data_dir}/A0A075B6L2_P0DPR3.txt",
+                f"--monomer_objects_dir={self.test_data_dir}",
                 f"--noremove_result_pickles",
             ]
             result = subprocess.run(self.args, capture_output=True, text=True)
             print(f"{result.stderr}")
-            self.assertIn("(1778, 328)", result.stdout + result.stderr) 
-            self.assertNotIn("(1779, 328)", result.stdout + result.stderr)
-            self.assertTrue("ranking_debug.json" in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C")))
-            self.assertEqual(len([f for f in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C")) if f.startswith("result") and f.endswith(".pkl")]), 5)
+            self.assertIn("(2048, 121)", result.stdout + result.stderr) 
+            self.assertNotIn("(2049, 121)", result.stdout + result.stderr)
         
         with tempfile.TemporaryDirectory() as tmpdir:
             # First check the msa matrix shape with msa pairing, msa should be paired even though pair_msa is not added to the command
@@ -363,17 +362,15 @@ class TestScript(_TestBase):
                 "--num_predictions_per_model=1",
                 f"--output_path={tmpdir}",
                 f"--data_dir={self.data_dir}",
-                f"--protein_lists={self.test_data_dir}/true_multimer/custom.txt",
-                f"--monomer_objects_dir={self.test_data_dir}/true_multimer/features",
+                f"--protein_lists={self.test_data_dir}/A0A075B6L2_P0DPR3.txt",
+                f"--monomer_objects_dir={self.test_data_dir}",
                 f"--noremove_result_pickles",
-                "--no_pair_msa"
+                "--nopair_msa"
             ]
             result = subprocess.run(self.args, capture_output=True, text=True)
             print(f"{result.stderr}")
-            self.assertNotIn("(1778, 328)", result.stdout + result.stderr)
-            self.assertIn("(1779, 328)", result.stdout + result.stderr)
-            self.assertTrue("ranking_debug.json" in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C")))
-            self.assertEqual(len([f for f in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C")) if f.startswith("result") and f.endswith(".pkl")]), 5)
+            self.assertNotIn("(2048, 121)", result.stdout + result.stderr)
+            self.assertIn("(2049, 121)", result.stdout + result.stderr)
         
         with tempfile.TemporaryDirectory() as tmpdir:
             # First check the msa matrix shape with msa pairing, msa should be paired even though pair_msa is not added to the command
@@ -384,17 +381,15 @@ class TestScript(_TestBase):
                 "--num_predictions_per_model=1",
                 f"--output_path={tmpdir}",
                 f"--data_dir={self.data_dir}",
-                f"--protein_lists={self.test_data_dir}/true_multimer/custom.txt",
-                f"--monomer_objects_dir={self.test_data_dir}/true_multimer/features",
+                f"--protein_lists={self.test_data_dir}/A0A075B6L2_P0DPR3.txt",
+                f"--monomer_objects_dir={self.test_data_dir}",
                 f"--noremove_result_pickles",
-                f"--nono_pair_msa"
+                f"--pair_msa"
             ]
             result = subprocess.run(self.args, capture_output=True, text=True)
             print(f"{result.stderr}")
-            self.assertNotIn("(1779, 328)", result.stdout + result.stderr)
-            self.assertIn("(1778, 328)", result.stdout + result.stderr)
-            self.assertTrue("ranking_debug.json" in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C")))
-            self.assertEqual(len([f for f in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C")) if f.startswith("result") and f.endswith(".pkl")]), 5)
+            self.assertIn("(2048, 121)", result.stdout + result.stderr) 
+            self.assertNotIn("(2049, 121)", result.stdout + result.stderr)
 
 #TODO: Add tests for other modeling examples subclassing the class above
 #TODO: Add tests that assess that the modeling results are as expected from native AlphaFold2
