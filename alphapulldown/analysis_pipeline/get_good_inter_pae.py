@@ -106,11 +106,11 @@ def main(argv):
     good_jobs = []
     output_df = pd.DataFrame()
     for job in jobs:
+        count = count + 1
         logging.info(f"now processing {job}")
         if os.path.isfile(os.path.join(FLAGS.output_dir, job, 'ranking_debug.json')):
             pdb_analyser = PDBAnalyser(os.path.join(
-                FLAGS.output_dir, job, "ranked_0.pdb"))
-            count = count + 1
+                FLAGS.output_dir, job, "ranked_0.pdb"))         
             result_subdir = os.path.join(FLAGS.output_dir, job)
             best_model = json.load(
                 open(os.path.join(result_subdir, "ranking_debug.json"), 'r'))['order'][0]
@@ -136,8 +136,8 @@ def main(argv):
                     for i in ['pDockQ/mpDockQ', 'iptm', 'iptm_ptm','jobs']:
                         score_df.insert(0, i, score_df.pop(i))
                     output_df = pd.concat([score_df,output_df])
-            logging.info(
-                f"done for {job} {count} out of {len(jobs)} finished.")
+        logging.info(
+            f"done for {job} {count} out of {len(jobs)} finished.")
     if len(good_jobs) == 0:
         logging.info(
             f"Unfortunately, none of your protein models had at least one PAE on the interface below your cutoff value : {FLAGS.cutoff}.\n Please consider using a larger cutoff.")

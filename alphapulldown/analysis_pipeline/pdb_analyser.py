@@ -124,7 +124,15 @@ class PDBAnalyser:
             plddt_sum += chain_2_plddt[j]
 
         return plddt_sum / total_num
-
+    
+    def update_df(self, input_df):
+            for interface in input_df.interface:
+                    chain_1, chain_2 = interface.split("_")
+                    subdf = input_df[input_df['interface'] == interface]
+                    subdf['interface'] = f"{chain_2}_{chain_1}"
+                    output_df = pd.concat([input_df, subdf])
+            return output_df
+    
     def calculate_binding_energy(self, chain_1_id: str, chain_2_id: str) -> float:
         """Calculate binding energer of 2 chains using pyRosetta"""
         chain_1_structure, chain_2_structure = self.pdb[chain_1_id], self.pdb[chain_2_id]
@@ -153,13 +161,6 @@ class PDBAnalyser:
     def run_and_summarise_pi_score(self, work_dir, pdb_path:str,
                                    surface_thres: int = 2, interface_name: str = "") -> pd.DataFrame:
         """A function to calculate all predicted models' pi_scores and make a pandas df of the results"""
-        def update_filter_df(filtered_df):
-            for interface in filtered_df.interface:
-                    chain_1, chain_2 = interface.split("_")
-                    subdf = filtered_df[filtered_df['interface'] == interface]
-                    subdf['interface'] = f"{chain_2}_{chain_1}"
-                    filtered_df = pd.concat([filtered_df, subdf])
-            return filtered_df
 
         try:
             subprocess.run(
@@ -178,15 +179,17 @@ class PDBAnalyser:
             filtered_df = pd.DataFrame.from_dict({
                 filtered_df
             })
-            filtered_df['interface'] = interface_name
+            
 
         if filtered_df.shape[0] == 0:
             for column in filtered_df.columns:
                 filtered_df[column] = ["None"]
             filtered_df['pi_score'] = "No interface detected"
-            filtered_df = update_filter_df(filtered_df)
+            filtered_df['interface'] = interface_name
+            filtered_df = self.update_df(filtered_df)
         else:
-            filtered_df = update_filter_df(filtered_df)
+            
+            filtered_df = self.update_df(filtered_df)
             with open(os.path.join(work_dir, pi_score_files[0]), 'r') as f:
                 lines = [l for l in f.readlines() if "#" not in l]
                 if len(lines) > 0:
@@ -198,7 +201,6 @@ class PDBAnalyser:
                 f.close()
             pi_score['interface'] = pi_score['chains']
             filtered_df = pd.merge(filtered_df, pi_score, on=['interface'])
-
             try:
                 filtered_df = filtered_df.drop(
                     columns=["#PDB", "pdb", " pvalue", "chains", "predicted_class"])
@@ -239,6 +241,7 @@ class PDBAnalyser:
                                                      chain_1_id], self.pdb_df[self.pdb_df['chain_id'] == chain_2_id]
                 pi_score_df = self.calculate_pi_score(
                     interface=f"{chain_1_id}_{chain_2_id}")
+                pi_score_df = self.update_df(pi_score_df)
                 chain_1_plddt, chain_2_plddt = plddt[chain_1_id], plddt[chain_2_id]
                 interface_residues = self.obtain_interface_residues(
                     chain_1_df, chain_2_df, cutoff=cutoff)
@@ -260,4 +263,5 @@ class PDBAnalyser:
                     "interface": [f"{chain_1_id}_{chain_2_id}"]
                 })
                 output_df = pd.concat([output_df, other_measurements_df])
+                
         return pd.merge(output_df, pi_score_df, how='left', on='interface')
