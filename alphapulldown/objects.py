@@ -151,6 +151,16 @@ class MonomericObject:
                 fasta_file, self._uniprot_runner, msa_output_dir, use_precomputed_msa
             )
             self.feature_dict.update(pairing_results)
+        
+        # Add extra features to make it compatible with pickle features obtaiend from mmseqs2
+        template_confidence_scores = self.feature_dict.get('template_confidence_scores', None)
+        template_release_date = self.feature_dict.get('template_release_date', None)
+        if template_confidence_scores is None:
+            self.feature_dict.update(
+                {'template_confidence_scores': np.array([[1] * len(self.sequence)])}
+            )
+        if template_release_date is None:
+            self.feature_dict.update({"template_release_date" : ['none']})
 
         # post processing
         if (not save_msa) and (not use_precomputed_msa):
@@ -232,10 +242,13 @@ class MonomericObject:
 
         # add template_confidence_scores if it does not exist 
         template_confidence_scores = self.feature_dict.get('template_confidence_scores', None)
+        template_release_date = self.feature_dict.get('template_release_date', None)
         if template_confidence_scores is None:
             self.feature_dict.update(
                 {'template_confidence_scores': np.array([[1] * len(self.sequence)])}
             )
+        if template_release_date is None:
+            self.feature_dict.update({"template_release_date" : ['none']})
         self.feature_dict.update(feats)
 
         if using_zipped_msa_files:
