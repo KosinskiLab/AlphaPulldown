@@ -331,8 +331,8 @@ class TestScript(_TestBase):
     def testRun_10(self):
         """
         Test no_pair_msa flag and the shape of the msa matrix
-        msa shape = (1778, 328) when msa is paired
-        msa shape = (1779, 328) when msa is not paired
+        msa shape = (2048, 121) when msa is paired
+        msa shape = (2048, 121) when msa is not paired
         """
         with tempfile.TemporaryDirectory() as tmpdir:
             # First check the msa matrix shape with msa pairing
