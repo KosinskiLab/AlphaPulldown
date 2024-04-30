@@ -588,6 +588,7 @@ create_individual_features.py
         np_chains_list = list(all_chain_features.values())
         pair_msa_sequences = self.pair_msa and not feature_processing._is_homomer_or_monomer(
             np_chains_list)
+        logging.debug(f"pair_msa_sequences is type : {type(pair_msa_sequences)} value: {pair_msa_sequences}")
         if pair_msa_sequences:
             np_chains_list = msa_pairing.create_paired_features(
                 chains=np_chains_list)
