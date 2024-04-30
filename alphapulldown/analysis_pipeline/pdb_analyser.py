@@ -162,7 +162,6 @@ class PDBAnalyser:
             pi_score_files = [f for f in os.listdir(
                 work_dir) if 'pi_score_' in f]
             filtered_df = pd.read_csv(os.path.join(work_dir, csv_files[0]))
-            filtered_df['interface'] = interface_name
         except:
             logging.warning(
                 f"PI score calculation has failed. Will proceed with the rest of the jobs")
@@ -178,7 +177,17 @@ class PDBAnalyser:
             for column in filtered_df.columns:
                 filtered_df[column] = ["None"]
             filtered_df['pi_score'] = "No interface detected"
+            for interface in filtered_df.interface:
+                    chain_1, chain_2 = interface.split("_")
+                    subdf = filtered_df[filtered_df['interface'] == interface]
+                    subdf['interface'] = f"{chain_2}_{chain_1}"
+                    filtered_df = pd.concat([filtered_df, subdf])
         else:
+            for interface in filtered_df.interface:
+                    chain_1, chain_2 = interface.split("_")
+                    subdf = filtered_df[filtered_df['interface'] == interface]
+                    subdf['interface'] = f"{chain_2}_{chain_1}"
+                    filtered_df = pd.concat([filtered_df, subdf])
             with open(os.path.join(work_dir, pi_score_files[0]), 'r') as f:
                 lines = [l for l in f.readlines() if "#" not in l]
                 if len(lines) > 0:
@@ -188,7 +197,7 @@ class PDBAnalyser:
                     pi_score = pd.DataFrame.from_dict(
                         {"pi_score": ['SC:  mds: too many atoms']})
                 f.close()
-            pi_score['interface'] = interface_name
+            pi_score['interface'] = pi_score['chains']
             filtered_df = pd.merge(filtered_df, pi_score, on=['interface'])
 
             try:
