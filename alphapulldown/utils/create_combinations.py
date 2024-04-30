@@ -17,12 +17,26 @@ def read_file(filepath : str):
 
 def process_files(input_files : List[str], 
                   output_path : Union[str, TextIO] = None, 
-                  delimiter : str = '+'):
+                  delimiter : str = '+',
+                  exclude_permutations : bool = True
+                  ):
     """Process the input files to compute the Cartesian product and write to the output file."""
     lists_of_lines = [read_file(filepath) for filepath in input_files]
     cartesian_product = list(itertools.product(*lists_of_lines))
+
+    if exclude_permutations:
+        keep = []
+        unique_elements = set()
+        for combination in cartesian_product:
+            sorted_combination = tuple(sorted(combination))
+            if sorted_combination in unique_elements:
+                continue
+            unique_elements.add(sorted_combination)
+            keep.append(combination)
+        cartesian_product = keep
+
     if output_path is None:
-        return itertools.product(*lists_of_lines)
+        return cartesian_product
     else:
         context_manager = nullcontext(output_path)
         if isinstance(output_path, str):
