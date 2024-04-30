@@ -153,6 +153,13 @@ class PDBAnalyser:
     def run_and_summarise_pi_score(self, work_dir, pdb_path:str,
                                    surface_thres: int = 2, interface_name: str = "") -> pd.DataFrame:
         """A function to calculate all predicted models' pi_scores and make a pandas df of the results"""
+        def update_filter_df(filtered_df):
+            for interface in filtered_df.interface:
+                    chain_1, chain_2 = interface.split("_")
+                    subdf = filtered_df[filtered_df['interface'] == interface]
+                    subdf['interface'] = f"{chain_2}_{chain_1}"
+                    filtered_df = pd.concat([filtered_df, subdf])
+            return filtered_df
 
         try:
             subprocess.run(
@@ -177,17 +184,9 @@ class PDBAnalyser:
             for column in filtered_df.columns:
                 filtered_df[column] = ["None"]
             filtered_df['pi_score'] = "No interface detected"
-            for interface in filtered_df.interface:
-                    chain_1, chain_2 = interface.split("_")
-                    subdf = filtered_df[filtered_df['interface'] == interface]
-                    subdf['interface'] = f"{chain_2}_{chain_1}"
-                    filtered_df = pd.concat([filtered_df, subdf])
+            filtered_df = update_filter_df(filtered_df)
         else:
-            for interface in filtered_df.interface:
-                    chain_1, chain_2 = interface.split("_")
-                    subdf = filtered_df[filtered_df['interface'] == interface]
-                    subdf['interface'] = f"{chain_2}_{chain_1}"
-                    filtered_df = pd.concat([filtered_df, subdf])
+            filtered_df = update_filter_df(filtered_df)
             with open(os.path.join(work_dir, pi_score_files[0]), 'r') as f:
                 lines = [l for l in f.readlines() if "#" not in l]
                 if len(lines) > 0:
@@ -203,11 +202,6 @@ class PDBAnalyser:
             try:
                 filtered_df = filtered_df.drop(
                     columns=["#PDB", "pdb", " pvalue", "chains", "predicted_class"])
-                for interface in filtered_df.interface:
-                    chain_1, chain_2 = interface.split("_")
-                    subdf = filtered_df[filtered_df['interface'] == interface]
-                    subdf['interface'] = f"{chain_2}_{chain_1}"
-                    filtered_df = pd.concat([filtered_df, subdf])
             except:
                 pass
 
