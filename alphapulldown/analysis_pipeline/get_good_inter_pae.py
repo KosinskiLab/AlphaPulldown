@@ -136,6 +136,8 @@ def main(argv):
                     for i in ['pDockQ/mpDockQ', 'iptm', 'iptm_ptm','jobs']:
                         score_df.insert(0, i, score_df.pop(i))
                     output_df = pd.concat([score_df,output_df])
+        else:
+            logging.warning(f"{job} does not have ranking_debug.json. Skipped.")
         logging.info(
             f"done for {job} {count} out of {len(jobs)} finished.")
     if len(good_jobs) == 0:
