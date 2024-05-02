@@ -144,6 +144,11 @@ def main(argv):
         logging.info(
             f"Unfortunately, none of your protein models had at least one PAE on the interface below your cutoff value : {FLAGS.cutoff}.\n Please consider using a larger cutoff.")
     else:
+        unwanted_columns = ['pi_score','pdb',' pvalue']
+        for c in unwanted_columns:
+            if c in output_df:
+                output_df = output_df.drop(columns=c)
+        output_df = output_df.sort_values(by='iptm', ascending= False)
         output_df.to_csv(os.path.join(FLAGS.output_dir,"predictions_with_good_interpae.csv"),index=False)
 
 if __name__ == '__main__':
