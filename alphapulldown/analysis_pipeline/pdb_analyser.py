@@ -9,7 +9,7 @@ from absl import logging
 import subprocess
 import os
 import tempfile
-from typing import Any, List, Dict
+from typing import Any, List, Dict, Union
 import numpy as np
 from itertools import combinations, accumulate
 import pandas as pd
@@ -84,25 +84,23 @@ class PDBAnalyser:
         subdf = chain_df[mask]
         return subdf[['x_coord', 'y_coord', 'z_coord']].values
 
-    def obtain_interface_residues(self, chain_df_1: pd.DataFrame, chain_df_2: pd.DataFrame, 
-                                chain_id_1:str, chain_id_2:str,  cutoff: int = 5):
+    def obtain_interface_residues(self, chain_df_1: pd.DataFrame, chain_df_2: pd.DataFrame,cutoff: int = 5) -> Union[None, set]:
         """A method that get all the residues on the interface within the cutoff"""
         chain_1_CB_coords = self.retrieve_C_beta_coords(chain_df_1)
         chain_2_CB_coords = self.retrieve_C_beta_coords(chain_df_2)
-        chain_1_pad_num = self.chain_cumsum[chain_id_1]
-        chain_2_pad_num = self.chain_cumsum[chain_id_2]
+
         distance_mtx = np.sqrt(
             np.sum((chain_1_CB_coords[:, np.newaxis] - chain_2_CB_coords)**2, axis=-1))
         satisfied_residues_chain_1, satisfied_residues_chain_2 = np.where(
             distance_mtx < cutoff)
         if (len(satisfied_residues_chain_1) > 0) and (len(satisfied_residues_chain_2) > 0):
-            return [i + chain_1_pad_num for i in satisfied_residues_chain_1], [i + chain_2_pad_num for i in satisfied_residues_chain_2]
+            return (satisfied_residues_chain_1, satisfied_residues_chain_2)
 
         else:
             print(f"No interface residues are found.")
             return None
 
-    def calculate_average_pae(self, pae_mtx: np.ndarray,
+    def calculate_average_pae(self, pae_mtx: np.ndarray,chain_id_1:str,chain_id_2:str,
                               chain_1_residues: np.ndarray, chain_2_residues: np.ndarray) -> float:
         """
         A method to calculate average interface pae 
@@ -116,8 +114,12 @@ class PDBAnalyser:
         float: average PAE value of the interface residues
         """
         pae_sum = 0
+        chain_1_pad_num = self.chain_cumsum[chain_id_1]
+        chain_2_pad_num = self.chain_cumsum[chain_id_2]
+        satisfied_residues_chain_1 = [i + chain_1_pad_num for i in chain_1_residues]
+        satisfied_residues_chain_2 = [i + chain_2_pad_num for i in chain_2_residues]
         total_num = len(chain_1_residues)
-        for i, j in zip(chain_1_residues, chain_2_residues):
+        for i, j in zip(satisfied_residues_chain_1, satisfied_residues_chain_2):
             pae_sum += pae_mtx[i, j]
             pae_sum += pae_mtx[j, i]
 
@@ -264,9 +266,9 @@ class PDBAnalyser:
                 pi_score_df = self.update_df(pi_score_df)
                 chain_1_plddt, chain_2_plddt = plddt[chain_1_id], plddt[chain_2_id]
                 interface_residues = self.obtain_interface_residues(
-                    chain_1_df, chain_2_df, chain_1_id, chain_2_id,cutoff=cutoff)
+                    chain_1_df, chain_2_df, cutoff=cutoff)
                 if interface_residues is not None:
-                    average_interface_pae = self.calculate_average_pae(pae_mtx,
+                    average_interface_pae = self.calculate_average_pae(pae_mtx,chain_1_id, chain_2_id,
                                                                        interface_residues[0], interface_residues[1])
                     binding_energy = self.calculate_binding_energy(
                         chain_1_id, chain_2_id)
