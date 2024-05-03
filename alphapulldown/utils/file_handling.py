@@ -36,6 +36,7 @@ def parse_csv_file(csv_path, fasta_paths, mmt_dir, cluster=False):
         list: A list of dictionaries, each containing protein data.
     """
     protein_names = {}
+    protein_counters = {}
     for fasta_path in fasta_paths:
         if not os.path.isfile(fasta_path):
             logging.error(f"Fasta file {fasta_path} does not exist.")
@@ -67,22 +68,18 @@ def parse_csv_file(csv_path, fasta_paths, mmt_dir, cluster=False):
                 else:
                     protein_data[protein]["templates"].append(os.path.join(mmt_dir, template))
                     protein_data[protein]["chains"].append(chain)
-            else:
-                if protein not in protein_data:
-                    protein_data[protein] = {
-                        "protein": protein,
-                        "sequence": protein_names[protein],
-                        "templates": [os.path.join(mmt_dir, template)],
-                        "chains": [chain]
-                    }
-                else:
-                    new_protein_key = f"{protein}_{len(protein_data)}"
-                    protein_data[new_protein_key] = {
-                        "protein": protein,
-                        "sequence": protein_names[protein],
-                        "templates": [os.path.join(mmt_dir, template)],
-                        "chains": [chain]
-                    }
+            if not cluster:
+                # Ensure unique protein names by appending a counter
+                original_protein = protein
+                counter = protein_counters.get(protein, 0)
+                protein_counters[protein] = counter + 1
+                unique_protein = f"{protein}_{counter}" if counter > 0 else protein
+                protein_data[unique_protein] = {
+                    "protein": original_protein,
+                    "sequence": protein_names[protein],
+                    "templates": [os.path.join(mmt_dir, template)],
+                    "chains": [chain]
+                }
 
     return list(protein_data.values())
 
