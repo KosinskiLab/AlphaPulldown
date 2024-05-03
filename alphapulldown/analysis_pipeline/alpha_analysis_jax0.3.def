@@ -1,5 +1,5 @@
 Bootstrap: docker 
-From: geoffreyyu/alpha_analysis_basis_jax0.3:latest
+From: kosinskilab/alpha_analysis_basis_jax0.3:latest
 
 %files
     ./*.py /app/alpha-analysis/
