@@ -24,26 +24,26 @@ def ensure_directory_exists(directory):
         logging.info(f"Creating directory: {directory}")
         os.makedirs(directory, exist_ok=True)
 
-def parse_csv_file(csv_path, fasta_paths, mmt_dir):
+def parse_csv_file(csv_path, fasta_paths, mmt_dir, cluster=False):
     """
-    csv_path (str): Path to the text file with descriptions
-        features.csv: A coma-separated file with three columns: PROTEIN name, PDB/CIF template, chain ID.
-    fasta_paths (str): path to fasta file(s)
-    mmt_dir (str): Path to directory with multimeric template mmCIF files
-
+    Parses a CSV file to extract protein information along with their sequences from fasta files.
+    Args:
+        csv_path (str): Path to the CSV file with descriptions.
+        fasta_paths (list): Paths to fasta files.
+        mmt_dir (str): Path to directory with multimeric template mmCIF files.
+        cluster (bool): Determines if the templates are clustered by protein (default False).
     Returns:
-        a list of dictionaries with the following structure:
-    [{"protein": protein_name, "sequence" :sequence", templates": [pdb_files], "chains": [chain_id]}, ...]}]
+        list: A list of dictionaries, each containing protein data.
     """
     protein_names = {}
     for fasta_path in fasta_paths:
         if not os.path.isfile(fasta_path):
             logging.error(f"Fasta file {fasta_path} does not exist.")
             raise FileNotFoundError(f"Fasta file {fasta_path} does not exist.")
-        for curr_seq, curr_desc in iter_seqs(fasta_paths):
+        for curr_seq, curr_desc in iter_seqs([fasta_path]):  # Ensure correct iterable
             protein_names[curr_desc] = curr_seq
 
-    parsed_dict = {}
+    protein_data = {}
     with open(csv_path, newline="") as csvfile:
         csvreader = csv.reader(csvfile)
         for row in csvreader:
@@ -55,12 +55,36 @@ def parse_csv_file(csv_path, fasta_paths, mmt_dir):
             if protein not in protein_names:
                 logging.error(f"Protein {protein} from description.csv is not found in the fasta files.")
                 continue
-            parsed_dict.setdefault(protein, {"protein": protein, "templates": [], "chains": [], "sequence": None})
-            parsed_dict[protein]["sequence"] = protein_names[protein]
-            parsed_dict[protein]["templates"].append(os.path.join(mmt_dir, template))
-            parsed_dict[protein]["chains"].append(chain)
+            
+            if cluster:
+                if protein not in protein_data:
+                    protein_data[protein] = {
+                        "protein": protein,
+                        "sequence": protein_names[protein],
+                        "templates": [os.path.join(mmt_dir, template)],
+                        "chains": [chain]
+                    }
+                else:
+                    protein_data[protein]["templates"].append(os.path.join(mmt_dir, template))
+                    protein_data[protein]["chains"].append(chain)
+            else:
+                if protein not in protein_data:
+                    protein_data[protein] = {
+                        "protein": protein,
+                        "sequence": protein_names[protein],
+                        "templates": [os.path.join(mmt_dir, template)],
+                        "chains": [chain]
+                    }
+                else:
+                    new_protein_key = f"{protein}_{len(protein_data)}"
+                    protein_data[new_protein_key] = {
+                        "protein": protein,
+                        "sequence": protein_names[protein],
+                        "templates": [os.path.join(mmt_dir, template)],
+                        "chains": [chain]
+                    }
 
-    return list(parsed_dict.values())
+    return list(protein_data.values())
 
 def convert_fasta_description_to_protein_name(line):
     line = line.replace(" ", "_")

@@ -56,6 +56,8 @@ flags.DEFINE_float("hb_allowance", 0.4,
                    "Additional allowance for hydrogen bonding (default: 0.4)")
 flags.DEFINE_float("plddt_threshold", 0,
                    "Threshold for pLDDT score (default: 0)")
+flags.DEFINE_boolean("multiple_mmts", False,
+                     "Use multiple mmts or not. 'true' or 'false', default is 'false'")
 
 FLAGS = flags.FLAGS
 
@@ -299,8 +301,7 @@ def process_sequences_multimeric_mode():
     it processes the corresponding sequence if it matches the seq_index flag.
     """
     fasta_paths = FLAGS.fasta_paths
-    feats = parse_csv_file(FLAGS.description_file,
-                           fasta_paths, FLAGS.path_to_mmt)
+    feats = parse_csv_file(FLAGS.description_file, fasta_paths, FLAGS.path_to_mmt, FLAGS.multiple_mmts)
     logging.info(f"seq_index: {FLAGS.seq_index}, feats: {feats}")
 
     for idx, feat in enumerate(feats, 1):
