@@ -37,11 +37,11 @@ class PDBAnalyser:
         self.get_all_combinations_of_chains()
         self.calculate_padding_of_chains()
         pass
-    
+
     def calculate_padding_of_chains(self):
         """
         A method that calculate how many residues need to be padded
-        
+
         e.g. all residue indexes in the 1st chain do not need to be padded
         all residue indexes in the 2nd chain need to be padded with len(1st chain)
         all residue indexes in the 3nd chain need to be padded with len(1st chain) + len(2nd chain)
@@ -84,7 +84,7 @@ class PDBAnalyser:
         subdf = chain_df[mask]
         return subdf[['x_coord', 'y_coord', 'z_coord']].values
 
-    def obtain_interface_residues(self, chain_df_1: pd.DataFrame, chain_df_2: pd.DataFrame,cutoff: int = 5) -> Union[None, set]:
+    def obtain_interface_residues(self, chain_df_1: pd.DataFrame, chain_df_2: pd.DataFrame, cutoff: int = 5) -> Union[None, set]:
         """A method that get all the residues on the interface within the cutoff"""
         chain_1_CB_coords = self.retrieve_C_beta_coords(chain_df_1)
         chain_2_CB_coords = self.retrieve_C_beta_coords(chain_df_2)
@@ -100,7 +100,7 @@ class PDBAnalyser:
             print(f"No interface residues are found.")
             return None
 
-    def calculate_average_pae(self, pae_mtx: np.ndarray,chain_id_1:str,chain_id_2:str,
+    def calculate_average_pae(self, pae_mtx: np.ndarray, chain_id_1: str, chain_id_2: str,
                               chain_1_residues: np.ndarray, chain_2_residues: np.ndarray) -> float:
         """
         A method to calculate average interface pae 
@@ -116,8 +116,10 @@ class PDBAnalyser:
         pae_sum = 0
         chain_1_pad_num = self.chain_cumsum[chain_id_1]
         chain_2_pad_num = self.chain_cumsum[chain_id_2]
-        satisfied_residues_chain_1 = [i + chain_1_pad_num for i in chain_1_residues]
-        satisfied_residues_chain_2 = [i + chain_2_pad_num for i in chain_2_residues]
+        satisfied_residues_chain_1 = [
+            i + chain_1_pad_num for i in chain_1_residues]
+        satisfied_residues_chain_2 = [
+            i + chain_2_pad_num for i in chain_2_residues]
         total_num = len(chain_1_residues)
         for i, j in zip(satisfied_residues_chain_1, satisfied_residues_chain_2):
             pae_sum += pae_mtx[i, j]
@@ -146,15 +148,15 @@ class PDBAnalyser:
             plddt_sum += chain_2_plddt[j]
 
         return plddt_sum / total_num
-    
+
     def update_df(self, input_df):
-            for interface in input_df.interface:
-                    chain_1, chain_2 = interface.split("_")
-                    subdf = input_df[input_df['interface'] == interface]
-                    subdf['interface'] = f"{chain_2}_{chain_1}"
-                    output_df = pd.concat([input_df, subdf])
-            return output_df
-    
+        for interface in input_df.interface:
+            chain_1, chain_2 = interface.split("_")
+            subdf = input_df[input_df['interface'] == interface]
+            subdf['interface'] = f"{chain_2}_{chain_1}"
+            output_df = pd.concat([input_df, subdf])
+        return output_df
+
     def calculate_binding_energy(self, chain_1_id: str, chain_2_id: str) -> float:
         """Calculate binding energer of 2 chains using pyRosetta"""
         chain_1_structure, chain_2_structure = self.pdb[chain_1_id], self.pdb[chain_2_id]
@@ -180,7 +182,7 @@ class PDBAnalyser:
         chain_1_energy, chain_2_energy = sfxn(chain_1_pose), sfxn(chain_2_pose)
         return complex_energy - chain_1_energy - chain_2_energy
 
-    def run_and_summarise_pi_score(self, work_dir, pdb_path:str,
+    def run_and_summarise_pi_score(self, work_dir, pdb_path: str,
                                    surface_thres: int = 2, interface_name: str = "") -> pd.DataFrame:
         """A function to calculate all predicted models' pi_scores and make a pandas df of the results"""
 
@@ -201,7 +203,6 @@ class PDBAnalyser:
             filtered_df = pd.DataFrame.from_dict({
                 filtered_df
             })
-            
 
         if filtered_df.shape[0] == 0:
             for column in filtered_df.columns:
@@ -210,7 +211,7 @@ class PDBAnalyser:
             filtered_df['interface'] = interface_name
             filtered_df = self.update_df(filtered_df)
         else:
-            
+
             filtered_df = self.update_df(filtered_df)
             with open(os.path.join(work_dir, pi_score_files[0]), 'r') as f:
                 lines = [l for l in f.readlines() if "#" not in l]
@@ -231,15 +232,13 @@ class PDBAnalyser:
 
         return filtered_df
 
-    def calculate_pi_score(self, interface: int = "") -> pd.DataFrame:
+    def calculate_pi_score(self, pi_score_output_dir: str, interface: int = "") -> pd.DataFrame:
         """Run the PI-score pipeline between the 2 chains"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            pi_score_output_dir = os.path.join(tmpdir, "pi_score_outputs")
-            pi_score_df = self.run_and_summarise_pi_score(
+        pi_score_df = self.run_and_summarise_pi_score(
                 pi_score_output_dir, self.pdb_file_path, interface_name=interface)
         return pi_score_df
 
-    def __call__(self, pae_mtx: np.ndarray, plddt: Dict[str, List[float]], cutoff: float = 12) -> Any:
+    def __call__(self, pi_score_output_dir: str, pae_mtx: np.ndarray, plddt: Dict[str, List[float]], cutoff: float = 12) -> Any:
         """
         Obtain interface residues and calculate average PAE, average plDDT of the interface residues
 
@@ -261,14 +260,14 @@ class PDBAnalyser:
                 chain_1_id, chain_2_id = v
                 chain_1_df, chain_2_df = self.pdb_df[self.pdb_df['chain_id'] ==
                                                      chain_1_id], self.pdb_df[self.pdb_df['chain_id'] == chain_2_id]
-                pi_score_df = self.calculate_pi_score(
-                    interface=f"{chain_1_id}_{chain_2_id}")
+                pi_score_df = self.calculate_pi_score(pi_score_output_dir,
+                                                      interface=f"{chain_1_id}_{chain_2_id}")
                 pi_score_df = self.update_df(pi_score_df)
                 chain_1_plddt, chain_2_plddt = plddt[chain_1_id], plddt[chain_2_id]
                 interface_residues = self.obtain_interface_residues(
                     chain_1_df, chain_2_df, cutoff=cutoff)
                 if interface_residues is not None:
-                    average_interface_pae = self.calculate_average_pae(pae_mtx,chain_1_id, chain_2_id,
+                    average_interface_pae = self.calculate_average_pae(pae_mtx, chain_1_id, chain_2_id,
                                                                        interface_residues[0], interface_residues[1])
                     binding_energy = self.calculate_binding_energy(
                         chain_1_id, chain_2_id)
@@ -285,5 +284,5 @@ class PDBAnalyser:
                     "interface": [f"{chain_1_id}_{chain_2_id}"]
                 })
                 output_df = pd.concat([output_df, other_measurements_df])
-                
+
         return pd.merge(output_df, pi_score_df, how='left', on='interface')

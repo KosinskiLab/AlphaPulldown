@@ -105,6 +105,8 @@ def main(argv):
     count = 0
     good_jobs = []
     output_df = pd.DataFrame()
+    pi_score_output_path = os.path.join(FLAGS.output_dir, "pi_score_outputs")
+    os.makedirs(pi_score_output_path,exist_ok=True)
     for job in jobs:
         count = count + 1
         logging.info(f"now processing {job}")
@@ -116,6 +118,7 @@ def main(argv):
                 open(os.path.join(result_subdir, "ranking_debug.json"), 'r'))['order'][0]
             data = json.load(
                 open(os.path.join(result_subdir, "ranking_debug.json"), 'r'))
+            
             if "iptm" in data.keys() and "iptm+ptm" in data.keys():
                 iptm_ptm_score = data['iptm+ptm'][best_model]
                 pae_mtx, iptm_score = obtain_pae_and_iptm(
@@ -128,7 +131,7 @@ def main(argv):
                 if check:
                     good_jobs.append(job)
                     score_df = pdb_analyser(
-                        pae_mtx, plddt_per_chain)
+                        os.path.join(pi_score_output_path, job),pae_mtx, plddt_per_chain)
                     score_df['jobs']=job
                     score_df['iptm_ptm'] = iptm_ptm_score
                     score_df['iptm'] = iptm_score
