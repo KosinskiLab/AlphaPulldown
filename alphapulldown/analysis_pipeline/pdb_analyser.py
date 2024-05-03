@@ -11,7 +11,7 @@ import os
 import tempfile
 from typing import Any, List, Dict
 import numpy as np
-from itertools import combinations
+from itertools import combinations, accumulate
 import pandas as pd
 from Bio.PDB import PDBParser, PDBIO
 from biopandas.pdb import PandasPdb
@@ -35,7 +35,24 @@ class PDBAnalyser:
         self.pdb_df = self.pdb_pandas.df['ATOM']
         self.chain_combinations = {}
         self.get_all_combinations_of_chains()
+        self.calculate_padding_of_chains()
         pass
+    
+    def calculate_padding_of_chains(self):
+        """
+        A method that calculate how many residues need to be padded
+        
+        e.g. all residue indexes in the 1st chain do not need to be padded
+        all residue indexes in the 2nd chain need to be padded with len(1st chain)
+        all residue indexes in the 3nd chain need to be padded with len(1st chain) + len(2nd chain)
+        """
+        self.chain_cumsum = dict()
+        residue_counts = dict()
+        for chain in self.pdb:
+            residue_counts[chain.id] = sum(1 for _ in chain.get_residues())
+        cum_sum = list(accumulate([0] + list(residue_counts.values())[:-1]))
+        for chain_id, cs in zip(residue_counts.keys(), cum_sum):
+            self.chain_cumsum[chain_id] = cs
 
     def get_all_combinations_of_chains(self):
         """A method that get all the paiwise combination of chains"""
@@ -67,16 +84,19 @@ class PDBAnalyser:
         subdf = chain_df[mask]
         return subdf[['x_coord', 'y_coord', 'z_coord']].values
 
-    def obtain_interface_residues(self, chain_df_1: pd.DataFrame, chain_df_2: pd.DataFrame, cutoff: int = 12):
+    def obtain_interface_residues(self, chain_df_1: pd.DataFrame, chain_df_2: pd.DataFrame, 
+                                chain_id_1:str, chain_id_2:str,  cutoff: int = 5):
         """A method that get all the residues on the interface within the cutoff"""
         chain_1_CB_coords = self.retrieve_C_beta_coords(chain_df_1)
         chain_2_CB_coords = self.retrieve_C_beta_coords(chain_df_2)
+        chain_1_pad_num = self.chain_cumsum[chain_id_1]
+        chain_2_pad_num = self.chain_cumsum[chain_id_2]
         distance_mtx = np.sqrt(
             np.sum((chain_1_CB_coords[:, np.newaxis] - chain_2_CB_coords)**2, axis=-1))
         satisfied_residues_chain_1, satisfied_residues_chain_2 = np.where(
             distance_mtx < cutoff)
         if (len(satisfied_residues_chain_1) > 0) and (len(satisfied_residues_chain_2) > 0):
-            return satisfied_residues_chain_1, satisfied_residues_chain_2
+            return [i + chain_1_pad_num for i in satisfied_residues_chain_1], [i + chain_2_pad_num for i in satisfied_residues_chain_2]
 
         else:
             print(f"No interface residues are found.")
@@ -244,7 +264,7 @@ class PDBAnalyser:
                 pi_score_df = self.update_df(pi_score_df)
                 chain_1_plddt, chain_2_plddt = plddt[chain_1_id], plddt[chain_2_id]
                 interface_residues = self.obtain_interface_residues(
-                    chain_1_df, chain_2_df, cutoff=cutoff)
+                    chain_1_df, chain_2_df, chain_1_id, chain_2_id,cutoff=cutoff)
                 if interface_residues is not None:
                     average_interface_pae = self.calculate_average_pae(pae_mtx,
                                                                        interface_residues[0], interface_residues[1])
