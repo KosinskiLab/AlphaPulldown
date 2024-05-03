@@ -75,7 +75,7 @@ def parse_csv_file(csv_path, fasta_paths, mmt_dir, cluster=False):
                 protein_counters[protein] = counter + 1
                 unique_protein = f"{protein}_{counter}" if counter > 0 else protein
                 protein_data[unique_protein] = {
-                    "protein": original_protein,
+                    "protein": unique_protein,
                     "sequence": protein_names[protein],
                     "templates": [os.path.join(mmt_dir, template)],
                     "chains": [chain]

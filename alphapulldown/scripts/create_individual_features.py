@@ -302,10 +302,10 @@ def process_sequences_multimeric_mode():
     """
     fasta_paths = FLAGS.fasta_paths
     feats = parse_csv_file(FLAGS.description_file, fasta_paths, FLAGS.path_to_mmt, FLAGS.multiple_mmts)
-    logging.info(f"seq_index: {FLAGS.seq_index}, feats: {feats}")
 
     for idx, feat in enumerate(feats, 1):
         if FLAGS.seq_index is None or (FLAGS.seq_index == idx):
+            logging.info(f"seq_index: {FLAGS.seq_index}, feats: {feat}")
             process_multimeric_features(feat, idx)
 
 
@@ -335,8 +335,8 @@ def process_multimeric_features(feat, idx):
             temp_dir, protein, template_paths, chains)
         create_arguments(local_path_to_custom_db)
 
-        flags_dict.update({f"protein_{idx}": feat['protein'], f"multimeric_templates_{idx}": template_paths,
-                           f"multimeric_chains_{idx}": feat['chains']})
+        flags_dict.update({f"protein_{idx}": protein, f"multimeric_templates_{idx}": template_paths,
+                           f"multimeric_chains_{idx}": chains})
 
         if not FLAGS.use_mmseqs2:
             uniprot_runner = create_uniprot_runner(
@@ -344,7 +344,7 @@ def process_multimeric_features(feat, idx):
         else:
             uniprot_runner = None
         pipeline = create_pipeline()
-        curr_monomer = MonomericObject(feat['protein'], feat['sequence'])
+        curr_monomer = MonomericObject(protein, feat['sequence'])
         curr_monomer.uniprot_runner = uniprot_runner
         create_and_save_monomer_objects(curr_monomer, pipeline)
 
