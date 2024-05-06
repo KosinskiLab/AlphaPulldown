@@ -18,13 +18,14 @@ from colabfold.utils import DEFAULT_API_SERVER
 
 from alphapulldown.utils.create_custom_template_db import create_db
 from alphapulldown.objects import MonomericObject
-from alphapulldown.utils.file_handling import iter_seqs,parse_csv_file
-from alphapulldown.utils.modelling_setup import get_run_alphafold,create_uniprot_runner
+from alphapulldown.utils.file_handling import iter_seqs, parse_csv_file
+from alphapulldown.utils.modelling_setup import get_run_alphafold, create_uniprot_runner
 from alphapulldown.utils import save_meta_data
 
 # Initialize and define flags
 run_af = get_run_alphafold()
 flags = run_af.flags
+_check_flag = getattr(run_af, "_check_flag", None)
 
 # All flags
 flags.DEFINE_bool("use_mmseqs2", False,
@@ -168,16 +169,16 @@ def create_pipeline():
     if FLAGS.use_hhsearch:
         logging.info("Will use hhsearch looking for templates")
         template_searcher = hhsearch.HHSearch(
-        binary_path=FLAGS.hhsearch_binary_path,
-        databases=[FLAGS.pdb70_database_path]
+            binary_path=FLAGS.hhsearch_binary_path,
+            databases=[FLAGS.pdb70_database_path]
         )
         template_featuriser = templates.HhsearchHitFeaturizer(
-        mmcif_dir=FLAGS.template_mmcif_dir,
-        max_template_date=FLAGS.max_template_date,
-        max_hits=MAX_TEMPLATE_HITS,
-        kalign_binary_path=FLAGS.kalign_binary_path,
-        release_dates_path=None,
-        obsolete_pdbs_path=FLAGS.obsolete_pdbs_path
+            mmcif_dir=FLAGS.template_mmcif_dir,
+            max_template_date=FLAGS.max_template_date,
+            max_hits=MAX_TEMPLATE_HITS,
+            kalign_binary_path=FLAGS.kalign_binary_path,
+            release_dates_path=None,
+            obsolete_pdbs_path=FLAGS.obsolete_pdbs_path
         )
     else:
         logging.info("Will use hmmsearch looking for templates")
@@ -351,6 +352,7 @@ def process_multimeric_features(feat, idx):
 
 def main(argv):
     del argv  # Unused.
+    _check_flag('use_mmseqs2', 'path_to_mmt', False)  # Can't be both True.
     try:
         Path(FLAGS.output_dir).mkdir(parents=True, exist_ok=True)
     except FileExistsError:
