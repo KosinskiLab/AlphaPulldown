@@ -10,7 +10,7 @@ from absl import logging
 import subprocess
 import os
 import tempfile
-from typing import Any, List, Dict, Tuple
+from typing import Any, List, Dict, Tuple, Union
 import numpy as np
 from itertools import combinations
 import pandas as pd
