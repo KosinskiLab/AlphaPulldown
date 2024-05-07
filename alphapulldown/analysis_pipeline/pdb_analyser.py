@@ -191,7 +191,7 @@ class PDBAnalyser:
             "Polar": ["None"], "Hydrophobic": ["None"], "Charged": ["None"],
             "contact_pairs": ["None"], "sc": ["None"], "hb": ["None"],
             "sb": ["None"], "int_solv_en": ["None"], "int_area": ["None"],
-            "pvalue": ["None"], "pi_score": ["Calculation failed"], "interface": ["None"],
+            "pi_score": ["No interface detected"], "interface": [""],
         })
 
     def _handle_pi_score_error(self, exception: Exception, command: List[str], error_message: str) -> pd.DataFrame:
@@ -235,64 +235,50 @@ class PDBAnalyser:
         try:
             # Run the command in a subprocess, capture stderr
             result = subprocess.run(command, check=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
-            logging.info(f"Subprocess output: {result.stdout.decode('utf-8')}")
+            logging.info(f"python {piscore_script_path} -p {pdb_path} -o {work_dir} -s {surface_thres} -ps 10")
+            logging.info(f"{result.stdout.decode('utf-8')}")
 
             csv_files = [f for f in os.listdir(work_dir) if 'filter_intf_features' in f]
             pi_score_files = [f for f in os.listdir(work_dir) if 'pi_score_' in f]
 
             if not csv_files:
                 raise FileNotFoundError("No filtered interface features file found.")
+            if not pi_score_files:
+                raise FileNotFoundError("No PI score files found.")
 
             filtered_df = pd.read_csv(os.path.join(work_dir, csv_files[0]))
+
+            with open(os.path.join(work_dir, pi_score_files[0]), 'r') as f:
+                #lines = [l for l in f.readlines() if "#" not in l]
+                pi_score = pd.read_csv(os.path.join(work_dir, pi_score_files[0]))
+
+            pi_score['interface'] = pi_score['chains']
+            filtered_df = pd.merge(filtered_df, pi_score, on=['interface'], how='left')
+            filtered_df = filtered_df.drop(columns=["#PDB", "pdb", " pvalue", "chains", "predicted_class"])
 
         except subprocess.CalledProcessError as e:
             error_message = e.stderr.decode('utf-8') if e.stderr else "Unknown subprocess error."
             filtered_df = self._handle_pi_score_error(e, command, error_message)
 
         except pd.errors.EmptyDataError as e:
-            filtered_df = self._handle_pi_score_error(e, command, "No data available in the filtered interface features CSV.")
+            filtered_df = self._handle_pi_score_error(e, command,
+                                                      "No data available in the filtered interface features CSV.")
 
         except FileNotFoundError as e:
-            filtered_df = self._handle_pi_score_error(e, command, "Required files for PI score calculation are missing.")
+            filtered_df = self._handle_pi_score_error(e, command,
+                                                      "Required files for PI score calculation are missing.")
+
+        except pd.errors.ParserError as e:
+            filtered_df = self._handle_pi_score_error(e, command,
+                                                      "Error occurred while parsing the PI score file.")
 
         except Exception as e:
-            filtered_df = self._handle_pi_score_error(e, command, "An unexpected error occurred while calculating the PI score.")
-
-        # Add the 'interface' column if missing
-        if 'interface' not in filtered_df.columns:
-            filtered_df['interface'] = interface_name
+            filtered_df = self._handle_pi_score_error(e, command,
+                                                      "An unexpected error occurred while calculating the PI score.")
 
         if filtered_df.shape[0] == 0:
-            filtered_df['pi_score'] = "No interface detected"
-            filtered_df['interface'] = interface_name
-        else:
-            filtered_df = self.update_df(filtered_df)
-
-            try:
-                if pi_score_files:
-                    with open(os.path.join(work_dir, pi_score_files[0]), 'r') as f:
-                        lines = [l for l in f.readlines() if "#" not in l]
-                        if len(lines) > 0:
-                            pi_score = pd.read_csv(os.path.join(work_dir, pi_score_files[0]))
-                        else:
-                            pi_score = pd.DataFrame.from_dict({"pi_score": ["Too many atoms for calculation"]})
-                else:
-                    pi_score = pd.DataFrame.from_dict({"pi_score": ["Too many atoms for calculation"]})
-
-                pi_score['interface'] = pi_score['chains']
-                filtered_df = pd.merge(filtered_df, pi_score, on=['interface'], how='left')
-
-                try:
-                    filtered_df = filtered_df.drop(columns=["#PDB", "pdb", " pvalue", "chains", "predicted_class"])
-                except KeyError:
-                    logging.warning("Some columns to be dropped were not found in the DataFrame.")
-
-            except pd.errors.EmptyDataError as e:
-                logging.error(f"No data available in the PI score CSV: {e}")
-            except KeyError as e:
-                logging.warning(f"Key error during PI score data merging: {e}")
-            except Exception as e:
-                logging.error(f"An unexpected error occurred while merging the PI score data: {e}")
+            logging.error("Unknown error occurred during PI score calculation.")
+            filtered_df = self._default_dataframe()
 
         return filtered_df
 
