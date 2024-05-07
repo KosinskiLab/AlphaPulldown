@@ -191,7 +191,7 @@ class PDBAnalyser:
             "Polar": ["None"], "Hydrophobic": ["None"], "Charged": ["None"],
             "contact_pairs": ["None"], "sc": ["None"], "hb": ["None"],
             "sb": ["None"], "int_solv_en": ["None"], "int_area": ["None"],
-            "pvalue": ["None"], "pi_score": ["Calculation failed"]
+            "pvalue": ["None"], "pi_score": ["Calculation failed"], "interface": ["None"],
         })
 
     def _handle_pi_score_error(self, exception: Exception, command: List[str], error_message: str) -> pd.DataFrame:
@@ -257,6 +257,10 @@ class PDBAnalyser:
 
         except Exception as e:
             filtered_df = self._handle_pi_score_error(e, command, "An unexpected error occurred while calculating the PI score.")
+
+        # Add the 'interface' column if missing
+        if 'interface' not in filtered_df.columns:
+            filtered_df['interface'] = interface_name
 
         if filtered_df.shape[0] == 0:
             filtered_df['pi_score'] = "No interface detected"
