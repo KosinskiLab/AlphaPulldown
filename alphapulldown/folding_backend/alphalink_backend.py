@@ -97,6 +97,8 @@ class AlphaLinkBackend(FoldingBackend):
                 crosslinks=crosslinks,
                 amber_relax=False # Hard-code amber relax to be false for now. Wait until deepmind fix the issue
             )
+            yield {object_to_model: {"prediction_results": "",
+                                     "output_dir": output_dir}}
 
     def postprocess(**kwargs) -> None:
         return None
