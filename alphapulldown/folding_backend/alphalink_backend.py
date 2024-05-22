@@ -5,10 +5,10 @@
     Author: Valentin Maurer <valentin.maurer@embl-hamburg.de>
             Dingquan Yu <dingquan.yu@embl-hamburg.de>
 """
-from typing import Dict
+from typing import Dict, List, Union
 from os.path import join, exists
 
-from alphapulldown.objects import MultimericObject
+from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
 
 from .folding_backend import FoldingBackend
 
@@ -20,7 +20,6 @@ class AlphaLinkBackend(FoldingBackend):
     @staticmethod
     def setup(
         model_dir: str,
-        crosslinks: str,
         model_name: str = "multimer_af2_crop",
         **kwargs,
     ) -> Dict:
@@ -57,7 +56,6 @@ class AlphaLinkBackend(FoldingBackend):
         configs = model_config(model_name)
 
         return {
-            "crosslinks": crosslinks,
             "param_path": model_dir,
             "configs": configs,
         }
@@ -67,8 +65,7 @@ class AlphaLinkBackend(FoldingBackend):
         configs: Dict,
         param_path: str,
         crosslinks: str,
-        multimeric_object: MultimericObject,
-        output_dir: str,
+        objects_to_model: List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject], str]],
         **kwargs,
     ):
         """
@@ -88,16 +85,18 @@ class AlphaLinkBackend(FoldingBackend):
         """
 
         from unifold.alphalink_inference import alphalink_prediction
-
-        alphalink_prediction(
-            multimeric_object.feature_dict,
-            join(output_dir, multimeric_object.description),
-            input_seqs=multimeric_object.input_seqs,
-            chain_id_map=multimeric_object.chain_id_map,
-            configs=configs,
-            param_path=param_path,
-            crosslinks=crosslinks,
-        )
+        for m in objects_to_model:
+            object_to_model, output_dir = next(iter(m.items()))
+            alphalink_prediction(
+                object_to_model.feature_dict,
+                output_dir,
+                input_seqs=object_to_model.input_seqs,
+                chain_id_map=object_to_model.chain_id_map,
+                configs=configs,
+                param_path=param_path,
+                crosslinks=crosslinks,
+                amber_relax=False # Hard-code amber relax to be false for now. Wait until deepmind fix the issue
+            )
 
     def postprocess(**kwargs) -> None:
         return None
