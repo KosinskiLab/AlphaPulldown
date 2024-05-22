@@ -99,6 +99,15 @@ class AlphaLinkBackend(FoldingBackend):
             )
             yield {object_to_model: {"prediction_results": "",
                                      "output_dir": output_dir}}
+    @staticmethod
+    def postprocess(prediction_results: Dict,
+        multimeric_object: MultimericObject,
+        output_dir: str,
+        features_directory: str,
+        zip_pickles: bool = False,
+        remove_pickles: bool = False,
+        use_gpu_relax: bool = True,
+        pae_plot_style: str = "red_blue",
 
-    def postprocess(**kwargs) -> None:
-        return None
+        **kwargs: Dict):
+        pass
