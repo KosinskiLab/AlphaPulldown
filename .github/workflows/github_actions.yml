@@ -42,6 +42,7 @@ jobs:
           conda activate AlphaPulldown
           conda install -c bioconda hmmer hhsuite
           pip install torch==1.13.0+cu117 --extra-index-url https://download.pytorch.org/whl/cu117
+          pip install setuptools==69.5.1 # Downgrade setuptools to avoid crashes when installing unicore
           git clone https://github.com/dptech-corp/Uni-Core.git
           cd Uni-Core
           python setup.py install --disable-cuda-ext
