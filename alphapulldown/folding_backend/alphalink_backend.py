@@ -332,13 +332,16 @@ class AlphaLinkBackend(FoldingBackend):
 
     @staticmethod
     def postprocess(prediction_results: Dict,
-                    multimeric_object: MultimericObject,
                     output_dir: str,
-                    features_directory: str,
-                    zip_pickles: bool = False,
-                    remove_pickles: bool = False,
-                    use_gpu_relax: bool = True,
-                    pae_plot_style: str = "red_blue",
+                    **kwargs: Dict) -> None:
+        """
+        Post-prediction process that makes AlphaLink2 results within 
+        a sub-directory compatible with the analysis_pipeline
 
-                    **kwargs: Dict):
-        pass
+        Args:
+            prediction_results: A dictionary from predict()
+            output_dir: current corresponding output directory
+        """
+        def create_ranking_debug():
+            """A function to create ranking_debug.json based on the iptm-ptm score"""
+            pass
