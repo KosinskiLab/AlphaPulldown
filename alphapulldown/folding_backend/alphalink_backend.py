@@ -7,8 +7,9 @@
             
 """
 import math, time
+from absl import logging
 from typing import Dict, List, Tuple, Union
-from os import listdir
+from os import listdir, makedirs
 from os.path import join, exists
 import re
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
@@ -24,6 +25,7 @@ from unifold.data.data_ops import get_pairwise_distances
 from unicore.utils import (
     tensor_tree_map,
 )
+logging.set_verbosity(logging.INFO)
 
 RELAX_MAX_ITERATIONS = 0
 RELAX_ENERGY_TOLERANCE = 2.39
@@ -189,11 +191,11 @@ class AlphaLinkBackend(FoldingBackend):
     def predict_iterations(feature_dict, output_dir='', param_path='', input_seqs=[],
                            configs=None, crosslinks='', chain_id_map=None,
                            num_inference=10, resume=True,
-                           cutoff=25):
-        plddts = {}
-        best_out = None
-        best_iptm = 0.0
-        best_seed = None
+                           cutoff=25) -> None:
+        """Modified from 
+            
+        https://github.com/Rappsilber-Laboratory/AlphaLink2/blob/main/inference.py
+        """
         if torch.cuda.is_available():
             model_device = 'cuda:0'
         else:
@@ -292,8 +294,6 @@ class AlphaLinkBackend(FoldingBackend):
 
                     del out
 
-        return best_out, best_seed, plddts
-
     @staticmethod
     def predict(
         configs: Dict,
@@ -317,20 +317,15 @@ class AlphaLinkBackend(FoldingBackend):
         **kwargs : dict
             Additional keyword arguments for prediction.
         """
-
-        from unifold.alphalink_inference import alphalink_prediction
+        logging.warning(f"You chose to model with AlphaLink2 via AlphaPulldown. Please also cite:K.Stahl,O.Brock and J.Rappsilber, Modelling protein complexes with crosslinking mass spectrometry and deep learning, 2023, doi: 10.1101/2023.06.07.544059")
         for m in objects_to_model:
             object_to_model, output_dir = next(iter(m.items()))
-            alphalink_prediction(
-                object_to_model.feature_dict,
-                output_dir,
-                input_seqs=object_to_model.input_seqs,
-                chain_id_map=object_to_model.chain_id_map,
-                configs=configs,
-                param_path=param_path,
-                crosslinks=crosslinks,
-                # Hard-code amber relax to be false for now. Wait until deepmind fix the issue
-                amber_relax=False
+            makedirs(output_dir, exist_ok=True)
+            AlphaLinkBackend.predict_iterations(object_to_model.feature_dict,output_dir,
+                                                configs=configs,crosslinks=crosslinks,
+                                                input_seqs=object_to_model.input_seqs,
+                                                chain_id_map=object_to_model.chain_id_map,
+                                                param_path=param_path,
             )
             yield {object_to_model: {"prediction_results": "",
                                      "output_dir": output_dir}}
