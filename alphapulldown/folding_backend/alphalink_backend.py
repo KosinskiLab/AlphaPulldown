@@ -358,8 +358,8 @@ class AlphaLinkBackend(FoldingBackend):
             
         model_and_qualities = dict()
         all_pdb_files = [i for i in listdir(output_dir) if i.startswith("AlphaLink2_model_") and i.endswith(".pdb")]
-        model_and_qualities.update({k: v for i in all_pdb_files for k, v in obtain_model_names_and_scores(i)})
+        model_and_qualities.update({model_and_values[0]: model_and_values[1] for model_and_values in [obtain_model_names_and_scores(i) for i in all_pdb_files]})
         ranking_debug_json = create_ranking_debug_json(model_and_qualities)
-        with open(join(output_dir, "ranking_debug.json", "w")) as outfile:
+        with open(join(output_dir, "ranking_debug.json"),"w") as outfile:
             outfile.write(ranking_debug_json)
             outfile.close()
