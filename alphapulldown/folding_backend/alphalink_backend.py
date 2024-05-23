@@ -13,6 +13,7 @@ from os import listdir, makedirs
 from os.path import join, exists, splitext
 from shutil import copyfile
 import re, json
+from alphapulldown.folding_backend.alphafold_backend import _save_pae_json_file
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
 from alphapulldown.utils.plotting import plot_pae_from_matrix
 from .folding_backend import FoldingBackend
@@ -150,7 +151,9 @@ class AlphaLinkBackend(FoldingBackend):
         pattern = r'_(\d+\.\d+)\.pdb$'
         curr_pdb_file = [i for i in listdir(output_dir) if i.startswith(
             curr_model_name) and i.endswith(".pdb")]
-        if len(curr_pdb_file) == 1:
+        curr_pae_json = [i for i in listdir(output_dir) if i.startswith(
+            f"pae_{curr_model_name}") and i.endswith(".json")]
+        if len(curr_pdb_file) == 1 and len(curr_pae_json) == 1:
             matched = re.search(pattern, curr_pdb_file[0])
             iptm_value = float(matched.group(1))
             already_exists = True
@@ -258,10 +261,6 @@ class AlphaLinkBackend(FoldingBackend):
                     satisfied = torch.sum(
                         distances[xl[0] & interface[0]] <= cutoff) / 2
                     total_xl = torch.sum(xl & interface) / 2
-                    if np.mean(out["iptm+ptm"]) > best_iptm:
-                        best_iptm = np.mean(out["iptm+ptm"])
-                        best_out = out
-                        best_seed = cur_seed
                     print("Current seed: %d Model %d Crosslink satisfaction: %.3f Model confidence: %.3f" % (
                         cur_seed, it, satisfied / total_xl, np.mean(out["iptm+ptm"])))
                     plddt = out["plddt"]
@@ -276,6 +275,9 @@ class AlphaLinkBackend(FoldingBackend):
                         f"AlphaLink2_model_{it}_seed_{cur_seed}_{iptm_value:.3f}.pdb"
                     )
                     cur_plot_name = f"AlphaLink2_model_{it}_seed_{cur_seed}_{iptm_value:.3f}_pae.png"
+                    # save pae json file
+                    _save_pae_json_file(out['predicted_aligned_error'], str(np.max(out['predicted_aligned_error'])),
+                                        output_dir, f"AlphaLink2_model_{it}_seed_{cur_seed}_{iptm_value:.3f}")
                     # plot PAE
                     plot_pae_from_matrix(input_seqs,
                                          pae_matrix=out['predicted_aligned_error'],
@@ -346,7 +348,7 @@ class AlphaLinkBackend(FoldingBackend):
         def obtain_model_names_and_scores(pdb_file:str):
             pattern = r'AlphaLink2_model_(\d+)_seed_(\d+)_(\d+\.\d+)\.pdb$'
             matched = re.search(pattern, pdb_file)
-            model_index, seed, iptm_value = matched.group(1),matched.group(2),matched.group(3)
+            iptm_value = matched.group(3)
             model_name = splitext(pdb_file)[0]
             return (model_name, float(iptm_value))    
         
