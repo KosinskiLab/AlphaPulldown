@@ -10,7 +10,8 @@ import math, time
 from absl import logging
 from typing import Dict, List, Tuple, Union
 from os import listdir, makedirs
-from os.path import join, exists
+from os.path import join, exists, splitext
+from shutil import copyfile
 import re, json
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
 from alphapulldown.utils.plotting import plot_pae_from_matrix
@@ -346,20 +347,27 @@ class AlphaLinkBackend(FoldingBackend):
             pattern = r'AlphaLink2_model_(\d+)_seed_(\d+)_(\d+\.\d+)\.pdb$'
             matched = re.search(pattern, pdb_file)
             model_index, seed, iptm_value = matched.group(1),matched.group(2),matched.group(3)
-            model_name = f"AlphaLink2_model_{model_index}_seed_{seed}"
+            model_name = splitext(pdb_file)[0]
             return (model_name, float(iptm_value))    
+        
+        def make_ranked_pdb_files(outputdir: str, order: list):
+            for idx, model_name in enumerate(order):
+                new_file_name = join(outputdir, f"ranked_{idx}.pdb")
+                old_file_name = join(outputdir, f"{model_name}.pdb")
+                copyfile(old_file_name, new_file_name)
 
-        def create_ranking_debug_json(model_and_qualities:dict) -> str:
+        def create_ranking_debug_json(model_and_qualities:dict) -> Tuple[tuple, list]:
             """A function to create ranking_debug.json based on the iptm-ptm score"""
             sorted_dict = sorted(model_and_qualities.items(), key=lambda x: x[1], reverse=True)
             order = [i[0] for i in sorted_dict]
             iptm_ptm = [i[1] for i in sorted_dict]
-            return json.dumps({"iptm+ptm": iptm_ptm, "order":order})
+            return json.dumps({"iptm+ptm": iptm_ptm, "order":order}), order
             
         model_and_qualities = dict()
         all_pdb_files = [i for i in listdir(output_dir) if i.startswith("AlphaLink2_model_") and i.endswith(".pdb")]
         model_and_qualities.update({model_and_values[0]: model_and_values[1] for model_and_values in [obtain_model_names_and_scores(i) for i in all_pdb_files]})
-        ranking_debug_json = create_ranking_debug_json(model_and_qualities)
+        ranking_debug_json,order = create_ranking_debug_json(model_and_qualities)
+        make_ranked_pdb_files(output_dir, order)
         with open(join(output_dir, "ranking_debug.json"),"w") as outfile:
             outfile.write(ranking_debug_json)
             outfile.close()
