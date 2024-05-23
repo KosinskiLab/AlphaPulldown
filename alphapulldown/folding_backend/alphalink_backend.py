@@ -11,7 +11,7 @@ from absl import logging
 from typing import Dict, List, Tuple, Union
 from os import listdir, makedirs
 from os.path import join, exists
-import re
+import re, json
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
 from alphapulldown.utils.plotting import plot_pae_from_matrix
 from .folding_backend import FoldingBackend
@@ -342,6 +342,24 @@ class AlphaLinkBackend(FoldingBackend):
             prediction_results: A dictionary from predict()
             output_dir: current corresponding output directory
         """
-        def create_ranking_debug():
+        def obtain_model_names_and_scores(pdb_file:str):
+            pattern = r'AlphaLink2_model_(\d+)_seed_(\d+)_(\d+\.\d+)\.pdb$'
+            matched = re.search(pattern, pdb_file)
+            model_index, seed, iptm_value = matched.group(1),matched.group(2),matched.group(3)
+            model_name = f"AlphaLink2_model_{model_index}_seed_{seed}"
+            return (model_name, float(iptm_value))    
+
+        def create_ranking_debug_json(model_and_qualities:dict) -> str:
             """A function to create ranking_debug.json based on the iptm-ptm score"""
-            pass
+            sorted_dict = sorted(model_and_qualities.items(), key=lambda x: x[1], reverse=True)
+            order = [i[0] for i in sorted_dict]
+            iptm_ptm = [i[1] for i in sorted_dict]
+            return json.dumps({"iptm+ptm": iptm_ptm, "order":order})
+            
+        model_and_qualities = dict()
+        all_pdb_files = [i for i in listdir(output_dir) if i.startswith("AlphaLink2_model_") and i.endswith(".pdb")]
+        model_and_qualities.update({k: v for i in all_pdb_files for k, v in obtain_model_names_and_scores(i)})
+        ranking_debug_json = create_ranking_debug_json(model_and_qualities)
+        with open(join(output_dir, "ranking_debug.json", "w")) as outfile:
+            outfile.write(ranking_debug_json)
+            outfile.close()
