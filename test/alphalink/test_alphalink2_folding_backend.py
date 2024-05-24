@@ -7,8 +7,8 @@ from alphapulldown.folding_backend.alphalink_backend import AlphaLinkBackend
 class TestAlphaLink2Backend(unittest.TestCase):
 
     def setUp(self) -> None:
-        self.monomer1 = pickle.load(open("./test/test_data/H1134_A.pkl",'rb'))
-        self.monomer2 = pickle.load(open("./test/test_data/H1134_B.pkl",'rb'))
+        self.monomer1 = pickle.load(open("./test/test_data/H1142_A.pkl",'rb'))
+        self.monomer2 = pickle.load(open("./test/test_data/H1142_B.pkl",'rb'))
         self.multimericObj = MultimericObject([self.monomer1,self.monomer2])
         self.alphalink2_weights = '/g/alphafold/alphalink_weights/AlphaLink-Multimer_SDA_v3.pt'
         self.xl_info = "./test/test_data/test_xl_input.pkl.gz"
