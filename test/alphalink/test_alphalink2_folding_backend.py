@@ -1,4 +1,5 @@
 import unittest
+import tempfile
 from alphapulldown.objects import MultimericObject
 import pickle
 from alphapulldown.folding_backend.alphalink_backend import AlphaLinkBackend
@@ -14,10 +15,30 @@ class TestAlphaLink2Backend(unittest.TestCase):
         return super().setUp()
     
     def test_1_initialise_folding_backend(self):
+        """Test initialising the backend"""
         beckend = AlphaLinkBackend
-        model_config = beckend.setup(self.alphalink2_weights,
-                                                             self.xl_info)
-        beckend.predict(**model_config,multimeric_object = self.multimericObj,output_dir= "./test/test_data")
+        model_config = beckend.setup(self.alphalink2_weights,crosslinks=self.xl_info)
+    
+    def test_2_test_prediction(self):
+        """Test predicting the structure"""
+        beckend = AlphaLinkBackend
+        model_config = beckend.setup(self.alphalink2_weights,crosslinks=self.xl_info)
+        with tempfile.TemporaryDirectory() as output_dir:
+            objects_to_model = [{self.multimericObj: output_dir}]
+            predicted_jobs = beckend.predict(**model_config, crosslinks=self.xl_info, objects_to_model=objects_to_model)
+            for predicted_job in predicted_jobs:
+                object_to_model, prediction_results = next(iter(predicted_job.items()))
+                beckend.postprocess(prediction_results=prediction_results,
+                                    multimeric_object=object_to_model, 
+                                    output_dir=prediction_results['output_dir'])
+                
+            # test resume 
+            predicted_jobs = beckend.predict(**model_config, crosslinks=self.xl_info, objects_to_model=objects_to_model)
+            for predicted_job in predicted_jobs:
+                object_to_model, prediction_results = next(iter(predicted_job.items()))
+                beckend.postprocess(prediction_results=prediction_results,
+                                    multimeric_object=object_to_model, 
+                                    output_dir=prediction_results['output_dir'])
 
 if __name__ == "__main__":
     unittest.main()
