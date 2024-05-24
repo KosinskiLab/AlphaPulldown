@@ -81,6 +81,7 @@ def parse_bfactor(pdb_file:str) -> np.array:
 def get_best_plddt(work_dir):
     json_path = os.path.join(work_dir,'ranking_debug.json')
     best_model = json.load(open(json_path,'r'))['order'][0]
+    best_plddt = None
     try:
         best_plddt = pickle.load(open(os.path.join(work_dir,"result_{}.pkl".format(best_model)),'rb'))['plddt']
         print(f"Successfully parsed plddt values")
@@ -93,11 +94,13 @@ def get_best_plddt(work_dir):
             print("Compressed result pickle for the best model not found. Now parse bfactors of ranked_0.pdb.")
             # meaning neither pkl nor pkl.gz file exists, will parse bfactor from ranked_0.pdb as plddt
             try:
-                os.path.exists(os.path.join(work_dir, "ranked_0.pdb"))
-                best_plddt = parse_bfactor(os.path.join(work_dir, "ranked_0.pdb"))
-                print(f"Successfully parsed plddt values")
+                if os.path.exists(os.path.join(work_dir, "ranked_0.pdb")):
+                    best_plddt = parse_bfactor(os.path.join(work_dir, "ranked_0.pdb"))
+                    print(f"Successfully parsed plddt values")
+                else:
+                    raise FileNotFoundError
             except FileNotFoundError:
-                print(f"ranked_0.pdb not found in {work_dir}. Failed to parse information of pLDDT scores of the best model. The programme will end.")
+                print(f"ranked_0.pdb not found in {work_dir}. Failed to parse information of pLDDT scores of the best model. The programme will crash.")
     return best_plddt
 
 def read_plddt(best_plddt, chain_CA_inds):
