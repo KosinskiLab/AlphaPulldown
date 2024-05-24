@@ -2,6 +2,8 @@ import unittest
 import tempfile
 from alphapulldown.objects import MultimericObject
 import pickle
+from os import remove, listdir
+from os.path import join
 from alphapulldown.folding_backend.alphalink_backend import AlphaLinkBackend
 
 class TestAlphaLink2Backend(unittest.TestCase):
@@ -33,6 +35,16 @@ class TestAlphaLink2Backend(unittest.TestCase):
                                     output_dir=prediction_results['output_dir'])
                 
             # test resume 
+            predicted_jobs = beckend.predict(**model_config, crosslinks=self.xl_info, objects_to_model=objects_to_model)
+            for predicted_job in predicted_jobs:
+                object_to_model, prediction_results = next(iter(predicted_job.items()))
+                beckend.postprocess(prediction_results=prediction_results,
+                                    multimeric_object=object_to_model, 
+                                    output_dir=prediction_results['output_dir'])
+                
+            # test resume after removing one pdb file
+            file_to_remove =[i for i in listdir(output_dir) if i.startswith('AlphaLink2_model_3_seed') and i.endswith(".pdb")][0]
+            remove(join(output_dir, file_to_remove))
             predicted_jobs = beckend.predict(**model_config, crosslinks=self.xl_info, objects_to_model=objects_to_model)
             for predicted_job in predicted_jobs:
                 object_to_model, prediction_results = next(iter(predicted_job.items()))
