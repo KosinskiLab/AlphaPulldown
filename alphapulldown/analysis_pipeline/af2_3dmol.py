@@ -77,7 +77,7 @@ def parse_results(output, color=None, models=5, multimer=False):
         view.addModel(bio2pdbstring(bio_array[0]), "pdb", viewer=viewer)
         view.zoomTo(viewer=viewer)
         set_3dmol_styles(
-            view, viewer, chain_ids=[_.id for _ in _ph.chains()], color="chain"
+            view, viewer, chain_ids=chain_ids, color="chain"
         )
 
         viewer = (0, 1)
@@ -87,7 +87,7 @@ def parse_results(output, color=None, models=5, multimer=False):
         view.addModel(bio2pdbstring(bio_array[0]), "pdb", viewer=viewer)
         view.zoomTo(viewer=viewer)
         set_3dmol_styles(
-            view, viewer, chain_ids=[_.id for _ in _ph.chains()], color="lDDT"
+            view, viewer, chain_ids=chain_ids, color="lDDT"
         )
 
     else:
