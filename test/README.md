@@ -2,12 +2,9 @@
 
 ## tests that need to run with AlphaFold DBs and CPUs:
 
-<li>
-  1st move one level above the ```test/``` folder, e.g. within the ```AlphaPulldown``` folder 
-</li> 
-<li>
-  2nd run:
-</li>
+1st move one level above the ```test/``` folder, e.g. within the ```AlphaPulldown``` folder 
+
+2nd run:
 
 ```bash
 sbatch test/run_tests_on_cpu.sh <your conda environment e.g. AlphaPulldown>
