@@ -52,13 +52,13 @@ jobs:
           cd Uni-Core
           python setup.py install --disable-cuda-ext
           cd ../
-          python test/test_python_imports.py
+          python test/github_CI_tests/test_python_imports.py
       - if: matrix.install-type == 'developer'
         run: |
           eval "$(conda shell.bash hook)"
           conda activate AlphaPulldown
-          pytest -s test/test_custom_db.py
-          pytest -s test/test_remove_clashes_low_plddt.py
+          pytest -s test/github_CI_tests/test_custom_db.py
+          pytest -s test/github_CI_tests/test_remove_clashes_low_plddt.py
 
   build-fold-container:
     if: github.event_name == 'release' && github.event.action == 'published'
