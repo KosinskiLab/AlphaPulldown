@@ -68,16 +68,11 @@ def parse_bfactor(pdb_file:str) -> np.array:
     for model in structure:
         for chain in model:
             for residue in chain:
-                # Initialize variables to calculate the average B-factor for the residue
                 bfactor_sum = 0
                 atom_count = 0
-                
-                # Iterate through the atoms in the residue
                 for atom in residue:
                     bfactor_sum += atom.get_bfactor()
                     atom_count += 1
-                
-                # Calculate the average B-factor for the residue
                 if atom_count > 0:
                     avg_bfactor = bfactor_sum / atom_count
                     residue_bfactors.append(avg_bfactor)
