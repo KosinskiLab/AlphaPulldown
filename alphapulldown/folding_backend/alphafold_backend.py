@@ -299,10 +299,14 @@ class AlphaFoldBackend(FoldingBackend):
                     output_dir, f"unrelaxed_{model_name}.pdb")
                 result_output_path = os.path.join(
                     output_dir, f"result_{model_name}.pkl")
-                if os.path.exists(unrelaxed_pdb_path) and os.path.exists(result_output_path):
+                if os.path.exists(unrelaxed_pdb_path) or os.path.exists(result_output_path):
                     START = model_index + 1
                 else:
                     break
+        if START == len(model_runners):
+            logging.info(
+                f"All predictions for {multimeric_object.description} are already completed.")
+            return prediction_results
         # first check whether the desired num_res and num_msa are specified for padding
         desired_num_res, desired_num_msa = kwargs.get(
             "desired_num_res", None), kwargs.get("desired_num_msa", None)
@@ -321,6 +325,8 @@ class AlphaFoldBackend(FoldingBackend):
             if model_index < START:
                 result_output_path = os.path.join(
                     output_dir, f"result_{model_name}.pkl")
+                if not os.path.exists(result_output_path):
+                    continue
                 with open(result_output_path, "rb") as f:
                     prediction_result = pickle.load(f)
                     # Update prediction_result with input seqs and unrelaxed protein
@@ -345,6 +351,7 @@ class AlphaFoldBackend(FoldingBackend):
             if skip_templates:
                 _reset_template_features(processed_feature_dict)
             timings[f"process_features_{model_name}"] = time.time() - t_0
+            print("AAA")
             # Die if --multimeric_mode=True but no non-zero templates are in the feature dict
             if multimeric_mode:
                 if "template_all_atom_positions" in processed_feature_dict:

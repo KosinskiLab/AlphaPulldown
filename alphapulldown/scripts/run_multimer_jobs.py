@@ -71,7 +71,6 @@ def main(argv):
         "--num_cycle": FLAGS.num_cycle,
         "--num_predictions_per_model": FLAGS.num_predictions_per_model,
         "--data_directory": model_dir,
-        "--features_directory": FLAGS.monomer_objects_dir,
         "--pair_msa": FLAGS.pair_msa,
         "--msa_depth_scan": FLAGS.msa_depth_scan,
         "--multimeric_template": FLAGS.multimeric_template,
@@ -88,7 +87,7 @@ def main(argv):
         "--protein_delimiter": FLAGS.protein_delimiter,
         "--desired_num_res": FLAGS.desired_num_res,
         "--desired_num_msa": FLAGS.desired_num_msa,
-        "--models_to_relax": FLAGS.models_to_relax
+        "--models_to_relax": FLAGS.models_to_relax,
     }
 
     command_args = {}
@@ -104,6 +103,9 @@ def main(argv):
             command_args[k] = " ".join([str(x) for x in v])
         else:
             command_args[k] = v
+    if hasattr(FLAGS, 'monomer_objects_dir'):
+        for features_dir in FLAGS.monomer_objects_dir:
+            command_args.setdefault("--features_directory", []).append(features_dir)
 
     job_indices = list(range(len(all_folds)))
     if FLAGS.job_index is not None:
@@ -127,7 +129,11 @@ def main(argv):
             command_args["--input"] = all_folds[job_index]
             command = base_command.copy()
             for arg, value in command_args.items():
+                if arg == "--features_directory":
+                    continue  # Skip here, handle below
                 command.extend([str(arg), str(value)])
+            for features_dir in FLAGS.monomer_objects_dir:
+                command.extend(["--features_directory", features_dir])
             subprocess.run(" ".join(command), check=True, shell=True)
 
 
