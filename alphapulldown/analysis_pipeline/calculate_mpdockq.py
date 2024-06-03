@@ -5,7 +5,7 @@ import pickle,gzip
 import json
 from collections import defaultdict
 import math
-
+from Bio.PDB import PDBParser
 ################FUNCTIONS#################
 def parse_atm_record(line):
     '''Get the atm record
@@ -61,16 +61,46 @@ def read_pdb(pdbfile):
 
     return pdb_chains, chain_coords, chain_CA_inds, chain_CB_inds
 
+def parse_bfactor(pdb_file:str) -> np.array:
+    parser = PDBParser()
+    structure = parser.get_structure('PDB_structure', pdb_file)
+    residue_bfactors = []
+    for model in structure:
+        for chain in model:
+            for residue in chain:
+                bfactor_sum = 0
+                atom_count = 0
+                for atom in residue:
+                    bfactor_sum += atom.get_bfactor()
+                    atom_count += 1
+                if atom_count > 0:
+                    avg_bfactor = bfactor_sum / atom_count
+                    residue_bfactors.append(avg_bfactor)
+    return np.array(residue_bfactors)
+
 def get_best_plddt(work_dir):
     json_path = os.path.join(work_dir,'ranking_debug.json')
     best_model = json.load(open(json_path,'r'))['order'][0]
+    best_plddt = None
     try:
         best_plddt = pickle.load(open(os.path.join(work_dir,"result_{}.pkl".format(best_model)),'rb'))['plddt']
+        print(f"Successfully parsed plddt values")
     except FileNotFoundError:
-        print("result pickle for the best model not found. Now search for zipped pickle.")
-        best_plddt = pickle.load(gzip.open(os.path.join(work_dir,"result_{}.pkl.gz".format(best_model)),'rb'))['plddt']
-    finally:
-        print(f"finished obtainined the plddt values.")
+        print("Result pickle for the best model not found. Now search for zipped pickle.")
+        try:
+            best_plddt = pickle.load(gzip.open(os.path.join(work_dir,"result_{}.pkl.gz".format(best_model)),'rb'))['plddt']
+            print(f"Successfully parsed plddt values")
+        except FileNotFoundError:
+            print("Compressed result pickle for the best model not found. Now parse bfactors of ranked_0.pdb.")
+            # meaning neither pkl nor pkl.gz file exists, will parse bfactor from ranked_0.pdb as plddt
+            try:
+                if os.path.exists(os.path.join(work_dir, "ranked_0.pdb")):
+                    best_plddt = parse_bfactor(os.path.join(work_dir, "ranked_0.pdb"))
+                    print(f"Successfully parsed plddt values")
+                else:
+                    raise FileNotFoundError
+            except FileNotFoundError:
+                print(f"ranked_0.pdb not found in {work_dir}. Failed to parse information of pLDDT scores of the best model. The programme will crash.")
     return best_plddt
 
 def read_plddt(best_plddt, chain_CA_inds):
