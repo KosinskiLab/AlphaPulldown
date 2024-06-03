@@ -10,6 +10,7 @@ import warnings
 import subprocess
 from absl import app, logging, flags
 import os
+import sys
 from alphapulldown.scripts.run_structure_prediction import FLAGS
 from alphapulldown.utils.create_combinations import process_files
 
@@ -30,12 +31,15 @@ flags.DEFINE_enum("unifold_model_name", "multimer_af2",
                   ["multimer_af2", "multimer_ft", "multimer", "multimer_af2_v3", "multimer_af2_model45_v3"],
                   "choose unifold model structure")
 flags.DEFINE_integer("job_index", None, "index of sequence in the fasta file, starting from 1")
+flags.DEFINE_boolean("dry_run", False, "Report number of jobs that would be run and exit without running them")
+
 #Different flag names from alphafold
 flags.DEFINE_list("monomer_objects_dir", None, "a list of directories where monomer objects are stored")
 flags.DEFINE_string("output_path", None, "output directory where the region data is going to be stored")
 flags.DEFINE_string("data_dir", None, "Path to params directory")
 del(FLAGS.models_to_relax)
-flags.DEFINE_enum("models_to_relax",'None',['None','All','Best'], "Which models to relax. Default is None, mening no model will be relaxed")
+flags.DEFINE_enum("models_to_relax",'None',['None','All','Best'],
+                  "Which models to relax. Default is None, meaning no model will be relaxed")
 
 def main(argv):
     FLAGS(argv)
@@ -55,7 +59,9 @@ def main(argv):
     all_folds = buffer.readlines()
     all_folds = [x.strip().replace(",", ":") for x in all_folds]
     all_folds = [x.strip().replace(";", "+") for x in all_folds]
-
+    if FLAGS.dry_run:
+        logging.info(f"Dry run: the total number of jobs to be run: {len(all_folds)}")
+        sys.exit(0)
     parent_dir = os.path.dirname(os.path.abspath(__file__))
     base_command = [f"python3 {parent_dir}/run_structure_prediction.py"]
 
