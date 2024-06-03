@@ -327,11 +327,11 @@ Chrome user may not be able to download it after clicking the link. If so, pleas
 
 Then execute the singularity image (i.e. the sif file) by:
 
-```
+```bash
 singularity exec \
     --no-home \
     --bind /path/to/your/output/dir:/mnt \
-    <path to your downloaded image>/alpha-analysis_0.4.sif \
+    <path to your downloaded image>/alpha-analysis_jax_0.4.sif \
     run_get_good_pae.sh \
     --output_dir=/mnt \
     --cutoff=10
