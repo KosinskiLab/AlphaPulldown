@@ -39,7 +39,7 @@ flags.DEFINE_string("output_path", None, "output directory where the region data
 flags.DEFINE_string("data_dir", None, "Path to params directory")
 del(FLAGS.models_to_relax)
 flags.DEFINE_enum("models_to_relax",'None',['None','All','Best'],
-                  "Which models to relax. Default is None, mening no model will be relaxed")
+                  "Which models to relax. Default is None, meaning no model will be relaxed")
 
 def main(argv):
     FLAGS(argv)
