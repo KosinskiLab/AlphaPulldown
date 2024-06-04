@@ -30,11 +30,10 @@ class PDBAnalyser:
 
     def __init__(self, pdb_file_path: str) -> None:
         self.pdb_file_path = pdb_file_path
-        self.pdb_pandas = PandasPdb().read_pdb(pdb_file_path)
-
         if not os.path.exists(os.path.join(pdb_file_path)):
-            raise FileNotFoundError(f"ranked_0.pdb not found in {os.path.abspath(pdb_file_path)}. Please remove this folder and rerun the pipeline again.")
+            raise FileNotFoundError(f"ranked_0.pdb not found in this folder. Please remove this folder and rerun the pipeline again.")
         else:
+            self.pdb_pandas = PandasPdb().read_pdb(pdb_file_path)
             self.pdb = PDBParser().get_structure("ranked_0", pdb_file_path)[0]
         
         self.pdb_df = self.pdb_pandas.df['ATOM']
@@ -327,12 +326,6 @@ class PDBAnalyser:
         pi_score_df = self.run_and_summarise_pi_score(
                 pi_score_output_dir, self.pdb_file_path, interface_name=interface)
         return pi_score_df
-    
-    def fix_typo_in_pi_score_df(self, input_df : pd.DataFrame) -> pd.DataFrame:
-        """This method will fix the typo in the Hydrophobhic column"""
-        if "Hydrophobhic" in input_df.columns:
-            input_df.rename(columns={"Hydrophobhic" : "Hydrophobic"})
-        return input_df
 
     def __call__(self, pi_score_output_dir: str, pae_mtx: np.ndarray, plddt: Dict[str, List[float]], cutoff: float = 12) -> Any:
         """
@@ -359,17 +352,27 @@ class PDBAnalyser:
                 pi_score_df = self.calculate_pi_score(pi_score_output_dir,
                                                       interface=f"{chain_1_id}_{chain_2_id}")
                 pi_score_df = self.update_df(pi_score_df)
-                pi_score_df = self.fix_typo_in_pi_score_df(pi_score_df)
                 chain_1_plddt, chain_2_plddt = plddt[chain_1_id], plddt[chain_2_id]
                 interface_residues = self.obtain_interface_residues(
                     chain_1_df, chain_2_df, cutoff=cutoff)
                 if interface_residues is not None:
-                    average_interface_pae = self.calculate_average_pae(pae_mtx, chain_1_id, chain_2_id,
+                    try:
+                        average_interface_pae = self.calculate_average_pae(pae_mtx, chain_1_id, chain_2_id,
                                                                        interface_residues[0], interface_residues[1])
-                    binding_energy = self.calculate_binding_energy(
+                    except Exception as e:
+                        logging.error(f"Error while calculating the average PAE values of the interface residues: {e}")
+                        average_interface_pae = 'None'
+                    try:
+                        binding_energy = self.calculate_binding_energy(
                         chain_1_id, chain_2_id)
-                    average_interface_plddt = self.calculate_average_plddt(chain_1_plddt, chain_2_plddt,
+                    except Exception as e:
+                        logging.error(f"Error while calculating the binding energy using pyRosetta: {e}")
+                        binding_energy = 'None'
+                    try:
+                        average_interface_plddt = self.calculate_average_plddt(chain_1_plddt, chain_2_plddt,
                                                                            interface_residues[0], interface_residues[1])
+                    except Exception as e:
+                        logging.error(f"Error while calculating the average pLDDT values of the interface residues: {e}")
                 else:
                     average_interface_pae = "No interface residues detected"
                     average_interface_plddt = "No interface residues detected"
