@@ -14,6 +14,7 @@ After you initialise the same conda environment, where you normally run AlphaPul
 ```bash
 git clone https://github.com/dptech-corp/Uni-Core.git
 cd Uni-Core
+pip install setuptools==69.5.1 # avoid crashes brought by setuptools v70.x
 python setup.py install --disable-cuda-ext
 
 # test whether unicore is successfully installed
