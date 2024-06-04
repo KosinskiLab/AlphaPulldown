@@ -117,37 +117,6 @@ def _reset_template_features(feature_dict: Dict) -> None:
             feature_dict[key] = np.ones_like(value)
 
 
-def _read_from_prediction_result(output_dir: str, model_name: str, prediction_results: Dict) -> None:
-    """
-    Read prediction result from pkl and updates with the sequence and protein, if not present.
-    Parameters:
-    output_dir (str): The output directory with predictions;.
-    model_name (str): The name of the AF model that generated predictions.
-    prediction_results (Dict[str, Dict]): Individual predictions for each model.
-    """
-    result_output_path = os.path.join(output_dir, f"result_{model_name}.pkl")
-    with open(result_output_path, "rb") as f:
-        prediction_result = pickle.load(f)
-        # Update prediction_result with input seqs and unrelaxed protein
-        if "seqs" not in prediction_result.keys():
-            prediction_result.update(
-                {"seqs": multimeric_object.input_seqs if hasattr(multimeric_object,"input_seqs") else [multimeric_object.sequence]})
-        if "unrelaxed_protein" not in prediction_result.keys():
-            plddt_b_factors = np.repeat(
-                prediction_result['plddt'][:,
-                                            None], residue_constants.atom_type_num, axis=-1
-            )
-            unrelaxed_protein = protein.from_prediction(
-                features=processed_feature_dict,
-                result=prediction_result,
-                b_factors=plddt_b_factors,
-                remove_leading_feature_dimension=not model_runner.multimer_mode,
-            )
-            prediction_result.update(
-                {"unrelaxed_protein": unrelaxed_protein})
-    prediction_results.update({model_name: prediction_result})
-
-
 class AlphaFoldBackend(FoldingBackend):
     """
     A backend to perform structure prediction using AlphaFold.
@@ -319,19 +288,41 @@ class AlphaFoldBackend(FoldingBackend):
         prediction_results = {}
         START = 0
         multimeric_mode = multimeric_object.multimeric_mode if hasattr(multimeric_object, "multimeric_mode") else None
-        t_0 = time.time()
         original_feature_dict = copy(multimeric_object.feature_dict)
-        total_num_res = sum([len(s) for s in multimeric_object.input_seqs]) if hasattr(multimeric_object, "input_seqs") else len(multimeric_object.sequence)
         if allow_resume:
             logging.info(
             f"Now running predictions on {multimeric_object.description}. Checking existing results...")
             for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
-                unrelaxed_pdb_path = os.path.join(
-                    output_dir, f"unrelaxed_{model_name}.pdb")
-                result_output_path = os.path.join(
-                    output_dir, f"result_{model_name}.pkl")
-                if os.path.exists(unrelaxed_pdb_path) and os.path.exists(result_output_path): #If --remove_result_pickle=True the predictions are done anew.
-                    _read_from_prediction_result(output_dir, model_name, prediction_results)
+                unrelaxed_pdb_path = os.path.join(output_dir, f"unrelaxed_{model_name}.pdb")
+                result_output_path = os.path.join(output_dir, f"result_{model_name}.pkl")
+                # If --remove_result_pickle=True the predictions are done anew.
+                if os.path.exists(unrelaxed_pdb_path) and os.path.exists(result_output_path):
+                    result_output_path = os.path.join(output_dir, f"result_{model_name}.pkl")
+                    with open(result_output_path, "rb") as f:
+                        prediction_result = pickle.load(f)
+                        # Update prediction_result with input seqs and unrelaxed protein
+                        if "seqs" not in prediction_result.keys():
+                            prediction_result.update(
+                                {"seqs": multimeric_object.input_seqs if hasattr(multimeric_object, "input_seqs") else [
+                                    multimeric_object.sequence]})
+                        if "unrelaxed_protein" not in prediction_result.keys():
+                            plddt_b_factors = np.repeat(
+                                prediction_result['plddt'][:,
+                                None], residue_constants.atom_type_num, axis=-1
+                            )
+                            model_random_seed = model_index + random_seed * len(model_runners)
+                            processed_feature_dict = model_runner.process_features(
+                                original_feature_dict, random_seed=model_random_seed
+                            )
+                            unrelaxed_protein = protein.from_prediction(
+                                features=processed_feature_dict,
+                                result=prediction_result,
+                                b_factors=plddt_b_factors,
+                                remove_leading_feature_dimension=not model_runner.multimer_mode,
+                            )
+                            prediction_result.update(
+                                {"unrelaxed_protein": unrelaxed_protein})
+                    prediction_results.update({model_name: prediction_result})
                     START = model_index + 1
                 else:
                     break
@@ -342,7 +333,8 @@ class AlphaFoldBackend(FoldingBackend):
         # first check whether the desired num_res and num_msa are specified for padding
         desired_num_res, desired_num_msa = kwargs.get(
             "desired_num_res", None), kwargs.get("desired_num_msa", None)
-        if (desired_num_res is not None) and (desired_num_msa is not None) and type(multimeric_object) == MultimericObject:
+        if ((desired_num_res is not None) and (desired_num_msa is not None) and
+                type(multimeric_object) == MultimericObject):
             # This means padding is required to speed up the process
             pad_input_features(feature_dict=original_feature_dict,
                                desired_num_msa=desired_num_msa, desired_num_res=desired_num_res)
@@ -350,6 +342,7 @@ class AlphaFoldBackend(FoldingBackend):
         num_models = len(model_runners)
         # Predict
         for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
+            t_0 = time.time()
             model_random_seed = model_index + random_seed * num_models
             processed_feature_dict = model_runner.process_features(
                 original_feature_dict, random_seed=model_random_seed
