@@ -11,7 +11,7 @@
     source activate AlphaPulldown
     cd AlphaPulldown
     pip install .
-    pip install -e alphapulldown/ColabFold --no-deps
+    pip install -e ColabFold --no-deps
     pip install -e alphafold --no-deps
     ```
     You need to do it only once.
