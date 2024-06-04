@@ -14,6 +14,9 @@ After you initialise the same conda environment, where you normally run AlphaPul
 ```bash
 git clone https://github.com/dptech-corp/Uni-Core.git
 cd Uni-Core
+pip install torch==1.13.0+cu117 --extra-index-url https://download.pytorch.org/whl/cu117
+pip install setuptools==69.5.1 # Downgrade setuptools to avoid crashes when installing unicore
+git clone https://github.com/dptech-corp/Uni-Core.git
 pip install setuptools==69.5.1 # avoid crashes brought by setuptools v70.x
 python setup.py install --disable-cuda-ext
 
@@ -29,10 +32,6 @@ fused_rounding is not installed corrected
 fused_layer_norm is not installed corrected
 fused_softmax is not installed corrected
 ```
-
-Next, make sure you have PyTorch corresponding to the CUDA version installed. For example, [PyTorch 1.13.0+cu117](https://pytorch.org/get-started/previous-versions/) 
-and CUDA/11.7.0 
-
 ## 2nd step: download AlphaLink2 checkpoint 
 
 Now please download the PyTorch checkpoints from [Zenodo](https://zenodo.org/records/8007238), unzip it, then you should obtain a file named: ```AlphaLink-Multimer_SDA_v3.pt```
