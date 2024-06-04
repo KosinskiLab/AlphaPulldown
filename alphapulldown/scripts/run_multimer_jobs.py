@@ -107,7 +107,7 @@ def main(argv):
         elif v is True:
             command_args[k] = ""
         elif isinstance(v, list):
-            command_args[k] = " ".join([str(x) for x in v])
+            command_args[k] = ",".join([str(x) for x in v])
         else:
             command_args[k] = v
 
