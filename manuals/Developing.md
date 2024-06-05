@@ -10,7 +10,8 @@
     ```
     source activate AlphaPulldown
     cd AlphaPulldown
-    pip install .
+    pip install -e .
+    cp alphapulldown/package_data/stereo_chemical_props.txt alphafold/alphafold/common/
     pip install -e ColabFold --no-deps
     pip install -e alphafold --no-deps
     ```
