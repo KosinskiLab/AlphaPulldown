@@ -108,50 +108,67 @@ def main(argv):
     pi_score_output_path = os.path.join(FLAGS.output_dir, "pi_score_outputs")
     os.makedirs(pi_score_output_path,exist_ok=True)
     for job in jobs:
-        count = count + 1
-        logging.info(f"now processing {job}")
-        if os.path.isfile(os.path.join(FLAGS.output_dir, job, 'ranking_debug.json')):
-            pdb_analyser = PDBAnalyser(os.path.join(
-                FLAGS.output_dir, job, "ranked_0.pdb"))         
-            result_subdir = os.path.join(FLAGS.output_dir, job)
-            best_model = json.load(
-                open(os.path.join(result_subdir, "ranking_debug.json"), 'r'))['order'][0]
-            data = json.load(
-                open(os.path.join(result_subdir, "ranking_debug.json"), 'r'))
+        try:
+            count += 1
+            logging.info(f"now processing {job}")
+            ranking_debug_path = os.path.join(FLAGS.output_dir, job, 'ranking_debug.json')
             
-            if "iptm" in data.keys() and "iptm+ptm" in data.keys():
-                iptm_ptm_score = data['iptm+ptm'][best_model]
-                pae_mtx, iptm_score = obtain_pae_and_iptm(
-                    result_subdir, best_model)
-                seq_lengths = obtain_seq_lengths(result_subdir)
-                check = examine_inter_pae(
-                    pae_mtx, seq_lengths, cutoff=FLAGS.cutoff)
-                mpDockq_score, plddt_per_chain = obtain_mpdockq(
-                    os.path.join(FLAGS.output_dir, job))
-                if check:
-                    good_jobs.append(job)
-                    score_df = pdb_analyser(
-                        os.path.join(pi_score_output_path, job),pae_mtx, plddt_per_chain)
-                    score_df['jobs']=job
-                    score_df['iptm_ptm'] = iptm_ptm_score
-                    score_df['iptm'] = iptm_score
-                    score_df['pDockQ/mpDockQ'] = mpDockq_score
-                    for i in ['pDockQ/mpDockQ', 'iptm', 'iptm_ptm','jobs']:
-                        score_df.insert(0, i, score_df.pop(i))
-                    output_df = pd.concat([score_df,output_df])
-        else:
-            logging.warning(f"{job} does not have ranking_debug.json. Skipped.")
-        logging.info(
-            f"done for {job} {count} out of {len(jobs)} finished.")
+            if os.path.isfile(ranking_debug_path):
+                try:
+                    pdb_analyser = PDBAnalyser(os.path.join(FLAGS.output_dir, job, "ranked_0.pdb"))
+                    result_subdir = os.path.join(FLAGS.output_dir, job)
+                    
+                    with open(ranking_debug_path, 'r') as f:
+                        ranking_data = json.load(f)
+                    try:
+                        best_model = ranking_data['order'][0]
+                        data = ranking_data
+
+                        if "iptm" in data and "iptm+ptm" in data:
+                            iptm_ptm_score = data['iptm+ptm'][best_model]
+                            
+                            try:
+                                pae_mtx, iptm_score = obtain_pae_and_iptm(result_subdir, best_model)
+                                seq_lengths = obtain_seq_lengths(result_subdir)
+                                check = examine_inter_pae(pae_mtx, seq_lengths, cutoff=FLAGS.cutoff)
+                                mpDockq_score, plddt_per_chain = obtain_mpdockq(os.path.join(FLAGS.output_dir, job))
+                                
+                                if check:
+                                    good_jobs.append(job)
+                                    score_df = pdb_analyser(os.path.join(pi_score_output_path, job), pae_mtx, plddt_per_chain)
+                                    score_df['jobs'] = job
+                                    score_df['iptm_ptm'] = iptm_ptm_score
+                                    score_df['iptm'] = iptm_score
+                                    score_df['pDockQ/mpDockQ'] = mpDockq_score
+                                    
+                                    for i in ['pDockQ/mpDockQ', 'iptm', 'iptm_ptm', 'jobs']:
+                                        score_df.insert(0, i, score_df.pop(i))
+                                        
+                                    output_df = pd.concat([score_df, output_df])
+                            except Exception as e:
+                                logging.error(f"Error processing PAE and iPTM for job {job}: {e}")
+                    except Exception as e:
+                        logging.error(f"Error getting the best model name from ranking_debug.json for job :{job} : {e}")
+                except Exception as e:
+                    logging.error(f"Error processing ranking_debug.json for job {job}: {e}")
+            else:
+                logging.warning(f"{job} does not have ranking_debug.json. Skipped.")
+        except Exception as e:
+            logging.error(f"Error processing job {job}: {e}")
+        finally:
+            logging.info(f"done for {job} {count} out of {len(jobs)} finished.")
+
     if len(good_jobs) == 0:
         logging.info(
             f"Unfortunately, none of your protein models had at least one PAE on the interface below your cutoff value : {FLAGS.cutoff}.\n Please consider using a larger cutoff.")
     else:
-        unwanted_columns = ['pi_score','pdb',' pvalue']
+        unwanted_columns = ['pdb',' pvalue', 'pvalue']
         for c in unwanted_columns:
             if c in output_df:
                 output_df = output_df.drop(columns=c)
         output_df = output_df.sort_values(by='iptm', ascending= False)
+        if "Hydrophobhic" in output_df.columns:
+            output_df = output_df.rename(columns={"Hydrophobhic" : "Hydrophobic"})
         output_df.to_csv(os.path.join(FLAGS.output_dir,"predictions_with_good_interpae.csv"),index=False)
 
 if __name__ == '__main__':

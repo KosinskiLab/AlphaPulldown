@@ -30,8 +30,12 @@ class PDBAnalyser:
 
     def __init__(self, pdb_file_path: str) -> None:
         self.pdb_file_path = pdb_file_path
-        self.pdb_pandas = PandasPdb().read_pdb(pdb_file_path)
-        self.pdb = PDBParser().get_structure("ranked_0", pdb_file_path)[0]
+        if not os.path.exists(os.path.join(pdb_file_path)):
+            raise FileNotFoundError(f"ranked_0.pdb not found in this folder. Please remove this folder and rerun the pipeline again.")
+        else:
+            self.pdb_pandas = PandasPdb().read_pdb(pdb_file_path)
+            self.pdb = PDBParser().get_structure("ranked_0", pdb_file_path)[0]
+        
         self.pdb_df = self.pdb_pandas.df['ATOM']
         self.chain_combinations = {}
         self.get_all_combinations_of_chains()
@@ -148,13 +152,51 @@ class PDBAnalyser:
             plddt_sum += chain_2_plddt[j]
 
         return plddt_sum / total_num
+    
+    def _default_dataframe(self) -> pd.DataFrame:
+        """
+        Returns a default DataFrame when PI score calculation fails.
+
+        Returns:
+            pd.DataFrame: Default DataFrame.
+        """
+        return pd.DataFrame({
+            "pdb": ["None"], "Num_intf_residues": ["None"],
+            "Polar": ["None"], "Hydrophobhic": ["None"], "Charged": ["None"],
+            "contact_pairs": ["None"], " sc": ["None"], " hb": ["None"],
+            " sb": ["None"], " int_solv_en": ["None"], " int_area": ["None"],
+            "pvalue": ["None"], "pi_score": ["Calculation failed"], "interface": ["None"],
+        })
+
+    def _handle_pi_score_error(self, exception: Exception, command: List[str], error_message: str) -> pd.DataFrame:
+        """Helper method for handling PI score errors with appropriate logging."""
+        logging.error(f"PI score calculation failed: {exception}. Command: {command}. Error: {error_message}")
+        return self._default_dataframe()
 
     def update_df(self, input_df):
-        for interface in input_df.interface:
-            chain_1, chain_2 = interface.split("_")
-            subdf = input_df[input_df['interface'] == interface]
-            subdf['interface'] = f"{chain_2}_{chain_1}"
-            output_df = pd.concat([input_df, subdf])
+        """
+        This method update the dataframe with reversed interfaces
+        
+        e.g. the calculated columns of interface B_C will be copied to C_B
+        """
+        reversed_rows = []
+        for interface in input_df['interface'].unique():
+            try:
+                chain_1, chain_2 = interface.split("_")
+                reversed_interface = f"{chain_2}_{chain_1}"
+                if reversed_interface not in input_df['interface'].values:
+                    subdf = input_df[input_df['interface'] == interface].copy()
+                    subdf['interface'] = reversed_interface
+                    reversed_rows.append(subdf)
+            except ValueError:
+                logging.warning(f"Skipping interface due to unexpected format: {interface}")
+
+        if reversed_rows:
+            reversed_df = pd.concat(reversed_rows, ignore_index=True)
+            output_df = pd.concat([input_df, reversed_df], ignore_index=True)
+        else:
+            output_df = input_df
+
         return output_df
 
     def calculate_binding_energy(self, chain_1_id: str, chain_2_id: str) -> float:
@@ -182,53 +224,100 @@ class PDBAnalyser:
         chain_1_energy, chain_2_energy = sfxn(chain_1_pose), sfxn(chain_2_pose)
         return complex_energy - chain_1_energy - chain_2_energy
 
-    def run_and_summarise_pi_score(self, work_dir, pdb_path: str,
-                                   surface_thres: int = 2, interface_name: str = "") -> pd.DataFrame:
-        """A function to calculate all predicted models' pi_scores and make a pandas df of the results"""
+    def run_and_summarise_pi_score(
+        self,
+        work_dir: str,
+        pdb_path: str,
+        surface_thres: int = 2,
+        interface_name: str = "",
+        python_env: str = "pi_score",
+        piscore_script_path: str = "/software/pi_score/run_piscore_wc.py",
+        software_path: str = "/software",
+    ) -> pd.DataFrame:
+        """
+        Calculates all predicted models' pi_scores and creates a pandas DataFrame of the results.
+
+        Args:
+            work_dir (str): Directory to store results.
+            pdb_path (str): Path to the PDB file.
+            surface_thres (int, optional): Surface threshold. Defaults to 2.
+            interface_name (str, optional): Interface name. Defaults to "".
+            python_env (str, optional): Python environment name. Defaults to "pi_score".
+            piscore_script_path (str, optional): Path to the pi_score script. Defaults to "/software/pi_score/run_piscore_wc.py".
+            software_path (str, optional): Path to the software directory. Defaults to "/software".
+
+        Returns:
+            pd.DataFrame: DataFrame containing the results.
+        """
+        # Construct the command for subprocess
+        command = [
+            "/bin/bash", "-c",
+            f"source activate {python_env} && "
+            f"export PYTHONPATH={software_path}:$PYTHONPATH && "
+            f"python {piscore_script_path} -p {pdb_path} -o {work_dir} -s {surface_thres} -ps 10"
+        ]
 
         try:
-            subprocess.run(
-                f"source activate pi_score && export PYTHONPATH=/software:$PYTHONPATH && python /software/pi_score/run_piscore_wc.py -p {pdb_path} -o {work_dir} -s {surface_thres} -ps 10", shell=True, executable='/bin/bash')
-            csv_files = [f for f in os.listdir(
-                work_dir) if 'filter_intf_features' in f]
-            pi_score_files = [f for f in os.listdir(
-                work_dir) if 'pi_score_' in f]
+            # Run the command in a subprocess, capture stderr
+            result = subprocess.run(command, check=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+            csv_files = [f for f in os.listdir(work_dir) if 'filter_intf_features' in f]
+            pi_score_files = [f for f in os.listdir(work_dir) if 'pi_score_' in f]
+
+            if not csv_files:
+                raise FileNotFoundError("No filtered interface features file found.")
+
             filtered_df = pd.read_csv(os.path.join(work_dir, csv_files[0]))
-        except:
-            logging.warning(
-                f"PI score calculation has failed. Will proceed with the rest of the jobs")
-            filtered_df = dict()
-            for k in "pdb,chains,Num_intf_residues,Polar,Hydrophobhic,Charged,contact_pairs,contact_pairs, sc, hb, sb, int_solv_en, int_area, pvalue,pi_score".split(","):
-                filtered_df.update({k: ["None"]})
-            filtered_df = pd.DataFrame.from_dict({
-                filtered_df
-            })
+
+        except subprocess.CalledProcessError as e:
+            error_message = e.stderr.decode('utf-8') if e.stderr else "Unknown subprocess error."
+            filtered_df = self._handle_pi_score_error(e, command, error_message)
+
+        except pd.errors.EmptyDataError as e:
+            filtered_df = self._handle_pi_score_error(e, command, "No data available in the filtered interface features CSV.")
+
+        except FileNotFoundError as e:
+            filtered_df = self._handle_pi_score_error(e, command, "Required files for PI score calculation are missing.")
+            pi_score_files = None
+
+        except Exception as e:
+            filtered_df = self._handle_pi_score_error(e, command, "An unexpected error occurred while calculating the PI score.")
+
+        # Add the 'interface' column if missing
+        if 'interface' not in filtered_df.columns:
+            filtered_df['interface'] = interface_name
 
         if filtered_df.shape[0] == 0:
-            for column in filtered_df.columns:
-                filtered_df[column] = ["None"]
             filtered_df['pi_score'] = "No interface detected"
             filtered_df['interface'] = interface_name
             filtered_df = self.update_df(filtered_df)
         else:
-
             filtered_df = self.update_df(filtered_df)
-            with open(os.path.join(work_dir, pi_score_files[0]), 'r') as f:
-                lines = [l for l in f.readlines() if "#" not in l]
-                if len(lines) > 0:
-                    pi_score = pd.read_csv(
-                        os.path.join(work_dir, pi_score_files[0]))
-                else:
-                    pi_score = pd.DataFrame.from_dict(
-                        {"pi_score": ['SC:  mds: too many atoms']})
-                f.close()
-            pi_score['interface'] = pi_score['chains']
-            filtered_df = pd.merge(filtered_df, pi_score, on=['interface'])
+
             try:
-                filtered_df = filtered_df.drop(
-                    columns=["#PDB", "pdb", " pvalue", "chains", "predicted_class"])
-            except:
-                pass
+                if pi_score_files:
+                    with open(os.path.join(work_dir, pi_score_files[0]), 'r') as f:
+                        lines = [l for l in f.readlines() if "#" not in l]
+                        if len(lines) > 0:
+                            pi_score = pd.read_csv(os.path.join(work_dir, pi_score_files[0]))
+                        else:
+                            pi_score = pd.DataFrame.from_dict({"pi_score": ["Too many atoms for calculation"]})
+                else:
+                    pi_score = pd.DataFrame.from_dict({"pi_score": ["Too many atoms for calculation"]})
+
+                pi_score['interface'] = pi_score['chains']
+                filtered_df = pd.merge(filtered_df, pi_score, on=['interface'], how='left')
+
+                try:
+                    filtered_df = filtered_df.drop(columns=["#PDB", "pdb", " pvalue", "chains", "predicted_class"])
+                except KeyError:
+                    logging.warning("Some columns to be dropped were not found in the DataFrame.")
+
+            except pd.errors.EmptyDataError as e:
+                logging.error(f"No data available in the PI score CSV: {e}")
+            except KeyError as e:
+                logging.warning(f"Key error during PI score data merging: {e}")
+            except Exception as e:
+                logging.error(f"An unexpected error occurred while merging the PI score data: {e}")
 
         return filtered_df
 
@@ -267,12 +356,23 @@ class PDBAnalyser:
                 interface_residues = self.obtain_interface_residues(
                     chain_1_df, chain_2_df, cutoff=cutoff)
                 if interface_residues is not None:
-                    average_interface_pae = self.calculate_average_pae(pae_mtx, chain_1_id, chain_2_id,
+                    try:
+                        average_interface_pae = self.calculate_average_pae(pae_mtx, chain_1_id, chain_2_id,
                                                                        interface_residues[0], interface_residues[1])
-                    binding_energy = self.calculate_binding_energy(
+                    except Exception as e:
+                        logging.error(f"Error while calculating the average PAE values of the interface residues: {e}")
+                        average_interface_pae = 'None'
+                    try:
+                        binding_energy = self.calculate_binding_energy(
                         chain_1_id, chain_2_id)
-                    average_interface_plddt = self.calculate_average_plddt(chain_1_plddt, chain_2_plddt,
+                    except Exception as e:
+                        logging.error(f"Error while calculating the binding energy using pyRosetta: {e}")
+                        binding_energy = 'None'
+                    try:
+                        average_interface_plddt = self.calculate_average_plddt(chain_1_plddt, chain_2_plddt,
                                                                            interface_residues[0], interface_residues[1])
+                    except Exception as e:
+                        logging.error(f"Error while calculating the average pLDDT values of the interface residues: {e}")
                 else:
                     average_interface_pae = "No interface residues detected"
                     average_interface_plddt = "No interface residues detected"
