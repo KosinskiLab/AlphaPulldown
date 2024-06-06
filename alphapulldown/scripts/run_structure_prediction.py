@@ -19,7 +19,7 @@ from alphapulldown.utils.modelling_setup import create_interactors, create_custo
 logging.set_verbosity(logging.INFO)
 
 # Required arguments
-flags.DEFINE_multi_string(
+flags.DEFINE_list(
     'input', None,
     'Folds in format [fasta_path:number:start-stop],[...],.',
     short_name='i')
@@ -30,7 +30,7 @@ flags.DEFINE_string(
 flags.DEFINE_string(
     'data_directory', None,
     'Path to directory containing model weights and parameters.')
-flags.DEFINE_multi_string(
+flags.DEFINE_list(
     'features_directory', None,
     'Path to computed monomer features.')
 
@@ -92,7 +92,7 @@ flags.DEFINE_string('crosslinks', None, 'Path to crosslink information pickle fo
 # Post-processing settings
 flags.DEFINE_boolean('compress_result_pickles', False,
                      'Whether the result pickles are going to be gzipped. Default False.')
-flags.DEFINE_boolean('remove_result_pickles', True,
+flags.DEFINE_boolean('remove_result_pickles', False,
                      'Whether the result pickles are going to be removed')
 flags.DEFINE_boolean('use_ap_style', False,
                      'Change output directory to include a description of the fold '

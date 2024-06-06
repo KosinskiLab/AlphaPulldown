@@ -75,10 +75,11 @@ class TestScript(_TestBase):
         #Check if the directory contains five files starting from ranked and ending with .pdb
         self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.startswith("ranked") and f.endswith(".pdb")]), 5)
         #Check if the directory contains five files starting from result and ending with .pkl
-        self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.startswith("result") and f.endswith(".pkl")]), 1)
+        self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.startswith("result") and f.endswith(".pkl")]), 5)
         #Check if the directory contains five files starting from pae and ending with .json
         self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.startswith("pae") and f.endswith(".json")]), 5)
         #Check if the directory contains five files ending with png
+        print(os.listdir(os.path.join(self.output_dir, dirname)))
         self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.endswith(".png")]), 5)
         #Check if the directory contains ranking_debug.json
         self.assertTrue("ranking_debug.json" in os.listdir(os.path.join(self.output_dir, dirname)))
@@ -143,27 +144,28 @@ class TestScript(_TestBase):
         self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.startswith("relaxed") and f.endswith(".pdb")]), 0)
         self.assertIn("model_1_multimer_v3_pred_0", result.stdout + result.stderr)
 
-    @pytest.mark.xfail
+    #pytest.mark.xfail
     def testRun_3(self):
         """test run with relaxation for all models"""
-        self.args.append("--models_to_relax=all")
+        self.args.append("--models_to_relax=All")
         result = subprocess.run(self.args, capture_output=True, text=True)
         self._runCommonTests(result)
         self._runAfterRelaxTests(result)
         self.assertIn("model_1_multimer_v3_pred_0", result.stdout + result.stderr)
 
-    @pytest.mark.xfail
+    #@pytest.mark.xfail
     def testRun_4(self):
         """
         Test if the script can resume after all 5 models are finished, running amber relax on the 5 models
         """
         #Copy the example directory called "test" to the output directory
         shutil.copytree(os.path.join(self.test_data_dir,"P0DPR3_and_P0DPR3"), os.path.join(self.output_dir, "P0DPR3_and_P0DPR3"))
-        self.args.append("--models_to_relax=all")
+        self.args.append("--models_to_relax=All")
         result = subprocess.run(self.args, capture_output=True, text=True)
         self._runCommonTests(result)
         self._runAfterRelaxTests(result)
-        self.assertIn("ranking_debug.json exists. Skipping prediction. Restoring unrelaxed predictions and ranked order", result.stdout + result.stderr)
+        self.assertIn("All predictions for", result.stdout + result.stderr)
+        self.assertIn("are already completed.", result.stdout + result.stderr)
         
     def testRun_5(self):
         """
