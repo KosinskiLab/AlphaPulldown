@@ -1,4 +1,3 @@
-alphapulldown/scripts/run_structure_prediction.py
 #!python3
 """ CLI inferface for performing structure prediction.
 
