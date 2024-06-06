@@ -23,7 +23,7 @@ flags.DEFINE_list(
     'input', None,
     'Folds in format [fasta_path:number:start-stop],[...],.',
     short_name='i')
-flags.DEFINE_string(
+flags.DEFINE_list(
     'output_directory', None,
     'Path to output directory. Will be created if not exists.',
     short_name='o')
@@ -154,10 +154,8 @@ def predict_structure(
             output_dir = prediction_results['output_dir']
         )
 
-def pre_modelling_setup(interactors : List[Union[MonomericObject, ChoppedObject]], 
-                        flags) -> Tuple[Union[MultimericObject,
-                                            MonomericObject, 
-                                            ChoppedObject], dict, dict, str]:
+def pre_modelling_setup(
+    interactors : List[Union[MonomericObject, ChoppedObject]], flags, output_dir) -> Tuple[Union[MultimericObject,MonomericObject, ChoppedObject], dict, dict, str]:
     """
     A function that sets up objects that to be modelled 
     and settings dictionaries 
@@ -213,9 +211,8 @@ def pre_modelling_setup(interactors : List[Union[MonomericObject, ChoppedObject]
         "features_directory": flags.features_directory,
     }
 
-    output_dir = flags.output_directory
     if flags.use_ap_style:
-        output_dir = join(flags.output_directory,object_to_model.description)
+        output_dir = join(output_dir, object_to_model.description)
     makedirs(output_dir, exist_ok=True)
     return object_to_model, flags_dict, postprocess_flags, output_dir
 
@@ -224,8 +221,17 @@ def main(argv):
     data = create_custom_info(parsed_input)
     all_interactors = create_interactors(data, FLAGS.features_directory)
     objects_to_model = [] 
-    for interactors in all_interactors:
-        object_to_model, flags_dict, postprocess_flags, output_dir = pre_modelling_setup(interactors, FLAGS)
+
+    if len(FLAGS.input) != len(FLAGS.output_directory):
+        FLAGS.output_directory *= len(FLAGS.input)
+
+    if len(FLAGS.input) != len(FLAGS.output_directory):
+        raise ValueError(
+            "Either specify one output_directory per fold or one for all folds."
+        )
+
+    for index, interactors in enumerate(all_interactors):
+        object_to_model, flags_dict, postprocess_flags, output_dir = pre_modelling_setup(interactors, FLAGS, output_dir = FLAGS.output_directory[index])
         objects_to_model.append({object_to_model: output_dir})
 
     predict_structure(

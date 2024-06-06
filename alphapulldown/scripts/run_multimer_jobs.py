@@ -54,7 +54,11 @@ def main(argv):
         )
 
     buffer = io.StringIO()
-    _ = process_files(input_files=protein_lists, output_path=buffer)
+    _ = process_files(
+        input_files=protein_lists,
+        output_path=buffer,
+        exclude_permutations = True
+    )
     buffer.seek(0)
     all_folds = buffer.readlines()
     all_folds = [x.strip().replace(",", ":") for x in all_folds]
@@ -123,7 +127,7 @@ def main(argv):
     if (FLAGS.desired_num_res is not None) and (FLAGS.desired_num_msa is not None):
         # This means all the folds in all_folds are going to be modelled together
         # then no need to iterate through the job_indices
-        command_args["--input"] = " ".join(all_folds)
+        command_args["--input"] = ",".join(all_folds)
         command = base_command.copy()
         for arg, value in command_args.items():
             command.extend([str(arg), str(value)])
