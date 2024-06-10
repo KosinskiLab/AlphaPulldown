@@ -486,6 +486,7 @@ class AlphaFoldBackend(FoldingBackend):
         models_to_relax: ModelsToRelax,
         zip_pickles: bool = False,
         remove_pickles: bool = False,
+        convert_to_modelcif: bool = True,
         use_gpu_relax: bool = True,
         pae_plot_style: str = "red_blue",
 
@@ -514,6 +515,8 @@ class AlphaFoldBackend(FoldingBackend):
         remove_pickles : bool, optional
             If True, removes the pickle files after post-processing is complete.
             Default is False.
+        convert_to_modelcif : bool, optional
+            If set to True, converts all predicted models to ModelCIF format, default is True.
         use_gpu_relax : bool, optional
             If set to True, utilizes GPU acceleration for the relaxation step, default is True.
         pae_plot_style : str, optional
@@ -653,21 +656,24 @@ class AlphaFoldBackend(FoldingBackend):
         #             template_file_path, ranked_output_path, temp_dir
         #         )
 
-        #Call convert_to_modelcif script
-        # parent_dir = os.path.dirname(os.path.dirname((os.path.abspath(__file__))))
-        # command = f"python3 {parent_dir}/scripts/convert_to_modelcif.py " \
-        #           f"--ap_output {output_dir} " \
-        #           f"--monomer_objects_dir {''.join(features_directory)}"
+        # Call convert_to_modelcif script
+        if convert_to_modelcif:
+            parent_dir = os.path.dirname(os.path.dirname((os.path.abspath(__file__))))
+            logging.info(f"Converting {output_dir} to ModelCIF format. "
+                         f" Feature dir(s): {features_directory}.")
+            command = f"python3 {parent_dir}/scripts/convert_to_modelcif.py " \
+                      f"--ap_output {output_dir} " \
+                      f"--monomer_objects_dir {','.join(features_directory)}"
 
-        #result = subprocess.run(command,
-        #                        check=True,
-        #                        shell=True,
-        #                        capture_output=True,
-        #                        text=True)
+            result = subprocess.run(command,
+                                   check=True,
+                                   shell=True,
+                                   capture_output=True,
+                                   text=True)
 
-        #logging.info(result.stdout)
-        #if result.stderr:
-        #    logging.error("Error:", result.stderr)
+            logging.info(result.stdout)
+            if result.stderr:
+               logging.error("Error:", result.stderr)
         post_prediction_process(
            output_dir,
            zip_pickles=zip_pickles,

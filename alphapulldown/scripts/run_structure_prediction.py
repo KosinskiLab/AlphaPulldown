@@ -86,6 +86,8 @@ flags.DEFINE_integer('random_seed', None, 'The random seed for the data '
                      'that even if this is set, Alphafold may still not be '
                      'deterministic, because processes like GPU inference are '
                      'nondeterministic.')
+flags.DEFINE_boolean('convert_to_modelcif', True,
+                     'Whether to convert predicted pdb files to modelcif format. Default True.')
 # AlphaLink2 settings
 flags.DEFINE_string('crosslinks', None, 'Path to crosslink information pickle for AlphaLink.')
 
@@ -209,6 +211,7 @@ def pre_modelling_setup(
         "use_gpu_relax": flags.use_gpu_relax,
         "models_to_relax": flags.models_to_relax,
         "features_directory": flags.features_directory,
+        "convert_to_modelcif": flags.convert_to_modelcif
     }
 
     if flags.use_ap_style:
