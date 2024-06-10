@@ -59,6 +59,7 @@ def obtain_pae_and_iptm(result_subdir: str, best_model: str) -> Tuple[np.array, 
     except FileNotFoundError as e:
         logging.warning(f"ranking_debug.json is not found at {result_subdir}")
     iptm_score = "None"
+    pae_mtx = None
     if "iptm" in ranking_results:
         iptm_score = ranking_results['iptm'].get(best_model, None)
 
@@ -71,15 +72,21 @@ def obtain_pae_and_iptm(result_subdir: str, best_model: str) -> Tuple[np.array, 
         try:
             check_dict = pickle.load(
                 open(os.path.join(result_subdir, f"result_{best_model}.pkl"), 'rb'))
+            iptm_score = check_dict['iptm']
+            pae_mtx = check_dict['predicted_aligned_error']
         except FileNotFoundError:
             logging.info(os.path.join(
                 result_subdir, f"result_{best_model}.pkl")+" does not exist. Will search for pkl.gz")
-            check_dict = pickle.load(gzip.open(os.path.join(
+            try:
+                check_dict = pickle.load(gzip.open(os.path.join(
                 result_subdir, f"result_{best_model}.pkl.gz"), 'rb'))
-        finally:
-            logging.info(f"finished reading results for the best model.")
-            pae_mtx = check_dict['predicted_aligned_error']
-            iptm_score = check_dict['iptm']
+                iptm_score = check_dict['iptm']
+                pae_mtx = check_dict['predicted_aligned_error']
+            except FileNotFoundError:
+                logging.info(
+                    os.path.join(
+                result_subdir, f"result_{best_model}.pkl.gz")+" does not exist. Failed to extract iptm score."
+                )
     return pae_mtx, iptm_score
 
 
