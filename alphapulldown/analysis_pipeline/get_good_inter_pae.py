@@ -75,7 +75,7 @@ def obtain_pae_and_iptm(result_subdir: str, best_model: str) -> Tuple[np.array, 
             iptm_score = check_dict['iptm']
             pae_mtx = check_dict['predicted_aligned_error']
         except FileNotFoundError:
-            logging.info(os.path.join(
+            logging.error(os.path.join(
                 result_subdir, f"result_{best_model}.pkl")+" does not exist. Will search for pkl.gz")
             try:
                 check_dict = pickle.load(gzip.open(os.path.join(
@@ -83,7 +83,7 @@ def obtain_pae_and_iptm(result_subdir: str, best_model: str) -> Tuple[np.array, 
                 iptm_score = check_dict['iptm']
                 pae_mtx = check_dict['predicted_aligned_error']
             except FileNotFoundError:
-                logging.info(
+                logging.error(
                     os.path.join(
                 result_subdir, f"result_{best_model}.pkl.gz")+" does not exist. Failed to extract iptm score."
                 )
