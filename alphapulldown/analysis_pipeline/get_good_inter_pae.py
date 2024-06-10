@@ -124,7 +124,7 @@ def main(argv):
                         best_model = ranking_data['order'][0]
                         data = ranking_data
 
-                        if "iptm" in data and "iptm+ptm" in data:
+                        if "iptm" in data or "iptm+ptm" in data:
                             iptm_ptm_score = data['iptm+ptm'][best_model]
                             
                             try:
