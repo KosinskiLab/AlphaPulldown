@@ -52,7 +52,7 @@ jobs:
           pytest -s test/test_custom_db.py
           pytest -s test/test_remove_clashes_low_plddt.py
 
- build-fold-container:
+  build-fold-container:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
