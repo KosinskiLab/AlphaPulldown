@@ -1239,8 +1239,12 @@ def _get_model_list(
     """Get the list of models to be converted.
 
     If `model_selected` is none, all models will be marked for conversion."""
-    cmplx = [d for d in os.listdir(ap_dir) if os.path.isdir(os.path.join(ap_dir, d))]
-    mdl_all_paths = [os.path.join(ap_dir, c) for c in cmplx]
+    if 'ranking_debug.json' in os.listdir(ap_dir): #One complex was given, not the root directory
+        cmplx = [os.path.basename(os.path.normpath(ap_dir))]
+        mdl_all_paths = [ap_dir]
+    else:
+        cmplx = [d for d in os.listdir(ap_dir) if os.path.isdir(os.path.join(ap_dir, d))]
+        mdl_all_paths = [os.path.join(ap_dir, c) for c in cmplx]
     result = []
 
     for c, specific_mdl_path in zip(cmplx, mdl_all_paths):
