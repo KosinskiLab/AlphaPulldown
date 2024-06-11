@@ -106,6 +106,7 @@ def create_arguments(local_path_to_custom_template_db=None):
 
     use_small_bfd = FLAGS.db_preset == "reduced_dbs"
     flags_dict.update({"use_small_bfd": use_small_bfd})
+    flags_dict.update({"fasta_paths": FLAGS.fasta_paths})
 
     # Update pdb related flags
     if local_path_to_custom_template_db:
