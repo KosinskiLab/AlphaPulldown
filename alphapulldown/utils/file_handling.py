@@ -69,11 +69,8 @@ def parse_csv_file(csv_path, fasta_paths, mmt_dir, cluster=False):
                     protein_data[protein]["templates"].append(os.path.join(mmt_dir, template))
                     protein_data[protein]["chains"].append(chain)
             if not cluster:
-                # Ensure unique protein names by appending a counter
-                original_protein = protein
-                counter = protein_counters.get(protein, 0)
-                protein_counters[protein] = counter + 1
-                unique_protein = f"{protein}_{counter}" if counter > 0 else protein
+                # Ensure unique protein names by appending a chain id.
+                unique_protein = f"{protein}.{template}.{chain}"
                 protein_data[unique_protein] = {
                     "protein": unique_protein,
                     "sequence": protein_names[protein],
