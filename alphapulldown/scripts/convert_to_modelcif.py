@@ -688,6 +688,10 @@ def _get_software_with_parameters(sw_dict, other_dict):
             "sw": ["AlphaPulldown"],
             "method_type": ["coevolution MSA"],
         },
+        "use_hhsearch": {
+            "sw": ["AlphaPulldown"],
+            "method_type": ["coevolution MSA"],
+        },
         "skip_existing": {
             "sw": ["AlphaPulldown"],
             "method_type": ["coevolution MSA", "modeling"],
@@ -760,6 +764,7 @@ def _get_software_with_parameters(sw_dict, other_dict):
         "v",
         "verbosity",
         "xml_output_file",
+        "multiple_mmts"
     ]
     re_args = re.compile(
         r"(?:fasta_paths|multimeric_chains|multimeric_templates|protein)_\d+"
