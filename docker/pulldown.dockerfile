@@ -19,8 +19,8 @@ FROM nvidia/cuda:${CUDA}-cudnn8-runtime-ubuntu20.04
 ARG CUDA
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN apt update && apt upgrade
-RUN apt install --reinstall libp11-kit0 libffi7
+RUN apt update -y && apt upgrade -y
+RUN apt install -y --reinstall libp11-kit0 libffi7
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \
         build-essential \
