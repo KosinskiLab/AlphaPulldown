@@ -305,8 +305,7 @@ class PDBAnalyser:
                     pi_score = pd.DataFrame.from_dict({"pi_score": ["Too many atoms for calculation"]})
 
                 pi_score['interface'] = pi_score['chains']
-                filtered_df = pd.merge(filtered_df, pi_score, on=['interface'], how='left')
-
+                filtered_df = pd.merge(filtered_df, pi_score, on=['interface'], how='right')
                 try:
                     filtered_df = filtered_df.drop(columns=["#PDB", "pdb", " pvalue", "chains", "predicted_class"])
                 except KeyError:
@@ -318,7 +317,6 @@ class PDBAnalyser:
                 logging.warning(f"Key error during PI score data merging: {e}")
             except Exception as e:
                 logging.error(f"An unexpected error occurred while merging the PI score data: {e}")
-
         return filtered_df
 
     def calculate_pi_score(self, pi_score_output_dir: str, interface: int = "") -> pd.DataFrame:
