@@ -26,6 +26,8 @@ RUN apt-get update \
         cmake \
         cuda-command-line-tools-$(cut -f1,2 -d- <<< ${CUDA//./-}) \
         git \
+        libffi7 \
+        libp11-kit0 \
         hmmer \
         kalign \
         tzdata \
@@ -71,11 +73,12 @@ RUN wget -q -P /app/alphafold/alphafold/common/ \
 RUN pip3 install --upgrade pip --no-cache-dir \
     && pip3 install --upgrade --no-cache-dir \
       -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple \
-      git+https://github.com/KosinskiLab/AlphaPulldown.git@main \
       pytest \
       jax==0.4.23 \
       jaxlib==0.4.23+cuda11.cudnn86 \
       -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+
+RUN pip3 install git+https://github.com/KosinskiLab/AlphaPulldown.git@main
 
 RUN chmod u+s /sbin/ldconfig.real
 
