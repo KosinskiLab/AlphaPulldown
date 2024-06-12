@@ -30,7 +30,7 @@ import modelcif.dumper
 import modelcif.model
 import modelcif.protocol
 
-from alphapulldown.utils.file_handling import make_dir_monomer_dictionary, iter_seqs
+from alphapulldown.utils.file_handling import iter_seqs
 
 # ToDo: Software versions can not have a white space, e.g. ColabFold (drop time)
 # ToDo: DISCUSS Get options properly, best get the same names as used in
@@ -790,20 +790,26 @@ def _get_feature_metadata(
     monomer_objects_dir: list,
 ) -> Tuple[List[str], List[str]]:
     """Read metadata from a feature JSON file."""
-    cmplx_name = cmplx_name.split("_and_")
-    mnmr_obj_fls = make_dir_monomer_dictionary(monomer_objects_dir)
+    mnmr_obj_fls = _collect_monomer_dictionary(monomer_objects_dir)
     if "__meta__" not in modelcif_json:
         modelcif_json["__meta__"] = {}
     fasta_dicts = []
-    for mnmr in cmplx_name:
+    for pickle in mnmr_obj_fls.keys():
+        mnmr = os.path.basename(pickle)[:-4]
+        if mnmr not in cmplx_name:
+            continue
         modelcif_json["__meta__"][mnmr] = {}
-        feature_json_pattern = os.path.join(mnmr_obj_fls[mnmr], f"{mnmr}_feature_metadata_*.json")
+        feature_json_pattern = os.path.join(mnmr_obj_fls[pickle], f"{mnmr}_feature_metadata_*.json")
         matching_files = glob.glob(feature_json_pattern)
         if matching_files:
             feature_json = matching_files[0]
-        _file_exists_or_exit(
-            feature_json, f"No feature metadata file '{feature_json}' found."
-        )
+        else:
+            logging.warning(f"No feature metadata file {mnmr}_feature_metadata_*.json"
+                            f" for {pickle} found.")
+            continue
+        #_file_exists_or_exit(
+        #    feature_json, f"No feature metadata file '{feature_json}' found."
+        #)
         # ToDo: make sure that its always ASCII
         with open(feature_json, "r", encoding="ascii") as jfh:
             jdata = json.load(jfh)
@@ -1175,6 +1181,21 @@ def _get_protocol_steps(modelcif_json):
     #       visualisation"
 
     return protocol
+
+
+def _collect_monomer_dictionary(monomer_objects_dir):
+    """
+    a function to gather all monomers across different monomer_objects_dir
+
+    args
+    monomer_objects_dir: a list of directories where monomer objects are stored, given by FLAGS.monomer_objects_dir
+    """
+    output_dict = dict()
+    for dir in monomer_objects_dir:
+        monomers = glob.glob(f"{dir}/*.pkl")
+        for m in monomers:
+            output_dict[m] = dir
+    return output_dict
 
 
 def alphapulldown_model_to_modelcif(
