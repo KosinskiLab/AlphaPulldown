@@ -19,8 +19,8 @@ FROM nvidia/cuda:${CUDA}-cudnn8-runtime-ubuntu20.04
 ARG CUDA
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN apt-get install -y software-properties-common && apt update -y && add-apt-repository ppa:git-core/ppa && apt update -y && apt upgrade -y
-RUN apt install -y --reinstall libp11-kit0 libffi7 git
+RUN apt update -y && apt upgrade -y
+RUN apt install -y --reinstall libp11-kit0 libffi7
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \
         build-essential \
@@ -35,6 +35,12 @@ RUN apt-get update \
     && apt-get autoremove -y \
     && apt-get clean
 
+RUN wget -q -P /tmp \
+  https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh \
+    && bash /tmp/Miniconda3-latest-Linux-x86_64.sh -b -p /opt/conda \
+    && rm /tmp/Miniconda3-latest-Linux-x86_64.sh
+RUN conda install conda-forge::git
+
 RUN git clone --branch v3.3.0 https://github.com/soedinglab/hh-suite.git /tmp/hh-suite \
     && mkdir /tmp/hh-suite/build \
     && pushd /tmp/hh-suite/build \
@@ -43,11 +49,6 @@ RUN git clone --branch v3.3.0 https://github.com/soedinglab/hh-suite.git /tmp/hh
     && ln -s /opt/hhsuite/bin/* /usr/bin \
     && popd \
     && rm -rf /tmp/hh-suite
-
-RUN wget -q -P /tmp \
-  https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh \
-    && bash /tmp/Miniconda3-latest-Linux-x86_64.sh -b -p /opt/conda \
-    && rm /tmp/Miniconda3-latest-Linux-x86_64.sh
 
 ENV PATH="/opt/conda/bin:$PATH"
 ENV LD_LIBRARY_PATH="/opt/conda/lib:$LD_LIBRARY_PATH"
