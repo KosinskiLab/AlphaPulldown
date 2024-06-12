@@ -19,7 +19,7 @@ FROM nvidia/cuda:${CUDA}-cudnn8-runtime-ubuntu20.04
 ARG CUDA
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN apt install -y software-properties-common && apt update -y && add-apt-repository ppa:git-core/ppa && apt update -y && apt upgrade -y
+RUN apt-get install -y software-properties-common && apt update -y && add-apt-repository ppa:git-core/ppa && apt update -y && apt upgrade -y
 RUN apt install -y --reinstall libp11-kit0 libffi7 git
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \
