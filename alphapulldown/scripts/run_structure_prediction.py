@@ -9,8 +9,10 @@
 from absl import flags, app
 from os import makedirs
 from typing import Dict, List, Union, Tuple
-from os.path import join
+from os.path import join, basename
 from absl import logging
+import glob
+import shutil
 from alphapulldown.folding_backend import backend
 from alphapulldown.folding_backend.alphafold_backend import ModelsToRelax
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
@@ -217,6 +219,19 @@ def pre_modelling_setup(
     if flags.use_ap_style:
         output_dir = join(output_dir, object_to_model.description)
     makedirs(output_dir, exist_ok=True)
+    # Copy features metadata to output directory
+    for interactor in interactors:
+        for feature_dir in flags.features_directory:
+            meta_json = glob.glob(
+                join(feature_dir, f"{interactor.description}_feature_metadata_*.json")
+            )
+            if meta_json:
+                feature_json = meta_json[0]
+                logging.info(f"Copying {feature_json} to {output_dir}")
+                shutil.copyfile(feature_json, join(output_dir, basename(feature_json)))
+            else:
+                logging.warning(f"No feature metadata found for {interactor.description} in {output_dir}")
+
     return object_to_model, flags_dict, postprocess_flags, output_dir
 
 def main(argv):
