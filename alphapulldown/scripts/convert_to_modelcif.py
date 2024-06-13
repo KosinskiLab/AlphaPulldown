@@ -163,11 +163,17 @@ class _Biopython2ModelCIF(modelcif.model.AbInitioModel):
         _LocalPLDDT.software = sw_dct["AlphaFold"]
         _LocalPairwisePAE.software = sw_dct["AlphaFold"]
         # global scores
+        if "iptm" in scores_json:
+            conf = scores_json["iptm+ptm"]
+            iptm = scores_json["iptm"]
+        elif "ptm" in scores_json:
+            conf = scores_json["ptm"]
+            iptm = 0
         self.qa_metrics.extend(
             (
                 _GlobalPLDDT(np.mean(scores_json["plddt"])),
-                _GlobalPTM(scores_json["ptm"]),
-                _GlobalIPTM(scores_json["iptm"]),
+                _GlobalPTM(conf),
+                _GlobalIPTM(iptm),
             )
         )
 
@@ -764,7 +770,8 @@ def _get_software_with_parameters(sw_dict, other_dict):
         "v",
         "verbosity",
         "xml_output_file",
-        "multiple_mmts"
+        "multiple_mmts",
+        "protein",
     ]
     re_args = re.compile(
         r"(?:fasta_paths|multimeric_chains|multimeric_templates|protein)_\d+"
@@ -779,7 +786,7 @@ def _get_software_with_parameters(sw_dict, other_dict):
         else:
             if key not in ignored_args and re.match(re_args, key) is None:
                 logging.info(f"Found unknown key in 'other': {key}")
-                sys.exit()
+                #sys.exit()
 
     return swwp
 
@@ -787,42 +794,34 @@ def _get_software_with_parameters(sw_dict, other_dict):
 def _get_feature_metadata(
     modelcif_json: dict,
     cmplx_name: str,
-    monomer_objects_dir: list,
+    out_dir: list,
 ) -> Tuple[List[str], List[str]]:
     """Read metadata from a feature JSON file."""
-    mnmr_obj_fls = _collect_monomer_dictionary(monomer_objects_dir)
     if "__meta__" not in modelcif_json:
         modelcif_json["__meta__"] = {}
     fasta_dicts = []
-    for pickle in mnmr_obj_fls.keys():
-        mnmr = os.path.basename(pickle)[:-4]
-        if mnmr not in cmplx_name:
-            continue
-        modelcif_json["__meta__"][mnmr] = {}
-        feature_json_pattern = os.path.join(mnmr_obj_fls[pickle], f"{mnmr}_feature_metadata_*.json")
-        matching_files = glob.glob(feature_json_pattern)
-        if matching_files:
-            feature_json = matching_files[0]
-        else:
-            logging.warning(f"No feature metadata file {mnmr}_feature_metadata_*.json"
-                            f" for {pickle} found.")
-            continue
-        #_file_exists_or_exit(
-        #    feature_json, f"No feature metadata file '{feature_json}' found."
-        #)
-        # ToDo: make sure that its always ASCII
-        with open(feature_json, "r", encoding="ascii") as jfh:
-            jdata = json.load(jfh)
-        modelcif_json["__meta__"][mnmr]["databases"] = jdata["databases"]
-        modelcif_json["__meta__"][mnmr][
-            "software"
-        ] = _get_software_with_parameters(jdata["software"], jdata["other"])
-        fp = jdata["other"]["fasta_paths"]
-        fp = ast.literal_eval(fp)
-        for curr_seq, curr_desc in iter_seqs(fp):
-            new_entry = {'description': curr_desc, 'sequence': curr_seq}
-            if new_entry not in fasta_dicts:
-                fasta_dicts.append(new_entry)
+    feature_json_files = glob.glob(os.path.join(out_dir, f"*_feature_metadata_*.json"))
+    if feature_json_files:
+        for feature_json in feature_json_files:
+            _file_exists_or_exit(
+                feature_json, f"No feature metadata file '{feature_json}' found."
+            )
+            # ToDo: make sure that its always ASCII
+            with open(feature_json, "r", encoding="ascii") as jfh:
+                jdata = json.load(jfh)
+                #mnmr = jdata["protein"] # For backwards compatibility parse from filename
+                mnmr = os.path.basename(feature_json).split("_feature_metadata_")[0]
+                modelcif_json["__meta__"][mnmr] = {}
+                modelcif_json["__meta__"][mnmr]["databases"] = jdata["databases"]
+                modelcif_json["__meta__"][mnmr][
+                    "software"
+                ] = _get_software_with_parameters(jdata["software"], jdata["other"])
+                fp = jdata["other"]["fasta_paths"]
+                fp = ast.literal_eval(fp)
+                for curr_seq, curr_desc in iter_seqs(fp):
+                    new_entry = {'description': curr_desc, 'sequence': curr_seq}
+                    if new_entry not in fasta_dicts:
+                        fasta_dicts.append(new_entry)
 
     return cmplx_name, fasta_dicts
 
@@ -886,14 +885,37 @@ def _get_entities(
 
 def _get_scores(cif_json: dict, scr_file: str) -> None:
     """Add scores to JSON data."""
-    with open(scr_file, "rb") as sfh:
-        scr_dict = pickle.load(sfh)
+    # Read from jsons instead
+    mdl_name = scr_file.split('result_')[1].split('.pkl')[0]
+    output_dir = os.path.dirname(scr_file)
+    with open(os.path.join(output_dir, f"confidence_{mdl_name}.json"), 'r') as f:
+        plddt = json.load(f)["confidenceScore"]
+        cif_json["plddt"] = plddt
+    with open(os.path.join(output_dir, "ranking_debug.json"), 'r') as f:
+        ranking = json.load(f)
+        # Multimer
+        if "iptm" in ranking:
+            iptm_ptm = ranking["iptm+ptm"][mdl_name]
+            cif_json["iptm+ptm"] = iptm_ptm
+            iptm = ranking["iptm"][mdl_name]
+            cif_json["iptm"] = iptm
+        # Monomer
+        elif "ptm" in ranking:
+            ptm = ranking["ptm"][mdl_name]
+            cif_json["ptm"] = ptm
+        else:
+            raise RuntimeError("No PTM scores found in ranking_debug.json")
+    with open(os.path.join(output_dir, f"pae_{mdl_name}.json"), 'r') as f:
+        pae = json.load(f)[0]["predicted_aligned_error"]
+        cif_json["pae"] = pae
+    #with open(scr_file, "rb") as sfh:
+     #   scr_dict = pickle.load(sfh)
     # Get pLDDT as a list, the global pLDDT is the average, calculated on the
     # spot.
-    cif_json["plddt"] = scr_dict["plddt"]
-    cif_json["ptm"] = float(scr_dict["ptm"])
-    cif_json["iptm"] = float(scr_dict["iptm"])
-    cif_json["pae"] = scr_dict["predicted_aligned_error"]
+    #cif_json["plddt"] = scr_dict["plddt"]
+    #cif_json["ptm"] = float(scr_dict["ptm"])
+    #cif_json["iptm"] = float(scr_dict["iptm"])
+    #cif_json["pae"] = scr_dict["predicted_aligned_error"]
 
 
 def _get_software_data(meta_json: dict) -> list:
@@ -1216,7 +1238,7 @@ def alphapulldown_model_to_modelcif(
     modelcif_json = {}
     # fetch metadata
     cmplx_name, fasta_dicts = _get_feature_metadata(
-        modelcif_json, cmplx_name, monomer_objects_dir
+        modelcif_json, cmplx_name, out_dir
     )
     # fetch/ assemble more data about the modelling experiment
     _get_model_info(
