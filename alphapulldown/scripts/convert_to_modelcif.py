@@ -9,7 +9,6 @@ import gzip
 import hashlib
 import json
 import os
-import pickle
 import re
 import shutil
 import sys
@@ -53,11 +52,6 @@ from alphapulldown.utils.file_handling import iter_seqs
 flags.DEFINE_string(
     "ap_output", None, "AlphaPulldown pipeline output directory"
 )
-flags.DEFINE_list(
-    "monomer_objects_dir",
-    None,
-    "a list of directories where monomer objects are stored",
-)
 flags.DEFINE_integer(
     "model_selected",
     None,
@@ -71,7 +65,7 @@ flags.DEFINE_bool(
     + "'--model_selected' to the archive for associated files",
 )
 flags.DEFINE_bool("compress", False, "compress the ModelCIF file(s) using Gzip")
-flags.mark_flags_as_required(["ap_output", "monomer_objects_dir"])
+flags.mark_flags_as_required(["ap_output"])
 
 FLAGS = flags.FLAGS
 
@@ -618,7 +612,7 @@ def _get_model_details(cmplx_name: str, data_json: dict) -> str:
                 )
 
     return (
-        f"Model generated for {' and '.join(cmplx_name)}, produced "
+        f"Model generated for {cmplx_name}, produced "
         + f"using AlphaFold-Multimer ({af2_version}) as implemented by "
         + f"AlphaPulldown ({', '.join(ap_versions)})."
     )
@@ -833,8 +827,8 @@ def _get_model_info(
     mdl_rank: int,
 ) -> None:
     """Get 'data_' block ID and data for categories '_struct' and '_entry'."""
-    cif_json["data_"] = "_".join(cmplx_name)
-    cif_json["_struct.title"] = f"Prediction for {' and '.join(cmplx_name)}"
+    cif_json["data_"] = cmplx_name
+    cif_json["_struct.title"] = f"Prediction for {cmplx_name}"
     cif_json["_struct.pdbx_model_details"] = _get_model_details(
         cmplx_name, cif_json
     )
@@ -844,7 +838,7 @@ def _get_model_info(
 
 
 def _get_entities(
-    cif_json: dict, pdb_file: str, cmplx_name: List[str], fasta_dicts: List[dict]
+    cif_json: dict, pdb_file: str, cmplx_name: str, fasta_dicts: List[dict]
 ) -> BioStructure:
     """Gather data for the mmCIF (target) entities."""
     sequences = {}
@@ -856,7 +850,7 @@ def _get_entities(
         sequences[hashlib.md5(seq.encode()).hexdigest()] = description
 
     # gather molecular entities from PDB file
-    structure = PDBParser().get_structure("_".join(cmplx_name), pdb_file)
+    structure = PDBParser().get_structure(cmplx_name, pdb_file)
     cif_json["target_entities"] = []
     already_seen = []
     for seq in PPBuilder().build_peptides(structure):
@@ -1154,17 +1148,17 @@ def _get_protocol_steps(modelcif_json):
                     )
                 else:
                     step["parameter_group"].append({})
-            else:
-                pos = step["software_group"].index(tool)
-                if step["method_type"] in sftwr[tool]:
-                    params = sftwr[tool][step["method_type"]]
-                else:
-                    params = {}
-                # always raises an error due to different --job_index!
-                #if step["parameter_group"][pos] != params:
-                #    raise RuntimeError(
-                #        f"Different parameters/ values for {tool}."
-                #    )
+            # else:
+            #     pos = step["software_group"].index(tool)
+            #     if step["method_type"] in sftwr[tool]:
+            #         params = sftwr[tool][step["method_type"]]
+            #     else:
+            #         params = {}
+            #     # always raises an error due to different --job_index!
+            #     #if step["parameter_group"][pos] != params:
+            #     #    raise RuntimeError(
+            #     #        f"Different parameters/ values for {tool}."
+            #     #    )
 
     protocol.append(step)
 
@@ -1205,27 +1199,25 @@ def _get_protocol_steps(modelcif_json):
     return protocol
 
 
-def _collect_monomer_dictionary(monomer_objects_dir):
-    """
-    a function to gather all monomers across different monomer_objects_dir
-
-    args
-    monomer_objects_dir: a list of directories where monomer objects are stored, given by FLAGS.monomer_objects_dir
-    """
-    output_dict = dict()
-    for dir in monomer_objects_dir:
-        monomers = glob.glob(f"{dir}/*.pkl")
-        for m in monomers:
-            output_dict[m] = dir
-    return output_dict
+# def _collect_monomer_dictionary(monomer_objects_dir):
+#     """
+#     a function to gather all monomers across different monomer_objects_dir
+#
+#     args
+#     monomer_objects_dir: a list of directories where monomer objects are stored, given by FLAGS.monomer_objects_dir
+#     """
+#     output_dict = dict()
+#     for dir in monomer_objects_dir:
+#         monomers = glob.glob(f"{dir}/*.pkl")
+#         for m in monomers:
+#             output_dict[m] = dir
+#     return output_dict
 
 
 def alphapulldown_model_to_modelcif(
     cmplx_name: str,
     mdl: tuple,
     out_dir: str,
-    prj_dir: str,
-    monomer_objects_dir: list,
     compress: bool = False,
     additional_assoc_files: list = None,
 ) -> None:
@@ -1400,8 +1392,6 @@ def main(argv):
                             complex_name,
                             mdl,
                             ns_tmpdir.name,
-                            FLAGS.ap_output,
-                            FLAGS.monomer_objects_dir,
                             FLAGS.compress,
                         )
                     )
@@ -1410,8 +1400,6 @@ def main(argv):
                     complex_name,
                     mdl,
                     model_dir,
-                    FLAGS.ap_output,
-                    FLAGS.monomer_objects_dir,
                     FLAGS.compress,
                     add_assoc_files,
                 )

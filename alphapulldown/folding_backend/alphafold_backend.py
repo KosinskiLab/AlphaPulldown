@@ -667,11 +667,9 @@ class AlphaFoldBackend(FoldingBackend):
         # Call convert_to_modelcif script
         if convert_to_modelcif:
             parent_dir = os.path.dirname(os.path.dirname((os.path.abspath(__file__))))
-            logging.info(f"Converting {output_dir} to ModelCIF format. "
-                         f" Feature dir(s): {features_directory}.")
+            logging.info(f"Converting {output_dir} to ModelCIF format...")
             command = f"python3 {parent_dir}/scripts/convert_to_modelcif.py " \
-                      f"--ap_output {output_dir} " \
-                      f"--monomer_objects_dir {','.join(features_directory)}"
+                      f"--ap_output {output_dir} "
 
             result = subprocess.run(command,
                                    check=True,
@@ -679,9 +677,10 @@ class AlphaFoldBackend(FoldingBackend):
                                    capture_output=True,
                                    text=True)
 
-            logging.info(result.stdout)
             if result.stderr:
-               logging.error("Error:", result.stderr)
+                logging.error("Error:", result.stderr)
+            else:
+                logging.info("All PDBs converted to ModelCIF format.")
         post_prediction_process(
            output_dir,
            zip_pickles=zip_pickles,
