@@ -64,7 +64,7 @@ RUN conda install -y -c conda-forge -c bioconda --solver classic \
       python=3.10 \
       && conda clean --all --force-pkgs-dirs --yes
 
-RUN conda install -y -c nvidia cuda-nvcc
+RUN conda install -y -c nvidia cuda-nvcc --solver classic
 
 COPY . /app/alphafold
 RUN wget -q -P /app/alphafold/alphafold/common/ \
