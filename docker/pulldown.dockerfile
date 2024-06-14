@@ -19,13 +19,13 @@ FROM nvidia/cuda:${CUDA}-cudnn8-runtime-ubuntu20.04
 ARG CUDA
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-
+RUN apt update -y && apt upgrade -y
+RUN apt install -y --reinstall libp11-kit0 libffi7
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \
         build-essential \
         cmake \
         cuda-command-line-tools-$(cut -f1,2 -d- <<< ${CUDA//./-}) \
-        git \
         hmmer \
         kalign \
         tzdata \
@@ -34,6 +34,15 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get autoremove -y \
     && apt-get clean
+
+RUN wget -q -P /tmp \
+  https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh \
+    && bash /tmp/Miniconda3-latest-Linux-x86_64.sh -b -p /opt/conda \
+    && rm /tmp/Miniconda3-latest-Linux-x86_64.sh
+ENV PATH="/opt/conda/bin:$PATH"
+ENV LD_LIBRARY_PATH="/opt/conda/lib:$LD_LIBRARY_PATH"
+
+RUN conda install conda-forge::git
 
 RUN git clone --branch v3.3.0 https://github.com/soedinglab/hh-suite.git /tmp/hh-suite \
     && mkdir /tmp/hh-suite/build \
@@ -44,14 +53,7 @@ RUN git clone --branch v3.3.0 https://github.com/soedinglab/hh-suite.git /tmp/hh
     && popd \
     && rm -rf /tmp/hh-suite
 
-RUN wget -q -P /tmp \
-  https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh \
-    && bash /tmp/Miniconda3-latest-Linux-x86_64.sh -b -p /opt/conda \
-    && rm /tmp/Miniconda3-latest-Linux-x86_64.sh
-
-ENV PATH="/opt/conda/bin:$PATH"
-ENV LD_LIBRARY_PATH="/opt/conda/lib:$LD_LIBRARY_PATH"
-RUN conda install -y -c conda-forge -c bioconda \
+RUN conda install -y -c conda-forge -c bioconda --solver classic \
       openmm==8.0 \
       cudatoolkit==${CUDA_VERSION} \
       pdbfixer==1.9 \
@@ -62,7 +64,7 @@ RUN conda install -y -c conda-forge -c bioconda \
       python=3.10 \
       && conda clean --all --force-pkgs-dirs --yes
 
-RUN conda install -y -c nvidia cuda-nvcc
+RUN conda install -y -c nvidia cuda-nvcc --solver classic
 
 COPY . /app/alphafold
 RUN wget -q -P /app/alphafold/alphafold/common/ \
@@ -71,11 +73,12 @@ RUN wget -q -P /app/alphafold/alphafold/common/ \
 RUN pip3 install --upgrade pip --no-cache-dir \
     && pip3 install --upgrade --no-cache-dir \
       -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple \
-      git+https://github.com/KosinskiLab/AlphaPulldown.git@main \
       pytest \
       jax==0.4.23 \
       jaxlib==0.4.23+cuda11.cudnn86 \
       -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+
+RUN pip3 install git+https://github.com/KosinskiLab/AlphaPulldown.git@main
 
 RUN chmod u+s /sbin/ldconfig.real
 
