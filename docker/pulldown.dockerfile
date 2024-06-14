@@ -53,7 +53,7 @@ RUN git clone --branch v3.3.0 https://github.com/soedinglab/hh-suite.git /tmp/hh
     && popd \
     && rm -rf /tmp/hh-suite
 
-RUN conda install -y -c conda-forge -c bioconda \
+RUN conda install -y -c conda-forge -c bioconda --solver classic \
       openmm==8.0 \
       cudatoolkit==${CUDA_VERSION} \
       pdbfixer==1.9 \
