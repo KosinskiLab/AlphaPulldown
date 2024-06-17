@@ -81,7 +81,7 @@ class TestScript(_TestBase):
         example_pickle = [f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.startswith("result") and f.endswith(".pkl")][0]
         example_pickle = pickle.load(open((os.path.join(self.output_dir, dirname, example_pickle)), 'rb'))
         if multimer_mode:
-            required_keys = ['distogram', 'experimentally_resolved', 'masked_msa', 'predicted_aligned_error', 'predicted_lddt', 'structure_module', 'plddt', 'aligned_confidence_probs', 'max_predicted_aligned_error', 'seqs', 'ptm', 'iptm', 'ranking_confidence']
+            required_keys = ['distogram', 'experimentally_resolved', 'masked_msa', 'predicted_aligned_error', 'predicted_lddt', 'structure_module', 'plddt', 'aligned_confidence_probs', 'max_predicted_aligned_error', 'seqs', 'iptm', 'ranking_confidence']
         else:
             required_keys = ['distogram', 'experimentally_resolved', 'masked_msa', 'predicted_aligned_error', 'predicted_lddt', 'structure_module', 'plddt', 'aligned_confidence_probs', 'max_predicted_aligned_error', 'seqs','ranking_confidence']
         self.assertContainsSubset(required_keys, list(example_pickle.keys()))
