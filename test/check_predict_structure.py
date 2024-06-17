@@ -11,6 +11,7 @@ srun python test/check_predict_structure.py # this will be slower due to the slo
 import shutil
 import tempfile
 import sys
+import pickle
 import os
 import subprocess
 import json
@@ -66,7 +67,7 @@ class TestScript(_TestBase):
         #Remove the temporary directory
         shutil.rmtree(self.output_dir)
 
-    def _runCommonTests(self, result):
+    def _runCommonTests(self, result, multimer_mode: True):
         print(result.stdout)
         print(result.stderr)
         self.assertEqual(result.returncode, 0, f"Script failed with output:\n{result.stdout}\n{result.stderr}")
@@ -76,6 +77,14 @@ class TestScript(_TestBase):
         self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.startswith("ranked") and f.endswith(".pdb")]), 5)
         #Check if the directory contains five files starting from result and ending with .pkl
         self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.startswith("result") and f.endswith(".pkl")]), 5)
+        #Check if the result pickle dictionary contains all the keys 
+        example_pickle = [f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.startswith("result") and f.endswith(".pkl")][0]
+        example_pickle = pickle.load(open((os.path.join(self.output_dir, dirname, example_pickle)), 'rb'))
+        if multimer_mode:
+            required_keys = ['distogram', 'experimentally_resolved', 'masked_msa', 'predicted_aligned_error', 'predicted_lddt', 'structure_module', 'plddt', 'aligned_confidence_probs', 'max_predicted_aligned_error', 'ptm', 'iptm', 'ranking_confidence']
+        else:
+            required_keys = ['distogram', 'experimentally_resolved', 'masked_msa', 'predicted_aligned_error', 'predicted_lddt', 'structure_module', 'plddt', 'aligned_confidence_probs', 'max_predicted_aligned_error', 'ranking_confidence']
+        self.assertListEqual(list(example_pickle.keys()), required_keys)
         #Check if the directory contains five files starting from pae and ending with .json
         self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.startswith("pae") and f.endswith(".json")]), 5)
         #Check if the directory contains five files ending with png
@@ -125,7 +134,7 @@ class TestScript(_TestBase):
             "--job_index=1"
         ]
         result = subprocess.run(self.args, capture_output=True, text=True)
-        self._runCommonTests(result)
+        self._runCommonTests(result, multimer_mode=False)
 
     def _runAfterRelaxTests(self, result):
         dirname = next(

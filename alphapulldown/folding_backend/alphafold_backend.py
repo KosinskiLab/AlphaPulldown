@@ -439,41 +439,41 @@ class AlphaFoldBackend(FoldingBackend):
     @staticmethod
     def recalculate_confidence(prediction_results: Dict, multimer_mode:bool, 
                                total_num_res: int) -> Dict[str, Any]:
-        """A method that remove pae values of padded residues and recalculate iptm_ptm score again """
-        if type(prediction_results['predicted_aligned_error']) == np.ndarray:
-            return prediction_results
-        else:
-            output = {}
-            plddt = prediction_results['plddt'][:total_num_res]
-            if 'predicted_aligned_error' in prediction_results:
-                ptm = confidence.predicted_tm_score(
+        """
+        A method that remove pae values of padded residues and recalculate iptm_ptm score again 
+        Modified based on https://github.com/KosinskiLab/alphafold/blob/c844e1bb60a3beb50bb8d562c6be046da1e43e3d/alphafold/model/model.py#L31
+        """
+        output = {}
+        plddt = prediction_results['plddt'][:total_num_res]
+        if 'predicted_aligned_error' in prediction_results:
+            ptm = confidence.predicted_tm_score(
+            logits=prediction_results['predicted_aligned_error']['logits'][:total_num_res,:total_num_res],
+            breaks=prediction_results['predicted_aligned_error']['breaks'],
+            asym_id=None)
+            
+            pae = confidence.compute_predicted_aligned_error(
+            logits=prediction_results['predicted_aligned_error']['logits'],
+            breaks=prediction_results['predicted_aligned_error']['breaks'])
+            max_pae = pae.pop('max_predicted_aligned_error')
+            
+            for k,v in pae.items():
+                output.update({k:v[:total_num_res, :total_num_res]})
+            output['max_predicted_aligned_error'] = max_pae
+            if multimer_mode:
+            # Compute the ipTM only for the multimer model.
+                iptm = confidence.predicted_tm_score(
                 logits=prediction_results['predicted_aligned_error']['logits'][:total_num_res,:total_num_res],
                 breaks=prediction_results['predicted_aligned_error']['breaks'],
-                asym_id=None)
-                
-                pae = confidence.compute_predicted_aligned_error(
-                logits=prediction_results['predicted_aligned_error']['logits'],
-                breaks=prediction_results['predicted_aligned_error']['breaks'])
-                max_pae = pae.pop('max_predicted_aligned_error')
-                
-                for k,v in pae.items():
-                    output.update({k:v[:total_num_res, :total_num_res]})
-                output['max_predicted_aligned_error'] = max_pae
-                if multimer_mode:
-                # Compute the ipTM only for the multimer model.
-                    iptm = confidence.predicted_tm_score(
-                    logits=prediction_results['predicted_aligned_error']['logits'][:total_num_res,:total_num_res],
-                    breaks=prediction_results['predicted_aligned_error']['breaks'],
-                    asym_id=prediction_results['predicted_aligned_error']['asym_id'][:total_num_res],
-                    interface=True)
-                    output.update({'iptm' : iptm})
-                    ranking_confidence = 0.8 * iptm + 0.2 * ptm
-                    output.update({'ranking_confidence' : ranking_confidence})
-                if not multimer_mode:
-                    # Monomer models use mean pLDDT for model ranking.
-                    ranking_confidence =  np.mean(
-                        plddt)
-                    output.update({'ranking_confidence' : ranking_confidence})
+                asym_id=prediction_results['predicted_aligned_error']['asym_id'][:total_num_res],
+                interface=True)
+                output.update({'iptm' : iptm})
+                ranking_confidence = 0.8 * iptm + 0.2 * ptm
+                output.update({'ranking_confidence' : ranking_confidence})
+            if not multimer_mode:
+                # Monomer models use mean pLDDT for model ranking.
+                ranking_confidence =  np.mean(
+                    plddt)
+                output.update({'ranking_confidence' : ranking_confidence})
             
             return output
 
@@ -541,6 +541,7 @@ class AlphaFoldBackend(FoldingBackend):
         for model_name, prediction_result in prediction_results.items():
             prediction_result.update(AlphaFoldBackend.recalculate_confidence(prediction_result,multimer_mode,
                                                                          total_num_res))
+            logging.info(f"prediction_result has keys : {prediction_result.keys()}")
             if 'iptm' in prediction_result:
                 label = 'iptm+ptm'
                 iptm_scores[model_name] = float(prediction_result['iptm'])
