@@ -146,7 +146,7 @@ class TestScript(_TestBase):
     def testRun_2(self):
         """test run without amber relaxation"""
         result = subprocess.run(self.args, capture_output=True, text=True)
-        self._runCommonTests(result)
+        self._runCommonTests(result, multimer_mode=True)
         #Check that directory does not contain relaxed pdb files
         dirname = next(
             subdir for subdir in os.listdir(self.output_dir) if os.path.isdir(os.path.join(self.output_dir, subdir)))
@@ -158,7 +158,7 @@ class TestScript(_TestBase):
         """test run with relaxation for all models"""
         self.args.append("--models_to_relax=All")
         result = subprocess.run(self.args, capture_output=True, text=True)
-        self._runCommonTests(result)
+        self._runCommonTests(result, multimer_mode=True)
         self._runAfterRelaxTests(result)
         self.assertIn("model_1_multimer_v3_pred_0", result.stdout + result.stderr)
 
@@ -171,7 +171,7 @@ class TestScript(_TestBase):
         shutil.copytree(os.path.join(self.test_data_dir,"P0DPR3_and_P0DPR3"), os.path.join(self.output_dir, "P0DPR3_and_P0DPR3"))
         self.args.append("--models_to_relax=All")
         result = subprocess.run(self.args, capture_output=True, text=True)
-        self._runCommonTests(result)
+        self._runCommonTests(result,multimer_mode=True)
         self._runAfterRelaxTests(result)
         self.assertIn("All predictions for", result.stdout + result.stderr)
         self.assertIn("are already completed.", result.stdout + result.stderr)
@@ -187,7 +187,7 @@ class TestScript(_TestBase):
         self.assertNotIn("using model_1_multimer_v3_pred_0", result.stdout + result.stderr)
         self.assertNotIn("using model_2_multimer_v3_pred_0", result.stdout + result.stderr)
 
-        self._runCommonTests(result)
+        self._runCommonTests(result,multimer_mode=True)
 
     def testRun_6(self):
         """
