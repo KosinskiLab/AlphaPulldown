@@ -390,13 +390,12 @@ class AlphaFoldBackend(FoldingBackend):
                 b_factors=plddt_b_factors,
                 remove_leading_feature_dimension=not model_runner.multimer_mode,
             )
-
             # Remove jax dependency from results
             np_prediction_result = _jnp_to_np(dict(prediction_result))
             # Save prediction results to pickle file
             result_output_path = os.path.join(output_dir, f"result_{model_name}.pkl")
             with open(result_output_path, "wb") as f:
-                pickle.dump(np_prediction_result, f, protocol=4)
+                 pickle.dump(np_prediction_result, f, protocol=4)
             prediction_result.update(
                         {"seqs": multimeric_object.input_seqs if hasattr(multimeric_object,"input_seqs") else [multimeric_object.sequence]})
             prediction_result.update({"unrelaxed_protein": unrelaxed_protein})
@@ -411,7 +410,6 @@ class AlphaFoldBackend(FoldingBackend):
             timings_output_path = os.path.join(output_dir, "timings.json")
             with open(timings_output_path, "w") as f:
                 f.write(json.dumps(timings, indent=4))
-
         return prediction_results
 
     @staticmethod
@@ -439,7 +437,10 @@ class AlphaFoldBackend(FoldingBackend):
     @staticmethod
     def recalculate_confidence(prediction_results: Dict, multimer_mode:bool, 
                                total_num_res: int) -> Dict[str, Any]:
-        """A method that remove pae values of padded residues and recalculate iptm_ptm score again """
+        """
+        A method that remove pae values of padded residues and recalculate iptm_ptm score again 
+        Modified based on https://github.com/KosinskiLab/alphafold/blob/c844e1bb60a3beb50bb8d562c6be046da1e43e3d/alphafold/model/model.py#L31
+        """
         if type(prediction_results['predicted_aligned_error']) == np.ndarray:
             return prediction_results
         else:
@@ -450,7 +451,8 @@ class AlphaFoldBackend(FoldingBackend):
                 logits=prediction_results['predicted_aligned_error']['logits'][:total_num_res,:total_num_res],
                 breaks=prediction_results['predicted_aligned_error']['breaks'],
                 asym_id=None)
-                
+                output['ptm'] = ptm
+
                 pae = confidence.compute_predicted_aligned_error(
                 logits=prediction_results['predicted_aligned_error']['logits'],
                 breaks=prediction_results['predicted_aligned_error']['breaks'])
@@ -474,8 +476,8 @@ class AlphaFoldBackend(FoldingBackend):
                     ranking_confidence =  np.mean(
                         plddt)
                     output.update({'ranking_confidence' : ranking_confidence})
-            
-            return output
+                
+                return output
 
     @staticmethod
     def postprocess(
@@ -541,6 +543,12 @@ class AlphaFoldBackend(FoldingBackend):
         for model_name, prediction_result in prediction_results.items():
             prediction_result.update(AlphaFoldBackend.recalculate_confidence(prediction_result,multimer_mode,
                                                                          total_num_res))
+            # Remove jax dependency from results
+            np_prediction_result = _jnp_to_np(dict(prediction_result))
+            # Save prediction results to pickle file
+            result_output_path = os.path.join(output_dir, f"result_{model_name}.pkl")
+            with open(result_output_path, "wb") as f:
+                pickle.dump(np_prediction_result, f, protocol=4)
             if 'iptm' in prediction_result:
                 label = 'iptm+ptm'
                 iptm_scores[model_name] = float(prediction_result['iptm'])
