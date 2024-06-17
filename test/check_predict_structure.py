@@ -81,9 +81,9 @@ class TestScript(_TestBase):
         example_pickle = [f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.startswith("result") and f.endswith(".pkl")][0]
         example_pickle = pickle.load(open((os.path.join(self.output_dir, dirname, example_pickle)), 'rb'))
         if multimer_mode:
-            required_keys = ['distogram', 'experimentally_resolved', 'masked_msa', 'predicted_aligned_error', 'predicted_lddt', 'structure_module', 'plddt', 'aligned_confidence_probs', 'max_predicted_aligned_error', 'seqs', 'iptm', 'ranking_confidence']
+            required_keys = ['distogram', 'experimentally_resolved', 'masked_msa', 'predicted_aligned_error', 'predicted_lddt', 'structure_module', 'plddt', 'aligned_confidence_probs', 'max_predicted_aligned_error', 'seqs', 'iptm', 'ptm', 'ranking_confidence']
         else:
-            required_keys = ['distogram', 'experimentally_resolved', 'masked_msa', 'predicted_aligned_error', 'predicted_lddt', 'structure_module', 'plddt', 'aligned_confidence_probs', 'max_predicted_aligned_error', 'seqs','ranking_confidence']
+            required_keys = ['distogram', 'experimentally_resolved', 'masked_msa', 'predicted_aligned_error', 'predicted_lddt', 'structure_module', 'plddt', 'aligned_confidence_probs', 'max_predicted_aligned_error', 'seqs','ptm','ranking_confidence']
         self.assertContainsSubset(required_keys, list(example_pickle.keys()))
         #Check if the directory contains five files starting from pae and ending with .json
         self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.startswith("pae") and f.endswith(".json")]), 5)
@@ -145,6 +145,19 @@ class TestScript(_TestBase):
     #@parameterized.named_parameters(('relax', ModelsToRelax.ALL),('no_relax', ModelsToRelax.NONE))
     def testRun_2(self):
         """test run without amber relaxation"""
+        self.monomer_objects_dir = self.test_data_dir
+        self.args = [
+            sys.executable,
+            self.script_path,
+            "--mode=custom",
+            "--num_cycle=1",
+            "--num_predictions_per_model=1",
+            f"--output_path={self.output_dir}",
+            f"--data_dir={self.data_dir}",
+            f"--protein_lists={self.protein_lists}",
+            f"--monomer_objects_dir={self.monomer_objects_dir}",
+            "--job_index=1"
+        ]
         result = subprocess.run(self.args, capture_output=True, text=True)
         self._runCommonTests(result, multimer_mode=True)
         #Check that directory does not contain relaxed pdb files

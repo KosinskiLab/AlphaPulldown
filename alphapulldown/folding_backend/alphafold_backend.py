@@ -442,6 +442,7 @@ class AlphaFoldBackend(FoldingBackend):
             logits=prediction_results['predicted_aligned_error']['logits'][:total_num_res,:total_num_res],
             breaks=prediction_results['predicted_aligned_error']['breaks'],
             asym_id=None)
+            output['ptm'] = ptm
             
             pae = confidence.compute_predicted_aligned_error(
             logits=prediction_results['predicted_aligned_error']['logits'],
