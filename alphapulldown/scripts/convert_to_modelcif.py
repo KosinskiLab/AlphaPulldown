@@ -160,13 +160,14 @@ class _Biopython2ModelCIF(modelcif.model.AbInitioModel):
         if "iptm" in scores_json:
             conf = scores_json["iptm+ptm"]
             iptm = scores_json["iptm"]
+            ptm = (conf - 0.8*iptm)/0.2
         elif "ptm" in scores_json:
-            conf = scores_json["ptm"]
             iptm = 0
+            ptm = scores_json["ptm"]
         self.qa_metrics.extend(
             (
                 _GlobalPLDDT(np.mean(scores_json["plddt"])),
-                _GlobalPTM(conf),
+                _GlobalPTM(ptm),
                 _GlobalIPTM(iptm),
             )
         )
