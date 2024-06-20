@@ -190,7 +190,7 @@ class AlphaFoldBackend(FoldingBackend):
          'model_5_multimer_v2',
      )
         if model_names_custom:
-            model_names_custom = tuple(model_names_custom.split(","))
+            model_names_custom = tuple(model_names_custom)
             if all(x in model_names for x in model_names_custom + old_model_names):
                 model_names = model_names_custom
             else:

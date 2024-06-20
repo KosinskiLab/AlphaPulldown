@@ -49,8 +49,8 @@ flags.DEFINE_boolean('msa_depth_scan', False,
                      'Run predictions for each model with logarithmically distributed MSA depth.')
 flags.DEFINE_boolean('multimeric_template', False,
                      'Whether to use multimeric templates.')
-flags.DEFINE_string('model_names', None,
-                    'Names of models to use, e.g. model_2_multimer_v3 (default: all models).')
+flags.DEFINE_list('model_names', None,
+                    'A list of names of models to use, e.g. model_2_multimer_v3 (default: all models).')
 flags.DEFINE_integer('msa_depth', None,
                      'Number of sequences to use from the MSA (by default is taken from AF model config).')
 flags.DEFINE_string('description_file', None,
