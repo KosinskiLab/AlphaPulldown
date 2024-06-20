@@ -191,11 +191,11 @@ class AlphaFoldBackend(FoldingBackend):
      )
         if model_names_custom:
             model_names_custom = tuple(model_names_custom)
-            if all(x in model_names for x in model_names_custom + old_model_names):
+            if all(x in model_names + old_model_names for x in model_names_custom):
                 model_names = model_names_custom
             else:
                 raise Exception(
-                    f"Provided model names {model_names_custom} not part of available {model_names}"
+                    f"Provided model names {model_names_custom} not part of available {model_names_custom + old_model_names}"
                 )
 
         for model_name in model_names:
