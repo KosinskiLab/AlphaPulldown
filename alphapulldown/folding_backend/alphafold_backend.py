@@ -129,7 +129,7 @@ class AlphaFoldBackend(FoldingBackend):
         model_dir: str,
         num_multimer_predictions_per_model: int,
         msa_depth_scan=False,
-        model_names_custom: str = None,
+        model_names_custom: List[str] = None,
         msa_depth=None,
         allow_resume: bool = True,
         **kwargs,
@@ -149,9 +149,8 @@ class AlphaFoldBackend(FoldingBackend):
             The number of multimer predictions to perform for each model.
         msa_depth_scan : bool, optional
             Whether to adjust MSA depth logarithmically, default is False.
-        model_names_custom : str, optional
-            Comma-separated custom model names to use instead of the default preset,
-            default is None.
+        model_names_custom : list, optional
+            A list of strings that specify which models to run, default is None, meaning all 5 models will be used
         msa_depth : int or None, optional
             A specific MSA depth to use, default is None.
         allow_resume : bool, optional
@@ -176,14 +175,26 @@ class AlphaFoldBackend(FoldingBackend):
         num_ensemble = 1
         model_runners = {}
         model_names = config.MODEL_PRESETS[model_name]
-
+        # add model names of older versionsto be compatible with older version of AlphaFold Multimer
+        old_model_names = (
+          'model_1_multimer',
+          'model_2_multimer',
+          'model_3_multimer',
+          'model_4_multimer',
+          'model_5_multimer',
+          'model_1_multimer_v2',
+          'model_2_multimer_v2',
+          'model_3_multimer_v2',
+          'model_4_multimer_v2',
+          'model_5_multimer_v2',
+      )
         if model_names_custom:
-            model_names_custom = tuple(model_names_custom.split(","))
-            if all(x in model_names for x in model_names_custom):
+            model_names_custom = tuple(model_names_custom)
+            if all(x in model_names + old_model_names for x in model_names_custom):
                 model_names = model_names_custom
             else:
                 raise Exception(
-                    f"Provided model names {model_names_custom} not part of available {model_names}"
+                    f"Provided model names {model_names_custom} not part of available {model_names + old_model_names}"
                 )
 
         for model_name in model_names:
