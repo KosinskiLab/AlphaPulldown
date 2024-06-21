@@ -178,17 +178,17 @@ class AlphaFoldBackend(FoldingBackend):
         model_names = config.MODEL_PRESETS[model_name]
         # add model names of older versionsto be compatible with older version of AlphaFold Multimer
         old_model_names = (
-         'model_1_multimer',
-         'model_2_multimer',
-         'model_3_multimer',
-         'model_4_multimer',
-         'model_5_multimer',
-         'model_1_multimer_v2',
-         'model_2_multimer_v2',
-         'model_3_multimer_v2',
-         'model_4_multimer_v2',
-         'model_5_multimer_v2',
-     )
+          'model_1_multimer',
+          'model_2_multimer',
+          'model_3_multimer',
+          'model_4_multimer',
+          'model_5_multimer',
+          'model_1_multimer_v2',
+          'model_2_multimer_v2',
+          'model_3_multimer_v2',
+          'model_4_multimer_v2',
+          'model_5_multimer_v2',
+      )
         if model_names_custom:
             model_names_custom = tuple(model_names_custom)
             if all(x in model_names + old_model_names for x in model_names_custom):
@@ -402,13 +402,12 @@ class AlphaFoldBackend(FoldingBackend):
                 b_factors=plddt_b_factors,
                 remove_leading_feature_dimension=not model_runner.multimer_mode,
             )
-
             # Remove jax dependency from results
             np_prediction_result = _jnp_to_np(dict(prediction_result))
             # Save prediction results to pickle file
             result_output_path = os.path.join(output_dir, f"result_{model_name}.pkl")
             with open(result_output_path, "wb") as f:
-                pickle.dump(np_prediction_result, f, protocol=4)
+                 pickle.dump(np_prediction_result, f, protocol=4)
             prediction_result.update(
                         {"seqs": multimeric_object.input_seqs if hasattr(multimeric_object,"input_seqs") else [multimeric_object.sequence]})
             prediction_result.update({"unrelaxed_protein": unrelaxed_protein})
@@ -423,7 +422,6 @@ class AlphaFoldBackend(FoldingBackend):
             timings_output_path = os.path.join(output_dir, "timings.json")
             with open(timings_output_path, "w") as f:
                 f.write(json.dumps(timings, indent=4))
-
         return prediction_results
 
     @staticmethod
@@ -451,7 +449,10 @@ class AlphaFoldBackend(FoldingBackend):
     @staticmethod
     def recalculate_confidence(prediction_results: Dict, multimer_mode:bool, 
                                total_num_res: int) -> Dict[str, Any]:
-        """A method that remove pae values of padded residues and recalculate iptm_ptm score again """
+        """
+        A method that remove pae values of padded residues and recalculate iptm_ptm score again 
+        Modified based on https://github.com/KosinskiLab/alphafold/blob/c844e1bb60a3beb50bb8d562c6be046da1e43e3d/alphafold/model/model.py#L31
+        """
         if type(prediction_results['predicted_aligned_error']) == np.ndarray:
             return prediction_results
         else:
@@ -462,7 +463,8 @@ class AlphaFoldBackend(FoldingBackend):
                 logits=prediction_results['predicted_aligned_error']['logits'][:total_num_res,:total_num_res],
                 breaks=prediction_results['predicted_aligned_error']['breaks'],
                 asym_id=None)
-                
+                output['ptm'] = ptm
+
                 pae = confidence.compute_predicted_aligned_error(
                 logits=prediction_results['predicted_aligned_error']['logits'],
                 breaks=prediction_results['predicted_aligned_error']['breaks'])
@@ -486,8 +488,8 @@ class AlphaFoldBackend(FoldingBackend):
                     ranking_confidence =  np.mean(
                         plddt)
                     output.update({'ranking_confidence' : ranking_confidence})
-            
-            return output
+                
+                return output
 
     @staticmethod
     def postprocess(
@@ -498,6 +500,7 @@ class AlphaFoldBackend(FoldingBackend):
         models_to_relax: ModelsToRelax,
         zip_pickles: bool = False,
         remove_pickles: bool = False,
+        convert_to_modelcif: bool = True,
         use_gpu_relax: bool = True,
         pae_plot_style: str = "red_blue",
 
@@ -526,6 +529,8 @@ class AlphaFoldBackend(FoldingBackend):
         remove_pickles : bool, optional
             If True, removes the pickle files after post-processing is complete.
             Default is False.
+        convert_to_modelcif : bool, optional
+            If set to True, converts all predicted models to ModelCIF format, default is True.
         use_gpu_relax : bool, optional
             If set to True, utilizes GPU acceleration for the relaxation step, default is True.
         pae_plot_style : str, optional
@@ -553,6 +558,12 @@ class AlphaFoldBackend(FoldingBackend):
         for model_name, prediction_result in prediction_results.items():
             prediction_result.update(AlphaFoldBackend.recalculate_confidence(prediction_result,multimer_mode,
                                                                          total_num_res))
+            # Remove jax dependency from results
+            np_prediction_result = _jnp_to_np(dict(prediction_result))
+            # Save prediction results to pickle file
+            result_output_path = os.path.join(output_dir, f"result_{model_name}.pkl")
+            with open(result_output_path, "wb") as f:
+                pickle.dump(np_prediction_result, f, protocol=4)
             if 'iptm' in prediction_result:
                 label = 'iptm+ptm'
                 iptm_scores[model_name] = float(prediction_result['iptm'])
@@ -665,21 +676,23 @@ class AlphaFoldBackend(FoldingBackend):
         #             template_file_path, ranked_output_path, temp_dir
         #         )
 
-        #Call convert_to_modelcif script
-        # parent_dir = os.path.dirname(os.path.dirname((os.path.abspath(__file__))))
-        # command = f"python3 {parent_dir}/scripts/convert_to_modelcif.py " \
-        #           f"--ap_output {output_dir} " \
-        #           f"--monomer_objects_dir {''.join(features_directory)}"
+        # Call convert_to_modelcif script
+        if convert_to_modelcif:
+            parent_dir = os.path.dirname(os.path.dirname((os.path.abspath(__file__))))
+            logging.info(f"Converting {output_dir} to ModelCIF format...")
+            command = f"python3 {parent_dir}/scripts/convert_to_modelcif.py " \
+                      f"--ap_output {output_dir} "
 
-        #result = subprocess.run(command,
-        #                        check=True,
-        #                        shell=True,
-        #                        capture_output=True,
-        #                        text=True)
+            result = subprocess.run(command,
+                                   check=True,
+                                   shell=True,
+                                   capture_output=True,
+                                   text=True)
 
-        #logging.info(result.stdout)
-        #if result.stderr:
-        #    logging.error("Error:", result.stderr)
+            if result.stderr:
+                logging.error("Error:", result.stderr)
+            else:
+                logging.info("All PDBs converted to ModelCIF format.")
         post_prediction_process(
            output_dir,
            zip_pickles=zip_pickles,
