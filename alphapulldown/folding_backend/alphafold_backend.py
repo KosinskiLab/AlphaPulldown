@@ -129,7 +129,7 @@ class AlphaFoldBackend(FoldingBackend):
         model_dir: str,
         num_multimer_predictions_per_model: int,
         msa_depth_scan=False,
-        model_names_custom: str = None,
+        model_names_custom: List[str] = None,
         msa_depth=None,
         allow_resume: bool = True,
         **kwargs,
@@ -149,9 +149,8 @@ class AlphaFoldBackend(FoldingBackend):
             The number of multimer predictions to perform for each model.
         msa_depth_scan : bool, optional
             Whether to adjust MSA depth logarithmically, default is False.
-        model_names_custom : str, optional
-            Comma-separated custom model names to use instead of the default preset,
-            default is None.
+        model_names_custom : list, optional
+            A list of strings that specify which models to run, default is None, meaning all 5 models will be used
         msa_depth : int or None, optional
             A specific MSA depth to use, default is None.
         allow_resume : bool, optional
