@@ -35,25 +35,31 @@ def parse_fold(input, features_directory, protein_delimiter):
         for protein_fold in protein_folds:
             name, number, region = None, 1, "all"
 
-            match len(protein_fold):
-                case 1:
-                    name = protein_fold[0]
-                case 2:
-                    name, number = protein_fold[0], protein_fold[1]
-                    if ("-") in protein_fold[1]:
+            if len(protein_fold) ==1:
+                # protein_fold is in this format: [protein_name]
+                name = protein_fold[0]
+            elif len(protein_fold) > 1:
+                name, number= protein_fold[0], protein_fold[1]
+                if ("-") in protein_fold[1]:
+                    # protein_fold is in this format: [protein_name:1-10:14-30:40-100:etc]
+                    try:
                         number = 1
-                        region = protein_fold[1].split("-")
-                case 3:
-                    name, number, region = protein_fold
-                    region = protein_fold[1].split("-")
+                        region = protein_fold[1:]
+                        region = [tuple(int(x) for x in r.split("-")) for r in region]
+                    except Exception as e:
+                        logging.error(f"Your format: {i} is wrong. The programme will terminate.")
+                        sys.exit()
+                else:
+                    # protein_fold is in this format: [protein_name:copy_number:1-10:14-30:40-100:etc]
+                    try:
+                        number = protein_fold[1]
+                        region = protein_fold[2:]
+                        region = [tuple(int(x) for x in r.split("-")) for r in region]
+                    except Exception as e:
+                        logging.error(f"Your format: {i} is wrong. The programme will terminate.")
+                        sys.exit()
             
             number = int(number)
-            if len(region) != 2 and region != "all":
-                raise ValueError(f"Region {region} is malformatted expected start-stop.")
-
-            if len(region) == 2:
-                region = [tuple(int(x) for x in region)]
-
             unique_features.append(name)
             if not any([exists(join(monomer_dir, f"{name}.pkl")) for monomer_dir in features_directory]):
                 missing_features.append(name)
