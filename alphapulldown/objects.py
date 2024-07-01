@@ -160,7 +160,7 @@ class MonomericObject:
                 {'template_confidence_scores': np.array([[1] * len(self.sequence)])}
             )
         if template_release_date is None:
-            self.feature_dict.update({"template_release_date" : ['none']})
+            self.feature_dict.update({"template_release_date" : np.array(['none'])})
 
         # post processing
         if (not save_msa) and (not use_precomputed_msa):
