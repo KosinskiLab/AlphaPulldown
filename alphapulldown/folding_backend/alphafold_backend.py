@@ -683,7 +683,7 @@ class AlphaFoldBackend(FoldingBackend):
                       f"--ap_output {output_dir} "
 
             result = subprocess.run(command,
-                                   check=True,
+                                   check=False,
                                    shell=True,
                                    capture_output=True,
                                    text=True)
