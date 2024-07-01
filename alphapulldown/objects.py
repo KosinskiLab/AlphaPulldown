@@ -330,6 +330,7 @@ class ChoppedObject(MonomericObject):
         template_feature is actually the full feature_dict
         """
         start_point = start_point - 1
+        length = end_point - start_point
         new_template_aatype = template_feature["template_aatype"][
             :, start_point:end_point, :
         ]
@@ -342,7 +343,10 @@ class ChoppedObject(MonomericObject):
         new_template_domain_names = template_feature["template_domain_names"]
         new_template_sequence = template_feature["template_sequence"]
         new_template_sum_probs = template_feature["template_sum_probs"]
-
+        # below are the template features introduced by mmseqs2 alignments
+        new_template_confidence_scores = template_feature.get("template_confidence_scores", np.array([[1] * length]))
+        new_template_release_date = template_feature.get("template_release_date", np.array(['none']))
+        
         new_template_feature = {
             "template_aatype": new_template_aatype,
             "template_all_atom_masks": new_template_all_atom_masks,
@@ -350,6 +354,8 @@ class ChoppedObject(MonomericObject):
             "template_domain_names": new_template_domain_names,
             "template_sequence": new_template_sequence,
             "template_sum_probs": new_template_sum_probs,
+            "template_confidence_scores": new_template_confidence_scores,
+            "template_release_date": new_template_release_date
         }
         return new_template_feature
 
