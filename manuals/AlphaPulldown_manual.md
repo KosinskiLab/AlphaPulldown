@@ -354,7 +354,7 @@ Features calculation script ```create_individual_features.py``` has several opti
 * `--seq_index`: Default is `None` and the program will run predictions one by one in the given files. However, you can set ```seq_index``` to 
    different number if you wish to run an array of jobs in parallel then the program will only run the corresponding job specified by the ```seq_index```. e.g. the programme only calculate features for the 1st protein in your fasta file if ```seq_index``` is set to be 1. See also the Slurm sbatch script above for example how to use it for parallel execution. :exclamation: ```seq_index``` starts from 1.
   
-* `--use_mmseqs2`: Use mmseqs2 remotely or not. 'true' or 'false', default is 'false' ${\color{red} [add\ description]}$
+* `--use_mmseqs2`: Use mmseqs2 remotely or not. Default is False. 
 
 FLAGS related to TrueMultimer mode:
 
@@ -369,7 +369,7 @@ FLAGS related to TrueMultimer mode:
   
 * `--hb_allowance`: Additional allowance for hydrogen bonding (default: 0.4) ${\color{red} [add\ description]}$
 
-* `--plddt_threshold`: Threshold for pLDDT score (default: 0)
+* `--plddt_threshold`: Threshold for pLDDT score (default: 0) ${\color{red} [add\ description]}$
  </details>
 
 #### Output
