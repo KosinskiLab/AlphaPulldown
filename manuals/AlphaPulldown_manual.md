@@ -16,7 +16,7 @@
      - [Installation for developers](#installation-for-developers)
    - [1. Compute multiple sequence alignment (MSA) and template features (CPU stage)](#1-compute-multiple-sequence-alignment-msa-and-template-features-cpu-stage)
      - [**1.1. Basic run**](#11-basic-run)
-     - [1.2. Example run with SLURM (EMBL cluster)](#12-example-run-with-slurm-embl-cluster)
+     - [1.2. Example bash scripts for SLURM (EMBL cluster)](#12-example-bash-scripts-for-slurm-embl-cluster)
      - [1.3. Run using MMseqs2 and ColabFold Databases (Faster)](#13-run-using-mmseqs2-and-colabfold-databases-faster)
      - [1.4. Run with custom templates (TrueMultimer)](#14-run-with-custom-templates-truemultimer)
    - [2. Predict structures (GPU stage)](#2-predict-structures-gpu-stage)
@@ -381,8 +381,9 @@ The result of ```create_individual_features.py``` run is pickle format features 
 #### Next step
 Proceed to the next step [2.1 Basic Run](#21-basic-run).
 
-### 1.2. Example run with SLURM (EMBL cluster)
+<details>
 
+<summary>1.2. Example bash scripts for SLURM (EMBL cluster)</summary>
 If you run AlphaPulldown on a computer cluster, you may want to execute feature creation in parallel. Here, we provide an example of code that is suitable for a cluster that utilizes SLURM Workload Manager. 
 > **For EMBL staff:**  For more details about the SLURM on the EMBL cluster, please refer to the [EMBL Cluster wiki](https://wiki.embl.de/cluster/Main_Page) using the EMBL network.
 
@@ -467,7 +468,7 @@ sbatch --array=1-$count%100 create_individual_features_SLURM.sh
 
  #### Next step
  Proceed to the next step [2.2 Example run with SLURM (EMBL cluster)](#22-example-run-with-slurm-embl-cluster).
-
+</details> 
 ### 1.3. Run using MMseqs2 and ColabFold Databases (Faster)
 
 MMseqs2 is another method for homolog search and MSA generation. It offers an alternative to the default HMMER and HHblits used by AlphaFold. The results of these different approaches might lead to slightly different protein structure predictions due to variations in the captured evolutionary information within the MSAs. AlphaPulldown supports the implementation of MMseqs2 search made by [ColabFold](https://github.com/sokrypton/ColabFold), which also provides a web server for MSA generation, so no local installation of databases is needed.
