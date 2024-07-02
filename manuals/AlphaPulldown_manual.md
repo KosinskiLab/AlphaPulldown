@@ -6,7 +6,7 @@
 
 1) [**About AlphaPulldown**](#about-alphapulldown)
 1) [**Snakemake AlphaPulldown**](#snakemake-alphapulldown)
-1) [**Scripts-Based AlphaPulldown**](#scripts-based-alphapulldown)
+1) [**Run AlphaPulldown directly using CLI**](#scripts-based-alphapulldown)
    - [Installation](#installation)
      - [0. Alphafold databases](#0-alphafold-databases)
      - [1. Create Anaconda environment](#1-create-anaconda-environment)
@@ -100,7 +100,7 @@ For downstream analysis of SnakeMake-AlphaPulldown results, please refer to this
 <br>
 <br>
 
-# Scripts-Based AlphaPulldown
+# Run AlphaPulldown directly using CLI
 
 AlphaPulldown can be used as a set of scripts for every particular step. 
 1. [`create_individual_features.py`](#1-compute-multiple-sequence-alignment-msa-and-template-features-cpu-stage): Generates multiple sequence alignments (MSA), identifies structural templates, and stores the results in monomeric feature `.pkl` files.
@@ -182,7 +182,7 @@ $\text{\color{red}Update the version of AlphaPulldown.}$
    >**For older versions of AlphaFold**:
    >If you haven't updated your databases according to the requirements of AlphaFold 2.3.0, you can still use AlphaPulldown with your older version of AlphaFold database. Please follow the installation instructions on the [dedicated branch](https://github.com/KosinskiLab/AlphaPulldown/tree/AlphaFold-2.2.0).
 
-#### 3. Installation for the Downstream analysis step (optional)
+#### 3. Installation for the Downstream analysis step
 To create the Results table, you need to have [Singularity](https://apptainer.org/admin-docs/master/installation.html) installed.
 
 Download the singularity image: 
@@ -192,11 +192,14 @@ Download the singularity image:
 
 Chrome users may not be able to download it after clicking the link. If so, please right-click and select "Save link as".
 
-#### 4. Installation for cross-link input data by AlphaLink2 (optional)
-
+#### 4. Installation for cross-link input data by [AlphaLink2](https://github.com/Rappsilber-Laboratory/AlphaLink2/tree/main) (optional!)
 $\text{\color{red}Update the installation manual after resolving the dependency conflict.}$
 
-1. Compile [UniCore](https://github.com/dptech-corp/Uni-Core).
+1. Make sure you have installed PyTorch corresponding to the CUDA version you have. Here will take CUDA 11.7 and PyTorch 1.13.0 as an example: 
+    ```
+    pip install torch==1.13.0+cu117 --extra-index-url https://download.pytorch.org/whl/cu117
+    ```
+2. Compile [UniCore](https://github.com/dptech-corp/Uni-Core).
     ```bash
     source activate AlphaPulldown
     git clone https://github.com/dptech-corp/Uni-Core.git
@@ -214,12 +217,10 @@ $\text{\color{red}Update the installation manual after resolving the dependency 
     fused_layer_norm is not installed corrected
     fused_softmax is not installed corrected
     ```
-    
-2. Make sure you have PyTorch corresponding to the CUDA version installed. For example, [PyTorch 1.13.0+cu117](https://pytorch.org/get-started/previous-versions/) 
-and CUDA/11.7.0
 4. Download the PyTorch checkpoints from [Zenodo](https://zenodo.org/records/8007238), unzip it, then you should obtain a file named: ```AlphaLink-Multimer_SDA_v3.pt```
 
-### Installation for developers
+### Installation for developers 
+Only for the developers who would like to modify AlphaPulldown's codes and test their modifications.
 <details>
    
 <summary><b>
