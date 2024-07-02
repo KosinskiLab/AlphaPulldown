@@ -70,6 +70,8 @@ COPY . /app/alphafold
 RUN wget -q -P /app/alphafold/alphafold/common/ \
   https://git.scicore.unibas.ch/schwede/openstructure/-/raw/7102c63615b64735c4941278d92b554ec94415f8/modules/mol/alg/src/stereo_chemical_props.txt
 
+RUN pip3 install git+https://github.com/KosinskiLab/AlphaPulldown.git@main
+
 RUN pip3 install --upgrade pip --no-cache-dir \
     && pip3 install --upgrade --no-cache-dir \
       -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple \
@@ -77,8 +79,6 @@ RUN pip3 install --upgrade pip --no-cache-dir \
       jax==0.4.23 \
       jaxlib==0.4.23+cuda11.cudnn86 \
       -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
-
-RUN pip3 install git+https://github.com/KosinskiLab/AlphaPulldown.git@main
 
 RUN chmod u+s /sbin/ldconfig.real
 
