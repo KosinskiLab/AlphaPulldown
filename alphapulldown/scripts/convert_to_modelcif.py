@@ -179,7 +179,8 @@ class _Biopython2ModelCIF(modelcif.model.AbInitioModel):
         lpae = []
         # aa_only=False includes non-canonical amino acids but seems to skip
         # non-peptide-linking residues like ions
-        polypeptides = PPBuilder().build_peptides(self.structure, aa_only=False)
+        # make C-N radius huge to make it work on unrelaxed AF models
+        polypeptides = PPBuilder(radius=999999999).build_peptides(self.structure, aa_only=False)
         for chn_i in polypeptides:
             for res_i in chn_i:
                 # local pLDDT
