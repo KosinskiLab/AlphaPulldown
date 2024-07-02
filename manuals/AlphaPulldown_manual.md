@@ -11,7 +11,7 @@
      - [0. Alphafold databases](#0-alphafold-databases)
      - [1. Create Anaconda environment](#1-create-anaconda-environment)
      - [2. Installation using pip](#2-installation-using-pip)
-     - [3. Installation for the Downstream analysis step (optional)](#3-installation-for-the-downstream-analysis-step-optional)
+     - [3. Installation for the Downstream analysis step](#3-installation-for-the-downstream-analysis-step-optional)
      - [4. Installation for cross-link input data by AlphaLink2 (optional)](#4-installation-for-cross-link-input-data-by-alphalink2-optional)
      - [Installation for developers](#installation-for-developers)
    - [1. Compute multiple sequence alignment (MSA) and template features (CPU stage)](#1-compute-multiple-sequence-alignment-msa-and-template-features-cpu-stage)
