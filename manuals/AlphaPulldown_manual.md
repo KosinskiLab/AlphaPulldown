@@ -6,12 +6,12 @@
 
 1) [**About AlphaPulldown**](#about-alphapulldown)
 1) [**Snakemake AlphaPulldown**](#snakemake-alphapulldown)
-1) [**Run AlphaPulldown directly using CLI**](#scripts-based-alphapulldown)
+1) [**Run AlphaPulldown Python CLI**](#run-alphapulldown-python-cli)
    - [Installation](#installation)
      - [0. Alphafold databases](#0-alphafold-databases)
      - [1. Create Anaconda environment](#1-create-anaconda-environment)
      - [2. Installation using pip](#2-installation-using-pip)
-     - [3. Installation for the Downstream analysis step](#3-installation-for-the-downstream-analysis-step-optional)
+     - [3. Installation for the Downstream analysis tools](#3-installation-for-the-downstream-analysis-tools)
      - [4. Installation for cross-link input data by AlphaLink2 (optional)](#4-installation-for-cross-link-input-data-by-alphalink2-optional)
      - [Installation for developers](#installation-for-developers)
    - [1. Compute multiple sequence alignment (MSA) and template features (CPU stage)](#1-compute-multiple-sequence-alignment-msa-and-template-features-cpu-stage)
@@ -100,7 +100,7 @@ For downstream analysis of SnakeMake-AlphaPulldown results, please refer to this
 <br>
 <br>
 
-# Run AlphaPulldown directly using CLI
+# Run AlphaPulldown Python CLI
 
 AlphaPulldown can be used as a set of scripts for every particular step. 
 1. [`create_individual_features.py`](#1-compute-multiple-sequence-alignment-msa-and-template-features-cpu-stage): Generates multiple sequence alignments (MSA), identifies structural templates, and stores the results in monomeric feature `.pkl` files.
@@ -182,7 +182,7 @@ $\text{\color{red}Update the version of AlphaPulldown.}$
    >**For older versions of AlphaFold**:
    >If you haven't updated your databases according to the requirements of AlphaFold 2.3.0, you can still use AlphaPulldown with your older version of AlphaFold database. Please follow the installation instructions on the [dedicated branch](https://github.com/KosinskiLab/AlphaPulldown/tree/AlphaFold-2.2.0).
 
-#### 3. Installation for the Downstream analysis step
+#### 3. Installation for the Downstream analysis tools
 To create the Results table, you need to have [Singularity](https://apptainer.org/admin-docs/master/installation.html) installed.
 
 Download the singularity image: 
