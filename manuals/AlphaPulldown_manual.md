@@ -63,13 +63,13 @@ The original [AlphaFold-Multimer](https://github.com/google-deepmind/alphafold) 
 
 A key strength of AlphaPulldown is its ability to flexibly define how proteins are combined for the structure prediction of protein complexes. Here are the three main approaches you can use:
 
-* **Single file** (custom mode): Create a file where each row lists the protein sequences you want to predict together.
+* **Single file** (custom mode or homo-oligomer mode): Create a file where each row lists the protein sequences you want to predict together or each row tells the programme to model homo-oligomers with your specified number of copies.
 * **Multiple Files** (pulldown mode): Provide several files, each containing protein sequences. AlphaPulldown will automatically generate all possible combinations by pairing rows of protein names from each file.
 * **All versus all**: AlphaPulldown will generate all possible non-redundant combinations of proteins in the list. 
 
 The AlphaPulldown workflow is as follows:
 
-1) **Features and MSA**:   In this step, AlphaFold searches preinstalled databases using HMMER for each queried protein sequence and calculates multiple sequence alignments (MSAs) for all found homologs. It also searches for homolog structures to use as templates for feature generation. This step only requires CPU.
+1) **Create and store MSA and template features**:   In this step, AlphaFold searches preinstalled databases using HMMER for each queried protein sequence and calculates multiple sequence alignments (MSAs) for all found homologs. It also searches for homolog structures to use as templates for feature generation. This step only requires CPU.
 
    Customizable options include:
    * To speed up the search process, [MMSeq2](https://doi.org/10.1038/s41592-022-01488-1) can be used instead of the default HHMER.
