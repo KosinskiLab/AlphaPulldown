@@ -49,6 +49,8 @@ AlphaPulldown can be used in two ways: either bv a two-step pipeline made of **p
   <source media="(prefers-color-scheme: light)" srcset="../manuals/AP_pipeline.png">
   <img alt="Shows an illustrated sun in light mode and a moon with stars in dark mode." src="../manuals/AP_pipeline.png">
 </picture>
+
+<p align='center'> <strong>Figure 1</strong> Overview of AlphaPulldown worflow </p>
  
 The original [AlphaFold-Multimer](https://github.com/google-deepmind/alphafold) protein complex prediction pipeline may be split into two steps: **(1)** the databases search step that generates Features and MSA for every individual protein sequence and **(2)** protein complex structure prediction itself. AlphaPulldown executes these steps as independent scripts, enhancing efficiency for modeling many protein complexes. Additionally, **(3)** AlphaPulldown  offers two options for downstream analysis of the resulting protein models.
 
@@ -57,6 +59,7 @@ The original [AlphaFold-Multimer](https://github.com/google-deepmind/alphafold) 
   <source media="(prefers-color-scheme: light)" srcset="../manuals/AP_modes.png">
   <img alt="Shows an illustrated sun in light mode and a moon with stars in dark mode." src="../manuals/AP_modes.png">
 </picture>
+<p align='center'> <strong>Figure 2</strong> Three typical scenarios covered by AlphaPulldown</p>
 
 A key strength of AlphaPulldown is its ability to flexibly define how proteins are combined for the structure prediction of protein complexes. Here are the three main approaches you can use:
 
