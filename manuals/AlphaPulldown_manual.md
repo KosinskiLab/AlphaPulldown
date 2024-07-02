@@ -584,9 +584,10 @@ output_dir
 Proceed to the next step [2.1 Basic Run](#21-basic-run).
 </details>
 <details>
-   
 
-### 1.4. Run with custom templates (TrueMultimer)
+   <summary>
+      1.4. Run with custom templates (TrueMultimer)
+   </summary>
 Instead of using the default search through the PDB database for structural templates, you can provide a custom database. AlphaPulldown supports a feature called "True Multimer," which allows AlphaFold to use multi-chain structural templates during the prediction process. This can be beneficial for protein complexes where the arrangement of the chains may vary.
 
 #### Input
