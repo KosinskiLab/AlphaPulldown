@@ -833,9 +833,8 @@ Proceed to the next step [3. Analysis and Visualization](3-analysis-and-visualiz
 The results of structure predictions can be very large. To copy the cropped output results for storage, use the `truncate_pickles.py` script by following the instructions provided [Decrease the size of AlphaPulldown output](#decrease-the-size-of-alphapulldown-output).
 
 Additionally, you can prepare the structures for deposition by creating `.cif` files containing all the necessary information about your predicted models. To do this, follow the instructions provided [Convert Models from PDB Format to ModelCIF Format](#convert-models-from-pdb-format-to-modelcif-format).
-
-### 2.2. Example run with SLURM (EMBL cluster).
-
+<details>
+   <summary>2.2. Example run with SLURM (EMBL cluster)</summary>
 If you run AlphaPulldown on a computer cluster, you may want to execute feature creation in parallel. Here, we provide an example of code that is suitable for a cluster that utilizes SLURM Workload Manager.
 
 #### Input
@@ -945,8 +944,10 @@ sbatch --array=1-$count example_data/run_multimer_jobs_SLURM.sh
 #### Output and the next step
 
 The [output](#output-3) and [next step](#next-step-4) are the same as those for the [2.1. Basic Run](#21-basic-run).
+</details>
+<details>
+   <summary>2.3. Pulldown mode</summary>
 
-### 2.3. Pulldown and All versus all modes
 Instead of manually typing all combinations of proteins, AlphaPulldown provides two different modes of automatic generation of such combinations.
 
 <picture>
@@ -1002,8 +1003,10 @@ run_multimer_jobs.py \
 Compared to  [2.1 Basic run](#21-basic-run), this example differs in:
 * `--mode=pulldown` flag that defines the mode of the run.
 * Instead of `<protein_list1.txt>,<protein_list2.txt>`, provide the paths to the files containing the list of protein combinations to be modeled.
-  
-#### "all_vs_all" mode
+</details>
+<details>
+
+   <summary>2.4 "all_vs_all" mode </summary>
 
 In this mode, AlphaPulldown takes lines from the input `protein_list.txt` file and generates all possible combinations of these lines.
 
@@ -1040,10 +1043,11 @@ Compared to  [2.1 Basic run](#21-basic-run), this example differs in:
 #### Output and the next step
 
 The [output](#output-3) and [next step](#next-step-4) are the same as those for the [2.1. Basic Run](#21-basic-run).
+</details>
 
-### 2.4. Run with Custom Templates (TrueMultimer)
-
-#### Input
+<details>
+   <summary>2.5. Run with Custom Templates (TrueMultimer)</summary>
+<h4>Input</h4> 
 
 This step requires the feature files (`.pkl`) generated with custom templates during the [first step](#14-run-with-custom-templates-truemultimer). Additionally, you'll need to provide a list of protein combinations in `protein_list.txt` that you intend to predict.
 
@@ -1118,6 +1122,7 @@ The other modes provided by AlphaPulldown also work in the same way.
 #### Output and the next step
 
 The [output](#output-3) and [next step](#next-step-4) are the same as those for the [2.1. Basic Run](#21-basic-run).
+</details>
 
 ## 3. Analysis and Visualization
 The resulting predictions from the [step 2](#2-predict-structures-gpu-stage) can be used directly as they are. However, for evaluation systematization and ranking of the prediction, you can use an interactive [Jupyter Notebook](https://jupyter.org/) and/or table with models scores. 
