@@ -106,6 +106,7 @@ def create_arguments(local_path_to_custom_template_db=None):
 
     use_small_bfd = FLAGS.db_preset == "reduced_dbs"
     flags_dict.update({"use_small_bfd": use_small_bfd})
+    flags_dict.update({"fasta_paths": FLAGS.fasta_paths})
 
     # Update pdb related flags
     if local_path_to_custom_template_db:
@@ -336,7 +337,7 @@ def process_multimeric_features(feat, idx):
             temp_dir, protein, template_paths, chains)
         create_arguments(local_path_to_custom_db)
 
-        flags_dict.update({f"protein_{idx}": protein, f"multimeric_templates_{idx}": template_paths,
+        flags_dict.update({f"protein": protein, f"multimeric_templates_{idx}": template_paths,
                            f"multimeric_chains_{idx}": chains})
 
         if not FLAGS.use_mmseqs2:

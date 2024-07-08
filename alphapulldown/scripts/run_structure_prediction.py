@@ -9,8 +9,10 @@
 from absl import flags, app
 from os import makedirs
 from typing import Dict, List, Union, Tuple
-from os.path import join
+from os.path import join, basename
 from absl import logging
+import glob
+import shutil
 from alphapulldown.folding_backend import backend
 from alphapulldown.folding_backend.alphafold_backend import ModelsToRelax
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
@@ -47,8 +49,8 @@ flags.DEFINE_boolean('msa_depth_scan', False,
                      'Run predictions for each model with logarithmically distributed MSA depth.')
 flags.DEFINE_boolean('multimeric_template', False,
                      'Whether to use multimeric templates.')
-flags.DEFINE_string('model_names', None,
-                    'Names of models to use, e.g. model_2_multimer_v3 (default: all models).')
+flags.DEFINE_list('model_names', None,
+                    'A list of names of models to use, e.g. model_2_multimer_v3 (default: all models).')
 flags.DEFINE_integer('msa_depth', None,
                      'Number of sequences to use from the MSA (by default is taken from AF model config).')
 flags.DEFINE_string('description_file', None,
@@ -86,6 +88,8 @@ flags.DEFINE_integer('random_seed', None, 'The random seed for the data '
                      'that even if this is set, Alphafold may still not be '
                      'deterministic, because processes like GPU inference are '
                      'nondeterministic.')
+flags.DEFINE_boolean('convert_to_modelcif', True,
+                     'Whether to convert predicted pdb files to modelcif format. Default True.')
 # AlphaLink2 settings
 flags.DEFINE_string('crosslinks', None, 'Path to crosslink information pickle for AlphaLink.')
 
@@ -209,11 +213,25 @@ def pre_modelling_setup(
         "use_gpu_relax": flags.use_gpu_relax,
         "models_to_relax": flags.models_to_relax,
         "features_directory": flags.features_directory,
+        "convert_to_modelcif": flags.convert_to_modelcif
     }
 
     if flags.use_ap_style:
         output_dir = join(output_dir, object_to_model.description)
     makedirs(output_dir, exist_ok=True)
+    # Copy features metadata to output directory
+    for interactor in interactors:
+        for feature_dir in flags.features_directory:
+            meta_json = glob.glob(
+                join(feature_dir, f"{interactor.description}_feature_metadata_*.json")
+            )
+            if meta_json:
+                feature_json = meta_json[0]
+                logging.info(f"Copying {feature_json} to {output_dir}")
+                shutil.copyfile(feature_json, join(output_dir, basename(feature_json)))
+            else:
+                logging.warning(f"No feature metadata found for {interactor.description} in {output_dir}")
+
     return object_to_model, flags_dict, postprocess_flags, output_dir
 
 def main(argv):

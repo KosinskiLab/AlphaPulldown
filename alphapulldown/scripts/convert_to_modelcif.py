@@ -9,7 +9,6 @@ import gzip
 import hashlib
 import json
 import os
-import pickle
 import re
 import shutil
 import sys
@@ -30,7 +29,7 @@ import modelcif.dumper
 import modelcif.model
 import modelcif.protocol
 
-from alphapulldown.utils.file_handling import make_dir_monomer_dictionary, iter_seqs
+from alphapulldown.utils.file_handling import iter_seqs
 
 # ToDo: Software versions can not have a white space, e.g. ColabFold (drop time)
 # ToDo: DISCUSS Get options properly, best get the same names as used in
@@ -53,11 +52,6 @@ from alphapulldown.utils.file_handling import make_dir_monomer_dictionary, iter_
 flags.DEFINE_string(
     "ap_output", None, "AlphaPulldown pipeline output directory"
 )
-flags.DEFINE_list(
-    "monomer_objects_dir",
-    None,
-    "a list of directories where monomer objects are stored",
-)
 flags.DEFINE_integer(
     "model_selected",
     None,
@@ -71,7 +65,7 @@ flags.DEFINE_bool(
     + "'--model_selected' to the archive for associated files",
 )
 flags.DEFINE_bool("compress", False, "compress the ModelCIF file(s) using Gzip")
-flags.mark_flags_as_required(["ap_output", "monomer_objects_dir"])
+flags.mark_flags_as_required(["ap_output"])
 
 FLAGS = flags.FLAGS
 
@@ -163,11 +157,18 @@ class _Biopython2ModelCIF(modelcif.model.AbInitioModel):
         _LocalPLDDT.software = sw_dct["AlphaFold"]
         _LocalPairwisePAE.software = sw_dct["AlphaFold"]
         # global scores
+        if "iptm" in scores_json:
+            conf = scores_json["iptm+ptm"]
+            iptm = scores_json["iptm"]
+            ptm = (conf - 0.8*iptm)/0.2
+        elif "ptm" in scores_json:
+            iptm = 0
+            ptm = scores_json["ptm"]
         self.qa_metrics.extend(
             (
                 _GlobalPLDDT(np.mean(scores_json["plddt"])),
-                _GlobalPTM(scores_json["ptm"]),
-                _GlobalIPTM(scores_json["iptm"]),
+                _GlobalPTM(ptm),
+                _GlobalIPTM(iptm),
             )
         )
 
@@ -178,7 +179,8 @@ class _Biopython2ModelCIF(modelcif.model.AbInitioModel):
         lpae = []
         # aa_only=False includes non-canonical amino acids but seems to skip
         # non-peptide-linking residues like ions
-        polypeptides = PPBuilder().build_peptides(self.structure, aa_only=False)
+        # make C-N radius huge to make it work on unrelaxed AF models
+        polypeptides = PPBuilder(radius=999999999).build_peptides(self.structure, aa_only=False)
         for chn_i in polypeptides:
             for res_i in chn_i:
                 # local pLDDT
@@ -612,7 +614,7 @@ def _get_model_details(cmplx_name: str, data_json: dict) -> str:
                 )
 
     return (
-        f"Model generated for {' and '.join(cmplx_name)}, produced "
+        f"Model generated for {cmplx_name}, produced "
         + f"using AlphaFold-Multimer ({af2_version}) as implemented by "
         + f"AlphaPulldown ({', '.join(ap_versions)})."
     )
@@ -688,6 +690,10 @@ def _get_software_with_parameters(sw_dict, other_dict):
             "sw": ["AlphaPulldown"],
             "method_type": ["coevolution MSA"],
         },
+        "use_hhsearch": {
+            "sw": ["AlphaPulldown"],
+            "method_type": ["coevolution MSA"],
+        },
         "skip_existing": {
             "sw": ["AlphaPulldown"],
             "method_type": ["coevolution MSA", "modeling"],
@@ -760,6 +766,8 @@ def _get_software_with_parameters(sw_dict, other_dict):
         "v",
         "verbosity",
         "xml_output_file",
+        "multiple_mmts",
+        "protein",
     ]
     re_args = re.compile(
         r"(?:fasta_paths|multimeric_chains|multimeric_templates|protein)_\d+"
@@ -774,7 +782,7 @@ def _get_software_with_parameters(sw_dict, other_dict):
         else:
             if key not in ignored_args and re.match(re_args, key) is None:
                 logging.info(f"Found unknown key in 'other': {key}")
-                sys.exit()
+                #sys.exit()
 
     return swwp
 
@@ -782,36 +790,34 @@ def _get_software_with_parameters(sw_dict, other_dict):
 def _get_feature_metadata(
     modelcif_json: dict,
     cmplx_name: str,
-    monomer_objects_dir: list,
+    out_dir: list,
 ) -> Tuple[List[str], List[str]]:
     """Read metadata from a feature JSON file."""
-    cmplx_name = cmplx_name.split("_and_")
-    mnmr_obj_fls = make_dir_monomer_dictionary(monomer_objects_dir)
     if "__meta__" not in modelcif_json:
         modelcif_json["__meta__"] = {}
     fasta_dicts = []
-    for mnmr in cmplx_name:
-        modelcif_json["__meta__"][mnmr] = {}
-        feature_json_pattern = os.path.join(mnmr_obj_fls[mnmr], f"{mnmr}_feature_metadata_*.json")
-        matching_files = glob.glob(feature_json_pattern)
-        if matching_files:
-            feature_json = matching_files[0]
-        _file_exists_or_exit(
-            feature_json, f"No feature metadata file '{feature_json}' found."
-        )
-        # ToDo: make sure that its always ASCII
-        with open(feature_json, "r", encoding="ascii") as jfh:
-            jdata = json.load(jfh)
-        modelcif_json["__meta__"][mnmr]["databases"] = jdata["databases"]
-        modelcif_json["__meta__"][mnmr][
-            "software"
-        ] = _get_software_with_parameters(jdata["software"], jdata["other"])
-        fp = jdata["other"]["fasta_paths"]
-        fp = ast.literal_eval(fp)
-        for curr_seq, curr_desc in iter_seqs(fp):
-            new_entry = {'description': curr_desc, 'sequence': curr_seq}
-            if new_entry not in fasta_dicts:
-                fasta_dicts.append(new_entry)
+    feature_json_files = glob.glob(os.path.join(out_dir, f"*_feature_metadata_*.json"))
+    if feature_json_files:
+        for feature_json in feature_json_files:
+            _file_exists_or_exit(
+                feature_json, f"No feature metadata file '{feature_json}' found."
+            )
+            # ToDo: make sure that its always ASCII
+            with open(feature_json, "r", encoding="ascii") as jfh:
+                jdata = json.load(jfh)
+                #mnmr = jdata["protein"] # For backwards compatibility parse from filename
+                mnmr = os.path.basename(feature_json).split("_feature_metadata_")[0]
+                modelcif_json["__meta__"][mnmr] = {}
+                modelcif_json["__meta__"][mnmr]["databases"] = jdata["databases"]
+                modelcif_json["__meta__"][mnmr][
+                    "software"
+                ] = _get_software_with_parameters(jdata["software"], jdata["other"])
+                fp = jdata["other"]["fasta_paths"]
+                fp = ast.literal_eval(fp)
+                for curr_seq, curr_desc in iter_seqs(fp):
+                    new_entry = {'description': curr_desc, 'sequence': curr_seq}
+                    if new_entry not in fasta_dicts:
+                        fasta_dicts.append(new_entry)
 
     return cmplx_name, fasta_dicts
 
@@ -823,8 +829,8 @@ def _get_model_info(
     mdl_rank: int,
 ) -> None:
     """Get 'data_' block ID and data for categories '_struct' and '_entry'."""
-    cif_json["data_"] = "_".join(cmplx_name)
-    cif_json["_struct.title"] = f"Prediction for {' and '.join(cmplx_name)}"
+    cif_json["data_"] = cmplx_name
+    cif_json["_struct.title"] = f"Prediction for {cmplx_name}"
     cif_json["_struct.pdbx_model_details"] = _get_model_details(
         cmplx_name, cif_json
     )
@@ -834,7 +840,7 @@ def _get_model_info(
 
 
 def _get_entities(
-    cif_json: dict, pdb_file: str, cmplx_name: List[str], fasta_dicts: List[dict]
+    cif_json: dict, pdb_file: str, cmplx_name: str, fasta_dicts: List[dict]
 ) -> BioStructure:
     """Gather data for the mmCIF (target) entities."""
     sequences = {}
@@ -846,7 +852,7 @@ def _get_entities(
         sequences[hashlib.md5(seq.encode()).hexdigest()] = description
 
     # gather molecular entities from PDB file
-    structure = PDBParser().get_structure("_".join(cmplx_name), pdb_file)
+    structure = PDBParser().get_structure(cmplx_name, pdb_file)
     cif_json["target_entities"] = []
     already_seen = []
     for seq in PPBuilder().build_peptides(structure):
@@ -875,14 +881,37 @@ def _get_entities(
 
 def _get_scores(cif_json: dict, scr_file: str) -> None:
     """Add scores to JSON data."""
-    with open(scr_file, "rb") as sfh:
-        scr_dict = pickle.load(sfh)
+    # Read from jsons instead
+    mdl_name = scr_file.split('result_')[1].split('.pkl')[0]
+    output_dir = os.path.dirname(scr_file)
+    with open(os.path.join(output_dir, f"confidence_{mdl_name}.json"), 'r') as f:
+        plddt = json.load(f)["confidenceScore"]
+        cif_json["plddt"] = plddt
+    with open(os.path.join(output_dir, "ranking_debug.json"), 'r') as f:
+        ranking = json.load(f)
+        # Multimer
+        if "iptm" in ranking:
+            iptm_ptm = ranking["iptm+ptm"][mdl_name]
+            cif_json["iptm+ptm"] = iptm_ptm
+            iptm = ranking["iptm"][mdl_name]
+            cif_json["iptm"] = iptm
+        # Monomer
+        elif "ptm" in ranking:
+            ptm = ranking["ptm"][mdl_name]
+            cif_json["ptm"] = ptm
+        else:
+            raise RuntimeError("No PTM scores found in ranking_debug.json")
+    with open(os.path.join(output_dir, f"pae_{mdl_name}.json"), 'r') as f:
+        pae = json.load(f)[0]["predicted_aligned_error"]
+        cif_json["pae"] = pae
+    #with open(scr_file, "rb") as sfh:
+     #   scr_dict = pickle.load(sfh)
     # Get pLDDT as a list, the global pLDDT is the average, calculated on the
     # spot.
-    cif_json["plddt"] = scr_dict["plddt"]
-    cif_json["ptm"] = float(scr_dict["ptm"])
-    cif_json["iptm"] = float(scr_dict["iptm"])
-    cif_json["pae"] = scr_dict["predicted_aligned_error"]
+    #cif_json["plddt"] = scr_dict["plddt"]
+    #cif_json["ptm"] = float(scr_dict["ptm"])
+    #cif_json["iptm"] = float(scr_dict["iptm"])
+    #cif_json["pae"] = scr_dict["predicted_aligned_error"]
 
 
 def _get_software_data(meta_json: dict) -> list:
@@ -1121,17 +1150,17 @@ def _get_protocol_steps(modelcif_json):
                     )
                 else:
                     step["parameter_group"].append({})
-            else:
-                pos = step["software_group"].index(tool)
-                if step["method_type"] in sftwr[tool]:
-                    params = sftwr[tool][step["method_type"]]
-                else:
-                    params = {}
-                # always raises an error due to different --job_index!
-                #if step["parameter_group"][pos] != params:
-                #    raise RuntimeError(
-                #        f"Different parameters/ values for {tool}."
-                #    )
+            # else:
+            #     pos = step["software_group"].index(tool)
+            #     if step["method_type"] in sftwr[tool]:
+            #         params = sftwr[tool][step["method_type"]]
+            #     else:
+            #         params = {}
+            #     # always raises an error due to different --job_index!
+            #     #if step["parameter_group"][pos] != params:
+            #     #    raise RuntimeError(
+            #     #        f"Different parameters/ values for {tool}."
+            #     #    )
 
     protocol.append(step)
 
@@ -1172,12 +1201,25 @@ def _get_protocol_steps(modelcif_json):
     return protocol
 
 
+# def _collect_monomer_dictionary(monomer_objects_dir):
+#     """
+#     a function to gather all monomers across different monomer_objects_dir
+#
+#     args
+#     monomer_objects_dir: a list of directories where monomer objects are stored, given by FLAGS.monomer_objects_dir
+#     """
+#     output_dict = dict()
+#     for dir in monomer_objects_dir:
+#         monomers = glob.glob(f"{dir}/*.pkl")
+#         for m in monomers:
+#             output_dict[m] = dir
+#     return output_dict
+
+
 def alphapulldown_model_to_modelcif(
     cmplx_name: str,
     mdl: tuple,
     out_dir: str,
-    prj_dir: str,
-    monomer_objects_dir: list,
     compress: bool = False,
     additional_assoc_files: list = None,
 ) -> None:
@@ -1190,7 +1232,7 @@ def alphapulldown_model_to_modelcif(
     modelcif_json = {}
     # fetch metadata
     cmplx_name, fasta_dicts = _get_feature_metadata(
-        modelcif_json, cmplx_name, monomer_objects_dir
+        modelcif_json, cmplx_name, out_dir
     )
     # fetch/ assemble more data about the modelling experiment
     _get_model_info(
@@ -1239,8 +1281,12 @@ def _get_model_list(
     """Get the list of models to be converted.
 
     If `model_selected` is none, all models will be marked for conversion."""
-    cmplx = [d for d in os.listdir(ap_dir) if os.path.isdir(os.path.join(ap_dir, d))]
-    mdl_all_paths = [os.path.join(ap_dir, c) for c in cmplx]
+    if 'ranking_debug.json' in os.listdir(ap_dir): #One complex was given, not the root directory
+        cmplx = [os.path.basename(os.path.normpath(ap_dir))]
+        mdl_all_paths = [ap_dir]
+    else:
+        cmplx = [d for d in os.listdir(ap_dir) if os.path.isdir(os.path.join(ap_dir, d))]
+        mdl_all_paths = [os.path.join(ap_dir, c) for c in cmplx]
     result = []
 
     for c, specific_mdl_path in zip(cmplx, mdl_all_paths):
@@ -1348,8 +1394,6 @@ def main(argv):
                             complex_name,
                             mdl,
                             ns_tmpdir.name,
-                            FLAGS.ap_output,
-                            FLAGS.monomer_objects_dir,
                             FLAGS.compress,
                         )
                     )
@@ -1358,8 +1402,6 @@ def main(argv):
                     complex_name,
                     mdl,
                     model_dir,
-                    FLAGS.ap_output,
-                    FLAGS.monomer_objects_dir,
                     FLAGS.compress,
                     add_assoc_files,
                 )

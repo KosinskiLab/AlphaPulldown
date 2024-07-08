@@ -3,14 +3,13 @@
     Copyright (c) 2023 European Molecular Biology Laboratory
 
     Author: Valentin Maurer <valentin.maurer@embl-hamburg.de>
+            Dingquan Yu <dingquan.yu@embl-hamburg.de>
 """
 
 from typing import Dict, List
-
+from absl import logging
 from .alphafold_backend import AlphaFoldBackend
-from .alphalink_backend import AlphaLinkBackend
-from .unifold_backend import UnifoldBackend
-
+logging.set_verbosity(logging.INFO)
 
 class FoldingBackendManager:
     """
@@ -31,14 +30,28 @@ class FoldingBackendManager:
 
     def __init__(self):
         self._BACKEND_REGISTRY = {
-            "alphafold": AlphaFoldBackend,
-            "unifold": UnifoldBackend,
-            "alphalink": AlphaLinkBackend
+            "alphafold": AlphaFoldBackend
         }
+        self.import_backends()
         self._backend_name = "alphafold"
         self._backend = self._BACKEND_REGISTRY[self._backend_name]()
         self._backend_args = {}
 
+    def import_backends(self) -> None:
+        """Import all available backends"""
+        try:
+            from .alphalink_backend import AlphaLinkBackend
+            self._BACKEND_REGISTRY.update({"alphalink": AlphaLinkBackend})
+        except Exception as e:
+            logging.warning("Failed to import AlphaLinkBackend. Perhaps you haven't installed all the required dependencies.")
+        
+        try:
+            from .unifold_backend import UnifoldBackend
+            self._BACKEND_REGISTRY.update({"unifold": UnifoldBackend})
+        
+        except Exception as e:
+            logging.warning("Failed to import UnifoldBackend. Perhaps you haven't installed all the required dependencies.")
+        
     def __repr__(self):
         return f"<BackendManager: using {self._backend_name}>"
 

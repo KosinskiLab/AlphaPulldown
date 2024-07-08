@@ -80,6 +80,8 @@ RUN pip3 install --upgrade pip --no-cache-dir \
       jaxlib==0.4.23+cuda11.cudnn86 \
       -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 
+RUN pip3 install git+https://github.com/KosinskiLab/AlphaPulldown.git@main
+
 RUN chmod u+s /sbin/ldconfig.real
 
 ENTRYPOINT ["bash"]
