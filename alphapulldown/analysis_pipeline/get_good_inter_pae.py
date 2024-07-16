@@ -131,7 +131,7 @@ def main(argv):
                         best_model = ranking_data['order'][0]
                         data = ranking_data
 
-                        if "iptm" in data or "iptm+ptm" in data:
+                        if "iptm+ptm" in data:
                             iptm_ptm_score = data['iptm+ptm'][best_model]
                             
                             try:
@@ -154,6 +154,8 @@ def main(argv):
                                     output_df = pd.concat([score_df, output_df])
                             except Exception as e:
                                 logging.error(f"Error processing PAE and iPTM for job {job}: {e}")
+                        else:
+                            logging.warning(f"{job} does not seem to be a multimeric model. iptm+ptm scores are not in the ranking_debug.json Skipped")
                     except Exception as e:
                         logging.error(f"Error getting the best model name from ranking_debug.json for job :{job} : {e}")
                 except Exception as e:
