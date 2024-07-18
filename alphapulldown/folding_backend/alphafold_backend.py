@@ -630,6 +630,7 @@ class AlphaFoldBackend(FoldingBackend):
                 continue
             unrelaxed_pdb_string = open(unrelaxed_pdb_path, 'r').read()
             unrelaxed_protein = protein.from_pdb_string(unrelaxed_pdb_string)
+            prediction_results[model_name]['unrelaxed_protein'] = unrelaxed_protein # update prediction_results here other wise line 659 will crash
             relaxed_pdb_str, _, violations = amber_relaxer.process(
                 prot=unrelaxed_protein)
             relax_metrics[model_name] = {
