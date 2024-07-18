@@ -557,6 +557,8 @@ class AlphaFoldBackend(FoldingBackend):
         for model_name, prediction_result in prediction_results.items():
             prediction_result.update(AlphaFoldBackend.recalculate_confidence(prediction_result,multimer_mode,
                                                                          total_num_res))
+            if 'unrelaxed_protein' in prediction_result.keys():
+                del prediction_result['unrelaxed_protein']
             # Remove jax dependency from results
             np_prediction_result = _jnp_to_np(dict(prediction_result))
             # Save prediction results to pickle file
@@ -621,7 +623,13 @@ class AlphaFoldBackend(FoldingBackend):
             if f'relax_{model_name}' in timings:
                 continue
             t_0 = time.time()
-            unrelaxed_protein = prediction_results[model_name]['unrelaxed_protein']
+
+            unrelaxed_pdb_path = os.path.join(output_dir, f"unrelaxed_{model_name}.pdb")
+            if not os.path.exists(unrelaxed_pdb_path):
+                logging.error(f"Cannot find {unrelaxed_pdb_path} for relaxation! Skipping...")
+                continue
+            unrelaxed_pdb_string = open(unrelaxed_pdb_path, 'r').read()
+            unrelaxed_protein = protein.from_pdb_string(unrelaxed_pdb_string)
             relaxed_pdb_str, _, violations = amber_relaxer.process(
                 prot=unrelaxed_protein)
             relax_metrics[model_name] = {
