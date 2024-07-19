@@ -558,13 +558,14 @@ class AlphaFoldBackend(FoldingBackend):
             prediction_result.update(AlphaFoldBackend.recalculate_confidence(prediction_result,multimer_mode,
                                                                          total_num_res))
             if 'unrelaxed_protein' in prediction_result.keys():
-                del prediction_result['unrelaxed_protein']
+                unrelaxed_protein = prediction_result.pop("unrelaxed_protein")
             # Remove jax dependency from results
             np_prediction_result = _jnp_to_np(dict(prediction_result))
             # Save prediction results to pickle file
             result_output_path = os.path.join(output_dir, f"result_{model_name}.pkl")
             with open(result_output_path, "wb") as f:
                 pickle.dump(np_prediction_result, f, protocol=4)
+            prediction_results[model_name]['unrelaxed_protein'] = unrelaxed_protein
             if 'iptm' in prediction_result:
                 label = 'iptm+ptm'
                 iptm_scores[model_name] = float(prediction_result['iptm'])
@@ -629,8 +630,7 @@ class AlphaFoldBackend(FoldingBackend):
                 logging.error(f"Cannot find {unrelaxed_pdb_path} for relaxation! Skipping...")
                 continue
             unrelaxed_pdb_string = open(unrelaxed_pdb_path, 'r').read()
-            unrelaxed_protein = protein.from_pdb_string(unrelaxed_pdb_string)
-            prediction_results[model_name]['unrelaxed_protein'] = unrelaxed_protein # update prediction_results here other wise line 659 will crash
+            unrelaxed_protein = protein.from_pdb_string(unrelaxed_pdb_string) # update prediction_results here other wise line 659 will crash
             relaxed_pdb_str, _, violations = amber_relaxer.process(
                 prot=unrelaxed_protein)
             relax_metrics[model_name] = {
