@@ -624,13 +624,7 @@ class AlphaFoldBackend(FoldingBackend):
             if f'relax_{model_name}' in timings:
                 continue
             t_0 = time.time()
-
-            unrelaxed_pdb_path = os.path.join(output_dir, f"unrelaxed_{model_name}.pdb")
-            if not os.path.exists(unrelaxed_pdb_path):
-                logging.error(f"Cannot find {unrelaxed_pdb_path} for relaxation! Skipping...")
-                continue
-            unrelaxed_pdb_string = open(unrelaxed_pdb_path, 'r').read()
-            unrelaxed_protein = protein.from_pdb_string(unrelaxed_pdb_string) # update prediction_results here other wise line 659 will crash
+            unrelaxed_protein = prediction_results[model_name]['unrelaxed_protein']
             relaxed_pdb_str, _, violations = amber_relaxer.process(
                 prot=unrelaxed_protein)
             relax_metrics[model_name] = {
