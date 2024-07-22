@@ -4,12 +4,10 @@ From: kosinskilab/alpha_analysis_basis_jax0.3:latest
 %files
     ./*.py /app/alpha-analysis/
     ./*.sh /app/
-    ../../alphafold/ /app/
 
 %environment 
     export PATH="/app/alpha-analysis:$PATH"
     export PYTHONPATH="/app:$PYTHONPATH"
-    export PYTHONPATH="/app/alphafold:$PYTHONPATH"
     chmod +x /app/run_get_good_pae.sh
     chmod +x /app/run_execute_notebook.sh
     chmod +x /app/run_pi_score.sh
