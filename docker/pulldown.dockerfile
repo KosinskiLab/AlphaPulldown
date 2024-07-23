@@ -60,6 +60,7 @@ RUN conda install -y -c conda-forge -c bioconda --solver classic \
       cctbx-base \
       kalign2 \
       importlib_metadata \
+      modelcif \
       pip \
       python=3.10 \
       && conda clean --all --force-pkgs-dirs --yes
