@@ -71,7 +71,7 @@ python3 -m pip install alphapulldown==1.0.4
 pip install jax==0.4.23 jaxlib==0.4.23+cuda11.cudnn86 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 ```
 **For the latest beta version**:
-If you'd like to use AlphaPulldown 2 beta version, feel free to run ```pip install alphapulldown==2.0.0b2``` instead. Please be aware that the beta version
+If you'd like to use AlphaPulldown 2 beta version, feel free to run ```pip install alphapulldown==2.0.0b3``` instead. Please be aware that the beta version
 is actively being updated/fixed. It might not be 100% stable.
 
 **For older versions of AlphaFold**: 
