@@ -322,6 +322,8 @@ Firstly, download the singularity image:
 ⚠️ If your results are from AlphaPulldown prior version 1.0.0: [`alpha-analysis_jax_0.3.sif`](https://www.embl-hamburg.de/AlphaPulldown/downloads/alpha-analysis_jax_0.3.sif). 
 
 ⚠️ If your results are from AlphaPulldown with version >=1.0.0: [`alpha-analysis_jax_0.4.sif`](https://www.embl-hamburg.de/AlphaPulldown/downloads/alpha-analysis_jax_0.4.sif). 
+
+⚠️ If your results are from the latest beta version 2.0.0b3, please download: [alpha-analysis.sif](https://www.embl-hamburg.de/AlphaPulldown/downloads/alpha-analysis.sif).
 Chrome user may not be able to download it after clicking the link. If so, please right click and select "Save link as".
 
 
