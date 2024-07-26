@@ -33,24 +33,29 @@ class _TestBase(parameterized.TestCase):
         self.data_dir = "/scratch/AlphaFold_DBs/2.3.2/"
         #Get test_data directory as relative path to this script
         self.test_data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_data")
-
-class TestScript(_TestBase):
-    #Add setup that creates empty output directory temporary
-    def setUp(self) -> None:
-        #Call the setUp method of the parent class
-        super().setUp()
-
-        #Create a temporary directory for the output
-        self.output_dir = tempfile.mkdtemp()
-        self.protein_lists = os.path.join(self.test_data_dir, "tiny_monomeric_features_homodimer.txt")
-        self.monomer_objects_dir = self.test_data_dir
-
+        self.test_fastas_dir = os.path.join(self.test_data_dir, "fastas")
+        self.test_features_dir = os.path.join(self.test_data_dir, "features")
+        self.test_protein_lists_dir = os.path.join(self.test_data_dir, "protein_lists")
+        self.test_templates_dir = os.path.join(self.test_data_dir, "templates")
+        self.test_modelling_dir = os.path.join(self.test_data_dir, "predictions")
         #Get path of the alphapulldown module
         alphapulldown_path = alphapulldown.__path__[0]
         #join the path with the script name
         self.script_path = os.path.join(alphapulldown_path, "scripts/run_multimer_jobs.py")
         print(sys.executable)
         print(self.script_path)
+
+class TestScript(_TestBase):
+    #Add setup that creates empty output directory temporary
+    def setUp(self) -> None:
+        #Call the setUp method of the parent class
+        super().setUp()
+        #Create a temporary directory for the output
+        #self.output_dir = tempfile.mkdtemp()
+        self.output_dir = self.test_modelling_dir # uncomment to update the test data
+        self.protein_lists = os.path.join(self.test_protein_lists_dir, "tiny_monomeric_features_homodimer.txt")
+
+
         self.args = [
             sys.executable,
             self.script_path,
@@ -60,12 +65,13 @@ class TestScript(_TestBase):
             f"--output_path={self.output_dir}",
             f"--data_dir={self.data_dir}",
             f"--protein_lists={self.protein_lists}",
-            f"--monomer_objects_dir={self.monomer_objects_dir}"
+            f"--monomer_objects_dir={self.test_features_dir}"
         ]
 
     def tearDown(self) -> None:
         #Remove the temporary directory
-        shutil.rmtree(self.output_dir)
+        #shutil.rmtree(self.output_dir)
+        pass
 
     def _runCommonTests(self, result, multimer_mode: True):
         print(result.stdout)
@@ -119,8 +125,7 @@ class TestScript(_TestBase):
 
     def testRun_1(self):
         """test run monomer structure prediction"""
-        self.monomer_objects_dir = self.test_data_dir
-        self.oligomer_state_file = os.path.join(self.test_data_dir, "test_homooligomer_state.txt")
+        oligomer_state_file = os.path.join(self.test_protein_lists_dir, "test_homooligomer_state.txt")
         self.args = [
             sys.executable,
             self.script_path,
@@ -129,23 +134,24 @@ class TestScript(_TestBase):
             "--num_predictions_per_model=1",
             f"--output_path={self.output_dir}",
             f"--data_dir={self.data_dir}",
-            f"--oligomer_state_file={self.oligomer_state_file}",
-            f"--monomer_objects_dir={self.monomer_objects_dir}",
+            f"--oligomer_state_file={oligomer_state_file}",
+            f"--monomer_objects_dir={self.test_features_dir}",
             "--job_index=1"
         ]
         result = subprocess.run(self.args, capture_output=True, text=True)
         self._runCommonTests(result, multimer_mode=False)
 
-    def _runAfterRelaxTests(self, result):
+    def _runAfterRelaxTests(self):
         dirname = next(
             subdir for subdir in os.listdir(self.output_dir) if os.path.isdir(os.path.join(self.output_dir, subdir)))
         #Check if the directory contains five files starting from relaxed and ending with .pdb
-        self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.startswith("relaxed") and f.endswith(".pdb")]), 5)
+        self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname))
+                              if f.startswith("relaxed") and f.endswith(".pdb")]), 5)
 
     #@parameterized.named_parameters(('relax', ModelsToRelax.ALL),('no_relax', ModelsToRelax.NONE))
     def testRun_2(self):
         """test run without amber relaxation"""
-        self.monomer_objects_dir = self.test_data_dir
+
         self.args = [
             sys.executable,
             self.script_path,
@@ -155,7 +161,7 @@ class TestScript(_TestBase):
             f"--output_path={self.output_dir}",
             f"--data_dir={self.data_dir}",
             f"--protein_lists={self.protein_lists}",
-            f"--monomer_objects_dir={self.monomer_objects_dir}",
+            f"--monomer_objects_dir={self.test_features_dir}",
             "--job_index=1"
         ]
         result = subprocess.run(self.args, capture_output=True, text=True)
@@ -166,40 +172,34 @@ class TestScript(_TestBase):
         self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.startswith("relaxed") and f.endswith(".pdb")]), 0)
         self.assertIn("model_1_multimer_v3_pred_0", result.stdout + result.stderr)
 
-    #pytest.mark.xfail
     def testRun_3(self):
         """test run with relaxation for all models"""
         self.args.append("--models_to_relax=All")
         result = subprocess.run(self.args, capture_output=True, text=True)
         self._runCommonTests(result, multimer_mode=True)
-        self._runAfterRelaxTests(result)
+        self._runAfterRelaxTests()
         self.assertIn("model_1_multimer_v3_pred_0", result.stdout + result.stderr)
 
-    #@pytest.mark.xfail
     def testRun_4(self):
-        """
-        Test if the script can resume after all 5 models are finished, running amber relax on the 5 models
-        """
-        #Copy the example directory called "test" to the output directory
-        shutil.copytree(os.path.join(self.test_data_dir,"P0DPR3_and_P0DPR3"), os.path.join(self.output_dir, "P0DPR3_and_P0DPR3"))
+        """test if the script can resume after all 5 models are finished, running amber relax on the 5 models"""
+        # Copy dir with unfinished relaxation to the output directory
+        shutil.copytree(os.path.join(self.test_modelling_dir,"P0DPR3_and_P0DPR3"),
+                        os.path.join(self.output_dir, "P0DPR3_and_P0DPR3"))
         self.args.append("--models_to_relax=All")
         result = subprocess.run(self.args, capture_output=True, text=True)
-        self._runCommonTests(result,multimer_mode=True)
+        self._runCommonTests(result, multimer_mode=True)
         self._runAfterRelaxTests(result)
         self.assertIn("All predictions for", result.stdout + result.stderr)
         self.assertIn("are already completed.", result.stdout + result.stderr)
         
     def testRun_5(self):
-        """
-        Test if the script can resume after 2 models are finished
-        """
-        # Copy the example directory called "test" to the output directory
-        shutil.copytree(os.path.join(self.test_data_dir, "P0DPR3_and_P0DPR3_partial"), os.path.join(self.output_dir, "P0DPR3_and_P0DPR3"))
+        """test if the script can resume after 2 models are finished"""
+        # Copy dir with unfinished predictions to the output directory
+        shutil.copytree(os.path.join(self.test_modelling_dir, "P0DPR3_and_P0DPR3_partial"),
+                        os.path.join(self.output_dir, "P0DPR3_and_P0DPR3"))
         result = subprocess.run(self.args, capture_output=True, text=True)
-        # self.assertIn("Found existing results, continuing from there", result.stdout + result.stderr) # this part of logging has been removed
         self.assertNotIn("using model_1_multimer_v3_pred_0", result.stdout + result.stderr)
         self.assertNotIn("using model_2_multimer_v3_pred_0", result.stdout + result.stderr)
-
         self._runCommonTests(result,multimer_mode=True)
 
     def testRun_6(self):
@@ -223,8 +223,8 @@ class TestScript(_TestBase):
             "--msa_depth=30",
             f"--output_path={self.output_dir}",
             f"--data_dir={self.data_dir}",
-            f"--protein_lists={self.test_data_dir}/true_multimer/custom.txt",
-            f"--monomer_objects_dir={self.test_data_dir}/true_multimer/features",
+            f"--protein_lists={self.test_protein_lists_dir}/custom.txt",
+            f"--monomer_objects_dir={self.test_features_dir}",
             "--job_index=1"
         ]
         result = subprocess.run(self.args, capture_output=True, text=True)
@@ -233,7 +233,7 @@ class TestScript(_TestBase):
         print(result.stderr)
         #self._runCommonTests(result) # fails because only one model is run
         reference = os.path.join(
-            self.test_data_dir, "true_multimer", "modelling", "3L4Q_A_and_3L4Q_C", "ranked_0.pdb")
+            self.test_modelling_dir, "3L4Q_A_and_3L4Q_C", "ranked_0.pdb")
         for i in range(5):
             target = os.path.join(self.output_dir, "3L4Q_A_and_3L4Q_C", f"ranked_{i}.pdb")
             assert os.path.exists(target)
@@ -246,9 +246,9 @@ class TestScript(_TestBase):
     def testRun_7(self):
         """Test multimeric template modelling without creating fake dbs and features"""
         self.assertTrue(os.path.exists(os.path.join(
-            self.test_data_dir, "true_multimer", "features", "3L4Q_A.pkl")))
+            self.test_features_dir, "3L4Q_A.pkl")))
         self.assertTrue(os.path.exists(os.path.join(
-            self.test_data_dir, "true_multimer", "features", "3L4Q_C.pkl")))
+            self.test_features_dir, "3L4Q_C.pkl")))
         with tempfile.TemporaryDirectory() as tmpdir:
             self.args = [
                 sys.executable,
@@ -259,8 +259,8 @@ class TestScript(_TestBase):
                 "--multimeric_template=True",
                 "--model_names=model_2_multimer_v3",
                 "--msa_depth=16",
-                f"--path_to_mmt={self.test_data_dir}/true_multimer",
-                f"--description_file={self.test_data_dir}/true_multimer/description_file.csv",
+                f"--path_to_mmt={self.test_templates_dir}",
+                f"--description_file={self.test_protein_lists_dir}/description_file.csv",
                 f"--output_path={tmpdir}",
                 f"--data_dir={self.data_dir}",
                 f"--protein_lists={self.test_data_dir}/true_multimer/custom.txt",
@@ -282,20 +282,20 @@ class TestScript(_TestBase):
                 "--multimeric_template=True",
                 "--msa_depth=16",
                 f"--path_to_mmt={self.test_data_dir}/true_multimer",
-                f"--description_file={self.test_data_dir}/true_multimer/description_file.csv",
+                f"--description_file={self.test_protein_lists_dir}/description_file.csv",
                 f"--output_path={tmpdir}",
                 f"--data_dir={self.data_dir}",
-                f"--protein_lists={self.test_data_dir}/true_multimer/custom.txt",
-                f"--monomer_objects_dir={self.test_data_dir}/true_multimer/features",
+                f"--protein_lists={self.test_protein_lists_dir}/custom.txt",
+                f"--monomer_objects_dir={self.test_features_dir}",
                 f"--remove_result_pickles",
                 "--job_index=1"
             ]
             result = subprocess.run(self.args, capture_output=True, text=True)
             print(f"{result.stderr}")
             self.assertTrue("ranking_debug.json" in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C")))
-            self.assertEqual(len([f for f in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C")) if f.startswith("result") and f.endswith(".pkl")]), 1)
-        pass
-    
+            self.assertEqual(len([f for f in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C"))
+                                  if f.startswith("result") and f.endswith(".pkl")]), 1)
+
     @pytest.mark.xfail
     def testRun_8(self):
         """Test modelling with padding"""
@@ -341,8 +341,8 @@ class TestScript(_TestBase):
                 "--num_predictions_per_model=1",
                 f"--output_path={tmpdir}",
                 f"--data_dir={self.data_dir}",
-                f"--protein_lists={self.test_data_dir}/true_multimer/custom.txt",
-                f"--monomer_objects_dir={self.test_data_dir}/true_multimer/features",
+                f"--protein_lists={self.test_protein_lists_dir}/custom.txt",
+                f"--monomer_objects_dir={self.test_features_dir}/features",
                 f"--noremove_result_pickles",
                 "--desired_num_res=500",
                 "--desired_num_msa=2000"
@@ -350,7 +350,8 @@ class TestScript(_TestBase):
             result = subprocess.run(self.args, capture_output=True, text=True)
             print(f"{result.stderr}")
             self.assertTrue("ranking_debug.json" in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C")))
-            self.assertEqual(len([f for f in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C")) if f.startswith("result") and f.endswith(".pkl")]), 5)
+            self.assertEqual(len([f for f in os.listdir(os.path.join(tmpdir, "3L4Q_A_and_3L4Q_C"))
+                                  if f.startswith("result") and f.endswith(".pkl")]), 5)
     
     def testRun_10(self):
         """
@@ -368,8 +369,8 @@ class TestScript(_TestBase):
                 "--num_predictions_per_model=1",
                 f"--output_path={tmpdir}",
                 f"--data_dir={self.data_dir}",
-                f"--protein_lists={self.test_data_dir}/A0A075B6L2_P0DPR3.txt",
-                f"--monomer_objects_dir={self.test_data_dir}",
+                f"--protein_lists={self.test_protein_lists_dir}/A0A075B6L2_P0DPR3.txt",
+                f"--monomer_objects_dir={self.test_features_dir}",
                 f"--noremove_result_pickles",
             ]
             result = subprocess.run(self.args, capture_output=True, text=True)
@@ -386,7 +387,7 @@ class TestScript(_TestBase):
                 "--num_predictions_per_model=1",
                 f"--output_path={tmpdir}",
                 f"--data_dir={self.data_dir}",
-                f"--protein_lists={self.test_data_dir}/A0A075B6L2_P0DPR3.txt",
+                f"--protein_lists={self.test_protein_lists_dir}/A0A075B6L2_P0DPR3.txt",
                 f"--monomer_objects_dir={self.test_data_dir}",
                 f"--noremove_result_pickles",
                 "--nopair_msa"
@@ -405,8 +406,8 @@ class TestScript(_TestBase):
                 "--num_predictions_per_model=1",
                 f"--output_path={tmpdir}",
                 f"--data_dir={self.data_dir}",
-                f"--protein_lists={self.test_data_dir}/A0A075B6L2_P0DPR3.txt",
-                f"--monomer_objects_dir={self.test_data_dir}",
+                f"--protein_lists={self.test_protein_lists_dir}/A0A075B6L2_P0DPR3.txt",
+                f"--monomer_objects_dir={self.test_features_dir}",
                 f"--noremove_result_pickles",
                 f"--pair_msa"
             ]

@@ -35,7 +35,7 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
 #SBATCH -N 1
 #SBATCH --ntasks=8
 #SBATCH --mem=32000
-module load Anaconda3
+#module load Anaconda3
 eval "$(conda shell.bash hook)"
 conda activate AlphaPulldown
 
