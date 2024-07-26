@@ -9,7 +9,7 @@
 #SBATCH --ntasks=8
 #SBATCH --mem=16000
 
-module load Anaconda3
+#module load Miniforge3/24.1.2-0
 eval "$(conda shell.bash hook)"
 module load CUDA/11.8.0
 module load cuDNN/8.7.0.84-CUDA-11.8.0

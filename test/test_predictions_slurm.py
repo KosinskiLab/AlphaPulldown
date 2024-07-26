@@ -2,6 +2,7 @@ import subprocess
 import os
 import pytest
 from absl.testing import absltest
+import time
 """
 Wrapper for test_predict_structure.sh and check_predict_structure.py
 """
@@ -11,8 +12,11 @@ class TestPredictStructure(absltest.TestCase):
         # Call the setUp method of the parent class
         super().setUp()
         # create slurm_logs directory if it does not exist
-        if not os.path.exists("slurm_logs"):
-            os.makedirs("slurm_logs")
+        # get the current time to create a unique directory
+        t = time.localtime()
+        self.path = f"slurm_logs/{t.tm_year}-{t.tm_mon}-{t.tm_mday}_{t.tm_hour}:{t.tm_min}:{t.tm_sec}"
+        if not os.path.exists(self.path):
+            os.makedirs(self.path)
 
     def _is_slurm_available(self):
         try:
@@ -33,7 +37,7 @@ class TestPredictStructure(absltest.TestCase):
         command = [
             "sbatch",
             f"--array={i}",
-            f"--output=slurm_logs/%j.testRun_{i}.log",
+            f"--output={self.path}/%j.testRun_{i}.log",
             "test/test_predict_structure.sh",
             conda_env]
         subprocess.run(command, check=True)
