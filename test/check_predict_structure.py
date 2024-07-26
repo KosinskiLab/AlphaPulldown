@@ -123,18 +123,25 @@ class TestScript(_TestBase):
                 #Check if iptm+ptm contains the correct models
                 self.assertSetEqual(set(ranking_debug["plddt"].keys()), expected_set)
 
-    def testRun_1(self):
+    @parameterized.named_parameters({'testcase_name': 'monomer', 'protein_list': 'test_monomer.txt', 'mode': 'custom'},
+                                    {'testcase_name': 'dimer', 'protein_list': 'test_dimer.txt', 'mode': 'custom'},
+                                    {'testcase_name': 'homo_oligomer', 'protein_list': "test_homooligomer.txt", 'mode': 'homo-oligomer'},
+                                    {'testcase_name': 'chopped_dimer', 'protein_list': 'test_dimer_chopped.txt', 'mode': 'custom'})
+    def testRun_1(self, protein_list, mode):
         """test run monomer structure prediction"""
-        oligomer_state_file = os.path.join(self.test_protein_lists_dir, "test_homooligomer_state.txt")
+        flag = "--protein-lists"
+        if mode == "homo-oligomer":
+            flag = "--oligomer-state-file"
+
         self.args = [
             sys.executable,
             self.script_path,
-            "--mode=homo-oligomer",
+            f"--mode={mode}",
             "--num_cycle=1",
             "--num_predictions_per_model=1",
             f"--output_path={self.output_dir}",
             f"--data_dir={self.data_dir}",
-            f"--oligomer_state_file={oligomer_state_file}",
+            f"{flag}={protein_list}",
             f"--monomer_objects_dir={self.test_features_dir}",
             "--job_index=1"
         ]
