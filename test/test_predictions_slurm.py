@@ -1,13 +1,13 @@
 import subprocess
 import os
 import pytest
-from absl.testing import absltest
+from absl.testing import absltest, parameterized
 import time
 """
 Wrapper for test_predict_structure.sh and check_predict_structure.py
 """
 #TODO: Test is passed if logs do not contain any errors.
-class TestPredictStructure(absltest.TestCase):
+class TestPredictStructure(parameterized.TestCase):
     def setUp(self) -> None:
         # Call the setUp method of the parent class
         super().setUp()
@@ -27,7 +27,7 @@ class TestPredictStructure(absltest.TestCase):
         except subprocess.CalledProcessError:
             return False
 
-    def _sbatch_command(self, i: int):
+    def _sbatch_command(self, i: int, name: str):
         if not self._is_slurm_available():
             pytest.skip("Slurm not available")
 
@@ -37,28 +37,22 @@ class TestPredictStructure(absltest.TestCase):
         command = [
             "sbatch",
             f"--array={i}",
-            f"--output={self.path}/%j.testRun_{i}.log",
+            f"--output={self.path}/%j.test_{i}_{name}.log",
             "test/test_predict_structure.sh",
-            conda_env]
+            conda_env,
+            name
+        ]
         subprocess.run(command, check=True)
 
-    def test_predict_monomer(self):
-        self._sbatch_command(1)
 
-    def test_without_relaxation(self):
-        self._sbatch_command(2)
-
-    def test_with_relaxation_all_models(self):
-        self._sbatch_command(3)
-
-    def test_resume_relaxation(self):
-        self._sbatch_command(4)
-
-    def test_resume_prediction(self):
-        self._sbatch_command(5)
-
-    def test_true_multimer(self):
-        self._sbatch_command(6)
+    @parameterized.named_parameters(
+        {"testcase_name": "predict_monomer", "i": 1, "name": "monomer"},
+        {"testcase_name": "dimer", "i": 2, "name": "dimer"},
+        {"testcase_name": "chopped_dimer", "i": 3, "name": "chopped_dimer"},
+        {"testcase_name": "homo_oligomer", "i": 4, "name": "homo_oligomer"},
+    )
+    def test_predict_structure(self, i: int, name: str):
+        self._sbatch_command(i, name)
 
 
 if __name__ == '__main__':

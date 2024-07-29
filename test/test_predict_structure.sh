@@ -14,20 +14,21 @@ eval "$(conda shell.bash hook)"
 module load CUDA/11.8.0
 module load cuDNN/8.7.0.84-CUDA-11.8.0
 
-#Print error message if no arguments and help message that explains how to use the script
-if [ $# -eq 0 ]
-  then
-    echo "No arguments supplied"
-    echo "Usage: test_predict_structure.sh YourAlphaPulldownEnvironment"
+# Print error message if no arguments and help message that explains how to use the script
+if [ $# -lt 2 ]
+then
+    echo "Insufficient arguments supplied"
+    echo "Usage: test_predict_structure.sh YourAlphaPulldownEnvironment TestName"
     exit 1
 fi
 
 AlphaPulldownENV=$1
+TestName=$2
 conda activate $AlphaPulldownENV
 
 MAXRAM=$(echo `ulimit -m` '/ 1024.0'|bc)
 GPUMEM=`nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits|tail -1`
 export XLA_PYTHON_CLIENT_MEM_FRACTION=`echo "scale=3;$MAXRAM / $GPUMEM"|bc`
 export TF_FORCE_UNIFIED_MEMORY='1'
-echo "Running TestScript::testRun_$SLURM_ARRAY_TASK_ID"
-pytest -s test/check_predict_structure.py::TestScript::testRun_$SLURM_ARRAY_TASK_ID
+echo "Running TestScript::testRun_$TestName"
+pytest -s test/check_predict_structure.py::TestScript::testRun_$TestName

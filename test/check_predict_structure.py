@@ -127,9 +127,9 @@ class TestScript(_TestBase):
                                     {'testcase_name': 'dimer', 'protein_list': 'test_dimer.txt', 'mode': 'custom'},
                                     {'testcase_name': 'homo_oligomer', 'protein_list': "test_homooligomer.txt", 'mode': 'homo-oligomer'},
                                     {'testcase_name': 'chopped_dimer', 'protein_list': 'test_dimer_chopped.txt', 'mode': 'custom'})
-    def testRun_1(self, protein_list, mode):
+    def testRun_(self, protein_list, mode):
         """test run monomer structure prediction"""
-        flag = "--protein-lists"
+        flag = "--protein_lists"
         if mode == "homo-oligomer":
             flag = "--oligomer-state-file"
 
