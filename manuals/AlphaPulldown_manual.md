@@ -151,7 +151,7 @@ For the standard MSA and features calculation, AlphaPulldown requires genetic da
 
   **Firstly**, install [Anaconda](https://www.anaconda.com/) and create AlphaPulldown environment, gathering necessary dependencies:
   ```bash
-  conda create -n AlphaPulldown -c omnia -c bioconda -c conda-forge python==3.10 openmm==8.0 pdbfixer==1.9 kalign2 cctbx-base pytest importlib_metadata hhsuite
+  conda create -n AlphaPulldown -c omnia -c bioconda -c conda-forge python==3.10 openmm==8.0 pdbfixer==1.9 kalign2 cctbx-base pytest importlib_metadata hhsuite modelcif
   ```
        
   **Optionally**, if you do not have it yet on your system, install [HMMER](http://hmmer.org/documentation.html) from Anaconda:
@@ -171,6 +171,14 @@ For the standard MSA and features calculation, AlphaPulldown requires genetic da
    pip install jax==0.4.23 jaxlib==0.4.23+cuda11.cudnn86 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
    ```
 $\text{\color{red}Update the version of AlphaPulldown.}$
+
+$\text{\color{red}Update the version of jax and jaxlib.}$
+
+```bash
+pip install jax==0.4.27 \
+            jaxlib==0.4.27+cuda12.cudnn89 \
+            -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+```
    
    >[!NOTE] 
    >**For older versions of AlphaFold**:
@@ -1291,15 +1299,6 @@ As AlphaPulldown relies on [AlphaFold](https://github.com/google-deepmind/alphaf
 * Only convert a specific single model.
 * Convert a specific model to ModelCIF but keep additional models in a Zip archive associated with the representative ModelCIF formatted model.
 
-#### Installation
-
-To run `convert_to_modelcif.py`, the Python module [modelcif](https://pypi.org/project/modelcif/) is needed in addition to the regular AlphaPulldown Python environment. It is recommended to install it with the conda command: 
-
-```bash
-source activate AlphaPulldown
-conda install -c conda-forge modelcif
-```
-
 #### 1. Convert all models to separate ModelCIF files
 
 The most general call of the conversion script, without any non-mandatory arguments, will create a ModelCIF file and an associated Zip archive for each model of each complex found in the `--ap_output` directory:
@@ -1307,12 +1306,10 @@ The most general call of the conversion script, without any non-mandatory argume
 ```bash
 source activate AlphaPulldown
 convert_to_modelcif.py \
-  --ap_output <output path of run_multimer_jobs.py> \
-  --monomer_objects_dir <output directory of feature creation>
+  --ap_output <output path of run_multimer_jobs.py>
 ```
 
 * `--ap_output`: Path to the structures directory. This should be the same as the `--output_path` for the `run_multimer_jobs.py` script from the [Predict Structures](#2-predict-structures-gpu-stage) step.
-* `--monomer_objects_dir`: Path to the directory containing the .pkl feature files generated in the [Compute Multiple Sequence Alignment (MSA) and Template Features](#1-compute-multiple-sequence-alignment-msa-and-template-features-cpu-stage) step. This is the same parameter as `--monomer_objects_dir` in the `run_multimer_jobs.py` script.
 
 The output is stored in the path that `--ap_output` points to. After running `convert_to_modelcif.py`, you should find a ModelCIF file and a Zip archive for each model PDB file in the AlphaPulldown output directory:
 
@@ -1352,7 +1349,6 @@ If only a single model should be translated to ModelCIF, use the `--model_select
 source activate AlphaPulldown
 convert_to_modelcif.py \
   --ap_output <output path of run_multimer_jobs.py> \
-  --monomer_objects_dir <output directory of feature creation> \
   --model_selected 0
 ```
 
@@ -1388,7 +1384,6 @@ Sometimes you want to focus on a certain model from the AlphaPulldown pipeline b
 source activate AlphaPulldown
 convert_to_modelcif.py \
   --ap_output <output path of run_multimer_jobs.py> \
-  --monomer_objects_dir <output directory of feature creation> \
   --model_selected 0 \
   --add-associated
 ```
