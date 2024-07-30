@@ -41,34 +41,8 @@ class _TestBase(parameterized.TestCase):
         alphapulldown_path = alphapulldown.__path__[0]
         # Join the path with the script name
         self.script_path = os.path.join(alphapulldown_path, "scripts/run_multimer_jobs.py")
-        print(sys.executable)
-        print(self.script_path)
 
-
-class TestRunModes(_TestBase):
-    def setUp(self) -> None:
-        super().setUp()
-        self.output_dir = tempfile.mkdtemp()
-        self.protein_lists = os.path.join(self.test_protein_lists_dir, "test_dimer_chopped.txt")
-
-        self.args = [
-            sys.executable,
-            self.script_path,
-            "--mode=custom",
-            "--num_cycle=1",
-            "--num_predictions_per_model=1",
-            f"--output_path={self.output_dir}",
-            f"--data_dir={self.data_dir}",
-            f"--protein_lists={self.protein_lists}",
-            f"--monomer_objects_dir={self.test_features_dir}"
-        ]
-
-    def tearDown(self) -> None:
-        # Remove the temporary directory
-        # shutil.rmtree(self.output_dir)
-        pass
-
-    def _runCommonTests(self, result, multimer_mode=True):
+    def _runCommonTests(self, result, multimer_mode):
         print(result.stdout)
         print(result.stderr)
         self.assertEqual(result.returncode, 0, f"Script failed with output:\n{result.stdout}\n{result.stderr}")
@@ -76,10 +50,9 @@ class TestRunModes(_TestBase):
             subdir for subdir in os.listdir(self.output_dir) if os.path.isdir(os.path.join(self.output_dir, subdir)))
         self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if
                               f.startswith("ranked") and f.endswith(".pdb")]), 5)
-        self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if
-                              f.startswith("result") and f.endswith(".pkl")]), 5)
-        example_pickle = [f for f in os.listdir(os.path.join(self.output_dir, dirname)) if
-                          f.startswith("result") and f.endswith(".pkl")][0]
+        pickles = [f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.startswith("result") and f.endswith(".pkl")]
+        self.assertEqual(len(pickles), 5)
+        example_pickle = pickles[0]
         example_pickle = pickle.load(open(os.path.join(self.output_dir, dirname, example_pickle), 'rb'))
 
         required_keys_multimer = ['distogram', 'experimentally_resolved', 'masked_msa', 'predicted_aligned_error',
@@ -120,6 +93,27 @@ class TestRunModes(_TestBase):
                 self.assertSetEqual(set(ranking_debug["order"]), expected_set)
                 self.assertSetEqual(set(ranking_debug["plddt"].keys()), expected_set)
 
+
+class TestRunModes(_TestBase):
+    def setUp(self) -> None:
+        super().setUp()
+
+        self.args = [
+            sys.executable,
+            self.script_path,
+            "--num_cycle=1",
+            "--num_predictions_per_model=1",
+            f"--data_dir={self.data_dir}",
+            f"--monomer_objects_dir={self.test_features_dir}",
+            "--job_index=1"
+        ]
+
+    def tearDown(self) -> None:
+        # Remove the temporary directory
+        # shutil.rmtree(self.output_dir)
+        pass
+
+
     @parameterized.named_parameters(
         {'testcase_name': 'monomer', 'protein_list': 'test_monomer.txt', 'mode': 'custom'},
         {'testcase_name': 'dimer', 'protein_list': 'test_dimer.txt', 'mode': 'custom'},
@@ -128,33 +122,28 @@ class TestRunModes(_TestBase):
     )
     def test_(self, protein_list, mode):
         """Test run monomer structure prediction"""
+        self.output_dir = tempfile.mkdtemp()
+        self.args.append(f"--output_path={self.output_dir}")
         flag = "--protein_lists"
         if mode == "homo-oligomer":
             flag = "--oligomer_state_file"
+        if "monomer" in protein_list:
+            multimer_mode = False
+        else:
+            multimer_mode = True
         protein_list = os.path.join(self.test_protein_lists_dir, protein_list)
-        self.args = [
-            sys.executable,
-            self.script_path,
+        self.args.extend([
             f"--mode={mode}",
-            "--num_cycle=1",
-            "--num_predictions_per_model=1",
-            f"--output_path={self.output_dir}",
-            f"--data_dir={self.data_dir}",
             f"{flag}={protein_list}",
-            f"--monomer_objects_dir={self.test_features_dir}",
-            "--job_index=1"
-        ]
+        ])
         result = subprocess.run(self.args, capture_output=True, text=True)
-        self._runCommonTests(result, multimer_mode=False)
+        self._runCommonTests(result, multimer_mode)
 
 
 class TestResume(_TestBase):
     def setUp(self) -> None:
         super().setUp()
-        self.output_dir = tempfile.mkdtemp()
-        # copy test/test_data/preidctions/TEST_and_TEST/ dir to self.output_dir
-        shutil.copytree(f"{self.test_modelling_dir}/TEST_and_TEST/", self.output_dir)
-        self.protein_lists = os.path.join(self.test_protein_lists_dir, "test_dimer_chopped.txt")
+        self.protein_lists = os.path.join(self.test_protein_lists_dir, "test_dimer.txt")
 
         self.args = [
             sys.executable,
@@ -162,7 +151,6 @@ class TestResume(_TestBase):
             "--mode=custom",
             "--num_cycle=1",
             "--num_predictions_per_model=1",
-            f"--output_path={self.output_dir}",
             f"--data_dir={self.data_dir}",
             f"--protein_lists={self.protein_lists}",
             f"--monomer_objects_dir={self.test_features_dir}",
@@ -190,7 +178,8 @@ class TestResume(_TestBase):
     def test_(self, relax_mode, expected_relaxed_files, should_run_after_relax, continue_mode=False,
                                 test_dir=None, test_file=None):
         """Test run with various relaxation modes and continuation scenarios"""
-
+        self.output_dir = tempfile.mkdtemp()
+        self.args.append(f"--output_path={self.output_dir}")
         if relax_mode != 'none':
             self.args.append(f"--models_to_relax={relax_mode}")
 
