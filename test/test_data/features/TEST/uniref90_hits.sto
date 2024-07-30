@@ -1,0 +1,1108 @@
+# STOCKHOLM 1.0
+
+#=GS UniRef90_A0A5E4A8T7/34-97      DE [subseq from] MIF4G domain-containing protein n=1 Tax=Marmota monax TaxID=9995 RepID=A0A5E4A8T7_MARMO
+#=GS UniRef90_Q62448/1-64           DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Mus musculus TaxID=10090 RepID=IF4G2_MOUSE
+#=GS UniRef90_UPI00015968B7/1-64    DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Rattus norvegicus TaxID=10116 RepID=UPI00015968B7
+#=GS UniRef90_A0JNY7/1-64           DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2 n=1 Tax=Mus musculus TaxID=10090 RepID=A0JNY7_MOUSE
+#=GS UniRef90_Q62448-2/1-64         DE [subseq from] Isoform 2 of Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Mus musculus TaxID=10090 RepID=Q62448-2
+#=GS UniRef90_P78344/1-64           DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=13 Tax=Boreoeutheria TaxID=1437010 RepID=IF4G2_HUMAN
+#=GS UniRef90_UPI0000DB3EE1/1-64    DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 isoform 2 n=1 Tax=Mus musculus TaxID=10090 RepID=UPI0000DB3EE1
+#=GS UniRef90_UPI000C7E893B/41-104  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Otolemur garnettii TaxID=30611 RepID=UPI000C7E893B
+#=GS UniRef90_H0XNY6/74-137         DE [subseq from] MIF4G domain-containing protein n=1 Tax=Otolemur garnettii TaxID=30611 RepID=H0XNY6_OTOGA
+#=GS UniRef90_A0A383ZJ91/179-242    DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Balaenoptera TaxID=9766 RepID=A0A383ZJ91_BALAS
+#=GS UniRef90_A0A2K6D124/125-188    DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=33 Tax=Eutheria TaxID=9347 RepID=A0A2K6D124_MACNE
+#=GS UniRef90_A0A2K5JKH9/75-138     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Colobus angolensis palliatus TaxID=336983 RepID=A0A2K5JKH9_COLAP
+#=GS UniRef90_A0A4X2K0L3/1-64       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Vombatus ursinus TaxID=29139 RepID=A0A4X2K0L3_VOMUR
+#=GS UniRef90_A0A8C6RZJ3/1-64       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=4 Tax=Nannospalax galili TaxID=1026970 RepID=A0A8C6RZJ3_NANGA
+#=GS UniRef90_A0A8C8TTN8/1-64       DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2 n=20 Tax=Euteleostomi TaxID=117571 RepID=A0A8C8TTN8_PERMB
+#=GS UniRef90_A0A4X2K8J4/1-64       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Vombatus ursinus TaxID=29139 RepID=A0A4X2K8J4_VOMUR
+#=GS UniRef90_A0A8C2LBN9/1-64       DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2 n=4 Tax=Cricetidae TaxID=337677 RepID=A0A8C2LBN9_CRIGR
+#=GS UniRef90_A0A8I6A1T4/1-64       DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2 n=3 Tax=Murinae TaxID=39107 RepID=A0A8I6A1T4_RAT
+#=GS UniRef90_G3XA17/1-64           DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Mus TaxID=862507 RepID=G3XA17_MOUSE
+#=GS UniRef90_A0A8C0M5K7/1-64       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Canis lupus familiaris TaxID=9615 RepID=A0A8C0M5K7_CANLF
+#=GS UniRef90_L5L315/19-82          DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Pteropus alecto TaxID=9402 RepID=L5L315_PTEAL
+#=GS UniRef90_UPI001879256C/244-307 DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Sturnira hondurensis TaxID=192404 RepID=UPI001879256C
+#=GS UniRef90_A0A2K5EX88/1-64       DE [subseq from] IF4G2 factor n=2 Tax=Aotus nancymaae TaxID=37293 RepID=A0A2K5EX88_AOTNA
+#=GS UniRef90_A0A8C5L6H2/1-64       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=4 Tax=Jaculus jaculus TaxID=51337 RepID=A0A8C5L6H2_JACJA
+#=GS UniRef90_A0A8D1RQL1/23-86      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Sus scrofa TaxID=9823 RepID=A0A8D1RQL1_PIG
+#=GS UniRef90_G1M7U8/1-64           DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=23 Tax=Eutheria TaxID=9347 RepID=G1M7U8_AILME
+#=GS UniRef90_A0A8C6DAV3/1-64       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Moschus moschiferus TaxID=68415 RepID=A0A8C6DAV3_MOSMO
+#=GS UniRef90_A0A4W2CL16/1-64       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Bos indicus x Bos taurus TaxID=30522 RepID=A0A4W2CL16_BOBOX
+#=GS UniRef90_A0A673TTH8/1-64       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Suricata suricatta TaxID=37032 RepID=A0A673TTH8_SURSU
+#=GS UniRef90_A0A8C0SRK8/1-64       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Canis lupus familiaris TaxID=9615 RepID=A0A8C0SRK8_CANLF
+#=GS UniRef90_A0A8C3WS99/1-64       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Catagonus wagneri TaxID=51154 RepID=A0A8C3WS99_9CETA
+#=GS UniRef90_A0A8C5YL33/1-64       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Marmota marmota marmota TaxID=9994 RepID=A0A8C5YL33_MARMA
+#=GS UniRef90_A0A3Q1MQ69/32-95      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Bos taurus TaxID=9913 RepID=A0A3Q1MQ69_BOVIN
+#=GS UniRef90_A0A8C0KVD5/12-75      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Canis lupus dingo TaxID=286419 RepID=A0A8C0KVD5_CANLU
+#=GS UniRef90_A0A452ULZ5/12-75      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Ursus maritimus TaxID=29073 RepID=A0A452ULZ5_URSMA
+#=GS UniRef90_F6SP01/1-64           DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Ornithorhynchus anatinus TaxID=9258 RepID=F6SP01_ORNAN
+#=GS UniRef90_A0A8I6A9V3/1-64       DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2 n=18 Tax=Eutheria TaxID=9347 RepID=A0A8I6A9V3_RAT
+#=GS UniRef90_A0A8C2W229/1-64       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Chinchilla lanigera TaxID=34839 RepID=A0A8C2W229_CHILA
+#=GS UniRef90_F7E490/1-64           DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Didelphinae TaxID=126287 RepID=F7E490_MONDO
+#=GS UniRef90_A0A822HYQ2/17-80      DE [subseq from] (mimic poison frog) hypothetical protein (Fragment) n=1 Tax=Ranitomeya imitator TaxID=111125 RepID=A0A822HYQ2_9NEOB
+#=GS UniRef90_UPI001659C134/16-79   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Halichoerus grypus TaxID=9711 RepID=UPI001659C134
+#=GS UniRef90_A0A0D9QX32/74-137     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Chlorocebus sabaeus TaxID=60711 RepID=A0A0D9QX32_CHLSB
+#=GS UniRef90_A0A452S7S7/12-75      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=5 Tax=Ursus americanus TaxID=9643 RepID=A0A452S7S7_URSAM
+#=GS UniRef90_A0A8D0NS98/23-86      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Sus scrofa TaxID=9823 RepID=A0A8D0NS98_PIG
+#=GS UniRef90_UPI0006D92F78/13-76   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Bos mutus TaxID=72004 RepID=UPI0006D92F78
+#=GS UniRef90_M3YN81/68-131         DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Mustela putorius furo TaxID=9669 RepID=M3YN81_MUSPF
+#=GS UniRef90_F7C7R7/1-64           DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=10 Tax=Boreoeutheria TaxID=1437010 RepID=F7C7R7_CALJA
+#=GS UniRef90_A0A2K5EXF0/1-64       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Aotus nancymaae TaxID=37293 RepID=A0A2K5EXF0_AOTNA
+#=GS UniRef90_A0A7N5KGS8/1-64       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Ailuropoda melanoleuca TaxID=9646 RepID=A0A7N5KGS8_AILME
+#=GS UniRef90_A0A8C2XYB3/1-64       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Capra hircus TaxID=9925 RepID=A0A8C2XYB3_CAPHI
+#=GS UniRef90_A0A2K5PR87/11-74      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Cebus imitator TaxID=2715852 RepID=A0A2K5PR87_CEBIM
+#=GS UniRef90_A0A8C0SRQ1/1-64       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Canis lupus familiaris TaxID=9615 RepID=A0A8C0SRQ1_CANLF
+#=GS UniRef90_H0Y3P2/1-64           DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=17 Tax=Boreoeutheria TaxID=1437010 RepID=H0Y3P2_HUMAN
+#=GS UniRef90_A0A8C9ANF6/1-64       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=3 Tax=Lemuriformes TaxID=376915 RepID=A0A8C9ANF6_PROSS
+#=GS UniRef90_A0A8C0KUQ8/12-75      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Canis lupus dingo TaxID=286419 RepID=A0A8C0KUQ8_CANLU
+#=GS UniRef90_A0A452UM50/12-75      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Ursus maritimus TaxID=29073 RepID=A0A452UM50_URSMA
+#=GS UniRef90_F6YUH0/1-64           DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Ornithorhynchus anatinus TaxID=9258 RepID=F6YUH0_ORNAN
+#=GS UniRef90_UPI00045E0F2E/75-138  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Chlorocebus sabaeus TaxID=60711 RepID=UPI00045E0F2E
+#=GS UniRef90_A0A2I3MH25/1-64       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=11 Tax=Cercopithecidae TaxID=9527 RepID=A0A2I3MH25_PAPAN
+#=GS UniRef90_A0A6G1B1T2/30-93      DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Crocuta crocuta TaxID=9678 RepID=A0A6G1B1T2_CROCR
+#=GS UniRef90_A0A2K6TKK2/16-79      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Saimiri boliviensis boliviensis TaxID=39432 RepID=A0A2K6TKK2_SAIBB
+#=GS UniRef90_A0A8C0ZV97/1-64       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=4 Tax=Boreoeutheria TaxID=1437010 RepID=A0A8C0ZV97_CASCN
+#=GS UniRef90_G1S7C1/28-91          DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Nomascus leucogenys TaxID=61853 RepID=G1S7C1_NOMLE
+#=GS UniRef90_UPI001921E008/32-95   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Hyaena hyaena TaxID=95912 RepID=UPI001921E008
+#=GS UniRef90_UPI000703EA28/26-89   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Myotis brandtii TaxID=109478 RepID=UPI000703EA28
+#=GS UniRef90_UPI001BB263BE/39-102  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Microtus oregoni TaxID=111838 RepID=UPI001BB263BE
+#=GS UniRef90_UPI000F443313/61-124  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Lagenorhynchus obliquidens TaxID=90247 RepID=UPI000F443313
+#=GS UniRef90_UPI001F128754/35-98   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Lynx rufus TaxID=61384 RepID=UPI001F128754
+#=GS UniRef90_A0A835ZSX2/29-92      DE [subseq from] IF4G2 factor n=14 Tax=Boreoeutheria TaxID=1437010 RepID=A0A835ZSX2_SHEEP
+#=GS UniRef90_UPI0010A21BB1/33-96   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Macaca mulatta TaxID=9544 RepID=UPI0010A21BB1
+#=GS UniRef90_UPI001C082521/84-147  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Arvicola amphibius TaxID=1047088 RepID=UPI001C082521
+#=GS UniRef90_A0A6P6I8T9/38-101     DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Puma concolor TaxID=9696 RepID=A0A6P6I8T9_PUMCO
+#=GS UniRef90_A0A4V5P622/74-137     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Monodon monoceros TaxID=40151 RepID=A0A4V5P622_MONMO
+#=GS UniRef90_A0A6J0Z030/32-95      DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 isoform X1 n=1 Tax=Odocoileus virginianus texanus TaxID=9880 RepID=A0A6J0Z030_ODOVR
+#=GS UniRef90_UPI001A9B5382/34-97   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Oryx dammah TaxID=59534 RepID=UPI001A9B5382
+#=GS UniRef90_W5PKL6/34-97          DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Ovis aries TaxID=9940 RepID=W5PKL6_SHEEP
+#=GS UniRef90_G1PTY8/30-93          DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Myotis lucifugus TaxID=59463 RepID=G1PTY8_MYOLU
+#=GS UniRef90_A0A8M1L8P5/45-108     DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 isoform X2 n=1 Tax=Ursus arctos horribilis TaxID=116960 RepID=A0A8M1L8P5_URSAR
+#=GS UniRef90_UPI0001FB17A5/34-97   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Equus quagga TaxID=89248 RepID=UPI0001FB17A5
+#=GS UniRef90_A0A8B7W6Z1/32-95      DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=3 Tax=Castor canadensis TaxID=51338 RepID=A0A8B7W6Z1_CASCN
+#=GS UniRef90_UPI001FB284DE/39-102  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Sciurus carolinensis TaxID=30640 RepID=UPI001FB284DE
+#=GS UniRef90_A0A3L7HU72/29-92      DE [subseq from] EIF4G2 (Fragment) n=2 Tax=Cricetulus griseus TaxID=10029 RepID=A0A3L7HU72_CRIGR
+#=GS UniRef90_A0A5F9CZM5/59-122     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Oryctolagus cuniculus TaxID=9986 RepID=A0A5F9CZM5_RABIT
+#=GS UniRef90_UPI001B351F0D/33-96   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Ochotona TaxID=9977 RepID=UPI001B351F0D
+#=GS UniRef90_A0A8C9JU84/46-109     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Panthera tigris altaica TaxID=74533 RepID=A0A8C9JU84_PANTA
+#=GS UniRef90_A0A8B7FQQ6/38-101     DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Microcebus murinus TaxID=30608 RepID=A0A8B7FQQ6_MICMU
+#=GS UniRef90_G1T573/38-101         DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Oryctolagus cuniculus TaxID=9986 RepID=G1T573_RABIT
+#=GS UniRef90_A0A286XW01/51-114     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=3 Tax=Cavia porcellus TaxID=10141 RepID=A0A286XW01_CAVPO
+#=GS UniRef90_K9J3V8/30-93          DE [subseq from] Putative eukaryotic translation initiation factor 4 gamma 2 (Fragment) n=1 Tax=Desmodus rotundus TaxID=9430 RepID=K9J3V8_DESRO
+#=GS UniRef90_A0A8M1MR85/50-113     DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Neomonachus schauinslandi TaxID=29088 RepID=A0A8M1MR85_NEOSC
+#=GS UniRef90_A0A5F5PPQ0/40-103     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Equus caballus TaxID=9796 RepID=A0A5F5PPQ0_HORSE
+#=GS UniRef90_A0A7J7WZI5/69-132     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Pipistrellus kuhlii TaxID=59472 RepID=A0A7J7WZI5_PIPKU
+#=GS UniRef90_A0A2K5TN58/45-108     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Macaca fascicularis TaxID=9541 RepID=A0A2K5TN58_MACFA
+#=GS UniRef90_A0A485MS57/69-132     DE [subseq from] Eukaryotic translation initiation n=1 Tax=Lynx pardinus TaxID=191816 RepID=A0A485MS57_LYNPA
+#=GS UniRef90_A0A2I3FWW3/74-137     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Nomascus leucogenys TaxID=61853 RepID=A0A2I3FWW3_NOMLE
+#=GS UniRef90_A0A2K5NFV5/75-138     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Cercopithecinae TaxID=9528 RepID=A0A2K5NFV5_CERAT
+#=GS UniRef90_A0A4X1TP96/43-106     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=11 Tax=Suidae TaxID=9821 RepID=A0A4X1TP96_PIG
+#=GS UniRef90_UPI0020170885/57-120  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 isoform X3 n=1 Tax=Ursus arctos TaxID=9644 RepID=UPI0020170885
+#=GS UniRef90_UPI001BC92C81/57-120  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Vulpes lagopus TaxID=494514 RepID=UPI001BC92C81
+#=GS UniRef90_A0A6P5LII8/55-118     DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Diprotodontia TaxID=38609 RepID=A0A6P5LII8_PHACI
+#=GS UniRef90_UPI001C9E7EF3/156-219 DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Cervus canadensis TaxID=1574408 RepID=UPI001C9E7EF3
+#=GS UniRef90_UPI001A9EF53E/57-120  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Ictidomys tridecemlineatus TaxID=43179 RepID=UPI001A9EF53E
+#=GS UniRef90_UPI0007679ADD/81-144  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Myotis davidii TaxID=225400 RepID=UPI0007679ADD
+#=GS UniRef90_A0A8M1L5B1/45-108     DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 isoform X1 n=1 Tax=Ursus arctos horribilis TaxID=116960 RepID=A0A8M1L5B1_URSAR
+#=GS UniRef90_UPI00189E8AB8/72-135  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Choloepus didactylus TaxID=27675 RepID=UPI00189E8AB8
+#=GS UniRef90_A0A8B7SGM9/58-121     DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Hipposideros armiger TaxID=186990 RepID=A0A8B7SGM9_HIPAR
+#=GS UniRef90_G7PQQ4/74-137         DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Macaca fascicularis TaxID=9541 RepID=G7PQQ4_MACFA
+#=GS UniRef90_B4DZF2/74-137         DE [subseq from] cDNA FLJ59571, highly similar to Eukaryotic translation initiation factor 4gamma 2 n=6 Tax=Homininae TaxID=207598 RepID=B4DZF2_HUMAN
+#=GS UniRef90_A0A7J7VH32/63-126     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Myotis myotis TaxID=51298 RepID=A0A7J7VH32_MYOMY
+#=GS UniRef90_A0A811Y3V5/68-131     DE [subseq from] (raccoon dog) hypothetical protein n=1 Tax=Nyctereutes procyonoides TaxID=34880 RepID=A0A811Y3V5_NYCPR
+#=GS UniRef90_A0A091CNN7/63-126     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Fukomys damarensis TaxID=885580 RepID=A0A091CNN7_FUKDA
+#=GS UniRef90_A0A5F9CXD1/59-122     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Oryctolagus cuniculus TaxID=9986 RepID=A0A5F9CXD1_RABIT
+#=GS UniRef90_UPI00174AFAA3/60-123  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Myotis myotis TaxID=51298 RepID=UPI00174AFAA3
+#=GS UniRef90_UPI00202092A6/375-438 DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Myodes glareolus TaxID=447135 RepID=UPI00202092A6
+#=GS UniRef90_UPI001E6A0699/84-147  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Meles meles TaxID=9662 RepID=UPI001E6A0699
+#=GS UniRef90_A0A1S3G5N1/50-113     DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Dipodomys ordii TaxID=10020 RepID=A0A1S3G5N1_DIPOR
+#=GS UniRef90_UPI001C53893A/69-132  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Dipodomys spectabilis TaxID=105255 RepID=UPI001C53893A
+#=GS UniRef90_UPI00063F17FC/71-134  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Propithecus coquereli TaxID=379532 RepID=UPI00063F17FC
+#=GS UniRef90_A0A2K6GHR9/71-134     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=5 Tax=Strepsirrhini TaxID=376911 RepID=A0A2K6GHR9_PROCO
+#=GS UniRef90_UPI00141B3792/80-143  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Trachypithecus francoisi TaxID=54180 RepID=UPI00141B3792
+#=GS UniRef90_UPI0013F2EE92/81-144  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Lontra canadensis TaxID=76717 RepID=UPI0013F2EE92
+#=GS UniRef90_A0A5F9DMU5/73-136     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Oryctolagus cuniculus TaxID=9986 RepID=A0A5F9DMU5_RABIT
+#=GS UniRef90_A0A8J6AMV8/243-306    DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 (Fragment) n=2 Tax=Talpidae TaxID=9373 RepID=A0A8J6AMV8_GALPY
+#=GS UniRef90_UPI000A335457/100-163 DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 isoform X2 n=1 Tax=Heterocephalus glaber TaxID=10181 RepID=UPI000A335457
+#=GS UniRef90_UPI0015F1A1AC/326-389 DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Canis lupus dingo TaxID=286419 RepID=UPI0015F1A1AC
+#=GS UniRef90_A0A8M1GJ68/135-198    DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Ursus maritimus TaxID=29073 RepID=A0A8M1GJ68_URSMA
+#=GS UniRef90_A0A6J3AUN5/168-231    DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=4 Tax=Camelidae TaxID=9835 RepID=A0A6J3AUN5_VICPA
+#=GS UniRef90_UPI00201906FB/203-266 DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Perognathus longimembris pacificus TaxID=214514 RepID=UPI00201906FB
+#=GS UniRef90_UPI00140F8400/163-226 DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Rhinolophus ferrumequinum TaxID=59479 RepID=UPI00140F8400
+#=GS UniRef90_S7N5U7/165-228        DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Myotis TaxID=9434 RepID=S7N5U7_MYOBR
+#=GS UniRef90_A0A8B8TWU5/232-295    DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=4 Tax=Amniota TaxID=32524 RepID=A0A8B8TWU5_CAMFR
+#=GS UniRef90_A0A8C7AW57/1-63       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=4 Tax=Mustelinae TaxID=169418 RepID=A0A8C7AW57_NEOVI
+#=GS UniRef90_A0A6P3VC41/292-355    DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Octodon degus TaxID=10160 RepID=A0A6P3VC41_OCTDE
+#=GS UniRef90_F6XWN2/63-126         DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Macaca mulatta TaxID=9544 RepID=F6XWN2_MACMU
+#=GS UniRef90_A0A340YHE6/84-147     DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Lipotes vexillifer TaxID=118797 RepID=A0A340YHE6_LIPVE
+#=GS UniRef90_A0A7F8KE34/84-147     DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Delphinapterus leucas TaxID=9749 RepID=A0A7F8KE34_DELLE
+#=GS UniRef90_A0A1S2ZLI8/138-201    DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=4 Tax=Boreoeutheria TaxID=1437010 RepID=A0A1S2ZLI8_ERIEU
+#=GS UniRef90_A0A8U0UNB7/139-202    DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Mustela putorius furo TaxID=9669 RepID=A0A8U0UNB7_MUSPF
+#=GS UniRef90_UPI0007B41527/171-234 DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Monodelphis domestica TaxID=13616 RepID=UPI0007B41527
+#=GS UniRef90_UPI0004D06860/176-239 DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Galeopterus variegatus TaxID=482537 RepID=UPI0004D06860
+#=GS UniRef90_A0A6P5PVC9/225-288    DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Mus TaxID=862507 RepID=A0A6P5PVC9_MUSCR
+#=GS UniRef90_UPI001AF00D5F/217-280 DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Mesocricetus auratus TaxID=10036 RepID=UPI001AF00D5F
+#=GS UniRef90_UPI0004BD9C19/257-320 DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Equus przewalskii TaxID=9798 RepID=UPI0004BD9C19
+#=GS UniRef90_UPI00188E6ED5/278-341 DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Talpa occidentalis TaxID=50954 RepID=UPI00188E6ED5
+#=GS UniRef90_UPI000EAADBF6/392-455 DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Microtus ochrogaster TaxID=79684 RepID=UPI000EAADBF6
+#=GS UniRef90_UPI0018F789E7/373-436 DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 isoform X1 n=1 Tax=Canis lupus familiaris TaxID=9615 RepID=UPI0018F789E7
+#=GS UniRef90_G3TA50/1-64           DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Loxodonta africana TaxID=9785 RepID=G3TA50_LOXAF
+#=GS UniRef90_G3VLF0/1-64           DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=3 Tax=Amniota TaxID=32524 RepID=G3VLF0_SARHA
+#=GS UniRef90_A0A8C9AUL1/1-63       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Prolemur simus TaxID=1328070 RepID=A0A8C9AUL1_PROSS
+#=GS UniRef90_A0A8D0HB75/1-63       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Sphenodon punctatus TaxID=8508 RepID=A0A8D0HB75_SPHPU
+#=GS UniRef90_UPI0011562963/96-158  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Terrapene carolina triunguis TaxID=2587831 RepID=UPI0011562963
+#=GS UniRef90_A0A6I9KDY4/65-128     DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Chrysochloris asiatica TaxID=185453 RepID=A0A6I9KDY4_CHRAS
+#=GS UniRef90_G1KHY5/1-63           DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=4 Tax=Amniota TaxID=32524 RepID=G1KHY5_ANOCA
+#=GS UniRef90_UPI0020266B0F/143-205 DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Sphaerodactylus townsendi TaxID=933632 RepID=UPI0020266B0F
+#=GS UniRef90_A0A803TW80/39-101     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=87 Tax=Sauria TaxID=32561 RepID=A0A803TW80_ANOCA
+#=GS UniRef90_A0A151MBW9/24-86      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 isoform A n=2 Tax=Alligator mississippiensis TaxID=8496 RepID=A0A151MBW9_ALLMI
+#=GS UniRef90_A0A7M4EEC8/32-94      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=3 Tax=Crocodylus porosus TaxID=8502 RepID=A0A7M4EEC8_CROPO
+#=GS UniRef90_A0A670HTA1/39-101     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Podarcis muralis TaxID=64176 RepID=A0A670HTA1_PODMU
+#=GS UniRef90_A0A8C0J7B2/57-119     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Chelonoidis abingdonii TaxID=106734 RepID=A0A8C0J7B2_CHEAB
+#=GS UniRef90_UPI00051510DE/24-86   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Phalacrocorax carbo TaxID=9209 RepID=UPI00051510DE
+#=GS UniRef90_UPI0013F24290/114-176 DE [subseq from] eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Chelonoidis abingdonii TaxID=106734 RepID=UPI0013F24290
+#=GS UniRef90_K7GHY1/28-90          DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=14 Tax=Sauria TaxID=32561 RepID=K7GHY1_PELSI
+#=GS UniRef90_UPI00093D0020/225-287 DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Crocodylus porosus TaxID=8502 RepID=UPI00093D0020
+#=GS UniRef90_UPI0007045EC9/68-130  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Pelodiscus sinensis TaxID=13735 RepID=UPI0007045EC9
+#=GS UniRef90_A0A8C4VN86/38-100     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Gopherus evgoodei TaxID=1825980 RepID=A0A8C4VN86_9SAUR
+#=GS UniRef90_A0A8C3FJF2/26-88      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Chrysemys picta bellii TaxID=8478 RepID=A0A8C3FJF2_CHRPI
+#=GS UniRef90_UPI001C67B006/71-133  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Chrysemys picta bellii TaxID=8478 RepID=UPI001C67B006
+#=GS UniRef90_A0A8C3FC22/26-88      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=13 Tax=Testudines TaxID=8459 RepID=A0A8C3FC22_CHRPI
+#=GS UniRef90_A0A7L4CP65/15-77      DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Nyctiprogne leucopyga TaxID=382315 RepID=A0A7L4CP65_9AVES
+#=GS UniRef90_UPI0001596C47/1-63    DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 isoform 1 n=1 Tax=Gallus gallus TaxID=9031 RepID=UPI0001596C47
+#=GS UniRef90_Q5KTT9/1-63           DE [subseq from] eIF4G-related protein NAT1 n=1 Tax=Gallus gallus TaxID=9031 RepID=Q5KTT9_CHICK
+#=GS UniRef90_A0A3Q1MGQ7/2-64       DE [subseq from] Mating type protein MAT1-2-1 n=1 Tax=Bos taurus TaxID=9913 RepID=A0A3Q1MGQ7_BOVIN
+#=GS UniRef90_UPI000FFB78B8/58-121  DE [subseq from] LOW QUALITY PROTEIN: eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Tupaia chinensis TaxID=246437 RepID=UPI000FFB78B8
+#=GS UniRef90_UPI000523C872/137-199 DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Chaetura pelagica TaxID=8897 RepID=UPI000523C872
+#=GS UniRef90_UPI00071DCE25/149-211 DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Calidris pugnax TaxID=198806 RepID=UPI00071DCE25
+#=GS UniRef90_A0A8B9SUR8/62-124     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=3 Tax=Amniota TaxID=32524 RepID=A0A8B9SUR8_ANAPL
+#=GS UniRef90_A0A7K9U197/15-77      DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Chloroceryle aenea TaxID=176938 RepID=A0A7K9U197_9AVES
+#=GS UniRef90_A0A1V4JP74/10-72      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 isoform B n=1 Tax=Patagioenas fasciata monilis TaxID=372326 RepID=A0A1V4JP74_PATFA
+#=GS UniRef90_A0A1V4JPE0/10-72      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 isoform C n=1 Tax=Patagioenas fasciata monilis TaxID=372326 RepID=A0A1V4JPE0_PATFA
+#=GS UniRef90_UPI000530B8F0/24-86   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Phaethon lepturus TaxID=97097 RepID=UPI000530B8F0
+#=GS UniRef90_A0A7L0JME9/15-77      DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Chauna torquata TaxID=30388 RepID=A0A7L0JME9_CHATO
+#=GS UniRef90_A0A7K8U9K4/15-77      DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Oceanites oceanicus TaxID=79653 RepID=A0A7K8U9K4_OCEOC
+#=GS UniRef90_A0A7K6VZM5/15-77      DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Steatornis caripensis TaxID=48435 RepID=A0A7K6VZM5_STECA
+#=GS UniRef90_A0A663FGD0/11-73      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Aquila chrysaetos chrysaetos TaxID=223781 RepID=A0A663FGD0_AQUCH
+#=GS UniRef90_A0A0A0AXU9/15-77      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 (Fragment) n=5 Tax=Neognathae TaxID=8825 RepID=A0A0A0AXU9_CHAVO
+#=GS UniRef90_A0A8D0FV63/11-73      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Strix occidentalis caurina TaxID=311401 RepID=A0A8D0FV63_STROC
+#=GS UniRef90_A0A7L2Z5Q6/15-77      DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Jacana jacana TaxID=54508 RepID=A0A7L2Z5Q6_JACJC
+#=GS UniRef90_A0A8C4VDA7/11-73      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=3 Tax=Neognathae TaxID=8825 RepID=A0A8C4VDA7_FALTI
+#=GS UniRef90_A0A852NMY1/15-77      DE [subseq from] IF4G2 factor (Fragment) n=3 Tax=Passeriformes TaxID=9126 RepID=A0A852NMY1_9PASS
+#=GS UniRef90_A0A093IFN5/15-77      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 (Fragment) n=2 Tax=Fulmarus glacialis TaxID=30455 RepID=A0A093IFN5_FULGA
+#=GS UniRef90_A0A8B9QHL5/11-73      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Apteryx owenii TaxID=8824 RepID=A0A8B9QHL5_APTOW
+#=GS UniRef90_A0A7K9E6R7/15-77      DE [subseq from] IF4G2 factor (Fragment) n=2 Tax=Coraciiformes TaxID=8936 RepID=A0A7K9E6R7_BARMA
+#=GS UniRef90_A0A7L4DRL1/15-77      DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Eurystomus gularis TaxID=325343 RepID=A0A7L4DRL1_9AVES
+#=GS UniRef90_UPI000523C492/24-86   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Tauraco erythrolophus TaxID=121530 RepID=UPI000523C492
+#=GS UniRef90_A0A8C4JSA4/11-73      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Dromaius novaehollandiae TaxID=8790 RepID=A0A8C4JSA4_DRONO
+#=GS UniRef90_G1N2I1/28-90          DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Meleagris gallopavo TaxID=9103 RepID=G1N2I1_MELGA
+#=GS UniRef90_A0A091TI37/15-77      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 (Fragment) n=1 Tax=Phaethon lepturus TaxID=97097 RepID=A0A091TI37_PHALP
+#=GS UniRef90_A0A7K8L7E6/15-77      DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Ardeotis kori TaxID=89386 RepID=A0A7K8L7E6_9GRUI
+#=GS UniRef90_A0A091L8H2/15-77      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 (Fragment) n=1 Tax=Cathartes aura TaxID=43455 RepID=A0A091L8H2_CATAU
+#=GS UniRef90_A0A7L3WME3/15-77      DE [subseq from] IF4G2 factor (Fragment) n=4 Tax=Neognathae TaxID=8825 RepID=A0A7L3WME3_9GRUI
+#=GS UniRef90_A0A7K8K0H9/15-77      DE [subseq from] IF4G2 factor (Fragment) n=3 Tax=Neognathae TaxID=8825 RepID=A0A7K8K0H9_9GRUI
+#=GS UniRef90_A0A091HKI3/15-77      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 (Fragment) n=14 Tax=Aves TaxID=8782 RepID=A0A091HKI3_CALAN
+#=GS UniRef90_A0A7L4H9U0/15-77      DE [subseq from] IF4G2 factor (Fragment) n=2 Tax=Sauria TaxID=32561 RepID=A0A7L4H9U0_PODST
+#=GS UniRef90_A0A7L3D6E9/15-77      DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Pluvianellus socialis TaxID=227228 RepID=A0A7L3D6E9_PLUSO
+#=GS UniRef90_A0A7L2FWV2/15-77      DE [subseq from] IF4G2 factor (Fragment) n=3 Tax=Neognathae TaxID=8825 RepID=A0A7L2FWV2_NYCGR
+#=GS UniRef90_A0A7L0FLZ5/15-77      DE [subseq from] IF4G2 factor (Fragment) n=2 Tax=Musophagidae TaxID=56302 RepID=A0A7L0FLZ5_CORCN
+#=GS UniRef90_A0A7L0CVW4/15-77      DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Rostratula benghalensis TaxID=118793 RepID=A0A7L0CVW4_9CHAR
+#=GS UniRef90_A0A093HYA8/15-77      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 (Fragment) n=1 Tax=Gavia stellata TaxID=37040 RepID=A0A093HYA8_GAVST
+#=GS UniRef90_A0A7K6ZDY6/15-77      DE [subseq from] IF4G2 factor (Fragment) n=2 Tax=Nothoprocta TaxID=8806 RepID=A0A7K6ZDY6_9AVES
+#=GS UniRef90_A0A091W9X2/15-77      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 (Fragment) n=2 Tax=Opisthocomus hoazin TaxID=30419 RepID=A0A091W9X2_OPIHO
+#=GS UniRef90_A0A7K9VCH6/15-77      DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Anseranas semipalmata TaxID=8851 RepID=A0A7K9VCH6_ANSSE
+#=GS UniRef90_A0A7L0T2Q6/15-77      DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Podilymbus podiceps TaxID=9252 RepID=A0A7L0T2Q6_PODPO
+#=GS UniRef90_A0A094LA83/15-77      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 (Fragment) n=1 Tax=Podiceps cristatus TaxID=345573 RepID=A0A094LA83_PODCR
+#=GS UniRef90_A0A7K8N8V2/15-77      DE [subseq from] IF4G2 factor (Fragment) n=5 Tax=Palaeognathae TaxID=8783 RepID=A0A7K8N8V2_CASCA
+#=GS UniRef90_A0A7K4LNF4/15-77      DE [subseq from] IF4G2 factor (Fragment) n=4 Tax=Tinamidae TaxID=8803 RepID=A0A7K4LNF4_9AVES
+#=GS UniRef90_A0A7K8XLJ9/15-77      DE [subseq from] IF4G2 factor (Fragment) n=2 Tax=Piciformes TaxID=9219 RepID=A0A7K8XLJ9_9PICI
+#=GS UniRef90_A0A7L0TL28/15-77      DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Chordeiles acutipennis TaxID=118183 RepID=A0A7L0TL28_CHOAC
+#=GS UniRef90_A0A7L1NFK6/15-77      DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Rhinopomastus cyanomelas TaxID=113115 RepID=A0A7L1NFK6_RHICY
+#=GS UniRef90_A0A087RKA1/15-77      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 (Fragment) n=16 Tax=Neognathae TaxID=8825 RepID=A0A087RKA1_APTFO
+#=GS UniRef90_A0A093P7V9/15-77      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 (Fragment) n=1 Tax=Pygoscelis adeliae TaxID=9238 RepID=A0A093P7V9_PYGAD
+#=GS UniRef90_A0A8C9G0I3/6-68       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Pavo cristatus TaxID=9049 RepID=A0A8C9G0I3_PAVCR
+#=GS UniRef90_A0A7L1JEV3/15-77      DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Rynchops niger TaxID=227184 RepID=A0A7L1JEV3_RYNNI
+#=GS UniRef90_A0A7K6Y7X9/15-77      DE [subseq from] IF4G2 factor (Fragment) n=3 Tax=Alcidae TaxID=28683 RepID=A0A7K6Y7X9_ALCTO
+#=GS UniRef90_A0A8B9W270/1-63       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=5 Tax=Anatidae TaxID=8830 RepID=A0A8B9W270_9AVES
+#=GS UniRef90_A0A091UU40/15-77      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 (Fragment) n=2 Tax=Pelecaniformes TaxID=9205 RepID=A0A091UU40_NIPNI
+#=GS UniRef90_A0A8J4NDQ7/15-77      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 (Fragment) n=1 Tax=Eudyptula minor TaxID=37083 RepID=A0A8J4NDQ7_EUDMI
+#=GS UniRef90_A0A8C3LKL2/25-87      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Chrysolophus pictus TaxID=9089 RepID=A0A8C3LKL2_CHRPC
+#=GS UniRef90_UPI000B3D9653/14-76   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 isoform X1 n=1 Tax=Numida meleagris TaxID=8996 RepID=UPI000B3D9653
+#=GS UniRef90_A0A851T0N9/15-77      DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Nothocercus nigrocapillus TaxID=1977171 RepID=A0A851T0N9_9AVES
+#=GS UniRef90_A0A1V4JP02/10-72      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 isoform A n=1 Tax=Patagioenas fasciata monilis TaxID=372326 RepID=A0A1V4JP02_PATFA
+#=GS UniRef90_A0A7K9YD83/15-77      DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Odontophorus gujanensis TaxID=886794 RepID=A0A7K9YD83_9GALL
+#=GS UniRef90_A0A674H982/27-89      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=10 Tax=Sauria TaxID=32561 RepID=A0A674H982_TAEGU
+#=GS UniRef90_A0A669R8H9/25-87      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Phasianus colchicus TaxID=9054 RepID=A0A669R8H9_PHACC
+#=GS UniRef90_UPI0004F0C397/24-86   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Merops nubicus TaxID=57421 RepID=UPI0004F0C397
+#=GS UniRef90_A0A091GVZ7/15-77      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 (Fragment) n=1 Tax=Buceros rhinoceros silvestris TaxID=175836 RepID=A0A091GVZ7_BUCRH
+#=GS UniRef90_A0A226MXS3/9-71       DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Callipepla squamata TaxID=9009 RepID=A0A226MXS3_CALSU
+#=GS UniRef90_A0A7K4YZD6/15-77      DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Bucorvus abyssinicus TaxID=153643 RepID=A0A7K4YZD6_BUCAB
+#=GS UniRef90_A0A091M9D6/15-77      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 (Fragment) n=1 Tax=Cariama cristata TaxID=54380 RepID=A0A091M9D6_CARIC
+#=GS UniRef90_A0A094KIY9/15-77      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 (Fragment) n=1 Tax=Antrostomus carolinensis TaxID=279965 RepID=A0A094KIY9_ANTCR
+#=GS UniRef90_A0A7K8SH83/15-77      DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Nyctibius bracteatus TaxID=48426 RepID=A0A7K8SH83_9AVES
+#=GS UniRef90_A0A093ELJ2/15-77      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 (Fragment) n=1 Tax=Tauraco erythrolophus TaxID=121530 RepID=A0A093ELJ2_TAUER
+#=GS UniRef90_F1NQU7/1-63           DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Phasianidae TaxID=9005 RepID=F1NQU7_CHICK
+#=GS UniRef90_A0A8J4IQJ2/15-77      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 (Fragment) n=1 Tax=Spheniscus mendiculus TaxID=156760 RepID=A0A8J4IQJ2_SPHME
+#=GS UniRef90_A0A8D0G2Y2/1-63       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Strix occidentalis caurina TaxID=311401 RepID=A0A8D0G2Y2_STROC
+#=GS UniRef90_UPI0005288567/24-86   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Buceros rhinoceros silvestris TaxID=175836 RepID=UPI0005288567
+#=GS UniRef90_A0A8C0AWF2/1-63       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=3 Tax=Neognathae TaxID=8825 RepID=A0A8C0AWF2_9AVES
+#=GS UniRef90_A0A803VJ29/1-63       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Ficedula albicollis TaxID=59894 RepID=A0A803VJ29_FICAL
+#=GS UniRef90_A0A8C3R2E1/1-63       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Cyanoderma ruficeps TaxID=181631 RepID=A0A8C3R2E1_9PASS
+#=GS UniRef90_A0A663FJ23/11-73      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Amniota TaxID=32524 RepID=A0A663FJ23_AQUCH
+#=GS UniRef90_UPI000B3D9012/14-76   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 isoform X2 n=1 Tax=Numida meleagris TaxID=8996 RepID=UPI000B3D9012
+#=GS UniRef90_A0A8C5TRU8/1-63       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Malurus cyaneus samueli TaxID=2593467 RepID=A0A8C5TRU8_9PASS
+#=GS UniRef90_A0A852CLD6/15-77      DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Ramphastos sulfuratus TaxID=322582 RepID=A0A852CLD6_9PICI
+#=GS UniRef90_A0A8C4VDG1/11-73      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Neognathae TaxID=8825 RepID=A0A8C4VDG1_FALTI
+#=GS UniRef90_A0A0Q3MJN4/26-88      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Amazona aestiva TaxID=12930 RepID=A0A0Q3MJN4_AMAAE
+#=GS UniRef90_UPI0011AE9FB4/11-73   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 isoform X2 n=1 Tax=Serinus canaria TaxID=9135 RepID=UPI0011AE9FB4
+#=GS UniRef90_A0A8B9SEW4/11-73      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Apteryx TaxID=8821 RepID=A0A8B9SEW4_APTOW
+#=GS UniRef90_A0A8C4JN05/11-73      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Dromaius novaehollandiae TaxID=8790 RepID=A0A8C4JN05_DRONO
+#=GS UniRef90_UPI00052159CA/169-231 DE [subseq from] LOW QUALITY PROTEIN: eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Dryobates pubescens TaxID=118200 RepID=UPI00052159CA
+#=GS UniRef90_UPI00077782C6/28-90   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 isoform X1 n=1 Tax=Coturnix japonica TaxID=93934 RepID=UPI00077782C6
+#=GS UniRef90_A0A8C3CSD5/4-66       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=3 Tax=Anatidae TaxID=8830 RepID=A0A8C3CSD5_CAIMO
+#=GS UniRef90_A0A2I0UH27/81-143     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=98 Tax=Amniota TaxID=32524 RepID=A0A2I0UH27_LIMLA
+#=GS UniRef90_A0A669QWH3/25-87      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Phasianus colchicus TaxID=9054 RepID=A0A669QWH3_PHACC
+#=GS UniRef90_A0A7L0W1E5/15-77      DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Alectura lathami TaxID=81907 RepID=A0A7L0W1E5_ALELA
+#=GS UniRef90_H0ZC30/26-88          DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Taeniopygia guttata TaxID=59729 RepID=H0ZC30_TAEGU
+#=GS UniRef90_UPI0006B6AF6F/33-95   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 isoform X2 n=1 Tax=Falco rusticolus TaxID=120794 RepID=UPI0006B6AF6F
+#=GS UniRef90_A0A8C3VFK8/37-99      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Passeriformes TaxID=9126 RepID=A0A8C3VFK8_CATUS
+#=GS UniRef90_UPI001ADE7C5A/64-126  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 isoform X4 n=1 Tax=Cygnus olor TaxID=8869 RepID=UPI001ADE7C5A
+#=GS UniRef90_A0A8B9D0G0/32-94      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Anser brachyrhynchus TaxID=132585 RepID=A0A8B9D0G0_9AVES
+#=GS UniRef90_A0A8D2NVD6/58-120     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Zosterops lateralis melanops TaxID=1220523 RepID=A0A8D2NVD6_ZOSLA
+#=GS UniRef90_UPI0004F4EBF2/130-192 DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Neognathae TaxID=8825 RepID=UPI0004F4EBF2
+#=GS UniRef90_A0A7L2HX06/15-77      DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Sagittarius serpentarius TaxID=56258 RepID=A0A7L2HX06_SAGSE
+#=GS UniRef90_UPI0015D652F0/107-169 DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Cygnus atratus TaxID=8868 RepID=UPI0015D652F0
+#=GS UniRef90_A0A850VQP5/15-77      DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Fregata magnificens TaxID=37042 RepID=A0A850VQP5_FREMA
+#=GS UniRef90_A0A670Y4X0/1-63       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=3 Tax=Toxicofera TaxID=1329911 RepID=A0A670Y4X0_PSETE
+#=GS UniRef90_A0A7K6AFT2/15-77      DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Upupa epops TaxID=57439 RepID=A0A7K6AFT2_UPUEP
+#=GS UniRef90_UPI00052F0E9E/153-215 DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=3 Tax=Aves TaxID=8782 RepID=UPI00052F0E9E
+#=GS UniRef90_A0A091QPV7/15-77      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 (Fragment) n=1 Tax=Mesitornis unicolor TaxID=54374 RepID=A0A091QPV7_9GRUI
+#=GS UniRef90_UPI001CC29A17/400-463 DE [subseq from] eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Cervus elaphus TaxID=9860 RepID=UPI001CC29A17
+#=GS UniRef90_A0A851CT65/15-77      DE [subseq from] IF4G2 factor (Fragment) n=4 Tax=Passeriformes TaxID=9126 RepID=A0A851CT65_CALVR
+#=GS UniRef90_A0A7K5DJB6/15-77      DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Pachyramphus minor TaxID=369605 RepID=A0A7K5DJB6_9TYRA
+#=GS UniRef90_A0A7K7HF24/15-77      DE [subseq from] IF4G2 factor (Fragment) n=2 Tax=Thamnophilidae TaxID=81887 RepID=A0A7K7HF24_9PASS
+#=GS UniRef90_A0A7L1Z2F8/15-77      DE [subseq from] IF4G2 factor (Fragment) n=5 Tax=Neognathae TaxID=8825 RepID=A0A7L1Z2F8_9PASS
+#=GS UniRef90_A0A851Q954/1-62       DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Anhinga anhinga TaxID=56067 RepID=A0A851Q954_ANHAN
+#=GS UniRef90_A0A7L0AEA1/15-77      DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Ciconia maguari TaxID=52777 RepID=A0A7L0AEA1_9AVES
+#=GS UniRef90_A0A7L3LRX0/15-77      DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Turnix velox TaxID=2529409 RepID=A0A7L3LRX0_9CHAR
+#=GS UniRef90_UPI001440E5C5/45-108  DE [subseq from] LOW QUALITY PROTEIN: eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Orcinus orca TaxID=9733 RepID=UPI001440E5C5
+#=GS UniRef90_A0A8S4BG44/55-117     DE [subseq from] (Atlantic silverside) hypothetical protein n=1 Tax=Menidia menidia TaxID=238744 RepID=A0A8S4BG44_9TELE
+#=GS UniRef90_UPI001885ECDC/117-178 DE [subseq from] eukaryotic translation initiation factor 4 gamma 2b n=1 Tax=Syngnathus acus TaxID=161584 RepID=UPI001885ECDC
+#=GS UniRef90_A0A6P3IZK5/131-193    DE [subseq from] LOW QUALITY PROTEIN: eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Bison bison bison TaxID=43346 RepID=A0A6P3IZK5_BISBI
+#=GS UniRef90_A0A484D5Z8/40-102     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=4 Tax=Perca TaxID=8166 RepID=A0A484D5Z8_PERFV
+#=GS UniRef90_Q4S199/2-63           DE [subseq from] (spotted green pufferfish) hypothetical protein (Fragment) n=1 Tax=Tetraodon nigroviridis TaxID=99883 RepID=Q4S199_TETNG
+#=GS UniRef90_A0A3S2N1B1/47-109     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=8 Tax=Oryzias TaxID=8089 RepID=A0A3S2N1B1_ORYJA
+#=GS UniRef90_A0A4Z2C7G7/110-171    DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=3 Tax=Teleostei TaxID=32443 RepID=A0A4Z2C7G7_9TELE
+#=GS UniRef90_UPI0007B9192B/33-94   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2-like n=2 Tax=Percomorphaceae TaxID=1489872 RepID=UPI0007B9192B
+#=GS UniRef90_UPI001CF64959/43-104  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2b n=1 Tax=Thunnus albacares TaxID=8236 RepID=UPI001CF64959
+#=GS UniRef90_A0A8C4NTB9/39-100     DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=1 Tax=Dicentrarchus labrax TaxID=13489 RepID=A0A8C4NTB9_DICLA
+#=GS UniRef90_UPI000393EC91/32-93   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Oreochromis niloticus TaxID=8128 RepID=UPI000393EC91
+#=GS UniRef90_UPI0019532C67/32-93   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2b n=1 Tax=Oreochromis aureus TaxID=47969 RepID=UPI0019532C67
+#=GS UniRef90_UPI000329F0DE/32-93   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Maylandia zebra TaxID=106582 RepID=UPI000329F0DE
+#=GS UniRef90_UPI00187CA44D/27-88   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2b n=1 Tax=Acanthopagrus latus TaxID=8177 RepID=UPI00187CA44D
+#=GS UniRef90_UPI001C2DD038/36-97   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2b n=1 Tax=Haplochromis burtoni TaxID=8153 RepID=UPI001C2DD038
+#=GS UniRef90_UPI0016439D7C/35-96   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2b n=1 Tax=Neolamprologus brichardi TaxID=32507 RepID=UPI0016439D7C
+#=GS UniRef90_A0A6P7MVA8/59-120     DE [subseq from] eukaryotic translation initiation factor 4 gamma 2b n=1 Tax=Betta splendens TaxID=158456 RepID=A0A6P7MVA8_BETSP
+#=GS UniRef90_A0A087YCJ8/32-93      DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=10 Tax=Ovalentaria TaxID=1489908 RepID=A0A087YCJ8_POEFO
+#=GS UniRef90_UPI0003AFCFDC/63-124  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Pundamilia nyererei TaxID=303518 RepID=UPI0003AFCFDC
+#=GS UniRef90_UPI000E46112C/237-298 DE [subseq from] eukaryotic translation initiation factor 4 gamma 2b n=4 Tax=Percomorphaceae TaxID=1489872 RepID=UPI000E46112C
+#=GS UniRef90_UPI0009B3C24A/58-119  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Monopterus albus TaxID=43700 RepID=UPI0009B3C24A
+#=GS UniRef90_A0A315VQH6/34-95      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=3 Tax=Poeciliinae TaxID=586240 RepID=A0A315VQH6_GAMAF
+#=GS UniRef90_A0A3P8X0R4/46-107     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2-like n=8 Tax=Percomorphaceae TaxID=1489872 RepID=A0A3P8X0R4_CYNSE
+#=GS UniRef90_A0A2U9BUU9/171-233    DE [subseq from] eIF4G-related protein NAT1A n=6 Tax=Pleuronectoidei TaxID=30942 RepID=A0A2U9BUU9_SCOMX
+#=GS UniRef90_UPI001A7E2063/355-416 DE [subseq from] eukaryotic translation initiation factor 4 gamma 2b n=1 Tax=Simochromis diagramma TaxID=43689 RepID=UPI001A7E2063
+#=GS UniRef90_A0A8C7Z2X2/39-101     DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=2 Tax=Oryzias sinensis TaxID=183150 RepID=A0A8C7Z2X2_9TELE
+#=GS UniRef90_UPI0013AFBEA8/38-100  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Etheostoma spectabile TaxID=54343 RepID=UPI0013AFBEA8
+#=GS UniRef90_UPI00155E8888/74-136  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2b n=1 Tax=Etheostoma cragini TaxID=417921 RepID=UPI00155E8888
+#=GS UniRef90_UPI0012ECE5B1/35-96   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Anarrhichthys ocellatus TaxID=433405 RepID=UPI0012ECE5B1
+#=GS UniRef90_A0A3P9H1V9/31-93      DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=1 Tax=Oryzias latipes TaxID=8090 RepID=A0A3P9H1V9_ORYLA
+#=GS UniRef90_A0A5J5D6M8/35-97      DE [subseq from] MI domain-containing protein n=1 Tax=Etheostoma spectabile TaxID=54343 RepID=A0A5J5D6M8_9PERO
+#=GS UniRef90_A0A3P9H1S2/47-109     DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=1 Tax=Oryzias latipes TaxID=8090 RepID=A0A3P9H1S2_ORYLA
+#=GS UniRef90_UPI0011B636D3/56-117  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2-like isoform X2 n=1 Tax=Gadus morhua TaxID=8049 RepID=UPI0011B636D3
+#=GS UniRef90_A0A8C5D3P7/56-117     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2-like n=6 Tax=Gadus morhua TaxID=8049 RepID=A0A8C5D3P7_GADMO
+#=GS UniRef90_A0A6A4T2P6/387-449    DE [subseq from] MIF4G domain-containing protein n=3 Tax=Scophthalmus maximus TaxID=52904 RepID=A0A6A4T2P6_SCOMX
+#=GS UniRef90_A0A7K9I6K4/15-77      DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Bucco capensis TaxID=135168 RepID=A0A7K9I6K4_9AVES
+#=GS UniRef90_A0A7K9TG18/15-77      DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Galbula dea TaxID=1109041 RepID=A0A7K9TG18_9AVES
+#=GS UniRef90_A0A7L3YHG3/15-75      DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Fregetta grallaria TaxID=79628 RepID=A0A7L3YHG3_FREGA
+#=GS UniRef90_A0A2Y9SQR2/74-136     DE [subseq from] LOW QUALITY PROTEIN: eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Physeter macrocephalus TaxID=9755 RepID=A0A2Y9SQR2_PHYMC
+#=GS UniRef90_A0A6P8U1M2/44-105     DE [subseq from] LOW QUALITY PROTEIN: eukaryotic translation initiation factor 4 gamma 2b n=2 Tax=Notothenioidei TaxID=8205 RepID=A0A6P8U1M2_GYMAC
+#=GS UniRef90_A0A6P8QD22/52-114     DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Gymnophiona TaxID=8445 RepID=A0A6P8QD22_GEOSA
+#=GS UniRef90_A0A6P7Y6C2/56-118     DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Microcaecilia unicolor TaxID=1415580 RepID=A0A6P7Y6C2_9AMPH
+#=GS UniRef90_UPI0011B72635/56-117  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2-like isoform X5 n=1 Tax=Gadus morhua TaxID=8049 RepID=UPI0011B72635
+#=GS UniRef90_A0A8C3ECX4/36-100     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Corvus moneduloides TaxID=1196302 RepID=A0A8C3ECX4_9CORV
+#=GS UniRef90_UPI0018894B93/71-132  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2b n=1 Tax=Pungitius pungitius TaxID=134920 RepID=UPI0018894B93
+#=GS UniRef90_UPI0018646E21/26-87   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2b n=1 Tax=Megalops cyprinoides TaxID=118141 RepID=UPI0018646E21
+#=GS UniRef90_H3BG92/32-94          DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Latimeria chalumnae TaxID=7897 RepID=H3BG92_LATCH
+#=GS UniRef90_A0A8T3D1G0/41-102     DE [subseq from] Uncharacterized protein n=2 Tax=Albula TaxID=54908 RepID=A0A8T3D1G0_9TELE
+#=GS UniRef90_A0A673IJ86/68-129     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2-like n=15 Tax=Cyprinidae TaxID=7953 RepID=A0A673IJ86_9TELE
+#=GS UniRef90_UPI0015AA2C4F/30-91   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2a n=1 Tax=Anguilla anguilla TaxID=7936 RepID=UPI0015AA2C4F
+#=GS UniRef90_A0A671S1Q4/37-97      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2-like n=2 Tax=Sinocyclocheilus anshuiensis TaxID=1608454 RepID=A0A671S1Q4_9TELE
+#=GS UniRef90_UPI0015CFD012/87-147  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2a n=1 Tax=Electrophorus electricus TaxID=8005 RepID=UPI0015CFD012
+#=GS UniRef90_A0A8C4BUA7/38-98      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=3 Tax=Denticeps clupeoides TaxID=299321 RepID=A0A8C4BUA7_9TELE
+#=GS UniRef90_UPI00146C8DEC/28-89   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Pseudochaenichthys georgianus TaxID=52239 RepID=UPI00146C8DEC
+#=GS UniRef90_A0A8I3S1D4/11-61      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Canis lupus familiaris TaxID=9615 RepID=A0A8I3S1D4_CANLF
+#=GS UniRef90_A0A8B9RKK2/28-88      DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=9 Tax=Clupeocephala TaxID=186625 RepID=A0A8B9RKK2_ASTMX
+#=GS UniRef90_A0A8I3NTR8/11-61      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Canis lupus familiaris TaxID=9615 RepID=A0A8I3NTR8_CANLF
+#=GS UniRef90_A0A8B9LC13/28-88      DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=3 Tax=Astyanax mexicanus TaxID=7994 RepID=A0A8B9LC13_ASTMX
+#=GS UniRef90_A0A8I3NX47/11-61      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Canis lupus familiaris TaxID=9615 RepID=A0A8I3NX47_CANLF
+#=GS UniRef90_A0A8I5TTM0/14-64      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=66 Tax=Amniota TaxID=32524 RepID=A0A8I5TTM0_PONAB
+#=GS UniRef90_A0A3Q2I7T7/9-59       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Equus caballus TaxID=9796 RepID=A0A3Q2I7T7_HORSE
+#=GS UniRef90_A0A3Q2KPR0/9-59       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Equus caballus TaxID=9796 RepID=A0A3Q2KPR0_HORSE
+#=GS UniRef90_A0A852L2I0/15-77      DE [subseq from] IF4G2 factor (Fragment) n=2 Tax=Coliidae TaxID=57385 RepID=A0A852L2I0_UROIN
+#=GS UniRef90_A0A3Q2LE85/9-59       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Equus caballus TaxID=9796 RepID=A0A3Q2LE85_HORSE
+#=GS UniRef90_F7D6N6/9-59           DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Equus caballus TaxID=9796 RepID=F7D6N6_HORSE
+#=GS UniRef90_A0A3Q2GWH5/9-59       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Equus caballus TaxID=9796 RepID=A0A3Q2GWH5_HORSE
+#=GS UniRef90_A0A5F5PGI4/9-59       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Equus caballus TaxID=9796 RepID=A0A5F5PGI4_HORSE
+#=GS UniRef90_A0A8C4L8T7/9-59       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Equus asinus asinus TaxID=83772 RepID=A0A8C4L8T7_EQUAS
+#=GS UniRef90_I3MLB8/16-66          DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Ictidomys tridecemlineatus TaxID=43179 RepID=I3MLB8_ICTTR
+#=GS UniRef90_A0A2K6TKF9/13-63      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Cebidae TaxID=9498 RepID=A0A2K6TKF9_SAIBB
+#=GS UniRef90_UPI00141B6222/39-93   DE [subseq from] LOW QUALITY PROTEIN: eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Trachypithecus francoisi TaxID=54180 RepID=UPI00141B6222
+#=GS UniRef90_A0A673FYK2/37-98      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2-like n=2 Tax=Sinocyclocheilus rhinocerous TaxID=307959 RepID=A0A673FYK2_9TELE
+#=GS UniRef90_A0A452F2V5/12-62      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Capra hircus TaxID=9925 RepID=A0A452F2V5_CAPHI
+#=GS UniRef90_A0A8M1N4J3/1-63       DE [subseq from] eukaryotic translation initiation factor 4, gamma 2b n=5 Tax=Danio rerio TaxID=7955 RepID=A0A8M1N4J3_DANRE
+#=GS UniRef90_UPI001C8AB60F/65-126  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2a n=1 Tax=Puntigrus tetrazona TaxID=1606681 RepID=UPI001C8AB60F
+#=GS UniRef90_Q5KTT7/1-63           DE [subseq from] eIF4G-related protein NAT1A n=4 Tax=Ostariophysi TaxID=32519 RepID=Q5KTT7_DANRE
+#=GS UniRef90_UPI0015ABF963/41-102  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Anguilla anguilla TaxID=7936 RepID=UPI0015ABF963
+#=GS UniRef90_A0A6F8ZQ93/24-85      DE [subseq from] W2 domain-containing protein (Fragment) n=1 Tax=Coregonus sp. 'balchen' TaxID=861768 RepID=A0A6F8ZQ93_9TELE
+#=GS UniRef90_UPI001897EAF8/67-128  DE [subseq from] eukaryotic translation initiation factor 4 gamma 2b n=1 Tax=Nematolebias whitei TaxID=451745 RepID=UPI001897EAF8
+#=GS UniRef90_A0A7J6C245/28-89      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=42 Tax=Ostariophysi TaxID=32519 RepID=A0A7J6C245_9TELE
+#=GS UniRef90_A0A8T3E875/27-87      DE [subseq from] Uncharacterized protein n=2 Tax=Albula TaxID=54908 RepID=A0A8T3E875_9TELE
+#=GS UniRef90_A0A8C8MBF1/12-73      DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=2 Tax=Oncorhynchus tshawytscha TaxID=74940 RepID=A0A8C8MBF1_ONCTS
+#=GS UniRef90_A0A1S3MKG4/60-121     DE [subseq from] eukaryotic translation initiation factor 4 gamma 2-like n=6 Tax=Salmoninae TaxID=504568 RepID=A0A1S3MKG4_SALSA
+#=GS UniRef90_A0A8C7RGK1/19-80      DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=2 Tax=Oncorhynchus TaxID=8016 RepID=A0A8C7RGK1_ONCMY
+#=GS UniRef90_UPI001E1C6482/125-186 DE [subseq from] eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Coregonus clupeaformis TaxID=59861 RepID=UPI001E1C6482
+#=GS UniRef90_A0A5A9NZG3/77-137     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Triplophysa tibetana TaxID=1572043 RepID=A0A5A9NZG3_9TELE
+#=GS UniRef90_A0A6P8F1B9/61-121     DE [subseq from] eukaryotic translation initiation factor 4 gamma 2b n=4 Tax=Clupeidae TaxID=55118 RepID=A0A6P8F1B9_CLUHA
+#=GS UniRef90_UPI0007AD5E58/109-169 DE [subseq from] eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Sinocyclocheilus grahami TaxID=75366 RepID=UPI0007AD5E58
+#=GS UniRef90_A0A060WI15/52-113     DE [subseq from] MIF4G domain-containing protein n=1 Tax=Oncorhynchus mykiss TaxID=8022 RepID=A0A060WI15_ONCMY
+#=GS UniRef90_A0A0P7WDH9/28-89      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2-like n=4 Tax=Scleropages formosus TaxID=113540 RepID=A0A0P7WDH9_SCLFO
+#=GS UniRef90_UPI001CF96C57/5-66    DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Protopterus annectens TaxID=7888 RepID=UPI001CF96C57
+#=GS UniRef90_A0A8C5QFJ6/1-62       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=3 Tax=Leptobrachium leishanense TaxID=445787 RepID=A0A8C5QFJ6_9ANUR
+#=GS UniRef90_A0A8C8LVE2/44-105     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2-like n=24 Tax=Protacanthopterygii TaxID=41705 RepID=A0A8C8LVE2_ONCTS
+#=GS UniRef90_A0A2K6PY83/1-50       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=23 Tax=Boreoeutheria TaxID=1437010 RepID=A0A2K6PY83_RHIRO
+#=GS UniRef90_A0A060X9P1/40-101     DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=7 Tax=Oncorhynchus TaxID=8016 RepID=A0A060X9P1_ONCMY
+#=GS UniRef90_A0A7J6CTG2/38-99      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=37 Tax=Cyprinidae TaxID=7953 RepID=A0A7J6CTG2_9TELE
+#=GS UniRef90_A0A4U1F7C6/2-60       DE [subseq from] W2 domain-containing protein n=1 Tax=Monodon monoceros TaxID=40151 RepID=A0A4U1F7C6_MONMO
+#=GS UniRef90_A0A8J6EHP7/9-69       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Hyloidea TaxID=8417 RepID=A0A8J6EHP7_ELECQ
+#=GS UniRef90_A0A6P8H5B1/27-88      DE [subseq from] eukaryotic translation initiation factor 4 gamma 2-like n=2 Tax=Clupea harengus TaxID=7950 RepID=A0A6P8H5B1_CLUHA
+#=GS UniRef90_A0A556TQY8/34-94      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Bagarius yarrelli TaxID=175774 RepID=A0A556TQY8_BAGYA
+#=GS UniRef90_A0A667ZXZ7/39-99      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Myripristis murdjan TaxID=586833 RepID=A0A667ZXZ7_9TELE
+#=GS UniRef90_A0A1B8Y3I3/47-107     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Xenopus tropicalis TaxID=8364 RepID=A0A1B8Y3I3_XENTR
+#=GS UniRef90_A0A8T2LAY3/44-104     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2-like n=3 Tax=Characoidei TaxID=1489739 RepID=A0A8T2LAY3_ASTMX
+#=GS UniRef90_A0A5N5MV41/37-98      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=5 Tax=Siluroidei TaxID=1489793 RepID=A0A5N5MV41_PANHP
+#=GS UniRef90_A0A2K5CCL1/32-83      DE [subseq from] IF4G2 factor n=2 Tax=Aotus nancymaae TaxID=37293 RepID=A0A2K5CCL1_AOTNA
+#=GS UniRef90_A0A8C3R2F8/14-63      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Cyanoderma ruficeps TaxID=181631 RepID=A0A8C3R2F8_9PASS
+#=GS UniRef90_A0A8C3R540/14-63      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Cyanoderma ruficeps TaxID=181631 RepID=A0A8C3R540_9PASS
+#=GS UniRef90_A0A8D2QFH5/14-63      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Zonotrichia albicollis TaxID=44394 RepID=A0A8D2QFH5_ZONAL
+#=GS UniRef90_A0A8D2MQ31/14-63      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Zonotrichia albicollis TaxID=44394 RepID=A0A8D2MQ31_ZONAL
+#=GS UniRef90_A0A8D2QF18/14-63      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Zonotrichia albicollis TaxID=44394 RepID=A0A8D2QF18_ZONAL
+#=GS UniRef90_A0A8C9MZI0/14-63      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Serinus canaria TaxID=9135 RepID=A0A8C9MZI0_SERCA
+#=GS UniRef90_A0A8C5IB48/14-63      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Junco hyemalis TaxID=40217 RepID=A0A8C5IB48_JUNHY
+#=GS UniRef90_A0A8C9MYZ5/14-63      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Serinus canaria TaxID=9135 RepID=A0A8C9MYZ5_SERCA
+#=GS UniRef90_A0A8C0V4T4/14-63      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Cyanistes caeruleus TaxID=156563 RepID=A0A8C0V4T4_CYACU
+#=GS UniRef90_A0A8B9IWW4/10-59      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=13 Tax=Psittaciformes TaxID=9223 RepID=A0A8B9IWW4_9PSIT
+#=GS UniRef90_A0A8B9FPA5/10-59      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Amazona collaria TaxID=241587 RepID=A0A8B9FPA5_9PSIT
+#=GS UniRef90_A0A8B9RS78/27-76      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=4 Tax=Accipiter nisus TaxID=211598 RepID=A0A8B9RS78_9AVES
+#=GS UniRef90_A0A5N5P4X6/12-72      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=6 Tax=Siluroidei TaxID=1489793 RepID=A0A5N5P4X6_PANHP
+#=GS UniRef90_A0A8U0UCT5/6-66       DE [subseq from] eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Salvelinus namaycush TaxID=8040 RepID=A0A8U0UCT5_SALNM
+#=GS UniRef90_Q5KTT8/1-61           DE [subseq from] eIF4G-related protein NAT1 n=1 Tax=Xenopus laevis TaxID=8355 RepID=Q5KTT8_XENLA
+#=GS UniRef90_A0A8B9VXH5/13-63      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Anas zonorhyncha TaxID=75864 RepID=A0A8B9VXH5_9AVES
+#=GS UniRef90_A0A8C8FIU1/18-78      DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2a n=3 Tax=Oncorhynchus tshawytscha TaxID=74940 RepID=A0A8C8FIU1_ONCTS
+#=GS UniRef90_A0A060WBU3/13-73      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=45 Tax=Salmoninae TaxID=504568 RepID=A0A060WBU3_ONCMY
+#=GS UniRef90_U3IDN3/13-63          DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Anas platyrhynchos platyrhynchos TaxID=8840 RepID=U3IDN3_ANAPP
+#=GS UniRef90_A0A1S3PST9/89-149     DE [subseq from] eukaryotic translation initiation factor 4 gamma 2-like n=2 Tax=Salmo salar TaxID=8030 RepID=A0A1S3PST9_SALSA
+#=GS UniRef90_UPI001EAF760C/101-161 DE [subseq from] eukaryotic translation initiation factor 4 gamma 2-like n=2 Tax=Oncorhynchus TaxID=8016 RepID=UPI001EAF760C
+#=GS UniRef90_A0A663MBC3/6-55       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Strigidae TaxID=30459 RepID=A0A663MBC3_ATHCN
+#=GS UniRef90_A0A8C3JGV1/6-55       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Calidris pygmaea TaxID=425635 RepID=A0A8C3JGV1_9CHAR
+#=GS UniRef90_A0A8C3JGJ4/6-55       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Calidris pygmaea TaxID=425635 RepID=A0A8C3JGJ4_9CHAR
+#=GS UniRef90_A0A553R5I0/84-144     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Danionella translucida TaxID=623744 RepID=A0A553R5I0_9TELE
+#=GS UniRef90_A0A553R5I1/84-144     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Danionella translucida TaxID=623744 RepID=A0A553R5I1_9TELE
+#=GS UniRef90_A0A674GCG1/3-52       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Taeniopygia guttata TaxID=59729 RepID=A0A674GCG1_TAEGU
+#=GS UniRef90_U3JE57/2-50           DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Ficedula albicollis TaxID=59894 RepID=U3JE57_FICAL
+#=GS UniRef90_A0A8T0BBR6/33-94      DE [subseq from] Uncharacterized protein n=2 Tax=Silurus meridionalis TaxID=175797 RepID=A0A8T0BBR6_SILME
+#=GS UniRef90_A0A8B9JUI9/1-58       DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2a n=1 Tax=Astyanax mexicanus TaxID=7994 RepID=A0A8B9JUI9_ASTMX
+#=GS UniRef90_A0A3Q3W5Q0/13-63      DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=1 Tax=Mola mola TaxID=94237 RepID=A0A3Q3W5Q0_MOLML
+#=GS UniRef90_A0A8C4HRA0/13-63      DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=2 Tax=Dicentrarchus labrax TaxID=13489 RepID=A0A8C4HRA0_DICLA
+#=GS UniRef90_A0A671UTG6/19-69      DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=2 Tax=Percomorphaceae TaxID=1489872 RepID=A0A671UTG6_SPAAU
+#=GS UniRef90_A0A3Q3EAC3/11-63      DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=2 Tax=Percomorphaceae TaxID=1489872 RepID=A0A3Q3EAC3_9LABR
+#=GS UniRef90_UPI001C4A93D6/117-175 DE [subseq from] eukaryotic translation initiation factor 4 gamma 2a n=1 Tax=Plectropomus leopardus TaxID=160734 RepID=UPI001C4A93D6
+#=GS UniRef90_A0A4W6FYB7/11-60      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2-like n=25 Tax=Euacanthomorphacea TaxID=123369 RepID=A0A4W6FYB7_LATCA
+#=GS UniRef90_A0A3B4TKK5/14-63      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2-like n=5 Tax=Percomorphaceae TaxID=1489872 RepID=A0A3B4TKK5_SERDU
+#=GS UniRef90_A0A8D3DD55/20-69      DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=1 Tax=Scophthalmus maximus TaxID=52904 RepID=A0A8D3DD55_SCOMX
+#=GS UniRef90_A0A8D3DIG0/20-69      DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=1 Tax=Scophthalmus maximus TaxID=52904 RepID=A0A8D3DIG0_SCOMX
+#=GS UniRef90_A0A8D2ZEG2/20-69      DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=1 Tax=Scophthalmus maximus TaxID=52904 RepID=A0A8D2ZEG2_SCOMX
+#=GS UniRef90_A0A3Q3NKZ4/39-88      DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=1 Tax=Mastacembelus armatus TaxID=205130 RepID=A0A3Q3NKZ4_9TELE
+#=GS UniRef90_A0A8D3BT29/20-69      DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=1 Tax=Scophthalmus maximus TaxID=52904 RepID=A0A8D3BT29_SCOMX
+#=GS UniRef90_A0A8D3E754/20-69      DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=1 Tax=Scophthalmus maximus TaxID=52904 RepID=A0A8D3E754_SCOMX
+#=GS UniRef90_A0A8D3DC59/20-69      DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=1 Tax=Scophthalmus maximus TaxID=52904 RepID=A0A8D3DC59_SCOMX
+#=GS UniRef90_I3J7L1/4-53           DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=2 Tax=Oreochromis niloticus TaxID=8128 RepID=I3J7L1_ORENI
+#=GS UniRef90_A0A484DNQ8/50-108     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=13 Tax=Percomorphaceae TaxID=1489872 RepID=A0A484DNQ8_PERFV
+#=GS UniRef90_A0A6P7ICI0/11-69      DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Parambassis ranga TaxID=210632 RepID=A0A6P7ICI0_9TELE
+#=GS UniRef90_A0A3B4YJM5/70-128     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=6 Tax=Percomorphaceae TaxID=1489872 RepID=A0A3B4YJM5_SERLL
+#=GS UniRef90_A0A6G0J096/70-127     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Larimichthys crocea TaxID=215358 RepID=A0A6G0J096_LARCR
+#=GS UniRef90_A0A4Z2FM83/3-49       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Liparis tanakae TaxID=230148 RepID=A0A4Z2FM83_9TELE
+#=GS UniRef90_A0A4U1EJZ3/793-838    DE [subseq from] DDE Tnp4 domain-containing protein (Fragment) n=2 Tax=Boreoeutheria TaxID=1437010 RepID=A0A4U1EJZ3_MONMO
+#=GS UniRef90_A0A6I9PGB1/118-176    DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 n=6 Tax=Perciformes TaxID=8111 RepID=A0A6I9PGB1_9TELE
+#=GS UniRef90_A0A3P8N7B8/33-90      DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2a n=12 Tax=Pseudocrenilabrinae TaxID=318546 RepID=A0A3P8N7B8_ASTCA
+#=GS UniRef90_A0A8C6ZWA1/1-44       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Nothoprocta perdicaria TaxID=30464 RepID=A0A8C6ZWA1_NOTPE
+#=GS UniRef90_UPI001F086032/13-64   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2b isoform X1 n=2 Tax=Hypomesus transpacificus TaxID=137520 RepID=UPI001F086032
+#=GS UniRef90_A0A8D1F7H3/7-53       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Sus scrofa TaxID=9823 RepID=A0A8D1F7H3_PIG
+#=GS UniRef90_A0A8D0W1A4/7-53       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Sus scrofa TaxID=9823 RepID=A0A8D0W1A4_PIG
+#=GS UniRef90_A0A8D0NSU2/7-53       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Sus scrofa TaxID=9823 RepID=A0A8D0NSU2_PIG
+#=GS UniRef90_A0A3Q3NLP1/29-86      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=3 Tax=Labrus bergylta TaxID=56723 RepID=A0A3Q3NLP1_9LABR
+#=GS UniRef90_A0A498NEB3/549-599    DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2-like protein n=2 Tax=Euteleostomi TaxID=117571 RepID=A0A498NEB3_LABRO
+#=GS UniRef90_A0A8C7RF03/14-63      DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=7 Tax=Oncorhynchus TaxID=8016 RepID=A0A8C7RF03_ONCMY
+#=GS UniRef90_A0A3P8ZXE1/9-58       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Esox lucius TaxID=8010 RepID=A0A3P8ZXE1_ESOLU
+#=GS UniRef90_UPI001560AB0A/22-70   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2-like isoform X2 n=1 Tax=Acipenser ruthenus TaxID=7906 RepID=UPI001560AB0A
+#=GS UniRef90_A0A8C9RZK0/11-62      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=6 Tax=Scleropages formosus TaxID=113540 RepID=A0A8C9RZK0_SCLFO
+#=GS UniRef90_A0A3P8YH02/13-62      DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2a n=4 Tax=Esox lucius TaxID=8010 RepID=A0A3P8YH02_ESOLU
+#=GS UniRef90_A0A3B3QLM6/22-71      DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=4 Tax=Mormyridae TaxID=31092 RepID=A0A3B3QLM6_9TELE
+#=GS UniRef90_A0A8C8IPP8/2-51       DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=1 Tax=Oncorhynchus tshawytscha TaxID=74940 RepID=A0A8C8IPP8_ONCTS
+#=GS UniRef90_UPI0012ECD534/40-98   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Anarrhichthys ocellatus TaxID=433405 RepID=UPI0012ECD534
+#=GS UniRef90_A0A674EPT6/26-76      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2-like n=17 Tax=Salmonidae TaxID=8015 RepID=A0A674EPT6_SALTR
+#=GS UniRef90_A0A3B3CWG1/17-63      DE [subseq from] Secreted protein n=1 Tax=Oryzias melastigma TaxID=30732 RepID=A0A3B3CWG1_ORYME
+#=GS UniRef90_A0A4W5N5X1/8-57       DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=2 Tax=Salmoninae TaxID=504568 RepID=A0A4W5N5X1_9TELE
+#=GS UniRef90_UPI001C08E606/4-52    DE [subseq from] eukaryotic translation initiation factor 4 gamma 2b isoform X1 n=3 Tax=Alosa sapidissima TaxID=34773 RepID=UPI001C08E606
+#=GS UniRef90_A0A8C4RW12/25-73      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=11 Tax=Actinopterygii TaxID=7898 RepID=A0A8C4RW12_ERPCA
+#=GS UniRef90_A0A2I4CMH1/43-101     DE [subseq from] LOW QUALITY PROTEIN: eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Rivulidae TaxID=28771 RepID=A0A2I4CMH1_9TELE
+#=GS UniRef90_A0A4W6CBQ3/2-45       DE [subseq from] Movement protein n=1 Tax=Lates calcarifer TaxID=8187 RepID=A0A4W6CBQ3_LATCA
+#=GS UniRef90_UPI001C049DA8/41-99   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2a n=1 Tax=Melanotaenia boesemani TaxID=1250792 RepID=UPI001C049DA8
+#=GS UniRef90_W5KS63/14-62          DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2a n=3 Tax=Characoidei TaxID=1489739 RepID=W5KS63_ASTMX
+#=GS UniRef90_A0A671XJ53/34-91      DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2a n=3 Tax=Sparus aurata TaxID=8175 RepID=A0A671XJ53_SPAAU
+#=GS UniRef90_A0A3B3ZCN3/2-60       DE [subseq from] Kinesin motor domain-containing protein n=2 Tax=Periophthalmus magnuspinnatus TaxID=409849 RepID=A0A3B3ZCN3_9GOBI
+#=GS UniRef90_A0A4W4G540/1-43       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Electrophorus electricus TaxID=8005 RepID=A0A4W4G540_ELEEL
+#=GS UniRef90_A0A3Q2P2F6/2-59       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Fundulus heteroclitus TaxID=8078 RepID=A0A3Q2P2F6_FUNHE
+#=GS UniRef90_A0A060WCW7/62-113     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=12 Tax=Salmonidae TaxID=8015 RepID=A0A060WCW7_ONCMY
+#=GS UniRef90_A0A672IH08/4-62       DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2a n=5 Tax=Salarias fasciatus TaxID=181472 RepID=A0A672IH08_SALFA
+#=GS UniRef90_M4AGH5/2-42           DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2-like n=5 Tax=Xiphophorus TaxID=8082 RepID=M4AGH5_XIPMA
+#=GS UniRef90_A0A8C7MC35/1-45       DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=1 Tax=Oncorhynchus kisutch TaxID=8019 RepID=A0A8C7MC35_ONCKI
+#=GS UniRef90_A0A7N6AF05/1-41       DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=1 Tax=Anabas testudineus TaxID=64144 RepID=A0A7N6AF05_ANATE
+#=GS UniRef90_A0A3B3UR78/12-58      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=17 Tax=Cyprinodontoidei TaxID=8087 RepID=A0A3B3UR78_9TELE
+#=GS UniRef90_A0A3Q2G0R6/17-63      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Cyprinodon variegatus TaxID=28743 RepID=A0A3Q2G0R6_CYPVA
+#=GS UniRef90_H2V6B2/33-90          DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=7 Tax=Takifugu TaxID=31032 RepID=H2V6B2_TAKRU
+#=GS UniRef90_A0A8T2J4K8/23-75      DE [subseq from] Uncharacterized protein n=1 Tax=Hymenochirus boettgeri TaxID=247094 RepID=A0A8T2J4K8_9PIPI
+#=GS UniRef90_H3CVE7/34-95          DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2a n=3 Tax=Tetraodontidae TaxID=31031 RepID=H3CVE7_TETNG
+#=GS UniRef90_A0A3B4B591/1-40       DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=2 Tax=Periophthalmus magnuspinnatus TaxID=409849 RepID=A0A3B4B591_9GOBI
+#=GS UniRef90_A0A8J4WZ43/1-48       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2-like (Fragment) n=2 Tax=Siluroidei TaxID=1489793 RepID=A0A8J4WZ43_CLAMG
+#=GS UniRef90_H0YEI7/14-42          DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 (Fragment) n=1 Tax=Homo sapiens TaxID=9606 RepID=H0YEI7_HUMAN
+#=GS UniRef90_A0A3Q3X311/1-44       DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2a n=1 Tax=Mola mola TaxID=94237 RepID=A0A3Q3X311_MOLML
+#=GS UniRef90_A0A8C0YM18/4-48       DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=1 Tax=Cyprinus carpio TaxID=7962 RepID=A0A8C0YM18_CYPCA
+#=GS UniRef90_S4RDU8/1-63           DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2a n=2 Tax=Petromyzon marinus TaxID=7757 RepID=S4RDU8_PETMA
+#=GS UniRef90_L9L6E9/22-57          DE [subseq from] 60S ribosomal protein L5 n=1 Tax=Tupaia chinensis TaxID=246437 RepID=L9L6E9_TUPCH
+#=GS UniRef90_A0A3Q2ZUT1/1-44       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=3 Tax=Kryptolebias marmoratus TaxID=37003 RepID=A0A3Q2ZUT1_KRYMA
+#=GS UniRef90_A0A674IAI4/1-35       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=4 Tax=Emydidae TaxID=8476 RepID=A0A674IAI4_TERCA
+#=GS UniRef90_H2Q368/29-77          DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=3 Tax=Homininae TaxID=207598 RepID=H2Q368_PANTR
+#=GS UniRef90_H2LSU6/1-44           DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Oryzias latipes TaxID=8090 RepID=H2LSU6_ORYLA
+#=GS UniRef90_A0A3Q2VUG5/1-38       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Haplochromis burtoni TaxID=8153 RepID=A0A3Q2VUG5_HAPBU
+#=GS UniRef90_A0A8C4I8D8/2-41       DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2a n=4 Tax=Dicentrarchus labrax TaxID=13489 RepID=A0A8C4I8D8_DICLA
+#=GS UniRef90_A0A8C5E8X4/11-47      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2-like n=4 Tax=Gouania willdenowi TaxID=441366 RepID=A0A8C5E8X4_9TELE
+#=GS UniRef90_A0A8S4ABA0/6-52       DE [subseq from] (Atlantic silverside) hypothetical protein n=1 Tax=Menidia menidia TaxID=238744 RepID=A0A8S4ABA0_9TELE
+#=GS UniRef90_A0A8C6NQJ3/85-130     DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2a n=11 Tax=Nothobranchiidae TaxID=405002 RepID=A0A8C6NQJ3_NOTFU
+#=GS UniRef90_L8YA29/14-42          DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 (Fragment) n=1 Tax=Tupaia chinensis TaxID=246437 RepID=L8YA29_TUPCH
+#=GS UniRef90_S9XSR1/67-95          DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 isoform 1 n=1 Tax=Camelus ferus TaxID=419612 RepID=S9XSR1_CAMFR
+#=GS UniRef90_A0A1A6GST1/46-74      DE [subseq from] IF4G2 factor (Fragment) n=4 Tax=Euarchontoglires TaxID=314146 RepID=A0A1A6GST1_NEOLE
+#=GS UniRef90_A0A4W5Q1N2/31-71      DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2a n=1 Tax=Hucho hucho TaxID=62062 RepID=A0A4W5Q1N2_9TELE
+#=GS UniRef90_A0A452UM30/17-44      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Ursus maritimus TaxID=29073 RepID=A0A452UM30_URSMA
+#=GS UniRef90_A0A3Q2P1I2/1-40       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Fundulus heteroclitus TaxID=8078 RepID=A0A3Q2P1I2_FUNHE
+#=GS UniRef90_A0A8C6SU23/10-57      DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2a n=1 Tax=Neogobius melanostomus TaxID=47308 RepID=A0A8C6SU23_9GOBI
+#=GS UniRef90_A0A2K6QHQ1/35-82      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=5 Tax=Cercopithecidae TaxID=9527 RepID=A0A2K6QHQ1_RHIRO
+#=GS UniRef90_A0A8C0KUN3/19-53      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Canis lupus dingo TaxID=286419 RepID=A0A8C0KUN3_CANLU
+#=GS UniRef90_A0A3Q1IYK1/1-38       DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2a n=6 Tax=Anabas testudineus TaxID=64144 RepID=A0A3Q1IYK1_ANATE
+#=GS UniRef90_A0A3Q2YJ58/18-60      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Hippocampus comes TaxID=109280 RepID=A0A3Q2YJ58_HIPCM
+#=GS UniRef90_A0A452UM01/11-42      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Ursus maritimus TaxID=29073 RepID=A0A452UM01_URSMA
+#=GS UniRef90_A0A3B3SHL5/1-39       DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2a n=3 Tax=Mormyridae TaxID=31092 RepID=A0A3B3SHL5_9TELE
+#=GS UniRef90_A0A8C5N891/1-37       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Gouania willdenowi TaxID=441366 RepID=A0A8C5N891_9TELE
+#=GS UniRef90_A0A401PZG4/13-48      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=5 Tax=Chondrichthyes TaxID=7777 RepID=A0A401PZG4_SCYTO
+#=GS UniRef90_UPI001C09F61C/17-67   DE [subseq from] eukaryotic translation initiation factor 4 gamma 2a n=1 Tax=Alosa sapidissima TaxID=34773 RepID=UPI001C09F61C
+#=GS UniRef90_A0A452F2M5/20-49      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=3 Tax=Capra hircus TaxID=9925 RepID=A0A452F2M5_CAPHI
+#=GS UniRef90_UPI000A3362BD/5-33    DE [subseq from] eukaryotic translation initiation factor 4 gamma 2 isoform X3 n=1 Tax=Heterocephalus glaber TaxID=10181 RepID=UPI000A3362BD
+#=GS UniRef90_A0A8C0J8Z5/4-51       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Chelonoidis abingdonii TaxID=106734 RepID=A0A8C0J8Z5_CHEAB
+#=GS UniRef90_A0A2K5EXD4/6-34       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=3 Tax=Boreoeutheria TaxID=1437010 RepID=A0A2K5EXD4_AOTNA
+#=GS UniRef90_A0A2P4T9Z4/47-74      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Bambusicola thoracicus TaxID=9083 RepID=A0A2P4T9Z4_BAMTH
+#=GS UniRef90_A0A4W5PAA7/1-36       DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2a n=2 Tax=Hucho hucho TaxID=62062 RepID=A0A4W5PAA7_9TELE
+#=GS UniRef90_A0A8J6H1T0/95-125     DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=14 Tax=Boreoeutheria TaxID=1437010 RepID=A0A8J6H1T0_MICOH
+#=GS UniRef90_A0A674F4P6/1-36       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2-like n=3 Tax=Salmoninae TaxID=504568 RepID=A0A674F4P6_SALTR
+#=GS UniRef90_A0A674IAQ7/16-45      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=3 Tax=Amniota TaxID=32524 RepID=A0A674IAQ7_TERCA
+#=GS UniRef90_A0A226PM19/31-59      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Colinus virginianus TaxID=9014 RepID=A0A226PM19_COLVI
+#=GS UniRef90_A0A673CII9/1-38       DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2a n=1 Tax=Sphaeramia orbicularis TaxID=375764 RepID=A0A673CII9_9TELE
+#=GS UniRef90_A0A8D0DRP9/2-35       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Salvator merianae TaxID=96440 RepID=A0A8D0DRP9_9SAUR
+#=GS UniRef90_A0A7K9BQZ1/4-31       DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Psilopogon haemacephalus TaxID=2585815 RepID=A0A7K9BQZ1_9PICI
+#=GS UniRef90_A0A8C3FFK8/114-142    DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Chrysemys picta bellii TaxID=8478 RepID=A0A8C3FFK8_CHRPI
+#=GS UniRef90_A0A3M0JA39/17-43      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Hirundo rustica rustica TaxID=333673 RepID=A0A3M0JA39_HIRRU
+#=GS UniRef90_A0A803TSD4/4-30       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Anolis carolinensis TaxID=28377 RepID=A0A803TSD4_ANOCA
+#=GS UniRef90_A0A7K9FZ43/1-27       DE [subseq from] IF4G2 factor (Fragment) n=1 Tax=Stercorarius parasiticus TaxID=54059 RepID=A0A7K9FZ43_STEPR
+#=GS UniRef90_A0A8C6XYL4/18-43      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=16 Tax=Serpentes TaxID=8570 RepID=A0A8C6XYL4_NAJNA
+#=GS UniRef90_A0A671XJ49/1-30       DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2a n=2 Tax=Sparidae TaxID=8169 RepID=A0A671XJ49_SPAAU
+#=GS UniRef90_A0A672LNP0/25-52      DE [subseq from] Ovule protein n=1 Tax=Sinocyclocheilus grahami TaxID=75366 RepID=A0A672LNP0_SINGR
+#=GS UniRef90_A0A1A8B692/36-63      DE [subseq from] Eukaryotic translation initiation factor 4 gamma, 2 (Fragment) n=13 Tax=Percomorphaceae TaxID=1489872 RepID=A0A1A8B692_NOTFU
+#=GS UniRef90_A0A8C5QG07/4-54       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Leptobrachium leishanense TaxID=445787 RepID=A0A8C5QG07_9ANUR
+#=GS UniRef90_A0A8C5QH43/4-54       DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Leptobrachium leishanense TaxID=445787 RepID=A0A8C5QH43_9ANUR
+#=GS UniRef90_A0A8D3D755/12-40      DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=1 Tax=Scophthalmus maximus TaxID=52904 RepID=A0A8D3D755_SCOMX
+#=GS UniRef90_A0A4W6G5X7/3-38       DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2a n=1 Tax=Lates calcarifer TaxID=8187 RepID=A0A4W6G5X7_LATCA
+#=GS UniRef90_A0A4W6G5B4/3-38       DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2a n=1 Tax=Lates calcarifer TaxID=8187 RepID=A0A4W6G5B4_LATCA
+#=GS UniRef90_A0A4W6G5A4/4-39       DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2a n=1 Tax=Lates calcarifer TaxID=8187 RepID=A0A4W6G5A4_LATCA
+#=GS UniRef90_A0A665VVV2/35-62      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2-like n=13 Tax=Percomorphaceae TaxID=1489872 RepID=A0A665VVV2_ECHNA
+#=GS UniRef90_A0A4W6G085/24-52      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2-like n=9 Tax=Euacanthomorphacea TaxID=123369 RepID=A0A4W6G085_LATCA
+#=GS UniRef90_A0A8C9ZSN8/15-42      DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=1 Tax=Sander lucioperca TaxID=283035 RepID=A0A8C9ZSN8_SANLU
+#=GS UniRef90_A0A669CPY2/30-57      DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=1 Tax=Oreochromis niloticus TaxID=8128 RepID=A0A669CPY2_ORENI
+#=GS UniRef90_A0A3P8QN32/30-57      DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=1 Tax=Astatotilapia calliptera TaxID=8154 RepID=A0A3P8QN32_ASTCA
+#=GS UniRef90_A0A8D0D9Z5/67-94      DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=3 Tax=Sander lucioperca TaxID=283035 RepID=A0A8D0D9Z5_SANLU
+#=GS UniRef90_A0A3Q4MTA1/30-57      DE [subseq from] Eukaryotic translation initiation factor 4 gamma 2-like n=12 Tax=Percomorphaceae TaxID=1489872 RepID=A0A3Q4MTA1_NEOBR
+#=GS UniRef90_A0A8J0V8B6/4-53       DE [subseq from] eukaryotic translation initiation factor 4 gamma, 2 S homeolog isoform X1 n=2 Tax=Xenopus laevis TaxID=8355 RepID=A0A8J0V8B6_XENLA
+#=GS UniRef90_A0A8C7YZL4/1-28       DE [subseq from] Eukaryotic translation initiation factor 4, gamma 2b n=1 Tax=Oryzias sinensis TaxID=183150 RepID=A0A8C7YZL4_9TELE
+#=GS UniRef90_Q6DIH1/16-53          DE [subseq from] Eukaryotic translation initiation factor 4 gamma, 2 n=2 Tax=Xenopus tropicalis TaxID=8364 RepID=Q6DIH1_XENTR
+
+TEST                                   MESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A5E4A8T7/34-97              VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_Q62448/1-64                   MESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI00015968B7/1-64            MESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0JNY7/1-64                   MESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_Q62448-2/1-64                 MESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_P78344/1-64                   MESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI0000DB3EE1/1-64            MESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI000C7E893B/41-104          VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_H0XNY6/74-137                 VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A383ZJ91/179-242            VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A2K6D124/125-188            VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A2K5JKH9/75-138             VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A4X2K0L3/1-64               VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8C6RZJ3/1-64               VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8C8TTN8/1-64               VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A4X2K8J4/1-64               VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8C2LBN9/1-64               VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8I6A1T4/1-64               VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_G3XA17/1-64                   VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8C0M5K7/1-64               VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_L5L315/19-82                  VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI001879256C/244-307         VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A2K5EX88/1-64               VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8C5L6H2/1-64               VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8D1RQL1/23-86              VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_G1M7U8/1-64                   VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8C6DAV3/1-64               VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A4W2CL16/1-64               VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A673TTH8/1-64               VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8C0SRK8/1-64               VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8C3WS99/1-64               VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8C5YL33/1-64               VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A3Q1MQ69/32-95              VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8C0KVD5/12-75              VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A452ULZ5/12-75              VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_F6SP01/1-64                   VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8I6A9V3/1-64               VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8C2W229/1-64               VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_F7E490/1-64                   VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A822HYQ2/17-80              VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI001659C134/16-79           VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A0D9QX32/74-137             VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A452S7S7/12-75              VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8D0NS98/23-86              VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI0006D92F78/13-76           VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_M3YN81/68-131                 VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_F7C7R7/1-64                   VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A2K5EXF0/1-64               VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A7N5KGS8/1-64               VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8C2XYB3/1-64               VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A2K5PR87/11-74              VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8C0SRQ1/1-64               VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_H0Y3P2/1-64                   VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8C9ANF6/1-64               VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8C0KUQ8/12-75              VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A452UM50/12-75              VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_F6YUH0/1-64                   VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI00045E0F2E/75-138          VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A2I3MH25/1-64               VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A6G1B1T2/30-93              VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A2K6TKK2/16-79              VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8C0ZV97/1-64               VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_G1S7C1/28-91                  VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI001921E008/32-95           VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI000703EA28/26-89           VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI001BB263BE/39-102          VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI000F443313/61-124          VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI001F128754/35-98           VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A835ZSX2/29-92              VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI0010A21BB1/33-96           VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI001C082521/84-147          VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A6P6I8T9/38-101             VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A4V5P622/74-137             VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A6J0Z030/32-95              VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI001A9B5382/34-97           VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_W5PKL6/34-97                  VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_G1PTY8/30-93                  VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8M1L8P5/45-108             VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI0001FB17A5/34-97           VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8B7W6Z1/32-95              VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI001FB284DE/39-102          VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A3L7HU72/29-92              VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A5F9CZM5/59-122             VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI001B351F0D/33-96           VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8C9JU84/46-109             VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8B7FQQ6/38-101             VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_G1T573/38-101                 VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A286XW01/51-114             VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_K9J3V8/30-93                  VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8M1MR85/50-113             VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A5F5PPQ0/40-103             VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A7J7WZI5/69-132             VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A2K5TN58/45-108             VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A485MS57/69-132             VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A2I3FWW3/74-137             VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A2K5NFV5/75-138             VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A4X1TP96/43-106             VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI0020170885/57-120          VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI001BC92C81/57-120          VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A6P5LII8/55-118             VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI001C9E7EF3/156-219         VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI001A9EF53E/57-120          VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI0007679ADD/81-144          VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8M1L5B1/45-108             VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI00189E8AB8/72-135          VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8B7SGM9/58-121             VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_G7PQQ4/74-137                 VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_B4DZF2/74-137                 VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A7J7VH32/63-126             VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A811Y3V5/68-131             VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A091CNN7/63-126             VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A5F9CXD1/59-122             VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI00174AFAA3/60-123          VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI00202092A6/375-438         VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI001E6A0699/84-147          VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A1S3G5N1/50-113             VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI001C53893A/69-132          VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI00063F17FC/71-134          VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A2K6GHR9/71-134             VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI00141B3792/80-143          VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI0013F2EE92/81-144          VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A5F9DMU5/73-136             VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8J6AMV8/243-306            VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI000A335457/100-163         VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI0015F1A1AC/326-389         VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8M1GJ68/135-198            VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A6J3AUN5/168-231            VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI00201906FB/203-266         VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI00140F8400/163-226         VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_S7N5U7/165-228                VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8B8TWU5/232-295            VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8C7AW57/1-63               VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSA-
+UniRef90_A0A6P3VC41/292-355            VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_F6XWN2/63-126                 VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A340YHE6/84-147             VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A7F8KE34/84-147             VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A1S2ZLI8/138-201            VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8U0UNB7/139-202            VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI0007B41527/171-234         VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI0004D06860/176-239         VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A6P5PVC9/225-288            VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI001AF00D5F/217-280         VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI0004BD9C19/257-320         VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI00188E6ED5/278-341         VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI000EAADBF6/392-455         VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI0018F789E7/373-436         VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_G3TA50/1-64                   VESAIAEGGASRFS--ASSDG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_G3VLF0/1-64                   VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8C9AUL1/1-63               VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSARRDDNSA-
+UniRef90_A0A8D0HB75/1-63               VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_UPI0011562963/96-158          VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A6I9KDY4/65-128             VESAIAEGGASRFS--ASSDG-GGSRG-GPQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_G1KHY5/1-63                   VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_UPI0020266B0F/143-205         VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A803TW80/39-101             VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A151MBW9/24-86              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7M4EEC8/32-94              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A670HTA1/39-101             VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8C0J7B2/57-119             VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_UPI00051510DE/24-86           VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSS-
+UniRef90_UPI0013F24290/114-176         VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_K7GHY1/28-90                  VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_UPI00093D0020/225-287         VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_UPI0007045EC9/68-130          VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8C4VN86/38-100             VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8C3FJF2/26-88              VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_UPI001C67B006/71-133          VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8C3FC22/26-88              VESAIAEGGASRFS--ASSGG-GGSRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7L4CP65/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_UPI0001596C47/1-63            MESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_Q5KTT9/1-63                   MESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A3Q1MGQ7/2-64               -ENAIAEVGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFPGETPGQNAQKWIPARSPRRDDNSAA
+UniRef90_UPI000FFB78B8/58-121          VESAIAEGGASRFS--ASSGG-GGSRG-APRH--Y--PKTAGNSEFLGKTPGQNAQKWIPALSTRGDDNSAA
+UniRef90_UPI000523C872/137-199         VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_UPI00071DCE25/149-211         VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8B9SUR8/62-124             VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7K9U197/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A1V4JP74/10-72              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A1V4JPE0/10-72              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_UPI000530B8F0/24-86           VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7L0JME9/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7K8U9K4/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7K6VZM5/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A663FGD0/11-73              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A0A0AXU9/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8D0FV63/11-73              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7L2Z5Q6/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8C4VDA7/11-73              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A852NMY1/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A093IFN5/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8B9QHL5/11-73              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7K9E6R7/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7L4DRL1/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_UPI000523C492/24-86           VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8C4JSA4/11-73              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_G1N2I1/28-90                  VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A091TI37/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7K8L7E6/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A091L8H2/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7L3WME3/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7K8K0H9/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A091HKI3/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7L4H9U0/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7L3D6E9/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7L2FWV2/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7L0FLZ5/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7L0CVW4/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A093HYA8/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7K6ZDY6/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A091W9X2/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7K9VCH6/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7L0T2Q6/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A094LA83/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7K8N8V2/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7K4LNF4/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7K8XLJ9/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7L0TL28/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7L1NFK6/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A087RKA1/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A093P7V9/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8C9G0I3/6-68               VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7L1JEV3/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7K6Y7X9/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8B9W270/1-63               VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A091UU40/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8J4NDQ7/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8C3LKL2/25-87              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_UPI000B3D9653/14-76           VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A851T0N9/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A1V4JP02/10-72              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7K9YD83/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A674H982/27-89              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A669R8H9/25-87              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_UPI0004F0C397/24-86           VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A091GVZ7/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A226MXS3/9-71               VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7K4YZD6/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A091M9D6/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A094KIY9/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7K8SH83/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A093ELJ2/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_F1NQU7/1-63                   VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8J4IQJ2/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8D0G2Y2/1-63               VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_UPI0005288567/24-86           VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8C0AWF2/1-63               VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A803VJ29/1-63               VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8C3R2E1/1-63               VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A663FJ23/11-73              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_UPI000B3D9012/14-76           VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8C5TRU8/1-63               VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A852CLD6/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8C4VDG1/11-73              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A0Q3MJN4/26-88              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_UPI0011AE9FB4/11-73           VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8B9SEW4/11-73              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8C4JN05/11-73              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_UPI00052159CA/169-231         VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_UPI00077782C6/28-90           VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8C3CSD5/4-66               VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A2I0UH27/81-143             VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A669QWH3/25-87              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7L0W1E5/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_H0ZC30/26-88                  VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_UPI0006B6AF6F/33-95           VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8C3VFK8/37-99              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_UPI001ADE7C5A/64-126          VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8B9D0G0/32-94              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8D2NVD6/58-120             VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_UPI0004F4EBF2/130-192         VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7L2HX06/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_UPI0015D652F0/107-169         VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A850VQP5/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSS-
+UniRef90_A0A670Y4X0/1-63               VESAIAEGGASRFS--ASSGG-GGGRG-ALQH--Y--PKTAGNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7K6AFT2/15-77              VESAIAEGGASRFS--ASLGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_UPI00052F0E9E/153-215         VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A091QPV7/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTACNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_UPI001CC29A17/400-463         VESAIAEGGASRFS--ASSGG-GGRRG-APQH--Y--PKTAGNSEFLGKTAGQKAQKWIPPRSTRRDDNSAA
+UniRef90_A0A851CT65/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKNPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7K5DJB6/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKNPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7K7HF24/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKNPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7L1Z2F8/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKNPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A851Q954/1-62               -ESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSS-
+UniRef90_A0A7L0AEA1/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTQGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7L3LRX0/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQR--Y--PKTAINSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_UPI001440E5C5/45-108          VESAIAEGGASRSS--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGRTPGQNAQKRIPARSTRRDDDSAA
+UniRef90_A0A8S4BG44/55-117             VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQKWVPSRSTRRDANSS-
+UniRef90_UPI001885ECDC/117-178         -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTAGNSEFLGKTPGQSVQKWVPSRSTRRDANSS-
+UniRef90_A0A6P3IZK5/131-193            -ENAIAEVGASRFS--ASSGG-GGSRG-APQH--Y--PKTAGNSESPGETPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A484D5Z8/40-102             VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_Q4S199/2-63                   -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A3S2N1B1/47-109             VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDANSS-
+UniRef90_A0A4Z2C7G7/110-171            -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_UPI0007B9192B/33-94           -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDANSS-
+UniRef90_UPI001CF64959/43-104          -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A8C4NTB9/39-100             -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_UPI000393EC91/32-93           -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_UPI0019532C67/32-93           -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_UPI000329F0DE/32-93           -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_UPI00187CA44D/27-88           -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_UPI001C2DD038/36-97           -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_UPI0016439D7C/35-96           -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A6P7MVA8/59-120             -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A087YCJ8/32-93              -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDANSS-
+UniRef90_UPI0003AFCFDC/63-124          -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_UPI000E46112C/237-298         -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_UPI0009B3C24A/58-119          -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A315VQH6/34-95              -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDANSS-
+UniRef90_A0A3P8X0R4/46-107             -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A2U9BUU9/171-233            VESAIAEGGASRFS--ASSGG-GGGRG-APQH--H--PKTVGNSEFLGKTPGQSVQKWVPSRSTRRDVNSS-
+UniRef90_UPI001A7E2063/355-416         -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A8C7Z2X2/39-101             VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVANSEFLGKTPGQSAQRWVPSRSTRRDANSS-
+UniRef90_UPI0013AFBEA8/38-100          VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_UPI00155E8888/74-136          VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_UPI0012ECE5B1/35-96           -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSGQRWVPSRSTRRDVNSS-
+UniRef90_A0A3P9H1V9/31-93              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVANSEFLGKTPGQSAQRWVPSRSTRRDANSS-
+UniRef90_A0A5J5D6M8/35-97              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A3P9H1S2/47-109             VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVANSEFLGKTPGQSAQRWVPSRSTRRDANSS-
+UniRef90_UPI0011B636D3/56-117          -ESVIAEGGASRFS--ASSGG-GGGRS-APQH--Y--PKTVGNSEFLGKTPGQSVQKWVPSRSTRRDANSS-
+UniRef90_A0A8C5D3P7/56-117             -ESVIAEGGASRFS--ASSGG-GGGRS-APQH--Y--PKTVGNSEFLGKTPGQSVQKWVPSRSTRRDANSS-
+UniRef90_A0A6A4T2P6/387-449            VESAIAEGGASRFS--ASSGG-GGGRG-APQH--H--PKTVGNSEFLGKTPGQSVQKWVPSRSTRRDVNSS-
+UniRef90_A0A7K9I6K4/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQP--Y--PKTASNSEFLGKTSGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7K9TG18/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQP--Y--PKTASNSEFLGKTSGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7L3YHG3/15-75              VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTA--SEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A2Y9SQR2/74-136             -KSEIAEGGASPFS--ASSGG-GGSRG-APQH--Y--LKTAGNSEFLGKSPGQNAQKWIPAGNTRRDDNSVA
+UniRef90_A0A6P8U1M2/44-105             -ESLIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQIWVPSRSTRRDVNSS-
+UniRef90_A0A6P8QD22/52-114             VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEYLGKTPGLGVQRWIPSRSTRRDVNSA-
+UniRef90_A0A6P7Y6C2/56-118             VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEYLGKTPGLGVQRWIPSRSTRRDVNSA-
+UniRef90_UPI0011B72635/56-117          -ESVIAEGGASRFS--ASSGG-GGGRS-APQH--Y--PKTVGNSEFLGKTPGQSVQKWVPSRSTRRDANSS-
+UniRef90_A0A8C3ECX4/36-100             VESAIAEGGASRFRYLKASSG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_UPI0018894B93/71-132          -ESVISEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGRTPGQSVQRWVPSRSTRREVNSS-
+UniRef90_UPI0018646E21/26-87           -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEYLGKTPGPSVQRWVPSRSTRRDVNSS-
+UniRef90_H3BG92/32-94                  VESAIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTADNSEYLGKTPGPSSQRWVPSRSTRRDVNST-
+UniRef90_A0A8T3D1G0/41-102             -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEYLGKTPGPSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A673IJ86/68-129             -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEYLGKTPGPSVQRWVPSRSTRRDVNSS-
+UniRef90_UPI0015AA2C4F/30-91           -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEYLGKTPGPSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A671S1Q4/37-97              -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKSVGNGEFLGKTPGPNVQRWVPSRSTRRDVNS--
+UniRef90_UPI0015CFD012/87-147          -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGPSVQRWVPSRSTRRDVSS--
+UniRef90_A0A8C4BUA7/38-98              -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEYLGKTPGPGVQRWVPSRSTRRDVNT--
+UniRef90_UPI00146C8DEC/28-89           -ESLIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKAPGQSVQIWVPSRSTRRDVNSS-
+UniRef90_A0A8I3S1D4/11-61              -------------S--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8B9RKK2/28-88              -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--F--PKTAGNSEFLGKTPGPSVQRWVPSRSTRRDVDS--
+UniRef90_A0A8I3NTR8/11-61              -------------S--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8B9LC13/28-88              -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--F--PKTAGNSEFLGKTPGPSVQRWVPSRSTRRDVDS--
+UniRef90_A0A8I3NX47/11-61              -------------S--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8I5TTM0/14-64              -------------S--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A3Q2I7T7/9-59               -------------S--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A3Q2KPR0/9-59               -------------S--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A852L2I0/15-77              VESAIAEGGASRFS--ASSGG-GGGRG-APQP--Y--LKTAINSEFLGRNPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A3Q2LE85/9-59               -------------S--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_F7D6N6/9-59                   -------------S--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A3Q2GWH5/9-59               -------------S--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A5F5PGI4/9-59               -------------S--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8C4L8T7/9-59               -------------S--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_I3MLB8/16-66                  -------------S--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A2K6TKF9/13-63              -------------S--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI00141B6222/39-93           ---------SSRXS--ASSGG-EGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A673FYK2/37-98              -ESVIAEGGASRFS--ASSGG-GGDRG-APQH--Y--PKSVDNGEFLGKTPGPNVQRWVPSRSTRRDVNSS-
+UniRef90_A0A452F2V5/12-62              -------------S--ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8M1N4J3/1-63               MESVIAEGGASRFS--ASSGG-GGGRG-ASQH--Y--PKTVGNSEYLGKTPGPSVQRWVPSRSTRRDVNSS-
+UniRef90_UPI001C8AB60F/65-126          -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKSVGNSEFLGKTPGPSVQRWVPSRSTRRDVNSS-
+UniRef90_Q5KTT7/1-63                   MESVIAEGGASRFS--ASSGG-GGGRG-ATQH--Y--PKSVGNSEFLGKTPGPSVQRWVPSRSTRRDVNSS-
+UniRef90_UPI0015ABF963/41-102          -ESVVAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSECLGKAPGPSVQKWVPSRSTRRDVNSS-
+UniRef90_A0A6F8ZQ93/24-85              -ESVIAVGGASRFS--ASSGG-GVGRG-APQH--Y--PKTVGNSEFLGKTPGHSAPKWVPSRSTRRDANSS-
+UniRef90_UPI001897EAF8/67-128          -ESVVAEGGASRFS--ASSGG-GGGRG-APQH--N--PKTVGNSEFLGKAPGQSVQRWVPSRSTRRDANSS-
+UniRef90_A0A7J6C245/28-89              -ESVIAEGGASRFS--ASSGG-GGGRG-ASQH--Y--PKTVGNSEYLGKTPGPSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A8T3E875/27-87              -ESVIAEGGASRFS--AASGG-GGSRG-APQH--H--PKTVGNSEYLGKTPGPSVQRWVPSRSTRRDVSS--
+UniRef90_A0A8C8MBF1/12-73              -ESVIAVGGASRFS--ASSGG-GVGRG-APQH--Y--PKTVGNSEFLGKTPGHSAPKWVPSRSTRRDANSS-
+UniRef90_A0A1S3MKG4/60-121             -ESVIAVGGASRFS--ASSGG-GVGRG-APQH--Y--PKTVGNSEFLGKTPGHSAPKWVPSRSTRRDANSS-
+UniRef90_A0A8C7RGK1/19-80              -ESVIAVGGASRFS--ASSGG-GVGRG-APQH--Y--PKTVGNSEFLGKTPGHSAPKWVPSRSTRRDANSS-
+UniRef90_UPI001E1C6482/125-186         -ESVIAVGGASRFS--ASSGG-GVGRG-APQH--Y--PKTVGNSEFLGKTPGHSAPKWVPSRSTRRDANSS-
+UniRef90_A0A5A9NZG3/77-137             -ESVIAEGGASRFS--ASSGG-GGGRG-ATQH--Y--PKTVGNSEYLGKTPGPGVQRWVPSRSTRRDVNS--
+UniRef90_A0A6P8F1B9/61-121             -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEYLGKSPGPSVQRWVPSRSTRRDVNT--
+UniRef90_UPI0007AD5E58/109-169         -ESVIAEGGASRFS--ASSGG-GGGRG-ASQH--F--PKTVGNSEYLGKTPGPSVQRWVPSRSTRRDVNT--
+UniRef90_A0A060WI15/52-113             -ESVIAVGGASRFS--ASSGG-GVGRG-APQH--Y--PKTVGNSEFLGKTPGHSAPKWVPSRSTRRDANSS-
+UniRef90_A0A0P7WDH9/28-89              -ESVIAEGGASRFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGTAPGPSVQRWVPSRSTRRDVNSS-
+UniRef90_UPI001CF96C57/5-66            VESAIAEGGASRFS--ASSGG-GGGRG-APQQ--Y--PKSASNSEYLGKTPGTNVQRWVPSRSTRRDVNS--
+UniRef90_A0A8C5QFJ6/1-62               VESAIAEGGASRFS--ASSGG-GG-RG-ASQH--Y--PKTAGNSEYLGKTPGPGVQRWIPSRSTRRDGNSA-
+UniRef90_A0A8C8LVE2/44-105             -ESVIAEGGASRFS--ASSGG-GGVRG-APQH--N--PKTVGNSEFLGKPPGHSAPKWVPSRSTRRDANSS-
+UniRef90_A0A2K6PY83/1-50               ----------------ASSGG-GGSRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A060X9P1/40-101             -ESVIAEGGASRFS--ASSGG-GGVRG-APQH--N--PKTVGNSEFLGKPPGHSAPKWVPSRSTRRDANSS-
+UniRef90_A0A7J6CTG2/38-99              -ESVIAEGGASRFS--ASSGG-GGGRG-AAQH--Y--PKSVGNSEFLGKTPGPSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A4U1F7C6/2-60               -----VEAAASRSS--ASSGG-GGSRG-APQH--C--PRTAGNSEFLGRTPGQNAQKWIPASSTRRDDDSAA
+UniRef90_A0A8J6EHP7/9-69               VESAIAEGGASRFS--ASSGG-GG-RG-ASQH--Y--PKTVGNSEYLGKTPGPGVQRWIPSRSTRRDVNS--
+UniRef90_A0A6P8H5B1/27-88              -ESVIAEGGASRFS--ASSGG-GGGRG-ASQH--Y--PKTVGKSEFLGKSPGSGIQKWIPSRSTRRDGNSS-
+UniRef90_A0A556TQY8/34-94              -ESVIAEGGSSRFS--ASSGE-GGGRG-APEH--D--PKTAGNSEYLGKTPGPSIQKWVPSRSTRRDVNS--
+UniRef90_A0A667ZXZ7/39-99              -ESVVAEGGASRFS--ASVGG-GGGGG-APQH--Y--PKSVGNSEFLGKTPGSSVQRWVPSRSTRRDVSS--
+UniRef90_A0A1B8Y3I3/47-107             VESAIAEGGASRFS--ASSGG-GG-RG-ASQH--Y--PKTVGNSEYLGKTPGPGVQRWVPSRSTKRDVNS--
+UniRef90_A0A8T2LAY3/44-104             -ESVVAEGGASRFS--ASSGG-GGGRG-ASQH--F--PKTAGNGEFLGKTPGPSVQRWVPSRSTRREVSS--
+UniRef90_A0A5N5MV41/37-98              -ESVVAEGGASRFS--ASSGGGGGGRG-APQH--Y--PTTVGNSEFLGKTPGPSVQRWVPSRSTRRDVSS--
+UniRef90_A0A2K5CCL1/32-83              ---AIAE----------GGGG-GESRG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSA-
+UniRef90_A0A8C3R2F8/14-63              -------------S--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8C3R540/14-63              -------------S--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8D2QFH5/14-63              -------------S--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8D2MQ31/14-63              -------------S--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8D2QF18/14-63              -------------S--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8C9MZI0/14-63              -------------S--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8C5IB48/14-63              -------------S--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8C9MYZ5/14-63              -------------S--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8C0V4T4/14-63              -------------S--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8B9IWW4/10-59              -------------S--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8B9FPA5/10-59              -------------S--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8B9RS78/27-76              -------------S--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A5N5P4X6/12-72              -ESVIAEGGSSRFS--ASSGE-GGGRG-APEH--D--PKPAGNSEYLGKTPGPSVQKWVPSRSTRRDVNS--
+UniRef90_A0A8U0UCT5/6-66               -ESVIAEGGASRFS--ASSGG-GGGRG-ASQY--H--PKTVGNSEFLGKAPGSSVQRWVPSRSTRRDANA--
+UniRef90_Q5KTT8/1-61                   MESAIAEGGASRFS--ASSSG--GARG-ASQH--Y--PKTVGNSEYLGKTPGPGVQRWVPSRSTKRDVNS--
+UniRef90_A0A8B9VXH5/13-63              ------------NS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8C8FIU1/18-78              -ESVIAEGGASRFS--ASSGG-GGGRG-ASQY--H--PKTVGNSEFLGKAPGSSVQRWVPSRSTRRDANA--
+UniRef90_A0A060WBU3/13-73              -ESVIAEGGASRFS--ASSGG-GGGRG-ASQY--H--PKTVGNSEFLGKAPGSSVQRWVPSRSTRRDANA--
+UniRef90_U3IDN3/13-63                  ------------NS--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A1S3PST9/89-149             -ESVIAEGGASRFS--ASSGG-GGGRG-ASQY--H--PKTVGNSEFLGKAPGSSVQRWVPSRSTRRDANA--
+UniRef90_UPI001EAF760C/101-161         -ESVIAEGGASRFS--ASSGG-GGGRG-ASQY--H--PKTVGNSEFLGKAPGSSVQRWVPSRSTRRDANA--
+UniRef90_A0A663MBC3/6-55               -------------S--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8C3JGV1/6-55               -------------S--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8C3JGJ4/6-55               -------------S--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A553R5I0/84-144             -ESVIAEGGASRFS--ASSGA-GEGRG-APLH--Y--PKSVGNSELLGKTPGSSVQRWVPSRSTRRDANT--
+UniRef90_A0A553R5I1/84-144             -ESVIAEGGASRFS--ASSGA-GEGRG-APLH--Y--PKSVGNSELLGKTPGSSVQRWVPSRSTRRDANT--
+UniRef90_A0A674GCG1/3-52               -------------D--ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_U3JE57/2-50                   ----------------ASSGG-GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8T0BBR6/33-94              -ESVVAEGGASRYS--ASSGGGGGGRS-TPQH--H--PTTVGNSEFLGKTPGLNVQRWVPSRSTRRDVSS--
+UniRef90_A0A8B9JUI9/1-58               ----VAEGGASRFS--ASSGG-GGGRG-ASQH--F--PKTAGNGEFLGKTPGPSVQRWVPSRSTRREVSS--
+UniRef90_A0A3Q3W5Q0/13-63              ------------YS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A8C4HRA0/13-63              ------------YS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A671UTG6/19-69              ------------YS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A3Q3EAC3/11-63              ----------ACFS--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_UPI001C4A93D6/117-175         -ESVVAQGGPSRFS--VGGGG-G---G-APQH--Y--PKTVGNSEFLGKTPGSSAQRWIPSRSTRRDANSS-
+UniRef90_A0A4W6FYB7/11-60              -------------S--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A3B4TKK5/14-63              -------------S--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A8D3DD55/20-69              -------------S--ASSGG-GGGRG-APQH--H--PKTVGNSEFLGKTPGQSVQKWVPSRSTRRDVNSS-
+UniRef90_A0A8D3DIG0/20-69              -------------S--ASSGG-GGGRG-APQH--H--PKTVGNSEFLGKTPGQSVQKWVPSRSTRRDVNSS-
+UniRef90_A0A8D2ZEG2/20-69              -------------S--ASSGG-GGGRG-APQH--H--PKTVGNSEFLGKTPGQSVQKWVPSRSTRRDVNSS-
+UniRef90_A0A3Q3NKZ4/39-88              -------------S--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A8D3BT29/20-69              -------------S--ASSGG-GGGRG-APQH--H--PKTVGNSEFLGKTPGQSVQKWVPSRSTRRDVNSS-
+UniRef90_A0A8D3E754/20-69              -------------S--ASSGG-GGGRG-APQH--H--PKTVGNSEFLGKTPGQSVQKWVPSRSTRRDVNSS-
+UniRef90_A0A8D3DC59/20-69              -------------S--ASSGG-GGGRG-APQH--H--PKTVGNSEFLGKTPGQSVQKWVPSRSTRRDVNSS-
+UniRef90_I3J7L1/4-53                   -------------S--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A484DNQ8/50-108             -ESVVAQGGPSRFS--VGGGG-G---G-APQH--Y--PKTVGNSEFLGKTPGSSVQRWVPSRSTRRDANSS-
+UniRef90_A0A6P7ICI0/11-69              -ESVVAPGGPSRFS--VGGGG-G---G-APQH--Y--PKTVGNSEFLGKTPGSSVQRWVPSRSTRRDANSS-
+UniRef90_A0A3B4YJM5/70-128             -ESVVAPGGPSRFS--VGGGG-G---G-APQH--Y--PKTVGNSEFLGKTPGSSVQRWVPSRSTRRDANSS-
+UniRef90_A0A6G0J096/70-127             -ESVVAPGGPSRFS--VGGGG-G---G-APQH--Y--PKTVGNSEFLGKTPGSGVQRWVPSRSTRRDVNS--
+UniRef90_A0A4Z2FM83/3-49               -------------G--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGKTPGQSGQKWVPSRSTRRDV----
+UniRef90_A0A4U1EJZ3/793-838            --------------------R-RRSKG-APQH--Y--PKTAGNSEFLGKTPGQNAQKWIPASSTRRDDNSAA
+UniRef90_A0A6I9PGB1/118-176            -ESVVAQGGPSRFS--VGGGG-G---G-APQH--Y--PKTVGNSEFLGKAPGSGVQRWVPSRSTRRDANSS-
+UniRef90_A0A3P8N7B8/33-90              -ESVVAPGGPSRFS--VGGGG-G---G-APQH--Y--PKTVGNSEFLGKTPGSSVQRWVPSRSTRRDASS--
+UniRef90_A0A8C6ZWA1/1-44               ----------------------GGGRG-APQH--Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_UPI001F086032/13-64           -----------QTN--ASSGG-GGVRS-APQH--H--PKTVGNSEFLGKTPGQSVQKWVPSRSTRRDANSS-
+UniRef90_A0A8D1F7H3/7-53               -------------------IG-WWLQQ-RPQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8D0W1A4/7-53               -------------------IG-WWLQQ-RPQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8D0NSU2/7-53               -------------------IG-WWLQQ-RPQH--Y--PKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A3Q3NLP1/29-86              -ESVVAAGGPSRFS--VGGGG-G---G-APQH--Y--PKTVGNSEFLGKTPGSGVQRWLPSRSTRRDARS--
+UniRef90_A0A498NEB3/549-599            ------------IC--ASSGG-GGGRG-APQH--Y--PKSVGNSEFLGKTPGPSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A8C7RF03/14-63              -------------S--ASSGG-GVGRG-APQH--Y--PKTVGNSEFLGKTPGHSAPKWVPSRSTRRDANSS-
+UniRef90_A0A3P8ZXE1/9-58               -------------S--ASSGG-GGVRG-APQH--Y--PKSVGNSEFLGKTPGHSAPRWVPSRSTRRDANSS-
+UniRef90_UPI001560AB0A/22-70           -------------S--ASSGG-GGGRG-APQH--Y--PKTVGNSEYLGKAPGPSVQRWTPSRSTRRDVNS--
+UniRef90_A0A8C9RZK0/11-62              ----------SSFS--ASSGG-GG-RG-ASQH--Y--PKTVGNSEYLGKTPGPSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A3P8YH02/13-62              ------------HS--ASSGG-GGGRG-ASQH--H--PKTVGNSEFLGKTPGSSVQRWVPSRSTRRDANA--
+UniRef90_A0A3B3QLM6/22-71              -------------S--ASSGG-GGGRG-APQH--Y--PKTVGNSEFLGTAPGPSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A8C8IPP8/2-51               -------------S--ASSGG-GVGRG-APQH--Y--PKTVGNSEFLGKTPGHSAPKWVPSRSTRRDANSS-
+UniRef90_UPI0012ECD534/40-98           -ESVVASGGPSRFS--VAGGG-G---G-APQH--Y--PKTVGNSGFLGKAPGSGVQRWLPSRSTRRDANSS-
+UniRef90_A0A674EPT6/26-76              ------------EN--ASSGG-GGVRG-APQH--N--PKTVGNSEFLGKPPGHSAPKWVPSRSTRRDANSS-
+UniRef90_A0A3B3CWG1/17-63              ------------------SVG-GGGGG-APQH--Y--PKTVCNGEFLGKTPGSNVQRWVPSRSTRRDVNSS-
+UniRef90_A0A4W5N5X1/8-57               -------------S--ASSGG-GGVRG-APQH--N--PKTVGNSEFLGKPPGHSAPKWVPSRSTRRDANSS-
+UniRef90_UPI001C08E606/4-52            -------------G--ASSGG-GGGRG-APQH--Y--PKTVGNSEYLGKSPGPSVQRWVPSRSTRRDVNT--
+UniRef90_A0A8C4RW12/25-73              -------------S--ASSGG-GGGRG-ASQH--Y--PKTVGNSEYLGKTPGPSVQRWVPSRSTRRDVSS--
+UniRef90_A0A2I4CMH1/43-101             -ESVVAPGGPSRFS--VGGGG-G---G-APQH--C--PKTVCNSEFLGKTPGSGVQRWVPSRSTKRDVNSS-
+UniRef90_A0A4W6CBQ3/2-45               ----------------------GGGGG-APQH--Y--PKTVGNSEFLGKTPGSSVQRWVPSRSTRRDANSS-
+UniRef90_UPI001C049DA8/41-99           -ESVVAPGGPSRFS--VGGGG-G---G-APQQ--Y--PKTVCNSEFLGKTPGPGVQRWVPSRNTRRDANSS-
+UniRef90_W5KS63/14-62                  -------------S--ASSGG-GGGRG-ASQH--F--PKTAGNGEFLGKTPGPSVQRWVPSRSTRREVSS--
+UniRef90_A0A671XJ53/34-91              -ESVVAPGGPSRFS--VGGGG-G---G-APQH--Y--PKTVCNSEFLGKTPGPGVQRWVPSRRIRRDANS--
+UniRef90_A0A3B3ZCN3/2-60               -ECVIAQGGPSLFS--VRGGG-G---G-APQH--Y--PKTVDNSESLGKPPGASSERWVPSRSTRRDAASS-
+UniRef90_A0A4W4G540/1-43               --------------------G-GGGRG-APQH--Y--PKTVGNSEFLGKTPGPSVQRWVPSRSTRRDDL---
+UniRef90_A0A3Q2P2F6/2-59               -ESVVAPGGPSRFV------G-GGGGG-APQH--Y--PKSVCNSEFLGKTPGPGVQRWIPSRNTRRDANSS-
+UniRef90_A0A060WCW7/62-113             ----------KSYF--ASSGG-GGGRG-ASQY--H--PKTVGNSEFLGKAPGSSVQRWVPSRSTRRDANA--
+UniRef90_A0A672IH08/4-62               --SVVAPGGPSRFS--VAGGG-G---G-APQH--Y--PKTLSNSEFLGKTSGTGVQRWVPSRSTRREASSSA
+UniRef90_M4AGH5/2-42                   -------------------------RG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDANSS-
+UniRef90_A0A8C7MC35/1-45               --------------------G-GVGRG-APQH--Y--PKTVGNSEFLGKTPGHSAPKWVPSRSTRRDANSS-
+UniRef90_A0A7N6AF05/1-41               -------------------------RG-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A3B3UR78/12-58              ------------------SVG-GGGGG-APQH--Y--PKTVCNSEFLGKTPGPGVQRWIPSRSTRRDANSS-
+UniRef90_A0A3Q2G0R6/17-63              ------------------SVG-GGGGG-APQH--Y--PKTVCNSEFLGKTPGPGVQRWIPSRSTRRDANSS-
+UniRef90_H2V6B2/33-90                  -ESVVAQGGPSLFS--VGGGG-G---G-ASQH--Y--PKTVCNSEFLGKTPGTSVQRWLPSRRMRREANS--
+UniRef90_A0A8T2J4K8/23-75              --------LSSSGS--ASSGG--GGRG-ASQH--F--TKTVGNSEYLGKTPGPGVQRWIPSRSTKRDVNS--
+UniRef90_H3CVE7/34-95                  -ESVVAQGGPSLFR-FCHSVG-GGGGG-ASQH--Y--PKTVCNSEFLGKPPGTSVQRWVPSRRGRRDANS--
+UniRef90_A0A3B4B591/1-40               --------------------------G-APQH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A8J4WZ43/1-48               ----------------ASSGE-GGGRG-APEQ--D--PKTAGNGEYLGKTPGPSIQKWVPSRSTRRDVNS--
+UniRef90_H0YEI7/14-42                  -------------------------------------------SEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A3Q3X311/1-44               --------------------G-GGGGG-APQH--Y--PKTVGNSEFLGKTPGSGVQRWLPSRRTRRDANS--
+UniRef90_A0A8C0YM18/4-48               --------------------G-RGGRG-ASQH--N--PKTVGNSEYLGKTPGPSVQRWVPSRSTRRDVNSS-
+UniRef90_S4RDU8/1-63                   VESAIREGGSSRFS--ARLGR-GGGRG-ASTQ--C--LTTAGNSEFLG-SPGTSIQRWVPSRSTKREVNTSA
+UniRef90_L9L6E9/22-57                  VESAIAEGGASRFS--ASSGG-GGSRG-APRH--Y--PKTAGNK----------------------------
+UniRef90_A0A3Q2ZUT1/1-44               ----------------------GGGGG-APQH--Y--PKTVCNGEFLGKTPGSDVQRWIPSRSTKRDGNQA-
+UniRef90_A0A674IAI4/1-35               ----------------------------------Y--PKTASNSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_H2Q368/29-77                  -------------S--AIAEG-GASRQ-S-QK--V---VTTANNEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_H2LSU6/1-44                   ----------------------GGGGG-APQH--Y--PKSVCNGEFLGKTPGSSVQRWVPSRSTRRDANSS-
+UniRef90_A0A3Q2VUG5/1-38               ----------------------------APQH--Y--PKTVGNSEFLGKTPGSSVQRWVPSRSTRRDASS--
+UniRef90_A0A8C4I8D8/2-41               --------------------------G-APQH--Y--PKTVGNSEFLGKTPGSSVQRWLPSRRTRREANSS-
+UniRef90_A0A8C5E8X4/11-47              ------------------------------MH--Y--PKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A8S4ABA0/6-52               ------------------SVG-GGGGG-APQH--Y--PKTVCNGELLGKTPGPIVQKWEPSRRTRRDANSS-
+UniRef90_A0A8C6NQJ3/85-130             -----------------HSVG-GGGGG-AHQH--Y--PKTVCNGEFLGKPPGPGVQRWIPSRSTRRDVC---
+UniRef90_L8YA29/14-42                  -------------------------------------------SEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_S9XSR1/67-95                  -------------------------------------------SEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A1A6GST1/46-74              -------------------------------------------SEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A4W5Q1N2/31-71              ------------------------GRG-ASQY--H--PKTVGNSEFLGKAPGSSVQRWVPSRSTRRDANA--
+UniRef90_A0A452UM30/17-44              --------------------------------------------EFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A3Q2P1I2/1-40               --------------------------G-APQH--Y--PKSVCNSEFLGKTPGPGVQRWIPSRNTRRDANSS-
+UniRef90_A0A8C6SU23/10-57              ----------------CRSVR-GGGGG-APQH--Y--PKTVDNSESLGNPPGASGQRWVPSRSTRRDAAS--
+UniRef90_A0A2K6QHQ1/35-82              -ESAIAEGGASRFR--YSQ--------------------N-LDTIFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8C0KUN3/19-53              -------------------------------------SAPAGRDEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A3Q1IYK1/1-38               -----------------------------PQH--Y--PKTVGNSESLGKTPGSSVQRWVPSRSTRRDANSS-
+UniRef90_A0A3Q2YJ58/18-60              --------------------G-GGGGG-APQH--F--PKAESKSEFLGKPPGSAAQRWIPSRSTSREAS---
+UniRef90_A0A452UM01/11-42              ----------------------------------------SHSSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A3B3SHL5/1-39               --------------------------G-ASQH--C--PKTVGNSEYLGKSPGPSVQKWVPSRSTRRDVNS--
+UniRef90_A0A8C5N891/1-37               ----------------------------APQH--Y--PKTLGNSEFLGKTSGSGVQRWVPSRSTRREAS---
+UniRef90_A0A401PZG4/13-48              -ESVIAEGVASRFS--ASSGG-GGGRG-APQH--Y--PKTASNST---------------------------
+UniRef90_UPI001C09F61C/17-67           -ESVIAEGGASRFS--ASSGG-GGGRG-ASQH--Y--PKTG-----------SGGQKWVPSRSTRRDGSSG-
+UniRef90_A0A452F2M5/20-49              ------------------------------------------TSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_UPI000A3362BD/5-33            -------------------------------------------SEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A8C0J8Z5/4-51               -----------------SCGG-AGAAA-CVSS--S--PFVPFPHEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A2K5EXD4/6-34               -------------------------------------------VEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A2P4T9Z4/47-74              -------------------------------------------SEFLGKTPGQNVQKWIPSRSTRRDDDSA-
+UniRef90_A0A4W5PAA7/1-36               ------------------------------QY--H--PKTVGNSEFLGKAPGSSVQRWVPSRSTRRDANA--
+UniRef90_A0A8J6H1T0/95-125             -----------------------------------------QHGEFLGKTPGQNAQKWIPARSTRRDDNSAA
+UniRef90_A0A674F4P6/1-36               ------------------------------QY--H--PKTVGNSEFLGKAPGSSVQRWVPSRSTRRDANA--
+UniRef90_A0A674IAQ7/16-45              -----------------------------------------SCSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A226PM19/31-59              ------------------------------------------CSEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A673CII9/1-38               -----------------------------PQH--Y--PKTTCNSEFLGKSSGSSVQRWVPSRSTRREANSS-
+UniRef90_A0A8D0DRP9/2-35               -------------------------------------PRFSNYFEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7K9BQZ1/4-31               -------------------------------------------SEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8C3FFK8/114-142            ------------------------------------------VCEFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A3M0JA39/17-43              --------------------------------------------EFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A803TSD4/4-30               --------------------------------------------EFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A7K9FZ43/1-27               --------------------------------------------EFLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A8C6XYL4/18-43              ---------------------------------------------FLGKTPGQNAQKWIPSRSTRRDDDSA-
+UniRef90_A0A671XJ49/1-30               ----------------------------APQH--Y--PKTVCNSEFLGKTPGPGVQRWVPSR----------
+UniRef90_A0A672LNP0/25-52              -------------------------------------------SEFLGKTPGPNVQRWVPSRSTRRDVNSS-
+UniRef90_A0A1A8B692/36-63              -------------------------------------------SEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A8C5QG07/4-54               -----------------SLGG-AESAGCAPVS--HSNPASRNRCEYLGKTPGPGVQRWIPSRSTRRDGNSA-
+UniRef90_A0A8C5QH43/4-54               -----------------SLGG-AESAGCAPVS--HSNPASRNRCEYLGKTPGPGVQRWIPSRSTRRDGNSA-
+UniRef90_A0A8D3D755/12-40              ------------------------------------------DCVFLGKTPGQSVQKWVPSRSTRRDVNSS-
+UniRef90_A0A4W6G5X7/3-38               --------------------------G-APQH--Y--PKTV----VPGKTPGSSVQRWVPSRSTRRDANSS-
+UniRef90_A0A4W6G5B4/3-38               --------------------------G-APQH--Y--PKTV----VPGKTPGSSVQRWVPSRSTRRDANSS-
+UniRef90_A0A4W6G5A4/4-39               --------------------------G-APQH--Y--PKTR----VPGKTPGSSVQRWVPSRSTRRDANSS-
+UniRef90_A0A665VVV2/35-62              -------------------------------------------SEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A4W6G085/24-52              ------------------------------------------QNEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A8C9ZSN8/15-42              -------------------------------------------SEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A669CPY2/30-57              -------------------------------------------SEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A3P8QN32/30-57              -------------------------------------------SEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A8D0D9Z5/67-94              -------------------------------------------SEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A3Q4MTA1/30-57              -------------------------------------------SEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+UniRef90_A0A8J0V8B6/4-53               -----------------SLGG-ADSAGCAPVSHGN--PASRKNCEYLGKTPGPGVQRWVPSRSTKRDVNS--
+UniRef90_A0A8C7YZL4/1-28               -------------------------------------------STFLGKTPGQSAQRWVPSRSTRRDANSS-
+UniRef90_Q6DIH1/16-53                  ----------------------------VSHS--N--PASRKNCEYLGKTPGPGVQRWVPSRSTKRDVNS--
+#=GC RF                                xxxxxxxxxxxxxx..xxxxx.xxxxx.xxxx..x..xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+//
