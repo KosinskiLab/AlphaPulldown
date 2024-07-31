@@ -257,7 +257,7 @@ def _get_modelcif_entities(target_ents, asym_units, system):
         )
         for pdb_chain_id in cif_ent["pdb_chain_id"]:
             asym_units[pdb_chain_id] = modelcif.AsymUnit(mdlcif_ent)
-        system.target_entities.append(mdlcif_ent)
+        system.entities.append(mdlcif_ent)
 
 
 def _get_step_output_method_type(method_type, protocol_steps):
@@ -493,7 +493,7 @@ def _store_as_modelcif(
     system.protocols.append(
         _get_modelcif_protocol(
             data_json["ma_protocol_step"],
-            system.target_entities,
+            system.entities,
             model,
             sw_dct,
             # ToDo: _store_as_modelcif should not use __meta__, __meta__ is
