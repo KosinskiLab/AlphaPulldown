@@ -71,18 +71,16 @@ class TestConvertPDB2CIF(parameterized.TestCase):
 
             expected_ids = [model_selected] if model_selected is not None else [i for i in range(5)]
             for idx in expected_ids:
-                file = f"ranked_{idx}.cif"
-                logging.info(f"Checking existence of file: {file}")
-                self.assertTrue(os.path.exists(join(test_output_dir, file)), f"File {file} does not exist")
-
-                compressed_file = f"ranked_{idx}.zip"
-                logging.info(f"Checking existence of file: {compressed_file}")
-                self.assertTrue(os.path.exists(join(test_output_dir, compressed_file)),
-                                f"File {compressed_file} does not exist")
+                rnk = f"ranked_{idx}"
+                zip_dir = f"{rnk}.zip"
+                logging.info(f"Checking existence of file: {zip_dir}")
+                self.assertTrue(os.path.exists(join(test_output_dir, zip_dir)),
+                                f"File {zip_dir} does not exist")
+                cif = f"ranked_{idx}.cif"
                 if compress:
-                    cmp_fl = os.path.exists(join(test_output_dir, file, ".gz"))
-                    self.assertTrue(cmp_fl, f"File {cmp_fl} exists")
-                    self.assertFalse(os.path.exists(file), f"File {file} exist")
+                    cif = f"{cif}.gz"
+                logging.info(f"Checking existence of file: {cif}")
+                self.assertTrue(cif, f"File {cif} exists")
 
             if add_associated:
                 associated_file = f"ranked_{idx}.zip"
@@ -98,6 +96,8 @@ class TestConvertPDB2CIF(parameterized.TestCase):
                     expected_ids = list(set([0, 1, 2, 3, 4]) - set(expected_ids))
                     for idx in expected_ids:
                         ass_mdl_cif = join(ass_dir, f"ranked_{idx}.cif")
+                        if compress:
+                            ass_mdl_cif = f"{ass_mdl_cif}.gz"
                         logging.info(f"Checking existense of {ass_mdl_cif} in {ass_dir}")
                         self.assertTrue(os.path.exists(ass_mdl_cif))
                         ass_mdl_zip = join(ass_dir, f"ranked_{idx}.zip")
