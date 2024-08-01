@@ -146,9 +146,12 @@ class TestResume(_TestBase):
     def setUp(self) -> None:
         super().setUp()
         self.protein_lists = os.path.join(self.test_protein_lists_dir, "test_dimer.txt")
-        dimer_dir = os.path.join(self.test_modelling_dir, 'TEST_and_TEST/')
-        if not os.path.exists(dimer_dir):
-            shutil.copytree(dimer_dir, self.output_dir)
+
+        # Check if the directory exists before copying
+        if os.path.exists(self.test_modelling_dir):
+            shutil.copytree(self.test_modelling_dir, self.output_dir, dirs_exist_ok=True)
+        else:
+            raise FileNotFoundError(f"Directory not found: {self.test_modelling_dir}")
         self.args = [
             sys.executable,
             self.script_path,
@@ -175,19 +178,18 @@ class TestResume(_TestBase):
          'should_run_after_relax': True},
         {'testcase_name': 'continue_relax', 'relax_mode': 'All', 'expected_relaxed_files': 5,
          'should_run_after_relax': True,
-         'continue_mode': True, 'test_dir': "TEST_and_TEST", 'test_file': "relaxed_model_5_multimer_v3_pred_0.pdb"},
+         'continue_mode': True, 'test_file': "relaxed_model_5_multimer_v3_pred_0.pdb"},
         {'testcase_name': 'continue_prediction', 'relax_mode': 'Best', 'expected_relaxed_files': 1,
          'should_run_after_relax': False,
-         'continue_mode': True, 'test_dir': "TEST_and_TEST", 'test_file': "unrelaxed_model_5_multimer_v3_pred_0.pdb"}
+         'continue_mode': True, 'test_file': "unrelaxed_model_5_multimer_v3_pred_0.pdb"}
     )
-    def test_(self, relax_mode, expected_relaxed_files, should_run_after_relax, continue_mode=False,
-                                test_dir=None, test_file=None):
+    def test_(self, relax_mode, expected_relaxed_files, should_run_after_relax, continue_mode=False, test_file=None):
         """Test run with various relaxation modes and continuation scenarios"""
         if relax_mode != 'None':
             self.args.append(f"--models_to_relax={relax_mode}")
 
-        if continue_mode and test_dir and test_file:
-            os.remove(os.path.join(self.output_dir, test_dir, test_file))
+        if continue_mode and test_file:
+            os.remove(os.path.join(self.output_dir, 'TEST_and_TEST/', test_file))
 
         result = subprocess.run(self.args, capture_output=True, text=True)
         self._runCommonTests(result, multimer_mode=True)
