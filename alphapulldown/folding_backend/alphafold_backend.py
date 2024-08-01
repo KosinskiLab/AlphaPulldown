@@ -249,8 +249,7 @@ class AlphaFoldBackend(FoldingBackend):
                 else:
                     model_runners[f"{model_name}_pred_{i}"] = model_runner
 
-        return {"model_runners": model_runners,
-                "allow_resume": allow_resume}
+        return {"model_runners": model_runners}
 
     @staticmethod
     def predict_individual_job(

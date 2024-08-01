@@ -200,7 +200,8 @@ def pre_modelling_setup(
         "crosslinks": flags.crosslinks,
         "desired_num_res": flags.desired_num_res,
         "desired_num_msa": flags.desired_num_msa,
-        "skip_templates": flags.skip_templates
+        "skip_templates": flags.skip_templates,
+        "allow_resume" : flags.allow_resume
     }
 
     if isinstance(object_to_model, MultimericObject):
@@ -208,7 +209,6 @@ def pre_modelling_setup(
         flags_dict["msa_depth_scan"] = flags.msa_depth_scan
         flags_dict["model_names_custom"] = flags.model_names
         flags_dict["msa_depth"] = flags.msa_depth
-        flags_dict["allow_resume"] = flags.allow_resume
 
     postprocess_flags = {
         "zip_pickles": flags.compress_result_pickles,
