@@ -17,7 +17,7 @@ class TestPredictStructure(parameterized.TestCase):
         t = time.localtime()
         self.path = f"slurm_logs/{t.tm_year}-{t.tm_mon:02d}-{t.tm_mday:02d}_{t.tm_hour:02d}"
         if os.path.exists(self.path):
-            logging.warning("Warning: slurm_logs directory already exists. Deleting it...")
+            logging.warning("Warning: slurm_logs directory already exists. Overwriting log files...")
             shutil.rmtree(self.path)
         os.makedirs(self.path)
 
@@ -60,7 +60,7 @@ class TestPredictStructure(parameterized.TestCase):
 
         script_content = f"""#!/bin/bash
 #SBATCH --job-name=test_predict_structure
-#SBATCH --time=01:00:00
+#SBATCH --time=02:00:00
 #SBATCH --qos=normal
 #SBATCH -p gpu-el8
 #SBATCH -C gaming
