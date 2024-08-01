@@ -337,6 +337,7 @@ class AlphaFoldBackend(FoldingBackend):
                     START = model_index + 1
                 else:
                     break
+        logging.info(f"{START} models are already completed.")
         if START == len(model_runners):
             logging.info(
                 f"All predictions for {multimeric_object.description} are already completed.")
@@ -541,6 +542,7 @@ class AlphaFoldBackend(FoldingBackend):
         relaxed_pdbs = {}
         ranking_confidences = {}
         iptm_scores = {}
+        ptm_scores = {}
         multimer_mode = type(multimeric_object) == MultimericObject
         # Read timings.json if exists
         timings_path = os.path.join(output_dir, 'timings.json')
@@ -551,7 +553,6 @@ class AlphaFoldBackend(FoldingBackend):
         ranking_path = os.path.join(output_dir, "ranking_debug.json")
         multimeric_mode = multimeric_object.multimeric_mode if hasattr(multimeric_object, "multimeric_mode") else None
 
-        label = 'plddts'
         total_num_res = sum([len(s) for s in multimeric_object.input_seqs]) if multimer_mode else len(multimeric_object.sequence)
         # Save plddt json files.
         for model_name, prediction_result in prediction_results.items():
@@ -569,6 +570,11 @@ class AlphaFoldBackend(FoldingBackend):
             if 'iptm' in prediction_result:
                 label = 'iptm+ptm'
                 iptm_scores[model_name] = float(prediction_result['iptm'])
+                cmplx = True
+            else:
+                label = 'plddts'
+                ptm_scores[model_name] = float(prediction_result['ptm'])
+                cmplx = False
             plddt = prediction_result['plddt']
             _save_confidence_json_file(plddt, output_dir, model_name)
             ranking_confidences[model_name] = prediction_result['ranking_confidence']
@@ -601,8 +607,12 @@ class AlphaFoldBackend(FoldingBackend):
 
         # Save ranking_debug.json.
         with open(ranking_path, 'w') as f:
-            f.write(json.dumps(
-                {label: ranking_confidences, 'order': ranked_order, "iptm": iptm_scores}, indent=4))
+            json.dump(
+                {label: ranking_confidences, 'order': ranked_order,
+                 "iptm" if cmplx else "ptm": iptm_scores if cmplx else ptm_scores},
+                f,
+                indent=4
+            )
 
         # Relax.
         amber_relaxer = relax.AmberRelaxation(
