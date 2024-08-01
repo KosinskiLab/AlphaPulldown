@@ -700,7 +700,7 @@ class AlphaFoldBackend(FoldingBackend):
                                    text=True)
 
             if result.stderr:
-                logging.error("Error:", result.stderr)
+                logging.error(f"Error: {result.stderr}")
             else:
                 logging.info("All PDBs converted to ModelCIF format.")
         post_prediction_process(
