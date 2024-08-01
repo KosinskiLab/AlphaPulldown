@@ -90,6 +90,8 @@ flags.DEFINE_integer('random_seed', None, 'The random seed for the data '
                      'nondeterministic.')
 flags.DEFINE_boolean('convert_to_modelcif', True,
                      'Whether to convert predicted pdb files to modelcif format. Default True.')
+flags.DEFINE_boolean('allow_resume', True,
+                     'Whether to allow resuming predictions from previous runs or start anew. Default True.')
 # AlphaLink2 settings
 flags.DEFINE_string('crosslinks', None, 'Path to crosslink information pickle for AlphaLink.')
 
@@ -206,6 +208,7 @@ def pre_modelling_setup(
         flags_dict["msa_depth_scan"] = flags.msa_depth_scan
         flags_dict["model_names_custom"] = flags.model_names
         flags_dict["msa_depth"] = flags.msa_depth
+        flags_dict["allow_resume"] = flags.allow_resume
 
     postprocess_flags = {
         "zip_pickles": flags.compress_result_pickles,
