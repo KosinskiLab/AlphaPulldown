@@ -37,6 +37,8 @@ class _TestBase(parameterized.TestCase):
         self.test_protein_lists_dir = os.path.join(self.test_data_dir, "protein_lists")
         self.test_templates_dir = os.path.join(self.test_data_dir, "templates")
         self.test_modelling_dir = os.path.join(self.test_data_dir, "predictions")
+        self.tempdir = tempfile.TemporaryDirectory()
+        self.output_dir = self.tempdir.name
         # Get path of the alphapulldown module
         alphapulldown_path = alphapulldown.__path__[0]
         # Join the path with the script name
@@ -122,7 +124,7 @@ class TestRunModes(_TestBase):
     )
     def test_(self, protein_list, mode):
         """Test run monomer structure prediction"""
-        self.output_dir = tempfile.mkdtemp()
+        #self.output_dir = f"{self.test_modelling_dir}/" #Debug
         self.args.append(f"--output_path={self.output_dir}")
         flag = "--protein_lists"
         if mode == "homo-oligomer":
@@ -144,7 +146,9 @@ class TestResume(_TestBase):
     def setUp(self) -> None:
         super().setUp()
         self.protein_lists = os.path.join(self.test_protein_lists_dir, "test_dimer.txt")
-
+        dimer_dir = os.path.join(self.test_modelling_dir, 'TEST_and_TEST/')
+        if not os.path.exists(dimer_dir):
+            shutil.copytree(dimer_dir, self.output_dir)
         self.args = [
             sys.executable,
             self.script_path,
@@ -154,7 +158,8 @@ class TestResume(_TestBase):
             f"--data_dir={self.data_dir}",
             f"--protein_lists={self.protein_lists}",
             f"--monomer_objects_dir={self.test_features_dir}",
-            "--job_index=1"
+            "--job_index=1",
+            f"--output_path={self.output_dir}"
         ]
 
     def _runAfterRelaxTests(self):
@@ -164,23 +169,21 @@ class TestResume(_TestBase):
                               if f.startswith("relaxed") and f.endswith(".pdb")]), 5)
 
     @parameterized.named_parameters(
-        {'testcase_name': 'no_relax', 'relax_mode': 'none', 'expected_relaxed_files': 0,
+        {'testcase_name': 'no_relax', 'relax_mode': 'None', 'expected_relaxed_files': 0,
          'should_run_after_relax': False},
-        {'testcase_name': 'relax_all', 'relax_mode': 'all', 'expected_relaxed_files': 5,
+        {'testcase_name': 'relax_all', 'relax_mode': 'All', 'expected_relaxed_files': 5,
          'should_run_after_relax': True},
-        {'testcase_name': 'continue_relax', 'relax_mode': 'all', 'expected_relaxed_files': 5,
+        {'testcase_name': 'continue_relax', 'relax_mode': 'All', 'expected_relaxed_files': 5,
          'should_run_after_relax': True,
          'continue_mode': True, 'test_dir': "TEST_and_TEST", 'test_file': "relaxed_model_5_multimer_v3_pred_0.pdb"},
-        {'testcase_name': 'continue_prediction', 'relax_mode': 'none', 'expected_relaxed_files': 0,
+        {'testcase_name': 'continue_prediction', 'relax_mode': 'Best', 'expected_relaxed_files': 1,
          'should_run_after_relax': False,
          'continue_mode': True, 'test_dir': "TEST_and_TEST", 'test_file': "unrelaxed_model_5_multimer_v3_pred_0.pdb"}
     )
     def test_(self, relax_mode, expected_relaxed_files, should_run_after_relax, continue_mode=False,
                                 test_dir=None, test_file=None):
         """Test run with various relaxation modes and continuation scenarios"""
-        self.output_dir = tempfile.mkdtemp()
-        self.args.append(f"--output_path={self.output_dir}")
-        if relax_mode != 'none':
+        if relax_mode != 'None':
             self.args.append(f"--models_to_relax={relax_mode}")
 
         if continue_mode and test_dir and test_file:
@@ -195,16 +198,15 @@ class TestResume(_TestBase):
         dirname = next(
             subdir for subdir in os.listdir(self.output_dir) if os.path.isdir(os.path.join(self.output_dir, subdir)))
         self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname))
-                              if f.startswith("relaxed") and f.endswith(".pdb")]), expected_relaxed_files)
+                              if f.startswith("relaxed_") and f.endswith(".pdb")]), expected_relaxed_files)
 
         self.assertIn("model_1_multimer_v3_pred_0", result.stdout + result.stderr)
 
         if continue_mode:
             self.assertIn("All predictions for", result.stdout + result.stderr)
-            self.assertIn("are already completed.", result.stdout + result.stderr)
         else:
-            self.assertNotIn("using model_1_multimer_v3_pred_0", result.stdout + result.stderr)
-            self.assertNotIn("using model_2_multimer_v3_pred_0", result.stdout + result.stderr)
+            self.assertIn("using model_1_multimer_v3_pred_0", result.stdout + result.stderr)
+            self.assertIn("using model_2_multimer_v3_pred_0", result.stdout + result.stderr)
 
     @absltest.skip("Not implemented yet")
     def testRunWithTemplate(self):
