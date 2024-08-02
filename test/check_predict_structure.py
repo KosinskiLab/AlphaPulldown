@@ -44,58 +44,63 @@ class _TestBase(parameterized.TestCase):
         # Join the path with the script name
         self.script_path = os.path.join(alphapulldown_path, "scripts/run_multimer_jobs.py")
 
-    def _runCommonTests(self, result, multimer_mode):
+    def _runCommonTests(self, result, multimer_mode, dirname=None):
         print(result.stdout)
         print(result.stderr)
         self.assertEqual(result.returncode, 0, f"Script failed with output:\n{result.stdout}\n{result.stderr}")
-        dirname = next(
-            subdir for subdir in os.listdir(self.output_dir) if os.path.isdir(os.path.join(self.output_dir, subdir)))
-        all_files = os.listdir(os.path.join(self.output_dir, dirname))
-        print(f"ls {os.path.join(self.output_dir, dirname)}: {all_files}")
-        self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if
-                              f.startswith("ranked") and f.endswith(".pdb")]), 5)
-        pickles = [f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.startswith("result") and f.endswith(".pkl")]
-        self.assertEqual(len(pickles), 5)
-        example_pickle = pickles[0]
-        example_pickle = pickle.load(open(os.path.join(self.output_dir, dirname, example_pickle), 'rb'))
+        if dirname == None:
+            directories = [
+                subdir for subdir in os.listdir(self.output_dir) if os.path.isdir(os.path.join(self.output_dir, subdir))
+            ]
+        else:
+            directories = [dirname]
+        for dirname in directories:
+            all_files = os.listdir(os.path.join(self.output_dir, dirname))
+            print(f"ls {os.path.join(self.output_dir, dirname)}: {all_files}")
+            self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if
+                                  f.startswith("ranked") and f.endswith(".pdb")]), 5)
+            pickles = [f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.startswith("result") and f.endswith(".pkl")]
+            self.assertEqual(len(pickles), 5)
+            example_pickle = pickles[0]
+            example_pickle = pickle.load(open(os.path.join(self.output_dir, dirname, example_pickle), 'rb'))
 
-        required_keys_multimer = ['distogram', 'experimentally_resolved', 'masked_msa', 'predicted_aligned_error',
-                                  'predicted_lddt', 'structure_module', 'plddt', 'aligned_confidence_probs',
-                                  'max_predicted_aligned_error', 'seqs', 'iptm', 'ptm', 'ranking_confidence']
-        required_keys_monomer = ['distogram', 'experimentally_resolved', 'masked_msa', 'predicted_aligned_error',
-                                 'predicted_lddt', 'structure_module', 'plddt', 'aligned_confidence_probs',
-                                 'max_predicted_aligned_error', 'seqs', 'ptm', 'ranking_confidence']
+            required_keys_multimer = ['distogram', 'experimentally_resolved', 'masked_msa', 'predicted_aligned_error',
+                                      'predicted_lddt', 'structure_module', 'plddt', 'aligned_confidence_probs',
+                                      'max_predicted_aligned_error', 'seqs', 'iptm', 'ptm', 'ranking_confidence']
+            required_keys_monomer = ['distogram', 'experimentally_resolved', 'masked_msa', 'predicted_aligned_error',
+                                     'predicted_lddt', 'structure_module', 'plddt', 'aligned_confidence_probs',
+                                     'max_predicted_aligned_error', 'seqs', 'ptm', 'ranking_confidence']
 
-        required_keys = required_keys_multimer if multimer_mode else required_keys_monomer
-        self.assertContainsSubset(required_keys, list(example_pickle.keys()))
+            required_keys = required_keys_multimer if multimer_mode else required_keys_monomer
+            self.assertContainsSubset(required_keys, list(example_pickle.keys()))
 
-        self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if
-                              f.startswith("pae") and f.endswith(".json")]), 5)
-        self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.endswith(".png")]), 5)
-        self.assertTrue("ranking_debug.json" in os.listdir(os.path.join(self.output_dir, dirname)))
-        self.assertTrue("timings.json" in os.listdir(os.path.join(self.output_dir, dirname)))
+            self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if
+                                  f.startswith("pae") and f.endswith(".json")]), 5)
+            self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.endswith(".png")]), 5)
+            self.assertTrue("ranking_debug.json" in os.listdir(os.path.join(self.output_dir, dirname)))
+            self.assertTrue("timings.json" in os.listdir(os.path.join(self.output_dir, dirname)))
 
-        for f in os.listdir(os.path.join(self.output_dir, dirname)):
-            self.assertGreater(os.path.getsize(os.path.join(self.output_dir, dirname, f)), 0)
+            for f in os.listdir(os.path.join(self.output_dir, dirname)):
+                self.assertGreater(os.path.getsize(os.path.join(self.output_dir, dirname, f)), 0)
 
-        with open(os.path.join(self.output_dir, dirname, "ranking_debug.json"), "r") as f:
-            ranking_debug = json.load(f)
-            self.assertEqual(len(ranking_debug["order"]), 5)
-            expected_set_multimer = set(
-                ["model_1_multimer_v3_pred_0", "model_2_multimer_v3_pred_0", "model_3_multimer_v3_pred_0",
-                 "model_4_multimer_v3_pred_0", "model_5_multimer_v3_pred_0"])
-            expected_set_monomer = set(
-                ["model_1_pred_0", "model_2_pred_0", "model_3_pred_0", "model_4_pred_0", "model_5_pred_0"])
-            expected_set = expected_set_multimer if multimer_mode else expected_set_monomer
+            with open(os.path.join(self.output_dir, dirname, "ranking_debug.json"), "r") as f:
+                ranking_debug = json.load(f)
+                self.assertEqual(len(ranking_debug["order"]), 5)
+                expected_set_multimer = set(
+                    ["model_1_multimer_v3_pred_0", "model_2_multimer_v3_pred_0", "model_3_multimer_v3_pred_0",
+                     "model_4_multimer_v3_pred_0", "model_5_multimer_v3_pred_0"])
+                expected_set_monomer = set(
+                    ["model_1_pred_0", "model_2_pred_0", "model_3_pred_0", "model_4_pred_0", "model_5_pred_0"])
+                expected_set = expected_set_multimer if multimer_mode else expected_set_monomer
 
-            if "iptm+ptm" in ranking_debug:
-                self.assertEqual(len(ranking_debug["iptm+ptm"]), 5)
-                self.assertSetEqual(set(ranking_debug["order"]), expected_set)
-                self.assertSetEqual(set(ranking_debug["iptm+ptm"].keys()), expected_set)
-            elif "plddt" in ranking_debug:
-                self.assertEqual(len(ranking_debug["plddt"]), 5)
-                self.assertSetEqual(set(ranking_debug["order"]), expected_set)
-                self.assertSetEqual(set(ranking_debug["plddt"].keys()), expected_set)
+                if "iptm+ptm" in ranking_debug:
+                    self.assertEqual(len(ranking_debug["iptm+ptm"]), 5)
+                    self.assertSetEqual(set(ranking_debug["order"]), expected_set)
+                    self.assertSetEqual(set(ranking_debug["iptm+ptm"].keys()), expected_set)
+                elif "plddt" in ranking_debug:
+                    self.assertEqual(len(ranking_debug["plddt"]), 5)
+                    self.assertSetEqual(set(ranking_debug["order"]), expected_set)
+                    self.assertSetEqual(set(ranking_debug["plddt"].keys()), expected_set)
 
 
 class TestRunModes(_TestBase):
@@ -126,7 +131,7 @@ class TestRunModes(_TestBase):
     )
     def test_(self, protein_list, mode):
         """Test run monomer structure prediction"""
-        #self.output_dir = f"{self.test_modelling_dir}/" #Debug
+        #self.output_dir = f"{self.test_modelling_dir}" #Debug
         self.args.append(f"--output_path={self.output_dir}")
         flag = "--protein_lists"
         if mode == "homo-oligomer":
@@ -199,7 +204,14 @@ class TestResume(_TestBase):
         {'testcase_name': 'continue_relax', 'relax_mode': 'All',
          'remove_files': ["relaxed_model_5_multimer_v3_pred_0.pdb"]},
         {'testcase_name': 'continue_prediction', 'relax_mode': 'Best',
-         'remove_files': ["unrelaxed_model_5_multimer_v3_pred_0.pdb"]}
+         'remove_files': [
+             "unrelaxed_model_5_multimer_v3_pred_0.pdb",
+             "relaxed_model_1_multimer_v3_pred_0.pdb",
+             "relaxed_model_2_multimer_v3_pred_0.pdb",
+             "relaxed_model_3_multimer_v3_pred_0.pdb",
+             "relaxed_model_4_multimer_v3_pred_0.pdb",
+             "relaxed_model_5_multimer_v3_pred_0.pdb"
+         ]}
     )
     def test_(self, relax_mode, remove_files):
         """Test run with various relaxation modes and continuation scenarios"""
@@ -210,7 +222,7 @@ class TestResume(_TestBase):
                 os.remove(os.path.join(self.output_dir, 'TEST_and_TEST/', f))
 
         result = subprocess.run(self.args, capture_output=True, text=True)
-        self._runCommonTests(result, multimer_mode=True)
+        self._runCommonTests(result, multimer_mode=True, dirname='TEST_and_TEST/')
         self._runAfterRelaxTests(relax_mode)
 
 
