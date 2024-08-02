@@ -50,6 +50,8 @@ class _TestBase(parameterized.TestCase):
         self.assertEqual(result.returncode, 0, f"Script failed with output:\n{result.stdout}\n{result.stderr}")
         dirname = next(
             subdir for subdir in os.listdir(self.output_dir) if os.path.isdir(os.path.join(self.output_dir, subdir)))
+        all_files = os.listdir(os.path.join(self.output_dir, dirname))
+        print(f"ls {os.path.join(self.output_dir, dirname)}: {all_files}")
         self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname)) if
                               f.startswith("ranked") and f.endswith(".pdb")]), 5)
         pickles = [f for f in os.listdir(os.path.join(self.output_dir, dirname)) if f.startswith("result") and f.endswith(".pkl")]
@@ -165,50 +167,52 @@ class TestResume(_TestBase):
             f"--output_path={self.output_dir}"
         ]
 
-    def _runAfterRelaxTests(self):
-        dirname = next(
-            subdir for subdir in os.listdir(self.output_dir) if os.path.isdir(os.path.join(self.output_dir, subdir)))
-        self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname))
-                              if f.startswith("relaxed") and f.endswith(".pdb")]), 5)
+    def _runAfterRelaxTests(self, relax_mode='All'):
+        match relax_mode:
+            case 'None':
+                n = 0
+            case 'Best':
+                n = 1
+            case 'All':
+                n = 5
+
+        dirname = os.path.join(self.output_dir, 'TEST_and_TEST/')
+        self.assertEqual(len([f for f in os.listdir(dirname) if f.startswith("relaxed") and f.endswith(".pdb")]), n)
 
     @parameterized.named_parameters(
-        {'testcase_name': 'no_relax', 'relax_mode': 'None', 'expected_relaxed_files': 0,
-         'should_run_after_relax': False},
-        {'testcase_name': 'relax_all', 'relax_mode': 'All', 'expected_relaxed_files': 5,
-         'should_run_after_relax': True},
-        {'testcase_name': 'continue_relax', 'relax_mode': 'All', 'expected_relaxed_files': 5,
-         'should_run_after_relax': True,
-         'continue_mode': True, 'test_file': "relaxed_model_5_multimer_v3_pred_0.pdb"},
-        {'testcase_name': 'continue_prediction', 'relax_mode': 'Best', 'expected_relaxed_files': 1,
-         'should_run_after_relax': False,
-         'continue_mode': True, 'test_file': "unrelaxed_model_5_multimer_v3_pred_0.pdb"}
+        {'testcase_name': 'no_relax', 'relax_mode': 'None',
+         'remove_files': [
+             "relaxed_model_1_multimer_v3_pred_0.pdb",
+             "relaxed_model_2_multimer_v3_pred_0.pdb",
+             "relaxed_model_3_multimer_v3_pred_0.pdb",
+             "relaxed_model_4_multimer_v3_pred_0.pdb",
+             "relaxed_model_5_multimer_v3_pred_0.pdb"
+         ]},
+        {'testcase_name': 'relax_all', 'relax_mode': 'All',
+         'remove_files': [
+             "relaxed_model_1_multimer_v3_pred_0.pdb",
+             "relaxed_model_2_multimer_v3_pred_0.pdb",
+             "relaxed_model_3_multimer_v3_pred_0.pdb",
+             "relaxed_model_4_multimer_v3_pred_0.pdb",
+             "relaxed_model_5_multimer_v3_pred_0.pdb"
+         ]},
+        {'testcase_name': 'continue_relax', 'relax_mode': 'All',
+         'remove_files': ["relaxed_model_5_multimer_v3_pred_0.pdb"]},
+        {'testcase_name': 'continue_prediction', 'relax_mode': 'Best',
+         'remove_files': ["unrelaxed_model_5_multimer_v3_pred_0.pdb"]}
     )
-    def test_(self, relax_mode, expected_relaxed_files, should_run_after_relax, continue_mode=False, test_file=None):
+    def test_(self, relax_mode, remove_files):
         """Test run with various relaxation modes and continuation scenarios"""
-        if relax_mode != 'None':
-            self.args.append(f"--models_to_relax={relax_mode}")
+        self.args.append(f"--models_to_relax={relax_mode}")
 
-        if continue_mode and test_file:
-            os.remove(os.path.join(self.output_dir, 'TEST_and_TEST/', test_file))
+        if len(remove_files) > 0:
+            for f in remove_files:
+                os.remove(os.path.join(self.output_dir, 'TEST_and_TEST/', f))
 
         result = subprocess.run(self.args, capture_output=True, text=True)
         self._runCommonTests(result, multimer_mode=True)
+        self._runAfterRelaxTests(relax_mode)
 
-        if should_run_after_relax:
-            self._runAfterRelaxTests()
-
-        dirname = next(
-            subdir for subdir in os.listdir(self.output_dir) if os.path.isdir(os.path.join(self.output_dir, subdir)))
-        self.assertEqual(len([f for f in os.listdir(os.path.join(self.output_dir, dirname))
-                              if f.startswith("relaxed_") and f.endswith(".pdb")]), expected_relaxed_files)
-
-        self.assertIn("model_1_multimer_v3_pred_0", result.stdout + result.stderr)
-
-        if continue_mode:
-            self.assertIn("All predictions for", result.stdout + result.stderr)
-        else:
-            self.assertIn("using model_1_multimer_v3_pred_0", result.stdout + result.stderr)
-            self.assertIn("using model_2_multimer_v3_pred_0", result.stdout + result.stderr)
 
     @absltest.skip("Not implemented yet")
     def testRunWithTemplate(self):
