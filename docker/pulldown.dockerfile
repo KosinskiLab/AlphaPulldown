@@ -40,8 +40,12 @@ RUN wget -q -P /tmp https://github.com/conda-forge/miniforge/releases/latest/dow
 ENV PATH="/opt/conda/bin:$PATH"
 ENV LD_LIBRARY_PATH="/opt/conda/lib:$LD_LIBRARY_PATH"
 
-RUN conda install --solver=classic conda-forge::conda-libmamba-solver conda-forge::libmamba \
-    && conda-forge::libmambapy conda-forge::libarchive conda-forge::git
+RUN conda install --solver=classic -y \
+    conda-forge::conda-libmamba-solver \
+    conda-forge::libmamba \
+    conda-forge::libmambapy \
+    conda-forge::libarchive \
+    conda-forge::git
 
 RUN git clone --branch v3.3.0 https://github.com/soedinglab/hh-suite.git /tmp/hh-suite \
     && mkdir /tmp/hh-suite/build \
