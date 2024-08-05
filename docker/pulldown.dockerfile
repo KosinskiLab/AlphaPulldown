@@ -26,7 +26,6 @@ RUN apt-get update \
         build-essential \
         cmake \
         cuda-command-line-tools-$(cut -f1,2 -d- <<< ${CUDA//./-}) \
-        hmmer \
         kalign \
         tzdata \
         wget \
@@ -35,14 +34,14 @@ RUN apt-get update \
     && apt-get autoremove -y \
     && apt-get clean
 
-RUN wget -q -P /tmp \
-  https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh \
-    && bash /tmp/Miniconda3-latest-Linux-x86_64.sh -b -p /opt/conda \
-    && rm /tmp/Miniconda3-latest-Linux-x86_64.sh
+RUN wget -q -P /tmp https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh \
+    && bash /tmp/Miniforge3-Linux-x86_64.sh -b -p /opt/conda \
+    && rm /tmp/Miniforge3-Linux-x86_64.sh
 ENV PATH="/opt/conda/bin:$PATH"
 ENV LD_LIBRARY_PATH="/opt/conda/lib:$LD_LIBRARY_PATH"
 
-RUN conda install conda-forge::git
+RUN conda install --solver=classic conda-forge::conda-libmamba-solver conda-forge::libmamba \
+    && conda-forge::libmambapy conda-forge::libarchive conda-forge::git
 
 RUN git clone --branch v3.3.0 https://github.com/soedinglab/hh-suite.git /tmp/hh-suite \
     && mkdir /tmp/hh-suite/build \
@@ -62,6 +61,7 @@ RUN conda install -y -c conda-forge -c bioconda --solver classic \
       importlib_metadata \
       modelcif \
       pip \
+      hmmer \
       python=3.10 \
       && conda clean --all --force-pkgs-dirs --yes
 
