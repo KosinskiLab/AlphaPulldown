@@ -1,0 +1,23 @@
+{
+    "plddts": {
+        "model_1_ptm_pred_0": 63.01919776551395,
+        "model_2_ptm_pred_0": 65.21702683609271,
+        "model_3_ptm_pred_0": 61.71899042646016,
+        "model_4_ptm_pred_0": 62.30452103748636,
+        "model_5_ptm_pred_0": 61.29538169208567
+    },
+    "order": [
+        "model_2_ptm_pred_0",
+        "model_1_ptm_pred_0",
+        "model_4_ptm_pred_0",
+        "model_3_ptm_pred_0",
+        "model_5_ptm_pred_0"
+    ],
+    "ptm": {
+        "model_1_ptm_pred_0": 0.1693763668035002,
+        "model_2_ptm_pred_0": 0.16684498609114257,
+        "model_3_ptm_pred_0": 0.13494687940039177,
+        "model_4_ptm_pred_0": 0.14415287465747928,
+        "model_5_ptm_pred_0": 0.15561601748528608
+    }
+}

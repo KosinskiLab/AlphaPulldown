@@ -15,8 +15,9 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
         super().setUp()
         self.temp_dir = tempfile.TemporaryDirectory()  # Create a temporary directory
         self.TEST_DATA_DIR = Path(self.temp_dir.name)  # Use the temporary directory as the test data directory
+        #self.TEST_DATA_DIR = Path(__file__).parent / "test_data"  # DELETEME
         # Copy test data files to the temporary directory
-        original_test_data_dir = Path(__file__).parent / "test_data" / "true_multimer"
+        original_test_data_dir = Path(__file__).parent / "test_data"
         shutil.copytree(original_test_data_dir, self.TEST_DATA_DIR, dirs_exist_ok=True)
         # Create necessary directories
         (self.TEST_DATA_DIR / 'features').mkdir(parents=True, exist_ok=True)
@@ -30,11 +31,19 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
         (self.TEST_DATA_DIR / 'features').mkdir(parents=True, exist_ok=True)
         (self.TEST_DATA_DIR / 'templates').mkdir(parents=True, exist_ok=True)
         # Remove existing files (should be done by tearDown, but just in case)
-        pkl_path = self.TEST_DATA_DIR / 'features' / f'{file_name}_{chain_id}.pkl'
+        pkl_path = self.TEST_DATA_DIR / 'features' / f'{file_name}_{chain_id}.{file_name}.{file_extension}.{chain_id}.pkl'
         if use_mmseqs2:
-            sto_or_a3m_path = self.TEST_DATA_DIR / 'features' / f'{file_name}_{chain_id}.a3m'
+            sto_or_a3m_path = (
+                    self.TEST_DATA_DIR / 'features' /
+                    f'{file_name}_{chain_id}.{file_name}.{file_extension}.{chain_id}' /
+                    f'{file_name}_{chain_id}.{file_name}.{file_extension}.{chain_id}.a3m'
+            )
         else:
-            sto_or_a3m_path  = self.TEST_DATA_DIR / 'features' / f'{file_name}_{chain_id}' / 'pdb_hits.sto'
+            sto_or_a3m_path = (
+                    self.TEST_DATA_DIR / 'features' /
+                    f'{file_name}_{chain_id}.{file_name}.{file_extension}.{chain_id}' /
+                    'pdb_hits.sto'
+            )
         template_path = self.TEST_DATA_DIR / 'templates' / f'{file_name}.{file_extension}'
         if pkl_path.exists():
             pkl_path.unlink()
@@ -174,6 +183,7 @@ class TestCreateIndividualFeaturesWithTemplates(absltest.TestCase):
     def test_5b_gappy_pdb(self):
         self.run_features_generation('GAPPY_PDB', 'B', 'pdb', False)
 
+    @absltest.skip("use_mmseqs2 must not be set when running with --path_to_mmts")
     def test_6a_mmseqs2(self):
         self.run_features_generation('3L4Q', 'A', 'cif', True)
 

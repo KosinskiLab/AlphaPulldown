@@ -5,7 +5,7 @@ from pathlib import Path
 
 alphapulldown_dir = os.path.dirname(alphapulldown.__file__)
 alphapulldown_dir = Path(alphapulldown_dir)
-pdb_file = alphapulldown_dir / '..' / 'test' / 'test_data' / 'true_multimer' / 'ranked_0.pdb'
+pdb_file = alphapulldown_dir / '..' / 'test' / 'test_data' / 'templates' / 'ranked_0.pdb'
 
 
 def test_init():

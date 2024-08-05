@@ -1,0 +1,104 @@
+{
+  "databases": {
+    "UniProt": {
+      "release_date": "2024-07-29 16:28:57",
+      "version": null,
+      "location_url": [
+        "ftp://ftp.ebi.ac.uk/pub/databases/uniprot/current_release/knowledgebase/complete/uniprot_trembl.fasta.gz",
+        "ftp://ftp.ebi.ac.uk/pub/databases/uniprot/current_release/knowledgebase/complete/uniprot_sprot.fasta.gz"
+      ]
+    },
+    "PDB seqres": {
+      "release_date": "2024-07-29 16:29:06",
+      "version": "67fe4050e6f2670903084162d15bf85a",
+      "location_url": [
+        "ftp://ftp.wwpdb.org/pub/pdb/derived_data/pdb_seqres.txt"
+      ]
+    },
+    "ColabFold": {
+      "version": "2024-07-29",
+      "release_date": null,
+      "location_url": [
+        "https://wwwuser.gwdg.de/~compbiol/colabfold/colabfold_envdb_202108.tar.gz"
+      ]
+    }
+  },
+  "software": {
+    "AlphaPulldown": {
+      "version": "2.0.0.b2"
+    },
+    "AlphaFold": {
+      "version": "2.3.2"
+    },
+    "jackhmmer": {
+      "version": "3.4"
+    },
+    "hhblits": {
+      "version": "3.3.0"
+    },
+    "hhsearch": {
+      "version": "3.3.0"
+    },
+    "hmmsearch": {
+      "version": "3.4"
+    },
+    "hmmbuild": {
+      "version": "3.4"
+    },
+    "kalign": {
+      "version": "2.04"
+    }
+  },
+  "date": "2024-07-29 16:29:06",
+  "other": {
+    "logtostderr": "False",
+    "alsologtostderr": "False",
+    "log_dir": "",
+    "v": "0",
+    "verbosity": "0",
+    "logger_levels": "{}",
+    "stderrthreshold": "fatal",
+    "showprefixforinfo": "True",
+    "run_with_pdb": "False",
+    "pdb_post_mortem": "False",
+    "pdb": "False",
+    "run_with_profiling": "False",
+    "only_check_args": "False",
+    "op_conversion_fallback_to_while_loop": "True",
+    "delta_threshold": "0.5",
+    "tt_check_filter": "False",
+    "tt_single_core_summaries": "False",
+    "runtime_oom_exit": "True",
+    "hbm_oom_exit": "True",
+    "xml_output_file": "",
+    "fasta_paths": "['/g/kosinski/dima/PycharmProjects/AlphaPulldown/test/test_data/fastas/hetatoms_A.fasta']",
+    "jackhmmer_binary_path": "/home/dmolodenskiy/.conda/envs/AlphaPulldownMamba/bin/jackhmmer",
+    "hhblits_binary_path": "/home/dmolodenskiy/.conda/envs/AlphaPulldownMamba/bin/hhblits",
+    "hhsearch_binary_path": "/home/dmolodenskiy/.conda/envs/AlphaPulldownMamba/bin/hhsearch",
+    "hmmsearch_binary_path": "/home/dmolodenskiy/.conda/envs/AlphaPulldownMamba/bin/hmmsearch",
+    "hmmbuild_binary_path": "/home/dmolodenskiy/.conda/envs/AlphaPulldownMamba/bin/hmmbuild",
+    "kalign_binary_path": "/home/dmolodenskiy/.conda/envs/AlphaPulldownMamba/bin/kalign",
+    "uniprot_database_path": "/g/kosinski/dima/PycharmProjects/AlphaPulldown/test/test_data/uniprot/uniprot.fasta",
+    "pdb_seqres_database_path": "/tmp/tmp2a1i6p80/custom_template_db/hetatoms_A.hetatoms.pdb.A/pdb_seqres/pdb_seqres.txt",
+    "template_mmcif_dir": "/tmp/tmp2a1i6p80/custom_template_db/hetatoms_A.hetatoms.pdb.A/pdb_mmcif/mmcif_files",
+    "obsolete_pdbs_path": "/tmp/tmp2a1i6p80/custom_template_db/hetatoms_A.hetatoms.pdb.A/pdb_mmcif/obsolete.dat",
+    "db_preset": "full_dbs",
+    "model_preset": "monomer",
+    "benchmark": "False",
+    "num_multimer_predictions_per_model": "5",
+    "use_precomputed_msas": "False",
+    "models_to_relax": "ModelsToRelax.BEST",
+    "use_mmseqs2": "False",
+    "save_msa_files": "False",
+    "skip_existing": "False",
+    "use_hhsearch": "False",
+    "threshold_clashes": "1000.0",
+    "hb_allowance": "0.4",
+    "plddt_threshold": "0.0",
+    "multiple_mmts": "False",
+    "use_small_bfd": "False",
+    "protein": "hetatoms_A.hetatoms.pdb.A",
+    "multimeric_templates_1": "['/g/kosinski/dima/PycharmProjects/AlphaPulldown/test/test_data/templates/hetatoms.pdb']",
+    "multimeric_chains_1": "['A']"
+  }
+}
