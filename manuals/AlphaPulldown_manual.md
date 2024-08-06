@@ -1129,7 +1129,6 @@ create_notebook.py --cutoff=5.0 --output_dir=<models_output_dir>
   Directory where predicted models are stored in this, `.` in this example
 * `--pae_figsize`:
    Figsize of pae_plot, default is 50
-* `--surface_thres` - $\text{\color{red}Add description or delete}$
 
 This command will generate an `output.ipynb`, which you can open using JupyterLab. JupyterLab is installed with AlphaPulldown via pip. To view the notebook, launch it with:
 ```bash
@@ -1155,7 +1154,7 @@ singularity exec \
     --output_dir=/mnt \
     --cutoff=10
 ```
-$\text{\color{red}Add parameters explanation}$. 
+`cutoff` is to check the value of PAE between chains. In the case of multimers, the analysis programme will create the notebook only from models with inter-chain PAE values smaller than the cutoff. If you do not want to filter out the models use very high cutoff e.g. `--cutoff=1--`.
 
 #### Next step
 
@@ -1236,7 +1235,7 @@ parse_results('./ProteinA_and_ProteinB', models=10)
 ## Results table 
 
 Results table:
-* $\text{\color{red}Add the name of the file}$ is generated during the [Create Results table](#create-results-table) for [**Sripts-Based Alphapulldown**](#scripts-based-alphapulldown).
+* `predictions_with_good_interpae.csv` is generated during the [Create Results table](#create-results-table) for [**Sripts-Based Alphapulldown**](#scripts-based-alphapulldown).
 * `statistics.csv` generated in the `output/reports` for [**Snakemake AlphaPulldown**](#snakemake-alphapulldown)
 
 $\text{\color{red}Change description, add explain scores}$
