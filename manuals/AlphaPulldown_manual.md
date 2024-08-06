@@ -41,7 +41,7 @@
 # About AlphaPulldown
 AlphaPulldown is an implementation of [AlphaFold-Multimer](https://github.com/google-deepmind/alphafold) designed for customizable high-throughput screening of protein-protein interactions. In addition, AlphaPulldown provides additional customizations of AlphaFold, including custom structural multimeric templates (TrueMultimer), MMseqs2 multiple sequence alignment (MSA) and [ColabFold](https://github.com/sokrypton/ColabFold) databases, proteins fragments predictions, and implementation of cross-link mass spec data using [AlphaLink2](https://github.com/Rappsilber-Laboratory/AlphaLink2/tree/main).
 
-AlphaPulldown can be used in two ways: either bv a two-step pipeline made of **python scripts**, which this manual covers, or by a **Snakemake pipeline** as a whole. For details on using the Snakemake pipeline, please refer to the separate GitHub [**repository**](https://github.com/KosinskiLab/AlphaPulldownSnakemake).
+AlphaPulldown can be used in two ways: either by a two-step pipeline made of **python scripts**, which this manual covers, or by a **Snakemake pipeline** as a whole. For details on using the Snakemake pipeline, please refer to the separate GitHub [**repository**](https://github.com/KosinskiLab/AlphaPulldownSnakemake).
 ## Overview
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../manuals/AP_pipeline_dark.png">
@@ -167,12 +167,8 @@ For the standard MSA and features calculation, AlphaPulldown requires genetic da
    Activate the AlphaPulldown environment and install AlphaPulldown:
    ```bash
    source activate AlphaPulldown
-   python3 -m pip install alphapulldown==1.0.4
-   pip install jax==0.4.23 jaxlib==0.4.23+cuda11.cudnn86 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+   python3 -m pip install alphapulldown
    ```
-$\text{\color{red}Update the version of AlphaPulldown.}$
-
-$\text{\color{red}Update the version of jax and jaxlib.}$
 
 ```bash
 pip install jax==0.4.27 \
@@ -239,13 +235,14 @@ Instructions
     ```
         
 2. Create the Conda environment as described in [Create Anaconda environment](#1-create-anaconda-environment) 
-3. Add AlphaPulldown package and its submodules to the Conda environment
+3. Install AlphaPulldown package and add its submodules to the Conda environment (does not work if you want to update the dependencies)
     
     ```
     source activate AlphaPulldown
     cd AlphaPulldown
-    pip install .
-    pip install -e alphapulldown/ColabFold --no-deps
+    pip install alphapulldown
+    pip install -e . --no-deps
+    pip install -e ColabFold --no-deps
     pip install -e alphafold --no-deps
     ```
             
@@ -300,21 +297,21 @@ Activate the AlphaPulldown environment and run the script `create_individual_fea
      --output_dir=<dir to save the output objects> \ 
      --max_template_date=<any date you want, format like: 2050-01-01> \
    ```
-* Instead of `<sequences.fasta>` provide a path to your input fasta file. <br>
+* Instead of `<sequences.fasta>` provide a path to your input fasta file. You can also provide multiple comma-separated files.<br>
 * Instead of `<path to alphafold databases>` provide a path to the genetic database (see [0. Alphafold-databases](#installation) of the installation part).<br>
 * Instead of `<dir to save the output objects>` provide a path to the output directory, where your features files will be saved. <br>
 * A date in the flag `--max_template_date` is needed to restrict the search of protein structures that are deposited before the indicated date. Unless the date is later than the date of your local genomic database's last update, the script will search for templates among all available structures.
 
-$\text{\color{red}Correct FLAG desription}$
 
 Features calculation script ```create_individual_features.py``` has several optional FLAGS:
 
  <details>
    <summary>
     Full list of arguments (FLAGS):
+      
    </summary>
    
-* `--save_msa_files`: By default is **False** to save storage stage but can be changed into **True**. If it is set to ```True```, the program will 
+* `--[no]save_msa_files`: By default is **False** to save storage stage but can be changed into **True**. If it is set to ```True```, the program will 
    create individual folder for each protein. The output directory will look like:
    
    ```
@@ -340,7 +337,7 @@ Features calculation script ```create_individual_features.py``` has several opti
          |- proteinB.pkl
    ```
 
- * `--use_precomputed_msas`: Default value is ```False```. However, if you have already had msa files for your proteins, please set the parameter to be True and arrange your msa files in the format as below:
+ * `--[no]use_precomputed_msas`: Default value is ```False```. However, if you have already had msa files for your proteins, please set the parameter to be True and arrange your msa files in the format as below:
    
    ```
     example_directory
@@ -356,28 +353,40 @@ Features calculation script ```create_individual_features.py``` has several opti
    
    Then, in the command line, set the ```output_dir=/path/to/example_directory```
 
-* `--skip_existing`: Default is ```False``` but if you have run the 1st step already for some proteins and now add new proteins to the list, you can change ```skip_existing``` to ```True``` in the
+* `--[no]skip_existing`: Default is ```False``` but if you have run the 1st step already for some proteins and now add new proteins to the list, you can change ```skip_existing``` to ```True``` in the
   command line to avoid rerunning the same procedure for the previously calculated proteins.
 
 * `--seq_index`: Default is `None` and the program will run predictions one by one in the given files. However, you can set ```seq_index``` to 
    different number if you wish to run an array of jobs in parallel then the program will only run the corresponding job specified by the ```seq_index```. e.g. the programme only calculate features for the 1st protein in your fasta file if ```seq_index``` is set to be 1. See also the Slurm sbatch script above for example how to use it for parallel execution. :exclamation: ```seq_index``` starts from 1.
   
-* `--use_mmseqs2`: Use mmseqs2 remotely or not. Default is False. 
+* `--[no]use_mmseqs2`: Use mmseqs2 remotely or not. Default is False. 
 
 FLAGS related to TrueMultimer mode:
 
 * `--path_to_mmt`: Path to directory with multimeric template mmCIF files".
   
-* `--description_file`: Path to the text file with descriptions. ${\color{red} [add\ description]}$
+* `--description_file`: Path to the text file with descriptions for generating features. **Please note**, the first column must be an exact copy of the protein description from your fasta files. Please consider shortening them in fasta files using your favorite text editor for convenience. These names will be used to generate pickle files with monomeric features!
+The description.csv for the NS1-P85B complex should look like:
+
+```
+>sp|P03496|NS1_I34A1,3L4Q.cif,A
+>sp|P23726|P85B_BOVIN,3L4Q.cif,C
+```
+
+In this example we refer to the NS1 protein as chain A and to the P85B protein as chain C in multimeric template 3L4Q.cif.
+
+**Please note**, that your template will be renamed to a PDB code taken from *_entry_id*. If you use a *.pdb file instead of *.cif, AlphaPulldown will first try to parse the PDB code from the file. Then it will check if the filename is 4-letter long. If it is not, it will generate a random 4-letter code and use it as the PDB code.
 
 * `--threshold_clashes` :Threshold for VDW overlap to identify clashes. The VDW overlap between two atoms is defined as the sum of their VDW radii minus the distance between their centers.
   If the overlap exceeds this threshold, the two atoms are considered to be clashing.
   A positive threshold is how far the VDW surfaces are allowed to interpenetrate before considering the atoms to be clashing.
   (default: 1000, i.e. no threshold, for thresholding, use 0.6-0.9)
   
-* `--hb_allowance`: Additional allowance for hydrogen bonding (default: 0.4) ${\color{red} [add\ description]}$
+* `--hb_allowance`: Additional allowance for hydrogen bonding (default: 0.4) used for identifying clashing residues to be removed from a mulimeric template. An allowance > 0 reflects the observation that atoms sharing a hydrogen bond can come closer to each other than would be expected from their VDW radii. The allowance is only subtracted for pairs comprised of a donor (or donor-borne hydrogen) and an acceptor. This is equivalent to using smaller radii to characterize hydrogen-bonding interactions 
 
-* `--plddt_threshold`: Threshold for pLDDT score (default: 0) ${\color{red} [add\ description]}$
+* `--plddt_threshold`: Threshold for pLDDT score (default: 0) to be removed from a multimeric template (all residues with pLDDT>plddt_threshold are removed and modeled from scratch). Can be used only when mulimeric templates are models generated by AlphaFold.
+* `--new_uniclust_dir`: Please use this if you want to overwrite the default path to the uniclust database.
+* `--[no]use_hhsearch`: Use hhsearch instead of hmmsearch when looking for structure template. Default is False.
  </details>
 
 #### Output
@@ -426,8 +435,10 @@ Create the ```create_individual_features_SLURM.sh``` script and place the follow
 
 module load HMMER/3.4-gompi-2023a
 module load HH-suite/3.3.0-gompi-2023a
-module load Anaconda3
-source activate AlphaPulldown
+eval "$(conda shell.bash hook)"
+module load CUDA/11.8.0
+module load cuDNN/8.7.0.84-CUDA-11.8.0
+conda activate AlphaPulldown
 
 # CUSTOMIZE THE FOLLOWING SCRIPT PARAMETERS FOR YOUR SPECIFIC TASK:
 ####
