@@ -13,7 +13,7 @@
      - [2. Installation using pip](#2-installation-using-pip)
      - [3. Installation for the Downstream analysis tools](#3-installation-for-the-downstream-analysis-tools)
      - [4. Installation for cross-link input data by AlphaLink2 (optional)](#4-installation-for-cross-link-input-data-by-alphalink2-optional)
-     - [Installation for developers](#installation-for-developers)
+     - [5. Installation for developers](#5-installation-for-developers)
    - [1. Compute multiple sequence alignment (MSA) and template features (CPU stage)](#1-compute-multiple-sequence-alignment-msa-and-template-features-cpu-stage)
      - [**1.1. Basic run**](#11-basic-run)
      - [1.2. Example run with SLURM (EMBL cluster)](#12-example-run-with-slurm-embl-cluster)
@@ -22,9 +22,10 @@
    - [2. Predict structures (GPU stage)](#2-predict-structures-gpu-stage)
      - [**2.1. Basic run**](#21-basic-run)
      - [2.2. Example run with SLURM (EMBL cluster)](#22-example-run-with-slurm-embl-cluster)
-     - [2.3. Pulldown and All versus all modes](#23-pulldown-and-all-versus-all-modes)
-     - [2.4. Run with custom templates (TrueMultimer)](#24-run-with-custom-templates-truemultimer)
-     - [2.5. Run with crosslinking-data (AlphaLink2)](#25-run-with-crosslinking-data-alphalink2)
+     - [2.3. Pulldown mode](#23-pulldown-mode)
+     - [2.4. All versus All mode](#24-all-versus-all-mode  )
+     - [2.5. Run with custom templates (TrueMultimer)](#25-run-with-custom-templates-truemultimer)
+     - [2.6. Run with crosslinking-data (AlphaLink2)](#26-run-with-crosslinking-data-alphalink2)
    - [3. Analysis and Visualization](#3-analysis-and-visualization)
      - [**Create Jupyter Notebook**](#create-jupyter-notebook)
      - [**Create Results table**](#create-results-table)
@@ -236,7 +237,7 @@ $\text{\color{red}Update the installation manual after resolving the dependency 
     ```
 4. Download the PyTorch checkpoints from [Zenodo](https://zenodo.org/records/8007238), unzip it, then you should obtain a file named: `AlphaLink-Multimer_SDA_v3.pt`
 
-### Installation for developers
+### 5. Installation for developers
 
 Only for the developers who would like to modify AlphaPulldown's codes and test their modifications.
 
@@ -933,7 +934,7 @@ count=`grep -c "" <protein_list.txt>` #count lines even if the last one has no e
 sbatch --array=1-$count example_data/run_multimer_jobs_SLURM.sh
 ```
 
-### Pulldown and All versus all modes
+### 2.3. Pulldown mode
 
 For `pulldown` mode for two files (for more files, create `count3`, `count4`, etc. variables and add them as a multiplier to the product):
 
@@ -962,11 +963,10 @@ The [output](#output-3) and [next step](#next-step-4) are the same as those for 
 
 </details>
 
-<details>
-<summary>2.3. Pulldown mode</summary>
+2.3. Pulldown mode
 
 Instead of manually typing all combinations of proteins, AlphaPulldown provides two different modes of automatic generation of such combinations.
-
+<details>
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../manuals/AP_modes_dark.png">
   <source media="(prefers-color-scheme: light)" srcset="../manuals/AP_modes.png">
@@ -1030,12 +1030,12 @@ Compared to [2.1 Basic run](#21-basic-run), this example differs in:
 
 </details>
 
-<details>
-<summary>2.4 "all_vs_all" mode </summary>
+### 2.4 All versus All mode
 
 In this mode, AlphaPulldown takes lines from the input `protein_list.txt` file and generates all possible combinations of these lines.
-
-It is useful when you have a set of proteins, and you want to find out which interact with which. If you provide the list of proteins:
+It is useful when you have a set of proteins, and you want to find out which interact with which. 
+<details>
+If you provide the list of proteins:
 
 ```plaintext
 proteinA
@@ -1074,9 +1074,11 @@ The [output](#output-3) and [next step](#next-step-4) are the same as those for 
 
 </details>
 
-<details>
-<summary>2.5. Run with Custom Templates (TrueMultimer)</summary>
 
+### 2.5. Run with Custom Templates (TrueMultimer)
+If you have some experimental models you want to integrate into AlphaFold pipeline to guide the modeling, you can do so using custom multimeric databases created on the fly.
+
+<details>
 #### Input
 
 This step requires the feature files (`.pkl`) generated with custom templates during the [first step](#14-run-with-custom-templates-truemultimer). Additionally, you'll need to provide a list of protein combinations in `protein_list.txt` that you intend to predict.
@@ -1102,7 +1104,7 @@ The [output](#output-3) and [next step](#next-step-4) are the same as those for 
 
 </details>
 
-### 2.5. Run with crosslinking-data (AlphaLink2)
+### 2.6. Run with crosslinking-data (AlphaLink2)
 
 As [Stahl et al., 2023](https://www.nature.com/articles/s41587-023-01704-z) showed, integrating cross-link data with AlphaFold could improve the modelling quality in some challenging cases. Thus, AlphaPulldown has integrated the [AlphaLink2](https://github.com/Rappsilber-Laboratory/AlphaLink2/tree/main) pipeline, allowing users to combine cross-link data with AlphaFold Multimer inference without needing to calculate MSAs from scratch again.
 
@@ -1160,9 +1162,7 @@ The [output](#output-3) and [next step](#next-step-4) are the same as those for 
 
 ## 3. Analysis and Visualization
 
-The resulting predictions from the [step 2](#2-predict-structures-gpu-stage) can be used directly as they are. However, for evaluation systematization and ranking of the prediction, you can use an interactive [Jupyter Notebook](https://jupyter.org
-
-/) and/or table with models scores. 
+The resulting predictions from the [step 2](#2-predict-structures-gpu-stage) can be used directly as they are. However, for evaluation systematization and ranking of the prediction, you can use an interactive [Jupyter Notebook](https://jupyter.org/) and/or table with models scores. 
 
 ### Create Jupyter Notebook
 
