@@ -119,9 +119,7 @@ AlphaPulldown can be used as a set of scripts for every particular step.
 
 ### 0. Alphafold databases
 
-For the standard MSA
-
- and features calculation, AlphaPulldown requires genetic databases. Check if you have downloaded the necessary parameters and databases (e.g., BFD, MGnify, etc.) as instructed in [AlphaFold's documentation](https://github.com/deepmind/alphafold). You should have a directory structured as follows:
+For the standard MSA and features calculation, AlphaPulldown requires genetic databases. Check if you have downloaded the necessary parameters and databases (e.g., BFD, MGnify, etc.) as instructed in [AlphaFold's documentation](https://github.com/deepmind/alphafold). You should have a directory structured as follows:
 
 <details>
 <summary>
