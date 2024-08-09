@@ -6,7 +6,7 @@
 
 1. [**About AlphaPulldown**](#about-alphapulldown)
 2. [**Snakemake AlphaPulldown**](#snakemake-alphapulldown)
-3. [**Run AlphaPulldown Python CLI**](#run-alphapulldown-python-cli)
+3. [**Run AlphaPulldown Python Command Line Interface**](#run-alphapulldown-python-cli)
    - [Installation](#installation)
      - [0. Alphafold databases](#0-alphafold-databases)
      - [1. Create Anaconda environment](#1-create-anaconda-environment)
@@ -98,7 +98,7 @@ The AlphaPulldown workflow involves the following 3 steps:
 
 # Snakemake AlphaPulldown 
 
-AlphaPulldown is available as a Snakemake pipeline, allowing you to sequentially execute **(1)** Features and MSA generation, **(2)** Structure prediction, and **(3)** Results analysis without manual intervention between steps. For installation and execution instructions, please refer to the [**AlphaPulldownSnakemake**](https://github.com/KosinskiLab/AlphaPulldownSnakemake) repository.
+AlphaPulldown is available as a Snakemake pipeline, allowing you to sequentially execute **(1)** Generation of MSAs and template features, **(2)** Structure prediction, and **(3)** Results analysis without manual intervention between steps. For installation and execution instructions, please refer to the [**AlphaPulldownSnakemake**](https://github.com/KosinskiLab/AlphaPulldownSnakemake) repository.
 
 > [!Warning]
 > The Snakemake version of AlphaPulldown differs slightly from the conventional scripts-based AlphaPulldown in terms of input file specifications.
@@ -108,7 +108,7 @@ For downstream analysis of Snakemake-AlphaPulldown results, please refer to this
 <br>
 <br>
 
-# Run AlphaPulldown Python CLI
+# Run AlphaPulldown Python Command Line Interface
 
 AlphaPulldown can be used as a set of scripts for every particular step. 
 1. [`create_individual_features.py`](#1-compute-multiple-sequence-alignment-msa-and-template-features-cpu-stage): Generates multiple sequence alignments (MSA), identifies structural templates, and stores the results in monomeric feature `.pkl` files.
