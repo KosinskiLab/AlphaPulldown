@@ -16,14 +16,14 @@
      - [5. Installation for developers](#5-installation-for-developers)
    - [1. Compute multiple sequence alignment (MSA) and template features (CPU stage)](#1-compute-multiple-sequence-alignment-msa-and-template-features-cpu-stage)
      - [**1.1. Basic run**](#11-basic-run)
-     - [1.2. Example run with SLURM (EMBL cluster)](#12-example-run-with-slurm-embl-cluster)
+     - [1.2. Example run with SLURM (EMBL cluster)](#12-example-bash-scripts-for-slurm-embl-cluster)
      - [1.3. Run using MMseqs2 and ColabFold Databases (Faster)](#13-run-using-mmseqs2-and-colabfold-databases-faster)
      - [1.4. Run with custom templates (TrueMultimer)](#14-run-with-custom-templates-truemultimer)
    - [2. Predict structures (GPU stage)](#2-predict-structures-gpu-stage)
      - [**2.1. Basic run**](#21-basic-run)
      - [2.2. Example run with SLURM (EMBL cluster)](#22-example-run-with-slurm-embl-cluster)
      - [2.3. Pulldown mode](#23-pulldown-mode)
-     - [2.4. All versus All mode](#24-all-versus-all-mode  )
+     - [2.4. All versus All mode](#24-all-versus-all-mode)
      - [2.5. Run with custom templates (TrueMultimer)](#25-run-with-custom-templates-truemultimer)
      - [2.6. Run with crosslinking-data (AlphaLink2)](#26-run-with-crosslinking-data-alphalink2)
    - [3. Analysis and Visualization](#3-analysis-and-visualization)
@@ -934,9 +934,7 @@ count=`grep -c "" <protein_list.txt>` #count lines even if the last one has no e
 sbatch --array=1-$count example_data/run_multimer_jobs_SLURM.sh
 ```
 
-### 2.3. Pulldown mode
-
-For `pulldown` mode for two files (for more files, create `count3`, `count4`, etc. variables and add them as a multiplier to the product):
+For [`pulldown` mode](#23-pulldown-mode) for two files (for more files, create `count3`, `count4`, etc. variables and add them as a multiplier to the product):
 
 ```bash
 mkdir -p logs
@@ -947,7 +945,7 @@ count=$(( $count1 * $count2 ))
 sbatch --array=1-$count example_data/run_multimer_jobs_SLURM.sh
 ```
 
-For `all_vs_all` mode:
+For [`all_vs_all` mode](#23-all-versus-all-mode):
 
 ```bash
 mkdir -p logs
@@ -963,7 +961,7 @@ The [output](#output-3) and [next step](#next-step-4) are the same as those for 
 
 </details>
 
-2.3. Pulldown mode
+### 2.3. Pulldown mode
 
 Instead of manually typing all combinations of proteins, AlphaPulldown provides two different modes of automatic generation of such combinations.
 <details>
@@ -1030,7 +1028,7 @@ Compared to [2.1 Basic run](#21-basic-run), this example differs in:
 
 </details>
 
-### 2.4 All versus All mode
+### 2.4. All versus All mode
 
 In this mode, AlphaPulldown takes lines from the input `protein_list.txt` file and generates all possible combinations of these lines.
 It is useful when you have a set of proteins, and you want to find out which interact with which. 
