@@ -1,0 +1,240 @@
+>TEST
+MESAIAEGGASRFSASSGGGGSRGAPQHYPKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA
+>UniRef100_A0A4U1F7C6 W2 domain-containing protein n=1 Tax=Monodon monoceros TaxID=40151 RepID=A0A4U1F7C6_MONMO
+----MVEAAASRSSASSGGGGSRGAPQHCPRTAGNSEFLGRTPGQNAQKWIPASSTRRDDDSAA
+>UniRef100_A0A6A1Q193 MIF4G domain-containing protein n=1 Tax=Balaenoptera physalus TaxID=9770 RepID=A0A6A1Q193_BALPH
+-APHPPLELRTRLESTWSGGTARRARLDRQEQHPTSS----APRQNAQKRIPARSTRRDYNSAA
+>ERR1719187_2051927
+PTAEVTQGGTATPPngpiggvQPLLGGAGRDSLRSLPTYPAG----GRGSgg--S----VGSQNSR---AAT-
+>tr|A0A1S3PST9|A0A1S3PST9_SALSA eukaryotic translation initiation factor 4 gamma 2-like OS=Salmo salar GN=LOC106587155 PE=4 SV=1
+VESVIAEGGASRFSASSGGGGGRGASQYHPKTVGNSEFLGKAPGSSVQRWVPSRSTRRDANAS-
+>tr|G3P4Q6|G3P4Q6_GASAC Eukaryotic translation initiation factor 4, gamma 2b OS=Gasterosteus aculeatus PE=4 SV=1
+VESVISEGGASRFSASSGGGGGRGAPQHYPKTVGNSEFLGRTPGQSVQRWVPSRSTRREVNSS-
+>ERR1719354_882665
+VESVIAQGGASRFSASSGGGGGRGASQHYPKTVGKSEFLGGAPGTVGQKWVPSRTNRREG-SS-
+>tr|H3CVE7|H3CVE7_TETNG Eukaryotic translation initiation factor 4, gamma 2a OS=Tetraodon nigroviridis PE=4 SV=1
+VESVVAQGGPSLFRFCHsVGGGGGGASQHYPKTVCNSEFLGKPPGTSVQRWVPSRRGRRDANSY-
+>tr|A0A2D0QT08|A0A2D0QT08_ICTPU eukaryotic translation initiation factor 4 gamma 2-like OS=Ictalurus punctatus GN=LOC108264065 PE=4 SV=1
+VESVIAEGGSSRFSASSGEGGGRGAPEHDPKTAGNSEYLGKTPGPSVQKWVPSRSTRRDVNST-
+>tr|S4RDU8|S4RDU8_PETMA Eukaryotic translation initiation factor 4, gamma 2a OS=Petromyzon marinus PE=4 SV=1
+VESAIREGGSSRFSARLGRGGGRGASTQCLTTAGNSEFLG-SPGTSIQRWVPSRSTKREVNTS-
+>tr|A0A287AED3|A0A287AED3_PIG Uncharacterized protein OS=Sus scrofa PE=4 SV=1
+VESATAEGGASRFRASLGGAGGRVHLSTTPRPPAPARSRGKPR-----KRIPAPStgrgdTSAANNAA-
+>UniRef100_A0A3Q3W5Q0 Eukaryotic translation initiation factor 4, gamma 2b n=1 Tax=Mola mola TaxID=94237 RepID=A0A3Q3W5Q0_MOLML
+LLSLVTVYCVCFYSASSGGGGGRGAPQHYPKTVGNSEFLGKTPGQSVQRWVPSRSTRRDVNSS-
+>UniRef100_A0A4Z2FM83 Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Liparis tanakae TaxID=230148 RepID=A0A4Z2FM83_9TELE
+-----------MLGASSGGGGGRGAPQHYPKTVGNSEFLGKTPGQSGQKWVPSRSTRRDVISS-
+>UniRef100_A0A667ZXZ7 Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Myripristis murdjan TaxID=586833 RepID=A0A667ZXZ7_9TELE
+VESVVAEGGASRFSASVGGGGGGGAPQHYPKSVGNSEFLGKTPGSSVQRWVPSRSTRRDVSSS-
+>UniRef100_A0A8C2IMN9 Eukaryotic translation initiation factor 4, gamma 2b n=1 Tax=Cyprinus carpio TaxID=7962 RepID=A0A8C2IMN9_CYPCA
+---------------KIDRDGGTLTliasfPF--------SEYLGKTPGPSVQRWVPSRSTRRDVNSS-
+>UniRef100_UPI001CF96C57 eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Protopterus annectens TaxID=7888 RepID=UPI001CF96C57
+VESAIAEGGASRFSASSGGGGGRGAPQQYPKSASNSEYLGKTPGTNVQRWVPSRSTRRDVNST-
+>UniRef100_UPI001F086032 eukaryotic translation initiation factor 4 gamma 2b isoform X1 n=2 Tax=Hypomesus transpacificus TaxID=137520 RepID=UPI001F086032
+QQDQWLQQRENQTNASSGGGGVRSAPQHHPKTVGNSEFLGKTPGQSVQKWVPSRSTRRDANSS-
+>UniRef100_A0A9D3SKB7 Uncharacterized protein n=1 Tax=Hemibagrus wyckioides TaxID=337641 RepID=A0A9D3SKB7_9TELE
+VESVVAEGGASRFSASSggGGGGGRGAPQHYPTTASNSELLGKTPGPSVQRWVPSRSTRRDANSS-
+>UniRef100_UPI0007AD5E58 eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Sinocyclocheilus grahami TaxID=75366 RepID=UPI0007AD5E58
+VESVIAEGGASRFSASSGGGGGRGASQHFPKTVGNSEYLGKTPGPSVQRWVPSRSTRRDVNT--
+>tr|A0A0F8ABA9|A0A0F8ABA9_LARCR Eukaryotic translation initiation factor 4 gamma 2 OS=Larimichthys crocea GN=EH28_02166 PE=4 SV=1
+VESVVAPGGPSRFSV---GGGGGGAPQHYPKTVGNSEFLGKTPGSGVQRWVPSRSTRRDVNST-
+>tr|A0A060X9P1|A0A060X9P1_ONCMY Uncharacterized protein OS=Oncorhynchus mykiss GN=GSONMT00019306001 PE=4 SV=1
+VESVIAEGGASRFSASSGGGGVRGAPQHNPKTVGNSEFLGKPPGHSAPKWVPSRSTRRDANSS-
+>tr|M4A4A2|M4A4A2_XIPMA Eukaryotic translation initiation factor 4, gamma 2a OS=Xiphophorus maculatus PE=4 SV=1
+VESVVAPGGPSRFSV---GGGGGGAPQHYPKTVCNGEFLGKTPGPGVQRWIPSRSTRRDANSS-
+>tr|A0A1L8GIH9|A0A1L8GIH9_XENLA Uncharacterized protein (Fragment) OS=Xenopus laevis GN=XELAEV_18021771mg PE=1 SV=1
+VESAIAEGGASRFS-ASSSGGARGASQHYPKTVGNSEYLGKTPGPGVQRWVPSRSTKRDVNStnnsantalssS-
+>UniRef100_A0A3B3CWG1 Secreted protein n=1 Tax=Oryzias melastigma TaxID=30732 RepID=A0A3B3CWG1_ORYME
+-LKVMALNFIVLFNSVGG--GGGGAPQHYPKTVCNGEFLGKTPGSNVQRWVPSRSTRRDVNSS-
+>UniRef100_A0A3B3ZCN3 Uncharacterized protein n=2 Tax=Periophthalmus magnuspinnatus TaxID=409849 RepID=A0A3B3ZCN3_9GOBI
+-ECVIAQGGPSLF-SVRG--GGGGAPQHYPKTVDNSESLGKPPGASSERWVPSRSTRRDAASS-
+>UniRef100_A0A672LNP0 Uncharacterized protein n=1 Tax=Sinocyclocheilus grahami TaxID=75366 RepID=A0A672LNP0_SINGR
+---VLTSCEEIPFKVLDK--TNDSALLFY------SEFLGKTPGPNVQRWVPSRSTRRDVNSS-
+>UniRef100_A0A4U1EJZ3 Eukaryotic translation initiation factor 4 gamma 2 (Fragment) n=2 Tax=Boreoeutheria TaxID=1437010 RepID=A0A4U1EJZ3_MONMO
+-----------------GRRRSKGAPQHYPKTAGNSEFLGKTPGQNAQKWIPASSTRRDDNSAA
+>UniRef100_H2V6B2 Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Takifugu rubripes TaxID=31033 RepID=H2V6B2_TAKRU
+VESVVAQGGPSLFSVGGGGG---GASQHYPKTVCNSEFLGKTPGTSVQRWLPSRRMRREANS--
+>UniRef100_A0A023GMA0 Putative eukaryotic translation initiation factor n=1 Tax=Amblyomma triste TaxID=251400 RepID=A0A023GMA0_AMBTT
+-FSVAR-ASQPDATTEGPRGAG-G-SSSPCN--RD-GTASATV-SSpcVHRWVPPSSVrRDAP----
+>UniRef100_A0A0P5GY13 Eukaryotic translation initiation factor 4 gamma n=1 Tax=Daphnia magna TaxID=35525 RepID=A0A0P5GY13_9CRUS
+-NPMHS-KSSLNFSNFSGVSLF-RIPRTfrktmsflfslegasrsLGG--RD-DP--RSQvSTGNRRWIPPSTYKRDA----
+>UniRef100_A0A1D2M673 Eukaryotic translation initiation factor 4 gamma 2 (Fragment) n=1 Tax=Orchesella cincta TaxID=48709 RepID=A0A1D2M673_ORCCI
+-SFIKITSAVAPFSppLHFSKPFVQETTTEGPQVIGsaSRNLGGRDEirSQSsTsERWIPPSAIRRDA----
+>UniRef100_A0A1Q3EYX4 Putative eukaryotic translation initiation factor 4 gamma 2 (Fragment) n=1 Tax=Culex tarsalis TaxID=7177 RepID=A0A1Q3EYX4_CULTA
+-GTAIP-GKIEKIAVPSSvGlrSAypSAGGplPTSkteDPRQTGtESRATGRENhiPPASRRWVPPS-LRPQHG---
+>UniRef100_A0A1S3IAI0 Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Lingula unguis TaxID=7574 RepID=A0A1S3IAI0_LINUN
+-VKRLRedLVINIILDGQGGSGGA--SRRAGGRDERSPLLSGPVATSANQRWIPPSSVKRDAL---
+>UniRef100_A0A210QSB4 Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Mizuhopecten yessoensis TaxID=6573 RepID=A0A210QSB4_MIZYE
+--------------------------MFPFRDERPPRLSGPGASAPSavnNRWIPPSSVKRDA----
+>UniRef100_A0A226E7S7 Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Folsomia candida TaxID=158441 RepID=A0A226E7S7_FOLCA
+-HSPERERVYRPFDpp----KFSTSKITTEGPKALGgaSRGLGGRDEqrSQSsKDKWIPPSAFKRDA----
+>UniRef100_A0A232F385 W2 domain-containing protein (Fragment) n=1 Tax=Trichomalopsis sarcophagae TaxID=543379 RepID=A0A232F385_9HYME
+-PPPSP-AQHHKHTIFATWRVL-NHPKLkdsMPS--RD-DN--RSL-STEQRWIPPSTIRRDA----
+>UniRef100_A0A2C9JND2 W2 domain-containing protein n=1 Tax=Biomphalaria glabrata TaxID=6526 RepID=A0A2C9JND2_BIOGL
+-VQELLtdwSNISSILDSQSSKGGV--SPHLGGRDERPPTLKSSSGASSPipnNRWVPPSSAPRD-----
+>UniRef100_A0A2G8LCK2 Dap5 protein n=1 Tax=Stichopus japonicus TaxID=307972 RepID=A0A2G8LCK2_STIJA
+-PFCLLfVTVFDKLGKVEGpGaaGGARAySssRQQeRPR--ESYKLARDDPSVNTlQRWVRPR-I-QPIH---
+>UniRef100_A0A2R5LM53 Putative eukaryotic translation initiation factor 4 gamma 2 (Fragment) n=1 Tax=Ornithodoros turicata TaxID=34597 RepID=A0A2R5LM53_9ACAR
+-------------TTEGQRGPG-G-ASQCSG--GR-DDpaarVTTTA-SVgsLHRWVPPSSLkRNAV----
+>UniRef100_A0A369S8T1 Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Trichoplax sp. H2 TaxID=287889 RepID=A0A369S8T1_9METZ
+-NRLITLAKVERRrNPNLHlSARKEGSPELQPQgaAQGNTSRVAPFPi-SN-HGWVPPSTRgRR-V----
+>UniRef100_A0A3B5AFF7 Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Stegastes partitus TaxID=144197 RepID=A0A3B5AFF7_9TELE
+-PRRKILGVLTGTP--TGDLLA-ASLIICEYSCYSSEFLGKTPGSSVQRRVPSRSTRRDvsssnekrnpptflknAS---
+>UniRef100_A0A3Q2YJ58 Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Hippocampus comes TaxID=109280 RepID=A0A3Q2YJ58_HIPCM
+-LISTRFFFLLHHR--VGGGGG-GAPQHFPKAESKSEFLGKPPGSAAQRWIPSRSTSREAS---
+>UniRef100_A0A3Q3R9I3 Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Monopterus albus TaxID=43700 RepID=A0A3Q3R9I3_MONAL
+-DQIRCEIQLLILI---------FLYCFFFFLIPYSEFLGKTPGSSVQRWVPSRSTRRDAN---
+>UniRef100_A0A3S2Q9C2 W2 domain-containing protein n=1 Tax=Oryzias javanicus TaxID=123683 RepID=A0A3S2Q9C2_ORYJA
+-EGRSFSAPFLEFD--SYHIFF-VKPPKWRVSLHKGDLLVSVWAEEVGVHLSTIPRLSATA---
+>UniRef100_A0A3S3QU79 Eukaryotic translation initiation factor 4 gamma 2-like protein (Fragment) n=1 Tax=Dinothrombium tinctorium TaxID=1965070 RepID=A0A3S3QU79_9ACAR
+-EGQRAQGATASRC--SG--G-KDDSVTRPLTCSTNNSkrtgsgpletPLQSKSKAKCRWVPPSINKRDA----
+>UniRef100_A0A443SLV4 Eukaryotic translation initiation factor 4 gamma 2-like protein (Fragment) n=1 Tax=Leptotrombidium deliense TaxID=299467 RepID=A0A443SLV4_9ACAR
+-EGQRAQGAIASRC--SG--G-KDDSTNRPLTCSTSSLikrtaLESQKSKSKRRWVPPSSIRRDA----
+>UniRef100_A0A4C1T1S0 Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Eumeta variegata TaxID=151549 RepID=A0A4C1T1S0_EUMVA
+-ASGLGERPARTADEASGSARvRTATKTESARQPGpvlraSGRTAAVPP-AR-RRWVPPS-SLRHHD---
+>UniRef100_A0A4D5RJF0 Putative eukaryotic translation initiation factor 4 gamma (Fragment) n=1 Tax=Ixodes scapularis TaxID=6945 RepID=A0A4D5RJF0_IXOSC
+-FRVAR-ADPPGATTEGPRGAG-G-ASSQCG--SR-DG-SAAN-VSpcVHRWVPPSSVrRDAP----
+>UniRef100_A0A553R5I1 W2 domain-containing protein n=1 Tax=Danionella translucida TaxID=623744 RepID=A0A553R5I1_9TELE
+-ESVIAEGGASRFSASSGAGEGRGAPLHYPKSVGNSELLGKTPGSSVQRWVPSRSTRRDAN---
+>UniRef100_A0A672P6A2 Eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Sinocyclocheilus grahami TaxID=75366 RepID=A0A672P6A2_SINGR
+-VHILIKFNTFKFSMYLIIML---DQINDCALLFSSEFLGKTPGPGVQRWVPSRSTRRDVN---
+>UniRef100_A0A6A4T2P6 Eukaryotic translation initiation factor 4 gamma 2-like n=2 Tax=Scophthalmus maximus TaxID=52904 RepID=A0A6A4T2P6_SCOMX
+-ESAIAEGGASRFSASSGGGGGRGAPQHHPKTVGNSEFLGKTPGQSVQKWVPSRSTRRDVN---
+>UniRef100_A0A6A7FPC5 Eukaryotic translation initiation factor 4 gamma 2-like n=2 Tax=Hirondellea gigas TaxID=1518452 RepID=A0A6A7FPC5_9CRUS
+----MV-VQIPRTTTEGQRSRG-G-ASRsLGG--RD-DA--RSLSSSKRRWIPPSSLRRDA----
+>UniRef100_A0A6J8EWJ5 EIF4G n=1 Tax=Mytilus coruscus TaxID=42192 RepID=A0A6J8EWJ5_MYTCO
+-VWFLHNKLKIILNFKTKAqrqGGA--SPQVGGRDERPPHFTGSDATASKlpanSRWIPPSSLKRDV----
+>UniRef100_A0A6L2PA46 Eukaryotic translation initiation factor 4 gamma 2 (Fragment) n=1 Tax=Coptotermes formosanus TaxID=36987 RepID=A0A6L2PA46_COPFO
+-------MCLLQHVPICPWSGK-GvsvLEDE---------S--RSL-STKRRWIPPSTVRRDA----
+>UniRef100_A0A6M2DJ82 Putative eukaryotic translation initiation factor 4 gamma 2 isoform x1 (Fragment) n=1 Tax=Xenopsylla cheopis TaxID=163159 RepID=A0A6M2DJ82_9NEOP
+-FCVKD-TRPQRQRNGLTITAG-CfeKTTQqqgqQPD--KT-EC--PRQagpvarvsgsaPPAKRRWVPPSTLlrHRDA----
+>UniRef100_A0A6P7Y6C2 Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Microcaecilia unicolor TaxID=1415580 RepID=A0A6P7Y6C2_9AMPH
+-ESAIAEGGASRFSASSGGGGGRGAPQHYPKTVGNSEYLGKTPGLGVQRWIPSRSTRRDVN---
+>UniRef100_A0A6P8H5B1 Eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Clupea harengus TaxID=7950 RepID=A0A6P8H5B1_CLUHA
+-ESVIAEGGASRFSASSGGGGGRGASQHYPKTVGKSEFLGKSPGSGIQKWIPSRSTRRDGN---
+>UniRef100_A0A7G3AH62 Putative eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Lutzomyia longipalpis TaxID=7200 RepID=A0A7G3AH62_LUTLO
+-------------------------------QTGpESRVTGRETpaPPASRRWVPPS-LLPQHG---
+>UniRef100_A0A7I8WD97 DgyrCDS14214 n=1 Tax=Dimorphilus gyrociliatus TaxID=2664684 RepID=A0A7I8WD97_9ANNE
+----------------------------MSE-EQSAPF--SQP-QAfwNKRWVPPSSIFRESL---
+>UniRef100_A0A7J5X6R0 Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Dissostichus mawsoni TaxID=36200 RepID=A0A7J5X6R0_DISMA
+-QSGECRRTRGAFS--FQGeEVG-VHLSTIPRLSATASSWGKPQDLAFRDGYLLEALDEMPT---
+>UniRef100_A0A7J7JU21 EIF4G2 n=1 Tax=Bugula neritina TaxID=10212 RepID=A0A7J7JU21_BUGNE
+-EEKVS-SRLNYYN-HSGRtRQSRGyffyAPQRhrLQRYIQDALFsqPAQVPSTShrsVnvesRPWVAPS-TRRHAvG---
+>UniRef100_A0A7R9A0N1 MI domain-containing protein n=1 Tax=Darwinula stevensoni TaxID=69355 RepID=A0A7R9A0N1_9CRUS
+---------------------MRHKVRSLQKGLSALEVlFGKSSSPSVtsKRWVPPSSFRRDA----
+>UniRef100_A0A7R9BTC3 Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Notodromas monacha TaxID=399045 RepID=A0A7R9BTC3_9CRUS
+--------------------------MNFRD---D----SRSPSTTaVgKRWVPPSSLRRDA----
+>UniRef100_A0A7R9CQP0 Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Timema poppense TaxID=170557 RepID=A0A7R9CQP0_TIMPO
+-SCSLS-WGPTHKQQRTALEDR-GvllVSQE-EG--TI-LA--PSP-QSGAGSLL-QLLRRDA----
+>UniRef100_A0A7R9Q2W7 Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Medioppia subpectinata TaxID=1979941 RepID=A0A7R9Q2W7_9ACAR
+-----------------------------ELVSG-VKLATRYI-HNVITHKPVLpWPLSSLpiT---
+>UniRef100_A0A7R9Q997 Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Oppiella nova TaxID=334625 RepID=A0A7R9Q997_9ACAR
+-ESMYGnvtqRQSTERLNlefISSAiDCKANATKRTYRSATH-SLIASVRQ-MNGLTLSTTTePVRGEAgiA---
+>UniRef100_A0A7R9RNM7 Eukaryotic translation initiation factor 4 gamma 2 (Fragment) n=1 Tax=Argulus foliaceus TaxID=509924 RepID=A0A7R9RNM7_9CRUS
+----------MNTPTTEGlGGQG-GASRS---SGGRDDS--RSLSSTTRRWVPPSSIKRDA----
+>UniRef100_A0A812AY74 EIF4G n=1 Tax=Sepia pharaonis TaxID=158019 RepID=A0A812AY74_SEPPH
+-WCFLP-TTSSILDGHKGEGGV--SRRSGGRderppqlsipgdylssknRWIPPSTLKRDVNASDdrndlvlrtvRGWNPPScKQRDGL----
+>UniRef100_A0A814H9T6 W2 domain-containing protein n=1 Tax=Brachionus calyciflorus TaxID=104777 RepID=A0A814H9T6_9BILA
+-RPSLNSASNVNINTTQNNnSNyNKPySQQHrlnYNNQKRN--YTNNSSGQNfLNHNIKTNyynnSHlNKEEE---
+>UniRef100_A0A834MJS5 Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Rhynchophorus ferrugineus TaxID=354439 RepID=A0A834MJS5_RHYFE
+-FHLFV-YYNKVVIGPLEEQAG-P-QAArASG--KD-GV--AAPSANKRRWVPPSTLrlRDAA----
+>UniRef100_A0A834MRW0 Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Vespula germanica TaxID=30212 RepID=A0A834MRW0_VESGE
+-LSLNG-SREDVQTLASEKEAI-SRRYDiigYYG--KD-DI--RSL-STEQRWIPPSTVRRDA----
+>UniRef100_A0A834R1L4 Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Sarcoptes scabiei TaxID=52283 RepID=A0A834R1L4_SARSC
+-RAMLK-AVYNIFvDVTAGNpfyvhGQtvkSRDELIR-PQl---STPY-GHNIGPQsIRRLTPPKGIRRDA----
+>UniRef100_A0A8B6XWN1 Eukaryotic translation initiation factor 4 gamma 2-like n=2 Tax=Hydra vulgaris TaxID=6087 RepID=A0A8B6XWN1_HYDVU
+-QSYSKESSPQQYEVTSTyQNGfiKKGykqSllsSKH-ENLLDdNQKFpVNKAS-NS-KKWVSQQFL-HDV----
+>UniRef100_A0A8B7ZNC9 Eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Acanthaster planci TaxID=133434 RepID=A0A8B7ZNC9_ACAPL
+-EGQGEVGGASQAFPQRR---QQETPRQYPTKSNyHepvlSNK-GSGLqSSSsGraqQRWVPPSSTNRPEY---
+>UniRef100_A0A8C4QUU4 Eukaryotic translation initiation factor 4, gamma 2a n=1 Tax=Eptatretus burgeri TaxID=7764 RepID=A0A8C4QUU4_EPTBU
+-AYFFLLFLAEPLATSCGTLGFRGT----PVEKH-CEFPGQGSALIVQKWAPSRSTKRDAA---
+>UniRef100_A0A8C5AYN5 Eukaryotic translation initiation factor 4, gamma 2a n=1 Tax=Gadus morhua TaxID=8049 RepID=A0A8C5AYN5_GADMO
+-ESFAAEGSACRFSlVKSHGTNGVGPSLCFPSFLPCSKFPGKHSGGGPQRWVPSRQDAL------
+>UniRef100_A0A8C5C5S4 Eukaryotic translation initiation factor 4, gamma 2a n=1 Tax=Gadus morhua TaxID=8049 RepID=A0A8C5C5S4_GADMO
+-------------------------MLHSLSHIGSSKFPGKHSGGGPQRWVPSRQDAL------
+>UniRef100_A0A8C6NQJ3 Eukaryotic translation initiation factor 4, gamma 2a n=2 Tax=Nothobranchius furzeri TaxID=105023 RepID=A0A8C6NQJ3_NOTFU
+-HFSNYKYLFLIHS--VGGGGG-GAHQHYPKTVCNGEFLGKPPGPGVQRWIPSRSTRRDVC---
+>UniRef100_A0A8C6SU23 Eukaryotic translation initiation factor 4, gamma 2a n=1 Tax=Neogobius melanostomus TaxID=47308 RepID=A0A8C6SU23_9GOBI
+-----VECLNSYFfCRSVRGGGG-GAPQHYPKTVDNSESLGNPPGASGQRWVPSRSTRRDAA---
+>UniRef100_A0A8D3BJ62 Eukaryotic translation initiation factor 4, gamma 2a n=2 Tax=Scophthalmus maximus TaxID=52904 RepID=A0A8D3BJ62_SCOMX
+-SFSYLFLFFWYRS--VGGGGG-GAPQHCPKTVGNSEFLGKTPGSSVQRWIPSRNTRRDAN---
+>UniRef100_A0A8J2KTA8 Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Allacma fusca TaxID=39272 RepID=A0A8J2KTA8_9HEXA
+-LSVTTHGQYGLFSkaVAYCSQTAITLKSCTHTFIVkvNWTLlshrksvsachferpRGRDEirSQStTyERWIPPSAIKRDA----
+>UniRef100_A0A8J4YDU4 Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Chionoecetes opilio TaxID=41210 RepID=A0A8J4YDU4_CHIOP
+-FGGYS-WGFRQGAPFLDAIKR-V-KQRlLET--GI-LA--YWLSDVIKQRVRQTLKDSDE----
+>UniRef100_A0A8J5DRX3 Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Nymphon striatum TaxID=424472 RepID=A0A8J5DRX3_9CHEL
+-HPGCI-YKPKDGPAERARGCF-SMLRRKPV--RP-DV--TTS-SAaTRRWIPPSSYKRDA----
+>UniRef100_A0A8S1CKS6 W2 domain-containing protein n=1 Tax=Cloeon dipterum TaxID=197152 RepID=A0A8S1CKS6_9INSE
+-PFDLY-FSLQIIADCASRNPG-GskvmKFDR-DE--IA-RS--LST-SNKCRWIPPSTVaRREA----
+>UniRef100_A0A8S4D511 (diamondback moth) hypothetical protein n=1 Tax=Plutella xylostella TaxID=51655 RepID=A0A8S4D511_PLUXY
+-MSSLERIASVEALGATGSPTvATDAARGAARQGG-----GGRA-PR-RRWVPPG-SRR------
+>UniRef100_A0A8S9WVH0 W2 domain-containing protein n=1 Tax=Apolygus lucorum TaxID=248454 RepID=A0A8S9WVH0_APOLU
+-TPSFP-CLVPKLR-PTGA-G--GA--S-PVNGGrD-DN--RTI--AARRWVPPSIVRRDA----
+>UniRef100_A0A8W8N1R8 Eukaryotic translation initiation factor 4 gamma 2 n=2 Tax=Crassostrea gigas TaxID=29159 RepID=A0A8W8N1R8_CRAGI
+-RQLINKHNDTGRNKLYNRlrakkrnhlfftkvGGA--SPHTGGRDEKPPQFSGTSAQALTaSRWVPPSTLKRDA----
+>UniRef100_A0A8X6VW57 Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Trichonephila clavipes TaxID=2585209 RepID=A0A8X6VW57_TRICX
+-AFSYK-IREQRGSGSASRCSG-G-RDDPPR--PD-AA---SV-AP-RRWVPPSSIkRDAI----
+>UniRef100_A0A922L653 Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Dermatophagoides farinae TaxID=6954 RepID=A0A922L653_DERFA
+-RAILK-TIHNIYvDVTTSNpfyvhGQpihSqhlirkideifgKDDVQR-PStHSTTSSY-GRNNSGSlLIRRLAPPSNTRDA----
+>UniRef100_A0A9D3LYY7 Uncharacterized protein n=1 Tax=Anguilla anguilla TaxID=7936 RepID=A0A9D3LYY7_ANGAN
+-ESVVAEGGASRFSASSGGGGGRGAPQHYPKTVGNSECLGKAPGPSVQKWVPSRSTRRDVN---
+>UniRef100_C3Z211 W2 domain-containing protein n=1 Tax=Branchiostoma floridae TaxID=7739 RepID=C3Z211_BRAFL
+-ENWTAraERVWPLVVLQEEGvrhpGRA--GPAALAAKVVLRHQQPGAVVHPQqsqDGYLQAV-LSETCA---
+>UniRef100_D2A1L4 Eukaryotic translation initiation factor 4 gamma 2-like Protein n=2 Tax=Tribolium castaneum TaxID=7070 RepID=D2A1L4_TRICA
+-ARVFE-ARPITTTTESPRQTG-P-QAR-----NS-GK--DAVPPVKRRWVPPSTLrrQDAL----
+>UniRef100_E0VCE7 Eukaryotic translation initiation factor 4 gamma, putative n=1 Tax=Pediculus humanus subsp. corporis TaxID=121224 RepID=E0VCE7_PEDHC
+-VFVFT-EESLYLTTDGPRGPG-G-VSRvSGA--RD-EV--VSL-SSKRRWIPPSRIRRDG----
+>UniRef100_F4WTR3 Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Acromyrmex echinatior TaxID=103372 RepID=F4WTR3_ACREC
+-SNRGF-LGHPVEAAGRARPPL-NSPTKssdlgrTTA--GD-DI--RSL-STEQRWIPPSTVRRDA----
+>UniRef100_N6UDT6 W2 domain-containing protein (Fragment) n=1 Tax=Dendroctonus ponderosae TaxID=77166 RepID=N6UDT6_DENPD
+-ALYSN-HHNSTLTTESPRQPG-P-QAArASG--KD-GL--AAPSANKRRWVPPSTLrlRDAV----
+>UniRef100_Q5KTT5 eIF4G-related protein NAT1 (Fragment) n=1 Tax=Halocynthia roretzi TaxID=7729 RepID=Q5KTT5_HALRO
+-HASSV-TGPSRKE------G-RNSPRT--P-AGNsSPTVGLHS--SQKRWIPASQLPRDVK---
+>UniRef100_T1IXX2 Eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Strigamia maritima TaxID=126957 RepID=T1IXX2_STRMM
+-PASFL-FSCVGGSTKPKDGQA-E-RDEPPR--SL-TN---SV-AAppvNRRWIPPSSIkRDAV----
+>UniRef100_UPI000180BE04 eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Ciona intestinalis TaxID=7719 RepID=UPI000180BE04
+-EEQIE-RGKSCFE------G-RSNIIT--PTARNpIPLLGKSS--SkQQRWVPPSSLQRNV----
+>UniRef100_UPI00065B5FF1 eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Aplysia californica TaxID=6500 RepID=UPI00065B5FF1
+-EAYVIERISSILDSQSSKGGV--SPHLGGRDERPPTLKSGSGVTASsanNRWVPPSSAPRDG----
+>UniRef100_UPI0007719992 eukaryotic translation initiation factor 4 gamma 2 isoform X1 n=2 Tax=Cephus cinctus TaxID=211228 RepID=UPI0007719992
+----------------------------MPS--RD-DI--RSL-STERRWIPPSTVRRDA----
+>UniRef100_UPI000D72EF29 eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Pomacea canaliculata TaxID=400727 RepID=UPI000D72EF29
+-SSYIGAEISSILDSKSSKGGV--SPHTGGQDERPPK-PTVPGSQQAqatRRWVPPSVLRRDV----
+>UniRef100_UPI00106A3187 eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Dendronephthya gigantea TaxID=151771 RepID=UPI00106A3187
+-GVVVCaSYAVASFTKVEGQGVTVSTKESVPTVSG--AFTGAKANPSdtAaqassQRWVPPH-ILRE-----
+>UniRef100_UPI0011770568 eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Salarias fasciatus TaxID=181472 RepID=UPI0011770568
+-ESVVAPGGPSRFS--VAGGGG-GAPQHYPKTLSNSEFLGKTSGTGVQRWVPSRSTRREAS---
+>UniRef100_UPI00126751C9 eukaryotic translation initiation factor 4 gamma 2-like isoform X1 n=3 Tax=Photinus pyralis TaxID=7054 RepID=UPI00126751C9
+-CIDRF-ERNFSVAFVNPSQRR-A-PGK---------------RGHKLVFRGRTVLppPSDA----
+>UniRef100_UPI00140400FF LOW QUALITY PROTEIN: eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Amblyraja radiata TaxID=386614 RepID=UPI00140400FF
+-ESVIAEGVASRFSASSGGGGGRGAPQHYTKTASN-------------------STKRDVN---
+>UniRef100_UPI0014256826 eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Anneissia japonica TaxID=1529436 RepID=UPI0014256826
+--------------------------MIYDY--RE-DV--SVR-KN-QRWVPPS-TQRHT----
+>UniRef100_UPI001454ECC2 eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Asterias rubens TaxID=7604 RepID=UPI001454ECC2
+-EGQGEVGGASQAFPQRR---QQETPRQYPNKSSyNepllSDN-GSRNrGSRgRapQRWVPPSAGHRPEF---
+>UniRef100_UPI00187D8EA8 eukaryotic translation initiation factor 4 gamma 2 isoform X1 n=2 Tax=Bradysia coprophila TaxID=38358 RepID=UPI00187D8EA8
+--MEAI-STTDLVCIRNIfNrkTErvSHCSspPPIkteVTRQTGpESRVTGRETpaPHAStRRWVPPS-LIPYHE---
+>UniRef100_UPI00188563A4 eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Pollicipes pollicipes TaxID=41117 RepID=UPI00188563A4
+-SNKIP--PTTELDREVGS-ASRGS--G-GR--DNSSS-SNNP-FN--RWVPPSVLKRDA----
+>UniRef100_UPI001B88BA80 eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Gigantopelta aegis TaxID=1735272 RepID=UPI001B88BA80
+-LLVDCRRISSILDAKLVKGGA--SPHLGGRNERPPTLSSPGAATPVgkNRWIPPSTVKREV----
+>UniRef100_UPI001C70CA7A eukaryotic translation initiation factor 4 gamma 2-like isoform X1 n=2 Tax=Penaeus japonicus TaxID=27405 RepID=UPI001C70CA7A
+----------------------------MPY--RD-DL--RSLSSSKRRWIPPSSLRRDA----
+>UniRef100_UPI001E1D4AA3 LOW QUALITY PROTEIN: eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Mercenaria mercenaria TaxID=6596 RepID=UPI001E1D4AA3
+-AAGQQSDLILLDFSKAFDknlGGT--SPHAGGRDER-------SVSSPAtaRRWIPPSSVKRDVL---
+>UniRef100_UPI001EB052B2 eukaryotic translation initiation factor 4 gamma 2 n=1 Tax=Haliotis rufescens TaxID=6454 RepID=UPI001EB052B2
+---------------------------MRVVDERPPTLSGPGAHTPVakKRWIPPSSVKREV----
+>UniRef100_UPI001EEA6F88 eukaryotic translation initiation factor 4 gamma 2 isoform X1 n=2 Tax=Homalodisca vitripennis TaxID=197043 RepID=UPI001EEA6F88
+-PVCRV-VRDTQDTTDGPRGPG-G-ASRvSGG--RD-DS--RSLq-STKRRWVPPSTVRRDA----
+>UniRef100_UPI001EF799C3 eukaryotic translation initiation factor 4 gamma 2 isoform X1 n=2 Tax=Diprion similis TaxID=362088 RepID=UPI001EF799C3
+----------------------------MPS--RD-EI--RSL-STKRRWIPPSTIRRDA----
+>UniRef100_UPI002095DD93 eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Ostrea edulis TaxID=37623 RepID=UPI002095DD93
+-RHLMKKRTQKTSNILDGQtkvGGA--SPHTGGRDEKPPQFSGQGASALSaSRWVPPSTLRRDAp----
+>UniRef100_UPI0021808FA5 eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Patella vulgata TaxID=6465 RepID=UPI0021808FA5
+-NLHIRIIRSSILDAKIGKGGA--SPRSGGRDVRPPTTGAGAAANRVtkSRWIPPSSIKRDA----
+>UniRef100_UPI002242006B eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Xyrauchen texanus TaxID=154827 RepID=UPI002242006B
+-ESVIAEGGASRFSASSGGGGGRGATQHYTKTLGNGEYLGKTPGLSVQRWVPSRSTRRDVN---
+>UniRef100_UPI00226503E6 eukaryotic translation initiation factor 4 gamma 2-like n=1 Tax=Dreissena polymorpha TaxID=45954 RepID=UPI00226503E6
+-FDMVWCAFVMVRCVFVMNlGGT--SPHAGGQDER-------SVSSPAtaKRWIPPSSVKRDVL---
+>UniRef100_UPI00232A2375 eukaryotic translation initiation factor 4 gamma 2a isoform X1 n=1 Tax=Pleuronectes platessa TaxID=8262 RepID=UPI00232A2375
+-ESVVAAGGPSRFS--VGGEGG-GATEHYPKTVGNSEFLGKTPGAGVQRWVPSRNTRREVI---

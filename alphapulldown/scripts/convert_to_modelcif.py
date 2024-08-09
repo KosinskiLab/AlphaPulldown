@@ -157,7 +157,7 @@ class _Biopython2ModelCIF(modelcif.model.AbInitioModel):
         _LocalPLDDT.software = sw_dct["AlphaFold"]
         _LocalPairwisePAE.software = sw_dct["AlphaFold"]
         # global scores
-        if "iptm" in scores_json:
+        if "iptm+ptm" in scores_json:
             conf = scores_json["iptm+ptm"]
             iptm = scores_json["iptm"]
             ptm = (conf - 0.8*iptm)/0.2
@@ -257,7 +257,7 @@ def _get_modelcif_entities(target_ents, asym_units, system):
         )
         for pdb_chain_id in cif_ent["pdb_chain_id"]:
             asym_units[pdb_chain_id] = modelcif.AsymUnit(mdlcif_ent)
-        system.target_entities.append(mdlcif_ent)
+        system.entities.append(mdlcif_ent)
 
 
 def _get_step_output_method_type(method_type, protocol_steps):
@@ -493,7 +493,7 @@ def _store_as_modelcif(
     system.protocols.append(
         _get_modelcif_protocol(
             data_json["ma_protocol_step"],
-            system.target_entities,
+            system.entities,
             model,
             sw_dct,
             # ToDo: _store_as_modelcif should not use __meta__, __meta__ is
@@ -890,7 +890,7 @@ def _get_scores(cif_json: dict, scr_file: str) -> None:
     with open(os.path.join(output_dir, "ranking_debug.json"), 'r') as f:
         ranking = json.load(f)
         # Multimer
-        if "iptm" in ranking:
+        if "iptm+ptm" in ranking:
             iptm_ptm = ranking["iptm+ptm"][mdl_name]
             cif_json["iptm+ptm"] = iptm_ptm
             iptm = ranking["iptm"][mdl_name]

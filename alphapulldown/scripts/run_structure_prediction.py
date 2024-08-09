@@ -90,6 +90,8 @@ flags.DEFINE_integer('random_seed', None, 'The random seed for the data '
                      'nondeterministic.')
 flags.DEFINE_boolean('convert_to_modelcif', True,
                      'Whether to convert predicted pdb files to modelcif format. Default True.')
+flags.DEFINE_boolean('allow_resume', True,
+                     'Whether to allow resuming predictions from previous runs or start anew. Default True.')
 # AlphaLink2 settings
 flags.DEFINE_string('crosslinks', None, 'Path to crosslink information pickle for AlphaLink.')
 
@@ -198,7 +200,8 @@ def pre_modelling_setup(
         "crosslinks": flags.crosslinks,
         "desired_num_res": flags.desired_num_res,
         "desired_num_msa": flags.desired_num_msa,
-        "skip_templates": flags.skip_templates
+        "skip_templates": flags.skip_templates,
+        "allow_resume" : flags.allow_resume
     }
 
     if isinstance(object_to_model, MultimericObject):

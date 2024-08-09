@@ -249,8 +249,7 @@ class AlphaFoldBackend(FoldingBackend):
                 else:
                     model_runners[f"{model_name}_pred_{i}"] = model_runner
 
-        return {"model_runners": model_runners,
-                "allow_resume": allow_resume}
+        return {"model_runners": model_runners}
 
     @staticmethod
     def predict_individual_job(
@@ -337,6 +336,7 @@ class AlphaFoldBackend(FoldingBackend):
                     START = model_index + 1
                 else:
                     break
+        logging.info(f"{START} models are already completed.")
         if START == len(model_runners):
             logging.info(
                 f"All predictions for {multimeric_object.description} are already completed.")
@@ -541,6 +541,7 @@ class AlphaFoldBackend(FoldingBackend):
         relaxed_pdbs = {}
         ranking_confidences = {}
         iptm_scores = {}
+        ptm_scores = {}
         multimer_mode = type(multimeric_object) == MultimericObject
         # Read timings.json if exists
         timings_path = os.path.join(output_dir, 'timings.json')
@@ -551,21 +552,28 @@ class AlphaFoldBackend(FoldingBackend):
         ranking_path = os.path.join(output_dir, "ranking_debug.json")
         multimeric_mode = multimeric_object.multimeric_mode if hasattr(multimeric_object, "multimeric_mode") else None
 
-        label = 'plddts'
         total_num_res = sum([len(s) for s in multimeric_object.input_seqs]) if multimer_mode else len(multimeric_object.sequence)
         # Save plddt json files.
         for model_name, prediction_result in prediction_results.items():
             prediction_result.update(AlphaFoldBackend.recalculate_confidence(prediction_result,multimer_mode,
                                                                          total_num_res))
+            if 'unrelaxed_protein' in prediction_result.keys():
+                unrelaxed_protein = prediction_result.pop("unrelaxed_protein")
             # Remove jax dependency from results
             np_prediction_result = _jnp_to_np(dict(prediction_result))
             # Save prediction results to pickle file
             result_output_path = os.path.join(output_dir, f"result_{model_name}.pkl")
             with open(result_output_path, "wb") as f:
                 pickle.dump(np_prediction_result, f, protocol=4)
+            prediction_results[model_name]['unrelaxed_protein'] = unrelaxed_protein
             if 'iptm' in prediction_result:
                 label = 'iptm+ptm'
                 iptm_scores[model_name] = float(prediction_result['iptm'])
+                cmplx = True
+            else:
+                label = 'plddts'
+                ptm_scores[model_name] = float(prediction_result['ptm'])
+                cmplx = False
             plddt = prediction_result['plddt']
             _save_confidence_json_file(plddt, output_dir, model_name)
             ranking_confidences[model_name] = prediction_result['ranking_confidence']
@@ -598,8 +606,12 @@ class AlphaFoldBackend(FoldingBackend):
 
         # Save ranking_debug.json.
         with open(ranking_path, 'w') as f:
-            f.write(json.dumps(
-                {label: ranking_confidences, 'order': ranked_order, "iptm": iptm_scores}, indent=4))
+            json.dump(
+                {label: ranking_confidences, 'order': ranked_order,
+                 "iptm" if cmplx else "ptm": iptm_scores if cmplx else ptm_scores},
+                f,
+                indent=4
+            )
 
         # Relax.
         amber_relaxer = relax.AmberRelaxation(
@@ -621,7 +633,15 @@ class AlphaFoldBackend(FoldingBackend):
             if f'relax_{model_name}' in timings:
                 continue
             t_0 = time.time()
-            unrelaxed_protein = prediction_results[model_name]['unrelaxed_protein']
+            if 'unrelaxed_protein' in prediction_results[model_name].keys():
+                unrelaxed_protein = prediction_results[model_name]['unrelaxed_protein']
+            else:
+                unrelaxed_pdb_path = os.path.join(output_dir, f"unrelaxed_{model_name}.pdb")
+                if not os.path.exists(unrelaxed_pdb_path):
+                    logging.error(f"Cannot find {unrelaxed_pdb_path} for relaxation! Skipping...")
+                    continue
+                unrelaxed_pdb_string = open(unrelaxed_pdb_path, 'r').read()
+                unrelaxed_protein = protein.from_pdb_string(unrelaxed_pdb_string)
             relaxed_pdb_str, _, violations = amber_relaxer.process(
                 prot=unrelaxed_protein)
             relax_metrics[model_name] = {
@@ -689,7 +709,7 @@ class AlphaFoldBackend(FoldingBackend):
                                    text=True)
 
             if result.stderr:
-                logging.error("Error:", result.stderr)
+                logging.error(f"Error: {result.stderr}")
             else:
                 logging.info("All PDBs converted to ModelCIF format.")
         post_prediction_process(

@@ -111,7 +111,7 @@ def main(argv):
                 open(os.path.join(result_subdir, "ranking_debug.json"), "rb")
             )
 
-            if "iptm" in data.keys() or "iptm+ptm" in data.keys():
+            if "iptm+ptm" in data.keys():
                 iptm_ptm_score = data["iptm+ptm"][best_model]   
                 pae_mtx,iptm_score = obtain_pae_and_iptm(result_subdir=os.path.join(FLAGS.output_dir, job),
                                               best_model=best_model)

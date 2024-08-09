@@ -28,6 +28,20 @@ logging.set_verbosity(logging.INFO)
 
 
 def parse_fold(input, features_directory, protein_delimiter):
+    """
+    Parses a list of protein fold specifications and returns structured folding jobs.
+
+    Args:
+        input_list (list): List of protein fold specifications as strings.
+        features_directory (list): List of directories to search for protein feature files.
+        protein_delimiter (str): Delimiter used to separate different protein folds.
+
+    Returns:
+        list: A list of folding jobs, each represented by a list of dictionaries.
+
+    Raises:
+        FileNotFoundError: If any required protein features are missing.
+    """
     all_folding_jobs = []
     for i in input:
         formatted_folds, missing_features, unique_features = [], [], []
@@ -53,8 +67,9 @@ def parse_fold(input, features_directory, protein_delimiter):
                     # protein_fold is in this format: [protein_name:copy_number:1-10:14-30:40-100:etc]
                     try:
                         number = protein_fold[1]
-                        region = protein_fold[2:]
-                        region = [tuple(int(x) for x in r.split("-")) for r in region]
+                        if len(protein_fold[2:]) > 0:
+                            region = protein_fold[2:]
+                            region = [tuple(int(x) for x in r.split("-")) for r in region]
                     except Exception as e:
                         logging.error(f"Your format: {i} is wrong. The programme will terminate.")
                         sys.exit()
