@@ -1112,7 +1112,8 @@ As [Stahl et al., 2023](https://www.nature.com/articles/s41587-023-01704-z) show
 Before using, install AlphaLink2 as described [here](#4-installation-for-cross-link-input-data-by-alphalink2-optional).
 
 <details>
-<summary>Input</summary>
+
+#### Input
 
 Besides features (`.pkl`) files generated in the [1.1. Basic Run](#11-basic-run) you need to prepare cross-link input data:
 
