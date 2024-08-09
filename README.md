@@ -314,9 +314,7 @@ Activate the AlphaPulldown environment and run the script `create_individual_fea
 ```bash
 source activate AlphaPulldown
 create_individual_features.py \
-  --fasta_paths=<se
-
-quences.fasta> \
+  --fasta_paths=<sequences.fasta> \
   --data_dir=<path to alphafold databases> \
   --output_dir=<dir to save the output objects> \ 
   --max_template_date=<any date you want, format like: 2050-01-01> \
@@ -521,7 +519,8 @@ MMseqs2 is another method for homolog search and MSA generation. It offers an al
 Mirdita M, Schütze K, Moriwaki Y, Heo L, Ovchinnikov S, Steinegger M. ColabFold: Making protein folding accessible to all. Nature Methods (2022) doi: 10.1038/s41592-022-01488-1
 
 <details> 
-<summary>Run MMseqs2 Remotely</summary>
+   
+#### Run MMseqs2 Remotely
 
 > **CAUTION:** To avoid overloading the remote server, do not submit a large number of jobs simultaneously. If you want to calculate MSAs for many sequences, please use [MMseqs2 locally](#run-mmseqs2-locally).
 
@@ -1077,6 +1076,7 @@ The [output](#output-3) and [next step](#next-step-4) are the same as those for 
 If you have some experimental models you want to integrate into AlphaFold pipeline to guide the modeling, you can do so using custom multimeric databases created on the fly.
 
 <details>
+   
 #### Input
 
 This step requires the feature files (`.pkl`) generated with custom templates during the [first step](#14-run-with-custom-templates-truemultimer). Additionally, you'll need to provide a list of protein combinations in `protein_list.txt` that you intend to predict.
@@ -1133,8 +1133,7 @@ The keys in these dictionaries should be the same as your pickle files created i
 
 Dictionaries like these should be stored in **```.pkl.gz```** files and provided to AlphaPulldown in the next step. You can use the script from [AlphaLink2](https://github.com/Rappsilber-Laboratory/AlphaLink2/tree/main) to prepare these pickle files. 
 
->[!Warning]
->The dictionaries are 0-indexed, i.e., residues start from 0.
+>**Warning!** The dictionaries are 0-indexed, i.e., residues start from 0.
 
 #### Run with AlphaLink2 prediction via AlphaPulldown
 
@@ -1296,7 +1295,7 @@ Results table:
 
 $\text{\color{red}Change description, add explain scores}$
 
-By default, you will have a CSV file named `predictions_with_good_interpae.txt` created in the directory `/path/to/your/output/dir` as you have given in the command above. `predictions_with_good_interpae.txt` reports: 1. iptm, iptm+ptm scores provided by AlphaFold 2. mpDockQ score developed by [Bryant _et al._, 2022](https://gitlab.com/patrickbryant1/molpc)  3. PI_score developed by [Malhotra _et al._, 2021](https://gitlab.com/sm2185/ppi_scoring/-/wikis/home). The detailed explanations of these scores can be found in our paper and an example screenshot of the table is below. ![example](./example_table_screenshot.png)
+By default, you will have a CSV file named `predictions_with_good_interpae.txt` created in the directory `/path/to/your/output/dir` as you have given in the command above. `predictions_with_good_interpae.txt` reports: 1. iptm, iptm+ptm scores provided by AlphaFold 2. mpDockQ score developed by [Bryant _et al._, 2022](https://gitlab.com/patrickbryant1/molpc)  3. PI_score developed by [Malhotra _et al._, 2021](https://gitlab.com/sm2185/ppi_scoring/-/wikis/home). The detailed explanations of these scores can be found in our paper and an example screenshot of the table is below. ![example](./manuals/example_table_screenshot.png)
 
 ## Results management scripts
 
