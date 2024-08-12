@@ -4,39 +4,82 @@
 
 ## Table of Contents
 
-1. [**About AlphaPulldown**](#about-alphapulldown)
-2. [**Snakemake AlphaPulldown**](#snakemake-alphapulldown)
-3. [**Run AlphaPulldown Python CLI**](#run-alphapulldown-python-cli)
-   - [Installation](#installation)
-     - [0. Alphafold databases](#0-alphafold-databases)
-     - [1. Create Anaconda environment](#1-create-anaconda-environment)
-     - [2. Installation using pip](#2-installation-using-pip)
-     - [3. Installation for the Downstream analysis tools](#3-installation-for-the-downstream-analysis-tools)
-     - [4. Installation for cross-link input data by AlphaLink2 (optional)](#4-installation-for-cross-link-input-data-by-alphalink2-optional)
-     - [5. Installation for developers](#5-installation-for-developers)
-   - [1. Compute multiple sequence alignment (MSA) and template features (CPU stage)](#1-compute-multiple-sequence-alignment-msa-and-template-features-cpu-stage)
-     - [**1.1. Basic run**](#11-basic-run)
-     - [1.2. Example run with SLURM (EMBL cluster)](#12-example-bash-scripts-for-slurm-embl-cluster)
-     - [1.3. Run using MMseqs2 and ColabFold Databases (Faster)](#13-run-using-mmseqs2-and-colabfold-databases-faster)
-     - [1.4. Run with custom templates (TrueMultimer)](#14-run-with-custom-templates-truemultimer)
-   - [2. Predict structures (GPU stage)](#2-predict-structures-gpu-stage)
-     - [**2.1. Basic run**](#21-basic-run)
-     - [2.2. Example run with SLURM (EMBL cluster)](#22-example-run-with-slurm-embl-cluster)
-     - [2.3. Pulldown mode](#23-pulldown-mode)
-     - [2.4. All versus All mode](#24-all-versus-all-mode)
-     - [2.5. Run with custom templates (TrueMultimer)](#25-run-with-custom-templates-truemultimer)
-     - [2.6. Run with crosslinking-data (AlphaLink2)](#26-run-with-crosslinking-data-alphalink2)
-   - [3. Analysis and Visualization](#3-analysis-and-visualization)
-     - [**Create Jupyter Notebook**](#create-jupyter-notebook)
-     - [**Create Results table**](#create-results-table)
-4. [**Downstream analysis**](#downstream-analysis)
-     - [Jupyter notebook](#jupyter-notebook)
-     - [Results table](#results-table)
-     - [Results management scripts](#results-management-scripts)
-       - [Decrease the size of AlphaPulldown output](#decrease-the-size-of-alphapulldown-output)
-       - [Convert Models from PDB Format to ModelCIF Format](#convert-models-from-pdb-format-to-modelcif-format)
-
----
+<!-- TOC -->
+* [AlphaPulldown: Version 2.0.0 (Beta)](#alphapulldown-version-200-beta)
+  * [Table of Contents](#table-of-contents)
+* [About AlphaPulldown](#about-alphapulldown)
+  * [Overview](#overview)
+* [Alphafold databases](#alphafold-databases)
+* [Snakemake AlphaPulldown](#snakemake-alphapulldown-)
+  * [1. Installation](#1-installation)
+  * [2. Configuration](#2-configuration)
+  * [3. Execution](#3-execution)
+* [Run AlphaPulldown Python Command Line Interface](#run-alphapulldown-python-command-line-interface)
+  * [0. Installation](#0-installation)
+    * [0.1. Create Anaconda environment](#01-create-anaconda-environment)
+    * [0.2. Installation using pip](#02-installation-using-pip)
+    * [0.3. Installation for the Downstream analysis tools](#03-installation-for-the-downstream-analysis-tools)
+    * [0.4. Installation for cross-link input data by AlphaLink2 (optional!)](#04-installation-for-cross-link-input-data-by-alphalink2-optional)
+    * [0.5. Installation for developers](#05-installation-for-developers)
+  * [1. Compute multiple sequence alignment (MSA) and template features (CPU stage)](#1-compute-multiple-sequence-alignment-msa-and-template-features-cpu-stage)
+    * [1.1. Basic run](#11-basic-run)
+      * [Input](#input)
+      * [Script Execution](#script-execution)
+      * [Output](#output)
+      * [Next step](#next-step)
+    * [1.2. Example bash scripts for SLURM (EMBL cluster)](#12-example-bash-scripts-for-slurm-embl-cluster)
+      * [Input](#input-1)
+      * [Script Execution](#script-execution-1)
+      * [Next step](#next-step-1)
+    * [1.3. Run using MMseqs2 and ColabFold Databases (Faster)](#13-run-using-mmseqs2-and-colabfold-databases-faster)
+      * [Run MMseqs2 Remotely](#run-mmseqs2-remotely)
+      * [Output](#output-1)
+      * [Run MMseqs2 Locally](#run-mmseqs2-locally)
+      * [Next step](#next-step-2)
+    * [1.4. Run with custom templates (TrueMultimer)](#14-run-with-custom-templates-truemultimer)
+      * [Input](#input-2)
+      * [Script Execution](#script-execution-2)
+      * [Output](#output-2)
+      * [Next step](#next-step-3)
+  * [2. Predict structures (GPU stage)](#2-predict-structures-gpu-stage)
+    * [2.1. Basic run](#21-basic-run)
+      * [Input](#input-3)
+      * [Script Execution: Structure Prediction](#script-execution-structure-prediction)
+      * [Output](#output-3)
+      * [Next step](#next-step-4)
+    * [2.2. Example run with SLURM (EMBL cluster)](#22-example-run-with-slurm-embl-cluster)
+      * [Input](#input-4)
+      * [Script Execution](#script-execution-3)
+      * [Output and the next step](#output-and-the-next-step)
+    * [2.3. Pulldown mode](#23-pulldown-mode)
+      * [Multiple inputs "pulldown" mode](#multiple-inputs-pulldown-mode)
+    * [2.4. All versus All mode](#24-all-versus-all-mode)
+      * [Output and the next step](#output-and-the-next-step-1)
+    * [2.5. Run with Custom Templates (TrueMultimer)](#25-run-with-custom-templates-truemultimer)
+      * [Input](#input-5)
+      * [Script Execution for TrueMultimer Structure Prediction](#script-execution-for-truemultimer-structure-prediction)
+      * [Output and the next step](#output-and-the-next-step-2)
+    * [2.6. Run with crosslinking-data (AlphaLink2)](#26-run-with-crosslinking-data-alphalink2)
+      * [Input](#input-6)
+      * [Run with AlphaLink2 prediction via AlphaPulldown](#run-with-alphalink2-prediction-via-alphapulldown)
+      * [Output and the next step](#output-and-the-next-step-3)
+  * [3. Analysis and Visualization](#3-analysis-and-visualization)
+    * [Create Jupyter Notebook](#create-jupyter-notebook)
+      * [Next step](#next-step-5)
+    * [Create Results table](#create-results-table)
+      * [Next step](#next-step-6)
+* [Downstream analysis](#downstream-analysis)
+  * [Jupyter notebook](#jupyter-notebook)
+  * [Results table](#results-table-)
+  * [Results management scripts](#results-management-scripts)
+    * [Decrease the size of AlphaPulldown output](#decrease-the-size-of-alphapulldown-output)
+    * [Convert Models from PDB Format to ModelCIF Format](#convert-models-from-pdb-format-to-modelcif-format)
+      * [1. Convert all models to separate ModelCIF files](#1-convert-all-models-to-separate-modelcif-files)
+      * [2. Only convert a specific single model for each complex](#2-only-convert-a-specific-single-model-for-each-complex)
+      * [3. Have a representative model and keep associated models](#3-have-a-representative-model-and-keep-associated-models)
+      * [Associated Zip Archives](#associated-zip-archives)
+      * [Miscellaneous Options](#miscellaneous-options)
+<!-- TOC -->
 
 # About AlphaPulldown
 
@@ -96,32 +139,8 @@ The AlphaPulldown workflow involves the following 3 steps:
 
 <br>
 
-# Snakemake AlphaPulldown 
-
-AlphaPulldown is available as a Snakemake pipeline, allowing you to sequentially execute **(1)** Features and MSA generation, **(2)** Structure prediction, and **(3)** Results analysis without manual intervention between steps. For installation and execution instructions, please refer to the [**AlphaPulldownSnakemake**](https://github.com/KosinskiLab/AlphaPulldownSnakemake) repository.
-
-> [!Warning]
-> The Snakemake version of AlphaPulldown differs slightly from the conventional scripts-based AlphaPulldown in terms of input file specifications.
-
-For downstream analysis of Snakemake-AlphaPulldown results, please refer to this part of the manual: [Downstream analysis](#downstream-analysis).
-
-<br>
-<br>
-
-# Run AlphaPulldown Python CLI
-
-AlphaPulldown can be used as a set of scripts for every particular step. 
-1. [`create_individual_features.py`](#1-compute-multiple-sequence-alignment-msa-and-template-features-cpu-stage): Generates multiple sequence alignments (MSA), identifies structural templates, and stores the results in monomeric feature `.pkl` files.
-2. [`run_multimer_jobs.py`](#2-predict-structures-gpu-stage): Executes the prediction of structures.
-3. [`create_notebook.py`](#create-jupyter-notebook) and [`alpha-analysis.sif`](#create-results-table): Prepares an interactive Jupyter Notebook and a Results Table, respectively.
-
-## Installation
-
-### 0. Alphafold databases
-
-For the standard MSA
-
- and features calculation, AlphaPulldown requires genetic databases. Check if you have downloaded the necessary parameters and databases (e.g., BFD, MGnify, etc.) as instructed in [AlphaFold's documentation](https://github.com/deepmind/alphafold). You should have a directory structured as follows:
+# Alphafold databases
+For the standard MSA and features calculation, AlphaPulldown requires genetic databases. Check if you have downloaded the necessary parameters and databases (e.g., BFD, MGnify, etc.) as instructed in [AlphaFold's documentation](https://github.com/deepmind/alphafold). You should have a directory structured as follows:
 
 <details>
 <summary>
@@ -163,7 +182,200 @@ alphafold_database/                             # Total: ~ 2.2 TB (download: 438
 > [!NOTE] 
 > Since the local installation of all genetic databases is space-consuming, you can alternatively use the [remotely-run MMseqs2 and ColabFold databases](https://github.com/sokrypton/ColabFold). Follow the corresponding [instructions](#13-run-using-mmseqs2-and-colabfold-databases-faster). However, for AlphaPulldown to function, you must download the parameters stored in the `params/` directory of the AlphaFold database.
 
-### 1. Create Anaconda environment
+
+# Snakemake AlphaPulldown 
+
+AlphaPulldown is available as a Snakemake pipeline, allowing you to sequentially execute **(1)** Generation of MSAs and template features, **(2)** Structure prediction, and **(3)** Results analysis without manual intervention between steps. For installation and execution instructions, please refer to the [**AlphaPulldownSnakemake**](https://github.com/KosinskiLab/AlphaPulldownSnakemake) repository.
+
+> [!Warning]
+> The Snakemake version of AlphaPulldown differs slightly from the conventional scripts-based AlphaPulldown in terms of input file specifications.
+
+## 1. Installation
+
+Before installation, make sure your python version is at least 3.10.
+
+```bash
+python3 --version
+```
+
+**Install Dependencies**
+
+    ```bash
+    pip install snakemake==7.32.4 snakedeploy==0.10.0 pulp==2.7 click==8.1 cookiecutter==2.6
+    ```
+
+**Snakemake Cluster Setup**
+
+    In order to allow snakemake to interface with a compute cluster, we are going to use the [Snakemake-Profile for SLURM](https://github.com/Snakemake-Profiles/slurm). If you are not working on a SLURM cluster you can find profiles for different architectures [here](https://github.com/Snakemake-Profiles/slurm). The following will create a profile that can be used with snakemake and prompt you for some additional information.
+
+    ```bash
+    git clone https://github.com/Snakemake-Profiles/slurm.git
+    profile_dir="${HOME}/.config/snakemake"
+    mkdir -p "$profile_dir"
+    template="gh:Snakemake-Profiles/slurm"
+    cookiecutter --output-dir "$profile_dir" "$template"
+    ```
+
+    During the setup process, you will be prompted to answer several configuration questions. Below are the questions and the recommended responses:
+
+    - `profile_name [slurm]:` **slurm_noSidecar**
+    - `Select use_singularity:` **1 (False)**
+    - `Select use_conda:` **1 (False)**
+    - `jobs [500]:` *(Press Enter to accept default)*
+    - `restart_times [0]:` *(Press Enter to accept default)*
+    - `max_status_checks_per_second [10]:` *(Press Enter to accept default)*
+    - `max_jobs_per_second [10]:` *(Press Enter to accept default)*
+    - `latency_wait [5]:` **30**
+    - `Select print_shell_commands:` **1 (False)**
+    - `sbatch_defaults []:` **qos=low nodes=1**
+    - `Select cluster_sidecar:` **2 (no)**
+    - `cluster_name []:` *(Press Enter to leave blank)*
+    - `cluster_jobname [%r_%w]:` *(Press Enter to accept default)*
+    - `cluster_logpath [logs/slurm/%r/%j]:` *(Press Enter to accept default)*
+    - `cluster_config []:` *(Press Enter to leave blank)*
+
+    After responding to these prompts, your Slurm profile named *slurm_noSidecar* for Snakemake will be configured as specified.
+
+**Singularity (Probably Installed Already)**: This pipeline makes use of containers for reproducibility. If you are working on the EMBL cluster singularity is already installed and you can skip this step. Otherwise, please install Singularity using the [official Singularity guide](https://sylabs.io/guides/latest/user-guide/quick_start.html#quick-installation-steps).
+
+
+**Download The Pipeline**:
+    This will download the version specified by '--tag' of the snakemake pipeline and create the repository AlphaPulldownSnakemake, or any other name you choose.
+    ```bash
+    snakedeploy deploy-workflow \
+      https://github.com/KosinskiLab/AlphaPulldownSnakemake \
+      AlphaPulldownSnakemake \
+      --tag 1.3.0
+    cd AlphaPulldownSnakemake
+    ```
+
+## 2. Configuration
+
+Adjust `config/config.yaml` for your particular use case.
+
+**input_files**
+This variable holds the path to your sample sheet, where each line corresponds to a folding job. For this pipeline we use the following format specification:
+
+```
+protein:N:start-stop[_protein:N:start-stop]*
+```
+
+where protein is a path to a file with '.fasta' extension or uniprot ID, N is the number of monomers for this particular protein and start and stop are the residues that should be predicted. However, only protein is required, N, start and stop can be omitted. Hence the following folding jobs for the protein example containing residues 1-50 are equivalent:
+
+```
+example:2
+example_example
+example:2:1-50
+example:1-50_example:1-50
+example:1:1-50_example:1:1-50
+```
+
+This format similarly extends for the folding of heteromers:
+
+```
+example1_example2
+```
+
+Assuming you have two sample sheets config/sample_sheet1.csv and config/sample_sheet2.csv. The following would be equivalent to computing all versus all in sample_sheet1.csv:
+
+```
+input_files :
+  - config/sample_sheet1.csv
+  - config/sample_sheet1.csv
+```
+
+while the snippet below would be equivalent to computing the pulldown between sample_sheet1.csv and sample_sheet2.csv
+
+```
+input_files :
+  - config/sample_sheet1.csv
+  - config/sample_sheet2.csv
+```
+
+This format can be extended to as many files as you would like, but keep in mind the number of folds will increase dramatically.
+
+```
+input_files :
+  - config/sample_sheet1.csv
+  - config/sample_sheet2.csv
+  - ...
+```
+
+**alphafold_data_directory**
+This is the path to your alphafold database.
+
+**output_directory**
+Snakemake will write the pipeline output to this directory. If it does not exist, it will be created.
+
+**save_msa, use_precomputed_msa, predictions_per_model, number_of_recycles, report_cutoff**
+Command line arguments that were previously pasesed to AlphaPulldown's run_multimer_jobs.py and create_notebook.py (report_cutoff).
+
+**alphafold_inference_threads, alphafold_inference**
+Slurm specific parameters that do not need to be modified by non-expert users.
+
+**only_generate_features**
+If set to True, stops after generating features and does not perform structure prediction and reporting.
+
+## 3. Execution
+
+After following the Installation and Configuration steps, you are now ready to run the snakemake pipeline. To do so, navigate into the cloned pipeline directory and run:
+
+```bash
+snakemake \
+  --use-singularity \
+  --singularity-args "-B /scratch:/scratch \
+    -B /g/kosinski:/g/kosinski \
+    --nv " \
+  --jobs 200 \
+  --restart-times 5 \
+  --profile slurm_noSidecar \
+  --rerun-incomplete \
+  --rerun-triggers mtime \
+  --latency-wait 30 \
+  -n
+
+```
+
+Here's a breakdown of what each argument does:
+
+- `--use-singularity`: Enables the use of Singularity containers. This allows for reproducibility and isolation of the pipeline environment.
+
+- `--singularity-args`: Specifies arguments passed directly to Singularity. In the provided example:
+  - `-B /scratch:/scratch` and `-B /g/kosinski:/g/kosinski`: These are bind mount points. They make directories from your host system accessible within the Singularity container. `--nv` ensures the container can make use of the hosts GPUs.
+
+- `--profile name_of_your_profile`: Specifies the Snakemake profile to use (e.g., the SLURM profile you set up for cluster execution).
+
+- `--rerun-triggers mtime`: Reruns a job if a specific file (trigger) has been modified more recently than the job's output. Here, `mtime` checks for file modification time.
+
+- `--jobs 500`: Allows up to 500 jobs to be submitted to the cluster simultaneously.
+
+- `--restart-times 10`: Specifies that jobs can be automatically restarted up to 10 times if they fail.
+
+- `--rerun-incomplete`: Forces the rerun of any jobs that were left incomplete in previous Snakemake runs.
+
+- `--latency-wait 30`: Waits for 30 seconds after a step finishes to check for the existence of expected output files. This can be useful in file-systems with high latencies.
+
+- `-n`: Dry-run flag. This makes Snakemake display the commands it would run without actually executing them. It's useful for testing. To run the pipeline for real, simply remove this flag.
+
+Executing the command above will perform submit the following jobs to the cluster:
+
+![Snakemake rulegraph](manuals/dag.png)
+
+For downstream analysis of Snakemake-AlphaPulldown results, please refer to this part of the manual: [Downstream analysis](#downstream-analysis).
+
+<br>
+<br>
+
+# Run AlphaPulldown Python Command Line Interface
+
+AlphaPulldown can be used as a set of scripts for every particular step. 
+1. [`create_individual_features.py`](#1-compute-multiple-sequence-alignment-msa-and-template-features-cpu-stage): Generates multiple sequence alignments (MSA), identifies structural templates, and stores the results in monomeric feature `.pkl` files.
+2. [`run_multimer_jobs.py`](#2-predict-structures-gpu-stage): Executes the prediction of structures.
+3. [`create_notebook.py`](#create-jupyter-notebook) and [`alpha-analysis.sif`](#create-results-table): Prepares an interactive Jupyter Notebook and a Results Table, respectively.
+
+## 0. Installation
+
+### 0.1. Create Anaconda environment
 
 **Firstly**, install [Anaconda](https://www.anaconda.com/) and create an AlphaPulldown environment, gathering necessary dependencies:
 
@@ -179,7 +391,7 @@ conda install -c bioconda hmmer
 ```
 This usually works, but on some compute systems, users may prefer to use other versions or optimized builds of HMMER and HH-suite that are already installed.
 
-### 2. Installation using pip
+### 0.2. Installation using pip
 
 Activate the AlphaPulldown environment and install AlphaPulldown:
 
@@ -198,7 +410,7 @@ pip install jax==0.4.27 \
 > **For older versions of AlphaFold**:
 > If you haven't updated your databases according to the requirements of AlphaFold 2.3.0, you can still use AlphaPulldown with your older version of the AlphaFold database. Please follow the installation instructions on the [dedicated branch](https://github.com/KosinskiLab/AlphaPulldown/tree/AlphaFold-2.2.0).
 
-### 3. Installation for the Downstream analysis tools
+### 0.3. Installation for the Downstream analysis tools
 
 To create the Results table, you need to have [Singularity](https://apptainer.org/admin-docs/master/installation.html) installed.
 
@@ -209,7 +421,7 @@ Download the singularity image:
 
 Chrome users may not be able to download it after clicking the link. If so, please right-click and select "Save link as".
 
-### 4. Installation for cross-link input data by [AlphaLink2](https://github.com/Rappsilber-Laboratory/AlphaLink2/tree/main) (optional!)
+### 0.4. Installation for cross-link input data by [AlphaLink2](https://github.com/Rappsilber-Laboratory/AlphaLink2/tree/main) (optional!)
 
 $\text{\color{red}Update the installation manual after resolving the dependency conflict.}$
 
@@ -237,7 +449,7 @@ $\text{\color{red}Update the installation manual after resolving the dependency 
     ```
 4. Download the PyTorch checkpoints from [Zenodo](https://zenodo.org/records/8007238), unzip it, then you should obtain a file named: `AlphaLink-Multimer_SDA_v3.pt`
 
-### 5. Installation for developers
+### 0.5. Installation for developers
 
 Only for the developers who would like to modify AlphaPulldown's codes and test their modifications.
 
