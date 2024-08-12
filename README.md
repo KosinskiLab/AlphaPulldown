@@ -185,7 +185,7 @@ alphafold_database/                             # Total: ~ 2.2 TB (download: 438
 
 # Snakemake AlphaPulldown 
 
-AlphaPulldown is available as a Snakemake pipeline, allowing you to sequentially execute **(1)** Generation of MSAs and template features, **(2)** Structure prediction, and **(3)** Results analysis without manual intervention between steps. For installation and execution instructions, please refer to the [**AlphaPulldownSnakemake**](https://github.com/KosinskiLab/AlphaPulldownSnakemake) repository.
+AlphaPulldown is available as a Snakemake pipeline, allowing you to sequentially execute **(1)** Generation of MSAs and template features, **(2)** Structure prediction, and **(3)** Results analysis without manual intervention between steps. For more details, please refer to the [**AlphaPulldownSnakemake**](https://github.com/KosinskiLab/AlphaPulldownSnakemake) repository.
 
 > [!Warning]
 > The Snakemake version of AlphaPulldown differs slightly from the conventional scripts-based AlphaPulldown in terms of input file specifications.
@@ -200,54 +200,54 @@ python3 --version
 
 **Install Dependencies**
 
-    ```bash
-    pip install snakemake==7.32.4 snakedeploy==0.10.0 pulp==2.7 click==8.1 cookiecutter==2.6
-    ```
+```bash
+pip install snakemake==7.32.4 snakedeploy==0.10.0 pulp==2.7 click==8.1 cookiecutter==2.6
+```
 
 **Snakemake Cluster Setup**
 
-    In order to allow snakemake to interface with a compute cluster, we are going to use the [Snakemake-Profile for SLURM](https://github.com/Snakemake-Profiles/slurm). If you are not working on a SLURM cluster you can find profiles for different architectures [here](https://github.com/Snakemake-Profiles/slurm). The following will create a profile that can be used with snakemake and prompt you for some additional information.
+In order to allow snakemake to interface with a compute cluster, we are going to use the [Snakemake-Profile for SLURM](https://github.com/Snakemake-Profiles/slurm). If you are not working on a SLURM cluster you can find profiles for different architectures [here](https://github.com/Snakemake-Profiles/slurm). The following will create a profile that can be used with snakemake and prompt you for some additional information.
 
-    ```bash
-    git clone https://github.com/Snakemake-Profiles/slurm.git
-    profile_dir="${HOME}/.config/snakemake"
-    mkdir -p "$profile_dir"
-    template="gh:Snakemake-Profiles/slurm"
-    cookiecutter --output-dir "$profile_dir" "$template"
-    ```
+```bash
+git clone https://github.com/Snakemake-Profiles/slurm.git
+profile_dir="${HOME}/.config/snakemake"
+mkdir -p "$profile_dir"
+template="gh:Snakemake-Profiles/slurm"
+cookiecutter --output-dir "$profile_dir" "$template"
+```
 
-    During the setup process, you will be prompted to answer several configuration questions. Below are the questions and the recommended responses:
+During the setup process, you will be prompted to answer several configuration questions. Below are the questions and the recommended responses:
 
-    - `profile_name [slurm]:` **slurm_noSidecar**
-    - `Select use_singularity:` **1 (False)**
-    - `Select use_conda:` **1 (False)**
-    - `jobs [500]:` *(Press Enter to accept default)*
-    - `restart_times [0]:` *(Press Enter to accept default)*
-    - `max_status_checks_per_second [10]:` *(Press Enter to accept default)*
-    - `max_jobs_per_second [10]:` *(Press Enter to accept default)*
-    - `latency_wait [5]:` **30**
-    - `Select print_shell_commands:` **1 (False)**
-    - `sbatch_defaults []:` **qos=low nodes=1**
-    - `Select cluster_sidecar:` **2 (no)**
-    - `cluster_name []:` *(Press Enter to leave blank)*
-    - `cluster_jobname [%r_%w]:` *(Press Enter to accept default)*
-    - `cluster_logpath [logs/slurm/%r/%j]:` *(Press Enter to accept default)*
-    - `cluster_config []:` *(Press Enter to leave blank)*
+- `profile_name [slurm]:` **slurm_noSidecar**
+- `Select use_singularity:` **1 (False)**
+- `Select use_conda:` **1 (False)**
+- `jobs [500]:` *(Press Enter to accept default)*
+- `restart_times [0]:` *(Press Enter to accept default)*
+- `max_status_checks_per_second [10]:` *(Press Enter to accept default)*
+- `max_jobs_per_second [10]:` *(Press Enter to accept default)*
+- `latency_wait [5]:` **30**
+- `Select print_shell_commands:` **1 (False)**
+- `sbatch_defaults []:` **qos=low nodes=1**
+- `Select cluster_sidecar:` **2 (no)**
+- `cluster_name []:` *(Press Enter to leave blank)*
+- `cluster_jobname [%r_%w]:` *(Press Enter to accept default)*
+- `cluster_logpath [logs/slurm/%r/%j]:` *(Press Enter to accept default)*
+- `cluster_config []:` *(Press Enter to leave blank)*
 
-    After responding to these prompts, your Slurm profile named *slurm_noSidecar* for Snakemake will be configured as specified.
+After responding to these prompts, your Slurm profile named *slurm_noSidecar* for Snakemake will be configured as specified.
 
 **Singularity (Probably Installed Already)**: This pipeline makes use of containers for reproducibility. If you are working on the EMBL cluster singularity is already installed and you can skip this step. Otherwise, please install Singularity using the [official Singularity guide](https://sylabs.io/guides/latest/user-guide/quick_start.html#quick-installation-steps).
 
 
 **Download The Pipeline**:
-    This will download the version specified by '--tag' of the snakemake pipeline and create the repository AlphaPulldownSnakemake, or any other name you choose.
-    ```bash
-    snakedeploy deploy-workflow \
-      https://github.com/KosinskiLab/AlphaPulldownSnakemake \
-      AlphaPulldownSnakemake \
-      --tag 1.3.0
-    cd AlphaPulldownSnakemake
-    ```
+This will download the version specified by '--tag' of the snakemake pipeline and create the repository AlphaPulldownSnakemake, or any other name you choose.
+```bash
+snakedeploy deploy-workflow \
+  https://github.com/KosinskiLab/AlphaPulldownSnakemake \
+  AlphaPulldownSnakemake \
+  --tag 1.3.0
+cd AlphaPulldownSnakemake
+```
 
 ## 2. Configuration
 
