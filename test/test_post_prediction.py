@@ -8,11 +8,6 @@ import zipfile
 from alphapulldown.utils.post_modelling import post_prediction_process
 import json
 
-"""
-Test removing result pickles and archiving the results
-"""
-
-
 class TestPostPrediction(parameterized.TestCase):
     def setUp(self) -> None:
         super().setUp()
@@ -34,58 +29,70 @@ class TestPostPrediction(parameterized.TestCase):
         ('TEST_and_TEST', False, True)
     )
     def test_files(self, prediction_dir, zip_pickles, remove_pickles):
-        """Test postprocessing of the prediction results"""
-        with tempfile.TemporaryDirectory() as temp_dir:
+        temp_dir = tempfile.TemporaryDirectory()
+        try:
+            logging.info(f"Running test for prediction_dir='{prediction_dir}', zip_pickles={zip_pickles}, remove_pickles={remove_pickles}")
+            temp_dir_path = temp_dir.name
             # Copy the files to the temporary directory
-            shutil.copytree(join(self.input_dir, prediction_dir), join(temp_dir, prediction_dir))
+            shutil.copytree(join(self.input_dir, prediction_dir), join(temp_dir_path, prediction_dir))
             # remove existing zip files
-            zip_files = [f for f in os.listdir(join(temp_dir, prediction_dir)) if f.endswith('.zip')]
+            zip_files = [f for f in os.listdir(join(temp_dir_path, prediction_dir)) if f.endswith('.zip')]
             for f in zip_files:
-                os.remove(join(temp_dir, prediction_dir, f))
+                os.remove(join(temp_dir_path, prediction_dir, f))
             # Run the postprocessing function
-            post_prediction_process(join(temp_dir, prediction_dir), zip_pickles, remove_pickles)
+            post_prediction_process(join(temp_dir_path, prediction_dir), zip_pickles, remove_pickles)
 
             # Get the best model from ranking_debug.json
-            with open(join(temp_dir, prediction_dir, 'ranking_debug.json')) as f:
+            with open(join(temp_dir_path, prediction_dir, 'ranking_debug.json')) as f:
                 best_model = json.load(f)['order'][0]
 
             # Define the expected best result pickle path
-            if prediction_dir == 'TEST':
-                best_result_pickle = join(temp_dir,
-                                          prediction_dir,
-                                          f"result_model_{best_model}_ptm_pred_0.pkl")
-            elif prediction_dir == 'TEST_and_TEST':
-                best_result_pickle = join(temp_dir,
-                                          prediction_dir,
-                                          f"result_model_{best_model}_multimer_v3_pred.pkl")
+            best_result_pickle = join(temp_dir_path, prediction_dir, f"result_{best_model}.pkl")
 
             # Check if files are removed and/or zipped based on the parameters
-            pickle_files = [f for f in os.listdir(join(temp_dir, prediction_dir)) if f.endswith('.pkl')]
-            zip_files = [f for f in os.listdir(join(temp_dir, prediction_dir)) if f.endswith('.zip')]
+            pickle_files = [f for f in os.listdir(join(temp_dir_path, prediction_dir)) if f.endswith('.pkl')]
+            zip_files = [f for f in os.listdir(join(temp_dir_path, prediction_dir)) if f.endswith('.zip')]
 
             if not zip_pickles and not remove_pickles:
                 # All pickle files should be present, no zip files
-                self.assertEqual(len(pickle_files), 5)
-                self.assertEqual(len(zip_files), 0)
+                logging.info("Checking condition: not zip_pickles and not remove_pickles")
+                self.assertEqual(len(pickle_files), 5, f"Expected 5 pickle files, found {len(pickle_files)}.")
+                self.assertEqual(len(zip_files), 0, f"Expected 0 zip files, found {len(zip_files)}.")
 
             if zip_pickles and not remove_pickles:
                 # No pickle files should be present, each zipped separately
-                self.assertEqual(len(pickle_files), 0)
-                self.assertEqual(len(zip_files), 5)
+                logging.info("Checking condition: zip_pickles and not remove_pickles")
+                self.assertEqual(len(pickle_files), 0, f"Expected 0 pickle files, found {len(pickle_files)}.")
+                self.assertEqual(len(zip_files), 5, f"Expected 5 zip files, found {len(zip_files)}.")
                 for zip_file in zip_files:
-                    with zipfile.ZipFile(join(temp_dir, prediction_dir, zip_file), 'r') as z:
-                        self.assertTrue(all(f.endswith('.pkl') for f in z.namelist()))
+                    with zipfile.ZipFile(join(temp_dir_path, prediction_dir, zip_file), 'r') as z:
+                        self.assertTrue(all(f.endswith('.pkl') for f in z.namelist()), "Not all files in the zip archive are .pkl files.")
 
             if not zip_pickles and remove_pickles:
                 # Only the best result pickle should be present
-                self.assertEqual(len(pickle_files), 1)
-                self.assertEqual(len(zip_files), 0)
-                self.assertTrue(os.path.exists(best_result_pickle))
+                logging.info("Checking condition: not zip_pickles and remove_pickles")
+                self.assertEqual(len(pickle_files), 1, f"Expected 1 pickle file, found {len(pickle_files)}.")
+                self.assertEqual(len(zip_files), 0, f"Expected 0 zip files, found {len(zip_files)}.")
+                self.assertTrue(os.path.exists(best_result_pickle), f"Best result pickle file does not exist: {best_result_pickle}")
 
             if zip_pickles and remove_pickles:
                 # Only the best result pickle should be zipped, no pickle files present
-                self.assertEqual(len(pickle_files), 0)
-                self.assertEqual(len(zip_files), 1)
-                self.assertTrue(os.path.exists(best_result_pickle + ".zip"))
-                with zipfile.ZipFile(join(temp_dir, prediction_dir, zip_files[0]), 'r') as z:
-                    self.assertTrue(all(f.endswith('.pkl') for f in z.namelist()))
+                logging.info("Checking condition: zip_pickles and remove_pickles")
+                self.assertEqual(len(pickle_files), 0, f"Expected 0 pickle files, found {len(pickle_files)}.")
+                self.assertEqual(len(zip_files), 1, f"Expected 1 zip file, found {len(zip_files)}.")
+                self.assertTrue(os.path.exists(best_result_pickle + ".zip"), f"Best result pickle file not zipped: {best_result_pickle}.zip")
+                with zipfile.ZipFile(join(temp_dir_path, prediction_dir, zip_files[0]), 'r') as z:
+                    self.assertTrue(all(f.endswith('.pkl') for f in z.namelist()), "Not all files in the zip archive are .pkl files.")
+        except AssertionError as e:
+            logging.error(f"AssertionError: {e}")
+            logging.error(f"Files in {join(temp_dir_path, prediction_dir)}: {os.listdir(join(temp_dir_path, prediction_dir))}")
+            logging.error("Directory structure at the time of failure:")
+            for root, dirs, files in os.walk(join(temp_dir_path, prediction_dir)):
+                logging.error(f"Directory: {root}")
+                for name in dirs:
+                    logging.error(f"  Sub-directory: {name}")
+                for name in files:
+                    logging.error(f"  File: {name}")
+            raise  # Re-raise the exception to ensure the test is marked as failed
+        finally:
+            temp_dir.cleanup()
