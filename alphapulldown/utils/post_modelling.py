@@ -1,33 +1,67 @@
-import subprocess,json,os
+import os
+import json
+import gzip
+import shutil
+import logging
 
-def zip_result_pickles(output_path):
-    """A function that remove results pickles in the output directory"""
-    cmd = f"cd {output_path} && gzip --force --verbose *.pkl"
+
+def compress_file(file_path):
+    """Compress a single file with gzip."""
+    logging.info(f"Compressing file: {file_path}")
+    gz_path = file_path + '.gz'
     try:
-        results = subprocess.run(cmd,shell=True,capture_output=True,text=True)
-    except subprocess.CalledProcessError as e:
-        print(f"Error while compressing result pickles: {e.returncode}")
-        print(f"Command output: {e.output}")
+        with open(file_path, 'rb') as f_in:
+            with gzip.open(gz_path, 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
+        os.remove(file_path)  # Remove the original file after compression
+        logging.info(f"File compressed and original removed: {file_path}")
+    except Exception as e:
+        logging.error(f"Failed to compress file: {file_path} with error: {e}")
+    return gz_path
 
-def post_prediction_process(output_path,zip_pickles = False,remove_pickles = False):
-    """A function to process resulted files after the prediction"""
-    if remove_pickles and zip_pickles:
-        remove_irrelavent_pickles(output_path)
-    else:
-        if zip_pickles:
-            zip_result_pickles(output_path)
-        if remove_pickles:
-            remove_irrelavent_pickles(output_path)
 
-def remove_irrelavent_pickles(output_path):
-    """Remove result pickles that do not belong to the best model"""
+def compress_result_pickles(output_path):
+    """Compress all .pkl files in the output directory."""
+    for file_name in os.listdir(output_path):
+        if file_name.endswith('.pkl'):
+            compress_file(os.path.join(output_path, file_name))
+
+
+def post_prediction_process(output_path, compress_pickles=False, remove_pickles=False):
+    """Process resulted files after the prediction."""
     try:
-        best_model = json.load(open(os.path.join(output_path,"ranking_debug.json"),'rb'))['order'][0]
-        pickle_to_remove = [os.path.join(output_path,i) for i in os.listdir(output_path) if (i.endswith('pkl')) and (best_model not in i)]
-        cmd = ['rm'] + pickle_to_remove
-        results = subprocess.run(cmd)
-    except FileNotFoundError:
-        print(f"ranking_debug.json does not exist in : {output_path}. Please check your inputs.")
-    except subprocess.CalledProcessError as e:
-        print(f"Error while removing result pickles: {e.returncode}")
-        print(f"Command output: {e.output}")      
+        # Get the best model from ranking_debug.json
+        with open(os.path.join(output_path, "ranking_debug.json"), 'r') as f:
+            best_model = json.load(f)['order'][0]
+
+        # Best pickle file based on the known naming convention
+        best_pickle = f"result_{best_model}.pkl"
+
+        logging.info(f"Identified best pickle file: {best_pickle}")
+
+        if compress_pickles and remove_pickles:
+            # Compress only the best .pkl file and remove the others
+            logging.info("Compressing and removing pickles based on conditions.")
+            compress_file(os.path.join(output_path, best_pickle))
+            remove_irrelevant_pickles(output_path, best_pickle)
+        else:
+            if compress_pickles:
+                logging.info("Compressing all pickle files.")
+                compress_result_pickles(output_path)
+            if remove_pickles:
+                logging.info("Removing all non-best pickle files.")
+                remove_irrelevant_pickles(output_path, best_pickle)
+
+    except FileNotFoundError as e:
+        logging.error(f"Error: {e}. Please check your inputs.")
+    except Exception as e:
+        logging.error(f"Unexpected error: {e}")
+
+
+def remove_irrelevant_pickles(output_path, best_pickle):
+    """Remove all .pkl files that do not belong to the best model."""
+    for file_name in os.listdir(output_path):
+        file_path = os.path.join(output_path, file_name)
+        if file_name.endswith('.pkl') and file_name != best_pickle:
+            logging.info(f"Removing irrelevant pickle file: {file_path}")
+            os.remove(file_path)
