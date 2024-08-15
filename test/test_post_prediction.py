@@ -6,6 +6,7 @@ import tempfile
 from os.path import join, dirname, abspath
 import gzip
 import json
+import pickle
 from alphapulldown.utils.post_modelling import post_prediction_process
 
 class TestPostPrediction(parameterized.TestCase):
@@ -19,19 +20,27 @@ class TestPostPrediction(parameterized.TestCase):
         logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
     @parameterized.parameters(
-        ('TEST', False, False),
-        ('TEST', True, False),
-        ('TEST', True, True),
-        ('TEST', False, True),
-        ('TEST_and_TEST', False, False),
-        ('TEST_and_TEST', True, False),
-        ('TEST_and_TEST', True, True),
-        ('TEST_and_TEST', False, True)
+        ('TEST', False, False, False),
+        ('TEST', True, False, False),
+        ('TEST', True, True, False),
+        ('TEST', False, True, False),
+        ('TEST_and_TEST', False, False, False),
+        ('TEST_and_TEST', True, False, False),
+        ('TEST_and_TEST', True, True, False),
+        ('TEST_and_TEST', False, True, False),
+        ('TEST', False, False, True),
+        ('TEST', True, False, True),
+        ('TEST', True, True, True),
+        ('TEST', False, True, True),
+        ('TEST_and_TEST', False, False, True),
+        ('TEST_and_TEST', True, False, True),
+        ('TEST_and_TEST', True, True, True),
+        ('TEST_and_TEST', False, True, True)
     )
-    def test_files(self, prediction_dir, compress_pickles, remove_pickles):
+    def test_files(self, prediction_dir, compress_pickles, remove_pickles, remove_keys):
         temp_dir = tempfile.TemporaryDirectory()
         try:
-            logging.info(f"Running test for prediction_dir='{prediction_dir}', compress_pickles={compress_pickles}, remove_pickles={remove_pickles}")
+            logging.info(f"Running test for prediction_dir='{prediction_dir}', compress_pickles={compress_pickles}, remove_pickles={remove_pickles}, remove_keys={remove_keys}")
             temp_dir_path = temp_dir.name
             # Copy the files to the temporary directory
             shutil.copytree(join(self.input_dir, prediction_dir), join(temp_dir_path, prediction_dir))
@@ -40,7 +49,7 @@ class TestPostPrediction(parameterized.TestCase):
             for f in gz_files:
                 os.remove(join(temp_dir_path, prediction_dir, f))
             # Run the postprocessing function
-            post_prediction_process(join(temp_dir_path, prediction_dir), compress_pickles, remove_pickles)
+            post_prediction_process(join(temp_dir_path, prediction_dir), compress_pickles, remove_pickles, remove_keys)
 
             # Get the best model from ranking_debug.json
             with open(join(temp_dir_path, prediction_dir, 'ranking_debug.json')) as f:
@@ -52,6 +61,14 @@ class TestPostPrediction(parameterized.TestCase):
             # Check if files are removed and/or compressed based on the parameters
             pickle_files = [f for f in os.listdir(join(temp_dir_path, prediction_dir)) if f.endswith('.pkl')]
             gz_files = [f for f in os.listdir(join(temp_dir_path, prediction_dir)) if f.endswith('.gz')]
+
+            if remove_keys:
+                # Ensure specified keys are removed from the pickle files
+                for pickle_file in pickle_files:
+                    with open(join(temp_dir_path, prediction_dir, pickle_file), 'rb') as f:
+                        data = pickle.load(f)
+                    for key in ['aligned_confidence_probs', 'distogram', 'masked_msa']:
+                        self.assertNotIn(key, data, f"Key {key} was not removed from {pickle_file}")
 
             if not compress_pickles and not remove_pickles:
                 # All pickle files should be present, no gz files
