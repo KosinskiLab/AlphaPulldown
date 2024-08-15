@@ -497,7 +497,7 @@ class AlphaFoldBackend(FoldingBackend):
         output_dir: str,
         features_directory: str,
         models_to_relax: ModelsToRelax,
-        zip_pickles: bool = False,
+        compress_pickles: bool = False,
         remove_pickles: bool = False,
         convert_to_modelcif: bool = True,
         use_gpu_relax: bool = True,
@@ -522,7 +522,7 @@ class AlphaFoldBackend(FoldingBackend):
             The directory containing the features used for prediction. Used by the convert_to_modelcif script.
         models_to_relax : object
             Specifies which models' predictions to relax, defaults to ModelsToRelax enum.
-        zip_pickles : bool, optional
+        compress_pickles : bool, optional
             If True, zips the pickle files containing prediction results.
             Default is False.
         remove_pickles : bool, optional
@@ -714,6 +714,6 @@ class AlphaFoldBackend(FoldingBackend):
                 logging.info("All PDBs converted to ModelCIF format.")
         post_prediction_process(
            output_dir,
-           zip_pickles=zip_pickles,
+           compress_pickles=compress_pickles,
            remove_pickles=remove_pickles,
         )
