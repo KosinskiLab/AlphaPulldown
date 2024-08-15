@@ -63,6 +63,7 @@ jobs:
           pytest -s test/test_remove_clashes_low_plddt.py
           pytest -s test/test_modelcif.py
           pytest -s test/test_features_with_templates.py
+          pytest -s test/test_post_prediction.py
 
   build-fold-container:
     runs-on: ubuntu-latest
