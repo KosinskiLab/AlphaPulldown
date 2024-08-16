@@ -163,21 +163,23 @@ alphafold_database/                             # Total: ~ 2.2 TB (download: 438
        # 9 files.
    pdb_mmcif/                             # ~ 206 GB (download: 46 GB)
        mmcif_files/
-           # About 180,000 .cif files.
+           # About 227,000 .cif files.
        obsolete.dat
    pdb_seqres/                            # ~ 0.2 GB (download: 0.2 GB)
        pdb_seqres.txt
    small_bfd/                             # ~ 17 GB (download: 9.6 GB)
        bfd-first_non_consensus_sequences.fasta
-   uniclust30/                            # ~ 86 GB (download: 24.9 GB)
-       uniclust30_2018_08/
-           # 13 files.
+   uniref30/                            # ~ 86 GB (download: 24.9 GB)
+           # 14 files.
    uniprot/                               # ~ 98.3 GB (download: 49 GB)
        uniprot.fasta
    uniref90/                              # ~ 58 GB (download: 29.7 GB)
        uniref90.fasta
 ```
 </details>
+
+> [!NOTE]
+> Uniclust30 is the version of the database generated before 2019, UniRef30 is the one generated after 2019.
    
 > [!NOTE] 
 > Since the local installation of all genetic databases is space-consuming, you can alternatively use the [remotely-run MMseqs2 and ColabFold databases](https://github.com/sokrypton/ColabFold). Follow the corresponding [instructions](#13-run-using-mmseqs2-and-colabfold-databases-faster). However, for AlphaPulldown to function, you must download the parameters stored in the `params/` directory of the AlphaFold database.
@@ -401,9 +403,7 @@ python3 -m pip install alphapulldown==2.0.0b4
 ```
 
 ```bash
-pip install jax==0.4.27 \
-            jaxlib==0.4.27+cuda12.cudnn89 \
-            -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+pip install -U "jax[cuda12]"
 ```
    
 > [!NOTE] 
