@@ -25,7 +25,6 @@ from alphapulldown.utils import save_meta_data
 # Initialize and define flags
 run_af = get_run_alphafold()
 flags = run_af.flags
-_check_flag = getattr(run_af, "_check_flag", None)
 
 # All flags
 flags.DEFINE_bool("use_mmseqs2", False,
@@ -353,7 +352,8 @@ def process_multimeric_features(feat, idx):
 
 def main(argv):
     del argv  # Unused.
-    _check_flag('use_mmseqs2', 'path_to_mmt', False)  # Can't be both True.
+    if FLAGS.use_mmseqs2 and FLAGS.path_to_mmt is not None:
+        raise ValueError("Multimeric templates and MMseqs2 can't be used together.")
     try:
         Path(FLAGS.output_dir).mkdir(parents=True, exist_ok=True)
     except FileExistsError:
