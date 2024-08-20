@@ -399,7 +399,7 @@ Activate the AlphaPulldown environment and install AlphaPulldown:
 
 ```bash
 source activate AlphaPulldown
-python3 -m pip install alphapulldown==2.0.0b4
+python3 -m pip install alphapulldown==2.0.0b5
 ```
 
 ```bash
