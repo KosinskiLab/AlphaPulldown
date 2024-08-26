@@ -140,7 +140,7 @@ The AlphaPulldown workflow involves the following 3 steps:
 <br>
 
 # Alphafold databases
-For the standard MSA and features calculation, AlphaPulldown requires genetic databases. Check if you have downloaded the necessary parameters and databases (e.g., BFD, MGnify, etc.) as instructed in [AlphaFold's documentation](https://github.com/deepmind/alphafold). You should have a directory structured as follows:
+For the standard MSA and features calculation, AlphaPulldown requires genetic databases. Check if you have downloaded the necessary parameters and databases (e.g., BFD, MGnify, etc.) as instructed in [AlphaFold's documentation](https://github.com/KosinskiLab/alphafold). You should have a directory structured as follows:
 
 <details>
 <summary>
@@ -179,7 +179,7 @@ alphafold_database/                             # Total: ~ 2.2 TB (download: 438
 </details>
 
 > [!NOTE]
-> Uniclust30 is the version of the database generated before 2019, UniRef30 is the one generated after 2019.
+> Uniclust30 is the version of the database generated before 2019, UniRef30 is the one generated after 2019. Please note that AlphaPulldown is using UniRef30_2023_02 by default. This version can be downloaded by [this script](https://github.com/KosinskiLab/alphafold/blob/main/scripts/download_uniref30.sh). Alternatively, please overwrite the default path to the uniref30 database using --uniref30_database_path flag of create_individual_features.py.
    
 > [!NOTE] 
 > Since the local installation of all genetic databases is space-consuming, you can alternatively use the [remotely-run MMseqs2 and ColabFold databases](https://github.com/sokrypton/ColabFold). Follow the corresponding [instructions](#13-run-using-mmseqs2-and-colabfold-databases-faster). However, for AlphaPulldown to function, you must download the parameters stored in the `params/` directory of the AlphaFold database.
