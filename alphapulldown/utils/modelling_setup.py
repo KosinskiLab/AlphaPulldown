@@ -7,7 +7,7 @@ import os
 import sys
 import random
 import pickle
-import logging
+import lzma
 import importlib.util
 from pathlib import Path
 from typing import List,Dict,Union
@@ -76,7 +76,8 @@ def parse_fold(input, features_directory, protein_delimiter):
             
             number = int(number)
             unique_features.append(name)
-            if not any([exists(join(monomer_dir, f"{name}.pkl")) for monomer_dir in features_directory]):
+            if not any([exists(join(monomer_dir, f"{name}.pkl")) or exists(join(monomer_dir, f"{name}.pkl.xz")) for
+                        monomer_dir in features_directory]):
                 missing_features.append(name)
 
             formatted_folds.extend([{name: region} for _ in range(number)])
@@ -243,16 +244,41 @@ def mk_mock_template(feature_dict: dict):
 
 def load_monomer_objects(monomer_dir_dict, protein_name):
     """
-    a function to load monomer an object from its pickle
+    A function to load a monomer object from its pickle file.
+    If the file is compressed with .xz, it will decompress it first.
 
-    args
-    monomer_dir_dict: a dictionary recording protein_name and its directory. created by make_dir_monomer_dictionary()
+    Args:
+    monomer_dir_dict: a dictionary recording protein_name and its directory.
+                      Created by make_dir_monomer_dictionary().
+    protein_name: the name of the protein to load.
+
+    Returns:
+    monomer: the loaded monomer object.
     """
-    target_path = monomer_dir_dict[f"{protein_name}.pkl"]
-    target_path = os.path.join(target_path, f"{protein_name}.pkl")
-    monomer = pickle.load(open(target_path, "rb"))
+    # Check if the .pkl or .pkl.xz file exists in the dictionary
+    if f"{protein_name}.pkl" in monomer_dir_dict:
+        target_path = monomer_dir_dict[f"{protein_name}.pkl"]
+        target_path = os.path.join(target_path, f"{protein_name}.pkl")
+    elif f"{protein_name}.pkl.xz" in monomer_dir_dict:
+        target_path = monomer_dir_dict[f"{protein_name}.pkl.xz"]
+        target_path = os.path.join(target_path, f"{protein_name}.pkl.xz")
+    else:
+        raise FileNotFoundError(f"No file found for {protein_name}")
+
+    # Load the monomer object from either the .pkl or .pkl.xz file
+    if target_path.endswith('.pkl'):
+        with open(target_path, "rb") as f:
+            monomer = pickle.load(f)
+    elif target_path.endswith('.pkl.xz') :
+        with lzma.open(target_path, "rb") as f:
+            monomer = pickle.load(f)
+    else:
+        raise FileNotFoundError(f"Neither .pkl nor .pkl.xz file found for {protein_name}")
+
+    # Check and potentially modify the feature_dict
     if check_empty_templates(monomer.feature_dict):
         monomer.feature_dict = mk_mock_template(monomer.feature_dict)
+
     return monomer
 
 
