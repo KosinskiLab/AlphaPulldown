@@ -98,6 +98,7 @@ pytest -s test/check_predict_structure.py::{class_name}::{test_name}
     @parameterized.named_parameters(
         {"testcase_name": "monomer", "i": 1, "class_name": "TestRunModes", "test_name": "test__monomer"},
         {"testcase_name": "dimer", "i": 2, "class_name": "TestRunModes", "test_name": "test__dimer"},
+        {"testcase_name": "trimer", "i": 3, "class_name": "TestRunModes", "test_name": "test__trimer"},
         {"testcase_name": "chopped_dimer", "i": 3, "class_name": "TestRunModes", "test_name": "test__chopped_dimer"},
         {"testcase_name": "homo_oligomer", "i": 4, "class_name": "TestRunModes", "test_name": "test__homo_oligomer"},
         {"testcase_name": "no_relax", "i": 5, "class_name": "TestResume", "test_name": "test__no_relax"},

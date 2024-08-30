@@ -126,6 +126,7 @@ class TestRunModes(_TestBase):
     @parameterized.named_parameters(
         {'testcase_name': 'monomer', 'protein_list': 'test_monomer.txt', 'mode': 'custom'},
         {'testcase_name': 'dimer', 'protein_list': 'test_dimer.txt', 'mode': 'custom'},
+        {'testcase_name': 'trimer', 'protein_list': 'test_trimer.txt', 'mode': 'custom'},
         {'testcase_name': 'homo_oligomer', 'protein_list': "test_homooligomer.txt", 'mode': 'homo-oligomer'},
         {'testcase_name': 'chopped_dimer', 'protein_list': 'test_dimer_chopped.txt', 'mode': 'custom'}
     )

@@ -33,7 +33,7 @@ def plot_pae_from_matrix(seqs, pae_matrix, figure_name='', ranking: int = 0):
     fig.colorbar(pos).ax.set_title("unit: Angstrom")
 
     # Draw black lines at sequence boundaries
-    for t in range(1, len(xticks), 2):  # Draw lines at the end of each sequence
+    for t in range(1, len(xticks)):  # Draw lines at the end of each sequence
         ax1.axhline(xticks[t], color="black", linewidth=3.5)
         ax1.axvline(xticks[t], color="black", linewidth=3.5)
 
