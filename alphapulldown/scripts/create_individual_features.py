@@ -2,7 +2,8 @@
 # coding: utf-8
 # Create features for AlphaFold from fasta file(s) or a csv file with descriptions for multimeric templates
 # #
-
+import json
+import lzma
 import os
 import pickle
 import sys
@@ -39,6 +40,9 @@ flags.DEFINE_integer(
 
 flags.DEFINE_boolean("use_hhsearch", False,
                      "Use hhsearch instead of hmmsearch when looking for structure template. Default is False")
+
+flags.DEFINE_boolean("compress_features", False,
+                     "Compress features.pkl and meta.json files using lzma algorithm. Default is False")
 
 # Flags related to TrueMultimer
 flags.DEFINE_string("path_to_mmt", None,
@@ -229,10 +233,18 @@ def create_and_save_monomer_objects(monomer, pipeline):
         return
 
     # Save metadata
-    metadata_output_path = os.path.join(FLAGS.output_dir,
-                                        f"{monomer.description}_feature_metadata_{datetime.date(datetime.now())}.json")
-    with save_meta_data.output_meta_file(metadata_output_path) as meta_data_outfile:
-        save_meta_data.save_meta_data(flags_dict, meta_data_outfile)
+    meta_dict = save_meta_data.get_meta_dict(flags_dict)
+    metadata_output_path = os.path.join(
+        FLAGS.output_dir,
+        f"{monomer.description}_feature_metadata_{datetime.now().date()}.json"
+    )
+
+    if FLAGS.compress_features:
+        with lzma.open(metadata_output_path + '.xz', "wt") as meta_data_outfile:
+            json.dump(meta_dict, meta_data_outfile)
+    else:
+        with open(metadata_output_path, "w") as meta_data_outfile:
+            json.dump(meta_dict, meta_data_outfile)
 
     # Create features
     if FLAGS.use_mmseqs2:
@@ -250,8 +262,13 @@ def create_and_save_monomer_objects(monomer, pipeline):
         )
 
     # Save the processed monomer object
-    with open(pickle_path, "wb") as pickle_file:
-        pickle.dump(monomer, pickle_file)
+    if FLAGS.compress_features:
+        pickle_path = pickle_path + ".xz"
+        with lzma.open(pickle_path, "wb") as pickle_file:
+            pickle.dump(monomer, pickle_file)
+    else:
+        with open(pickle_path, "wb") as pickle_file:
+            pickle.dump(monomer, pickle_file)
 
     # Optional: Clear monomer from memory if necessary
     del monomer

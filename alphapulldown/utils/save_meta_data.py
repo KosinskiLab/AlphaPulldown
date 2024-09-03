@@ -111,7 +111,7 @@ def get_metadata_for_database(k, v):
     return {}
 
 
-def save_meta_data(flag_dict, outfile):
+def get_meta_dict(flag_dict):
     """Save metadata in JSON format."""
     metadata = {
         "databases": {},
@@ -139,8 +139,7 @@ def save_meta_data(flag_dict, outfile):
                                                "location_url": url}
                                           })
 
-    with open(outfile, "w") as f:
-        json.dump(metadata, f, indent=2)
+    return metadata
 
 
 def get_last_modified_date(path):
