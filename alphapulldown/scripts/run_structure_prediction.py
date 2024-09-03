@@ -100,7 +100,7 @@ flags.DEFINE_boolean('compress_result_pickles', False,
                      'Whether the result pickles are going to be gzipped. Default False.')
 flags.DEFINE_boolean('remove_result_pickles', False,
                      'Whether the result pickles are going to be removed')
-flags.DEFINE_boolean('remove_keys_from_pickles',False,
+flags.DEFINE_boolean('remove_keys_from_pickles',True,
                      'Whether to remove aligned_confidence_probs, distogram and masked_msa from pickles')
 flags.DEFINE_boolean('use_ap_style', False,
                      'Change output directory to include a description of the fold '
