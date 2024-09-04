@@ -4,16 +4,11 @@
 # with good
 #  #
 
-from math import pi
-from operator import index
 import os
-import pickle
 from absl import flags, app, logging
 import json
 import numpy as np
 import pandas as pd
-import subprocess
-import gzip
 from analysis_pipeline.utils import obtain_seq_lengths,obtain_pae_and_iptm
 
 flags.DEFINE_string("output_dir", '.', "directory where predicted models are stored")

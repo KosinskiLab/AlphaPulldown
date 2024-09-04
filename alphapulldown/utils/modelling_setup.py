@@ -5,19 +5,13 @@
 
 import os
 import sys
-import random
 import pickle
 import lzma
 import importlib.util
-from pathlib import Path
 from typing import List,Dict,Union
 import numpy as np
 import alphafold
-from alphafold.data import parsers
 from alphafold.data.tools import jackhmmer
-from alphafold.model import config
-from alphafold.model import model
-from alphafold.model import data
 from alphafold.data import templates
 from alphapulldown.objects import MonomericObject
 from os.path import exists,join
@@ -109,8 +103,8 @@ def pad_input_features(feature_dict: dict,
 
     assembly_num_chains = feature_dict.pop('assembly_num_chains')
     num_templates = feature_dict.pop('num_templates')
-    seq_length = feature_dict.pop('seq_length')
-    num_alignments = feature_dict.pop('num_alignments')
+    feature_dict.pop('seq_length')
+    feature_dict.pop('num_alignments')
     original_num_msa , original_num_res = feature_dict['msa'].shape
     num_res_to_pad = desired_num_res - original_num_res
     num_msa_to_pad = desired_num_msa - original_num_msa
@@ -282,84 +276,6 @@ def load_monomer_objects(monomer_dir_dict, protein_name):
     return monomer
 
 
-def read_all_proteins(fasta_path) -> list:
-    """
-    A function to read all proteins in the file
-
-    Args:
-    fasta_path: path to the fasta file where all proteins are in one file
-    """
-    all_proteins = []
-    with open(fasta_path, "r") as f:
-        lines = list(f.readlines())
-        if any(l.startswith(">") for l in lines):
-            # this mean the file is a fasta file
-            with open(fasta_path, "r") as input_file:
-                sequences, descriptions = parsers.parse_fasta(input_file.read())
-                for desc in descriptions:
-                    all_proteins.append({desc: "all"})
-        else:
-            for l in lines:
-                if len(l.strip()) > 0:
-                    curr_list = l.rstrip().split(",")
-                    if len(curr_list) == 1:
-                        all_proteins.append({l.rstrip().split(",")[0]: "all"})
-
-                    elif len(curr_list) > 1:
-                        protein_name = curr_list[0]
-                        regions = curr_list[1:]
-                        output_region = []
-                        for r in regions:
-                            output_region.append(
-                                (int(r.split("-")[0]), int(r.split("-")[1]))
-                            )
-                        all_proteins.append({protein_name: output_region})
-    return all_proteins
-
-
-def obtain_region(input_string):
-    """
-    A function that extract regions from the input string
-
-    Args
-    input_string: format is 'protein_n,1-100,2-200'
-    or 'protein_n'
-    """
-    curr_list = input_string.split(",")
-    if len(curr_list) == 1:
-        return {input_string.rstrip().split(",")[0]: "all"}
-
-    elif len(curr_list) > 1:
-        protein_name = curr_list[0]
-        regions = curr_list[1:]
-        output_region = []
-        for r in regions:
-            output_region.append((int(r.split("-")[0]), int(r.split("-")[1])))
-        return {protein_name: output_region}
-
-
-def read_custom(line) -> list:
-    """
-    A function to input file under the mode: custom
-
-    Args:
-    line: each individual line in the custom input file
-    """
-    all_proteins = []
-    curr_list = line.rstrip().split(";")
-    for substring in curr_list:
-        curr_protein = obtain_region(substring)
-        all_proteins.append(curr_protein)
-
-    return all_proteins
-
-
-def check_existing_objects(output_dir, pickle_name):
-    """check whether the wanted monomer object already exists in the output_dir"""
-    logging.info(f"checking if {os.path.join(output_dir, pickle_name)} already exists")
-    return os.path.isfile(os.path.join(output_dir, pickle_name))
-
-
 def create_interactors(data : List[Dict[str, List[str]]], 
                        monomer_objects_dir : List[str], i : int = 0) -> List[List[Union[MonomericObject, ChoppedObject]]]:
     """
@@ -401,88 +317,3 @@ def create_interactors(data : List[Dict[str, List[str]]],
         interactors.append(process_each_dict(d, monomer_objects_dir))
     return interactors
 
-
-def check_output_dir(path):
-    """
-    A function to automatically the output directory provided by the user
-    if the user hasn't already created the directory
-    """
-    logging.info(f"checking if output_dir exists {path}")
-    if not os.path.isdir(path):
-        Path(path).mkdir(parents=True, exist_ok=True)
-
-
-def compute_msa_ranges(num_msa, num_extra_msa, num_multimer_predictions):
-    """
-    Denser for smaller num_msa, sparser for larger num_msa
-    """
-    msa_ranges = np.rint(np.logspace(np.log10(16), np.log10(num_msa),
-                                     num_multimer_predictions)).astype(int).tolist()
-    extra_msa_ranges = np.rint(np.logspace(np.log10(32), np.log10(num_extra_msa),
-                                           num_multimer_predictions)).astype(int).tolist()
-    return msa_ranges, extra_msa_ranges
-
-
-def update_model_config(model_config, num_msa, num_extra_msa):
-    embeddings_and_evo = model_config["model"]["embeddings_and_evoformer"]
-    embeddings_and_evo.update({"num_msa": num_msa, "num_extra_msa": num_extra_msa})
-
-
-def create_model_runners_and_random_seed(
-        model_preset, num_cycle, random_seed, data_dir,
-        num_multimer_predictions_per_model,
-        gradient_msa_depth=False, model_names_custom=None,
-        msa_depth=None):
-    num_ensemble = 1
-    model_runners = {}
-    model_names = config.MODEL_PRESETS[model_preset]
-
-    if model_names_custom:
-        model_names_custom = tuple(model_names_custom.split(","))
-        if all(x in model_names for x in model_names_custom):
-            model_names = model_names_custom
-        else:
-            raise Exception(f"Provided model names {model_names_custom} not part of available {model_names}")
-
-    for model_name in model_names:
-        model_config = config.model_config(model_name)
-        model_config.model.num_ensemble_eval = num_ensemble
-        model_config["model"].update({"num_recycle": num_cycle})
-
-        model_params = data.get_model_haiku_params(model_name=model_name, data_dir=data_dir)
-        model_runner = model.RunModel(model_config, model_params)
-
-        if gradient_msa_depth or msa_depth:
-            num_msa, num_extra_msa = get_default_msa(model_config)
-            msa_ranges, extra_msa_ranges = compute_msa_ranges(num_msa, num_extra_msa,
-                                                              num_multimer_predictions_per_model)
-
-        for i in range(num_multimer_predictions_per_model):
-            if msa_depth or gradient_msa_depth:
-                if msa_depth:
-                    num_msa = int(msa_depth)
-                    num_extra_msa = num_msa * 4  # approx. 4x the number of msa, as in the AF2 config file
-                elif gradient_msa_depth:
-                    num_msa = msa_ranges[i]
-                    num_extra_msa = extra_msa_ranges[i]
-                update_model_config(model_config, num_msa, num_extra_msa)
-                logging.info(
-                    f"Model {model_name} is running {i} prediction with num_msa={num_msa} "
-                    f"and num_extra_msa={num_extra_msa}")
-                model_runners[f"{model_name}_pred_{i}_msa_{num_msa}"] = model_runner
-                #model_runners[f"{model_name}_pred_{i}"] = model_runner
-            else:
-                logging.info(
-                    f"Model {model_name} is running {i} prediction with default MSA depth")
-                model_runners[f"{model_name}_pred_{i}"] = model_runner
-
-    if random_seed is None:
-        random_seed = random.randrange(sys.maxsize // len(model_runners))
-        logging.info("Using random seed %d for the data pipeline", random_seed)
-
-    return model_runners, random_seed
-
-
-def get_default_msa(model_config):
-    embeddings_and_evo = model_config["model"]["embeddings_and_evoformer"]
-    return embeddings_and_evo["num_msa"], embeddings_and_evo["num_extra_msa"]

@@ -4,16 +4,13 @@
 #
 from alphapulldown import __version__ as AP_VERSION
 from alphafold.version import __version__ as AF_VERSION
-import json
 import os
 from absl import logging
-from alphapulldown.utils.file_handling import ensure_directory_exists
 import subprocess
 import datetime
 import re
 import hashlib
 import glob
-import contextlib
 
 
 COMMON_PATTERNS = [
@@ -188,18 +185,3 @@ def get_hash(filename):
         for byte_block in iter(lambda: f.read(4096), b""):
             md5_hash.update(byte_block)
         return (md5_hash.hexdigest())
-
-@contextlib.contextmanager
-def output_meta_file(file_path):
-    """
-    A context manager that ensures the directory for a file exists and then opens the file for writing.
-
-    Args:
-    file_path (str): The path of the file to be opened.
-
-    Yields:
-    Generator[str]: The name of the file opened.
-    """
-    ensure_directory_exists(os.path.dirname(file_path))
-    with open(file_path, "w") as outfile:
-        yield outfile.name
