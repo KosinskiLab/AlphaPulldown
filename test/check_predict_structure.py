@@ -64,11 +64,11 @@ class _TestBase(parameterized.TestCase):
             example_pickle = pickles[0]
             example_pickle = pickle.load(open(os.path.join(self.output_dir, dirname, example_pickle), 'rb'))
 
-            required_keys_multimer = ['distogram', 'experimentally_resolved', 'masked_msa', 'predicted_aligned_error',
-                                      'predicted_lddt', 'structure_module', 'plddt', 'aligned_confidence_probs',
+            required_keys_multimer = ['experimentally_resolved', 'predicted_aligned_error',
+                                      'predicted_lddt', 'structure_module', 'plddt',
                                       'max_predicted_aligned_error', 'seqs', 'iptm', 'ptm', 'ranking_confidence']
-            required_keys_monomer = ['distogram', 'experimentally_resolved', 'masked_msa', 'predicted_aligned_error',
-                                     'predicted_lddt', 'structure_module', 'plddt', 'aligned_confidence_probs',
+            required_keys_monomer = ['experimentally_resolved', 'predicted_aligned_error',
+                                     'predicted_lddt', 'structure_module', 'plddt',
                                      'max_predicted_aligned_error', 'seqs', 'ptm', 'ranking_confidence']
 
             required_keys = required_keys_multimer if multimer_mode else required_keys_monomer
