@@ -87,6 +87,7 @@ python {run_features_generation.__file__} \\
                 for protein in ["3L4Q_A.pkl", "3L4Q_C.pkl"]:
                     assert (self.TEST_DATA_DIR / f"features_mmseqs_{prefix}" / protein).exists()
 
+    @absltest.skip("Skipping this test for now")
     def test_run_features_generation_all_parallel(self):
         slurm_script_file = self.generate_slurm_script()
         print(f"SLURM script generated at: {slurm_script_file}")

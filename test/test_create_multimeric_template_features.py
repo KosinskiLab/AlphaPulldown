@@ -1,17 +1,17 @@
-import unittest 
-import gzip,pickle,shutil
+from absl.testing import absltest
+import pickle,shutil
 from alphafold.data.templates import _build_query_to_hit_index_mapping
 from alphapulldown.utils import multimeric_template_utils
 
 
-class TestMultimericTemplateFeatures(unittest.TestCase):
+class TestMultimericTemplateFeatures(absltest.TestCase):
     def setUp(self):
-        self.mmcif_file = "./test/test_data/true_multimer/3L4Q.cif"
-        self.monomer1 = pickle.load(open("./test/test_data/true_multimer/features/3L4Q_A.pkl",'rb'))
-        self.monomer2 = pickle.load(open("./test/test_data/true_multimer/features/3L4Q_C.pkl",'rb'))
+        self.mmcif_file = "./test/test_data/templates/3L4Q.cif"
+        self.monomer1 = pickle.load(open("./test/test_data/features/3L4Q_A.pkl",'rb'))
+        self.monomer2 = pickle.load(open("./test/test_data/features/3L4Q_C.pkl",'rb'))
         self.kalign_binary_path = shutil.which('kalign')
-        self.mmt_dir = './test/test_data/true_multimer/'
-        self.instruction_file = "./test/test_data/true_multimer/description_file.csv"
+        self.mmt_dir = './test/test_data/templates/'
+        self.instruction_file = "./test/test_data/protein_lists/test_truemultimer.csv"
         self.data_dir = '/scratch/AlphaFold_DBs/2.3.2'
     
     def test_1_create_template_hit(self):
@@ -43,4 +43,4 @@ class TestMultimericTemplateFeatures(unittest.TestCase):
         self.assertEqual(multimeric_template_meta,expected_dict)
 
 if __name__ == "__main__":
-    unittest.main()
+    absltest.main()

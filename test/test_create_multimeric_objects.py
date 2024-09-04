@@ -1,10 +1,10 @@
-import unittest
+from absl.testing import absltest
 from alphapulldown.objects import MultimericObject
 import pickle
 import numpy as np
 
 
-class TestCreateMultimericObject(unittest.TestCase):
+class TestCreateMultimericObject(absltest.TestCase):
     """A class that test major functions of creating feature_dict of a MultimericObject object"""
 
     def setUp(self) -> None:
@@ -27,4 +27,4 @@ class TestCreateMultimericObject(unittest.TestCase):
         self.assertTrue(np.array_equal(multimer_obj.feature_dict['residue_index'],expected_residue_index))
 
 if __name__=="__main__":
-    unittest.main()
+    absltest.main()
