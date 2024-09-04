@@ -13,16 +13,6 @@ def temp_fasta_file(sequence_str):
         fasta_file.seek(0)
         yield fasta_file.name
 
-def ensure_directory_exists(directory):
-    """
-    Ensures that a directory exists. If the directory does not exist, it is created.
-
-    Args:
-    directory (str): The path of the directory to check or create.
-    """
-    if not os.path.exists(directory):
-        logging.info(f"Creating directory: {directory}")
-        os.makedirs(directory, exist_ok=True)
 
 def parse_csv_file(csv_path, fasta_paths, mmt_dir, cluster=False):
     """
@@ -36,7 +26,6 @@ def parse_csv_file(csv_path, fasta_paths, mmt_dir, cluster=False):
         list: A list of dictionaries, each containing protein data.
     """
     protein_names = {}
-    protein_counters = {}
     for fasta_path in fasta_paths:
         if not os.path.isfile(fasta_path):
             logging.error(f"Fasta file {fasta_path} does not exist.")

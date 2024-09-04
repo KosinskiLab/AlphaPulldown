@@ -48,7 +48,7 @@ def copy_contents(src_dir, dst_dir, keys_to_exclude, number_of_threads=1):
     tasks = []
 
     with ThreadPoolExecutor(max_workers=number_of_threads) as executor:
-        for root, dirs, files in os.walk(src_dir):
+        for root, _, files in os.walk(src_dir):
             rel_path = os.path.relpath(root, src_dir)
             dst_path = os.path.join(dst_dir, rel_path)
             os.makedirs(dst_path, exist_ok=True)

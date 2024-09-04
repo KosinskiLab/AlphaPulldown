@@ -2,10 +2,9 @@
 # Author: Grzegorz Chojnowski @ EMBL-Hamburg
 #
 
-import os, sys, re
+import os
 import glob
-
-from Bio.PDB import *
+from Bio.PDB import PDBIO, PDBParser, Superimposer
 from io import StringIO  
 import re
 import py3Dmol

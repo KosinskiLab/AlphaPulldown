@@ -6,7 +6,6 @@
 """
 from absl import logging
 logging.set_verbosity(logging.INFO)
-import tempfile
 import os
 import subprocess
 import numpy as np
@@ -18,7 +17,7 @@ from alphafold.data import msa_pairing
 from alphafold.data import feature_processing
 from pathlib import Path as plPath
 from typing import List, Dict
-from colabfold.batch import unserialize_msa, get_msa_and_templates, msa_to_str, build_monomer_feature
+from colabfold.batch import get_msa_and_templates, msa_to_str, build_monomer_feature
 from alphapulldown.utils.multimeric_template_utils import (extract_multimeric_template_features_for_single_chain,
                                                      prepare_multimeric_template_meta_info)
 from alphapulldown.utils.file_handling import temp_fasta_file
@@ -378,10 +377,8 @@ class ChoppedObject(MonomericObject):
     def concatenate_sliced_feature_dict(self, feature_dicts: list):
         """concatenate regions such as 1-200 + 500-600"""
         output_dict = feature_dicts[0]
-        new_sequence_length = feature_dicts[0]["seq_length"][0]
         num_alignment = feature_dicts[0]["num_alignments"][0]
         for sub_dict in feature_dicts[1:]:
-            new_sequence_length += sub_dict["seq_length"][0]
             for k in feature_dicts[0].keys():
                 if sub_dict[k].ndim > 1:
                     if k == "aatype":
