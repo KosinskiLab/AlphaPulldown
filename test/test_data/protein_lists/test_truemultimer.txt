@@ -1,1 +1,2 @@
-3L4Q_A;3L4Q_C
+3L4Q_A,3L4Q.cif,A
+3L4Q_C,3L4Q.pdb,C

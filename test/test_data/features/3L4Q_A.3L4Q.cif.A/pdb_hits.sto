@@ -1,0 +1,20 @@
+# STOCKHOLM 1.0
+#=GF ID query
+#=GF AU hmmsearch (HMMER 3.4)
+
+#=GS 3l41_A/7-164 DE [subseq from] mol:protein length:164
+#=GS 3l42_A/7-164 DE [subseq from] mol:protein length:164
+#=GS 3l43_A/7-164 DE [subseq from] mol:protein length:164
+#=GS 3l44_A/7-164 DE [subseq from] mol:protein length:164
+
+3l41_A/7-164         SDEALKMTMASVPASRYLTDMTLEEMSRDWSMLIPKQKVAGPLCIRMDQAIMDKNIILKANFSVIFDRLETLILLRAFTEEGAIVGEISPLPSLPGHTAEDVKNAVGVLIGGLEWNDNTVRVSETLQRFAWRSSNENGRPPLTPKQKREMAGTIRSEV
+#=GR 3l41_A/7-164 PP 79**********************************************************************************************************************************************************97
+3l42_A/7-164         SDEALKMTMASVPASRYLTDMTLEEMSRDWSMLIPKQKVAGPLCIRMDQAIMDKNIILKANFSVIFDRLETLILLRAFTEEGAIVGEISPLPSLPGHTAEDVKNAVGVLIGGLEWNDNTVRVSETLQRFAWRSSNENGRPPLTPKQKREMAGTIRSEV
+#=GR 3l42_A/7-164 PP 79**********************************************************************************************************************************************************97
+3l43_A/7-164         SDEALKMTMASVPASRYLTDMTLEEMSRDWSMLIPKQKVAGPLCIRMDQAIMDKNIILKANFSVIFDRLETLILLRAFTEEGAIVGEISPLPSLPGHTAEDVKNAVGVLIGGLEWNDNTVRVSETLQRFAWRSSNENGRPPLTPKQKREMAGTIRSEV
+#=GR 3l43_A/7-164 PP 79**********************************************************************************************************************************************************97
+3l44_A/7-164         SDEALKMTMASVPASRYLTDMTLEEMSRDWSMLIPKQKVAGPLCIRMDQAIMDKNIILKANFSVIFDRLETLILLRAFTEEGAIVGEISPLPSLPGHTAEDVKNAVGVLIGGLEWNDNTVRVSETLQRFAWRSSNENGRPPLTPKQKREMAGTIRSEV
+#=GR 3l44_A/7-164 PP 79**********************************************************************************************************************************************************97
+#=GC PP_cons         79**********************************************************************************************************************************************************97
+#=GC RF              xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+//
