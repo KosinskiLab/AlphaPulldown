@@ -68,6 +68,10 @@ class TestCreateIndividualFeaturesWithTemplates(parameterized.TestCase):
             desc_file.write(f">{file_name}_{chain_id}, {file_name}.{file_extension}, {chain_id}\n")
 
         assert Path(f"{self.TEST_DATA_DIR}/fastas/{file_name}_{chain_id}.fasta").exists()
+        # Remove .pkl, .pkl.xz, .json, .json.xz files from the features directory
+        for ext in ['*.pkl', '*.pkl.xz', '*.json', '*.json.xz']:
+            for f in self.TEST_DATA_DIR.glob(f'features/{ext}'):
+                f.unlink()
 
         cmd = [
             'create_individual_features.py',
