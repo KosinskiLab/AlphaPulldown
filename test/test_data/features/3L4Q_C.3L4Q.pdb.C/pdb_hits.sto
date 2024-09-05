@@ -1,0 +1,20 @@
+# STOCKHOLM 1.0
+#=GF ID query
+#=GF AU hmmsearch (HMMER 3.4)
+
+#=GS 3l41_C/1-163 DE [subseq from] mol:protein length:163
+#=GS 3l42_C/1-163 DE [subseq from] mol:protein length:163
+#=GS 3l43_C/1-163 DE [subseq from] mol:protein length:163
+#=GS 3l44_C/1-163 DE [subseq from] mol:protein length:163
+
+3l41_C/1-163         -------KEDSVEAVGAQLKVYHQQYQDKSREYDQLYEEYTRTSQELQMKRTAIEAFNETIKIFEEQGQTQEKSSKEYLERFRREGNEKEMQRILLNSERLKSRIAEIHESRTKLEQELRAQASDNREIDKRMNSLKPDLMQLRKIRDQYLVWLTQKGARQKKINEWLGI
+#=GR 3l41_C/1-163 PP .......79***************************************************************************************************************************************************************98
+3l42_C/1-163         -------KEDSVEAVGAQLKVYHQQYQDKSREYDQLYEEYTRTSQELQMKRTAIEAFNETIKIFEEQGQTQEKSSKEYLERFRREGNEKEMQRILLNSERLKSRIAEIHESRTKLEQELRAQASDNREIDKRMNSLKPDLMQLRKIRDQYLVWLTQKGARQKKINEWLGI
+#=GR 3l42_C/1-163 PP .......79***************************************************************************************************************************************************************98
+3l43_C/1-163         -------KEDSVEAVGAQLKVYHQQYQDKSREYDQLYEEYTRTSQELQMKRTAIEAFNETIKIFEEQGQTQEKSSKEYLERFRREGNEKEMQRILLNSERLKSRIAEIHESRTKLEQELRAQASDNREIDKRMNSLKPDLMQLRKIRDQYLVWLTQKGARQKKINEWLGI
+#=GR 3l43_C/1-163 PP .......79***************************************************************************************************************************************************************98
+3l44_C/1-163         -------KEDSVEAVGAQLKVYHQQYQDKSREYDQLYEEYTRTSQELQMKRTAIEAFNETIKIFEEQGQTQEKSSKEYLERFRREGNEKEMQRILLNSERLKSRIAEIHESRTKLEQELRAQASDNREIDKRMNSLKPDLMQLRKIRDQYLVWLTQKGARQKKINEWLGI
+#=GR 3l44_C/1-163 PP .......79***************************************************************************************************************************************************************98
+#=GC PP_cons         .......79***************************************************************************************************************************************************************98
+#=GC RF              xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+//

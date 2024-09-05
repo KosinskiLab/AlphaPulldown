@@ -8,8 +8,8 @@ class TestCreateMultimericObject(absltest.TestCase):
     """A class that test major functions of creating feature_dict of a MultimericObject object"""
 
     def setUp(self) -> None:
-        self.monomer1 = pickle.load(open("./test/test_data/H1142_A.pkl", "rb"))
-        self.monomer2 = pickle.load(open("./test/example_data/H1142_B.pkl", "rb"))
+        self.monomer1 = pickle.load(open("./test/test_data/features/3L4Q_A.3L4Q.cif.A.pkl", "rb"))
+        self.monomer2 = pickle.load(open("./test/test_data/features/3L4Q_C.3L4Q.pdb.C.pkl", "rb"))
     
     def test_1_initiate_default_multimericobject(self) -> MultimericObject:
         multimer_obj = MultimericObject([self.monomer1, self.monomer2])
