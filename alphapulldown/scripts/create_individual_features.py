@@ -225,7 +225,8 @@ def create_and_save_monomer_objects(monomer, pipeline):
     pipeline (DataPipeline): The data pipeline object for feature creation.
     """
     pickle_path = os.path.join(FLAGS.output_dir, f"{monomer.description}.pkl")
-
+    if FLAGS.compress_features:
+        pickle_path = pickle_path + ".xz"
     # Check if we should skip existing files
     if FLAGS.skip_existing and os.path.exists(pickle_path):
         logging.info(
@@ -263,7 +264,6 @@ def create_and_save_monomer_objects(monomer, pipeline):
 
     # Save the processed monomer object
     if FLAGS.compress_features:
-        pickle_path = pickle_path + ".xz"
         with lzma.open(pickle_path, "wb") as pickle_file:
             pickle.dump(monomer, pickle_file)
     else:
