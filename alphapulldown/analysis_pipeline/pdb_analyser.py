@@ -230,14 +230,14 @@ class PDBAnalyser:
         return complex_energy - chain_1_energy - chain_2_energy
 
     def run_and_summarise_pi_score(
-        self,
-        work_dir: str,
-        pdb_path: str,
-        surface_thres: int = 2,
-        interface_name: str = "",
-        python_env: str = "pi_score",
-        piscore_script_path: str = "/software/pi_score/run_piscore_wc.py",
-        software_path: str = "/software",
+            self,
+            work_dir: str,
+            pdb_path: str,
+            surface_thres: int = 2,
+            interface_name: str = "",
+            python_env: str = "pi_score",
+            piscore_script_path: str = "/software/pi_score/run_piscore_wc.py",
+            software_path: str = "/software",
     ) -> pd.DataFrame:
         """
         Calculates all predicted models' pi_scores and creates a pandas DataFrame of the results.
@@ -254,75 +254,31 @@ class PDBAnalyser:
         Returns:
             pd.DataFrame: DataFrame containing the results.
         """
-        # Construct the command for subprocess
-        command = [
-            "/bin/bash", "-c",
-            f"source activate {python_env} && "
-            f"export PYTHONPATH={software_path}:$PYTHONPATH && "
-            f"python {piscore_script_path} -p {pdb_path} -o {work_dir} -s {surface_thres} -ps 10"
-        ]
-
         try:
-            # Run the command in a subprocess, capture stderr
-            result = subprocess.run(command, check=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
-            csv_files = [f for f in os.listdir(work_dir) if 'filter_intf_features' in f]
-            pi_score_files = [f for f in os.listdir(work_dir) if 'pi_score_' in f]
+            with tempfile.TemporaryDirectory() as temp_dir:
+                # Use temp_dir for temporary storage
+                command = [
+                    "bash", "-c",
+                    f"source activate {python_env} && "
+                    f"export PYTHONPATH={software_path}:$PYTHONPATH && "
+                    f"python {piscore_script_path} -p {pdb_path} -o {temp_dir} -s {surface_thres}"
+                ]
+                result = subprocess.run(command, capture_output=True, text=True)
+                if result.returncode != 0:
+                    return self._handle_pi_score_error(result, command, result.stderr)
 
-            if not csv_files:
-                raise FileNotFoundError("No filtered interface features file found.")
+                # Read the results from the temporary directory
+                csv_files = [f for f in os.listdir(temp_dir) if f.endswith('.csv')]
+                if not csv_files:
+                    return self._default_dataframe()
 
-            filtered_df = pd.read_csv(os.path.join(work_dir, csv_files[0]))
-
-        except subprocess.CalledProcessError as e:
-            error_message = e.stderr.decode('utf-8') if e.stderr else "Unknown subprocess error."
-            filtered_df = self._handle_pi_score_error(e, command, error_message)
-
-        except pd.errors.EmptyDataError as e:
-            filtered_df = self._handle_pi_score_error(e, command, "No data available in the filtered interface features CSV.")
-
-        except FileNotFoundError as e:
-            filtered_df = self._handle_pi_score_error(e, command, "Required files for PI score calculation are missing.")
-            pi_score_files = None
+                df_list = [pd.read_csv(os.path.join(temp_dir, csv_file)) for csv_file in csv_files]
+                result_df = pd.concat(df_list, ignore_index=True)
+                return result_df
 
         except Exception as e:
-            filtered_df = self._handle_pi_score_error(e, command, "An unexpected error occurred while calculating the PI score.")
-
-        # Add the 'interface' column if missing
-        if 'interface' not in filtered_df.columns:
-            filtered_df['interface'] = interface_name
-
-        if filtered_df.shape[0] == 0:
-            filtered_df['pi_score'] = "No interface detected"
-            filtered_df['interface'] = interface_name
-            filtered_df = self.update_df(filtered_df)
-        else:
-            filtered_df = self.update_df(filtered_df)
-
-            try:
-                if pi_score_files:
-                    with open(os.path.join(work_dir, pi_score_files[0]), 'r') as f:
-                        lines = [l for l in f.readlines() if "#" not in l]
-                        if len(lines) > 0:
-                            pi_score = pd.read_csv(os.path.join(work_dir, pi_score_files[0]))
-                        else:
-                            pi_score = pd.DataFrame.from_dict({"pi_score": ["Too many atoms for calculation"]})
-                else:
-                    pi_score = pd.DataFrame.from_dict({"pi_score": ["Too many atoms for calculation"]})
-
-                pi_score['interface'] = pi_score['chains']
-                filtered_df = pd.merge(filtered_df, pi_score, on=['interface'], how='right')
-                try:
-                    filtered_df = filtered_df.drop(columns=["#PDB", "pdb", " pvalue", "chains", "predicted_class"])
-                except KeyError:
-                    logging.warning("Some columns to be dropped were not found in the DataFrame.")
-
-            except pd.errors.EmptyDataError as e:
-                logging.error(f"No data available in the PI score CSV: {e}")
-            except KeyError as e:
-                logging.warning(f"Key error during PI score data merging: {e}")
-            except Exception as e:
-                logging.error(f"An unexpected error occurred while merging the PI score data: {e}")
-        return filtered_df
+            logging.error(f"Error running pi_score: {e}")
+            return self._default_dataframe()
 
     def calculate_pi_score(self, pi_score_output_dir: str, interface: int = "") -> pd.DataFrame:
         """Run the PI-score pipeline between the 2 chains"""
