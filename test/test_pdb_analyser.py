@@ -1,34 +1,93 @@
 import os
-from os.path import exists
 from absl.testing import absltest
 from unittest.mock import patch, MagicMock
 import numpy as np
 import pandas as pd
 from alphapulldown.analysis_pipeline.pdb_analyser import PDBAnalyser
-import alphapulldown
 
+class MockResidue:
+    def __init__(self, id):
+        self.id = id
+
+class MockChain:
+    def __init__(self, id, residues):
+        self.id = id
+        self._residues = residues
+
+    def get_residues(self):
+        return iter(self._residues)
+
+class MockModel:
+    def __init__(self, chains):
+        # Store chains in a dictionary keyed by chain ID
+        self._chains = {chain.id: chain for chain in chains}
+
+    def __iter__(self):
+        return iter(self._chains.values())
+
+    def __getitem__(self, chain_id):
+        return self._chains[chain_id]
 
 class TestPDBAnalyser(absltest.TestCase):
 
-    @patch('alphapulldown.analysis_pipeline.pdb_analyser.PDBParser.get_structure')
-    @patch('alphapulldown.analysis_pipeline.pdb_analyser.PandasPdb.read_pdb')
     @patch('alphapulldown.analysis_pipeline.pdb_analyser.os.path.exists')
-    def setUp(self, mock_exists, mock_read_pdb, mock_get_structure):
-        # Use the real path to the ranked_0.pdb file
-        real_pdb_path = os.path.join(os.path.dirname(alphapulldown.__file__),
-                                     'test/test_data/predictions/TEST_and_TEST/ranked_0.pdb')
-        mock_exists.side_effect = lambda path: path == real_pdb_path
+    @patch('alphapulldown.analysis_pipeline.pdb_analyser.PDBParser')
+    @patch('alphapulldown.analysis_pipeline.pdb_analyser.PandasPdb')
+    def setUp(self, mock_pandaspdb, mock_pdbparser, mock_exists):
+        # Set the path to a dummy value
+        pdb_file_path = 'dummy_path.pdb'
+        mock_exists.return_value = True  # Simulate that the file exists
 
-        mock_read_pdb.return_value = MagicMock(df={'ATOM': pd.DataFrame({
+        # Mock the PandasPdb instance
+        mock_pandaspdb_instance = mock_pandaspdb.return_value
+        # Ensure that read_pdb() returns the PandasPdb instance itself
+        mock_pandaspdb_instance.read_pdb.return_value = mock_pandaspdb_instance
+        # Set the df attribute on the PandasPdb instance
+        mock_pandaspdb_instance.df = {'ATOM': pd.DataFrame({
             'chain_id': ['A', 'A', 'B', 'B'],
+            'atom_number': [1, 2, 3, 4],
+            'residue_number': [1, 2, 1, 2],
             'atom_name': ['CB', 'CA', 'CB', 'CA'],
             'residue_name': ['ALA', 'GLY', 'ALA', 'GLY'],
             'x_coord': [1.0, 2.0, 3.0, 4.0],
             'y_coord': [1.0, 2.0, 3.0, 4.0],
-            'z_coord': [1.0, 2.0, 3.0, 4.0]
-        })})
-        mock_get_structure.return_value = MagicMock()
-        self.analyser = PDBAnalyser(real_pdb_path)
+            'z_coord': [1.0, 2.0, 3.0, 4.0],
+            'element_symbol': ['C', 'C', 'C', 'C']
+        })}
+
+        # Create residues
+        residue_A1 = MockResidue((' ', 1, ' '))
+        residue_A2 = MockResidue((' ', 2, ' '))
+        residue_B1 = MockResidue((' ', 1, ' '))
+        residue_B2 = MockResidue((' ', 2, ' '))
+
+        # Create chains
+        chain_A = MockChain('A', [residue_A1, residue_A2])
+        chain_B = MockChain('B', [residue_B1, residue_B2])
+
+        # Create model
+        model = MockModel([chain_A, chain_B])
+
+        # Set get_structure to return a list containing the model
+        mock_pdbparser.return_value.get_structure.return_value = [model]
+
+        # Initialize the PDBAnalyser with the pdb_file_path
+        self.analyser = PDBAnalyser(pdb_file_path)
+        # Now calculate_padding_of_chains will use the mocked data
+        self.analyser.calculate_padding_of_chains()
+
+    def test_calculate_average_pae(self):
+        pae_mtx = np.array([
+            [0, 1, 2, 3],
+            [1, 0, 3, 4],
+            [2, 3, 0, 5],
+            [3, 4, 5, 0]
+        ])
+        chain_1_residues = np.array([0, 1])
+        chain_2_residues = np.array([0, 1])
+        average_pae = self.analyser.calculate_average_pae(pae_mtx, 'A', 'B', chain_1_residues, chain_2_residues)
+        expected_pae = 3.0  # Calculated as shown above
+        self.assertEqual(average_pae, expected_pae)
 
     def test_retrieve_C_beta_coords(self):
         chain_df = self.analyser.pdb_df[self.analyser.pdb_df['chain_id'] == 'A']
@@ -42,22 +101,25 @@ class TestPDBAnalyser(absltest.TestCase):
         residues = self.analyser.obtain_interface_residues(chain_df_1, chain_df_2, cutoff=5)
         self.assertIsNotNone(residues)
 
-    @patch('alphapulldown.analysis_pipeline.pdb_analyser.pose_from_pdb')
-    @patch('alphapulldown.analysis_pipeline.pdb_analyser.PDBIO.save')
     @patch('alphapulldown.analysis_pipeline.pdb_analyser.get_score_function')
-    def test_calculate_binding_energy(self, mock_get_score_function, mock_save, mock_pose_from_pdb):
-        mock_get_score_function.return_value = MagicMock(return_value=10.0)
-        mock_pose_from_pdb.return_value = MagicMock()
-        energy = self.analyser.calculate_binding_energy('A', 'B')
-        self.assertEqual(energy, -10.0) # 10(A_B)-10(A)-10(B) = -10
+    @patch('alphapulldown.analysis_pipeline.pdb_analyser.PDBIO')
+    @patch('alphapulldown.analysis_pipeline.pdb_analyser.pose_from_pdb')
+    def test_calculate_binding_energy(self, mock_pose_from_pdb, mock_pdbio, mock_get_score_function):
+        # Mock the score function to return a fixed score
+        mock_score_function = MagicMock()
+        mock_score_function.return_value = 10.0
+        mock_get_score_function.return_value = mock_score_function
 
-    def test_calculate_average_pae(self):
-        pae_mtx = np.array([[0, 1, 2], [1, 0, 3], [2, 3, 0]])
-        chain_1_residues = np.array([0, 1])
-        chain_2_residues = np.array([2])
-        average_pae = self.analyser.calculate_average_pae(pae_mtx, 'A', 'B', chain_1_residues, chain_2_residues)
-        expected_pae = (2 + 3) / 2
-        self.assertEqual(average_pae, expected_pae)
+        # Mock the pose_from_pdb to return a mock pose
+        mock_pose = MagicMock()
+        mock_pose_from_pdb.return_value = mock_pose
+
+        # Mock PDBIO
+        mock_pdbio_instance = mock_pdbio.return_value
+
+        # Run the method under test
+        energy = self.analyser.calculate_binding_energy('A', 'B')
+        self.assertEqual(energy, -10.0)  # 10(A_B)-10(A)-10(B) = -10
 
     def test_calculate_average_plddt(self):
         chain_1_plddt = [0.8, 0.9]

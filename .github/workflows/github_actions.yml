@@ -64,6 +64,7 @@ jobs:
           pytest -s test/test_modelcif.py
           pytest -s test/test_features_with_templates.py
           pytest -s test/test_post_prediction.py
+          pytest -s test/test_pdb_analyser.py
 
   build-fold-container:
     runs-on: ubuntu-latest

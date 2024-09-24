@@ -40,7 +40,9 @@ class PDBAnalyser:
         self.chain_combinations = {}
         self.get_all_combinations_of_chains()
         self.calculate_padding_of_chains()
-        pass
+
+    def __repr__(self) -> str:
+        return ', '.join(f'{key}: {value}' for key, value in self.__dict__.items())
 
     def calculate_padding_of_chains(self):
         """
@@ -117,6 +119,9 @@ class PDBAnalyser:
         Return:
         float: average PAE value of the interface residues
         """
+        if chain_id_1 not in self.chain_cumsum or chain_id_2 not in self.chain_cumsum:
+            raise KeyError(f"Chain ID {chain_id_1} or {chain_id_2} not found in chain_cumsum: {self.chain_cumsum}")
+
         pae_sum = 0
         chain_1_pad_num = self.chain_cumsum[chain_id_1]
         chain_2_pad_num = self.chain_cumsum[chain_id_2]
@@ -343,6 +348,8 @@ class PDBAnalyser:
             import sys
             sys.exit()
         else:
+            # Make sure pi_score_output_dir exists
+            os.makedirs(pi_score_output_dir, exist_ok=True)
             for k, v in self.chain_combinations.items():
                 chain_1_id, chain_2_id = v
                 chain_1_df, chain_2_df = self.pdb_df[self.pdb_df['chain_id'] ==
