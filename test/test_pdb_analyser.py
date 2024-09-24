@@ -1,4 +1,4 @@
-import os
+import subprocess
 from absl.testing import absltest
 from unittest.mock import patch, MagicMock
 import numpy as np
@@ -114,9 +114,6 @@ class TestPDBAnalyser(absltest.TestCase):
         mock_pose = MagicMock()
         mock_pose_from_pdb.return_value = mock_pose
 
-        # Mock PDBIO
-        mock_pdbio_instance = mock_pdbio.return_value
-
         # Run the method under test
         energy = self.analyser.calculate_binding_energy('A', 'B')
         self.assertEqual(energy, -10.0)  # 10(A_B)-10(A)-10(B) = -10
@@ -141,6 +138,69 @@ class TestPDBAnalyser(absltest.TestCase):
             'value': [1, 1]
         })
         pd.testing.assert_frame_equal(updated_df, expected_df)
+
+    @patch('alphapulldown.analysis_pipeline.pdb_analyser.subprocess.run')
+    @patch('alphapulldown.analysis_pipeline.pdb_analyser.os.listdir')
+    @patch('alphapulldown.analysis_pipeline.pdb_analyser.pd.read_csv')
+    def test_run_and_summarise_pi_score_success(self, mock_read_csv, mock_listdir, mock_subprocess_run):
+        mock_subprocess_run.return_value = MagicMock(returncode=0, stderr=b'', stdout=b'')
+        mock_listdir.return_value = ['filter_intf_features.csv']
+        mock_read_csv.return_value = pd.DataFrame({'interface': ['A_B'], 'value': [1]})
+
+        result = self.analyser.run_and_summarise_pi_score(
+            work_dir='/fake/dir',
+            pdb_path='dummy_path.pdb'
+        )
+
+        self.assertFalse(result.empty)
+        self.assertIn('interface', result.columns)
+        self.assertIn('value', result.columns)
+
+    @patch('alphapulldown.analysis_pipeline.pdb_analyser.subprocess.run')
+    @patch('alphapulldown.analysis_pipeline.pdb_analyser.os.listdir')
+    def test_run_and_summarise_pi_score_no_csv(self, mock_listdir, mock_subprocess_run):
+        mock_subprocess_run.return_value = MagicMock(returncode=0, stderr=b'', stdout=b'')
+        mock_listdir.return_value = []
+
+        result = self.analyser.run_and_summarise_pi_score(
+            work_dir='/fake/dir',
+            pdb_path='dummy_path.pdb'
+        )
+
+        expected_df = self.analyser._default_dataframe()
+        pd.testing.assert_frame_equal(result.reset_index(drop=True), expected_df)
+
+    @patch('alphapulldown.analysis_pipeline.pdb_analyser.subprocess.run')
+    @patch('alphapulldown.analysis_pipeline.pdb_analyser.pd.read_csv')
+    def test_run_and_summarise_pi_score_subprocess_error(self, mock_read_csv, mock_subprocess_run):
+        mock_subprocess_run.side_effect = subprocess.CalledProcessError(
+            returncode=1, cmd='dummy command', output=b'', stderr=b'Error'
+        )
+
+        result = self.analyser.run_and_summarise_pi_score(
+            work_dir='/fake/dir',
+            pdb_path='dummy_path.pdb'
+        )
+
+        expected_df = self.analyser._default_dataframe()
+        pd.testing.assert_frame_equal(result.reset_index(drop=True), expected_df)
+
+    @patch('alphapulldown.analysis_pipeline.pdb_analyser.subprocess.run')
+    @patch('alphapulldown.analysis_pipeline.pdb_analyser.os.listdir')
+    @patch('alphapulldown.analysis_pipeline.pdb_analyser.pd.read_csv')
+    def test_run_and_summarise_pi_score_empty_csv(self, mock_subprocess_run, mock_listdir, mock_read_csv):
+        mock_subprocess_run.return_value = MagicMock(returncode=0, stderr=b'', stdout=b'')
+        mock_listdir.return_value = ['filter_intf_features.csv']
+        mock_read_csv.side_effect = pd.errors.EmptyDataError('No data')
+
+        result = self.analyser.run_and_summarise_pi_score(
+            work_dir='/fake/dir',
+            pdb_path='dummy_path.pdb'
+        )
+
+        expected_df = self.analyser._default_dataframe()
+        pd.testing.assert_frame_equal(result.reset_index(drop=True), expected_df)
+
 
 if __name__ == '__main__':
     absltest.main()
