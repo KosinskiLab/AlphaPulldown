@@ -2,6 +2,7 @@ FROM kosinskilab/alpha_analysis_basis_jax0.4:latest
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN mkdir -p /app/alpha-analysis/
+RUN mkdir -p /tmp/root && chmod 777 /tmp/root
 COPY ./alphapulldown/analysis_pipeline/*sh /app
 COPY ./alphapulldown/analysis_pipeline/*py /app/alpha-analysis/
 
