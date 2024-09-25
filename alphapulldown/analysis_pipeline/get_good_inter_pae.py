@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from .calculate_mpdockq import get_best_plddt, read_pdb, read_plddt, score_complex, calculate_mpDockQ, read_pdb_pdockq, calc_pdockq
-from .pdb_analyser import PDBAnalyser
+from calculate_mpdockq import get_best_plddt, read_pdb, read_plddt, score_complex, calculate_mpDockQ, read_pdb_pdockq, calc_pdockq
+from pdb_analyser import PDBAnalyser
 from Bio.PDB import PDBParser
 from Bio.PDB.Polypeptide import PPBuilder
 import os
