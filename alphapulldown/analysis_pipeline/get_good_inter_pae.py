@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from calculate_mpdockq import *
-from pdb_analyser import PDBAnalyser
+from .calculate_mpdockq import get_best_plddt, read_pdb, read_plddt, score_complex, calculate_mpDockQ, read_pdb_pdockq, calc_pdockq
+from .pdb_analyser import PDBAnalyser
 from Bio.PDB import PDBParser
 from Bio.PDB.Polypeptide import PPBuilder
 import os
@@ -23,12 +23,12 @@ FLAGS = flags.FLAGS
 
 def examine_inter_pae(pae_mtx, seq_lengths, cutoff):
     """A function that checks inter-pae values in multimer prediction jobs"""
-    old_lenth = 0
+    old_length = 0
     mtx = pae_mtx.copy()
     for length in seq_lengths:
-        new_length = old_lenth + length
-        mtx[old_lenth:new_length, old_lenth:new_length] = 50
-        old_lenth = new_length
+        new_length = old_length + length
+        mtx[old_length:new_length, old_length:new_length] = 50
+        old_length = new_length
     check = np.where(mtx < cutoff)[0].size != 0
 
     return check

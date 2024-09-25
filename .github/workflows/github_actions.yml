@@ -65,6 +65,7 @@ jobs:
           pytest -s test/test_features_with_templates.py
           pytest -s test/test_post_prediction.py
           pytest -s test/test_pdb_analyser.py
+          pytest -s test/test_get_good_inter_pae.py
 
   build-fold-container:
     runs-on: ubuntu-latest
