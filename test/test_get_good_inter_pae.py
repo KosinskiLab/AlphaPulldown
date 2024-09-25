@@ -1,12 +1,13 @@
 from absl.testing import absltest
 from unittest.mock import patch, mock_open, MagicMock
-import json
+import os, sys, json
 import pandas as pd
+# Add the root directory of your project to sys.path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../alphapulldown/analysis_pipeline')))
 from alphapulldown.analysis_pipeline.get_good_inter_pae import obtain_seq_lengths, main
 
 
 class TestGetGoodInterPae(absltest.TestCase):
-
     @patch('alphapulldown.analysis_pipeline.get_good_inter_pae.os.path.exists')
     @patch('alphapulldown.analysis_pipeline.get_good_inter_pae.PDBParser.get_structure')
     @patch('alphapulldown.analysis_pipeline.get_good_inter_pae.PPBuilder.build_peptides')
