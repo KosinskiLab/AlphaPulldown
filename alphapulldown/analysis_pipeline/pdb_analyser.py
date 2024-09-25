@@ -257,6 +257,17 @@ class PDBAnalyser:
         try:
             with tempfile.TemporaryDirectory() as temp_dir:
                 # Use temp_dir for temporary storage
+                # Set environment variables
+                env = os.environ.copy()
+                env["TMPDIR"] = temp_dir
+                env["PISA_TMPDIR"] = temp_dir
+                env["PISA_SESSIONDIR"] = temp_dir
+                env["SC_TMPDIR"] = temp_dir
+                env["SC_SESSIONDIR"] = temp_dir
+                env["HOME"] = temp_dir  # Some utilities may use HOME
+                # Ensure /tmp/root exists and is writable (alternative to setting envs)
+                os.makedirs('/tmp/root', exist_ok=True)
+                os.chmod('/tmp/root', 0o777)
                 command = [
                     "bash", "-c",
                     f"source activate {python_env} && "
