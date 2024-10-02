@@ -60,7 +60,6 @@ RUN conda install -y -c conda-forge -c bioconda --solver classic \
       openmm==8.0 \
       cudatoolkit==${CUDA_VERSION} \
       pdbfixer==1.9 \
-      cctbx-base \
       kalign2 \
       importlib_metadata \
       modelcif \
