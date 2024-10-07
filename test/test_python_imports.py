@@ -44,5 +44,3 @@ from alphafold.relax import relax
 import numpy as np
 import jax.numpy as jnp
 
-from alphapulldown.utils.modelling_setup import get_run_alphafold
-
