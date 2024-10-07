@@ -7,11 +7,12 @@ import lzma
 import os
 import pickle
 import sys
+import shutil
 import tempfile
 from datetime import datetime
 from pathlib import Path
 
-from absl import logging, app
+from absl import logging, app, flags
 from alphafold.data import templates
 from alphafold.data.pipeline import DataPipeline
 from alphafold.data.tools import hmmsearch, hhsearch
@@ -20,14 +21,69 @@ from colabfold.utils import DEFAULT_API_SERVER
 from alphapulldown.utils.create_custom_template_db import create_db
 from alphapulldown.objects import MonomericObject
 from alphapulldown.utils.file_handling import iter_seqs, parse_csv_file
-from alphapulldown.utils.modelling_setup import get_run_alphafold, create_uniprot_runner
+from alphapulldown.utils.modelling_setup import create_uniprot_runner
 from alphapulldown.utils import save_meta_data
 
-# Initialize and define flags
-run_af = get_run_alphafold()
-flags = run_af.flags
 
-# All flags
+# AlphaFold flags
+flags.DEFINE_list(
+    'fasta_paths', None, 'Paths to FASTA files, each containing a prediction '
+    'target that will be folded one after another. If a FASTA file contains '
+    'multiple sequences, then it will be folded as a multimer. Paths should be '
+    'separated by commas. All FASTA paths must have a unique basename as the '
+    'basename is used to name the output directories for each prediction.')
+
+flags.DEFINE_string('data_dir', None, 'Path to directory of supporting data.')
+flags.DEFINE_string('output_dir', None, 'Path to a directory that will '
+                    'store the results.')
+flags.DEFINE_string('jackhmmer_binary_path', shutil.which('jackhmmer'),
+                    'Path to the JackHMMER executable.')
+flags.DEFINE_string('hhblits_binary_path', shutil.which('hhblits'),
+                    'Path to the HHblits executable.')
+flags.DEFINE_string('hhsearch_binary_path', shutil.which('hhsearch'),
+                    'Path to the HHsearch executable.')
+flags.DEFINE_string('hmmsearch_binary_path', shutil.which('hmmsearch'),
+                    'Path to the hmmsearch executable.')
+flags.DEFINE_string('hmmbuild_binary_path', shutil.which('hmmbuild'),
+                    'Path to the hmmbuild executable.')
+flags.DEFINE_string('kalign_binary_path', shutil.which('kalign'),
+                    'Path to the Kalign executable.')
+flags.DEFINE_string('uniref90_database_path', None, 'Path to the Uniref90 '
+                    'database for use by JackHMMER.')
+flags.DEFINE_string('mgnify_database_path', None, 'Path to the MGnify '
+                    'database for use by JackHMMER.')
+flags.DEFINE_string('bfd_database_path', None, 'Path to the BFD '
+                    'database for use by HHblits.')
+flags.DEFINE_string('small_bfd_database_path', None, 'Path to the small '
+                    'version of BFD used with the "reduced_dbs" preset.')
+flags.DEFINE_string('uniref30_database_path', None, 'Path to the UniRef30 '
+                    'database for use by HHblits.')
+flags.DEFINE_string('uniprot_database_path', None, 'Path to the Uniprot '
+                    'database for use by JackHMMer.')
+flags.DEFINE_string('pdb70_database_path', None, 'Path to the PDB70 '
+                    'database for use by HHsearch.')
+flags.DEFINE_string('pdb_seqres_database_path', None, 'Path to the PDB '
+                    'seqres database for use by hmmsearch.')
+flags.DEFINE_string('template_mmcif_dir', None, 'Path to a directory with '
+                    'template mmCIF structures, each named <pdb_id>.cif')
+flags.DEFINE_string('max_template_date', None, 'Maximum template release date '
+                    'to consider. Important if folding historical test sets.')
+flags.DEFINE_string('obsolete_pdbs_path', None, 'Path to file containing a '
+                    'mapping from obsolete PDB IDs to the PDB IDs of their '
+                    'replacements.')
+flags.DEFINE_enum('db_preset', 'full_dbs',
+                  ['full_dbs', 'reduced_dbs'],
+                  'Choose preset MSA database configuration - '
+                  'smaller genetic database config (reduced_dbs) or '
+                  'full genetic database config  (full_dbs)')
+flags.DEFINE_boolean('use_precomputed_msas', False, 'Whether to read MSAs that '
+                     'have been written to disk instead of running the MSA '
+                     'tools. The MSA files are looked up in the output '
+                     'directory, so it must stay the same between multiple '
+                     'runs that are to reuse the MSAs. WARNING: This will not '
+                     'check if the sequence, database or configuration have '
+                     'changed.')
+# AlphaPulldown specific flags
 flags.DEFINE_bool("use_mmseqs2", False,
                   "Use mmseqs2 remotely or not. 'true' or 'false', default is 'false'")
 flags.DEFINE_bool("save_msa_files", False, "Save MSA output or not")
