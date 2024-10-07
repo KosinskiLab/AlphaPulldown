@@ -247,7 +247,7 @@ This will download the version specified by '--tag' of the snakemake pipeline an
 snakedeploy deploy-workflow \
   https://github.com/KosinskiLab/AlphaPulldownSnakemake \
   AlphaPulldownSnakemake \
-  --tag 1.3.0
+  --tag 1.4.0
 cd AlphaPulldownSnakemake
 ```
 
@@ -1408,14 +1408,14 @@ For usage of the Jupyter Notebook, refer to the [Downstream analysis](#downstrea
 
 ### Create Results table
 
-Making a CSV table with structural properties and scores requires the download of the singularity image `alpha-analysis.sif`. Please refer to the installation [instruction](#3-installation-for-the-downstream-analysis-step-optional).
+Making a CSV table with structural properties and scores requires the download of the singularity image `alpha-analysis.sif`. Please refer to the installation [instruction](#3-installation-for-the-downstream-analysis-step-tools).
 
 To execute the singularity image (i.e. the sif file) run:
 
 ```bash
 singularity exec \
     --no-home \
-    --bind </path/to/your/output/dir:/mnt> \
+    --bind </path/to/output/dir/with/predictions>:/mnt \
     <path to your downloaded image>/alpha-analysis_jax_0.4.sif \
     run_get_good_pae.sh \
     --output_dir=/mnt \
