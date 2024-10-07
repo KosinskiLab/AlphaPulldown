@@ -4,7 +4,6 @@ import warnings
 import subprocess
 from absl import app
 import os
-from alphapulldown.utils.modelling_setup import get_run_alphafold
 from alphapulldown.utils.create_combinations import process_files
 
 import argparse
