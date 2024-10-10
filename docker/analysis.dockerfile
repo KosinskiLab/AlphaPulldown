@@ -11,6 +11,8 @@ RUN chmod +x /app/run_get_good_pae.sh \
     && chmod +x /app/run_pi_score.sh \
     && chmod +x /app/alpha-analysis/get_good_inter_pae.py
 
+RUN rm -f /software/pisa /software/sc
+
 ENV PATH="/app/alpha-analysis:$PATH" \
     PYTHONPATH="/app:$PYTHONPATH"
 
