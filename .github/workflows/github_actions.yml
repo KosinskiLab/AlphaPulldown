@@ -18,6 +18,9 @@ jobs:
         install-type: ['user', 'developer']
 
     steps:
+      - uses: webfactory/ssh-agent@v0.8.1
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
       - uses: actions/checkout@v4
         with:
           submodules: recursive
