@@ -274,9 +274,10 @@ class PDBAnalyser:
                     f"export PYTHONPATH={software_path}:$PYTHONPATH && "
                     f"python {piscore_script_path} -p {pdb_path} -o {temp_dir} -s {surface_thres}"
                 ]
-                result = subprocess.run(command, capture_output=True, text=True)
-                if result.returncode != 0:
-                    return self._handle_pi_score_error(result, command, result.stderr)
+                # We decided to remove pi_score from the pipeline
+                #result = subprocess.run(command, capture_output=True, text=True)
+                #if result.returncode != 0:
+                #    return self._handle_pi_score_error(result, command, result.stderr)
 
                 # Read the results from the temporary directory
                 csv_files = [f for f in os.listdir(temp_dir) if f.endswith('.csv')]
