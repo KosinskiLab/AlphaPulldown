@@ -365,9 +365,8 @@ Executing the command above will perform submit the following jobs to the cluste
 
 For using CCP4 programs to extend generated statistics, please follow these instructions:
 ```bash
-singularity pull docker://kosinskilab/alpha_analysis_basis_jax0.4:latest
-singularity build --sandbox <writable_image_dir> alpha_analysis_basis_jax0.4.sif
-singularity shell --writable <writable_image_dir>
+singularity pull docker://kosinskilab/fold_analysis:latest
+singularity build --sandbox <writable_image_dir> fold_analysis.sif
 
 # Download the top one from https://www.ccp4.ac.uk/download/#os=linux
 cp -r ccp4-9.0.003-linux64.tar.gz <writable_image_dir>/tmp
@@ -378,11 +377,10 @@ cp bin/pisa bin/sc /software/
 
 singularity build <new_image.sif> <writable_image_dir>
 ```
-Then open  AlphaPulldownSnakemake/config/config.yaml in a text editor and change this line:
-analysis_container : "docker://kosinskilab/fold_analysis:latest"
-to this line:
+Then open  AlphaPulldownSnakemake/config/config.yaml in a text editor and change the path to the analysis container to:
+```yaml
 analysis_container : "/path/to/new_image.sif"
-
+```
 <br>
 <br>
 
