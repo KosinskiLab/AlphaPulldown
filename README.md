@@ -363,7 +363,25 @@ Executing the command above will perform submit the following jobs to the cluste
 
 ![Snakemake rulegraph](manuals/dag.png)
 
-For downstream analysis of Snakemake-AlphaPulldown results, please refer to this part of the manual: [Downstream analysis](#downstream-analysis).
+For using CCP4 programs to extend generated statistics, please follow these instructions:
+```bash
+singularity pull docker://kosinskilab/alpha_analysis_basis_jax0.4:latest
+singularity build --sandbox <writable_image_dir> alpha_analysis_basis_jax0.4.sif
+singularity shell --writable <writable_image_dir>
+
+# Download the top one from https://www.ccp4.ac.uk/download/#os=linux
+cp -r ccp4-9.0.003-linux64.tar.gz <writable_image_dir>/tmp
+cd <writable_image_dir>/tmp 
+tar xvzf ccp4-9.0.003-linux64.tar.gz
+cd ccp4-9
+cp bin/pisa bin/sc /software/
+
+singularity build <new_image.sif> <writable_image_dir>
+```
+Then open  AlphaPulldownSnakemake/config/config.yaml in a text editor and change this line:
+analysis_container : "docker://kosinskilab/fold_analysis:latest"
+to this line:
+analysis_container : "/path/to/new_image.sif"
 
 <br>
 <br>
@@ -399,7 +417,7 @@ Activate the AlphaPulldown environment and install AlphaPulldown:
 
 ```bash
 source activate AlphaPulldown
-python3 -m pip install alphapulldown==2.0.0b5
+python3 -m pip install alphapulldown==2.0.0
 ```
 
 ```bash
@@ -452,6 +470,7 @@ $\text{\color{red}Update the installation manual after resolving the dependency 
 ### 0.5. Installation for developers
 
 Only for the developers who would like to modify AlphaPulldown's codes and test their modifications.
+Please [add your SSH key to your GitHub account](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account)
 
 <details>
 <summary><b>Instructions</b></summary>
