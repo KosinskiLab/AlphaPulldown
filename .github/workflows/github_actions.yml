@@ -7,6 +7,7 @@ on:
       - main
   release:
     types: [published]
+  workflow_dispatch: 
 
 jobs:
   build-and-test:
@@ -104,6 +105,7 @@ jobs:
           file: ./docker/pulldown.dockerfile
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/fold:latest
+          ssh: default
 
       - name: Build and push fold container with version
         if: github.event_name == 'release' && github.event.action == 'published'
