@@ -1,3 +1,5 @@
+# syntax = docker/dockerfile:1.4
+
 # Copyright 2021 DeepMind Technologies Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -84,7 +86,6 @@ RUN pip3 install --upgrade pip --no-cache-dir \
       jax==0.4.23 \
       jaxlib==0.4.23+cuda11.cudnn86 \
       -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
-# syntax = docker/dockerfile:1.4
 
 RUN chmod u+s /sbin/ldconfig.real
 
