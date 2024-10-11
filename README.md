@@ -363,7 +363,7 @@ Executing the command above will perform submit the following jobs to the cluste
 
 ![Snakemake rulegraph](manuals/dag.png)
 
-For using CCP4 programs to further enrich generated statistics, please follow these instructions:
+To install the software needed for [the anaysis step](https://github.com/KosinskiLab/AlphaPulldown?tab=readme-ov-file#3-analysis-and-visualization), please follow these instructions:
 ```bash
 singularity pull docker://kosinskilab/fold_analysis:latest
 singularity build --sandbox <writable_image_dir> fold_analysis.sif
