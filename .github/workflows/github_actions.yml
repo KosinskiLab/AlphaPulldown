@@ -113,6 +113,7 @@ jobs:
           file: ./docker/pulldown.dockerfile
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/fold:${{ github.event.release.tag_name }}
+          ssh: default
 
   build-analysis-container:
     runs-on: ubuntu-latest
