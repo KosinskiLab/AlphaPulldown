@@ -416,7 +416,7 @@ Activate the AlphaPulldown environment and install AlphaPulldown:
 
 ```bash
 source activate AlphaPulldown
-python3 -m pip install alphapulldown==2.0.0
+python3 -m pip install alphapulldown==2.0.0b6
 ```
 
 ```bash
