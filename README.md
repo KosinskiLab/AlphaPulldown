@@ -10,7 +10,7 @@
 * [About AlphaPulldown](#about-alphapulldown)
   * [Overview](#overview)
 * [Alphafold databases](#alphafold-databases)
-* [Snakemake AlphaPulldown](#snakemake-alphapulldown-)
+* [Snakemake AlphaPulldown](#snakemake-alphapulldown)
   * [1. Installation](#1-installation)
   * [2. Configuration](#2-configuration)
   * [3. Execution](#3-execution)
@@ -70,7 +70,7 @@
       * [Next step](#next-step-6)
 * [Downstream analysis](#downstream-analysis)
   * [Jupyter notebook](#jupyter-notebook)
-  * [Results table](#results-table-)
+  * [Results table](#results-table)
   * [Results management scripts](#results-management-scripts)
     * [Decrease the size of AlphaPulldown output](#decrease-the-size-of-alphapulldown-output)
     * [Convert Models from PDB Format to ModelCIF Format](#convert-models-from-pdb-format-to-modelcif-format)
@@ -83,9 +83,9 @@
 
 # About AlphaPulldown
 
-AlphaPulldown is an implementation of [AlphaFold-Multimer](https://github.com/google-deepmind/alphafold) designed for customizable high-throughput screening of protein-protein interactions. In addition, AlphaPulldown provides additional customizations of AlphaFold, including custom structural multimeric templates (TrueMultimer), MMseqs2 multiple sequence alignment (MSA) and [ColabFold](https://github.com/sokrypton/ColabFold) databases, proteins fragments predictions, and implementation of cross-link mass spec data using [AlphaLink2](https://github.com/Rappsilber-Laboratory/AlphaLink2/tree/main).
+AlphaPulldown is a customized implementation of [AlphaFold-Multimer](https://github.com/google-deepmind/alphafold) designed for customizable high-throughput screening of protein-protein interactions. It extends AlphaFold’s capabilities by incorporating additional run options, such as customizable multimeric structural templates (TrueMultimer), [MMseqs2](https://github.com/soedinglab/MMseqs2) multiple sequence alignment (MSA) via [ColabFold](https://github.com/sokrypton/ColabFold) databases, protein fragment predictions, and the ability to incorporate mass spec data as an input using [AlphaLink2](https://github.com/Rappsilber-Laboratory/AlphaLink2/tree/main).
 
-AlphaPulldown can be used in two ways: either by a two-step pipeline made of **python scripts**, which this manual covers, or by a **Snakemake pipeline** as a whole. For details on using the Snakemake pipeline, please refer to the separate GitHub [**repository**](https://github.com/KosinskiLab/AlphaPulldownSnakemake).
+AlphaPulldown can be used in two ways: either by a two-step pipeline made of **python scripts**, or by a **Snakemake pipeline** as a whole. For details on using the Snakemake pipeline, please refer to the separate GitHub [**repository**](https://github.com/KosinskiLab/AlphaPulldownSnakemake).
 
 ## Overview
 
@@ -179,7 +179,7 @@ alphafold_database/                             # Total: ~ 2.2 TB (download: 438
 </details>
 
 > [!NOTE]
-> Uniclust30 is the version of the database generated before 2019, UniRef30 is the one generated after 2019. Please note that AlphaPulldown is using UniRef30_2023_02 by default. This version can be downloaded by [this script](https://github.com/KosinskiLab/alphafold/blob/main/scripts/download_uniref30.sh). Alternatively, please overwrite the default path to the uniref30 database using --uniref30_database_path flag of create_individual_features.py.
+> Uniclust30 is the version of the database generated before 2019, UniRef30 is the one generated after 2019. Please note that AlphaPulldown is using UniRef30_2023_02 by default. This version can be downloaded by [this script](https://github.com/KosinskiLab/alphafold/blob/main/scripts/download_uniref30.sh). Alternatively, please overwrite the default path to the uniref30 database using the --uniref30_database_path flag of create_individual_features.py.
    
 > [!NOTE] 
 > Since the local installation of all genetic databases is space-consuming, you can alternatively use the [remotely-run MMseqs2 and ColabFold databases](https://github.com/sokrypton/ColabFold). Follow the corresponding [instructions](#13-run-using-mmseqs2-and-colabfold-databases-faster). However, for AlphaPulldown to function, you must download the parameters stored in the `params/` directory of the AlphaFold database.
@@ -242,7 +242,7 @@ After responding to these prompts, your Slurm profile named *slurm_noSidecar* fo
 
 
 **Download The Pipeline**:
-This will download the version specified by '--tag' of the snakemake pipeline and create the repository AlphaPulldownSnakemake, or any other name you choose.
+This will download the version specified by '--tag' of the snakemake pipeline and create the repository AlphaPulldownSnakemake or any other name you choose.
 ```bash
 snakedeploy deploy-workflow \
   https://github.com/KosinskiLab/AlphaPulldownSnakemake \
@@ -1414,7 +1414,7 @@ create_notebook.py --cutoff=5.0 --output_dir=<models_output_dir>
 * `--pae_figsize`:
    Figsize of pae_plot, default is 50.
 
-This command will generate an `output.ipynb`, which you can open using JupyterLab. JupyterLab is installed with AlphaPulldown via pip. To view the notebook, launch it with:
+This command will generate an `output.ipynb`, which you can open using JupyterLab. JupyterLab is installed with AlphaPulldown. To view the notebook, launch it with:
 
 ```bash
 jupyter-lab output.ipynb
