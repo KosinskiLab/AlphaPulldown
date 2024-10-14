@@ -1700,3 +1700,53 @@ ranked_0.zip
 #### Miscellaneous Options
 
 At this time, there is only one option left unexplained: `--compress`. It tells the script to compress ModelCIF files using Gzip. In the case of `--add_associated`, the ModelCIF files in the associated Zip archive are also compressed.
+
+# Features Database
+Alternatively, to generate feature files locally, you can download them from the AlphaPulldown Features Database, which covers proteins from major model organisms.
+
+## Installation 
+[MinIO Client](https://min.io/docs/minio/linux/reference/minio-mc.html) (`mc`) needs to be installed to access the Features Database.
+
+Download the mc binary, make it executable and move to your PATH:
+
+```bash
+curl -O https://dl.min.io/client/mc/release/linux-amd64/mc
+chmod +x mc
+sudo mv mc /usr/local/bin/
+```
+
+Verify `mc` works:
+
+```bash
+mc --help
+```
+
+## Configuration
+
+Create an Alias for the Features Database:
+
+```bash
+ mc alias set embl https://s3.embl.de "" "" --api S3v4
+```
+
+## Download Features
+When `mc` is successfully installed and configured you can use it to access the Features Database. The commands are similar to bash commands.
+
+Check the list of the available organisms:
+
+```bash
+ mc ls embl/alphapulldown/input_features
+```
+
+Every organism directory contains compressed <UniProt ID>.pkl.xz features files. 
+
+To download the features file for Q6BF25 protein from *E. coli* run:
+
+```bash
+mc cp embl/alphapulldown/input_features/Escherichia_coli/Q6BF25.pkl.xz Q6BF25.pkl.xz
+```
+
+You can also download all features of the organism proteins by copying the whole organism directory:
+```
+mc cp embl/alphapulldown/input_features/Escherichia_coli/Escherichia_coli ./Escherichia_coli
+```
