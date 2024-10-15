@@ -184,6 +184,8 @@ alphafold_database/                             # Total: ~ 2.2 TB (download: 438
 > [!NOTE] 
 > Since the local installation of all genetic databases is space-consuming, you can alternatively use the [remotely-run MMseqs2 and ColabFold databases](https://github.com/sokrypton/ColabFold). Follow the corresponding [instructions](#13-run-using-mmseqs2-and-colabfold-databases-faster). However, for AlphaPulldown to function, you must download the parameters stored in the `params/` directory of the AlphaFold database.
 
+<br>
+<br> 
 
 # Snakemake AlphaPulldown 
 
@@ -243,12 +245,35 @@ After responding to these prompts, your Slurm profile named *slurm_noSidecar* fo
 
 **Download The Pipeline**:
 This will download the version specified by '--tag' of the snakemake pipeline and create the repository AlphaPulldownSnakemake or any other name you choose.
+
 ```bash
 snakedeploy deploy-workflow \
   https://github.com/KosinskiLab/AlphaPulldownSnakemake \
   AlphaPulldownSnakemake \
   --tag 1.4.0
 cd AlphaPulldownSnakemake
+```
+>[!NOTE]
+>If you want to use the latest version from GitHub replace `--tag X.X.X` to `--branch main`
+
+**Install CCP4 package**:
+To install the software needed for [the anaysis step](https://github.com/KosinskiLab/AlphaPulldown?tab=readme-ov-file#3-analysis-and-visualization), please follow these instructions:
+
+```bash
+singularity pull docker://kosinskilab/fold_analysis:latest
+singularity build --sandbox <writable_image_dir> fold_analysis_latest.sif
+# Download the top one from https://www.ccp4.ac.uk/download/#os=linux
+tar xvzf ccp4-9.0.003-linux64.tar.gz
+cd ccp4-9
+cp bin/pisa bin/sc <writable_image_dir>/software/
+cp /lib/* <writable_image_dir>/software/lib64/
+singularity build <new_image.sif> <writable_image_dir>
+```
+
+Then open `AlphaPulldownSnakemake/config/config.yaml` in a text editor and change the path to the analysis container to:
+
+```yaml
+analysis_container : "/path/to/new_image.sif"
 ```
 
 ## 2. Configuration
@@ -363,25 +388,6 @@ Executing the command above will perform submit the following jobs to the cluste
 
 ![Snakemake rulegraph](manuals/dag.png)
 
-For using CCP4 programs to further enrich generated statistics, please follow these instructions:
-```bash
-singularity pull docker://kosinskilab/fold_analysis:latest
-singularity build --sandbox <writable_image_dir> fold_analysis.sif
-
-# Download the top one from https://www.ccp4.ac.uk/download/#os=linux
-cp -r ccp4-9.0.003-linux64.tar.gz <writable_image_dir>/tmp
-cd <writable_image_dir>/tmp 
-tar xvzf ccp4-9.0.003-linux64.tar.gz
-cd ccp4-9
-cp bin/pisa bin/sc /software/
-cp /lib/* /software/lib64/
-
-singularity build <new_image.sif> <writable_image_dir>
-```
-Then open  AlphaPulldownSnakemake/config/config.yaml in a text editor and change the path to the analysis container to:
-```yaml
-analysis_container : "/path/to/new_image.sif"
-```
 <br>
 <br>
 
