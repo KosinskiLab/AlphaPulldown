@@ -4,82 +4,93 @@
 
 ## Table of Contents
 
-<!-- TOC -->
-* [AlphaPulldown: Version 2.0.0 (Beta)](#alphapulldown-version-200-beta)
-  * [Table of Contents](#table-of-contents)
-* [About AlphaPulldown](#about-alphapulldown)
-  * [Overview](#overview)
-* [Alphafold databases](#alphafold-databases)
-* [Snakemake AlphaPulldown](#snakemake-alphapulldown)
-  * [1. Installation](#1-installation)
-  * [2. Configuration](#2-configuration)
-  * [3. Execution](#3-execution)
-* [Run AlphaPulldown Python Command Line Interface](#run-alphapulldown-python-command-line-interface)
-  * [0. Installation](#0-installation)
-    * [0.1. Create Anaconda environment](#01-create-anaconda-environment)
-    * [0.2. Installation using pip](#02-installation-using-pip)
-    * [0.3. Installation for the Downstream analysis tools](#03-installation-for-the-downstream-analysis-tools)
-    * [0.4. Installation for cross-link input data by AlphaLink2 (optional!)](#04-installation-for-cross-link-input-data-by-alphalink2-optional)
-    * [0.5. Installation for developers](#05-installation-for-developers)
-  * [1. Compute multiple sequence alignment (MSA) and template features (CPU stage)](#1-compute-multiple-sequence-alignment-msa-and-template-features-cpu-stage)
-    * [1.1. Basic run](#11-basic-run)
-      * [Input](#input)
-      * [Script Execution](#script-execution)
-      * [Output](#output)
-      * [Next step](#next-step)
-    * [1.2. Example bash scripts for SLURM (EMBL cluster)](#12-example-bash-scripts-for-slurm-embl-cluster)
-      * [Input](#input-1)
-      * [Script Execution](#script-execution-1)
-      * [Next step](#next-step-1)
-    * [1.3. Run using MMseqs2 and ColabFold Databases (Faster)](#13-run-using-mmseqs2-and-colabfold-databases-faster)
-      * [Run MMseqs2 Remotely](#run-mmseqs2-remotely)
-      * [Output](#output-1)
-      * [Run MMseqs2 Locally](#run-mmseqs2-locally)
-      * [Next step](#next-step-2)
-    * [1.4. Run with custom templates (TrueMultimer)](#14-run-with-custom-templates-truemultimer)
-      * [Input](#input-2)
-      * [Script Execution](#script-execution-2)
-      * [Output](#output-2)
-      * [Next step](#next-step-3)
-  * [2. Predict structures (GPU stage)](#2-predict-structures-gpu-stage)
-    * [2.1. Basic run](#21-basic-run)
-      * [Input](#input-3)
-      * [Script Execution: Structure Prediction](#script-execution-structure-prediction)
-      * [Output](#output-3)
-      * [Next step](#next-step-4)
-    * [2.2. Example run with SLURM (EMBL cluster)](#22-example-run-with-slurm-embl-cluster)
-      * [Input](#input-4)
-      * [Script Execution](#script-execution-3)
-      * [Output and the next step](#output-and-the-next-step)
-    * [2.3. Pulldown mode](#23-pulldown-mode)
-      * [Multiple inputs "pulldown" mode](#multiple-inputs-pulldown-mode)
-    * [2.4. All versus All mode](#24-all-versus-all-mode)
-      * [Output and the next step](#output-and-the-next-step-1)
-    * [2.5. Run with Custom Templates (TrueMultimer)](#25-run-with-custom-templates-truemultimer)
-      * [Input](#input-5)
-      * [Script Execution for TrueMultimer Structure Prediction](#script-execution-for-truemultimer-structure-prediction)
-      * [Output and the next step](#output-and-the-next-step-2)
-    * [2.6. Run with crosslinking-data (AlphaLink2)](#26-run-with-crosslinking-data-alphalink2)
-      * [Input](#input-6)
-      * [Run with AlphaLink2 prediction via AlphaPulldown](#run-with-alphalink2-prediction-via-alphapulldown)
-      * [Output and the next step](#output-and-the-next-step-3)
-  * [3. Analysis and Visualization](#3-analysis-and-visualization)
-    * [Create Jupyter Notebook](#create-jupyter-notebook)
-      * [Next step](#next-step-5)
-    * [Create Results table](#create-results-table)
-      * [Next step](#next-step-6)
-* [Downstream analysis](#downstream-analysis)
-  * [Jupyter notebook](#jupyter-notebook)
-  * [Results table](#results-table)
-  * [Results management scripts](#results-management-scripts)
-    * [Decrease the size of AlphaPulldown output](#decrease-the-size-of-alphapulldown-output)
-    * [Convert Models from PDB Format to ModelCIF Format](#convert-models-from-pdb-format-to-modelcif-format)
-      * [1. Convert all models to separate ModelCIF files](#1-convert-all-models-to-separate-modelcif-files)
-      * [2. Only convert a specific single model for each complex](#2-only-convert-a-specific-single-model-for-each-complex)
-      * [3. Have a representative model and keep associated models](#3-have-a-representative-model-and-keep-associated-models)
-      * [Associated Zip Archives](#associated-zip-archives)
-      * [Miscellaneous Options](#miscellaneous-options)
-<!-- TOC -->
+<!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
+
+- [AlphaPulldown: Version 2.0.0 (Beta)](#alphapulldown-version-200-beta)
+   * [Table of Contents](#table-of-contents)
+- [About AlphaPulldown](#about-alphapulldown)
+   * [Overview](#overview)
+- [Alphafold databases](#alphafold-databases)
+- [Snakemake AlphaPulldown ](#snakemake-alphapulldown)
+   * [1. Installation](#1-installation)
+   * [2. Configuration](#2-configuration)
+   * [3. Execution](#3-execution)
+- [Run AlphaPulldown Python Command Line Interface](#run-alphapulldown-python-command-line-interface)
+   * [0. Installation](#0-installation)
+      + [0.1. Create Anaconda environment](#01-create-anaconda-environment)
+      + [0.2. Installation using pip](#02-installation-using-pip)
+      + [0.3. Installation for the Downstream analysis tools](#03-installation-for-the-downstream-analysis-tools)
+      + [0.4. Installation for cross-link input data by AlphaLink2 (optional!)](#04-installation-for-cross-link-input-data-by-alphalink2-optional)
+      + [0.5. Installation for developers](#05-installation-for-developers)
+   * [1. Compute multiple sequence alignment (MSA) and template features (CPU stage)](#1-compute-multiple-sequence-alignment-msa-and-template-features-cpu-stage)
+      + [1.1. Basic run](#11-basic-run)
+         - [Input](#input)
+         - [Script Execution](#script-execution)
+         - [Output](#output)
+         - [Next step](#next-step)
+      + [1.2. Example bash scripts for SLURM (EMBL cluster)](#12-example-bash-scripts-for-slurm-embl-cluster)
+         - [Input](#input-1)
+         - [Script Execution](#script-execution-1)
+         - [Next step](#next-step-1)
+      + [1.3. Run using MMseqs2 and ColabFold Databases (Faster)](#13-run-using-mmseqs2-and-colabfold-databases-faster)
+         - [Run MMseqs2 Remotely](#run-mmseqs2-remotely)
+         - [Output](#output-1)
+         - [Run MMseqs2 Locally](#run-mmseqs2-locally)
+         - [Next step](#next-step-2)
+      + [1.4. Run with custom templates (TrueMultimer)](#14-run-with-custom-templates-truemultimer)
+         - [Input](#input-2)
+         - [Script Execution](#script-execution-2)
+         - [Output](#output-2)
+         - [Next step](#next-step-3)
+   * [2. Predict structures (GPU stage)](#2-predict-structures-gpu-stage)
+      + [2.1. Basic run](#21-basic-run)
+         - [Input](#input-3)
+         - [Script Execution: Structure Prediction](#script-execution-structure-prediction)
+         - [Output](#output-3)
+         - [Next step](#next-step-4)
+      + [2.2. Example run with SLURM (EMBL cluster)](#22-example-run-with-slurm-embl-cluster)
+         - [Input](#input-4)
+         - [Script Execution](#script-execution-3)
+         - [Output and the next step](#output-and-the-next-step)
+      + [2.3. Pulldown mode](#23-pulldown-mode)
+         - [Multiple inputs "pulldown" mode](#multiple-inputs-pulldown-mode)
+      + [2.4. All versus All mode](#24-all-versus-all-mode)
+         - [Output and the next step](#output-and-the-next-step-1)
+      + [2.5. Run with Custom Templates (TrueMultimer)](#25-run-with-custom-templates-truemultimer)
+         - [Input](#input-5)
+         - [Script Execution for TrueMultimer Structure Prediction](#script-execution-for-truemultimer-structure-prediction)
+         - [Output and the next step](#output-and-the-next-step-2)
+      + [2.6. Run with crosslinking-data (AlphaLink2)](#26-run-with-crosslinking-data-alphalink2)
+         - [Input](#input-6)
+         - [Run with AlphaLink2 prediction via AlphaPulldown](#run-with-alphalink2-prediction-via-alphapulldown)
+         - [Output and the next step](#output-and-the-next-step-3)
+   * [3. Analysis and Visualization](#3-analysis-and-visualization)
+      + [Create Jupyter Notebook](#create-jupyter-notebook)
+         - [Next step](#next-step-5)
+      + [Create Results table](#create-results-table)
+         - [Next step](#next-step-6)
+- [Downstream analysis](#downstream-analysis)
+   * [Jupyter notebook](#jupyter-notebook)
+   * [Results table ](#results-table)
+   * [Results management scripts](#results-management-scripts)
+      + [Decrease the size of AlphaPulldown output](#decrease-the-size-of-alphapulldown-output)
+      + [Convert Models from PDB Format to ModelCIF Format](#convert-models-from-pdb-format-to-modelcif-format)
+         - [1. Convert all models to separate ModelCIF files](#1-convert-all-models-to-separate-modelcif-files)
+         - [2. Only convert a specific single model for each complex](#2-only-convert-a-specific-single-model-for-each-complex)
+         - [3. Have a representative model and keep associated models](#3-have-a-representative-model-and-keep-associated-models)
+         - [Associated Zip Archives](#associated-zip-archives)
+         - [Miscellaneous Options](#miscellaneous-options)
+- [Features Database](#features-database)
+   * [Installation](#installation)
+      + [Steps:](#steps)
+      + [Verify installation:](#verify-installation)
+   * [Configuration](#configuration)
+   * [Downloading Features](#downloading-features)
+      + [List available organisms:](#list-available-organisms)
+      + [Download specific protein features:](#download-specific-protein-features)
+      + [Download all features for an organism:](#download-all-features-for-an-organism)
+
+<!-- TOC end -->
 
 # About AlphaPulldown
 
@@ -435,14 +446,25 @@ pip install -U "jax[cuda12]"
 
 ### 0.3. Installation for the Downstream analysis tools
 
-To create the Results table, you need to have [Singularity](https://apptainer.org/admin-docs/master/installation.html) installed.
+**Install CCP4 package**:
+To install the software needed for [the anaysis step](https://github.com/KosinskiLab/AlphaPulldown?tab=readme-ov-file#3-analysis-and-visualization), please follow these instructions:
 
-Download the singularity image: 
+```bash
+singularity pull docker://kosinskilab/fold_analysis:latest
+singularity build --sandbox <writable_image_dir> fold_analysis_latest.sif
+# Download the top one from https://www.ccp4.ac.uk/download/#os=linux
+tar xvzf ccp4-9.0.003-linux64.tar.gz
+cd ccp4-9
+cp bin/pisa bin/sc <writable_image_dir>/software/
+cp /lib/* <writable_image_dir>/software/lib64/
+singularity build <new_image.sif> <writable_image_dir>
+```
 
-* If your results are from AlphaPulldown prior to version 1.0.0: [alpha-analysis_jax_0.3.sif](https://www.embl-hamburg.de/AlphaPulldown/downloads/alpha-analysis_jax_0.3.sif). 
-* If your results are from AlphaPulldown with version >=1.0.0: [alpha-analysis_jax_0.4.sif](https://www.embl-hamburg.de/AlphaPulldown/downloads/alpha-analysis_jax_0.4.sif). 
+Then open `AlphaPulldownSnakemake/config/config.yaml` in a text editor and change the path to the analysis container to:
 
-Chrome users may not be able to download it after clicking the link. If so, please right-click and select "Save link as".
+```yaml
+analysis_container : "/path/to/new_image.sif"
+```
 
 ### 0.4. Installation for cross-link input data by [AlphaLink2](https://github.com/Rappsilber-Laboratory/AlphaLink2/tree/main) (optional!)
 
@@ -525,6 +547,9 @@ Please [add your SSH key to your GitHub account](https://docs.github.com/en/auth
 <br>
 
 ## 1. Compute multiple sequence alignment (MSA) and template features (CPU stage)
+
+>[!Note]
+>If you work with proteins from model organisms you can directly download the features files from the [AlphaPulldown Features Database](#features-database) and skip this step.
 
 ### 1.1. Basic run
 
@@ -982,7 +1007,7 @@ source activate AlphaPulldown
 run_multimer_jobs.py \
   --mode=custom \
   --monomer_objects_dir=<dir that stores feature pickle files> \
-  --data_dir=<path to alphafold databases> \
+  --data_dir=<path to alphafold databases> I am running a few minutes late; my previous meeting is running over.
   --protein_lists=<protein_list.txt> \
   --output_path=<path to output directory> \ 
   --num_cycle=<any number e.g. 3> \
@@ -1432,7 +1457,7 @@ For usage of the Jupyter Notebook, refer to the [Downstream analysis](#downstrea
 
 ### Create Results table
 
-Making a CSV table with structural properties and scores requires the download of the singularity image `alpha-analysis.sif`. Please refer to the installation [instruction](#3-installation-for-the-downstream-analysis-step-tools).
+Making a CSV table with structural properties and scores requires the download of the singularity image `fold_analysis.sif`. Please refer to the installation [instruction](#03-installation-for-the-downstream-analysis-tools).
 
 To execute the singularity image (i.e. the sif file) run:
 
@@ -1440,7 +1465,7 @@ To execute the singularity image (i.e. the sif file) run:
 singularity exec \
     --no-home \
     --bind </path/to/output/dir/with/predictions>:/mnt \
-    <path to your downloaded image>/alpha-analysis_jax_0.4.sif \
+    <path to your downloaded image>/fold_analysis.sif \
     run_get_good_pae.sh \
     --output_dir=/mnt \
     --cutoff=10
