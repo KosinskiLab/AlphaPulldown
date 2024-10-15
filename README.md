@@ -1701,13 +1701,21 @@ ranked_0.zip
 
 At this time, there is only one option left unexplained: `--compress`. It tells the script to compress ModelCIF files using Gzip. In the case of `--add_associated`, the ModelCIF files in the associated Zip archive are also compressed.
 
+<br>
+
 # Features Database
-Alternatively, to generate feature files locally, you can download them from the AlphaPulldown Features Database, which covers proteins from major model organisms.
 
-## Installation 
-[MinIO Client](https://min.io/docs/minio/linux/reference/minio-mc.html) (`mc`) needs to be installed to access the Features Database.
+Instead of generating feature files locally, you can download them from the **AlphaPulldown Features Database**, which contains precomputed protein **features for major model organisms**.
 
-Download the mc binary, make it executable and move to your PATH:
+## Installation
+
+To access the Features Database, you need to install the [MinIO Client](https://min.io/docs/minio/linux/reference/minio-mc.html) (`mc`).
+
+### Steps:
+
+1. Download the `mc` binary.
+2. Make the binary executable.
+3. Move it to your `PATH` for system-wide access.
 
 ```bash
 curl -O https://dl.min.io/client/mc/release/linux-amd64/mc
@@ -1715,7 +1723,9 @@ chmod +x mc
 sudo mv mc /usr/local/bin/
 ```
 
-Verify `mc` works:
+### Verify installation:
+
+To ensure `mc` is correctly installed, you can run:
 
 ```bash
 mc --help
@@ -1723,30 +1733,48 @@ mc --help
 
 ## Configuration
 
-Create an Alias for the Features Database:
+Set up an alias for easy access to the AlphaPulldown Features Database hosted at EMBL:
 
 ```bash
- mc alias set embl https://s3.embl.de "" "" --api S3v4
+mc alias set embl https://s3.embl.de "" "" --api S3v4
 ```
 
-## Download Features
-When `mc` is successfully installed and configured you can use it to access the Features Database. The commands are similar to bash commands.
+This alias allows you to interact with the Features Database as if it were a local directory.
 
-Check the list of the available organisms:
+## Downloading Features
+
+Once `mc` is installed and configured, you can start accessing the Features Database. The `mc` commands mimic standard bash commands.
+
+### List available organisms:
+
+To view the list of available organisms with precomputed feature files, run:
 
 ```bash
- mc ls embl/alphapulldown/input_features
+mc ls embl/alphapulldown/input_features
 ```
 
-Every organism directory contains compressed <UniProt ID>.pkl.xz features files. 
+Each organism directory contains compressed `.pkl.xz` feature files, named according to their **UniProt ID**.
 
-To download the features file for Q6BF25 protein from *E. coli* run:
+### Download specific protein features:
+
+For example, to download the feature file for the protein with UniProt ID Q6BF25 from *Escherichia coli*, use:
 
 ```bash
 mc cp embl/alphapulldown/input_features/Escherichia_coli/Q6BF25.pkl.xz Q6BF25.pkl.xz
 ```
 
-You can also download all features of the organism proteins by copying the whole organism directory:
+### Download all features for an organism:
+
+To download all feature files for proteins from a specific organism, such as *E. coli*, copy the entire directory:
+
+```bash
+mc cp --recursive embl/alphapulldown/input_features/Escherichia_coli/ ./Escherichia_coli/
 ```
-mc cp embl/alphapulldown/input_features/Escherichia_coli/Escherichia_coli ./Escherichia_coli
+
+Alternatively, you can mirror the contents of the organism’s directory, ensuring all files are synced between the source and your local directory:
+
+```bash
+mc mirror embl/alphapulldown/input_features/Escherichia_coli/ Escherichia_coli/
 ```
+
+This command mirrors the remote directory to your local system, keeping both locations in sync.
