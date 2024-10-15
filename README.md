@@ -1709,13 +1709,20 @@ Instead of generating feature files locally, you can download them from the **Al
 
 ## Installation
 
+>[!NOTE]
+>For EMBL cluster users:
+>You can access the directory with generated features files at
+>`/g/alphafold/input_features/`
+
 To access the Features Database, you need to install the [MinIO Client](https://min.io/docs/minio/linux/reference/minio-mc.html) (`mc`).
 
 ### Steps:
 
-1. Download the `mc` binary.
+1. [Download](https://min.io/docs/minio/linux/reference/minio-mc.html#install-mc) the `mc` binary.
 2. Make the binary executable.
 3. Move it to your `PATH` for system-wide access.
+
+Example for AMD64 architecture:
 
 ```bash
 curl -O https://dl.min.io/client/mc/release/linux-amd64/mc
