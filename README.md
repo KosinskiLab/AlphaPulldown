@@ -281,15 +281,15 @@ cp /lib/* <writable_image_dir>/software/lib64/
 singularity build <new_image.sif> <writable_image_dir>
 ```
 
-Then open `AlphaPulldownSnakemake/config/config.yaml` in a text editor and change the path to the analysis container to:
+## 2. Configuration
+
+Adjust `config/config.yaml` for your particular use case.
+
+If you want to use CCP4 for analysis, open `config/config.yaml` in a text editor and change the path to the analysis container to:
 
 ```yaml
 analysis_container : "/path/to/new_image.sif"
 ```
-
-## 2. Configuration
-
-Adjust `config/config.yaml` for your particular use case.
 
 **input_files**
 This variable holds the path to your sample sheet, where each line corresponds to a folding job. For this pipeline we use the following format specification:
@@ -458,12 +458,6 @@ cd ccp4-9
 cp bin/pisa bin/sc <writable_image_dir>/software/
 cp /lib/* <writable_image_dir>/software/lib64/
 singularity build <new_image.sif> <writable_image_dir>
-```
-
-Then open `AlphaPulldownSnakemake/config/config.yaml` in a text editor and change the path to the analysis container to:
-
-```yaml
-analysis_container : "/path/to/new_image.sif"
 ```
 
 ### 0.4. Installation for cross-link input data by [AlphaLink2](https://github.com/Rappsilber-Laboratory/AlphaLink2/tree/main) (optional!)
