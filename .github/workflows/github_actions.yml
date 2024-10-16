@@ -50,6 +50,7 @@ jobs:
           pip install -e .
           pip install -e ColabFold --no-deps
           pip install -e alphafold --no-deps
+          pip install -U "jax[cuda12]"
           export PYTHONPATH=$PWD/AlphaLink2:$PYTHONPATH
           # install dependencies for AlphaLink backend
           # pip install torch==1.13.0+cu117 --extra-index-url https://download.pytorch.org/whl/cu117
