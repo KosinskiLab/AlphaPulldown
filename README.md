@@ -1559,7 +1559,7 @@ parse_results('./ProteinA_and_ProteinB', models=10)
 Results table:
 
 * `predictions_with_good_interpae.csv` is generated during the [Create Results table](#create-results-table) for [**Scripts-Based Alphapulldown**](#scripts-based-alphapulldown).
-* `statistics.csv` generated in the `output/reports` for [**Snakemake AlphaPulldown**](#snakemake-alphapulldown)
+* `analysis.csv` generated in the `output/reports` for [**Snakemake AlphaPulldown**](#snakemake-alphapulldown)
 
 $\text{\color{red}Change description, add explain scores}$
 
