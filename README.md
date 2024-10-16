@@ -268,18 +268,31 @@ cd AlphaPulldownSnakemake
 >If you want to use the latest version from GitHub replace `--tag X.X.X` to `--branch main`
 
 **Install CCP4 package**:
-To install the software needed for [the anaysis step](https://github.com/KosinskiLab/AlphaPulldown?tab=readme-ov-file#3-analysis-and-visualization), please follow these instructions:
+To install the software needed for [the analysis step](https://github.com/KosinskiLab/AlphaPulldown?tab=readme-ov-file#3-analysis-and-visualization), please follow these instructions:
 
+Download so-called Singularity image with our analysis software package
 ```bash
 singularity pull docker://kosinskilab/fold_analysis:latest
 singularity build --sandbox <writable_image_dir> fold_analysis_latest.sif
-# Download the top one from https://www.ccp4.ac.uk/download/#os=linux
+```
+<writable_image_dir> can be any temporary directory and can be deleted later.
+
+Download CCP4 from https://www.ccp4.ac.uk/download/#os=linux and copy to your server
+```bash
 tar xvzf ccp4-9.0.003-linux64.tar.gz
 cd ccp4-9
 cp bin/pisa bin/sc <writable_image_dir>/software/
 cp /lib/* <writable_image_dir>/software/lib64/
-singularity build <new_image.sif> <writable_image_dir>
 ```
+
+Create a new Singularity with CCP4 included
+```bash
+cd <directory where you want to keep your local software>
+singularity build fold_analysis_latest_withCCP4.sif <writable_image_dir>
+```
+It should create `fold_analysis_latest_withCCP4.sif` file.
+
+You can delete the <writable_image_dir> now.
 
 ## 2. Configuration
 
@@ -288,7 +301,7 @@ Adjust `config/config.yaml` for your particular use case.
 If you want to use CCP4 for analysis, open `config/config.yaml` in a text editor and change the path to the analysis container to:
 
 ```yaml
-analysis_container : "/path/to/new_image.sif"
+analysis_container : "/path/to/fold_analysis_latest_withCCP4.sif"
 ```
 
 **input_files**
