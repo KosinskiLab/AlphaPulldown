@@ -15,7 +15,7 @@ from af2plots.plotter import plotter
 
 def display_pae_plots(subdir,figsize=(50, 50)):
     """A function to display all the pae plots in the subdir"""
-    pattern = r"_PAE_plot_ranked_(\d+)"
+    pattern = r"pae_plot_ranked_(\d+)"
     images = sorted([i for i in os.listdir(subdir) if ".png" in i],
                     key= lambda x: int(re.search(pattern,x).group(1)))
     if len(images) > 0:
