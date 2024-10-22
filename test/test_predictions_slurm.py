@@ -96,15 +96,16 @@ pytest -s test/check_predict_structure.py::{class_name}::{test_name}
         subprocess.run(command, check=True)
 
     @parameterized.named_parameters(
-        {"testcase_name": "monomer", "i": 1, "class_name": "TestRunModes", "test_name": "test__monomer"},
-        {"testcase_name": "dimer", "i": 2, "class_name": "TestRunModes", "test_name": "test__dimer"},
-        {"testcase_name": "trimer", "i": 3, "class_name": "TestRunModes", "test_name": "test__trimer"},
+        {"testcase_name": "monomer", "i": 0, "class_name": "TestRunModes", "test_name": "test__monomer"},
+        {"testcase_name": "dimer", "i": 1, "class_name": "TestRunModes", "test_name": "test__dimer"},
+        {"testcase_name": "trimer", "i": 2, "class_name": "TestRunModes", "test_name": "test__trimer"},
         {"testcase_name": "chopped_dimer", "i": 3, "class_name": "TestRunModes", "test_name": "test__chopped_dimer"},
         {"testcase_name": "homo_oligomer", "i": 4, "class_name": "TestRunModes", "test_name": "test__homo_oligomer"},
         {"testcase_name": "no_relax", "i": 5, "class_name": "TestResume", "test_name": "test__no_relax"},
         {"testcase_name": "relax_all", "i": 6, "class_name": "TestResume", "test_name": "test__relax_all"},
         {"testcase_name": "continue_relax", "i": 7, "class_name": "TestResume", "test_name": "test__continue_relax"},
         {"testcase_name": "continue_prediction", "i": 8, "class_name": "TestResume", "test_name": "test__continue_prediction"},
+        {"testcase_name": "long_name", "i": 9, "class_name": "TestRunModes", "test_name": "test__long_name"},
     )
     def test_predict_structure(self, i: int, class_name: str, test_name: str):
         conda_env = os.environ.get('CONDA_DEFAULT_ENV')

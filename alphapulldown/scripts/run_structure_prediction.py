@@ -224,12 +224,20 @@ def pre_modelling_setup(
 
     if flags.use_ap_style:
         output_dir = join(output_dir, object_to_model.description)
+    if len(output_dir) > 100:
+        raise ValueError(f"Output directory path is too long: {output_dir}."
+                        "Please use a shorter path with --output_directory.")
     makedirs(output_dir, exist_ok=True)
     # Copy features metadata to output directory
     for interactor in interactors:
         for feature_dir in flags.features_directory:
+            # meta.json is named the same way as the pickle file
+            if isinstance(interactor, ChoppedObject):
+                description = interactor.description.split('_')[0]
+            elif isinstance(interactor, MonomericObject):
+                description = interactor.description
             meta_json = glob.glob(
-                join(feature_dir, f"{interactor.description}_feature_metadata_*.json")
+                join(feature_dir, f"{description}_feature_metadata_*.json")
             )
             if meta_json:
                 feature_json = meta_json[0]

@@ -42,7 +42,8 @@ class _TestBase(parameterized.TestCase):
         # Get path of the alphapulldown module
         alphapulldown_path = alphapulldown.__path__[0]
         # Join the path with the script name
-        self.script_path = os.path.join(alphapulldown_path, "scripts/run_multimer_jobs.py")
+        self.script_path1 = os.path.join(alphapulldown_path, "scripts/run_multimer_jobs.py")
+        self.script_path2 = os.path.join(alphapulldown_path, "scripts/run_structure_prediction.py")
 
     def _runCommonTests(self, result, multimer_mode, dirname=None):
         print(result.stdout)
@@ -104,50 +105,90 @@ class _TestBase(parameterized.TestCase):
 
 
 class TestRunModes(_TestBase):
-    def setUp(self) -> None:
-        super().setUp()
-
-        self.args = [
-            sys.executable,
-            self.script_path,
-            "--num_cycle=1",
-            "--num_predictions_per_model=1",
-            f"--data_dir={self.data_dir}",
-            f"--monomer_objects_dir={self.test_features_dir}",
-            "--job_index=1"
-        ]
-
-    def tearDown(self) -> None:
-        # Remove the temporary directory
-        # shutil.rmtree(self.output_dir)
-        pass
-
+    def _build_args(self, protein_list, mode, script):
+        if script == 'run_multimer_jobs.py':
+            args = [
+                sys.executable,
+                self.script_path1,
+                "--num_cycle=1",
+                "--num_predictions_per_model=1",
+                f"--data_dir={self.data_dir}",
+                f"--monomer_objects_dir={self.test_features_dir}",
+                "--job_index=1",
+                f"--output_path={self.output_dir}",
+            ]
+            # Set appropriate flag based on mode
+            flag = "--oligomer_state_file" if mode == "homo-oligomer" else "--protein_lists"
+            # Construct full path to protein list
+            protein_list_path = os.path.join(self.test_protein_lists_dir, protein_list)
+            # Extend arguments with mode and protein list
+            args.extend([
+                f"--mode={mode}",
+                f"{flag}={protein_list_path}",
+            ])
+        elif script == 'run_structure_prediction.py':
+            args = [
+                sys.executable,
+                self.script_path2,
+                "--input=A0A075B6L2:10:1-3:4-5:6-7:7-8",
+                f"--output_directory={self.output_dir}",
+                "--num_cycle=1",
+                "--num_predictions_per_model=1",
+                f"--data_directory={self.data_dir}",
+                f"--features_directory={self.test_features_dir}",
+            ]
+        return args
 
     @parameterized.named_parameters(
-        {'testcase_name': 'monomer', 'protein_list': 'test_monomer.txt', 'mode': 'custom'},
-        {'testcase_name': 'dimer', 'protein_list': 'test_dimer.txt', 'mode': 'custom'},
-        {'testcase_name': 'trimer', 'protein_list': 'test_trimer.txt', 'mode': 'custom'},
-        {'testcase_name': 'homo_oligomer', 'protein_list': "test_homooligomer.txt", 'mode': 'homo-oligomer'},
-        {'testcase_name': 'chopped_dimer', 'protein_list': 'test_dimer_chopped.txt', 'mode': 'custom'}
+        {
+            'testcase_name': 'monomer',
+            'protein_list': 'test_monomer.txt',
+            'mode': 'custom',
+            'script': 'run_multimer_jobs.py',
+        },
+        {
+            'testcase_name': 'dimer',
+            'protein_list': 'test_dimer.txt',
+            'mode': 'custom',
+            'script': 'run_multimer_jobs.py',
+        },
+        {
+            'testcase_name': 'trimer',
+            'protein_list': 'test_trimer.txt',
+            'mode': 'custom',
+            'script': 'run_multimer_jobs.py',
+        },
+        {
+            'testcase_name': 'homo_oligomer',
+            'protein_list': "test_homooligomer.txt",
+            'mode': 'homo-oligomer',
+            'script': 'run_multimer_jobs.py',
+        },
+        {
+            'testcase_name': 'chopped_dimer',
+            'protein_list': 'test_dimer_chopped.txt',
+            'mode': 'custom',
+            'script': 'run_multimer_jobs.py',
+        },
+        {
+            'testcase_name': 'long_name',
+            'protein_list': 'test_long_name.txt',
+            'mode': 'custom',
+            'script': 'run_structure_prediction.py',
+        },
     )
-    def test_(self, protein_list, mode):
-        """Test run monomer structure prediction"""
-        #self.output_dir = f"{self.test_modelling_dir}" #Debug
-        self.args.append(f"--output_path={self.output_dir}")
-        flag = "--protein_lists"
-        if mode == "homo-oligomer":
-            flag = "--oligomer_state_file"
-        if "monomer" in protein_list:
-            multimer_mode = False
-        else:
-            multimer_mode = True
-        protein_list = os.path.join(self.test_protein_lists_dir, protein_list)
-        self.args.extend([
-            f"--mode={mode}",
-            f"{flag}={protein_list}",
-        ])
+    def test_(self, protein_list, mode, script):
+        """Test run monomer structure prediction."""
+        # Determine if multimer mode is enabled
+        multimer_mode = "monomer" not in protein_list
+
+        # Build arguments based on the script parameter
+        self.args = self._build_args(protein_list, mode, script)
+
+        # Execute the subprocess with the given arguments
         result = subprocess.run(self.args, capture_output=True, text=True)
         self._runCommonTests(result, multimer_mode)
+
 
 
 class TestResume(_TestBase):

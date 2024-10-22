@@ -598,7 +598,7 @@ class AlphaFoldBackend(FoldingBackend):
         for idx, model_name in enumerate(ranked_order):
             prediction_result = prediction_results[model_name]
             figure_name = os.path.join(
-                output_dir, f"{multimeric_object.description}_PAE_plot_ranked_{idx}.png")
+                output_dir, f"pae_plot_ranked_{idx}.png")
             plot_pae_from_matrix(
                 seqs=prediction_result['seqs'],
                 pae_matrix=prediction_result['predicted_aligned_error'],
