@@ -36,17 +36,15 @@ jobs:
           echo "$GITHUB_WORKSPACE/alphapulldown" >> $GITHUB_PATH
       - if: matrix.install-type == 'user'
         run: |
-          conda create -n AlphaPulldown -c omnia -c bioconda -c conda-forge python==${{ matrix.python-version }} openmm==8.0 pdbfixer==1.9 kalign2 pytest importlib_metadata modelcif
+          conda create -n AlphaPulldown -c omnia -c bioconda -c conda-forge python==${{ matrix.python-version }} openmm==8.0 pdbfixer==1.9 kalign2 hmmer hhsuite modelcif
           eval "$(conda shell.bash hook)"
           conda activate AlphaPulldown
-          conda install -c bioconda hmmer hhsuite
           pip install alphapulldown==2.0.0b6
       - if: matrix.install-type == 'developer'
         run: |
-          conda create -n AlphaPulldown -c omnia -c bioconda -c conda-forge python==${{ matrix.python-version }} openmm==8.0 pdbfixer==1.9 kalign2 modelcif
+          conda create -n AlphaPulldown -c omnia -c bioconda -c conda-forge python==${{ matrix.python-version }} openmm==8.0 pdbfixer==1.9 kalign2 hmmer hhsuite modelcif
           eval "$(conda shell.bash hook)"
           conda activate AlphaPulldown
-          conda install -c bioconda hmmer hhsuite
           pip install -e .
           pip install -e ColabFold --no-deps
           pip install -e alphafold --no-deps
@@ -60,10 +58,10 @@ jobs:
           # python setup.py install --disable-cuda-ext
           # cd .
           python test/test_python_imports.py
-      - if: matrix.install-type == 'developer'
-        run: |
-          eval "$(conda shell.bash hook)"
-          conda activate AlphaPulldown
+      #- if: matrix.install-type == 'developer'
+      #  run: |
+      #    eval "$(conda shell.bash hook)"
+      #    conda activate AlphaPulldown
           pytest -s test/test_custom_db.py
           pytest -s test/test_remove_clashes_low_plddt.py
           pytest -s test/test_modelcif.py
