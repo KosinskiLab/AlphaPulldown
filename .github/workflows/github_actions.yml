@@ -33,13 +33,14 @@ jobs:
         with:
           miniconda-version: "latest"
           auto-update-conda: true
-          use-channel-priority: true
+          channel-priority: flexible  # Corrected input
           use-mamba: true
+          python-version: ${{ matrix.python-version }}
 
       - name: Create Conda Environment
         shell: bash
         run: |
-          source ${{ steps.setup_miniconda.outputs.conda-sh }}
+          source "${{ steps.setup_miniconda.outputs.conda-path }}/etc/profile.d/conda.sh"
           conda create -y -n AlphaPulldown -c omnia -c bioconda -c conda-forge \
             python=${{ matrix.python-version }} \
             openmm==8.0 pdbfixer==1.9 kalign2 hmmer hhsuite modelcif biopandas
@@ -47,7 +48,7 @@ jobs:
       - name: Install Pip Dependencies
         shell: bash
         run: |
-          source ${{ steps.setup_miniconda.outputs.conda-sh }}
+          source "${{ steps.setup_miniconda.outputs.conda-path }}/etc/profile.d/conda.sh"
           conda activate AlphaPulldown
           pip install -U "jax[cuda12]" pyrosetta-installer
           python -c 'import pyrosetta_installer; pyrosetta_installer.install_pyrosetta()'
@@ -56,7 +57,7 @@ jobs:
         if: matrix.install-type == 'user'
         shell: bash
         run: |
-          source ${{ steps.setup_miniconda.outputs.conda-sh }}
+          source "${{ steps.setup_miniconda.outputs.conda-path }}/etc/profile.d/conda.sh"
           conda activate AlphaPulldown
           pip install alphapulldown==2.0.0b6
 
@@ -64,19 +65,25 @@ jobs:
         if: matrix.install-type == 'developer'
         shell: bash
         run: |
-          source ${{ steps.setup_miniconda.outputs.conda-sh }}
+          source "${{ steps.setup_miniconda.outputs.conda-path }}/etc/profile.d/conda.sh"
           conda activate AlphaPulldown
           pip install -e .
           pip install -e ColabFold --no-deps
           pip install -e alphafold --no-deps
 
-      - name: Set Optional AlphaLink
+      - name: Set Environment Variables
         shell: bash
         run: |
-          source ${{ steps.setup_miniconda.outputs.conda-sh }}
+          source "${{ steps.setup_miniconda.outputs.conda-path }}/etc/profile.d/conda.sh"
           conda activate AlphaPulldown
           export PYTHONPATH=$PWD/alphapulldown/analysis_pipeline:$PYTHONPATH
           export PYTHONPATH=$PWD/AlphaLink2:$PYTHONPATH
+
+      - name: Install Optional Dependencies
+        shell: bash
+        run: |
+          source "${{ steps.setup_miniconda.outputs.conda-path }}/etc/profile.d/conda.sh"
+          conda activate AlphaPulldown
           # Install dependencies for AlphaLink backend if needed
           # Uncomment the following lines if required
           # pip install torch==1.13.0+cu117 --extra-index-url https://download.pytorch.org/whl/cu117
@@ -89,7 +96,7 @@ jobs:
       - name: Run Tests
         shell: bash
         run: |
-          source ${{ steps.setup_miniconda.outputs.conda-sh }}
+          source "${{ steps.setup_miniconda.outputs.conda-path }}/etc/profile.d/conda.sh"
           conda activate AlphaPulldown
           python test/test_python_imports.py
           pytest -s test/test_custom_db.py
