@@ -264,6 +264,7 @@ class ChoppedObject(MonomericObject):
         self.regions = regions
         self.new_sequence = ""
         self.new_feature_dict = dict()
+        self.monomeric_description = description
         self.description = description
         self.prepare_new_self_description()
 

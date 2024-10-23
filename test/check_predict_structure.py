@@ -203,7 +203,7 @@ class TestResume(_TestBase):
             raise FileNotFoundError(f"Directory not found: {self.test_modelling_dir}")
         self.args = [
             sys.executable,
-            self.script_path,
+            self.script_path1,
             "--mode=custom",
             "--num_cycle=1",
             "--num_predictions_per_model=1",
@@ -279,7 +279,7 @@ class TestResume(_TestBase):
         self.assertTrue(os.path.exists(os.path.join(self.test_features_dir, "3L4Q_C.pkl")))
         self.args = [
             sys.executable,
-            self.script_path,
+            self.script_path1,
             "--mode=custom",
             "--num_cycle=48",
             "--num_predictions_per_model=5",
@@ -316,7 +316,7 @@ class TestResume(_TestBase):
         with tempfile.TemporaryDirectory() as tmpdir:
             self.args = [
                 sys.executable,
-                self.script_path,
+                self.script_path1,
                 "--mode=custom",
                 "--num_cycle=3",
                 "--num_predictions_per_model=1",
@@ -371,7 +371,7 @@ class TestResume(_TestBase):
             # Firstly test running with padding AND multimeric template modelling
             self.args = [
                 sys.executable,
-                self.script_path,
+                self.script_path1,
                 "--mode=custom",
                 "--num_cycle=3",
                 "--num_predictions_per_model=1",
@@ -399,7 +399,7 @@ class TestResume(_TestBase):
             # Then test running with padding WITHOUT multimeric template modelling
             self.args = [
                 sys.executable,
-                self.script_path,
+                self.script_path1,
                 "--mode=custom",
                 "--num_cycle=3",
                 "--num_predictions_per_model=1",

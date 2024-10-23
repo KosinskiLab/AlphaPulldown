@@ -233,7 +233,7 @@ def pre_modelling_setup(
         for feature_dir in flags.features_directory:
             # meta.json is named the same way as the pickle file
             if isinstance(interactor, ChoppedObject):
-                description = interactor.description.split('_')[0]
+                description = interactor.monomeric_description
             elif isinstance(interactor, MonomericObject):
                 description = interactor.description
             meta_json = glob.glob(

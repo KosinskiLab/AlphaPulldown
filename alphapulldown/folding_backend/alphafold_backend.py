@@ -602,7 +602,8 @@ class AlphaFoldBackend(FoldingBackend):
             plot_pae_from_matrix(
                 seqs=prediction_result['seqs'],
                 pae_matrix=prediction_result['predicted_aligned_error'],
-                figure_name=figure_name,ranking=idx
+                figure_name=figure_name,
+                ranking=idx
             )
 
         # Save ranking_debug.json.

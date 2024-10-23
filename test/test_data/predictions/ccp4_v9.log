@@ -1,0 +1,944 @@
+(AlphaPulldownMamba) [dmolodenskiy@login04 predictions]$ singularity exec --no-home --writable --env PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/app --bind $PWD:/mnt /g/kosinski/dima/PycharmProjects/AlphaPulldown/alphapulldown/analysis_pipeline/alpha-analysis-ccp4_v9/ run_get_good_pae.sh --output_dir=/mnt --cutoff=1000
+INFO:    Environment variable SINGULARITY_TMPDIR is set, but APPTAINER_TMPDIR is preferred
+/bin/bash: warning: setlocale: LC_ALL: cannot change locale (en_US.UTF-8)
+Traceback (most recent call last):
+  File "/app/alpha-analysis/get_good_inter_pae.py", line 3, in <module>
+    from calculate_mpdockq import *
+  File "/app/alpha-analysis/calculate_mpdockq.py", line 2, in <module>
+    import numpy as np
+ModuleNotFoundError: No module named 'numpy'
+(AlphaPulldownMamba) [dmolodenskiy@login04 predictions]$ singularity exec --no-home --writable --bind $PWD:/mnt /g/kosinski/dima/PycharmProjects/AlphaPulldown/alphapulldown/analysis_pipeline/aa_jax04_no_ccp4/ run_get_good_pae.sh --output_dir=/mnt --cutoff=1000
+INFO:    Environment variable SINGULARITY_TMPDIR is set, but APPTAINER_TMPDIR is preferred
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                                 PyRosetta-4                                  │
+│              Created in JHU by Sergey Lyskov and PyRosetta Team              │
+│              (C) Copyright Rosetta Commons Member Institutions               │
+│                                                                              │
+│ NOTE: USE OF PyRosetta FOR COMMERCIAL PURPOSES REQUIRE PURCHASE OF A LICENSE │
+│         See LICENSE.PyRosetta.md or email license@uw.edu for details         │
+└──────────────────────────────────────────────────────────────────────────────┘
+PyRosetta-4 2024 [Rosetta PyRosetta4.Release.python39.linux 2024.15+release.d972b59c530a12affcbe0eb4a24eedc3ce7d5060 2024-04-02T17:06:29] retrieved from: http://www.pyrosetta.org
+core.init: Checking for fconfig files in pwd and ./rosetta/flags
+core.init: Rosetta version: PyRosetta4.Release.python39.linux r377 2024.15+release.d972b59 d972b59c530a12affcbe0eb4a24eedc3ce7d5060 http://www.pyrosetta.org 2024-04-02T17:06:29
+core.init: Rosetta extras: []
+core.init: command: PyRosetta -ex1 -ex2aro -database /opt/conda/lib/python3.9/site-packages/pyrosetta/database
+basic.random.init_random_generator: 'RNG device' seed mode, using '/dev/urandom', seed=2009541112 seed_offset=0 real_seed=2009541112
+basic.random.init_random_generator: RandomGenerator:init: Normal mode, seed=2009541112 RG_type=mt19937
+I1002 14:41:59.646017 140737350468416 get_good_inter_pae.py:120] now processing TEST
+W1002 14:41:59.685020 140737350468416 get_good_inter_pae.py:158] TEST does not seem to be a multimeric model. iptm+ptm scores are not in the ranking_debug.json Skipped
+I1002 14:41:59.685168 140737350468416 get_good_inter_pae.py:168] done for TEST 1 out of 6 finished.
+I1002 14:41:59.685221 140737350468416 get_good_inter_pae.py:120] now processing TEST_and_TEST
+Successfully parsed plddt values
+core.chemical.GlobalResidueTypeSet: Finished initializing fa_standard residue type set.  Created 985 residue types
+core.chemical.GlobalResidueTypeSet: Total time to initialize 1.1806 seconds.
+core.import_pose.import_pose: File '/tmp/tmph3e9dx89.pdb' automatically determined to be of type PDB
+core.conformation.Conformation: [ WARNING ] missing heavyatom:  OXT on residue ALA:CtermProteinFull 64
+core.import_pose.import_pose: File '/tmp/tmph4zf9bv9.pdb' automatically determined to be of type PDB
+core.conformation.Conformation: [ WARNING ] missing heavyatom:  OXT on residue ALA:CtermProteinFull 64
+core.import_pose.import_pose: File '/tmp/tmpso6cp7uy.pdb' automatically determined to be of type PDB
+core.conformation.Conformation: [ WARNING ] missing heavyatom:  OXT on residue ALA:CtermProteinFull 64
+core.scoring.ScoreFunctionFactory: SCOREFUNCTION: ref2015
+core.scoring.etable: Starting energy table calculation
+core.scoring.etable: smooth_etable: changing atr/rep split to bottom of energy well
+core.scoring.etable: smooth_etable: spline smoothing lj etables (maxdis = 6)
+core.scoring.etable: smooth_etable: spline smoothing solvation etables (max_dis = 6)
+core.scoring.etable: Finished calculating energy tables.
+basic.io.database: Database file opened: scoring/score_functions/hbonds/ref2015_params/HBPoly1D.csv
+basic.io.database: Database file opened: scoring/score_functions/hbonds/ref2015_params/HBFadeIntervals.csv
+basic.io.database: Database file opened: scoring/score_functions/hbonds/ref2015_params/HBEval.csv
+basic.io.database: Database file opened: scoring/score_functions/hbonds/ref2015_params/DonStrength.csv
+basic.io.database: Database file opened: scoring/score_functions/hbonds/ref2015_params/AccStrength.csv
+basic.io.database: Database file opened: scoring/score_functions/rama/fd/all.ramaProb
+basic.io.database: Database file opened: scoring/score_functions/rama/fd/prepro.ramaProb
+basic.io.database: Database file opened: scoring/score_functions/omega/omega_ppdep.all.txt
+basic.io.database: Database file opened: scoring/score_functions/omega/omega_ppdep.gly.txt
+basic.io.database: Database file opened: scoring/score_functions/omega/omega_ppdep.pro.txt
+basic.io.database: Database file opened: scoring/score_functions/omega/omega_ppdep.valile.txt
+basic.io.database: Database file opened: scoring/score_functions/P_AA_pp/P_AA
+basic.io.database: Database file opened: scoring/score_functions/P_AA_pp/P_AA_n
+core.scoring.P_AA: shapovalov_lib::shap_p_aa_pp_smooth_level of 1( aka low_smooth ) got activated.
+basic.io.database: Database file opened: scoring/score_functions/P_AA_pp/shapovalov/10deg/kappa131/a20.prop
+basic.io.database: Database file opened: scoring/score_functions/elec_cp_reps.dat
+core.scoring.elec.util: Read 40 countpair representative atoms
+core.pack.dunbrack.RotamerLibrary: shapovalov_lib_fixes_enable option is true.
+core.pack.dunbrack.RotamerLibrary: shapovalov_lib::shap_dun10_smooth_level of 1( aka lowest_smooth ) got activated.
+core.pack.dunbrack.RotamerLibrary: Binary rotamer library selected: /opt/conda/lib/python3.9/site-packages/pyrosetta/database/rotamer/shapovalov/StpDwn_0-0-0/Dunbrack10.lib.bin
+core.pack.dunbrack.RotamerLibrary: Using Dunbrack library binary file '/opt/conda/lib/python3.9/site-packages/pyrosetta/database/rotamer/shapovalov/StpDwn_0-0-0/Dunbrack10.lib.bin'.
+core.pack.dunbrack.RotamerLibrary: Dunbrack 2010 library took 0.26664 seconds to load from binary
+I1002 14:42:31.149993 140737350468416 get_good_inter_pae.py:168] done for TEST_and_TEST 2 out of 6 finished.
+I1002 14:42:31.150250 140737350468416 get_good_inter_pae.py:120] now processing TEST_and_A0A075B6L2_1-10_2-5_3-12
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:127: PDBConstructionWarning: WARNING: Residue (' ', 2, ' ') redefined at line 541.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:149: PDBConstructionWarning: WARNING: Residue (' ', 2, ' ','PRO') already defined with the same name at line  541.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom N defined twice in residue <Residue PRO het=  resseq=2 icode= > at line 541.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CA defined twice in residue <Residue PRO het=  resseq=2 icode= > at line 542.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom C defined twice in residue <Residue PRO het=  resseq=2 icode= > at line 543.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CB defined twice in residue <Residue PRO het=  resseq=2 icode= > at line 544.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom O defined twice in residue <Residue PRO het=  resseq=2 icode= > at line 545.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG defined twice in residue <Residue PRO het=  resseq=2 icode= > at line 546.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CD defined twice in residue <Residue PRO het=  resseq=2 icode= > at line 547.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:127: PDBConstructionWarning: WARNING: Residue (' ', 3, ' ') redefined at line 548.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:149: PDBConstructionWarning: WARNING: Residue (' ', 3, ' ','LEU') already defined with the same name at line  548.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom N defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 548.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CA defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 549.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom C defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 550.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CB defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 551.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom O defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 552.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 553.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CD1 defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 554.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CD2 defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 555.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:127: PDBConstructionWarning: WARNING: Residue (' ', 4, ' ') redefined at line 556.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:149: PDBConstructionWarning: WARNING: Residue (' ', 4, ' ','VAL') already defined with the same name at line  556.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom N defined twice in residue <Residue VAL het=  resseq=4 icode= > at line 556.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CA defined twice in residue <Residue VAL het=  resseq=4 icode= > at line 557.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom C defined twice in residue <Residue VAL het=  resseq=4 icode= > at line 558.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CB defined twice in residue <Residue VAL het=  resseq=4 icode= > at line 559.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom O defined twice in residue <Residue VAL het=  resseq=4 icode= > at line 560.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG1 defined twice in residue <Residue VAL het=  resseq=4 icode= > at line 561.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG2 defined twice in residue <Residue VAL het=  resseq=4 icode= > at line 562.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:127: PDBConstructionWarning: WARNING: Residue (' ', 5, ' ') redefined at line 563.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:149: PDBConstructionWarning: WARNING: Residue (' ', 5, ' ','VAL') already defined with the same name at line  563.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom N defined twice in residue <Residue VAL het=  resseq=5 icode= > at line 563.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CA defined twice in residue <Residue VAL het=  resseq=5 icode= > at line 564.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom C defined twice in residue <Residue VAL het=  resseq=5 icode= > at line 565.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CB defined twice in residue <Residue VAL het=  resseq=5 icode= > at line 566.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom O defined twice in residue <Residue VAL het=  resseq=5 icode= > at line 567.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG1 defined twice in residue <Residue VAL het=  resseq=5 icode= > at line 568.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG2 defined twice in residue <Residue VAL het=  resseq=5 icode= > at line 569.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:127: PDBConstructionWarning: WARNING: Residue (' ', 3, ' ') redefined at line 570.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:149: PDBConstructionWarning: WARNING: Residue (' ', 3, ' ','LEU') already defined with the same name at line  570.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom N defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 570.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CA defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 571.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom C defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 572.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CB defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 573.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom O defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 574.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 575.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CD1 defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 576.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CD2 defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 577.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:127: PDBConstructionWarning: WARNING: Residue (' ', 4, ' ') redefined at line 578.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:149: PDBConstructionWarning: WARNING: Residue (' ', 4, ' ','VAL') already defined with the same name at line  578.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom N defined twice in residue <Residue VAL het=  resseq=4 icode= > at line 578.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CA defined twice in residue <Residue VAL het=  resseq=4 icode= > at line 579.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom C defined twice in residue <Residue VAL het=  resseq=4 icode= > at line 580.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CB defined twice in residue <Residue VAL het=  resseq=4 icode= > at line 581.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom O defined twice in residue <Residue VAL het=  resseq=4 icode= > at line 582.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG1 defined twice in residue <Residue VAL het=  resseq=4 icode= > at line 583.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG2 defined twice in residue <Residue VAL het=  resseq=4 icode= > at line 584.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:127: PDBConstructionWarning: WARNING: Residue (' ', 5, ' ') redefined at line 585.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:149: PDBConstructionWarning: WARNING: Residue (' ', 5, ' ','VAL') already defined with the same name at line  585.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom N defined twice in residue <Residue VAL het=  resseq=5 icode= > at line 585.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CA defined twice in residue <Residue VAL het=  resseq=5 icode= > at line 586.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom C defined twice in residue <Residue VAL het=  resseq=5 icode= > at line 587.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CB defined twice in residue <Residue VAL het=  resseq=5 icode= > at line 588.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom O defined twice in residue <Residue VAL het=  resseq=5 icode= > at line 589.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG1 defined twice in residue <Residue VAL het=  resseq=5 icode= > at line 590.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG2 defined twice in residue <Residue VAL het=  resseq=5 icode= > at line 591.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:127: PDBConstructionWarning: WARNING: Residue (' ', 6, ' ') redefined at line 592.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:149: PDBConstructionWarning: WARNING: Residue (' ', 6, ' ','ALA') already defined with the same name at line  592.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom N defined twice in residue <Residue ALA het=  resseq=6 icode= > at line 592.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CA defined twice in residue <Residue ALA het=  resseq=6 icode= > at line 593.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom C defined twice in residue <Residue ALA het=  resseq=6 icode= > at line 594.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CB defined twice in residue <Residue ALA het=  resseq=6 icode= > at line 595.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom O defined twice in residue <Residue ALA het=  resseq=6 icode= > at line 596.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:127: PDBConstructionWarning: WARNING: Residue (' ', 7, ' ') redefined at line 597.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:149: PDBConstructionWarning: WARNING: Residue (' ', 7, ' ','VAL') already defined with the same name at line  597.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom N defined twice in residue <Residue VAL het=  resseq=7 icode= > at line 597.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CA defined twice in residue <Residue VAL het=  resseq=7 icode= > at line 598.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom C defined twice in residue <Residue VAL het=  resseq=7 icode= > at line 599.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CB defined twice in residue <Residue VAL het=  resseq=7 icode= > at line 600.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom O defined twice in residue <Residue VAL het=  resseq=7 icode= > at line 601.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG1 defined twice in residue <Residue VAL het=  resseq=7 icode= > at line 602.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG2 defined twice in residue <Residue VAL het=  resseq=7 icode= > at line 603.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:127: PDBConstructionWarning: WARNING: Residue (' ', 8, ' ') redefined at line 604.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:149: PDBConstructionWarning: WARNING: Residue (' ', 8, ' ','ILE') already defined with the same name at line  604.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom N defined twice in residue <Residue ILE het=  resseq=8 icode= > at line 604.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CA defined twice in residue <Residue ILE het=  resseq=8 icode= > at line 605.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom C defined twice in residue <Residue ILE het=  resseq=8 icode= > at line 606.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CB defined twice in residue <Residue ILE het=  resseq=8 icode= > at line 607.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom O defined twice in residue <Residue ILE het=  resseq=8 icode= > at line 608.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG1 defined twice in residue <Residue ILE het=  resseq=8 icode= > at line 609.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG2 defined twice in residue <Residue ILE het=  resseq=8 icode= > at line 610.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CD1 defined twice in residue <Residue ILE het=  resseq=8 icode= > at line 611.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:127: PDBConstructionWarning: WARNING: Residue (' ', 9, ' ') redefined at line 612.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:149: PDBConstructionWarning: WARNING: Residue (' ', 9, ' ','PHE') already defined with the same name at line  612.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom N defined twice in residue <Residue PHE het=  resseq=9 icode= > at line 612.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CA defined twice in residue <Residue PHE het=  resseq=9 icode= > at line 613.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom C defined twice in residue <Residue PHE het=  resseq=9 icode= > at line 614.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CB defined twice in residue <Residue PHE het=  resseq=9 icode= > at line 615.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom O defined twice in residue <Residue PHE het=  resseq=9 icode= > at line 616.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG defined twice in residue <Residue PHE het=  resseq=9 icode= > at line 617.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CD1 defined twice in residue <Residue PHE het=  resseq=9 icode= > at line 618.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CD2 defined twice in residue <Residue PHE het=  resseq=9 icode= > at line 619.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CE1 defined twice in residue <Residue PHE het=  resseq=9 icode= > at line 620.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CE2 defined twice in residue <Residue PHE het=  resseq=9 icode= > at line 621.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CZ defined twice in residue <Residue PHE het=  resseq=9 icode= > at line 622.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:127: PDBConstructionWarning: WARNING: Residue (' ', 10, ' ') redefined at line 623.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:149: PDBConstructionWarning: WARNING: Residue (' ', 10, ' ','PHE') already defined with the same name at line  623.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom N defined twice in residue <Residue PHE het=  resseq=10 icode= > at line 623.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CA defined twice in residue <Residue PHE het=  resseq=10 icode= > at line 624.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom C defined twice in residue <Residue PHE het=  resseq=10 icode= > at line 625.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CB defined twice in residue <Residue PHE het=  resseq=10 icode= > at line 626.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom O defined twice in residue <Residue PHE het=  resseq=10 icode= > at line 627.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG defined twice in residue <Residue PHE het=  resseq=10 icode= > at line 628.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CD1 defined twice in residue <Residue PHE het=  resseq=10 icode= > at line 629.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CD2 defined twice in residue <Residue PHE het=  resseq=10 icode= > at line 630.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CE1 defined twice in residue <Residue PHE het=  resseq=10 icode= > at line 631.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CE2 defined twice in residue <Residue PHE het=  resseq=10 icode= > at line 632.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CZ defined twice in residue <Residue PHE het=  resseq=10 icode= > at line 633.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:127: PDBConstructionWarning: WARNING: Residue (' ', 2, ' ') redefined at line 541.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:149: PDBConstructionWarning: WARNING: Residue (' ', 2, ' ','PRO') already defined with the same name at line  541.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom N defined twice in residue <Residue PRO het=  resseq=2 icode= > at line 541.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CA defined twice in residue <Residue PRO het=  resseq=2 icode= > at line 542.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom C defined twice in residue <Residue PRO het=  resseq=2 icode= > at line 543.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CB defined twice in residue <Residue PRO het=  resseq=2 icode= > at line 544.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom O defined twice in residue <Residue PRO het=  resseq=2 icode= > at line 545.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG defined twice in residue <Residue PRO het=  resseq=2 icode= > at line 546.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CD defined twice in residue <Residue PRO het=  resseq=2 icode= > at line 547.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:127: PDBConstructionWarning: WARNING: Residue (' ', 3, ' ') redefined at line 548.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:149: PDBConstructionWarning: WARNING: Residue (' ', 3, ' ','LEU') already defined with the same name at line  548.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom N defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 548.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CA defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 549.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom C defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 550.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CB defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 551.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom O defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 552.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 553.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CD1 defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 554.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CD2 defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 555.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:127: PDBConstructionWarning: WARNING: Residue (' ', 4, ' ') redefined at line 556.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:149: PDBConstructionWarning: WARNING: Residue (' ', 4, ' ','VAL') already defined with the same name at line  556.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom N defined twice in residue <Residue VAL het=  resseq=4 icode= > at line 556.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CA defined twice in residue <Residue VAL het=  resseq=4 icode= > at line 557.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom C defined twice in residue <Residue VAL het=  resseq=4 icode= > at line 558.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CB defined twice in residue <Residue VAL het=  resseq=4 icode= > at line 559.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom O defined twice in residue <Residue VAL het=  resseq=4 icode= > at line 560.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG1 defined twice in residue <Residue VAL het=  resseq=4 icode= > at line 561.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG2 defined twice in residue <Residue VAL het=  resseq=4 icode= > at line 562.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:127: PDBConstructionWarning: WARNING: Residue (' ', 5, ' ') redefined at line 563.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:149: PDBConstructionWarning: WARNING: Residue (' ', 5, ' ','VAL') already defined with the same name at line  563.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom N defined twice in residue <Residue VAL het=  resseq=5 icode= > at line 563.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CA defined twice in residue <Residue VAL het=  resseq=5 icode= > at line 564.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom C defined twice in residue <Residue VAL het=  resseq=5 icode= > at line 565.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CB defined twice in residue <Residue VAL het=  resseq=5 icode= > at line 566.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom O defined twice in residue <Residue VAL het=  resseq=5 icode= > at line 567.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG1 defined twice in residue <Residue VAL het=  resseq=5 icode= > at line 568.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG2 defined twice in residue <Residue VAL het=  resseq=5 icode= > at line 569.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:127: PDBConstructionWarning: WARNING: Residue (' ', 3, ' ') redefined at line 570.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:149: PDBConstructionWarning: WARNING: Residue (' ', 3, ' ','LEU') already defined with the same name at line  570.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom N defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 570.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CA defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 571.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom C defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 572.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CB defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 573.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom O defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 574.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 575.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CD1 defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 576.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CD2 defined twice in residue <Residue LEU het=  resseq=3 icode= > at line 577.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:127: PDBConstructionWarning: WARNING: Residue (' ', 4, ' ') redefined at line 578.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:149: PDBConstructionWarning: WARNING: Residue (' ', 4, ' ','VAL') already defined with the same name at line  578.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom N defined twice in residue <Residue VAL het=  resseq=4 icode= > at line 578.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CA defined twice in residue <Residue VAL het=  resseq=4 icode= > at line 579.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom C defined twice in residue <Residue VAL het=  resseq=4 icode= > at line 580.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CB defined twice in residue <Residue VAL het=  resseq=4 icode= > at line 581.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom O defined twice in residue <Residue VAL het=  resseq=4 icode= > at line 582.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG1 defined twice in residue <Residue VAL het=  resseq=4 icode= > at line 583.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG2 defined twice in residue <Residue VAL het=  resseq=4 icode= > at line 584.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:127: PDBConstructionWarning: WARNING: Residue (' ', 5, ' ') redefined at line 585.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:149: PDBConstructionWarning: WARNING: Residue (' ', 5, ' ','VAL') already defined with the same name at line  585.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom N defined twice in residue <Residue VAL het=  resseq=5 icode= > at line 585.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CA defined twice in residue <Residue VAL het=  resseq=5 icode= > at line 586.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom C defined twice in residue <Residue VAL het=  resseq=5 icode= > at line 587.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CB defined twice in residue <Residue VAL het=  resseq=5 icode= > at line 588.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom O defined twice in residue <Residue VAL het=  resseq=5 icode= > at line 589.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG1 defined twice in residue <Residue VAL het=  resseq=5 icode= > at line 590.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG2 defined twice in residue <Residue VAL het=  resseq=5 icode= > at line 591.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:127: PDBConstructionWarning: WARNING: Residue (' ', 6, ' ') redefined at line 592.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:149: PDBConstructionWarning: WARNING: Residue (' ', 6, ' ','ALA') already defined with the same name at line  592.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom N defined twice in residue <Residue ALA het=  resseq=6 icode= > at line 592.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CA defined twice in residue <Residue ALA het=  resseq=6 icode= > at line 593.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom C defined twice in residue <Residue ALA het=  resseq=6 icode= > at line 594.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CB defined twice in residue <Residue ALA het=  resseq=6 icode= > at line 595.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom O defined twice in residue <Residue ALA het=  resseq=6 icode= > at line 596.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:127: PDBConstructionWarning: WARNING: Residue (' ', 7, ' ') redefined at line 597.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:149: PDBConstructionWarning: WARNING: Residue (' ', 7, ' ','VAL') already defined with the same name at line  597.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom N defined twice in residue <Residue VAL het=  resseq=7 icode= > at line 597.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CA defined twice in residue <Residue VAL het=  resseq=7 icode= > at line 598.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom C defined twice in residue <Residue VAL het=  resseq=7 icode= > at line 599.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CB defined twice in residue <Residue VAL het=  resseq=7 icode= > at line 600.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom O defined twice in residue <Residue VAL het=  resseq=7 icode= > at line 601.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG1 defined twice in residue <Residue VAL het=  resseq=7 icode= > at line 602.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG2 defined twice in residue <Residue VAL het=  resseq=7 icode= > at line 603.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:127: PDBConstructionWarning: WARNING: Residue (' ', 8, ' ') redefined at line 604.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:149: PDBConstructionWarning: WARNING: Residue (' ', 8, ' ','ILE') already defined with the same name at line  604.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom N defined twice in residue <Residue ILE het=  resseq=8 icode= > at line 604.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CA defined twice in residue <Residue ILE het=  resseq=8 icode= > at line 605.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom C defined twice in residue <Residue ILE het=  resseq=8 icode= > at line 606.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CB defined twice in residue <Residue ILE het=  resseq=8 icode= > at line 607.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom O defined twice in residue <Residue ILE het=  resseq=8 icode= > at line 608.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG1 defined twice in residue <Residue ILE het=  resseq=8 icode= > at line 609.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG2 defined twice in residue <Residue ILE het=  resseq=8 icode= > at line 610.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CD1 defined twice in residue <Residue ILE het=  resseq=8 icode= > at line 611.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:127: PDBConstructionWarning: WARNING: Residue (' ', 9, ' ') redefined at line 612.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:149: PDBConstructionWarning: WARNING: Residue (' ', 9, ' ','PHE') already defined with the same name at line  612.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom N defined twice in residue <Residue PHE het=  resseq=9 icode= > at line 612.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CA defined twice in residue <Residue PHE het=  resseq=9 icode= > at line 613.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom C defined twice in residue <Residue PHE het=  resseq=9 icode= > at line 614.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CB defined twice in residue <Residue PHE het=  resseq=9 icode= > at line 615.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom O defined twice in residue <Residue PHE het=  resseq=9 icode= > at line 616.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG defined twice in residue <Residue PHE het=  resseq=9 icode= > at line 617.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CD1 defined twice in residue <Residue PHE het=  resseq=9 icode= > at line 618.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CD2 defined twice in residue <Residue PHE het=  resseq=9 icode= > at line 619.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CE1 defined twice in residue <Residue PHE het=  resseq=9 icode= > at line 620.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CE2 defined twice in residue <Residue PHE het=  resseq=9 icode= > at line 621.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CZ defined twice in residue <Residue PHE het=  resseq=9 icode= > at line 622.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:127: PDBConstructionWarning: WARNING: Residue (' ', 10, ' ') redefined at line 623.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/StructureBuilder.py:149: PDBConstructionWarning: WARNING: Residue (' ', 10, ' ','PHE') already defined with the same name at line  623.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom N defined twice in residue <Residue PHE het=  resseq=10 icode= > at line 623.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CA defined twice in residue <Residue PHE het=  resseq=10 icode= > at line 624.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom C defined twice in residue <Residue PHE het=  resseq=10 icode= > at line 625.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CB defined twice in residue <Residue PHE het=  resseq=10 icode= > at line 626.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom O defined twice in residue <Residue PHE het=  resseq=10 icode= > at line 627.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CG defined twice in residue <Residue PHE het=  resseq=10 icode= > at line 628.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CD1 defined twice in residue <Residue PHE het=  resseq=10 icode= > at line 629.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CD2 defined twice in residue <Residue PHE het=  resseq=10 icode= > at line 630.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CE1 defined twice in residue <Residue PHE het=  resseq=10 icode= > at line 631.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CE2 defined twice in residue <Residue PHE het=  resseq=10 icode= > at line 632.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+/opt/conda/lib/python3.9/site-packages/Bio/PDB/PDBParser.py:416: PDBConstructionWarning: PDBConstructionException: Atom CZ defined twice in residue <Residue PHE het=  resseq=10 icode= > at line 633.
+Exception ignored.
+Some atoms or residues may be missing in the data structure.
+  warnings.warn(
+Successfully parsed plddt values
+E1002 14:42:36.144871 140737350468416 pdb_analyser.py:178] PI score calculation failed: CompletedProcess(args=['bash', '-c', 'source activate pi_score && export PYTHONPATH=/software:$PYTHONPATH && python /software/pi_score/run_piscore_wc.py -p /mnt/TEST_and_A0A075B6L2_1-10_2-5_3-12/ranked_0.pdb -o /tmp/tmppoj_d7vk -s 2'], returncode=1, stdout='Checking local paths\n*****Selecting model for training*****\n*****Setting output directory for results*****\n*****Setting input for assessment*****\n*****Iterating over each structure to assess*****\n*****Making results subdirectory specific to each structure in output directory*****\n/tmp/tmppoj_d7vk/ranked_0\n*****Doing PDB, ranked_0.pdb  *****\n*****Calculating interface*****\n*****Writing CSV file with features *****\n*****Calculating PI-score*****\nAll features could not be calculated successfully for atleast one of the interfaces!\nExiting\n', stderr=''). Command: ['bash', '-c', 'source activate pi_score && export PYTHONPATH=/software:$PYTHONPATH && python /software/pi_score/run_piscore_wc.py -p /mnt/TEST_and_A0A075B6L2_1-10_2-5_3-12/ranked_0.pdb -o /tmp/tmppoj_d7vk -s 2']. Error:
+W1002 14:42:36.147661 140737350468416 pdb_analyser.py:197] Skipping interface due to unexpected format: None
+No interface residues are found.
+I1002 14:42:36.159566 140737350468416 get_good_inter_pae.py:168] done for TEST_and_A0A075B6L2_1-10_2-5_3-12 3 out of 6 finished.
+I1002 14:42:36.159664 140737350468416 get_good_inter_pae.py:120] now processing r4s.res
+W1002 14:42:36.159784 140737350468416 get_good_inter_pae.py:164] r4s.res does not have ranking_debug.json. Skipped.
+I1002 14:42:36.159835 140737350468416 get_good_inter_pae.py:168] done for r4s.res 4 out of 6 finished.
+I1002 14:42:36.159880 140737350468416 get_good_inter_pae.py:120] now processing TEST_and_TEST_and_TEST
+Successfully parsed plddt values
+core.import_pose.import_pose: File '/tmp/tmpdtgmbb1w.pdb' automatically determined to be of type PDB
+core.conformation.Conformation: [ WARNING ] missing heavyatom:  OXT on residue ALA:CtermProteinFull 64
+core.import_pose.import_pose: File '/tmp/tmpt9bfqb87.pdb' automatically determined to be of type PDB
+core.conformation.Conformation: [ WARNING ] missing heavyatom:  OXT on residue ALA:CtermProteinFull 64
+core.import_pose.import_pose: File '/tmp/tmpu8szyson.pdb' automatically determined to be of type PDB
+core.conformation.Conformation: [ WARNING ] missing heavyatom:  OXT on residue ALA:CtermProteinFull 64
+core.scoring.ScoreFunctionFactory: SCOREFUNCTION: ref2015
+core.import_pose.import_pose: File '/tmp/tmpn28p2oie.pdb' automatically determined to be of type PDB
+core.conformation.Conformation: [ WARNING ] missing heavyatom:  OXT on residue ALA:CtermProteinFull 64
+core.import_pose.import_pose: File '/tmp/tmpwxlt5ann.pdb' automatically determined to be of type PDB
+core.conformation.Conformation: [ WARNING ] missing heavyatom:  OXT on residue ALA:CtermProteinFull 64
+core.import_pose.import_pose: File '/tmp/tmpab53v1se.pdb' automatically determined to be of type PDB
+core.conformation.Conformation: [ WARNING ] missing heavyatom:  OXT on residue ALA:CtermProteinFull 64
+core.scoring.ScoreFunctionFactory: SCOREFUNCTION: ref2015
+core.import_pose.import_pose: File '/tmp/tmpyvmbo885.pdb' automatically determined to be of type PDB
+core.conformation.Conformation: [ WARNING ] missing heavyatom:  OXT on residue ALA:CtermProteinFull 64
+core.import_pose.import_pose: File '/tmp/tmpit_i10bo.pdb' automatically determined to be of type PDB
+core.conformation.Conformation: [ WARNING ] missing heavyatom:  OXT on residue ALA:CtermProteinFull 64
+core.import_pose.import_pose: File '/tmp/tmp31cpfblu.pdb' automatically determined to be of type PDB
+core.conformation.Conformation: [ WARNING ] missing heavyatom:  OXT on residue ALA:CtermProteinFull 64
+core.scoring.ScoreFunctionFactory: SCOREFUNCTION: ref2015
+I1002 14:46:59.423227 140737350468416 get_good_inter_pae.py:168] done for TEST_and_TEST_and_TEST 5 out of 6 finished.
+I1002 14:46:59.423493 140737350468416 get_good_inter_pae.py:120] now processing good.csv
+W1002 14:46:59.423911 140737350468416 get_good_inter_pae.py:164] good.csv does not have ranking_debug.json. Skipped.
+I1002 14:46:59.424039 140737350468416 get_good_inter_pae.py:168] done for good.csv 6 out of 6 finished.
