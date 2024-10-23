@@ -426,17 +426,16 @@ AlphaPulldown can be used as a set of scripts for every particular step.
 
 ### 0.1. Create Anaconda environment
 
-**Firstly**, install [Anaconda](https://www.anaconda.com/) and create an AlphaPulldown environment, gathering necessary dependencies:
+**Firstly**, install [Anaconda](https://www.anaconda.com/) and create an AlphaPulldown environment, gathering necessary dependencies. We recommend to use mamba to speed up solving of dependencies:
 
 ```bash
-conda create -n AlphaPulldown -c omnia -c bioconda -c conda-forge python==3.10 openmm==8.0 pdbfixer==1.9 kalign2 pytest importlib_metadata hhsuite modelcif
+conda create -n AlphaPulldown -c omnia -c bioconda -c conda-forge python==3.11 openmm==8.0 pdbfixer==1.9 kalign2 hhsuite hmmer modelcif
 ```
        
 **Optionally**, if you do not have it yet on your system, install [HMMER](http://hmmer.org/documentation.html) from Anaconda:
   
 ```bash
 source activate AlphaPulldown
-conda install -c bioconda hmmer
 ```
 This usually works, but on some compute systems, users may prefer to use other versions or optimized builds of HMMER and HH-suite that are already installed.
 
@@ -524,7 +523,7 @@ Please [add your SSH key to your GitHub account](https://docs.github.com/en/auth
     ```bash
     source activate AlphaPulldown
     cd AlphaPulldown
-    pip install alphapulldown
+    pip install .
     pip install -e . --no-deps
     pip install -e ColabFold --no-deps
     pip install -e alphafold --no-deps

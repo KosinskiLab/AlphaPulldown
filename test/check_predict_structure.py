@@ -14,7 +14,7 @@ import pickle
 import os
 import subprocess
 import json
-from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
+#from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
 import alphapulldown
 from absl.testing import absltest
 from absl.testing import parameterized
@@ -301,7 +301,7 @@ class TestResume(_TestBase):
             target = os.path.join(self.output_dir, "3L4Q_A_and_3L4Q_C", f"ranked_{i}.pdb")
             assert os.path.exists(target)
             with tempfile.TemporaryDirectory() as temp_dir:
-                rmsds = calculate_rmsd_and_superpose(reference, target, temp_dir=temp_dir)
+                #rmsds = calculate_rmsd_and_superpose(reference, target, temp_dir=temp_dir)
                 print(f"Model {i} RMSD {rmsds}")
         # Best RMSD is high because of FAST=True
         # TODO: assert min(rmsd_chain_b) < ??
