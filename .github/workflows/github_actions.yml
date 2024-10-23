@@ -22,34 +22,63 @@ jobs:
       - uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - run: ls -la -R
-      - uses: actions/setup-python@v4
+
+      - name: Set up Miniconda
+        uses: conda-incubator/setup-miniconda@v3
         with:
+          miniconda-version: "latest"
+          activate-environment: AlphaPulldown
           python-version: ${{ matrix.python-version }}
-          # cache: "pip"
-      - run: python -c "import sys; print(sys.version)"
-      - run: |
-          echo $CONDA/bin >> $GITHUB_PATH
-          echo "$GITHUB_WORKSPACE/alphapulldown" >> $GITHUB_PATH
-      - run: |
-          conda create -n AlphaPulldown -c omnia -c bioconda -c conda-forge python=${{ matrix.python-version }} openmm==8.0 pdbfixer==1.9 kalign2 hmmer hhsuite modelcif
+          channels: omnia,bioconda,conda-forge
+          auto-update-conda: true
+          use-channel-priority: true
+          use-mamba: true
+
+      - name: Install Dependencies
+        shell: bash
+        run: |
           eval "$(conda shell.bash hook)"
-          conda activate AlphaPulldown
+          conda install -y openmm==8.0 pdbfixer==1.9 kalign2 hmmer hhsuite modelcif
           pip install -U "jax[cuda12]"
-      - if: matrix.install-type == 'user'
+          # For testing analysis pipeline
+          conda install -c bioconda biopandas
+          pip install pyrosetta-installer
+          python -c 'import pyrosetta_installer; pyrosetta_installer.install_pyrosetta()'
+
+      # Conditional installation based on install-type
+      - name: Install AlphaPulldown (User)
+        if: matrix.install-type == 'user'
+        shell: bash
         run: |
+          eval "$(conda shell.bash hook)"
           pip install alphapulldown==2.0.0b6
-      - if: matrix.install-type == 'developer'
+
+      - name: Install AlphaPulldown (Developer)
+        if: matrix.install-type == 'developer'
+        shell: bash
         run: |
-          which pip
-          python -c "import sys; print(sys.version)"
-          python -m pip install -e .
-          python -m pip install -e ColabFold --no-deps
-          python -m pip install -e alphafold --no-deps
-      - run: |
+          eval "$(conda shell.bash hook)"
+          pip install -e .
+          pip install -e ColabFold --no-deps
+          pip install -e alphafold --no-deps
+
+      - name: Run Tests
+        shell: bash
+        run: |
+          eval "$(conda shell.bash hook)"
+          python test/test_python_imports.py
+          pytest -s test/test_custom_db.py
+          pytest -s test/test_remove_clashes_low_plddt.py
+          pytest -s test/test_modelcif.py
+          pytest -s test/test_features_with_templates.py
+          pytest -s test/test_post_prediction.py
+          export PYTHONPATH=$PWD/alphapulldown/analysis_pipeline:$PYTHONPATH
+          pytest -s test/test_pdb_analyser.py
+          pytest -s test/test_get_good_inter_pae.py
           export PYTHONPATH=$PWD/AlphaLink2:$PYTHONPATH
           # install dependencies for AlphaLink backend
           # pip install torch==1.13.0+cu117 --extra-index-url https://download.pytorch.org/whl/cu117
