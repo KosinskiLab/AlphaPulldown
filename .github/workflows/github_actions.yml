@@ -36,10 +36,13 @@ jobs:
           channel-priority: flexible
           use-mamba: true
           python-version: ${{ matrix.python-version }}
+          activate-environment: ""        # Prevent activating 'test' environment
+          auto-activate-base: false       # Prevent activating base environment
 
       - name: Create Conda Environment
         shell: bash
         run: |
+          set -e
           source "${{ steps.setup_miniconda.outputs.conda-prefix }}/etc/profile.d/conda.sh"
           mamba create -y -n AlphaPulldown -c omnia -c bioconda -c conda-forge \
             python=${{ matrix.python-version }} \
@@ -48,6 +51,7 @@ jobs:
       - name: Install Pip Dependencies
         shell: bash
         run: |
+          set -e
           source "${{ steps.setup_miniconda.outputs.conda-prefix }}/etc/profile.d/conda.sh"
           conda activate AlphaPulldown
           pip install -U "jax[cuda12]" pyrosetta-installer
@@ -57,6 +61,7 @@ jobs:
         if: matrix.install-type == 'user'
         shell: bash
         run: |
+          set -e
           source "${{ steps.setup_miniconda.outputs.conda-prefix }}/etc/profile.d/conda.sh"
           conda activate AlphaPulldown
           pip install alphapulldown==2.0.0b6
@@ -65,6 +70,7 @@ jobs:
         if: matrix.install-type == 'developer'
         shell: bash
         run: |
+          set -e
           source "${{ steps.setup_miniconda.outputs.conda-prefix }}/etc/profile.d/conda.sh"
           conda activate AlphaPulldown
           pip install -e .
@@ -74,6 +80,7 @@ jobs:
       - name: Set Environment Variables
         shell: bash
         run: |
+          set -e
           source "${{ steps.setup_miniconda.outputs.conda-prefix }}/etc/profile.d/conda.sh"
           conda activate AlphaPulldown
           export PYTHONPATH=$PWD/alphapulldown/analysis_pipeline:$PYTHONPATH
@@ -82,6 +89,7 @@ jobs:
       - name: Install Optional Dependencies
         shell: bash
         run: |
+          set -e
           source "${{ steps.setup_miniconda.outputs.conda-prefix }}/etc/profile.d/conda.sh"
           conda activate AlphaPulldown
           # Install dependencies for AlphaLink backend if needed
@@ -96,6 +104,7 @@ jobs:
       - name: Run Tests
         shell: bash
         run: |
+          set -e
           source "${{ steps.setup_miniconda.outputs.conda-prefix }}/etc/profile.d/conda.sh"
           conda activate AlphaPulldown
           python test/test_python_imports.py
@@ -106,6 +115,7 @@ jobs:
           pytest -s test/test_post_prediction.py
           pytest -s test/test_pdb_analyser.py
           pytest -s test/test_get_good_inter_pae.py
+
 
   build-fold-container:
     runs-on: ubuntu-latest
