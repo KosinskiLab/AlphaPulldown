@@ -4,18 +4,22 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "alphapulldown"
-version = "0.0.0"  # Placeholder; will be dynamically set
-description = "Pipeline allows massive screening using alphafold"
+description = "Pipeline allows massive screening using AlphaFold"
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.8"
 authors = [
-    { name = "AlphaPulldown team", email = "alphapulldown@embl-hamburg.de" }
+    { name = "EMBL Hamburg", email = "alphapulldown@embl-hamburg.de" }
 ]
 urls = { "Homepage" = "https://github.com/KosinskiLab/AlphaPulldown" }
 classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent"
+    'Topic :: Scientific/Engineering :: Artificial Intelligence',
+    'Intended Audience :: Science/Research',
+    'License :: OSI Approved :: Apache Software License',
+    'Operating System :: POSIX :: Linux',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
 ]
 dependencies = [
     "absl-py >= 0.13.0",
@@ -42,22 +46,14 @@ dependencies = [
     "chex >= 0.1.86",
     "immutabledict >= 2.0.0"
 ]
+dynamic = ["version"]
 
 [tool.setuptools]
 include-package-data = true
-scripts = [
-    "alphapulldown/scripts/create_individual_features.py",
-    "alphapulldown/scripts/run_multimer_jobs.py",
-    "alphapulldown/analysis_pipeline/create_notebook.py",
-    "alphapulldown/scripts/rename_colab_search_a3m.py",
-    "alphapulldown/scripts/prepare_seq_names.py",
-    "alphapulldown/scripts/generate_crosslink_pickle.py",
-    "alphapulldown/scripts/convert_to_modelcif.py",
-    "alphapulldown/scripts/run_structure_prediction.py"
-]
 
-[tool.setuptools.packages]
-names = [
+[tool.setuptools.packages.find]
+where = ["."]
+include = [
     "alphapulldown",
     "alphapulldown.utils",
     "alphapulldown.folding_backend",
@@ -86,7 +82,7 @@ names = [
 [tool.setuptools.package-dir]
 alphapulldown = "alphapulldown"
 "alphapulldown.folding_backend" = "alphapulldown/folding_backend"
-alphafold = "alphafold/alphafold"
+alphafold = "alphafold/alphafold"  # Submodule mapping
 colabfold = "ColabFold/colabfold"
 analysis_pipeline = "alphapulldown/analysis_pipeline"
 af2plots = "alphapulldown/analysis_pipeline/af2plots/af2plots"
@@ -100,3 +96,13 @@ unifold = "AlphaLink2/unifold"
 
 [tool.setuptools.dynamic]
 version = { attr = "alphapulldown.__version__" }
+
+[project.scripts]
+create_individual_features = "alphapulldown.scripts.create_individual_features:main"
+run_multimer_jobs = "alphapulldown.scripts.run_multimer_jobs:main"
+create_notebook = "alphapulldown.analysis_pipeline.create_notebook:main"
+rename_colab_search_a3m = "alphapulldown.scripts.rename_colab_search_a3m:main"
+prepare_seq_names = "alphapulldown.scripts.prepare_seq_names:main"
+generate_crosslink_pickle = "alphapulldown.scripts.generate_crosslink_pickle:main"
+convert_to_modelcif = "alphapulldown.scripts.convert_to_modelcif:main"
+run_structure_prediction = "alphapulldown.scripts.run_structure_prediction:main"
