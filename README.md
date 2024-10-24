@@ -378,9 +378,76 @@ Slurm specific parameters that do not need to be modified by non-expert users.
 **only_generate_features**
 If set to True, stops after generating features and does not perform structure prediction and reporting.
 
+
 ## 3. Execution
 
-After following the Installation and Configuration steps, you are now ready to run the snakemake pipeline. To do so, navigate into the cloned pipeline directory and run:
+After following the Installation and Configuration steps, you are now ready to run the Snakemake pipeline. To do so, navigate into the cloned pipeline directory and run:
+
+```bash
+snakemake \
+  --use-singularity \
+  --singularity-args "-B /scratch:/scratch \
+    -B /g/kosinski:/g/kosinski \
+    --nv " \
+  --jobs 200 \
+  --restart-times 5 \
+  --profile slurm_noSidecar \
+  --rerun-incomplete \
+  --rerun-triggers mtime \
+  --latency-wait 30 \
+  -n
+```
+
+> [!Warning]
+> Running Snakemake in the foreground on a remote server can cause the process to terminate if the session is disconnected. To avoid this, you can run Snakemake in the background and redirect the output to log files. Here are two approaches depending on your environment:
+
+- **For SLURM clusters:** Use `srun` to submit the job in the background:
+
+  ```bash
+  srun --job-name=snakemake_job --output=snakemake_output.log --error=snakemake_error.log \
+    snakemake \
+    --use-singularity \
+    --singularity-args "-B /scratch:/scratch \
+      -B /g/kosinski:/g/kosinski \
+      --nv " \
+    --jobs 200 \
+    --restart-times 5 \
+    --profile slurm_noSidecar \
+    --rerun-incomplete \
+    --rerun-triggers mtime \
+    --latency-wait 30 \
+  ```
+
+- **For non-SLURM systems:** You can use `screen` to run the process in a persistent session:
+
+  1. Start a `screen` session:
+     ```bash
+     screen -S snakemake_session
+     ```
+  2. Run Snakemake as usual:
+     ```bash
+     snakemake \
+       --use-singularity \
+       --singularity-args "-B /scratch:/scratch \
+         -B /g/kosinski:/g/kosinski \
+         --nv " \
+       --jobs 200 \
+       --restart-times 5 \
+       --profile slurm_noSidecar \
+       --rerun-incomplete \
+       --rerun-triggers mtime \
+       --latency-wait 30 \
+     ```
+  3. Detach from the `screen` session by pressing `Ctrl + A` then `D`. You can later reattach with:
+     ```bash
+     screen -r snakemake_session
+     ```
+
+By following these methods, you ensure that Snakemake continues running even if the remote session disconnects.
+
+--- 
+
+This should guide users in handling both SLURM and non-SLURM environments when running the pipeline.
 
 ```bash
 snakemake \
