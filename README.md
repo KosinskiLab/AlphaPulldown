@@ -712,7 +712,7 @@ Create the `create_individual_features_SLURM.sh` script and place the following 
 #SBATCH -o logs/create_individual_features_%A_%a_out.txt
 
 #qos sets priority
-#SBATCH --qos=low
+#SBATCH --qos=normal
 
 #Limit the run to a single node
 #SBATCH -N 1
@@ -721,11 +721,7 @@ Create the `create_individual_features_SLURM.sh` script and place the following 
 #SBATCH --ntasks=8
 #SBATCH --mem=64000
 
-module load HMMER/3.4-gompi-2023a
-module load HH-suite/3.3.0-gompi-2023a
 eval "$(conda shell.bash hook)"
-module load CUDA/11.8.0
-module load cuDNN/8.7.0.84-CUDA-11.8.0
 conda activate AlphaPulldown
 
 # CUSTOMIZE THE FOLLOWING SCRIPT PARAMETERS FOR YOUR SPECIFIC TASK:
@@ -742,13 +738,7 @@ create_individual_features.py \
 #####
 ```
 
-Make the script executable by running:
-
-```bash
-chmod +x create_individual_features_SLURM.sh
-```
-
-Next, execute the following commands, replacing `<sequences.fasta>` with the path to your input FASTA file:
+Execute the following commands, replacing `<sequences.fasta>` with the path to your input FASTA file:
 
 ```bash
 mkdir logs
@@ -1160,11 +1150,8 @@ Create the `run_multimer_jobs_SLURM.sh` script and place the following code in i
 #Adjust this depending on the node
 #SBATCH --ntasks=8
 #SBATCH --mem=64000
-
-module load Anaconda3 
-module load CUDA/11.8.0
-module load cuDNN/8.7.0.84-CUDA-11.8.0
-source activate AlphaPulldown
+eval "$(conda shell.bash hook)"
+conda activate AlphaPulldown
 
 MAXRAM=$(echo `ulimit -m` '/ 1024.0'|bc)
 GPUMEM=`nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits|tail -1`
