@@ -296,7 +296,12 @@ You can delete the <writable_image_dir> now.
 
 ## 2. Configuration
 
-Adjust `config/config.yaml` for your particular use case.
+Adjust `config/config.yaml` for your particular use case. It is possible to use pre-calculated features (e.g. [downloaded from our features database](https://github.com/KosinskiLab/AlphaPulldown?tab=readme-ov-file#installation)) by adding paths to the features to your config/config.yaml
+
+```yaml
+feature_directory :
+  - "/path/to/directory/with/features/"
+```
 
 If you want to use CCP4 for analysis, open `config/config.yaml` in a text editor and change the path to the analysis container to:
 
