@@ -320,6 +320,12 @@ example:2:1-50
 example:1-50_example:1-50
 example:1:1-50_example:1:1-50
 ```
+One can also specify several amino acid ranges in one line to be modeled together:
+
+```
+example:1-50:70-100
+example:2:1-50:70-100
+```
 
 This format similarly extends for the folding of heteromers:
 
