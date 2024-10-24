@@ -1,0 +1,102 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "alphapulldown"
+version = "0.0.0"  # Placeholder; will be dynamically set
+description = "Pipeline allows massive screening using alphafold"
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = ">=3.8"
+authors = [
+    { name = "AlphaPulldown team", email = "alphapulldown@embl-hamburg.de" }
+]
+urls = { "Homepage" = "https://github.com/KosinskiLab/AlphaPulldown" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent"
+]
+dependencies = [
+    "absl-py >= 0.13.0",
+    "dm-haiku",
+    "dm-tree >= 0.1.6",
+    "h5py >= 3.1.0",
+    "matplotlib >= 3.3.3",
+    "ml-collections >= 0.1.0",
+    "pandas >= 1.5.3",
+    "importlib-resources >= 6.1.0",
+    "biopython >= 1.82",
+    "nbformat >= 5.9.2",
+    "py3Dmol == 2.0.4",
+    "ipython == 8.16.1",
+    "tqdm >= 4.66.1",
+    "appdirs >= 1.4.4",
+    "ml-dtypes",
+    "setuptools >= 40.1.0",
+    "jupyterlab >= 3.0",
+    "ipywidgets",
+    "pytest >= 6.0",
+    "importlib-metadata >= 4.8.2, <5.0.0",
+    "tensorflow-cpu >= 2.16.1",
+    "chex >= 0.1.86",
+    "immutabledict >= 2.0.0"
+]
+
+[tool.setuptools]
+include-package-data = true
+scripts = [
+    "alphapulldown/scripts/create_individual_features.py",
+    "alphapulldown/scripts/run_multimer_jobs.py",
+    "alphapulldown/analysis_pipeline/create_notebook.py",
+    "alphapulldown/scripts/rename_colab_search_a3m.py",
+    "alphapulldown/scripts/prepare_seq_names.py",
+    "alphapulldown/scripts/generate_crosslink_pickle.py",
+    "alphapulldown/scripts/convert_to_modelcif.py",
+    "alphapulldown/scripts/run_structure_prediction.py"
+]
+
+[tool.setuptools.packages]
+names = [
+    "alphapulldown",
+    "alphapulldown.utils",
+    "alphapulldown.folding_backend",
+    "alphapulldown.analysis_pipeline",
+    "alphapulldown.scripts",
+    "alphafold",
+    "alphafold.data",
+    "alphafold.data.tools",
+    "alphafold.common",
+    "alphafold.relax",
+    "alphafold.model",
+    "alphafold.model.geometry",
+    "alphafold.model.tf",
+    "alphafold.notebooks",
+    "colabfold",
+    "analysis_pipeline",
+    "af2plots",
+    "unifold",
+    "unifold.data",
+    "unifold.modules",
+    "unifold.msa",
+    "unifold.losses",
+    "unifold.symmetry"
+]
+
+[tool.setuptools.package-dir]
+alphapulldown = "alphapulldown"
+"alphapulldown.folding_backend" = "alphapulldown/folding_backend"
+alphafold = "alphafold/alphafold"
+colabfold = "ColabFold/colabfold"
+analysis_pipeline = "alphapulldown/analysis_pipeline"
+af2plots = "alphapulldown/analysis_pipeline/af2plots/af2plots"
+unifold = "AlphaLink2/unifold"
+"unifold.data" = "AlphaLink2/unifold/data"
+"unifold.losses" = "AlphaLink2/unifold/losses"
+"unifold.symmetry" = "AlphaLink2/unifold/symmetry"
+
+[tool.setuptools.package-data]
+"alphafold.common" = ["stereo_chemical_props.txt"]
+
+[tool.setuptools.dynamic]
+version = { attr = "alphapulldown.__version__" }
