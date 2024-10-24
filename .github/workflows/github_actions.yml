@@ -7,7 +7,7 @@ on:
       - main
   release:
     types: [published]
-  workflow_dispatch:
+  workflow_dispatch: 
 
 jobs:
   build-and-test:
@@ -22,90 +22,43 @@ jobs:
       - uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-
-      - name: Set up Miniconda
-        id: setup_miniconda
-        uses: conda-incubator/setup-miniconda@v3
+      - uses: actions/setup-python@v4
         with:
-          miniconda-version: "latest"
-          auto-update-conda: true
-          channel-priority: flexible
-          use-mamba: true
           python-version: ${{ matrix.python-version }}
-          activate-environment: ""        # Prevent activating 'test' environment
-          auto-activate-base: false       # Prevent activating base environment
-
-      - name: Create Conda Environment
-        shell: bash
+          cache: "pip"
+      - run: python -c "import sys; print(sys.version)"
+      - run: |
+          echo $CONDA/bin >> $GITHUB_PATH
+          echo "$GITHUB_WORKSPACE/alphapulldown" >> $GITHUB_PATH
+      - if: matrix.install-type == 'user'
         run: |
-          set -e
-          source "${{ steps.setup_miniconda.outputs.conda-prefix }}/etc/profile.d/conda.sh"
-          mamba create -y -n AlphaPulldown -c omnia -c bioconda -c conda-forge \
-            python=${{ matrix.python-version }} \
-            openmm==8.0 pdbfixer==1.9 kalign2 hmmer hhsuite modelcif biopandas
-
-      - name: Install Pip Dependencies
-        shell: bash
-        run: |
-          set -e
-          source "${{ steps.setup_miniconda.outputs.conda-prefix }}/etc/profile.d/conda.sh"
-          conda activate AlphaPulldown
-          pip install -U "jax[cuda12]" pyrosetta-installer
-          python -c 'import pyrosetta_installer; pyrosetta_installer.install_pyrosetta()'
-
-      - name: Install AlphaPulldown (User)
-        if: matrix.install-type == 'user'
-        shell: bash
-        run: |
-          set -e
-          source "${{ steps.setup_miniconda.outputs.conda-prefix }}/etc/profile.d/conda.sh"
+          conda create -n AlphaPulldown -c omnia -c bioconda -c conda-forge python==${{ matrix.python-version }} openmm==8.0 pdbfixer==1.9 kalign2 hmmer hhsuite modelcif
+          eval "$(conda shell.bash hook)"
           conda activate AlphaPulldown
           pip install alphapulldown==2.0.0b6
-
-      - name: Install AlphaPulldown (Developer)
-        if: matrix.install-type == 'developer'
-        shell: bash
+          pip install -U "jax[cuda12]"
+      - if: matrix.install-type == 'developer'
         run: |
-          set -e
-          source "${{ steps.setup_miniconda.outputs.conda-prefix }}/etc/profile.d/conda.sh"
+          conda create -n AlphaPulldown -c omnia -c bioconda -c conda-forge python==${{ matrix.python-version }} openmm==8.0 pdbfixer==1.9 kalign2 bioconda hmmer hhsuite modelcif
+          eval "$(conda shell.bash hook)"
           conda activate AlphaPulldown
           pip install -e .
           pip install -e ColabFold --no-deps
           pip install -e alphafold --no-deps
-
-      - name: Set Environment Variables
-        shell: bash
-        run: |
-          set -e
-          source "${{ steps.setup_miniconda.outputs.conda-prefix }}/etc/profile.d/conda.sh"
-          conda activate AlphaPulldown
-          export PYTHONPATH=$PWD/alphapulldown/analysis_pipeline:$PYTHONPATH
-          export PYTHONPATH=$PWD/AlphaLink2:$PYTHONPATH
-
-      - name: Install Optional Dependencies
-        shell: bash
-        run: |
-          set -e
-          source "${{ steps.setup_miniconda.outputs.conda-prefix }}/etc/profile.d/conda.sh"
-          conda activate AlphaPulldown
-          # Install dependencies for AlphaLink backend if needed
-          # Uncomment the following lines if required
-          # mamba install -y -c pytorch pytorch==1.13.0
-          # pip install setuptools==69.5.1  # Downgrade setuptools to avoid crashes when installing unicore
+          pip install -U "jax[cuda12]"
+          # export PYTHONPATH=$PWD/AlphaLink2:$PYTHONPATH
+          # install dependencies for AlphaLink backend
+          # pip install torch==1.13.0+cu117 --extra-index-url https://download.pytorch.org/whl/cu117
+          # pip install setuptools==69.5.1 # Downgrade setuptools to avoid crashes when installing unicore
           # git clone https://github.com/dptech-corp/Uni-Core.git
           # cd Uni-Core
           # python setup.py install --disable-cuda-ext
           # cd ..
-
-      - name: Run Tests
-        shell: bash
-        run: |
-          set -e
-          source "${{ steps.setup_miniconda.outputs.conda-prefix }}/etc/profile.d/conda.sh"
+      - run: |
+          eval "$(conda shell.bash hook)"
           conda activate AlphaPulldown
           python test/test_python_imports.py
           pytest -s test/test_custom_db.py
@@ -113,9 +66,13 @@ jobs:
           pytest -s test/test_modelcif.py
           pytest -s test/test_features_with_templates.py
           pytest -s test/test_post_prediction.py
+          export PYTHONPATH=$PWD/alphapulldown/analysis_pipeline:$PYTHONPATH
+          # Test analysis pipeline
+          conda install -c bioconda biopandas 
+          pip install pyrosetta-installer 
+          python -c 'import pyrosetta_installer; pyrosetta_installer.install_pyrosetta()'
           pytest -s test/test_pdb_analyser.py
           pytest -s test/test_get_good_inter_pae.py
-
 
   build-fold-container:
     runs-on: ubuntu-latest
