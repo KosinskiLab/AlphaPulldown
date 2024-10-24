@@ -430,11 +430,6 @@ AlphaPulldown can be used as a set of scripts for every particular step.
 
 ```bash
 conda create -n AlphaPulldown -c omnia -c bioconda -c conda-forge python==3.11 openmm==8.0 pdbfixer==1.9 kalign2 hhsuite hmmer modelcif
-```
-       
-**Optionally**, if you do not have it yet on your system, install [HMMER](http://hmmer.org/documentation.html) from Anaconda:
-  
-```bash
 source activate AlphaPulldown
 ```
 This usually works, but on some compute systems, users may prefer to use other versions or optimized builds of HMMER and HH-suite that are already installed.
