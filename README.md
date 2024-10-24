@@ -404,7 +404,7 @@ snakemake \
 - **For SLURM clusters:** Use `srun` to submit the job in the background:
 
   ```bash
-  srun --job-name=snakemake_job --output=snakemake_output.log --error=snakemake_error.log \
+  srun --job-name=snakemake_job \
     snakemake \
     --use-singularity \
     --singularity-args "-B /scratch:/scratch \
