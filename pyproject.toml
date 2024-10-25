@@ -98,11 +98,11 @@ unifold = "AlphaLink2/unifold"
 version = { attr = "alphapulldown.__version__" }
 
 [project.scripts]
-create_individual_features = "alphapulldown.scripts.entry_points:create_individual_features"
-run_multimer_jobs = "alphapulldown.scripts.entry_points:run_multimer_jobs"
-create_notebook = "alphapulldown.scripts.entry_points:create_notebook"
+create_individual_features = "alphapulldown.entry_points:create_individual_features"
+run_multimer_jobs = "alphapulldown.entry_points:run_multimer_jobs"
+create_notebook = "alphapulldown.entry_points:create_notebook"
 rename_colab_search_a3m = "alphapulldown.scripts.rename_colab_search_a3m:main"
 prepare_seq_names = "alphapulldown.scripts.prepare_seq_names:main"
 generate_crosslink_pickle = "alphapulldown.scripts.generate_crosslink_pickle:main"
-convert_to_modelcif = "alphapulldown.scripts.entry_points:convert_to_modelcif"
-run_structure_prediction = "alphapulldown.scripts.entry_points:run_structure_prediction"
+convert_to_modelcif = "alphapulldown.entry_points:convert_to_modelcif"
+run_structure_prediction = "alphapulldown.entry_points:run_structure_prediction"
