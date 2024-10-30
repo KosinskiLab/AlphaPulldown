@@ -59,15 +59,15 @@ include = [
     "alphapulldown.folding_backend",
     "alphapulldown.analysis_pipeline",
     "alphapulldown.scripts",
-    "alphafold",
-    "alphafold.data",
-    "alphafold.data.tools",
-    "alphafold.common",
-    "alphafold.relax",
-    "alphafold.model",
-    "alphafold.model.geometry",
-    "alphafold.model.tf",
-    "alphafold.notebooks",
+    "alphafold.alphafold",
+    "alphafold.alphafold.data",
+    "alphafold.alphafold.data.tools",
+    "alphafold.alphafold.common",
+    "alphafold.alphafold.relax",
+    "alphafold.alphafold.model",
+    "alphafold.alphafold.model.geometry",
+    "alphafold.alphafold.model.tf",
+    "alphafold.alphafold.notebooks",
     "colabfold",
     "analysis_pipeline",
     "af2plots",
@@ -79,20 +79,8 @@ include = [
     "unifold.symmetry"
 ]
 
-[tool.setuptools.package-dir]
-alphapulldown = "alphapulldown"
-"alphapulldown.folding_backend" = "alphapulldown/folding_backend"
-alphafold = "alphafold/alphafold"
-colabfold = "ColabFold/colabfold"
-analysis_pipeline = "alphapulldown/analysis_pipeline"
-af2plots = "alphapulldown/analysis_pipeline/af2plots/af2plots"
-unifold = "AlphaLink2/unifold"
-"unifold.data" = "AlphaLink2/unifold/data"
-"unifold.losses" = "AlphaLink2/unifold/losses"
-"unifold.symmetry" = "AlphaLink2/unifold/symmetry"
-
 [tool.setuptools.package-data]
-"alphafold.common" = ["stereo_chemical_props.txt"]
+"alphafold.alphafold.common" = ["stereo_chemical_props.txt"]
 
 [tool.setuptools.dynamic]
 version = { attr = "alphapulldown.__version__" }
