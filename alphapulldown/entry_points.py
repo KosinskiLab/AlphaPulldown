@@ -8,6 +8,11 @@ def run_multimer_jobs():
     from alphapulldown.scripts import run_multimer_jobs
     app.run(run_multimer_jobs.main)
 
+def run_structure_prediction():
+    from absl import app
+    from alphapulldown.scripts import run_structure_prediction
+    app.run(run_structure_prediction.main)
+
 def convert_to_modelcif():
     from absl import app
     from alphapulldown.scripts import convert_to_modelcif
