@@ -51,6 +51,9 @@ dynamic = ["version"]
 [tool.setuptools]
 include-package-data = true
 
+[tool.setuptools.package-dir]
+alphafold = "alphafold/alphafold"
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = [
@@ -59,15 +62,15 @@ include = [
     "alphapulldown.folding_backend",
     "alphapulldown.analysis_pipeline",
     "alphapulldown.scripts",
-    "alphafold.alphafold",
-    "alphafold.alphafold.data",
-    "alphafold.alphafold.data.tools",
-    "alphafold.alphafold.common",
-    "alphafold.alphafold.relax",
-    "alphafold.alphafold.model",
-    "alphafold.alphafold.model.geometry",
-    "alphafold.alphafold.model.tf",
-    "alphafold.alphafold.notebooks",
+    "alphafold",
+    "alphafold.data",
+    "alphafold.data.tools",
+    "alphafold.common",
+    "alphafold.relax",
+    "alphafold.model",
+    "alphafold.model.geometry",
+    "alphafold.model.tf",
+    "alphafold.notebooks",
     "colabfold",
     "analysis_pipeline",
     "af2plots",
