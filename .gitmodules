@@ -8,7 +8,7 @@
 	branch = main
 [submodule "AlphaLink2"]
 	path = AlphaLink2
-	url = git@github.com:dingquanyu/AlphaLink2.git
+	url = git@github.com:KosinskiLab/AlphaLink2.git
 	branch = main
 [submodule "ColabFold"]
 	path = ColabFold
