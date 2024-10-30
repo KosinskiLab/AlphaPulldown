@@ -50,8 +50,6 @@ RUN ssh-keyscan github.com >> /root/.ssh/known_hosts
 RUN --mount=type=ssh git clone --recurse-submodules git@github.com:KosinskiLab/AlphaPulldown.git
 WORKDIR AlphaPulldown
 RUN pip3 install .
-RUN pip3 install ColabFold/ --no-deps
-RUN pip3 install alphafold/ --no-deps
 
 RUN pip3 install --upgrade pip --no-cache-dir \
     && pip3 install --upgrade --no-cache-dir \
