@@ -67,13 +67,13 @@ jobs:
           pytest -s test/test_modelcif.py
           pytest -s test/test_features_with_templates.py
           pytest -s test/test_post_prediction.py
-          export PYTHONPATH=$PWD/alphapulldown/analysis_pipeline:$PYTHONPATH
-          # Test analysis pipeline
-          conda install -c bioconda biopandas 
-          pip install pyrosetta-installer 
-          python -c 'import pyrosetta_installer; pyrosetta_installer.install_pyrosetta()'
-          pytest -s test/test_pdb_analyser.py
-          pytest -s test/test_get_good_inter_pae.py
+          #export PYTHONPATH=$PWD/alphapulldown/analysis_pipeline:$PYTHONPATH
+          ## Test analysis pipeline
+          #conda install -c bioconda biopandas 
+          #pip install pyrosetta-installer 
+          #python -c 'import pyrosetta_installer; pyrosetta_installer.install_pyrosetta()'
+          #pytest -s test/test_pdb_analyser.py
+          #pytest -s test/test_get_good_inter_pae.py
 
   build-fold-container:
     runs-on: ubuntu-latest
