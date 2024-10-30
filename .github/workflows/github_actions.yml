@@ -39,7 +39,7 @@ jobs:
           mamba create -n AlphaPulldown -c omnia -c bioconda -c conda-forge python==${{ matrix.python-version }} \
           openmm==8.0 pdbfixer==1.9 kalign2 hmmer hhsuite modelcif 
           eval "$(conda shell.bash hook)"
-          mamba activate AlphaPulldown
+          conda activate AlphaPulldown
           pip install alphapulldown==2.0.0b6
           pip install -U "jax[cuda12]"
           mamba install -c conda-forge biopython==1.81 importlib_metadata pytest # REMOVE AFTER UPDATING THE PYPI RELEASE VERSION!
@@ -49,7 +49,7 @@ jobs:
           mamba create -n AlphaPulldown -c omnia -c bioconda -c conda-forge python==${{ matrix.python-version }} \
           openmm==8.0 pdbfixer==1.9 kalign2 hmmer hhsuite modelcif 
           eval "$(conda shell.bash hook)"
-          mamba activate AlphaPulldown
+          conda activate AlphaPulldown
           pip install -e .
           pip install -U "jax[cuda12]"
           # export PYTHONPATH=$PWD/AlphaLink2:$PYTHONPATH
