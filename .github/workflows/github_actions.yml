@@ -35,7 +35,7 @@ jobs:
           echo "$GITHUB_WORKSPACE/alphapulldown" >> $GITHUB_PATH
       - if: matrix.install-type == 'user'
         run: |
-          conda install --solver=classic -y -c conda-forge conda-libmamba-solver libmamba libmambapy libarchive
+          conda install -y -c conda-forge mamba
           mamba create -n AlphaPulldown -c omnia -c bioconda -c conda-forge python==${{ matrix.python-version }} \
           openmm==8.0 pdbfixer==1.9 kalign2 hmmer hhsuite modelcif 
           eval "$(conda shell.bash hook)"
@@ -45,7 +45,7 @@ jobs:
           mamba install -c conda-forge biopython==1.81 importlib_metadata pytest # REMOVE AFTER UPDATING THE PYPI RELEASE VERSION!
       - if: matrix.install-type == 'developer'
         run: |
-          conda install --solver=classic -y -c conda-forge conda-libmamba-solver libmamba libmambapy libarchive
+          conda install -y -c conda-forge mamba
           mamba create -n AlphaPulldown -c omnia -c bioconda -c conda-forge python==${{ matrix.python-version }} \
           openmm==8.0 pdbfixer==1.9 kalign2 hmmer hhsuite modelcif 
           eval "$(conda shell.bash hook)"
