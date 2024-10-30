@@ -51,6 +51,8 @@ jobs:
           eval "$(conda shell.bash hook)"
           conda activate AlphaPulldown
           pip install -e .
+          pip install -e ColabFold --no-deps
+          pip install -e alphafold --no-deps
           pip install -U "jax[cuda12]"
           # export PYTHONPATH=$PWD/AlphaLink2:$PYTHONPATH
           # install dependencies for AlphaLink backend
