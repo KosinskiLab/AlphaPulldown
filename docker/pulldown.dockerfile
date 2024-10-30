@@ -44,8 +44,6 @@ RUN mamba install -y -c conda-forge -c bioconda -c omnia --solver classic \
       python=3.10 \
       && conda clean --all --force-pkgs-dirs --yes
 
-RUN mamba install -y -c nvidia cuda-nvcc --solver classic
-
 RUN mkdir -p /root/.ssh && chmod 700 /root/.ssh
 RUN ssh-keyscan github.com >> /root/.ssh/known_hosts
 
@@ -57,10 +55,8 @@ RUN pip3 install alphafold/ --no-deps
 
 RUN pip3 install --upgrade pip --no-cache-dir \
     && pip3 install --upgrade --no-cache-dir \
-      -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple \
       pytest \
       "jax[cuda12]"
-
 RUN chmod u+s /sbin/ldconfig.real
 
 ENTRYPOINT ["bash"]
