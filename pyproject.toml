@@ -53,6 +53,8 @@ include-package-data = true
 
 [tool.setuptools.package-dir]
 alphafold = "alphafold/alphafold"
+colabfold = "ColabFold/colabfold"
+unifold = "AlphaLink2/unifold"
 
 [tool.setuptools.packages.find]
 where = ["."]
