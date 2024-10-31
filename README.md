@@ -735,7 +735,7 @@ create_individual_features.py \
   --data_dir=/scratch/AlphaFold_DBs/2.3.2
 
 / \
-  --output_dir=/scratch/mydir/test_AlphaPulldown/ \ 
+  --output_dir=/scratch/mydir/test_AlphaPulldown/ \
   --max_template_date=2050-01-01 \
   --skip_existing=True \
   --seq_index=$SLURM_ARRAY_TASK_ID
@@ -798,9 +798,9 @@ source activate AlphaPulldown
 create_individual_features.py \
   --fasta_paths=<sequences.fasta> \
   --data_dir=<path to alphafold databases> \
-  --output_dir=<dir to save the output objects> \ 
+  --output_dir=<dir to save the output objects> \
   --use_mmseqs2=True \
-  --max_template_date=<any date you want, format like: 2050-01-01> \ 
+  --max_template_date=<any date you want, format like: 2050-01-01> \
 ```
 
 #### Output
@@ -865,7 +865,7 @@ source activate AlphaPulldown
 create_individual_features.py \
   --fasta_paths=<sequences.fasta> \
   --data_dir=<path to alphafold databases> \
-  --output_dir=<output_dir> \ 
+  --output_dir=<output_dir> \
   --skip_existing=False \
   --use_mmseqs2=True \
   --seq_index=<any number you want or skip the flag to run all one after another>
@@ -940,7 +940,7 @@ create_individual_features.py \
   --path_to_mmt=<path to template directory> \
   --description_file=<description.csv> \
   --data_dir=<path to alphafold databases> \
-  --output_dir=<dir to save the output objects> \ 
+  --output_dir=<dir to save the output objects> \
   --max_template_date=<any date you want, format like: 2050-01-01> \
   --save_msa_files=True \
   --use_precomputed_msas=True \
@@ -1175,9 +1175,9 @@ export TF_FORCE_UNIFIED_MEMORY='1'
 ####
 run_multimer_jobs.py \
   --mode=custom \
-  --monomer_objects_dir=<dir that stores feature pickle files> \ 
+  --monomer_objects_dir=<dir that stores feature pickle files> \
   --protein_lists=<protein_list.txt> \
-  --output_path=<path to output directory> \ 
+  --output_path=<path to output directory> \
   --num_cycle=<any number e.g. 3> \
   --data_dir=/scratch/AlphaFold_DBs/2.3.2/ \
   --num_predictions_per_model=1 \
@@ -1280,10 +1280,10 @@ To run `run_multimer_jobs.py` in `pulldown` mode, use the following script:
 ```bash
 run_multimer_jobs.py \
   --mode=pulldown \
-  --monomer_objects_dir=<dir that stores feature pickle files> \ 
+  --monomer_objects_dir=<dir that stores feature pickle files> \
   --protein_lists=<protein_list1.txt>,<protein_list2.txt> \
   --output_path=<path to output directory> \
-  --data_dir=<path to AlphaFold data directory> \ 
+  --data_dir=<path to AlphaFold data directory> \
   --num_cycle=<any number e.g. 3> 
 ```
 
@@ -1321,11 +1321,11 @@ To run `run_multimer_jobs.py` in `all_vs_all` mode, use the following script:
 ```bash
 run_multimer_jobs.py \
   --mode=all_vs_all \
-  --monomer_objects_dir=<dir that stores feature pickle files>
+  --monomer_objects_dir=<dir that stores feature pickle files> \
   --protein_lists=<protein_list.txt> \
-  --output_path=<path to output directory> \ 
-  --data_dir=<path to AlphaFold data directory> \ 
-  --num_cycle=<any number e.g. 3> 
+  --output_path=<path to output directory> \
+  --data_dir=<path to AlphaFold data directory> \
+  --num_cycle=<any number e.g. 3>
 ```
 
 Compared to [2.1 Basic run](#21-basic-run), this example differs in:
