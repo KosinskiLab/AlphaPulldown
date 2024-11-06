@@ -40,7 +40,7 @@ jobs:
           openmm==8.0 pdbfixer==1.9 kalign2 hmmer hhsuite modelcif 
           eval "$(conda shell.bash hook)"
           conda activate AlphaPulldown
-          pip install alphapulldown==2.0.0b6
+          pip install alphapulldown
           pip install -U "jax[cuda12]"
       - if: matrix.install-type == 'developer'
         run: |
