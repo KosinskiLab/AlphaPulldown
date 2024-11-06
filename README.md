@@ -833,12 +833,11 @@ output_dir
    ...
 ```
 
-These a3m files from `colabfold_search` are inconveniently named. Thus, we have provided a `rename_colab_search_a3m.py` script to help you rename all these files. Simply run:
+These a3m files from `colabfold_search` are inconveniently named. Thus, we have provided a `rename_colab_search_a3m.py` script to help you rename all these files. Download the script from https://github.com/KosinskiLab/AlphaPulldown/blob/main/alphapulldown/scripts/rename_colab_search_a3m.py and run:
 
 ```bash
-# within the same conda env where you have installed AlphaPulldown
 cd output_dir
-rename_colab_search_a3m.py
+python rename_colab_search_a3m.py path_to_fasta_file_you_used_as_input_for_colabfold_search
 ```
 
 Then your `output_dir` will become:
