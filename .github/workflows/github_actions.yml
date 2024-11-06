@@ -42,7 +42,6 @@ jobs:
           conda activate AlphaPulldown
           pip install alphapulldown==2.0.0b6
           pip install -U "jax[cuda12]"
-          mamba install -c conda-forge biopython==1.81 importlib_metadata pytest # REMOVE AFTER UPDATING THE PYPI RELEASE VERSION!
       - if: matrix.install-type == 'developer'
         run: |
           conda install -y -c conda-forge mamba

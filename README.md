@@ -1,4 +1,4 @@
-# AlphaPulldown: Version 2.0.0 (Beta)
+# AlphaPulldown: Version 2.0.0
 
 > AlphaPulldown fully **maintains backward compatibility** with input files and scripts from versions 1.x.
 
@@ -431,9 +431,7 @@ AlphaPulldown can be used as a set of scripts for every particular step.
 ```bash
 conda create -n AlphaPulldown -c omnia -c bioconda -c conda-forge python==3.11 openmm==8.0 pdbfixer==1.9 kalign2 hhsuite hmmer modelcif
 ```
-       
-**Optionally**, if you do not have it yet on your system, install [HMMER](http://hmmer.org/documentation.html) from Anaconda:
-  
+        
 ```bash
 source activate AlphaPulldown
 ```
@@ -445,7 +443,7 @@ Activate the AlphaPulldown environment and install AlphaPulldown:
 
 ```bash
 source activate AlphaPulldown
-python3 -m pip install alphapulldown==2.0.0b6
+python3 -m pip install alphapulldown
 ```
 
 ```bash
