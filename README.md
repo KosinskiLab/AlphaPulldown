@@ -304,6 +304,7 @@ feature_directory :
 ```
 > [!NOTE]
 > If your folders contain compressed features, you have to set `--compress-features` flag to True, otherwise AlphaPulldown will not recognize these features and start calculations from scratch!
+
 If you want to use CCP4 for analysis, open `config/config.yaml` in a text editor and change the path to the analysis container to:
 
 ```yaml
