@@ -1,4 +1,4 @@
-# AlphaPulldown: Version 2.0.0 (Beta)
+# AlphaPulldown: Version 2.0.0
 
 > AlphaPulldown fully **maintains backward compatibility** with input files and scripts from versions 1.x.
 
@@ -302,7 +302,8 @@ Adjust `config/config.yaml` for your particular use case. It is possible to use 
 feature_directory :
   - "/path/to/directory/with/features/"
 ```
-
+> [!NOTE]
+> If your folders contain compressed features, you have to set `--compress-features` flag to True, otherwise AlphaPulldown will not recognize these features and start calculations from scratch!
 If you want to use CCP4 for analysis, open `config/config.yaml` in a text editor and change the path to the analysis container to:
 
 ```yaml
@@ -416,6 +417,7 @@ snakemake \
     --rerun-incomplete \
     --rerun-triggers mtime \
     --latency-wait 30 \
+    &> log.txt &
   ```
 
 - **For non-SLURM systems:** You can use `screen` to run the process in a persistent session:
@@ -437,6 +439,7 @@ snakemake \
        --rerun-incomplete \
        --rerun-triggers mtime \
        --latency-wait 30 \
+       &> log.txt &
      ```
   3. Detach from the `screen` session by pressing `Ctrl + A` then `D`. You can later reattach with:
      ```bash
@@ -504,7 +507,7 @@ AlphaPulldown can be used as a set of scripts for every particular step.
 
 ### 0.1. Create Anaconda environment
 
-**Firstly**, install [Anaconda](https://www.anaconda.com/) and create an AlphaPulldown environment, gathering necessary dependencies. We recommend to use mamba to speed up solving of dependencies:
+**Firstly**, install [Anaconda](https://www.anaconda.com/) and create an AlphaPulldown environment, gathering necessary dependencies. To speed up dependency resolution, we recommend using Mamba.
 
 ```bash
 conda create -n AlphaPulldown -c omnia -c bioconda -c conda-forge python==3.11 openmm==8.0 pdbfixer==1.9 kalign2 hhsuite hmmer modelcif
@@ -518,7 +521,7 @@ Activate the AlphaPulldown environment and install AlphaPulldown:
 
 ```bash
 source activate AlphaPulldown
-python3 -m pip install alphapulldown==2.0.0b6
+python3 -m pip install alphapulldown
 ```
 
 ```bash
@@ -804,7 +807,7 @@ create_individual_features.py \
   --data_dir=/scratch/AlphaFold_DBs/2.3.2
 
 / \
-  --output_dir=/scratch/mydir/test_AlphaPulldown/ \ 
+  --output_dir=/scratch/mydir/test_AlphaPulldown/ \
   --max_template_date=2050-01-01 \
   --skip_existing=True \
   --seq_index=$SLURM_ARRAY_TASK_ID
@@ -861,9 +864,9 @@ source activate AlphaPulldown
 create_individual_features.py \
   --fasta_paths=<sequences.fasta> \
   --data_dir=<path to alphafold databases> \
-  --output_dir=<dir to save the output objects> \ 
+  --output_dir=<dir to save the output objects> \
   --use_mmseqs2=True \
-  --max_template_date=<any date you want, format like: 2050-01-01> \ 
+  --max_template_date=<any date you want, format like: 2050-01-01> \
 ```
 
 #### Output
@@ -898,12 +901,11 @@ output_dir
    ...
 ```
 
-These a3m files from `colabfold_search` are inconveniently named. Thus, we have provided a `rename_colab_search_a3m.py` script to help you rename all these files. Simply run:
+These a3m files from `colabfold_search` are inconveniently named. Thus, we have provided a `rename_colab_search_a3m.py` script to help you rename all these files. Download the script from https://github.com/KosinskiLab/AlphaPulldown/blob/main/alphapulldown/scripts/rename_colab_search_a3m.py and run:
 
 ```bash
-# within the same conda env where you have installed AlphaPulldown
 cd output_dir
-rename_colab_search_a3m.py
+python rename_colab_search_a3m.py path_to_fasta_file_you_used_as_input_for_colabfold_search
 ```
 
 Then your `output_dir` will become:
@@ -928,7 +930,7 @@ source activate AlphaPulldown
 create_individual_features.py \
   --fasta_paths=<sequences.fasta> \
   --data_dir=<path to alphafold databases> \
-  --output_dir=<output_dir> \ 
+  --output_dir=<output_dir> \
   --skip_existing=False \
   --use_mmseqs2=True \
   --seq_index=<any number you want or skip the flag to run all one after another>
@@ -1003,7 +1005,7 @@ create_individual_features.py \
   --path_to_mmt=<path to template directory> \
   --description_file=<description.csv> \
   --data_dir=<path to alphafold databases> \
-  --output_dir=<dir to save the output objects> \ 
+  --output_dir=<dir to save the output objects> \
   --max_template_date=<any date you want, format like: 2050-01-01> \
   --save_msa_files=True \
   --use_precomputed_msas=True \
@@ -1224,7 +1226,7 @@ Create the `run_multimer_jobs_SLURM.sh` script and place the following code in i
 #SBATCH --ntasks=8
 #SBATCH --mem=64000
 eval "$(conda shell.bash hook)"
-conda activate AlphaPulldown
+source activate AlphaPulldown
 
 MAXRAM=$(echo `ulimit -m` '/ 1024.0'|bc)
 GPUMEM=`nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits|tail -1`
@@ -1235,9 +1237,9 @@ export TF_FORCE_UNIFIED_MEMORY='1'
 ####
 run_multimer_jobs.py \
   --mode=custom \
-  --monomer_objects_dir=<dir that stores feature pickle files> \ 
+  --monomer_objects_dir=<dir that stores feature pickle files> \
   --protein_lists=<protein_list.txt> \
-  --output_path=<path to output directory> \ 
+  --output_path=<path to output directory> \
   --num_cycle=<any number e.g. 3> \
   --data_dir=/scratch/AlphaFold_DBs/2.3.2/ \
   --num_predictions_per_model=1 \
@@ -1340,10 +1342,10 @@ To run `run_multimer_jobs.py` in `pulldown` mode, use the following script:
 ```bash
 run_multimer_jobs.py \
   --mode=pulldown \
-  --monomer_objects_dir=<dir that stores feature pickle files> \ 
+  --monomer_objects_dir=<dir that stores feature pickle files> \
   --protein_lists=<protein_list1.txt>,<protein_list2.txt> \
   --output_path=<path to output directory> \
-  --data_dir=<path to AlphaFold data directory> \ 
+  --data_dir=<path to AlphaFold data directory> \
   --num_cycle=<any number e.g. 3> 
 ```
 
@@ -1381,11 +1383,11 @@ To run `run_multimer_jobs.py` in `all_vs_all` mode, use the following script:
 ```bash
 run_multimer_jobs.py \
   --mode=all_vs_all \
-  --monomer_objects_dir=<dir that stores feature pickle files>
+  --monomer_objects_dir=<dir that stores feature pickle files> \
   --protein_lists=<protein_list.txt> \
-  --output_path=<path to output directory> \ 
-  --data_dir=<path to AlphaFold data directory> \ 
-  --num_cycle=<any number e.g. 3> 
+  --output_path=<path to output directory> \
+  --data_dir=<path to AlphaFold data directory> \
+  --num_cycle=<any number e.g. 3>
 ```
 
 Compared to [2.1 Basic run](#21-basic-run), this example differs in:

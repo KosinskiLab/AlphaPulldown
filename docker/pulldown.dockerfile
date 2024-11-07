@@ -1,22 +1,6 @@
 # syntax = docker/dockerfile:1.4
 
-# Copyright 2021 DeepMind Technologies Limited
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-# Extended by Valentin Maurer <valentin.maurer@embl-hamburg.de>
-
-ARG CUDA=11.8.0
+ARG CUDA=12.2.2
 FROM nvidia/cuda:${CUDA}-cudnn8-runtime-ubuntu20.04
 ARG CUDA
 
@@ -28,7 +12,6 @@ RUN apt-get update \
         build-essential \
         cmake \
         cuda-command-line-tools-$(cut -f1,2 -d- <<< ${CUDA//./-}) \
-        kalign \
         tzdata \
         wget \
         bc \
@@ -50,45 +33,28 @@ RUN conda install --solver=classic -y \
     conda-forge::libarchive \
     conda-forge::git
 
-RUN git clone --branch v3.3.0 https://github.com/soedinglab/hh-suite.git /tmp/hh-suite \
-    && mkdir /tmp/hh-suite/build \
-    && pushd /tmp/hh-suite/build \
-    && cmake -DCMAKE_INSTALL_PREFIX=/opt/hhsuite .. \
-    && make -j 4 && make install \
-    && ln -s /opt/hhsuite/bin/* /usr/bin \
-    && popd \
-    && rm -rf /tmp/hh-suite
-
-RUN conda install -y -c conda-forge -c bioconda --solver classic \
+RUN mamba install -y -c conda-forge -c bioconda -c omnia --solver classic \
       openmm==8.0 \
-      cudatoolkit==${CUDA_VERSION} \
       pdbfixer==1.9 \
       kalign2 \
-      importlib_metadata \
       modelcif \
       pip \
       hmmer \
+      hhsuite \
       python=3.10 \
       && conda clean --all --force-pkgs-dirs --yes
 
-RUN conda install -y -c nvidia cuda-nvcc --solver classic
-
-COPY . /app/alphafold
-RUN wget -q -P /app/alphafold/alphafold/common/ \
-  https://git.scicore.unibas.ch/schwede/openstructure/-/raw/7102c63615b64735c4941278d92b554ec94415f8/modules/mol/alg/src/stereo_chemical_props.txt
-
 RUN mkdir -p /root/.ssh && chmod 700 /root/.ssh
 RUN ssh-keyscan github.com >> /root/.ssh/known_hosts
-RUN --mount=type=ssh pip3 install git+https://github.com/KosinskiLab/AlphaPulldown.git@main
+
+RUN --mount=type=ssh git clone --recurse-submodules git@github.com:KosinskiLab/AlphaPulldown.git
+WORKDIR AlphaPulldown
+RUN pip3 install .
 
 RUN pip3 install --upgrade pip --no-cache-dir \
     && pip3 install --upgrade --no-cache-dir \
-      -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple \
       pytest \
-      jax==0.4.23 \
-      jaxlib==0.4.23+cuda11.cudnn86 \
-      -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
-
+      "jax[cuda12]"
 RUN chmod u+s /sbin/ldconfig.real
 
 ENTRYPOINT ["bash"]
