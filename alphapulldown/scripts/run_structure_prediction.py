@@ -224,8 +224,9 @@ def pre_modelling_setup(
 
     if flags.use_ap_style:
         output_dir = join(output_dir, object_to_model.description)
-    if len(output_dir) > 100:
-        raise ValueError(f"Output directory path is too long: {output_dir}."
+    if len(output_dir) > 4096: #max path length for most filesystems
+        # TODO: rename complex to something shorter
+        logging.warning(f"Output directory path is too long: {output_dir}."
                         "Please use a shorter path with --output_directory.")
     makedirs(output_dir, exist_ok=True)
     # Copy features metadata to output directory
