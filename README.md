@@ -719,20 +719,14 @@ Create the `create_individual_features_SLURM.sh` script and place the following 
 #SBATCH --ntasks=8
 #SBATCH --mem=64000
 
-module load HMMER/3.4-gompi-2023a
-module load HH-suite/3.3.0-gompi-2023a
-eval "$(conda shell.bash hook)"
-module load CUDA/11.8.0
-module load cuDNN/8.7.0.84-CUDA-11.8.0
-conda activate AlphaPulldown
+module load Mamba
+source activate AlphaPulldown
 
 # CUSTOMIZE THE FOLLOWING SCRIPT PARAMETERS FOR YOUR SPECIFIC TASK:
 ####
 create_individual_features.py \
   --fasta_paths=example_1_sequences.fasta \
-  --data_dir=/scratch/AlphaFold_DBs/2.3.2
-
-/ \
+  --data_dir=/scratch/AlphaFold_DBs/2.3.2 \
   --output_dir=/scratch/mydir/test_AlphaPulldown/ \
   --max_template_date=2050-01-01 \
   --skip_existing=True \
