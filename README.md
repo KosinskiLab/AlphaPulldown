@@ -1226,7 +1226,7 @@ Create the `run_multimer_jobs_SLURM.sh` script and place the following code in i
 #Adjust this depending on the node
 #SBATCH --ntasks=8
 #SBATCH --mem=64000
-eval "$(conda shell.bash hook)"
+module load Mamba
 source activate AlphaPulldown
 
 MAXRAM=$(echo `ulimit -m` '/ 1024.0'|bc)
