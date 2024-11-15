@@ -21,7 +21,7 @@ from absl import logging
 logging.set_verbosity(logging.INFO)
 
 
-def parse_fold(input, features_directory, protein_delimiter):
+def parse_fold(input_list, features_directory, protein_delimiter):
     """
     Parses a list of protein fold specifications and returns structured folding jobs.
 
@@ -37,50 +37,54 @@ def parse_fold(input, features_directory, protein_delimiter):
         FileNotFoundError: If any required protein features are missing.
     """
     all_folding_jobs = []
-    for i in input:
-        formatted_folds, missing_features, unique_features = [], [], []
+    missing_features = set()  # Initialize as a set to collect unique missing features
+    for i in input_list:
+        formatted_folds = []
         protein_folds = [x.split(":") for x in i.split(protein_delimiter)]
         for protein_fold in protein_folds:
             name, number, region = None, 1, "all"
 
-            if len(protein_fold) ==1:
-                # protein_fold is in this format: [protein_name]
+            if len(protein_fold) == 1:
+                # Format: [protein_name]
                 name = protein_fold[0]
             elif len(protein_fold) > 1:
-                name, number= protein_fold[0], protein_fold[1]
-                if ("-") in protein_fold[1]:
-                    # protein_fold is in this format: [protein_name:1-10:14-30:40-100:etc]
+                name = protein_fold[0]
+                if "-" in protein_fold[1]:
+                    # Format: [protein_name:1-10:14-30:40-100:etc]
                     try:
                         number = 1
                         region = protein_fold[1:]
                         region = [tuple(int(x) for x in r.split("-")) for r in region]
-                    except Exception as e:
-                        logging.error(f"Your format: {i} is wrong. The programme will terminate.")
+                    except Exception:
+                        logging.error(f"Your format: {i} is wrong. The program will terminate.")
                         sys.exit()
                 else:
-                    # protein_fold is in this format: [protein_name:copy_number:1-10:14-30:40-100:etc]
+                    # Format: [protein_name:copy_number:1-10:14-30:40-100:etc]
                     try:
-                        number = protein_fold[1]
-                        if len(protein_fold[2:]) > 0:
+                        number = int(protein_fold[1])
+                        if len(protein_fold) > 2:
                             region = protein_fold[2:]
                             region = [tuple(int(x) for x in r.split("-")) for r in region]
-                    except Exception as e:
-                        logging.error(f"Your format: {i} is wrong. The programme will terminate.")
+                    except Exception:
+                        logging.error(f"Your format: {i} is wrong. The program will terminate.")
                         sys.exit()
-            
+
             number = int(number)
-            unique_features.append(name)
-            if not any([exists(join(monomer_dir, f"{name}.pkl")) or exists(join(monomer_dir, f"{name}.pkl.xz")) for
-                        monomer_dir in features_directory]):
-                missing_features.append(name)
+            # Check for missing features
+            if not any(
+                exists(join(monomer_dir, f"{name}{ext}"))
+                for monomer_dir in features_directory
+                for ext in [".pkl", ".pkl.xz"]
+            ):
+                missing_features.add(name)  # Use .add() since missing_features is a set
 
             formatted_folds.extend([{name: region} for _ in range(number)])
         all_folding_jobs.append(formatted_folds)
-        missing_features = set(missing_features)
-        if len(missing_features):
-            raise FileNotFoundError(
-                f"{missing_features} not found in {features_directory}"
-            )
+
+    if missing_features:
+        raise FileNotFoundError(
+            f"{sorted(missing_features)} not found in {features_directory}"
+        )
     return all_folding_jobs
 
 def pad_input_features(feature_dict: dict, 
