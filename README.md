@@ -296,7 +296,14 @@ You can delete the <writable_image_dir> now.
 
 ## 2. Configuration
 
-Adjust `config/config.yaml` for your particular use case.
+Adjust `config/config.yaml` for your particular use case. It is possible to use pre-calculated features (e.g. [downloaded from our features database](https://github.com/KosinskiLab/AlphaPulldown?tab=readme-ov-file#installation)) by adding paths to the features to your config/config.yaml
+
+```yaml
+feature_directory :
+  - "/path/to/directory/with/features/"
+```
+> [!NOTE]
+> If your folders contain compressed features, you have to set `--compress-features` flag to True, otherwise AlphaPulldown will not recognize these features and start calculations from scratch!
 
 If you want to use CCP4 for analysis, open `config/config.yaml` in a text editor and change the path to the analysis container to:
 
@@ -319,6 +326,12 @@ example_example
 example:2:1-50
 example:1-50_example:1-50
 example:1:1-50_example:1:1-50
+```
+One can also specify several amino acid ranges in one line to be modeled together:
+
+```
+example:1-50:70-100
+example:2:1-50:70-100
 ```
 
 This format similarly extends for the folding of heteromers:
@@ -367,9 +380,77 @@ Slurm specific parameters that do not need to be modified by non-expert users.
 **only_generate_features**
 If set to True, stops after generating features and does not perform structure prediction and reporting.
 
+
 ## 3. Execution
 
-After following the Installation and Configuration steps, you are now ready to run the snakemake pipeline. To do so, navigate into the cloned pipeline directory and run:
+After following the Installation and Configuration steps, you are now ready to run the Snakemake pipeline. To do so, navigate into the cloned pipeline directory and run:
+
+```bash
+snakemake \
+  --use-singularity \
+  --singularity-args "-B /scratch:/scratch \
+    -B /g/kosinski:/g/kosinski \
+    --nv " \
+  --jobs 200 \
+  --restart-times 5 \
+  --profile slurm_noSidecar \
+  --rerun-incomplete \
+  --rerun-triggers mtime \
+  --latency-wait 30
+```
+
+> [!Warning]
+> Running Snakemake in the foreground on a remote server can cause the process to terminate if the session is disconnected. To avoid this, you can run Snakemake in the background and redirect the output to log files. Here are two approaches depending on your environment:
+
+- **For SLURM clusters:** Use `srun` to submit the job in the background:
+
+  ```bash
+  srun --job-name=snakemake_job \
+    snakemake \
+    --use-singularity \
+    --singularity-args "-B /scratch:/scratch \
+      -B /g/kosinski:/g/kosinski \
+      --nv " \
+    --jobs 200 \
+    --restart-times 5 \
+    --profile slurm_noSidecar \
+    --rerun-incomplete \
+    --rerun-triggers mtime \
+    --latency-wait 30 \
+    &> log.txt &
+  ```
+
+- **For non-SLURM systems:** You can use `screen` to run the process in a persistent session:
+
+  1. Start a `screen` session:
+     ```bash
+     screen -S snakemake_session
+     ```
+  2. Run Snakemake as usual:
+     ```bash
+     snakemake \
+       --use-singularity \
+       --singularity-args "-B /scratch:/scratch \
+         -B /g/kosinski:/g/kosinski \
+         --nv " \
+       --jobs 200 \
+       --restart-times 5 \
+       --profile slurm_noSidecar \
+       --rerun-incomplete \
+       --rerun-triggers mtime \
+       --latency-wait 30 \
+       &> log.txt &
+     ```
+  3. Detach from the `screen` session by pressing `Ctrl + A` then `D`. You can later reattach with:
+     ```bash
+     screen -r snakemake_session
+     ```
+
+By following these methods, you ensure that Snakemake continues running even if the remote session disconnects.
+
+--- 
+
+This should guide users in handling both SLURM and non-SLURM environments when running the pipeline.
 
 ```bash
 snakemake \
@@ -426,13 +507,10 @@ AlphaPulldown can be used as a set of scripts for every particular step.
 
 ### 0.1. Create Anaconda environment
 
-**Firstly**, install [Anaconda](https://www.anaconda.com/) and create an AlphaPulldown environment, gathering necessary dependencies. We recommend to use mamba to speed up solving of dependencies:
+**Firstly**, install [Anaconda](https://www.anaconda.com/) and create an AlphaPulldown environment, gathering necessary dependencies. To speed up dependency resolution, we recommend using Mamba.
 
 ```bash
 conda create -n AlphaPulldown -c omnia -c bioconda -c conda-forge python==3.11 openmm==8.0 pdbfixer==1.9 kalign2 hhsuite hmmer modelcif
-```
-        
-```bash
 source activate AlphaPulldown
 ```
 This usually works, but on some compute systems, users may prefer to use other versions or optimized builds of HMMER and HH-suite that are already installed.
@@ -710,7 +788,7 @@ Create the `create_individual_features_SLURM.sh` script and place the following 
 #SBATCH -o logs/create_individual_features_%A_%a_out.txt
 
 #qos sets priority
-#SBATCH --qos=low
+#SBATCH --qos=normal
 
 #Limit the run to a single node
 #SBATCH -N 1
@@ -719,20 +797,13 @@ Create the `create_individual_features_SLURM.sh` script and place the following 
 #SBATCH --ntasks=8
 #SBATCH --mem=64000
 
-module load HMMER/3.4-gompi-2023a
-module load HH-suite/3.3.0-gompi-2023a
-eval "$(conda shell.bash hook)"
-module load CUDA/11.8.0
-module load cuDNN/8.7.0.84-CUDA-11.8.0
-conda activate AlphaPulldown
-
+module load Mamba
+source activate AlphaPulldown
 # CUSTOMIZE THE FOLLOWING SCRIPT PARAMETERS FOR YOUR SPECIFIC TASK:
 ####
 create_individual_features.py \
   --fasta_paths=example_1_sequences.fasta \
-  --data_dir=/scratch/AlphaFold_DBs/2.3.2
-
-/ \
+  --data_dir=/scratch/AlphaFold_DBs/2.3.2 \
   --output_dir=/scratch/mydir/test_AlphaPulldown/ \
   --max_template_date=2050-01-01 \
   --skip_existing=True \
@@ -740,13 +811,7 @@ create_individual_features.py \
 #####
 ```
 
-Make the script executable by running:
-
-```bash
-chmod +x create_individual_features_SLURM.sh
-```
-
-Next, execute the following commands, replacing `<sequences.fasta>` with the path to your input FASTA file:
+Execute the following commands, replacing `<sequences.fasta>` with the path to your input FASTA file:
 
 ```bash
 mkdir logs
@@ -1157,10 +1222,7 @@ Create the `run_multimer_jobs_SLURM.sh` script and place the following code in i
 #Adjust this depending on the node
 #SBATCH --ntasks=8
 #SBATCH --mem=64000
-
-module load Anaconda3 
-module load CUDA/11.8.0
-module load cuDNN/8.7.0.84-CUDA-11.8.0
+module load Mamba
 source activate AlphaPulldown
 
 MAXRAM=$(echo `ulimit -m` '/ 1024.0'|bc)
