@@ -282,7 +282,7 @@ Download CCP4 from https://www.ccp4.ac.uk/download/#os=linux and copy to your se
 tar xvzf ccp4-9.0.003-linux64.tar.gz
 cd ccp4-9
 cp bin/pisa bin/sc <writable_image_dir>/software/
-cp /lib/* <writable_image_dir>/software/lib64/
+cp -rn lib/* <writable_image_dir>/software/lib64/
 ```
 
 Create a new Singularity with CCP4 included
