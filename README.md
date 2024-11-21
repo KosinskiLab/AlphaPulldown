@@ -396,8 +396,7 @@ snakemake \
   --profile slurm_noSidecar \
   --rerun-incomplete \
   --rerun-triggers mtime \
-  --latency-wait 30 \
-  -n
+  --latency-wait 30
 ```
 
 > [!Warning]
