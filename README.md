@@ -798,16 +798,13 @@ Create the `create_individual_features_SLURM.sh` script and place the following 
 #SBATCH --ntasks=8
 #SBATCH --mem=64000
 
-eval "$(conda shell.bash hook)"
-conda activate AlphaPulldown
-
+module load Mamba
+source activate AlphaPulldown
 # CUSTOMIZE THE FOLLOWING SCRIPT PARAMETERS FOR YOUR SPECIFIC TASK:
 ####
 create_individual_features.py \
   --fasta_paths=example_1_sequences.fasta \
-  --data_dir=/scratch/AlphaFold_DBs/2.3.2
-
-/ \
+  --data_dir=/scratch/AlphaFold_DBs/2.3.2 \
   --output_dir=/scratch/mydir/test_AlphaPulldown/ \
   --max_template_date=2050-01-01 \
   --skip_existing=True \
