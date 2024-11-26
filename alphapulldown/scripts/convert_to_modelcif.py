@@ -856,7 +856,7 @@ def _get_entities(
     structure = PDBParser().get_structure(cmplx_name, pdb_file)
     cif_json["target_entities"] = []
     already_seen = []
-    for seq in PPBuilder().build_peptides(structure):
+    for seq in PPBuilder(radius=999999999).build_peptides(structure, aa_only=False):
         chn_id = seq[0].parent.id
         seq = str(seq.get_sequence())
         seq_md5 = hashlib.md5(seq.encode()).hexdigest()
