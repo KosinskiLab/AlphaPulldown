@@ -98,6 +98,7 @@ AlphaPulldown is a customized implementation of [AlphaFold-Multimer](https://git
 
 AlphaPulldown can be used in two ways: either by a two-step pipeline made of **python scripts**, or by a **Snakemake pipeline** as a whole. For details on using the Snakemake pipeline, please refer to the separate GitHub [**repository**](https://github.com/KosinskiLab/AlphaPulldownSnakemake).
 
+To enable faster usage and avoid redundant feature recalculations, we have developed a public database containing precomputed features for all major model organisms, available for download. For more details, [click here](https://github.com/KosinskiLab/AlphaPulldown/blob/main/README.md#features-database).
 ## Overview
 
 <picture>
@@ -544,24 +545,25 @@ singularity build --sandbox <writable_image_dir> fold_analysis_latest.sif
 tar xvzf ccp4-9.0.003-linux64.tar.gz
 cd ccp4-9
 cp bin/pisa bin/sc <writable_image_dir>/software/
-cp /lib/* <writable_image_dir>/software/lib64/
+cp -rn lib/* <writable_image_dir>/software/lib64/
 singularity build <new_image.sif> <writable_image_dir>
 ```
 
 ### 0.4. Installation for cross-link input data by [AlphaLink2](https://github.com/Rappsilber-Laboratory/AlphaLink2/tree/main) (optional!)
 
-$\text{\color{red}Update the installation manual after resolving the dependency conflict.}$
-
-1. Make sure you have installed PyTorch corresponding to the CUDA version you have. Here will take CUDA 11.7 and PyTorch 1.13.0 as an example: 
+1. Make sure you have installed PyTorch corresponding to the pytorch CUDA version you have. Here we will take CUDA 11.8 and PyTorch 2.5.1 as an example: 
     ```bash
-    pip install torch==1.13.0+cu117 --extra-index-url https://download.pytorch.org/whl/cu117
+    pip3 install torch==2.5.1+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
     ```
+> [!WARNING]
+> It is possible to have both alphafold with jax+CUDA and alphalink with pytorch + another version of CUDA in the same conda environment, but we haven't tested it for other combinations are there may be dependency conflicts. It is recommended to use different environments for different folding backends.
+
 2. Compile [UniCore](https://github.com/dptech-corp/Uni-Core).
     ```bash
     source activate AlphaPulldown
     git clone https://github.com/dptech-corp/Uni-Core.git
     cd Uni-Core
-    python setup.py install --disable-cuda-ext
+    pip3 install .
         
     # test whether unicore is successfully installed
     python -c "import unicore"
@@ -583,24 +585,15 @@ Please [add your SSH key to your GitHub account](https://docs.github.com/en/auth
 
 <details>
 <summary><b>Instructions</b></summary>
-
-1. Clone the GitHub repo
-    
-    ```bash
-    git clone --recurse-submodules git@github.com:KosinskiLab/AlphaPulldown.git
-    cd AlphaPulldown 
-    git submodule init
-    git submodule update 
-    ```
         
-2. Create the Conda environment as described in [Create Anaconda environment](#1-create-anaconda-environment) 
-3. Install AlphaPulldown package and add its submodules to the Conda environment (does not work if you want to update the dependencies)
+1. Create the Conda environment as described in [Create Anaconda environment](#1-create-anaconda-environment) 
+2. Install AlphaPulldown package and add its submodules to the Conda environment (does not work if you want to update the dependencies)
     
     ```bash
     source activate AlphaPulldown
     cd AlphaPulldown
-    pip install .
-    pip install -e . --no-deps
+    pip install -e .
+    pip install -e AlphaLink2 --no-deps
     pip install -e ColabFold --no-deps
     pip install -e alphafold --no-deps
     ```
