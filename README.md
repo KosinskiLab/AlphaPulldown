@@ -585,9 +585,16 @@ Please [add your SSH key to your GitHub account](https://docs.github.com/en/auth
 
 <details>
 <summary><b>Instructions</b></summary>
-        
-1. Create the Conda environment as described in [Create Anaconda environment](#1-create-anaconda-environment) 
-2. Install AlphaPulldown package and add its submodules to the Conda environment (does not work if you want to update the dependencies)
+
+1. Clone the GitHub repo
+    
+    ```bash
+    git clone --recurse-submodules git@github.com:KosinskiLab/AlphaPulldown.git
+    cd AlphaPulldown 
+    git submodule init
+    git submodule update         
+2. Create the Conda environment as described in [Create Anaconda environment](#1-create-anaconda-environment) 
+3. Install AlphaPulldown package and add its submodules to the Conda environment (does not work if you want to update the dependencies)
     
     ```bash
     source activate AlphaPulldown
