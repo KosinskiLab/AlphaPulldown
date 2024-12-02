@@ -14,3 +14,7 @@
 	path = ColabFold
 	url = git@github.com:sokrypton/ColabFold.git
 	branch = main
+[submodule "alphafold3"]
+	path = alphafold3
+	url = git@github.com:google-deepmind/alphafold3.git
+	branch = main
