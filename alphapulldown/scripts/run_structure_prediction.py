@@ -4,15 +4,18 @@
     Copyright (c) 2024 European Molecular Biology Laboratory
 
     Author: Valentin Maurer <valentin.maurer@embl-hamburg.de>
+            Dmitry Molodenskiy <dmitry.molodenskiy@embl-hamburg.de>
 """
 
 from absl import flags, app
+import os
 from os import makedirs
 from typing import Dict, List, Union, Tuple
 from os.path import join, basename
 from absl import logging
 import glob
 import shutil
+import lzma
 from alphapulldown.folding_backend import backend
 from alphapulldown.folding_backend.alphafold_backend import ModelsToRelax
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
@@ -238,14 +241,30 @@ def pre_modelling_setup(
             elif isinstance(interactor, MonomericObject):
                 description = interactor.description
             meta_json = glob.glob(
-                join(feature_dir, f"{description}_feature_metadata_*.json")
+                join(feature_dir, f"{description}_feature_metadata_*.json*")
             )
-            if meta_json:
-                feature_json = meta_json[0]
-                logging.info(f"Copying {feature_json} to {output_dir}")
-                shutil.copyfile(feature_json, join(output_dir, basename(feature_json)))
-            else:
-                logging.warning(f"No feature metadata found for {interactor.description} in {output_dir}")
+        if meta_json:
+            # sort by modification time to take the latest
+            meta_json.sort(key=os.path.getmtime, reverse=True)
+
+            for feature_json in meta_json:
+                output_path = join(output_dir, basename(feature_json))
+
+                if feature_json.endswith(".json.xz"):
+                    # Decompress before copying
+                    decompressed_path = output_path.rstrip(".xz")
+                    logging.info(f"Decompressing {feature_json} to {decompressed_path}")
+
+                    with lzma.open(feature_json, "rb") as xz_file, open(decompressed_path, "wb") as json_file:
+                        json_file.write(xz_file.read())
+                else:
+                    # Copy without decompression
+                    logging.info(f"Copying {feature_json} to {output_dir}")
+                    shutil.copyfile(feature_json, output_path)
+        else:
+            logging.warning(f"No feature metadata found for {interactor.description} in {feature_dir}")
+
+    return object_to_model, flags_dict, postprocess_flags, output_dir
 
     return object_to_model, flags_dict, postprocess_flags, output_dir
 
