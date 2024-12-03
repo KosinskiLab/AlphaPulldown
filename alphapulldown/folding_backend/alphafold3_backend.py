@@ -9,7 +9,7 @@ import os
 import pathlib
 import time
 import typing
-from typing import Dict, List, Sequence, Union
+from typing import Dict, List, Sequence, Union, Optional, Tuple, Any
 
 import dataclasses
 import functools
@@ -37,6 +37,10 @@ from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObje
 
 from absl import logging
 
+# Suppress specific warnings by setting verbosity to ERROR
+logging.set_verbosity(logging.ERROR)
+
+
 class ConfigurableModel(typing.Protocol):
     """A model with a nested config class."""
 
@@ -62,7 +66,7 @@ ModelT = typing.TypeVar('ModelT', bound=ConfigurableModel)
 def make_model_config(
     *,
     model_class: type[ModelT] = diffusion_model.Diffuser,
-    flash_attention_implementation: attention.Implementation = 'triton',
+    flash_attention_implementation: attention.Implementation = 'xla',  # Changed to 'xla'
     num_diffusion_samples: int = 5,
 ):
     """Returns a model config with some defaults overridden."""
@@ -76,41 +80,35 @@ def make_model_config(
     return config
 
 
+@dataclasses.dataclass(frozen=True)
 class ModelRunner:
     """Helper class to run structure prediction stages."""
 
-    def __init__(
-        self,
-        model_class: ConfigurableModel,
-        config: base_config.BaseConfig,
-        device: jax.Device,
-        model_dir: pathlib.Path,
-    ):
-        self._model_class = model_class
-        self._model_config = config
-        self._device = device
-        self._model_dir = model_dir
+    model_class: type[ConfigurableModel]
+    config: base_config.BaseConfig
+    device: jax.Device
+    model_dir: pathlib.Path
 
     @functools.cached_property
     def model_params(self) -> hk.Params:
         """Loads model parameters from the model directory."""
-        return params.get_model_haiku_params(model_dir=self._model_dir)
+        return params.get_model_haiku_params(model_dir=self.model_dir)
 
     @functools.cached_property
     def _model(
         self,
     ) -> typing.Callable[[jnp.ndarray, features.BatchDict], base_model.ModelResult]:
         """Loads model parameters and returns a jitted model forward pass."""
-        assert isinstance(self._model_config, self._model_class.Config)
+        assert isinstance(self.config, self.model_class.Config)
 
         @hk.transform
         def forward_fn(batch):
-            result = self._model_class(self._model_config)(batch)
+            result = self.model_class(self.config)(batch)
             result['__identifier__'] = self.model_params['__meta__']['__identifier__']
             return result
 
         return functools.partial(
-            jax.jit(forward_fn.apply, device=self._device), self.model_params
+            jax.jit(forward_fn.apply, device=self.device), self.model_params
         )
 
     def run_inference(
@@ -121,7 +119,7 @@ class ModelRunner:
             jax.tree_util.tree_map(
                 jnp.asarray, utils.remove_invalidly_typed_feats(featurised_example)
             ),
-            self._device,
+            self.device,
         )
 
         result = self._model(rng_key, featurised_example)
@@ -141,7 +139,7 @@ class ModelRunner:
     ) -> List[base_model.InferenceResult]:
         """Generates structures from model outputs."""
         return list(
-            self._model_class.get_inference_result(
+            self.model_class.get_inference_result(
                 batch=batch, result=result, target_name=target_name
             )
         )
@@ -186,16 +184,24 @@ def predict_structure(
         logging.info(f'Running model inference for seed {seed}...')
         inference_start_time = time.time()
         rng_key = jax.random.PRNGKey(seed)
-        result = model_runner.run_inference(example, rng_key)
+        try:
+            result = model_runner.run_inference(example, rng_key)
+        except Exception as e:
+            logging.error(f"Failed during inference for seed {seed}: {e}")
+            continue
         logging.info(
             f'Running model inference for seed {seed} took '
             f' {time.time() - inference_start_time:.2f} seconds.'
         )
         logging.info(f'Extracting output structures (one per sample) for seed {seed}...')
         extract_structures_start_time = time.time()
-        inference_results = model_runner.extract_structures(
-            batch=example, result=result, target_name=fold_input.name
-        )
+        try:
+            inference_results = model_runner.extract_structures(
+                batch=example, result=result, target_name=fold_input.name
+            )
+        except Exception as e:
+            logging.error(f"Failed to extract structures for seed {seed}: {e}")
+            continue
         logging.info(
             f'Extracting output structures (one per sample) for seed {seed} took '
             f' {time.time() - extract_structures_start_time:.2f} seconds.'
@@ -303,12 +309,11 @@ def process_fold_input(
         raise ValueError('Fold input has no chains.')
 
     if os.path.exists(output_dir) and os.listdir(output_dir):
-        new_output_dir = (
-            f'{output_dir}_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}'
-        )
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        new_output_dir = f'{output_dir}_{timestamp}'
         logging.warning(
-            f'Output directory {output_dir} exists and non-empty, using instead '
-            f' {new_output_dir}.'
+            f'Output directory {output_dir} exists and is non-empty, using instead '
+            f'{new_output_dir}.'
         )
         output_dir = new_output_dir
 
@@ -316,7 +321,11 @@ def process_fold_input(
         # If we're running inference, check we can load the model parameters before
         # (possibly) launching the data pipeline.
         logging.info('Checking we can load the model parameters...')
-        _ = model_runner.model_params
+        try:
+            _ = model_runner.model_params
+        except Exception as e:
+            logging.error(f'Failed to load model parameters: {e}')
+            raise
 
     if data_pipeline_config is None:
         logging.info('Skipping data pipeline...')
@@ -367,16 +376,70 @@ def write_fold_input_json(
         f.write(fold_input.to_json())
 
 
+def get_structure_sequence(mmcif_file: str, chain_code: str) -> str:
+    """Extracts the sequence for a given chain from an mmCIF file.
+
+    Args:
+        mmcif_file (str): Path to the mmCIF file.
+        chain_code (str): Chain identifier.
+
+    Returns:
+        str: The amino acid sequence of the chain.
+
+    Raises:
+        ValueError: If the chain is not found or sequence extraction fails.
+    """
+    try:
+        from alphafold3 import structure
+        with open(mmcif_file, 'r') as f:
+            cif_content = f.read()
+        cif = structure.from_mmcif(
+            mmcif_string=cif_content,  # Corrected keyword argument
+            fix_mse_residues=True,
+            fix_arginines=True,
+            include_water=False,
+            include_other=True,
+            include_bonds=False,
+        )
+        sequence = cif.chain_single_letter_sequence().get(chain_code)
+        if sequence is None:
+            raise ValueError(f"Chain {chain_code} not found in {mmcif_file}.")
+        return sequence
+    except TypeError as te:
+        logging.error(f"TypeError in from_mmcif: {te}")
+        raise
+    except Exception as e:
+        logging.error(f"Error extracting sequence from {mmcif_file} for chain {chain_code}: {e}")
+        raise
+
+
+@dataclasses.dataclass(frozen=True, slots=True, kw_only=True)
 class AlphaFold3Backend:
     """A backend to perform structure prediction using AlphaFold 3."""
+
+    def __init__(self):
+        pass
 
     @staticmethod
     def setup(
         model_dir: str,
         num_diffusion_samples: int = 5,
-        flash_attention_implementation: str = 'triton',
+        flash_attention_implementation: str = 'xla',  # Changed to 'xla'
+        mmcif_database_path: str = '/scratch/AlphaFold_DBs/2.3.2/pdb_mmcif/mmcif_files/',
         **kwargs,
     ) -> Dict:
+        """
+        Sets up the ModelRunner with the given configurations.
+
+        Args:
+            model_dir (str): Path to the directory containing model parameters.
+            num_diffusion_samples (int): Number of diffusion samples.
+            flash_attention_implementation (str): Flash attention implementation to use.
+            mmcif_database_path (str): Path to the directory containing mmCIF files.
+
+        Returns:
+            Dict: A dictionary containing the ModelRunner and mmcif_database_path.
+        """
         devices = jax.local_devices()
         device = devices[0]
         model_config = make_model_config(
@@ -391,34 +454,62 @@ class AlphaFold3Backend:
             device=device,
             model_dir=pathlib.Path(model_dir),
         )
-        return {'model_runner': model_runner}
+        # Store the mmcif_database_path in the ModelRunner for accessibility
+        # (Assuming it's needed elsewhere)
+        return {'model_runner': model_runner, 'mmcif_database_path': mmcif_database_path}
 
     def predict(
         self,
         model_runner: ModelRunner,
+        mmcif_database_path: str,
         objects_to_model: List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject], str]],
         random_seed: int = 42,
         data_pipeline_config: pipeline.DataPipelineConfig | None = None,
         buckets: Sequence[int] | None = None,
         **kwargs,
     ):
-        """Predicts structures for a list of objects using AlphaFold 3."""
+        """Predicts structures for a list of objects using AlphaFold 3.
+
+        Args:
+            model_runner (ModelRunner): The model runner instance.
+            mmcif_database_path (str): Path to the directory containing mmCIF files.
+            objects_to_model (List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject], str]]):
+                List of dictionaries mapping objects to model to their respective output directories.
+            random_seed (int): The random seed for inference.
+            data_pipeline_config (pipeline.DataPipelineConfig | None): Configuration for the data pipeline.
+            buckets (Sequence[int] | None): Bucket sizes for padding.
+            **kwargs: Additional arguments.
+
+        Yields:
+            Dict: A dictionary mapping the object to its prediction results and output directory.
+        """
 
         for obj_dict in objects_to_model:
-            object_to_model, output_dir = next(iter(obj_dict.items()))
-            # Convert object_to_model to fold_input.Input
-            fold_input = self._convert_to_fold_input(object_to_model, random_seed)
-            # Run prediction
-            result = process_fold_input(
-                fold_input=fold_input,
-                data_pipeline_config=data_pipeline_config,
-                model_runner=model_runner,
-                output_dir=output_dir,
-                buckets=buckets,
-            )
-            yield {object_to_model: {"prediction_results": result, "output_dir": output_dir}}
+            for object_to_model, output_dir in obj_dict.items():
+                # Convert object_to_model to fold_input.Input
+                fold_input = self._convert_to_fold_input(
+                    object_to_model, random_seed, mmcif_database_path
+                )
+                # Run prediction
+                try:
+                    result = process_fold_input(
+                        fold_input=fold_input,
+                        data_pipeline_config=data_pipeline_config,
+                        model_runner=model_runner,
+                        output_dir=output_dir,
+                        buckets=buckets,
+                    )
+                    yield {object_to_model: {"prediction_results": result, "output_dir": output_dir}}
+                except Exception as e:
+                    logging.error(f"Failed to predict structure for {object_to_model}: {e}")
+                    continue
 
-    def _convert_to_fold_input(self, object_to_model, random_seed: int) -> folding_input.Input:
+    def _convert_to_fold_input(
+        self,
+        object_to_model,
+        random_seed: int,
+        mmcif_database_path: str,
+    ) -> folding_input.Input:
         """Converts an object to model into a fold_input.Input instance."""
         import string
 
@@ -429,8 +520,8 @@ class AlphaFold3Backend:
             for c in chain_letters:
                 yield c
             # Then, yield two-letter IDs in the specified order
-            for second_letter in chain_letters:
-                for first_letter in chain_letters:
+            for first_letter in chain_letters:
+                for second_letter in chain_letters:
                     yield first_letter + second_letter
 
         chain_id_gen = chain_id_generator()
@@ -440,7 +531,9 @@ class AlphaFold3Backend:
             """Converts msa numpy array to A3M formatted string."""
             msa_sequences = []
             for i, msa_seq in enumerate(msa_array):
-                seq_str = ''.join([residue_constants.ID_TO_HHBLITS_AA.get(aa, 'X') for aa in msa_seq])
+                # Assuming msa_seq is a list or array of amino acid indices
+                # Convert indices to letters; handle unknowns
+                seq_str = ''.join([residue_constants.ID_TO_HHBLITS_AA.get(int(aa), 'X') for aa in msa_seq])
                 msa_sequences.append(f'>sequence_{i}\n{seq_str}')
             a3m_str = '\n'.join(msa_sequences)
             return a3m_str
@@ -456,12 +549,72 @@ class AlphaFold3Backend:
                     unpaired_msa = msa_array_to_a3m(msa_array)
                 else:
                     unpaired_msa = ''
+                # Paired MSA is empty as per your requirement
+                paired_msa = ''
+                # Extract templates from feature_dict
+                templates = []
+                template_feature_dict = {}
+                for key in [
+                    'template_aatype',
+                    'template_all_atom_masks',
+                    'template_all_atom_positions',
+                    'template_domain_names',
+                    'template_sequence',
+                    'template_sum_probs',
+                ]:
+                    value = interactor.feature_dict.get(key)
+                    if value is not None:
+                        template_feature_dict[key] = value
+                    else:
+                        logging.warning(f"Template feature '{key}' not found in feature_dict.")
+
+                if 'template_domain_names' in template_feature_dict:
+                    template_domain_names = template_feature_dict['template_domain_names']
+                    unique_templates = set(template_domain_names)
+                    for template_name in unique_templates:
+                        try:
+                            # Decode bytes to string
+                            pdb_code_chain = template_name.decode('utf-8')
+                            pdb_code, chain_code = pdb_code_chain.split('_')
+                            pdb_code = pdb_code.lower()
+                            mmcif_file = os.path.join(mmcif_database_path, f'{pdb_code}.cif')
+                            if not os.path.exists(mmcif_file):
+                                logging.warning(f"mmCIF file for {pdb_code} not found in database.")
+                                continue
+                            with open(mmcif_file, 'r') as f:
+                                mmcif_content = f.read()
+                            # Retrieve template sequence length
+                            structure_seq = get_structure_sequence(mmcif_file, chain_code)
+                            query_seq_length = len(sequence)
+                            template_seq_length = len(structure_seq)
+                            # Create a mapping based on actual alignment or identity
+                            # Here, we'll use identity mapping up to the minimum length
+                            min_length = min(query_seq_length, template_seq_length)
+                            query_to_template_map = {j: j for j in range(min_length)}
+                            # Log if there is a discrepancy
+                            if query_seq_length != template_seq_length:
+                                logging.warning(
+                                    f"Query sequence length ({query_seq_length}) "
+                                    f"does not match template sequence length ({template_seq_length}) "
+                                    f"for template {pdb_code_chain}."
+                                )
+                            template = folding_input.Template(
+                                mmcif=mmcif_content,
+                                query_to_template_map=query_to_template_map
+                            )
+                            templates.append(template)
+                        except Exception as e:
+                            logging.error(f"Error processing template {template_name}: {e}")
+                            continue
+                else:
+                    templates = []
                 chain = folding_input.ProteinChain(
                     id=chain_id,
                     sequence=sequence,
                     ptms=[],  # Provide PTMs if available
                     unpaired_msa=unpaired_msa,
-                    paired_msa=None,  # Provide if MSAs are paired
+                    paired_msa=paired_msa,  # Set to empty string as required
+                    templates=templates,
                 )
                 chains.append(chain)
         elif isinstance(object_to_model, (MonomericObject, ChoppedObject)):
@@ -474,12 +627,72 @@ class AlphaFold3Backend:
                 unpaired_msa = msa_array_to_a3m(msa_array)
             else:
                 unpaired_msa = ''
+            # Paired MSA is empty as per your requirement
+            paired_msa = ''
+            # Extract templates from feature_dict
+            templates = []
+            template_feature_dict = {}
+            for key in [
+                'template_aatype',
+                'template_all_atom_masks',
+                'template_all_atom_positions',
+                'template_domain_names',
+                'template_sequence',
+                'template_sum_probs',
+            ]:
+                value = object_to_model.feature_dict.get(key)
+                if value is not None:
+                    template_feature_dict[key] = value
+                else:
+                    logging.warning(f"Template feature '{key}' not found in feature_dict.")
+
+            if 'template_domain_names' in template_feature_dict:
+                template_domain_names = template_feature_dict['template_domain_names']
+                unique_templates = set(template_domain_names)
+                for template_name in unique_templates:
+                    try:
+                        # Decode bytes to string
+                        pdb_code_chain = template_name.decode('utf-8')
+                        pdb_code, chain_code = pdb_code_chain.split('_')
+                        pdb_code = pdb_code.lower()
+                        mmcif_file = os.path.join(mmcif_database_path, f'{pdb_code}.cif')
+                        if not os.path.exists(mmcif_file):
+                            logging.warning(f"mmCIF file for {pdb_code} not found in database.")
+                            continue
+                        with open(mmcif_file, 'r') as f:
+                            mmcif_content = f.read()
+                        # Retrieve template sequence length
+                        structure_seq = get_structure_sequence(mmcif_file, chain_code)
+                        query_seq_length = len(sequence)
+                        template_seq_length = len(structure_seq)
+                        # Create a mapping based on actual alignment or identity
+                        # Here, we'll use identity mapping up to the minimum length
+                        min_length = min(query_seq_length, template_seq_length)
+                        query_to_template_map = {j: j for j in range(min_length)}
+                        # Log if there is a discrepancy
+                        if query_seq_length != template_seq_length:
+                            logging.warning(
+                                f"Query sequence length ({query_seq_length}) "
+                                f"does not match template sequence length ({template_seq_length}) "
+                                f"for template {pdb_code_chain}."
+                            )
+                        template = folding_input.Template(
+                            mmcif=mmcif_content,
+                            query_to_template_map=query_to_template_map
+                        )
+                        templates.append(template)
+                    except Exception as e:
+                        logging.error(f"Error processing template {template_name}: {e}")
+                        continue
+            else:
+                templates = []
             chain = folding_input.ProteinChain(
                 id=chain_id,
                 sequence=sequence,
                 ptms=[],  # Provide PTMs if available
                 unpaired_msa=unpaired_msa,
-                paired_msa=None,  # Provide if MSAs are paired
+                paired_msa=paired_msa,  # Set to empty string as required
+                templates=templates,
             )
             chains = [chain]
         else:
@@ -494,13 +707,3 @@ class AlphaFold3Backend:
         )
         return fold_input
 
-    def postprocess(
-        self,
-        prediction_results: Sequence[ResultsForSeed],
-        multimeric_object: Union[MultimericObject, MonomericObject, ChoppedObject],
-        output_dir: str,
-        **kwargs,
-    ) -> None:
-        """Performs post-processing on prediction results."""
-        # TODO: Implement post-processing if needed
-        pass
