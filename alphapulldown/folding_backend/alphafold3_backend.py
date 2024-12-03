@@ -1,4 +1,4 @@
-""" Implements structure prediction backend using AlphaFold3.
+"""Implements structure prediction backend using AlphaFold3.
 
     Copyright (c) 2024 European Molecular Biology Laboratory
 
@@ -11,11 +11,13 @@ import time
 import typing
 from typing import Dict, List, Sequence, Union
 
+import dataclasses
+import functools
 import jax
 import numpy as np
-import functools
-import dataclasses
 from jax import numpy as jnp
+
+from alphafold.common import residue_constants
 
 from alphafold3.common import base_config
 from alphafold3.common import folding_input
@@ -41,12 +43,12 @@ class ConfigurableModel(typing.Protocol):
     class Config(base_config.BaseConfig):
         ...
 
-    def __call__(self, config: Config) -> typing.Self:
+    def __call__(self, config: 'Config') -> 'ConfigurableModel':
         ...
 
     @classmethod
     def get_inference_result(
-        cls: typing.Self,
+        cls,
         batch: features.BatchDict,
         result: base_model.ModelResult,
         target_name: str = '',
@@ -224,7 +226,6 @@ def write_outputs(
 ) -> None:
     """Writes outputs to the specified output directory."""
     import csv
-    import pathlib
     import alphafold3.cpp
 
     ranking_scores = []
@@ -376,26 +377,7 @@ class AlphaFold3Backend:
         flash_attention_implementation: str = 'triton',
         **kwargs,
     ) -> Dict:
-        """Initializes and configures the AlphaFold model runner.
-
-        Parameters
-        ----------
-        model_dir : str
-            Path to the directory containing the model parameters.
-        num_diffusion_samples : int, optional
-            Number of diffusion samples to generate, default is 5.
-        flash_attention_implementation : str, optional
-            Flash attention implementation to use ('triton', 'cudnn', or 'xla'),
-            default is 'triton'.
-        **kwargs : dict
-            Additional keyword arguments for model configuration.
-
-        Returns
-        -------
-        Dict
-            A dictionary containing the configured model runner.
-        """
-        devices = jax.local_devices(backend='gpu')
+        devices = jax.local_devices()
         device = devices[0]
         model_config = make_model_config(
             flash_attention_implementation=typing.cast(
@@ -420,23 +402,8 @@ class AlphaFold3Backend:
         buckets: Sequence[int] | None = None,
         **kwargs,
     ):
-        """Predicts structures for a list of objects using AlphaFold 3.
+        """Predicts structures for a list of objects using AlphaFold 3."""
 
-        Parameters
-        ----------
-        model_runner : ModelRunner
-            The configured model runner.
-        objects_to_model : List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject], str]]
-            A list of dictionaries mapping objects to model to their output directories.
-        random_seed : int, optional
-            The random seed for prediction reproducibility, default is 42.
-        data_pipeline_config : pipeline.DataPipelineConfig, optional
-            Configuration for the data pipeline. If None, skips data pipeline.
-        buckets : Sequence[int], optional
-            Bucket sizes to pad the data to, default is None.
-        **kwargs : dict
-            Additional keyword arguments for prediction.
-        """
         for obj_dict in objects_to_model:
             object_to_model, output_dir = next(iter(obj_dict.items()))
             # Convert object_to_model to fold_input.Input
@@ -452,33 +419,67 @@ class AlphaFold3Backend:
             yield {object_to_model: {"prediction_results": result, "output_dir": output_dir}}
 
     def _convert_to_fold_input(self, object_to_model, random_seed: int) -> folding_input.Input:
-        """Converts an object to model into a fold_input.Input instance.
+        """Converts an object to model into a fold_input.Input instance."""
+        import string
 
-        Parameters
-        ----------
-        object_to_model : MultimericObject or MonomericObject or ChoppedObject
-            The object to model.
-        random_seed : int
-            The random seed for the input.
+        # Define the chain ID generator
+        def chain_id_generator():
+            chain_letters = string.ascii_uppercase  # 'A' to 'Z'
+            # First, yield single-letter IDs
+            for c in chain_letters:
+                yield c
+            # Then, yield two-letter IDs in the specified order
+            for second_letter in chain_letters:
+                for first_letter in chain_letters:
+                    yield first_letter + second_letter
 
-        Returns
-        -------
-        folding_input.Input
-            The fold input object.
-        """
-        # Build chains from object_to_model
+        chain_id_gen = chain_id_generator()
+        chains = []
+
+        def msa_array_to_a3m(msa_array):
+            """Converts msa numpy array to A3M formatted string."""
+            msa_sequences = []
+            for i, msa_seq in enumerate(msa_array):
+                seq_str = ''.join([residue_constants.ID_TO_HHBLITS_AA.get(aa, 'X') for aa in msa_seq])
+                msa_sequences.append(f'>sequence_{i}\n{seq_str}')
+            a3m_str = '\n'.join(msa_sequences)
+            return a3m_str
+
         if isinstance(object_to_model, MultimericObject):
-            chains = []
-            for chain_id, sequence in zip(object_to_model.chain_ids, object_to_model.input_seqs):
-                chain = folding_input.Chain(
+            # For MultimericObject, get sequences and MSAs from interactors
+            for interactor in object_to_model.interactors:
+                sequence = interactor.sequence
+                chain_id = next(chain_id_gen)
+                # Get msa array
+                msa_array = interactor.feature_dict.get('msa')
+                if msa_array is not None:
+                    unpaired_msa = msa_array_to_a3m(msa_array)
+                else:
+                    unpaired_msa = ''
+                chain = folding_input.ProteinChain(
                     id=chain_id,
                     sequence=sequence,
+                    ptms=[],  # Provide PTMs if available
+                    unpaired_msa=unpaired_msa,
+                    paired_msa=None,  # Provide if MSAs are paired
                 )
                 chains.append(chain)
         elif isinstance(object_to_model, (MonomericObject, ChoppedObject)):
-            chain = folding_input.Chain(
-                id='A',
-                sequence=object_to_model.sequence,
+            # For MonomericObject and ChoppedObject
+            chain_id = next(chain_id_gen)
+            sequence = object_to_model.sequence
+            # Get msa array
+            msa_array = object_to_model.feature_dict.get('msa')
+            if msa_array is not None:
+                unpaired_msa = msa_array_to_a3m(msa_array)
+            else:
+                unpaired_msa = ''
+            chain = folding_input.ProteinChain(
+                id=chain_id,
+                sequence=sequence,
+                ptms=[],  # Provide PTMs if available
+                unpaired_msa=unpaired_msa,
+                paired_msa=None,  # Provide if MSAs are paired
             )
             chains = [chain]
         else:
@@ -500,19 +501,6 @@ class AlphaFold3Backend:
         output_dir: str,
         **kwargs,
     ) -> None:
-        """Performs post-processing on prediction results.
-
-        Parameters
-        ----------
-        prediction_results : Sequence[ResultsForSeed]
-            The prediction results obtained from the predict method.
-        multimeric_object : Union[MultimericObject, MonomericObject, ChoppedObject]
-            The object that was modeled.
-        output_dir : str
-            The directory where outputs are saved.
-        **kwargs : dict
-            Additional keyword arguments for post-processing.
-        """
-        # In AlphaFold 3, post-processing is handled within write_outputs
-        # If additional post-processing is needed, implement it here
+        """Performs post-processing on prediction results."""
+        # TODO: Implement post-processing if needed
         pass
