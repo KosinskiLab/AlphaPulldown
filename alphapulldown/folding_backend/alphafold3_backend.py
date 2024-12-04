@@ -37,6 +37,8 @@ from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObje
 
 from absl import logging
 
+from build.lib.alphapulldown.folding_backend.folding_backend import FoldingBackend
+
 # Suppress specific warnings by setting verbosity to ERROR
 logging.set_verbosity(logging.ERROR)
 
@@ -414,7 +416,7 @@ def get_structure_sequence(mmcif_file: str, chain_code: str) -> str:
 
 
 @dataclasses.dataclass(frozen=True, slots=True, kw_only=True)
-class AlphaFold3Backend:
+class AlphaFold3Backend(FoldingBackend):
     """A backend to perform structure prediction using AlphaFold 3."""
 
     def __init__(self):
@@ -707,3 +709,5 @@ class AlphaFold3Backend:
         )
         return fold_input
 
+    def postprocess(**kwargs) -> None:
+        return None
