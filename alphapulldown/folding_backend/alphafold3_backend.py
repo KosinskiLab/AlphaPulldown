@@ -9,15 +9,19 @@ import os
 import pathlib
 import time
 import typing
+from datetime import datetime
 from typing import Dict, List, Sequence, Union, Optional, Tuple, Any
 
 import dataclasses
 import functools
+from xml.dom import NotFoundErr
+
 import jax
 import numpy as np
 from jax import numpy as jnp
 
-from alphafold.common import residue_constants
+from alphafold3.data.templates import Templates
+from alphafold3.data import structure_stores
 
 from alphafold3.common import base_config
 from alphafold3.common import folding_input
@@ -427,7 +431,6 @@ class AlphaFold3Backend(FoldingBackend):
         model_dir: str,
         num_diffusion_samples: int = 5,
         flash_attention_implementation: str = 'xla',  # Changed to 'xla'
-        mmcif_database_path: str = '/scratch/AlphaFold_DBs/2.3.2/pdb_mmcif/mmcif_files/',
         **kwargs,
     ) -> Dict:
         """
@@ -458,12 +461,11 @@ class AlphaFold3Backend(FoldingBackend):
         )
         # Store the mmcif_database_path in the ModelRunner for accessibility
         # (Assuming it's needed elsewhere)
-        return {'model_runner': model_runner, 'mmcif_database_path': mmcif_database_path}
+        return {'model_runner': model_runner}
 
     def predict(
         self,
         model_runner: ModelRunner,
-        mmcif_database_path: str,
         objects_to_model: List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject], str]],
         random_seed: int = 42,
         data_pipeline_config: pipeline.DataPipelineConfig | None = None,
@@ -474,7 +476,6 @@ class AlphaFold3Backend(FoldingBackend):
 
         Args:
             model_runner (ModelRunner): The model runner instance.
-            mmcif_database_path (str): Path to the directory containing mmCIF files.
             objects_to_model (List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject], str]]):
                 List of dictionaries mapping objects to model to their respective output directories.
             random_seed (int): The random seed for inference.
@@ -485,7 +486,9 @@ class AlphaFold3Backend(FoldingBackend):
         Yields:
             Dict: A dictionary mapping the object to its prediction results and output directory.
         """
-
+        mmcif_database_path = model_runner.model_dir / 'mmcif_files'
+        if not os.path.exists(mmcif_database_path):
+            raise NotFoundErr(f"{mmcif_database_path} does not exist!")
         for obj_dict in objects_to_model:
             for object_to_model, output_dir in obj_dict.items():
                 # Convert object_to_model to fold_input.Input
@@ -507,13 +510,25 @@ class AlphaFold3Backend(FoldingBackend):
                     continue
 
     def _convert_to_fold_input(
-        self,
-        object_to_model,
-        random_seed: int,
-        mmcif_database_path: str,
+            self,
+            object_to_model,
+            random_seed: int,
+            mmcif_database_path: str,
     ) -> folding_input.Input:
-        """Converts an object to model into a fold_input.Input instance."""
         import string
+
+        from alphafold.common import residue_constants
+        from alphafold3.data import templates
+        from alphafold3.constants import mmcif_names
+
+        def msa_array_to_a3m(msa_array):
+            """Converts MSA numpy array to A3M formatted string."""
+            msa_sequences = []
+            for i, msa_seq in enumerate(msa_array):
+                seq_str = ''.join([residue_constants.ID_TO_HHBLITS_AA.get(int(aa), 'X') for aa in msa_seq])
+                msa_sequences.append(f'>sequence_{i}\n{seq_str}')
+            a3m_str = '\n'.join(msa_sequences)
+            return a3m_str
 
         # Define the chain ID generator
         def chain_id_generator():
@@ -529,97 +544,7 @@ class AlphaFold3Backend(FoldingBackend):
         chain_id_gen = chain_id_generator()
         chains = []
 
-        def msa_array_to_a3m(msa_array):
-            """Converts msa numpy array to A3M formatted string."""
-            msa_sequences = []
-            for i, msa_seq in enumerate(msa_array):
-                # Assuming msa_seq is a list or array of amino acid indices
-                # Convert indices to letters; handle unknowns
-                seq_str = ''.join([residue_constants.ID_TO_HHBLITS_AA.get(int(aa), 'X') for aa in msa_seq])
-                msa_sequences.append(f'>sequence_{i}\n{seq_str}')
-            a3m_str = '\n'.join(msa_sequences)
-            return a3m_str
-
-        if isinstance(object_to_model, MultimericObject):
-            # For MultimericObject, get sequences and MSAs from interactors
-            for interactor in object_to_model.interactors:
-                sequence = interactor.sequence
-                chain_id = next(chain_id_gen)
-                # Get msa array
-                msa_array = interactor.feature_dict.get('msa')
-                if msa_array is not None:
-                    unpaired_msa = msa_array_to_a3m(msa_array)
-                else:
-                    unpaired_msa = ''
-                # Paired MSA is empty as per your requirement
-                paired_msa = ''
-                # Extract templates from feature_dict
-                templates = []
-                template_feature_dict = {}
-                for key in [
-                    'template_aatype',
-                    'template_all_atom_masks',
-                    'template_all_atom_positions',
-                    'template_domain_names',
-                    'template_sequence',
-                    'template_sum_probs',
-                ]:
-                    value = interactor.feature_dict.get(key)
-                    if value is not None:
-                        template_feature_dict[key] = value
-                    else:
-                        logging.warning(f"Template feature '{key}' not found in feature_dict.")
-
-                if 'template_domain_names' in template_feature_dict:
-                    template_domain_names = template_feature_dict['template_domain_names']
-                    unique_templates = set(template_domain_names)
-                    for template_name in unique_templates:
-                        try:
-                            # Decode bytes to string
-                            pdb_code_chain = template_name.decode('utf-8')
-                            pdb_code, chain_code = pdb_code_chain.split('_')
-                            pdb_code = pdb_code.lower()
-                            mmcif_file = os.path.join(mmcif_database_path, f'{pdb_code}.cif')
-                            if not os.path.exists(mmcif_file):
-                                logging.warning(f"mmCIF file for {pdb_code} not found in database.")
-                                continue
-                            with open(mmcif_file, 'r') as f:
-                                mmcif_content = f.read()
-                            # Retrieve template sequence length
-                            structure_seq = get_structure_sequence(mmcif_file, chain_code)
-                            query_seq_length = len(sequence)
-                            template_seq_length = len(structure_seq)
-                            # Create a mapping based on actual alignment or identity
-                            # Here, we'll use identity mapping up to the minimum length
-                            min_length = min(query_seq_length, template_seq_length)
-                            query_to_template_map = {j: j for j in range(min_length)}
-                            # Log if there is a discrepancy
-                            if query_seq_length != template_seq_length:
-                                logging.warning(
-                                    f"Query sequence length ({query_seq_length}) "
-                                    f"does not match template sequence length ({template_seq_length}) "
-                                    f"for template {pdb_code_chain}."
-                                )
-                            template = folding_input.Template(
-                                mmcif=mmcif_content,
-                                query_to_template_map=query_to_template_map
-                            )
-                            templates.append(template)
-                        except Exception as e:
-                            logging.error(f"Error processing template {template_name}: {e}")
-                            continue
-                else:
-                    templates = []
-                chain = folding_input.ProteinChain(
-                    id=chain_id,
-                    sequence=sequence,
-                    ptms=[],  # Provide PTMs if available
-                    unpaired_msa=unpaired_msa,
-                    paired_msa=paired_msa,  # Set to empty string as required
-                    templates=templates,
-                )
-                chains.append(chain)
-        elif isinstance(object_to_model, (MonomericObject, ChoppedObject)):
+        if isinstance(object_to_model, (MultimericObject, MonomericObject, ChoppedObject)):
             # For MonomericObject and ChoppedObject
             chain_id = next(chain_id_gen)
             sequence = object_to_model.sequence
@@ -631,8 +556,8 @@ class AlphaFold3Backend(FoldingBackend):
                 unpaired_msa = ''
             # Paired MSA is empty as per your requirement
             paired_msa = ''
-            # Extract templates from feature_dict
-            templates = []
+
+            # Process templates using the Templates class
             template_feature_dict = {}
             for key in [
                 'template_aatype',
@@ -641,59 +566,94 @@ class AlphaFold3Backend(FoldingBackend):
                 'template_domain_names',
                 'template_sequence',
                 'template_sum_probs',
+                'template_confidence_scores',
+                'template_release_date',
             ]:
                 value = object_to_model.feature_dict.get(key)
                 if value is not None:
                     template_feature_dict[key] = value
-                else:
-                    logging.warning(f"Template feature '{key}' not found in feature_dict.")
 
             if 'template_domain_names' in template_feature_dict:
                 template_domain_names = template_feature_dict['template_domain_names']
-                unique_templates = set(template_domain_names)
-                for template_name in unique_templates:
+                # Convert the templates using the Templates class
+                template_hits = []
+                for template_name in template_domain_names:
                     try:
                         # Decode bytes to string
                         pdb_code_chain = template_name.decode('utf-8')
                         pdb_code, chain_code = pdb_code_chain.split('_')
                         pdb_code = pdb_code.lower()
-                        mmcif_file = os.path.join(mmcif_database_path, f'{pdb_code}.cif')
-                        if not os.path.exists(mmcif_file):
-                            logging.warning(f"mmCIF file for {pdb_code} not found in database.")
-                            continue
-                        with open(mmcif_file, 'r') as f:
-                            mmcif_content = f.read()
-                        # Retrieve template sequence length
-                        structure_seq = get_structure_sequence(mmcif_file, chain_code)
-                        query_seq_length = len(sequence)
-                        template_seq_length = len(structure_seq)
-                        # Create a mapping based on actual alignment or identity
-                        # Here, we'll use identity mapping up to the minimum length
-                        min_length = min(query_seq_length, template_seq_length)
-                        query_to_template_map = {j: j for j in range(min_length)}
-                        # Log if there is a discrepancy
-                        if query_seq_length != template_seq_length:
-                            logging.warning(
-                                f"Query sequence length ({query_seq_length}) "
-                                f"does not match template sequence length ({template_seq_length}) "
-                                f"for template {pdb_code_chain}."
-                            )
-                        template = folding_input.Template(
-                            mmcif=mmcif_content,
-                            query_to_template_map=query_to_template_map
+
+                        # Create a hit object
+                        hit = templates.Hit(
+                            pdb_id=pdb_code,
+                            auth_chain_id=chain_code,
+                            hmmsearch_sequence='',  # Not needed for our purpose
+                            structure_sequence='',  # Will be fetched by Templates class
+                            query_sequence=sequence,
+                            unresolved_res_indices=None,  # Will be fetched by Templates class
+                            start_index=0,
+                            end_index=0,
+                            full_length=0,
+                            release_date='2050-10-10',  # Placeholder
+                            chain_poly_type=mmcif_names.PROTEIN_CHAIN,
                         )
-                        templates.append(template)
+                        template_hits.append(hit)
                     except Exception as e:
                         logging.error(f"Error processing template {template_name}: {e}")
                         continue
+
+                # Create a structure store to fetch mmCIF files
+                structure_store = structure_stores.StructureStore(
+                    structures=mmcif_database_path,
+                )
+
+                # Create a Templates object
+                templates_obj = Templates(
+                    query_sequence=sequence,
+                    hits=template_hits,
+                    max_template_date='2050-01-01',  # TODO: Get from the flag
+                    structure_store=structure_store,
+                )
+
+                # Filter templates if needed
+                templates_obj = templates_obj.filter(
+                    max_subsequence_ratio=1.0,
+                    min_align_ratio=0.0,
+                    min_hit_length=10,
+                    deduplicate_sequences=True,
+                    max_hits=20,
+                )
+
+                # Featurize templates
+                template_features = templates_obj.featurize(include_ligand_features=False)
+
+                # Extract the required template features
+                templates = []
+                num_templates = template_features['template_aatype'].shape[0]
+                for i in range(num_templates):
+                    template_sequence = template_features['template_sequence'][i].decode('utf-8')
+                    template_aatype = template_features['template_aatype'][i]
+                    template_all_atom_positions = template_features['template_all_atom_positions'][i]
+                    template_all_atom_masks = template_features['template_all_atom_masks'][i]
+                    template_domain_name = template_features['template_domain_names'][i].decode('utf-8')
+
+                    # Create a mapping based on actual alignment or identity
+                    query_to_template_map = {j: j for j in range(len(sequence))}
+                    template = folding_input.Template(
+                        mmcif='',  # Not needed since we've already processed the template
+                        query_to_template_map=query_to_template_map,
+                    )
+                    templates.append(template)
             else:
                 templates = []
+
             chain = folding_input.ProteinChain(
                 id=chain_id,
                 sequence=sequence,
                 ptms=[],  # Provide PTMs if available
                 unpaired_msa=unpaired_msa,
-                paired_msa=paired_msa,  # Set to empty string as required
+                paired_msa=paired_msa,
                 templates=templates,
             )
             chains = [chain]
