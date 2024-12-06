@@ -47,6 +47,67 @@ from build.lib.alphapulldown.folding_backend.folding_backend import FoldingBacke
 logging.set_verbosity(logging.ERROR)
 
 
+def _insert_release_date_into_mmcif(mmcif_string: str, revision_date: str = '2100-01-01') -> str:
+    """
+    Inserts the release date into the mmCIF string at the specified positions.
+
+    Args:
+        mmcif_string (str): The original mmCIF string.
+        revision_date (str, optional): The release date in 'YYYY-MM-DD' format.
+                                       Defaults to '2100-01-01'.
+
+    Returns:
+        str: The updated mmCIF string with the release date inserted.
+    """
+
+    # Split the mmCIF string into a list of lines
+    pdb_data = mmcif_string.splitlines()
+
+    # Define the lines to insert
+    header_lines = [
+        "_entry.id   pdb",
+        "_pdbx_audit_revision_history.revision_date"
+    ]
+    release_date_line = f'"{revision_date}"'
+
+    # Insert the header lines at index 2
+    pdb_data.insert(2, "\n".join(header_lines))
+
+    # Insert the release date at index 3
+    pdb_data.insert(3, release_date_line)
+
+    # Rejoin the lines into a single string
+    updated_mmcif_string = "\n".join(pdb_data)
+
+    return updated_mmcif_string
+
+
+# Define the HHBLITS to Internal AA Type Mapping
+HHBLITS_TO_INTERNAL_AATYPE = np.array([
+    0,  # 0: 'A' -> 'ALA' -> 0
+    1,  # 1: 'C' -> 'CYS' -> 1
+    2,  # 2: 'D' -> 'ASP' -> 2
+    3,  # 3: 'E' -> 'GLU' -> 3
+    4,  # 4: 'F' -> 'PHE' -> 4
+    5,  # 5: 'G' -> 'GLY' -> 5
+    6,  # 6: 'H' -> 'HIS' -> 6
+    7,  # 7: 'I' -> 'ILE' -> 7
+    8,  # 8: 'K' -> 'LYS' -> 8
+    9,  # 9: 'L' -> 'LEU' -> 9
+    10,  # 10: 'M' -> 'MET' -> 10
+    11,  # 11: 'N' -> 'ASN' -> 11
+    12,  # 12: 'P' -> 'PRO' -> 12
+    13,  # 13: 'Q' -> 'GLN' -> 13
+    14,  # 14: 'R' -> 'ARG' -> 14
+    15,  # 15: 'S' -> 'SER' -> 15
+    16,  # 16: 'T' -> 'THR' -> 16
+    17,  # 17: 'V' -> 'VAL' -> 17
+    18,  # 18: 'W' -> 'TRP' -> 18
+    19,  # 19: 'Y' -> 'TYR' -> 19
+    20,  # 20: 'X' -> 'UNK' -> 20
+    20,  # 21: '-' -> 'UNK' -> 20
+], dtype=np.int32)
+
 class ConfigurableModel(typing.Protocol):
     """A model with a nested config class."""
 
@@ -399,6 +460,7 @@ def get_structure_sequence(mmcif_file: str, chain_code: str) -> str:
         from alphafold3 import structure
         with open(mmcif_file, 'r') as f:
             cif_content = f.read()
+        logging.info(cif_content)
         cif = structure.from_mmcif(
             mmcif_string=cif_content,  # Corrected keyword argument
             fix_mse_residues=True,
@@ -506,6 +568,7 @@ class AlphaFold3Backend(FoldingBackend):
                #     logging.error(f"Failed to predict structure for {object_to_model}: {e}")
                #     continue
 
+
     def _convert_to_fold_input(
             self,
             object_to_model,
@@ -547,119 +610,68 @@ class AlphaFold3Backend(FoldingBackend):
                 unpaired_msa = msa_array_to_a3m(msa_array)
             else:
                 unpaired_msa = ''
-            # Paired MSA is empty as per your requirement
+            # Paired MSA is empty
             paired_msa = ''
 
-            # Process templates from feature_dict
-            template_feature_dict = {}
-            for key in [
-                'template_aatype',
-                'template_all_atom_masks',
-                'template_all_atom_positions',
-                'template_domain_names',
-                'template_sequence',
-                'template_sum_probs',
-                'template_confidence_scores',
-                'template_release_date',
-            ]:
-                value = object_to_model.feature_dict.get(key)
-                if value is not None:
-                    template_feature_dict[key] = value
-
+            feature_dict = object_to_model.feature_dict
             templates = []
-            if 'template_aatype' in template_feature_dict:
-                num_templates = template_feature_dict['template_aatype'].shape[0]
+            if 'template_aatype' in feature_dict:
+                num_templates = feature_dict['template_aatype'].shape[0]
                 for i in range(num_templates):
-                    # Extract features for each template
-                    template_sequence = template_feature_dict['template_sequence'][i].decode('utf-8')
-                    template_aatype = template_feature_dict['template_aatype'][i]
-                    all_atom_positions = template_feature_dict['template_all_atom_positions'][i]
-                    all_atom_masks = template_feature_dict['template_all_atom_masks'][i]
-                    template_domain_name = template_feature_dict['template_domain_names'][i].decode('utf-8')
-
-                    # **Convert one-hot encoded aatype to integer indices**
-                    if template_aatype.ndim == 2 and template_aatype.shape[-1] == 22:
-                        # Handle potential NaNs or invalid values
-                        if np.isnan(template_aatype).any():
-                            print(f"NaNs found in template_aatype for template {i}, replacing with zeros.")
-                            template_aatype = np.nan_to_num(template_aatype)
-                        template_aatype = np.argmax(template_aatype, axis=-1).astype(np.int32)
-                    elif template_aatype.ndim == 1:
-                        template_aatype = template_aatype.astype(np.int32)
-                    else:
-                        raise ValueError(f"Unexpected shape for template_aatype: {template_aatype.shape}")
-
-                    # **Add debug statements**
-                    print(f"template_aatype.shape: {template_aatype.shape}, dtype: {template_aatype.dtype}")
-                    print(f"Unique aatype indices: {np.unique(template_aatype)}")
-
-                    # Ensure `template_aatype` is 1D
-                    if template_aatype.ndim != 1:
-                        template_aatype = np.squeeze(template_aatype)
-                        if template_aatype.ndim != 1:
-                            raise ValueError(f"aatype is not 1D after squeeze, shape: {template_aatype.shape}")
-
-                    # Map invalid indices to 'UNK' index
-                    valid_aatype_range = set(range(len(residue_constants.resnames)))
-                    template_aatype = np.array([
-                        aa if aa in valid_aatype_range else residue_constants.unk_restype_index
-                        for aa in template_aatype
-                    ], dtype=np.int32)
-                    all_atom_positions = template_feature_dict['template_all_atom_positions'][i]
-                    all_atom_masks = template_feature_dict['template_all_atom_masks'][i]
-                    template_domain_name = template_feature_dict['template_domain_names'][i].decode('utf-8')
-
                     # Parse PDB code and chain ID from template_domain_name
-                    pdb_code_chain = template_domain_name
+                    pdb_code_chain = str(feature_dict["template_domain_names"][i])
                     if '_' in pdb_code_chain:
                         pdb_code, chain_id_template = pdb_code_chain.split('_')
-                        chain_id_template = chain_id_template.upper()
                     else:
                         pdb_code = pdb_code_chain
                         chain_id_template = 'A'  # Default to 'A' if no chain ID is specified
 
-                    pdb_code = pdb_code.lower()  # PDB codes are typically in lowercase
-
-                    # Create residue_index and chain_index
-                    residue_index = np.arange(len(template_sequence))
-                    chain_index = np.zeros(len(template_sequence), dtype=int)  # Assuming single chain
-
-                    # Handle B-factors
-                    b_factors = np.full_like(all_atom_masks, 30.0)
-
                     from alphafold.common.protein import Protein, to_mmcif
 
+                    # Convert aatype from one-hot to integer indices using the new mapping
+                    template_aatype_onehot = feature_dict["template_aatype"][i]  # Shape: (110, 22)
+                    template_aatype_hhblits_id = np.argmax(template_aatype_onehot, axis=-1)  # Shape: (110,)
+
+                    # Map HHBLITS IDs to internal AA type indices
+                    template_aatype_int = HHBLITS_TO_INTERNAL_AATYPE[template_aatype_hhblits_id]
+                    # Validation: Ensure all aatype indices are within 0-20
+                    unique_aatypes = np.unique(template_aatype_int)
+                    logging.debug(f"Template {i} Unique aatype indices:", unique_aatypes)
+
+                    if not np.all((unique_aatypes >= 0) & (unique_aatypes <= 20)):
+                        raise ValueError(f"Unexpected aatype indices found: {unique_aatypes}")
+
                     # Create the Protein object
+                    template_mask = feature_dict["template_all_atom_masks"][i]  # Shape: (110, 37)
+                    chain_index_array = np.zeros_like(feature_dict["residue_index"], dtype=int)  # Shape: (110,)
+
+                    # Decode the template sequence if it's in bytes
+                    template_sequence = feature_dict["template_sequence"][i]
+                    if isinstance(template_sequence, bytes):
+                        template_sequence = template_sequence.decode('utf-8')
+
                     template_protein = Protein(
-                        atom_positions=all_atom_positions,
-                        atom_mask=all_atom_masks,
-                        aatype=template_aatype,
-                        residue_index=residue_index,
-                        chain_index=chain_index,
-                        b_factors=b_factors
+                        atom_positions=feature_dict["template_all_atom_positions"][i],  # Shape: (110, 37, 3)
+                        atom_mask=template_mask,  # Shape: (110, 37)
+                        aatype=template_aatype_int,  # Shape: (110,), dtype: int32
+                        residue_index=feature_dict["residue_index"],  # Shape: (110,)
+                        chain_index=chain_index_array,  # Shape: (110,), dtype: int32
+                        b_factors=np.zeros(template_mask.shape, dtype=float),  # Shape: (110, 37)
                     )
-
-                    # **Check the shape and type of aatype in the Protein object**
-                    print(
-                        f"Protein aatype.shape: {template_protein.aatype.shape}, dtype: {template_protein.aatype.dtype}")
-                    print(f"Protein aatype: {template_protein.aatype}")
-
+                    template_sequence = feature_dict["template_sequence"][i]
                     # Convert to mmCIF string using actual PDB code and chain ID
                     mmcif_string = to_mmcif(
                         prot=template_protein,
                         file_id=pdb_code,
                         model_type='Monomer',
-                        chain_id=chain_id_template,
-                        sequence=template_sequence,
-                        atom_to_seqres_mapping=None
                     )
-
-                    # Create query_to_template_map
+                    new_mmcif_string = _insert_release_date_into_mmcif(mmcif_string)
+                    # It's always one-to-one correspondence
                     query_to_template_map = {j: j for j in range(len(template_sequence))}
 
                     # Create the Template object
                     template = folding_input.Template(
-                        mmcif=mmcif_string,
+                        mmcif=new_mmcif_string,
                         query_to_template_map=query_to_template_map,
                     )
                     templates.append(template)
