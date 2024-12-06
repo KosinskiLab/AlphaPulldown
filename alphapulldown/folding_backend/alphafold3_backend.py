@@ -41,7 +41,7 @@ from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObje
 
 from absl import logging
 
-from build.lib.alphapulldown.folding_backend.folding_backend import FoldingBackend
+from  alphapulldown.folding_backend.folding_backend import FoldingBackend
 
 # Suppress specific warnings by setting verbosity to ERROR
 logging.set_verbosity(logging.ERROR)
@@ -699,6 +699,5 @@ class AlphaFold3Backend(FoldingBackend):
         )
         return fold_input
 
-    def postprocess(prediction_results: Dict,
-                    **kwargs) -> None:
+    def postprocess(**kwargs) -> None:
         return None
