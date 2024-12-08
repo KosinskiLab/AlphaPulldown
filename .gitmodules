@@ -1,6 +1,6 @@
 [submodule "alphafold"]
 	path = alphafold
-	url = git@github.com:KosinskiLab/alphafold.git
+	url = https://github.com/KosinskiLab/alphafold.git
 	branch = main
 [submodule "alphapulldown/analysis_pipeline/af2plots"]
 	path = alphapulldown/analysis_pipeline/af2plots
@@ -8,9 +8,9 @@
 	branch = main
 [submodule "AlphaLink2"]
 	path = AlphaLink2
-	url = git@github.com:KosinskiLab/AlphaLink2.git
+	url = https://github.com/KosinskiLab/AlphaLink2.git
 	branch = main
 [submodule "ColabFold"]
 	path = ColabFold
-	url = git@github.com:sokrypton/ColabFold.git
+	url = https://github.com/sokrypton/ColabFold.git
 	branch = main
