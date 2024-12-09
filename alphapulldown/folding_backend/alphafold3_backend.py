@@ -68,7 +68,7 @@ def _insert_release_date_into_mmcif(mmcif_string: str, revision_date: str = '210
         "_entry.id   pdb",
         "_pdbx_audit_revision_history.revision_date"
     ]
-    release_date_line = f'"{revision_date}"'
+    release_date_line = f"{revision_date}"
 
     # Insert the header lines at index 2
     pdb_data.insert(2, "\n".join(header_lines))
@@ -233,63 +233,55 @@ def predict_structure(
     model_runner: ModelRunner,
     buckets: Sequence[int] | None = None,
 ) -> Sequence[ResultsForSeed]:
-    """Runs the full inference pipeline to predict structures for each seed."""
+  """Runs the full inference pipeline to predict structures for each seed."""
 
-    logging.info(f'Featurising data for seeds {fold_input.rng_seeds}...')
-    featurisation_start_time = time.time()
-    ccd = chemical_components.cached_ccd(user_ccd=fold_input.user_ccd)
-    featurised_examples = featurisation.featurise_input(
-        fold_input=fold_input, buckets=buckets, ccd=ccd, verbose=True
+  logging.info(f'Featurising data for seeds {fold_input.rng_seeds}...')
+  featurisation_start_time = time.time()
+  ccd = chemical_components.cached_ccd(user_ccd=fold_input.user_ccd)
+  featurised_examples = featurisation.featurise_input(
+      fold_input=fold_input, buckets=buckets, ccd=ccd, verbose=True
+  )
+  logging.info(
+      f'Featurising data for seeds {fold_input.rng_seeds} took '
+      f' {time.time() - featurisation_start_time:.2f} seconds.'
+  )
+  all_inference_start_time = time.time()
+  all_inference_results = []
+  for seed, example in zip(fold_input.rng_seeds, featurised_examples):
+    logging.info(f'Running model inference for seed {seed}...')
+    inference_start_time = time.time()
+    rng_key = jax.random.PRNGKey(seed)
+    result = model_runner.run_inference(example, rng_key)
+    logging.info(
+        f'Running model inference for seed {seed} took '
+        f' {time.time() - inference_start_time:.2f} seconds.'
+    )
+    logging.info(f'Extracting output structures (one per sample) for seed {seed}...')
+    extract_structures = time.time()
+    inference_results = model_runner.extract_structures(
+        batch=example, result=result, target_name=fold_input.name
     )
     logging.info(
-        f'Featurising data for seeds {fold_input.rng_seeds} took '
-        f' {time.time() - featurisation_start_time:.2f} seconds.'
+        f'Extracting output structures (one per sample) for seed {seed} took '
+        f' {time.time() - extract_structures:.2f} seconds.'
     )
-    all_inference_start_time = time.time()
-    all_inference_results = []
-    for seed, example in zip(fold_input.rng_seeds, featurised_examples):
-        logging.info(f'Running model inference for seed {seed}...')
-        inference_start_time = time.time()
-        rng_key = jax.random.PRNGKey(seed)
-        try:
-            result = model_runner.run_inference(example, rng_key)
-        except Exception as e:
-            logging.error(f"Failed during inference for seed {seed}: {e}")
-            continue
-        logging.info(
-            f'Running model inference for seed {seed} took '
-            f' {time.time() - inference_start_time:.2f} seconds.'
+    all_inference_results.append(
+        ResultsForSeed(
+            seed=seed,
+            inference_results=inference_results,
+            full_fold_input=fold_input,
         )
-        logging.info(f'Extracting output structures (one per sample) for seed {seed}...')
-        extract_structures_start_time = time.time()
-        try:
-            inference_results = model_runner.extract_structures(
-                batch=example, result=result, target_name=fold_input.name
-            )
-        except Exception as e:
-            logging.error(f"Failed to extract structures for seed {seed}: {e}")
-            continue
-        logging.info(
-            f'Extracting output structures (one per sample) for seed {seed} took '
-            f' {time.time() - extract_structures_start_time:.2f} seconds.'
-        )
-        all_inference_results.append(
-            ResultsForSeed(
-                seed=seed,
-                inference_results=inference_results,
-                full_fold_input=fold_input,
-            )
-        )
-        logging.info(
-            'Running model inference and extracting output structures for seed'
-            f' {seed} took  {time.time() - inference_start_time:.2f} seconds.'
-        )
+    )
     logging.info(
-        'Running model inference and extracting output structures for seeds'
-        f' {fold_input.rng_seeds} took '
-        f' {time.time() - all_inference_start_time:.2f} seconds.'
+        'Running model inference and extracting output structures for seed'
+        f' {seed} took  {time.time() - inference_start_time:.2f} seconds.'
     )
-    return all_inference_results
+  logging.info(
+      'Running model inference and extracting output structures for seeds'
+      f' {fold_input.rng_seeds} took '
+      f' {time.time() - all_inference_start_time:.2f} seconds.'
+  )
+  return all_inference_results
 
 
 def write_outputs(
@@ -308,7 +300,6 @@ def write_outputs(
     output_terms = (
         pathlib.Path(alphafold3.cpp.__file__).parent / 'OUTPUT_TERMS_OF_USE.md'
     ).read_text()
-
     os.makedirs(output_dir, exist_ok=True)
     for results_for_seed in all_inference_results:
         seed = results_for_seed.seed
@@ -619,7 +610,7 @@ class AlphaFold3Backend(FoldingBackend):
                 num_templates = feature_dict['template_aatype'].shape[0]
                 for i in range(num_templates):
                     # Parse PDB code and chain ID from template_domain_name
-                    pdb_code_chain = str(feature_dict["template_domain_names"][i])
+                    pdb_code_chain = feature_dict["template_domain_names"][i].decode('utf-8')
                     if '_' in pdb_code_chain:
                         pdb_code, chain_id_template = pdb_code_chain.split('_')
                     else:
@@ -668,7 +659,9 @@ class AlphaFold3Backend(FoldingBackend):
                     new_mmcif_string = _insert_release_date_into_mmcif(mmcif_string)
                     # It's always one-to-one correspondence
                     query_to_template_map = {j: j for j in range(len(template_sequence))}
-
+                    # DEBUG
+                    #with open(f"{pdb_code}_{chain_id_template}.cif", 'w') as f:
+                    #    f.write(new_mmcif_string)
                     # Create the Template object
                     template = folding_input.Template(
                         mmcif=new_mmcif_string,
