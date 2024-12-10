@@ -5,27 +5,28 @@
     Author: Dmitry Molodenskiy <dmitry.molodenskiy@embl-hamburg.de>
 """
 
+from collections.abc import Callable, Iterable, Sequence
+import csv
+import dataclasses
+import datetime
+import functools
+import multiprocessing
 import os
 import pathlib
+import shutil
+import string
+import textwrap
 import time
 import typing
-from datetime import datetime
-from typing import Dict, List, Sequence, Union, Optional, Tuple, Any
+from typing import Protocol, Self, TypeVar, overload, List, Dict, Union
 
-import dataclasses
-import functools
-from xml.dom import NotFoundErr
-
-import jax
-import numpy as np
-from jax import numpy as jnp
-
-from alphafold3.data.templates import Templates
-from alphafold3.data import structure_stores
-
+from absl import app
+from absl import flags
 from alphafold3.common import base_config
 from alphafold3.common import folding_input
+from alphafold3.common import resources
 from alphafold3.constants import chemical_components
+import alphafold3.cpp
 from alphafold3.data import featurisation
 from alphafold3.data import pipeline
 from alphafold3.jax.attention import attention
@@ -36,11 +37,12 @@ from alphafold3.model.components import base_model
 from alphafold3.model.components import utils
 from alphafold3.model.diffusion import model as diffusion_model
 import haiku as hk
+import jax
+from jax import numpy as jnp
+import numpy as np
 
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
-
 from absl import logging
-
 from  alphapulldown.folding_backend.folding_backend import FoldingBackend
 
 # Suppress specific warnings by setting verbosity to ERROR
@@ -133,7 +135,7 @@ ModelT = typing.TypeVar('ModelT', bound=ConfigurableModel)
 def make_model_config(
     *,
     model_class: type[ModelT] = diffusion_model.Diffuser,
-    flash_attention_implementation: attention.Implementation = 'xla',  # Changed to 'xla'
+    flash_attention_implementation: attention.Implementation,
     num_diffusion_samples: int = 5,
 ):
     """Returns a model config with some defaults overridden."""
@@ -434,56 +436,17 @@ def write_fold_input_json(
         f.write(fold_input.to_json())
 
 
-def get_structure_sequence(mmcif_file: str, chain_code: str) -> str:
-    """Extracts the sequence for a given chain from an mmCIF file.
-
-    Args:
-        mmcif_file (str): Path to the mmCIF file.
-        chain_code (str): Chain identifier.
-
-    Returns:
-        str: The amino acid sequence of the chain.
-
-    Raises:
-        ValueError: If the chain is not found or sequence extraction fails.
-    """
-    try:
-        from alphafold3 import structure
-        with open(mmcif_file, 'r') as f:
-            cif_content = f.read()
-        logging.info(cif_content)
-        cif = structure.from_mmcif(
-            mmcif_string=cif_content,  # Corrected keyword argument
-            fix_mse_residues=True,
-            fix_arginines=True,
-            include_water=False,
-            include_other=True,
-            include_bonds=False,
-        )
-        sequence = cif.chain_single_letter_sequence().get(chain_code)
-        if sequence is None:
-            raise ValueError(f"Chain {chain_code} not found in {mmcif_file}.")
-        return sequence
-    except TypeError as te:
-        logging.error(f"TypeError in from_mmcif: {te}")
-        raise
-    except Exception as e:
-        logging.error(f"Error extracting sequence from {mmcif_file} for chain {chain_code}: {e}")
-        raise
-
-
 @dataclasses.dataclass(frozen=True, slots=True, kw_only=True)
 class AlphaFold3Backend(FoldingBackend):
     """A backend to perform structure prediction using AlphaFold 3."""
 
-    def __init__(self):
-        pass
-
     @staticmethod
     def setup(
+        num_diffusion_samples: int,
+        flash_attention_implementation: str,
+        buckets: list,
+        jax_compilation_cache_dir: str,
         model_dir: str,
-        num_diffusion_samples: int = 5,
-        flash_attention_implementation: str = 'xla',  # Changed to 'xla'
         **kwargs,
     ) -> Dict:
         """
@@ -492,37 +455,69 @@ class AlphaFold3Backend(FoldingBackend):
         Args:
             model_dir (str): Path to the directory containing model parameters.
             num_diffusion_samples (int): Number of diffusion samples.
-            flash_attention_implementation (str): Flash attention implementation to use.
-            mmcif_database_path (str): Path to the directory containing mmCIF files.
+            data_directory (str): Path to directory containing model weights and parameters.
 
         Returns:
-            Dict: A dictionary containing the ModelRunner and mmcif_database_path.
+            Dict: A dictionary containing the ModelRunner.
         """
-        devices = jax.local_devices()
-        device = devices[0]
-        model_config = make_model_config(
-            flash_attention_implementation=typing.cast(
-                attention.Implementation, flash_attention_implementation
-            ),
-            num_diffusion_samples=num_diffusion_samples,
+
+        if jax_compilation_cache_dir is not None:
+            jax.config.update(
+                'jax_compilation_cache_dir', jax_compilation_cache_dir
+            )
+        gpu_devices = jax.local_devices(backend='gpu')
+        if gpu_devices:
+            compute_capability = float(gpu_devices[0].compute_capability)
+            if compute_capability < 6.0:
+                raise ValueError(
+                    'AlphaFold 3 requires at least GPU compute capability 6.0 (see'
+                    ' https://developer.nvidia.com/cuda-gpus).'
+                )
+            elif 7.0 <= compute_capability < 8.0:
+                raise ValueError(
+                    'There are currently known unresolved numerical issues with using'
+                    ' devices with GPU compute capability 7.x (see'
+                    ' https://developer.nvidia.com/cuda-gpus). Follow '
+                    ' https://github.com/google-deepmind/alphafold3/issues/59 for'
+                    ' tracking.'
+                )
+
+        notice = textwrap.wrap(
+            'Running AlphaFold 3. Please note that standard AlphaFold 3 model'
+            ' parameters are only available under terms of use provided at'
+            ' https://github.com/google-deepmind/alphafold3/blob/main/WEIGHTS_TERMS_OF_USE.md.'
+            ' If you do not agree to these terms and are using AlphaFold 3 derived'
+            ' model parameters, cancel execution of AlphaFold 3 inference with'
+            ' CTRL-C, and do not use the model parameters.',
+            break_long_words=False,
+            break_on_hyphens=False,
+            width=80,
         )
+        print('\n'.join(notice))
+        print(f'Found local devices: {gpu_devices}')
+
+        print('Building model from scratch...')
         model_runner = ModelRunner(
             model_class=diffusion_model.Diffuser,
-            config=model_config,
-            device=device,
+            config=make_model_config(
+                flash_attention_implementation=typing.cast(
+                    attention.Implementation, flash_attention_implementation.value
+                ),
+                num_diffusion_samples=num_diffusion_samples.value,
+            ),
+            device=gpu_devices[0],
             model_dir=pathlib.Path(model_dir),
         )
-        # Store the mmcif_database_path in the ModelRunner for accessibility
-        # (Assuming it's needed elsewhere)
         return {'model_runner': model_runner}
 
+
+    @staticmethod
     def predict(
         self,
         model_runner: ModelRunner,
         objects_to_model: List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject], str]],
-        random_seed: int = 42,
-        data_pipeline_config: pipeline.DataPipelineConfig | None = None,
-        buckets: Sequence[int] | None = None,
+        random_seed: int,
+        buckets: int,
         **kwargs,
     ):
         """Predicts structures for a list of objects using AlphaFold 3.
@@ -532,36 +527,37 @@ class AlphaFold3Backend(FoldingBackend):
             objects_to_model (List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject], str]]):
                 List of dictionaries mapping objects to model to their respective output directories.
             random_seed (int): The random seed for inference.
-            data_pipeline_config (pipeline.DataPipelineConfig | None): Configuration for the data pipeline.
-            buckets (Sequence[int] | None): Bucket sizes for padding.
             **kwargs: Additional arguments.
 
         Yields:
             Dict: A dictionary mapping the object to its prediction results and output directory.
         """
-        for obj_dict in objects_to_model:
-            for object_to_model, output_dir in obj_dict.items():
-                # Convert object_to_model to fold_input.Input
-                fold_input = self._convert_to_fold_input(
-                    object_to_model, random_seed
-                )
-                # Run prediction
-                #try:
-                result = process_fold_input(
-                    fold_input=fold_input,
-                    data_pipeline_config=data_pipeline_config,
-                    model_runner=model_runner,
-                    output_dir=output_dir,
-                    buckets=buckets,
-                )
-                yield {object_to_model: {"prediction_results": result, "output_dir": output_dir}}
-               # except Exception as e:
-               #     logging.error(f"Failed to predict structure for {object_to_model}: {e}")
-               #     continue
+        # Make sure we can create the output directory before running anything.
+        for m in objects_to_model:
+            object_to_model, output_dir = next(iter(m.items()))
+            try:
+                os.makedirs(output_dir, exist_ok=True)
+            except OSError as e:
+                print(f'Failed to create output directory {output_dir.value}: {e}')
+                raise
+            # Convert object_to_model to fold_input.Input
+            fold_input = self._convert_to_fold_input(
+                object_to_model, random_seed
+            )
+            object_to_model, output_dir = next(iter(m.items()))
+            prediction_result = process_fold_input(
+                fold_input=fold_input,
+                data_pipeline_config=None,
+                model_runner=model_runner,
+                output_dir=output_dir,
+                buckets=buckets,
+            )
+
+            yield {object_to_model: {"prediction_result": prediction_result,
+                                     "output_dir": output_dir}}
 
 
     def _convert_to_fold_input(
-            self,
             object_to_model,
             random_seed: int,
     ) -> folding_input.Input:
@@ -600,9 +596,9 @@ class AlphaFold3Backend(FoldingBackend):
             if msa_array is not None:
                 unpaired_msa = msa_array_to_a3m(msa_array)
             else:
-                unpaired_msa = ''
+                unpaired_msa = ""
             # Paired MSA is empty
-            paired_msa = ''
+            paired_msa = ""
 
             feature_dict = object_to_model.feature_dict
             templates = []
@@ -670,7 +666,6 @@ class AlphaFold3Backend(FoldingBackend):
                     templates.append(template)
             else:
                 templates = []
-
             chain = folding_input.ProteinChain(
                 id=chain_id,
                 sequence=sequence,
@@ -692,5 +687,7 @@ class AlphaFold3Backend(FoldingBackend):
         )
         return fold_input
 
+
+    @staticmethod
     def postprocess(**kwargs) -> None:
         return None
