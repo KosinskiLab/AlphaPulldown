@@ -5,28 +5,20 @@
     Author: Dmitry Molodenskiy <dmitry.molodenskiy@embl-hamburg.de>
 """
 
-from collections.abc import Callable, Iterable, Sequence
-import csv
+from collections.abc import Sequence
 import dataclasses
 import datetime
 import functools
-import multiprocessing
 import os
 import pathlib
-import shutil
-import string
 import textwrap
 import time
 import typing
-from typing import Protocol, Self, TypeVar, overload, List, Dict, Union
+from typing import List, Dict, Union
 
-from absl import app
-from absl import flags
 from alphafold3.common import base_config
 from alphafold3.common import folding_input
-from alphafold3.common import resources
 from alphafold3.constants import chemical_components
-import alphafold3.cpp
 from alphafold3.data import featurisation
 from alphafold3.data import pipeline
 from alphafold3.jax.attention import attention
@@ -44,10 +36,137 @@ import numpy as np
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
 from absl import logging
 from  alphapulldown.folding_backend.folding_backend import FoldingBackend
+import string
+import logging
+from alphafold.common import residue_constants
 
-# Suppress specific warnings by setting verbosity to ERROR
-logging.set_verbosity(logging.ERROR)
 
+def _convert_to_fold_input(
+        object_to_model,
+        random_seed: int,
+) -> folding_input.Input:
+
+
+    def msa_array_to_a3m(msa_array):
+        """Converts MSA numpy array to A3M formatted string."""
+        msa_sequences = []
+        for i, msa_seq in enumerate(msa_array):
+            seq_str = ''.join([residue_constants.ID_TO_HHBLITS_AA.get(int(aa), 'X') for aa in msa_seq])
+            msa_sequences.append(f'>sequence_{i}\n{seq_str}')
+        a3m_str = '\n'.join(msa_sequences)
+        return a3m_str
+
+    # Define the chain ID generator
+    def chain_id_generator():
+        chain_letters = string.ascii_uppercase  # 'A' to 'Z'
+        # First, yield single-letter IDs
+        for c in chain_letters:
+            yield c
+        # Then, yield two-letter IDs in the specified order
+        for first_letter in chain_letters:
+            for second_letter in chain_letters:
+                yield first_letter + second_letter
+
+    chain_id_gen = chain_id_generator()
+
+    if isinstance(object_to_model, (MonomericObject, ChoppedObject)):
+        chain_id = next(chain_id_gen)
+        sequence = object_to_model.sequence
+        # Get msa array
+        msa_array = object_to_model.feature_dict.get('msa')
+        if msa_array is not None:
+            unpaired_msa = msa_array_to_a3m(msa_array)
+        else:
+            unpaired_msa = ""
+        # Paired MSA is empty
+        paired_msa = ""
+
+        feature_dict = object_to_model.feature_dict
+        templates = []
+        if 'template_aatype' in feature_dict:
+            num_templates = feature_dict['template_aatype'].shape[0]
+            for i in range(num_templates):
+                # Parse PDB code and chain ID from template_domain_name
+                pdb_code_chain = feature_dict["template_domain_names"][i].decode('utf-8')
+                if '_' in pdb_code_chain:
+                    pdb_code, chain_id_template = pdb_code_chain.split('_')
+                else:
+                    pdb_code = pdb_code_chain
+                    chain_id_template = 'A'  # Default to 'A' if no chain ID is specified
+
+                from alphafold.common.protein import Protein, to_mmcif
+
+                # Convert aatype from one-hot to integer indices using the new mapping
+                template_aatype_onehot = feature_dict["template_aatype"][i]  # Shape: (110, 22)
+                template_aatype_hhblits_id = np.argmax(template_aatype_onehot, axis=-1)  # Shape: (110,)
+
+                # Map HHBLITS IDs to internal AA type indices
+                template_aatype_int = HHBLITS_TO_INTERNAL_AATYPE[template_aatype_hhblits_id]
+                # Validation: Ensure all aatype indices are within 0-20
+                unique_aatypes = np.unique(template_aatype_int)
+                logging.debug(f"Template {i} Unique aatype indices:", unique_aatypes)
+
+                if not np.all((unique_aatypes >= 0) & (unique_aatypes <= 20)):
+                    raise ValueError(f"Unexpected aatype indices found: {unique_aatypes}")
+
+                # Create the Protein object
+                template_mask = feature_dict["template_all_atom_masks"][i]  # Shape: (110, 37)
+                chain_index_array = np.zeros_like(feature_dict["residue_index"], dtype=int)  # Shape: (110,)
+
+                # Decode the template sequence if it's in bytes
+                template_sequence = feature_dict["template_sequence"][i]
+                if isinstance(template_sequence, bytes):
+                    template_sequence = template_sequence.decode('utf-8')
+
+                template_protein = Protein(
+                    atom_positions=feature_dict["template_all_atom_positions"][i],  # Shape: (110, 37, 3)
+                    atom_mask=template_mask,  # Shape: (110, 37)
+                    aatype=template_aatype_int,  # Shape: (110,), dtype: int32
+                    residue_index=feature_dict["residue_index"],  # Shape: (110,)
+                    chain_index=chain_index_array,  # Shape: (110,), dtype: int32
+                    b_factors=np.zeros(template_mask.shape, dtype=float),  # Shape: (110, 37)
+                )
+                template_sequence = feature_dict["template_sequence"][i]
+                # Convert to mmCIF string using actual PDB code and chain ID
+                mmcif_string = to_mmcif(
+                    prot=template_protein,
+                    file_id=pdb_code,
+                    model_type='Monomer',
+                )
+                new_mmcif_string = _insert_release_date_into_mmcif(mmcif_string)
+                # It's always one-to-one correspondence
+                query_to_template_map = {j: j for j in range(len(template_sequence))}
+                # DEBUG
+                #with open(f"{pdb_code}_{chain_id_template}.cif", 'w') as f:
+                #    f.write(new_mmcif_string)
+                # Create the Template object
+                template = folding_input.Template(
+                    mmcif=new_mmcif_string,
+                    query_to_template_map=query_to_template_map,
+                )
+                templates.append(template)
+        else:
+            templates = []
+        chain = folding_input.ProteinChain(
+            id=chain_id,
+            sequence=sequence,
+            ptms=[],  # Provide PTMs if available
+            unpaired_msa=unpaired_msa,
+            paired_msa=paired_msa,
+            templates=templates,
+        )
+        chains = [chain]
+    else:
+        logging.error("Unsupported object type for folding input conversion.")
+        raise TypeError("Unsupported object type for folding input conversion.")
+
+    # Create the fold input
+    fold_input = folding_input.Input(
+        name=object_to_model.description,
+        rng_seeds=[random_seed],
+        chains=chains,
+    )
+    return fold_input
 
 def _insert_release_date_into_mmcif(mmcif_string: str, revision_date: str = '2100-01-01') -> str:
     """
@@ -360,8 +479,6 @@ def process_fold_input(
     Raises:
       ValueError: If the fold input has no chains.
     """
-    import datetime
-
     logging.info(f'Processing fold input {fold_input.name}')
 
     if not fold_input.chains:
@@ -407,7 +524,7 @@ def process_fold_input(
         all_inference_results = predict_structure(
             fold_input=fold_input,
             model_runner=model_runner,
-            buckets=buckets,
+            buckets=tuple(int(bucket) for bucket in buckets),
         )
         logging.info(
             f'Writing outputs for {fold_input.name} for seed(s)'
@@ -501,9 +618,9 @@ class AlphaFold3Backend(FoldingBackend):
             model_class=diffusion_model.Diffuser,
             config=make_model_config(
                 flash_attention_implementation=typing.cast(
-                    attention.Implementation, flash_attention_implementation.value
+                    attention.Implementation, flash_attention_implementation
                 ),
-                num_diffusion_samples=num_diffusion_samples.value,
+                num_diffusion_samples=num_diffusion_samples,
             ),
             device=gpu_devices[0],
             model_dir=pathlib.Path(model_dir),
@@ -513,7 +630,6 @@ class AlphaFold3Backend(FoldingBackend):
 
     @staticmethod
     def predict(
-        self,
         model_runner: ModelRunner,
         objects_to_model: List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject], str]],
         random_seed: int,
@@ -541,7 +657,7 @@ class AlphaFold3Backend(FoldingBackend):
                 print(f'Failed to create output directory {output_dir.value}: {e}')
                 raise
             # Convert object_to_model to fold_input.Input
-            fold_input = self._convert_to_fold_input(
+            fold_input = _convert_to_fold_input(
                 object_to_model, random_seed
             )
             object_to_model, output_dir = next(iter(m.items()))
@@ -553,139 +669,8 @@ class AlphaFold3Backend(FoldingBackend):
                 buckets=buckets,
             )
 
-            yield {object_to_model: {"prediction_result": prediction_result,
+            yield {object_to_model: {"prediction_results": prediction_result,
                                      "output_dir": output_dir}}
-
-
-    def _convert_to_fold_input(
-            object_to_model,
-            random_seed: int,
-    ) -> folding_input.Input:
-        import string
-        import logging
-        from alphafold.common import residue_constants
-        import numpy as np
-
-        def msa_array_to_a3m(msa_array):
-            """Converts MSA numpy array to A3M formatted string."""
-            msa_sequences = []
-            for i, msa_seq in enumerate(msa_array):
-                seq_str = ''.join([residue_constants.ID_TO_HHBLITS_AA.get(int(aa), 'X') for aa in msa_seq])
-                msa_sequences.append(f'>sequence_{i}\n{seq_str}')
-            a3m_str = '\n'.join(msa_sequences)
-            return a3m_str
-
-        # Define the chain ID generator
-        def chain_id_generator():
-            chain_letters = string.ascii_uppercase  # 'A' to 'Z'
-            # First, yield single-letter IDs
-            for c in chain_letters:
-                yield c
-            # Then, yield two-letter IDs in the specified order
-            for first_letter in chain_letters:
-                for second_letter in chain_letters:
-                    yield first_letter + second_letter
-
-        chain_id_gen = chain_id_generator()
-
-        if isinstance(object_to_model, (MonomericObject, ChoppedObject)):
-            chain_id = next(chain_id_gen)
-            sequence = object_to_model.sequence
-            # Get msa array
-            msa_array = object_to_model.feature_dict.get('msa')
-            if msa_array is not None:
-                unpaired_msa = msa_array_to_a3m(msa_array)
-            else:
-                unpaired_msa = ""
-            # Paired MSA is empty
-            paired_msa = ""
-
-            feature_dict = object_to_model.feature_dict
-            templates = []
-            if 'template_aatype' in feature_dict:
-                num_templates = feature_dict['template_aatype'].shape[0]
-                for i in range(num_templates):
-                    # Parse PDB code and chain ID from template_domain_name
-                    pdb_code_chain = feature_dict["template_domain_names"][i].decode('utf-8')
-                    if '_' in pdb_code_chain:
-                        pdb_code, chain_id_template = pdb_code_chain.split('_')
-                    else:
-                        pdb_code = pdb_code_chain
-                        chain_id_template = 'A'  # Default to 'A' if no chain ID is specified
-
-                    from alphafold.common.protein import Protein, to_mmcif
-
-                    # Convert aatype from one-hot to integer indices using the new mapping
-                    template_aatype_onehot = feature_dict["template_aatype"][i]  # Shape: (110, 22)
-                    template_aatype_hhblits_id = np.argmax(template_aatype_onehot, axis=-1)  # Shape: (110,)
-
-                    # Map HHBLITS IDs to internal AA type indices
-                    template_aatype_int = HHBLITS_TO_INTERNAL_AATYPE[template_aatype_hhblits_id]
-                    # Validation: Ensure all aatype indices are within 0-20
-                    unique_aatypes = np.unique(template_aatype_int)
-                    logging.debug(f"Template {i} Unique aatype indices:", unique_aatypes)
-
-                    if not np.all((unique_aatypes >= 0) & (unique_aatypes <= 20)):
-                        raise ValueError(f"Unexpected aatype indices found: {unique_aatypes}")
-
-                    # Create the Protein object
-                    template_mask = feature_dict["template_all_atom_masks"][i]  # Shape: (110, 37)
-                    chain_index_array = np.zeros_like(feature_dict["residue_index"], dtype=int)  # Shape: (110,)
-
-                    # Decode the template sequence if it's in bytes
-                    template_sequence = feature_dict["template_sequence"][i]
-                    if isinstance(template_sequence, bytes):
-                        template_sequence = template_sequence.decode('utf-8')
-
-                    template_protein = Protein(
-                        atom_positions=feature_dict["template_all_atom_positions"][i],  # Shape: (110, 37, 3)
-                        atom_mask=template_mask,  # Shape: (110, 37)
-                        aatype=template_aatype_int,  # Shape: (110,), dtype: int32
-                        residue_index=feature_dict["residue_index"],  # Shape: (110,)
-                        chain_index=chain_index_array,  # Shape: (110,), dtype: int32
-                        b_factors=np.zeros(template_mask.shape, dtype=float),  # Shape: (110, 37)
-                    )
-                    template_sequence = feature_dict["template_sequence"][i]
-                    # Convert to mmCIF string using actual PDB code and chain ID
-                    mmcif_string = to_mmcif(
-                        prot=template_protein,
-                        file_id=pdb_code,
-                        model_type='Monomer',
-                    )
-                    new_mmcif_string = _insert_release_date_into_mmcif(mmcif_string)
-                    # It's always one-to-one correspondence
-                    query_to_template_map = {j: j for j in range(len(template_sequence))}
-                    # DEBUG
-                    #with open(f"{pdb_code}_{chain_id_template}.cif", 'w') as f:
-                    #    f.write(new_mmcif_string)
-                    # Create the Template object
-                    template = folding_input.Template(
-                        mmcif=new_mmcif_string,
-                        query_to_template_map=query_to_template_map,
-                    )
-                    templates.append(template)
-            else:
-                templates = []
-            chain = folding_input.ProteinChain(
-                id=chain_id,
-                sequence=sequence,
-                ptms=[],  # Provide PTMs if available
-                unpaired_msa=unpaired_msa,
-                paired_msa=paired_msa,
-                templates=templates,
-            )
-            chains = [chain]
-        else:
-            logging.error("Unsupported object type for folding input conversion.")
-            raise TypeError("Unsupported object type for folding input conversion.")
-
-        # Create the fold input
-        fold_input = folding_input.Input(
-            name=object_to_model.description,
-            rng_seeds=[random_seed],
-            chains=chains,
-        )
-        return fold_input
 
 
     @staticmethod

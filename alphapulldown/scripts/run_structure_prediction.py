@@ -1,11 +1,13 @@
-#!python3
+#!/usr/bin/env python
+
 """ CLI inferface for performing structure prediction.
 
     Copyright (c) 2024 European Molecular Biology Laboratory
 
     Author: Valentin Maurer <valentin.maurer@embl-hamburg.de>
 """
-
+import jax
+gpus = jax.local_devices(backend='gpu')
 from absl import flags, app
 from os import makedirs
 from typing import Dict, List, Union, Tuple
@@ -179,7 +181,6 @@ def predict_structure(
         Backend used for folding, defaults to alphafold.
     """
     backend.change_backend(backend_name=fold_backend)
-    print(model_flags.keys())
     model_runners_and_configs = backend.setup(**model_flags)
 
     predicted_jobs = backend.predict(
