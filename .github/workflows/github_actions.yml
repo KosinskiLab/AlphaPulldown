@@ -18,6 +18,9 @@ jobs:
         python-version: ["3.10", "3.11"]
         install-type: ['user', 'developer']
 
+    env:
+      MAMBA_ROOT_PREFIX: ${{ runner.temp }}/mamba-root
+
     steps:
       - uses: webfactory/ssh-agent@v0.9.0
         with:
