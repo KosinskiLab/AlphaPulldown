@@ -19,7 +19,7 @@ jobs:
         install-type: ['user', 'developer']
 
     env:
-      MAMBA_ROOT_PREFIX: ${{ runner.temp }}/mamba-root
+      MAMBA_ROOT_PREFIX: $RUNNER_TEMP/mamba-root
 
     steps:
       - uses: webfactory/ssh-agent@v0.9.0
