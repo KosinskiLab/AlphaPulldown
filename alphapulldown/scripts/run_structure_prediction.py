@@ -1,4 +1,5 @@
-#!python3
+#!/usr/bin/env python
+
 """ CLI inferface for performing structure prediction.
 
     Copyright (c) 2024 European Molecular Biology Laboratory
@@ -6,7 +7,8 @@
     Author: Valentin Maurer <valentin.maurer@embl-hamburg.de>
             Dmitry Molodenskiy <dmitry.molodenskiy@embl-hamburg.de>
 """
-
+import jax
+gpus = jax.local_devices(backend='gpu')
 from absl import flags, app
 import os
 from os import makedirs
@@ -98,6 +100,42 @@ flags.DEFINE_boolean('allow_resume', True,
 # AlphaLink2 settings
 flags.DEFINE_string('crosslinks', None, 'Path to crosslink information pickle for AlphaLink.')
 
+# AlphaFold3 settings
+# JAX inference performance tuning.
+flags.DEFINE_string(
+    'jax_compilation_cache_dir',
+    None,
+    'Path to a directory for the JAX compilation cache.',
+)
+flags.DEFINE_list(
+    'buckets',
+    # pyformat: disable
+    ['256', '512', '768', '1024', '1280', '1536', '2048', '2560', '3072',
+     '3584', '4096', '4608', '5120'],
+    # pyformat: enable
+    'Strictly increasing order of token sizes for which to cache compilations.'
+    ' For any input with more tokens than the largest bucket size, a new bucket'
+    ' is created for exactly that number of tokens.',
+)
+flags.DEFINE_enum(
+    'flash_attention_implementation',
+    default='triton',
+    enum_values=['triton', 'cudnn', 'xla'],
+    help=(
+        "Flash attention implementation to use. 'triton' and 'cudnn' uses a"
+        ' Triton and cuDNN flash attention implementation, respectively. The'
+        ' Triton kernel is fastest and has been tested more thoroughly. The'
+        " Triton and cuDNN kernels require Ampere GPUs or later. 'xla' uses an"
+        ' XLA attention implementation (no flash attention) and is portable'
+        ' across GPU devices.'
+    ),
+)
+flags.DEFINE_integer(
+    'num_diffusion_samples',
+    5,
+    'Number of diffusion samples to generate.',
+)
+
 # Post-processing settings
 flags.DEFINE_boolean('compress_result_pickles', False,
                      'Whether the result pickles are going to be gzipped. Default False.')
@@ -146,7 +184,6 @@ def predict_structure(
         Backend used for folding, defaults to alphafold.
     """
     backend.change_backend(backend_name=fold_backend)
-
     model_runners_and_configs = backend.setup(**model_flags)
 
     predicted_jobs = backend.predict(
@@ -206,7 +243,11 @@ def pre_modelling_setup(
         "desired_num_res": flags.desired_num_res,
         "desired_num_msa": flags.desired_num_msa,
         "skip_templates": flags.skip_templates,
-        "allow_resume" : flags.allow_resume
+        "allow_resume" : flags.allow_resume,
+        "num_diffusion_samples" : flags.num_diffusion_samples,
+        "flash_attention_implementation" : flags.flash_attention_implementation,
+        "buckets" : flags.buckets,
+        "jax_compilation_cache_dir" : flags.jax_compilation_cache_dir,
     }
 
     if isinstance(object_to_model, MultimericObject):

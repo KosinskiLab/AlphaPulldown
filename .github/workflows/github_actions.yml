@@ -7,7 +7,7 @@ on:
       - main
   release:
     types: [published]
-  workflow_dispatch: 
+  workflow_dispatch:
 
 jobs:
   build-and-test:
@@ -16,39 +16,32 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.11"]
-        install-type: ['user', 'developer']
+        install-type: ["user", "developer"]
+
+    defaults:
+      run:
+        shell: bash -el {0}
 
     steps:
-      - uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - uses: actions/setup-python@v4
+
+      - uses: conda-incubator/setup-miniconda@v3
         with:
+          environment-file: environment.yml
+          activate-environment: AlphaPulldown
           python-version: ${{ matrix.python-version }}
-          cache: "pip"
-      - run: python -c "import sys; print(sys.version)"
-      - run: |
-          echo $CONDA/bin >> $GITHUB_PATH
-          echo "$GITHUB_WORKSPACE/alphapulldown" >> $GITHUB_PATH
+          auto-update-conda: true
+          use-mamba: true
+
       - if: matrix.install-type == 'user'
         run: |
-          conda install -y -c conda-forge mamba
-          mamba create -n AlphaPulldown -c omnia -c bioconda -c conda-forge python==${{ matrix.python-version }} \
-          openmm==8.0 pdbfixer==1.9 kalign2 hmmer hhsuite modelcif 
-          eval "$(conda shell.bash hook)"
-          conda activate AlphaPulldown
           pip install alphapulldown
           pip install -U "jax[cuda12]"
+
       - if: matrix.install-type == 'developer'
         run: |
-          conda install -y -c conda-forge mamba
-          mamba create -n AlphaPulldown -c omnia -c bioconda -c conda-forge python==${{ matrix.python-version }} \
-          openmm==8.0 pdbfixer==1.9 kalign2 hmmer hhsuite modelcif 
-          eval "$(conda shell.bash hook)"
-          conda activate AlphaPulldown
           pip install .
           pip install -U "jax[cuda12]"
           # export PYTHONPATH=$PWD/AlphaLink2:$PYTHONPATH
@@ -60,8 +53,6 @@ jobs:
           # python setup.py install --disable-cuda-ext
           # cd ..
       - run: |
-          eval "$(conda shell.bash hook)"
-          conda activate AlphaPulldown
           python test/test_python_imports.py
           pytest -s test/test_custom_db.py
           pytest -s test/test_remove_clashes_low_plddt.py
@@ -71,8 +62,8 @@ jobs:
           pytest -s test/test_parse_fold.py
           #export PYTHONPATH=$PWD/alphapulldown/analysis_pipeline:$PYTHONPATH
           ## Test analysis pipeline
-          #conda install -c bioconda biopandas 
-          #pip install pyrosetta-installer 
+          #conda install -c bioconda biopandas
+          #pip install pyrosetta-installer
           #python -c 'import pyrosetta_installer; pyrosetta_installer.install_pyrosetta()'
           #pytest -s test/test_pdb_analyser.py
           #pytest -s test/test_get_good_inter_pae.py
@@ -83,22 +74,13 @@ jobs:
       - uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Free disk space
-        run: |
-          rm -rf /opt/hostedtoolcache
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
+      - uses: actions/checkout@v4
+      - run: rm -rf /opt/hostedtoolcache
+      - uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
+      - uses: docker/setup-buildx-action@v3
       - name: Build and push fold container
         if: github.event_name == 'push'
         uses: docker/build-push-action@v5
@@ -108,7 +90,6 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/fold:latest
           ssh: default
-
       - name: Build and push fold container with version
         if: github.event_name == 'release' && github.event.action == 'published'
         uses: docker/build-push-action@v5
@@ -125,22 +106,13 @@ jobs:
       - uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Free disk space
-        run: |
-          rm -rf /opt/hostedtoolcache
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
+      - uses: actions/checkout@v4
+      - run: rm -rf /opt/hostedtoolcache
+      - uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
+      - uses: docker/setup-buildx-action@v3
       - name: Build and push alphalink container
         if: github.event_name == 'push'
         uses: docker/build-push-action@v5
@@ -150,7 +122,6 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/alphalink:latest
           ssh: default
-
       - name: Build and push alphalink container with version
         if: github.event_name == 'release' && github.event.action == 'published'
         uses: docker/build-push-action@v5
@@ -164,22 +135,13 @@ jobs:
   build-analysis-container:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Free disk space
-        run: |
-          rm -rf /opt/hostedtoolcache
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
+      - uses: actions/checkout@v4
+      - run: rm -rf /opt/hostedtoolcache
+      - uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
+      - uses: docker/setup-buildx-action@v3
       - name: Build and push analysis container
         if: github.event_name == 'push'
         uses: docker/build-push-action@v5
@@ -188,7 +150,6 @@ jobs:
           file: ./docker/analysis.dockerfile
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/fold_analysis:latest
-
       - name: Build and push analysis container with version
         if: github.event_name == 'release' && github.event.action == 'published'
         uses: docker/build-push-action@v5

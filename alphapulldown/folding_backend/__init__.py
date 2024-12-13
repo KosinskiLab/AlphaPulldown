@@ -43,15 +43,23 @@ class FoldingBackendManager:
             from .alphalink_backend import AlphaLinkBackend
             self._BACKEND_REGISTRY.update({"alphalink": AlphaLinkBackend})
         except Exception as e:
-            logging.warning("Failed to import AlphaLinkBackend. Perhaps you haven't installed all the required dependencies.")
-        
+            logging.warning(
+                f"Failed to import AlphaLinkBackend: {e}. Perhaps you haven't installed all the required dependencies.")
+
         try:
             from .unifold_backend import UnifoldBackend
             self._BACKEND_REGISTRY.update({"unifold": UnifoldBackend})
-        
         except Exception as e:
-            logging.warning("Failed to import UnifoldBackend. Perhaps you haven't installed all the required dependencies.")
-        
+            logging.warning(
+                f"Failed to import UnifoldBackend: {e}. Perhaps you haven't installed all the required dependencies.")
+
+        try:
+            from .alphafold3_backend import AlphaFold3Backend
+            self._BACKEND_REGISTRY.update({"alphafold3": AlphaFold3Backend})
+        except Exception as e:
+            logging.warning(
+                f"Failed to import AlphaFold3Backend: {e}. Perhaps you haven't installed all the required dependencies.")
+
     def __repr__(self):
         return f"<BackendManager: using {self._backend_name}>"
 
