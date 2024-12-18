@@ -1,36 +1,21 @@
-""" Implements class to represent electron density maps.
+"""
+    Copyright (c) 2024 European Molecular Biology Laboratory
 
-    Copyright (c) 2023 European Molecular Biology Laboratory
-
-    Author: Valentin Maurer <valentin.maurer@embl-hamburg.de>
-            Dingquan Yu <dingquan.yu@embl-hamburg.de>
+    Email: alphapulldown@embl-hamburg.de
 """
 
 from typing import Dict, List
 from absl import logging
-from .alphafold_backend import AlphaFoldBackend
 logging.set_verbosity(logging.INFO)
 
 class FoldingBackendManager:
     """
     Manager for structure prediction backends.
-
-    Attributes
-    ----------
-    _BACKEND_REGISTRY : dict
-        A dictionary mapping backend names to their respective classes or instances.
-    _backend : instance of MatchingBackend
-        An instance of the currently active backend. Defaults to AlphaFold.
-    _backend_name : str
-        Name of the current backend.
-    _backend_args : Dict
-        Arguments passed to create current backend.
-
     """
 
     def __init__(self):
         self._BACKEND_REGISTRY = {
-            "alphafold": AlphaFoldBackend
+            "alphafold": self._lazy_import("alphafold_backend", "AlphaFoldBackend")
         }
         self.import_backends()
         self._backend_name = "alphafold"
@@ -39,26 +24,26 @@ class FoldingBackendManager:
 
     def import_backends(self) -> None:
         """Import all available backends"""
-        try:
-            from .alphalink_backend import AlphaLinkBackend
-            self._BACKEND_REGISTRY.update({"alphalink": AlphaLinkBackend})
-        except Exception as e:
-            logging.warning(
-                f"Failed to import AlphaLinkBackend: {e}. Perhaps you haven't installed all the required dependencies.")
+        self._try_import("alphalink_backend", "AlphaLinkBackend", "alphalink")
+        self._try_import("unifold_backend", "UnifoldBackend", "unifold")
+        self._try_import("alphafold3_backend", "AlphaFold3Backend", "alphafold3")
 
-        try:
-            from .unifold_backend import UnifoldBackend
-            self._BACKEND_REGISTRY.update({"unifold": UnifoldBackend})
-        except Exception as e:
-            logging.warning(
-                f"Failed to import UnifoldBackend: {e}. Perhaps you haven't installed all the required dependencies.")
+    def _lazy_import(self, module_name: str, class_name: str):
+        def _imported_class(*args, **kwargs):
+            mod = __import__(f"alphapulldown.folding_backend.{module_name}", fromlist=[class_name])
+            cls = getattr(mod, class_name)
+            return cls(*args, **kwargs)
+        return _imported_class
 
+    def _try_import(self, module_name: str, class_name: str, backend_key: str):
         try:
-            from .alphafold3_backend import AlphaFold3Backend
-            self._BACKEND_REGISTRY.update({"alphafold3": AlphaFold3Backend})
+            mod = __import__(f"alphapulldown.folding_backend.{module_name}", fromlist=[class_name])
+            cls = getattr(mod, class_name)
+            self._BACKEND_REGISTRY[backend_key] = cls
         except Exception as e:
             logging.warning(
-                f"Failed to import AlphaFold3Backend: {e}. Perhaps you haven't installed all the required dependencies.")
+                f"Failed to import {class_name}: {e}. Perhaps dependencies are not installed?"
+            )
 
     def __repr__(self):
         return f"<BackendManager: using {self._backend_name}>"
@@ -67,15 +52,6 @@ class FoldingBackendManager:
         return getattr(self._backend, name)
 
     def __dir__(self) -> List:
-        """
-        Return a list of attributes available in this object,
-        including those from the backend.
-
-        Returns
-        -------
-        list
-            Sorted list of attributes.
-        """
         base_attributes = []
         base_attributes.extend(dir(self.__class__))
         base_attributes.extend(self.__dict__.keys())
@@ -83,21 +59,6 @@ class FoldingBackendManager:
         return sorted(base_attributes)
 
     def change_backend(self, backend_name: str, **backend_kwargs: Dict) -> None:
-        """
-        Change the backend.
-
-        Parameters
-        ----------
-        backend_name : str
-            Name of the new backend that should be used.
-        **backend_kwargs : Dict, optional
-            Parameters passed to __init__ method of backend.
-
-        Raises
-        ------
-        NotImplementedError
-            If no backend is found with the provided name.
-        """
         if backend_name not in self._BACKEND_REGISTRY:
             available_backends = ", ".join(
                 [str(x) for x in self._BACKEND_REGISTRY.keys()]
@@ -108,6 +69,5 @@ class FoldingBackendManager:
         self._backend = self._BACKEND_REGISTRY[backend_name](**backend_kwargs)
         self._backend_name = backend_name
         self._backend_args = backend_kwargs
-
 
 backend = FoldingBackendManager()
