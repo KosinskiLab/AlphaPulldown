@@ -194,7 +194,7 @@ alphafold_database/                             # Total: ~ 2.2 TB (download: 438
 > Uniclust30 is the version of the database generated before 2019, UniRef30 is the one generated after 2019. Please note that AlphaPulldown is using UniRef30_2023_02 by default. This version can be downloaded by [this script](https://github.com/KosinskiLab/alphafold/blob/main/scripts/download_uniref30.sh). Alternatively, please overwrite the default path to the uniref30 database using the --uniref30_database_path flag of create_individual_features.py.
    
 > [!NOTE] 
-> Since the local installation of all genetic databases is space-consuming, you can alternatively use the [remotely-run MMseqs2 and ColabFold databases](https://github.com/sokrypton/ColabFold). Follow the corresponding [instructions](#13-run-using-mmseqs2-and-colabfold-databases-faster). However, for AlphaPulldown to function, you must download the parameters stored in the `params/` directory of the AlphaFold database.
+> Since the local installation of all genetic databases is space-consuming, you can alternatively use the [remotely-run MMseqs2 and ColabFold databases](https://github.com/sokrypton/ColabFold). Follow the corresponding [instructions](#13-run-using-mmseqs2-and-colabfold-databases-faster). However, for AlphaPulldown to function, you must download the parameters stored in the `params/` directory of the AlphaFold database by downloading and executing this script: https://github.com/google-deepmind/alphafold/blob/main/scripts/download_alphafold_params.sh
 
 <br>
 <br> 
@@ -1075,7 +1075,7 @@ source activate AlphaPulldown
 run_multimer_jobs.py \
   --mode=custom \
   --monomer_objects_dir=<dir that stores feature pickle files> \
-  --data_dir=<path to alphafold databases> I am running a few minutes late; my previous meeting is running over.
+  --data_dir=<path to alphafold data dir> 
   --protein_lists=<protein_list.txt> \
   --output_path=<path to output directory> \ 
   --num_cycle=<any number e.g. 3> \
@@ -1087,7 +1087,7 @@ Explanation of arguments:
 * Instead of `<dir that stores feature pickle files>` provide the path to the directory containing the `.pkl` feature files generated in the [first step](#11-basic-run). The path is the same as `--output_dir` for `create_individual_features.py`.
 * Instead of `<protein_list.txt>` provide the path to a text file containing a list of protein combinations to be modeled.
 * Instead of `<path to output directory>` provide a path where subdirectories containing the final structures will be saved.
-* Instead of `<path to alphafold databases>` provide a path to the genetic database (see [0. Alphafold-databases](#installation) of the installation part).
+* Instead of `<path to alphafold data dir>` provide a path to the directory containing `params` directory with AlphaFold paramaters (see [0. Alphafold-databases](#installation) of the installation part). Sequence and PDB databases are not needed at this stage.
 * `--num_cycle`: specifies the number of times the AlphaFold neural network will run, using the output of one cycle as input for the next. Increasing this number may improve the quality of the final structures (especially for large complexes), but it will also increase the runtime.
 * `--num_predictions_per_model`: Specifies the number of predictions per model. The number of predicted structures is N\*5.  The default value is 1, which gives 5 structures.
 
