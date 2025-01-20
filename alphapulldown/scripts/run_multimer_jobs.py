@@ -93,7 +93,7 @@ def main(argv):
         "--path_to_mmt": FLAGS.path_to_mmt,
         "--compress_result_pickles": FLAGS.compress_result_pickles,
         "--remove_result_pickles": FLAGS.remove_result_pickles,
-        "--remove_keys_from_pickles" : FLAGS.remove_keys_from_pickles,
+        "--remove_keys_from_pickles": FLAGS.remove_keys_from_pickles,
         "--use_ap_style": True,
         "--use_gpu_relax": FLAGS.use_gpu_relax,
         "--protein_delimiter": FLAGS.protein_delimiter,
@@ -139,6 +139,7 @@ def main(argv):
             command = base_command.copy()
             for arg, value in command_args.items():
                 command.extend([str(arg), str(value)])
+            logging.info(f"command: {command}")
             subprocess.run(" ".join(command), check=True, shell=True)
 
 

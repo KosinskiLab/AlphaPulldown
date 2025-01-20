@@ -98,7 +98,9 @@ AlphaPulldown is a customized implementation of [AlphaFold-Multimer](https://git
 
 AlphaPulldown can be used in two ways: either by a two-step pipeline made of **python scripts**, or by a **Snakemake pipeline** as a whole. For details on using the Snakemake pipeline, please refer to the separate GitHub [**repository**](https://github.com/KosinskiLab/AlphaPulldownSnakemake).
 
-To enable faster usage and avoid redundant feature recalculations, we have developed a public database containing precomputed features for all major model organisms, available for download. For more details, [click here](https://github.com/KosinskiLab/AlphaPulldown/blob/main/README.md#features-database).
+To enable faster usage and avoid redundant feature recalculations, we have developed a [public database](https://alphapulldown.s3.embl.de/index.html) containing precomputed features for all major model organisms, available for download. You can check the full list and download individual features at https://alphapulldown.s3.embl.de/index.html or https://s3.embl.de/alphapulldown/index.html. 
+
+For more details, [click here](https://github.com/KosinskiLab/AlphaPulldown/blob/main/README.md#features-database).
 ## Overview
 
 <picture>
