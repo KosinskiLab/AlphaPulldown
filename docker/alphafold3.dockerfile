@@ -79,14 +79,14 @@ RUN conda run -n af3 pip install --no-cache-dir \
 # ---------------------------------------------------------
 RUN git clone --recurse-submodules https://github.com/KosinskiLab/AlphaPulldown.git
 WORKDIR /AlphaPulldown
-RUN conda run -n af3 pip install . --no-deps
+RUN ls -la /AlphaPulldown && ls -la /AlphaPulldown/alphafold3 && ls -la alphafold3 && \
+    conda run -n af3 pip install . --no-deps
 
 # ---------------------------------------------------------
-# 7) Copy & Build AlphaFold 3 Source
+# 7) Build AlphaFold 3 Source
 #    (Now that we have cmake, ninja, dev libs)
 # ---------------------------------------------------------
-COPY alphafold3/ /app/alphafold3
-WORKDIR /app/alphafold3
+WORKDIR /AlphaPulldown/alphafold3
 RUN conda run -n af3 pip install --upgrade pip && \
     conda run -n af3 pip install --no-deps . && \
     conda run -n af3 build_data
