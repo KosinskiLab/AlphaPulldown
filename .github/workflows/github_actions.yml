@@ -11,7 +11,7 @@ on:
 
 jobs:
   build-and-test:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -130,6 +130,38 @@ jobs:
           file: ./docker/alphalink.dockerfile
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/alphalink:${{ github.event.release.tag_name }}
+          ssh: default
+
+  build-alphafold3-container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+      - uses: actions/checkout@v4
+      - run: rm -rf /opt/hostedtoolcache
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - uses: docker/setup-buildx-action@v3
+      - name: Build and push alphafold3 container
+        if: github.event_name == 'push'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/alphafold3.dockerfile
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/alphafold3:latest
+          ssh: default
+      - name: Build and push alphafold3 container with version
+        if: github.event_name == 'release' && github.event.action == 'published'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/alphafold3.dockerfile
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/alphafold3:${{ github.event.release.tag_name }}
           ssh: default
 
   build-analysis-container:
