@@ -72,6 +72,7 @@ RUN mamba create -n af3 -y \
     biopython=1.* \
     appdirs=1.4.* \
     numpy=1.26.* \
+    ml-collections \
     && conda clean --all -f -y
 
 # ---------------------------------------------------------
