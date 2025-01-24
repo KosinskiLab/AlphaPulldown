@@ -70,6 +70,7 @@ RUN mamba create -n af3 -y \
     tensorflow-cpu=2.13.* \
     scipy=1.10.* \
     biopython=1.* \
+    appdirs=1.4.* \
     numpy=1.26.* \
     && conda clean --all -f -y
 
