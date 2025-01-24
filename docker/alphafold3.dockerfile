@@ -69,7 +69,7 @@ RUN mamba create -n af3 -y \
     rdkit=2024.3.5 \
     tensorflow-cpu=2.13.* \
     scipy=1.10.* \
-    biopython==1.84 \
+    biopython=1.* \
     numpy=1.26.* \
     && conda clean --all -f -y
 
