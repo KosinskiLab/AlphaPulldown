@@ -82,8 +82,8 @@ RUN conda run -n af3 pip install --upgrade pip && \
       jmp==0.0.4 \
       ml-dtypes==0.5.0 \
       "jax[cuda12]" \
-      triton \
-      jax-triton && \
+      triton==3.1.0 \
+      jax-triton==0.2.0 && \
     conda run -n af3 pip cache purge
 
 # -----------------------------------------------------------------------------
@@ -101,6 +101,8 @@ ENV PYTHONUTF8=1
 ENV SKBUILD_CONFIGURE_OPTIONS="-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF"
 ENV SKBUILD_BUILD_OPTIONS="-j1"
 WORKDIR /AlphaPulldown/alphafold3
+ENV CMAKE_CXX_STANDARD=17
+ENV CXXFLAGS="-O2 -fno-lto -std=gnu++17"
 
 RUN conda run -n af3 pip install --upgrade pip scikit_build_core pybind11 "cmake>=3.28" ninja && \
     conda run -n af3 pip install --no-build-isolation --no-deps . && \
