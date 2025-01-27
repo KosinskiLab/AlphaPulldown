@@ -148,8 +148,8 @@ import alphafold3.cpp; \
 from alphafold3.data import featurisation, pipeline; \
 from alphafold3.jax.attention import attention; \
 from alphafold3.model import features, params, post_processing; \
-from alphafold3.model.components import base_model, utils; \
-from alphafold3.model.diffusion import model as diffusion_model; \
+from alphafold3.model.components import utils; \
+from alphafold3.model import model; \
 from alphapulldown.folding_backend.folding_backend import FoldingBackend; \
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject; \
 print('All imports succeeded!')"
