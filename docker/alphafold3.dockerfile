@@ -1,44 +1,43 @@
-# ---------------------------------------------------------
-# Base CUDA Image
-# ---------------------------------------------------------
+###############################################################################
+# Dockerfile for AlphaFold 3 + AlphaPulldown
+# w/ fix for UnicodeDecodeError in build_data
+###############################################################################
 FROM nvidia/cuda:12.6.0-base-ubuntu22.04
 
-# ---------------------------------------------------------
-# 1) Install System Packages
-#    (Add cmake, ninja, gfortran, dev libs so AlphaFold 3 can build)
-# ---------------------------------------------------------
-RUN apt update --quiet && \
-    DEBIAN_FRONTEND=noninteractive apt install --yes --quiet --no-install-recommends \
-        software-properties-common \
-        git \
-        wget \
-        gcc \
-        g++ \
-        gfortran \
-        make \
-        zlib1g-dev \
-        zstd \
-        libblas-dev \
-        liblapack-dev \
-        cmake \
-        ninja-build \
-        libeigen3-dev \
-        locales \
-    && rm -rf /var/lib/apt/lists/*
+# -----------------------------------------------------------------------------
+# 1) Basic Setup & System Packages
+# -----------------------------------------------------------------------------
+ENV DEBIAN_FRONTEND=noninteractive
 
-# ---------------------------------------------------------
-# 2) Set Locale to en_US.UTF-8
-# ---------------------------------------------------------
+RUN apt-get update --quiet && \
+    apt-get upgrade --yes --quiet && \
+    apt-get install --yes --quiet --no-install-recommends \
+      software-properties-common \
+      git \
+      wget \
+      gcc \
+      g++ \
+      gfortran \
+      make \
+      zlib1g-dev \
+      zstd \
+      libblas-dev \
+      liblapack-dev \
+      cmake \
+      ninja-build \
+      libeigen3-dev \
+      locales && \
+    rm -rf /var/lib/apt/lists/*
+
 RUN locale-gen en_US.UTF-8 && \
     update-locale LANG=en_US.UTF-8
-
 ENV LANG=en_US.UTF-8
 ENV LANGUAGE=en_US:en
 ENV LC_ALL=en_US.UTF-8
 
-# ---------------------------------------------------------
-# 3) Install Miniforge (Conda) at /opt/conda
-# ---------------------------------------------------------
+# -----------------------------------------------------------------------------
+# 2) Install Miniforge & Mamba
+# -----------------------------------------------------------------------------
 RUN wget -q -P /tmp \
   https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh && \
     bash /tmp/Miniforge3-Linux-x86_64.sh -b -p /opt/conda && \
@@ -47,15 +46,11 @@ RUN wget -q -P /tmp \
 ENV PATH="/opt/conda/bin:$PATH"
 ENV LD_LIBRARY_PATH="/opt/conda/lib:$LD_LIBRARY_PATH"
 
-# ---------------------------------------------------------
-# 4) Install Mamba in the Base Environment
-# ---------------------------------------------------------
 RUN conda install -y -c conda-forge mamba
 
-# ---------------------------------------------------------
-# 5) Create and Populate the "af3" Conda Environment
-#    (RDKit, TensorFlow, SciPy, JAX, etc. from Conda channels)
-# ---------------------------------------------------------
+# -----------------------------------------------------------------------------
+# 3) Create "af3" Environment (Core Packages)
+# -----------------------------------------------------------------------------
 RUN mamba create -n af3 -y \
     -c conda-forge -c bioconda -c omnia \
     python=3.11 \
@@ -75,49 +70,52 @@ RUN mamba create -n af3 -y \
     ml-collections \
     && conda clean --all -f -y
 
-# ---------------------------------------------------------
-# 6) Pip Install "Pure-Python" Packages in the "af3" Environment
-# ---------------------------------------------------------
+# -----------------------------------------------------------------------------
+# 4) Extra Python Packages
+# -----------------------------------------------------------------------------
 RUN conda run -n af3 pip install --upgrade pip && \
     conda run -n af3 pip install --no-cache-dir \
-        dm-haiku==0.0.13 \
-        chex==0.1.87 \
-        dm-tree==0.1.8 \
-        jaxtyping==0.2.34 \
-        jmp==0.0.4 \
-        ml-dtypes==0.5.0 \
-        "jax[cuda12]" && \
+      dm-haiku==0.0.13 \
+      chex==0.1.87 \
+      dm-tree==0.1.8 \
+      jaxtyping==0.2.34 \
+      jmp==0.0.4 \
+      ml-dtypes==0.5.0 \
+      "jax[cuda12]" \
+      triton \
+      jax-triton && \
     conda run -n af3 pip cache purge
 
-# ---------------------------------------------------------
-# 7) Clone and Install AlphaPulldown
-# ---------------------------------------------------------
+# -----------------------------------------------------------------------------
+# 5) Clone + Install AlphaPulldown (No Deps)
+# -----------------------------------------------------------------------------
 RUN git clone --recurse-submodules https://github.com/KosinskiLab/AlphaPulldown.git /AlphaPulldown
-
 WORKDIR /AlphaPulldown
-
-# Install AlphaPulldown without dependencies
 RUN conda run -n af3 pip install . --no-deps
 
-# ---------------------------------------------------------
-# 8) Build AlphaFold 3 Source
-# ---------------------------------------------------------
+# -----------------------------------------------------------------------------
+# 6) ENV Vars to Force UTF-8 Reading + Build AlphaFold 3
+# -----------------------------------------------------------------------------
+ENV PYTHONIOENCODING=utf-8
+ENV PYTHONUTF8=1
+ENV SKBUILD_CONFIGURE_OPTIONS="-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF"
+ENV SKBUILD_BUILD_OPTIONS="-j1"
 WORKDIR /AlphaPulldown/alphafold3
 
-RUN conda run -n af3 pip install --upgrade pip && \
-    conda run -n af3 pip install --no-deps . && \
+RUN conda run -n af3 pip install --upgrade pip scikit_build_core pybind11 "cmake>=3.28" ninja && \
+    conda run -n af3 pip install --no-build-isolation --no-deps . && \
     conda run -n af3 build_data
 
-# ---------------------------------------------------------
-# 9) Set Environment Variables for XLA (Optional)
-# ---------------------------------------------------------
-ENV XLA_FLAGS="--xla_gpu_enable_triton_gemm=false"
-ENV XLA_PYTHON_CLIENT_PREALLOCATE=true
-ENV XLA_CLIENT_MEM_FRACTION=0.95
+# -----------------------------------------------------------------------------
+# 7) Optional XLA Vars
+# -----------------------------------------------------------------------------
+ENV XLA_FLAGS="--xla_gpu_enable_triton_gemm=false" \
+    XLA_PYTHON_CLIENT_PREALLOCATE=true \
+    XLA_CLIENT_MEM_FRACTION=0.95
 
-# ---------------------------------------------------------
-# 10) Ensure run_structure_prediction.py is Accessible
-# ---------------------------------------------------------
+# -----------------------------------------------------------------------------
+# 8) Link run_structure_prediction.py
+# -----------------------------------------------------------------------------
 RUN ls -la /AlphaPulldown && \
     ls -la /AlphaPulldown/alphapulldown/scripts && \
     ls -la /AlphaPulldown/alphafold3/ && \
@@ -128,12 +126,30 @@ RUN ls -la /AlphaPulldown && \
         echo "Error: run_structure_prediction.py not found in expected locations." && exit 1; \
     fi
 
-# ---------------------------------------------------------
-# 11) Provide Default Shell Inside "af3" Environment
-# ---------------------------------------------------------
+# -----------------------------------------------------------------------------
+# 9) Provide Shell Inside "af3"
+# -----------------------------------------------------------------------------
 ENV PATH="/opt/conda/envs/af3/bin:$PATH"
-
-# ---------------------------------------------------------
-# 12) Set ENTRYPOINT to Bash
-# ---------------------------------------------------------
 ENTRYPOINT ["/bin/bash"]
+
+# -----------------------------------------------------------------------------
+# 10) Validate imports automatically (Optional)
+# -----------------------------------------------------------------------------
+RUN conda run -n af3 python -c "\
+import csv; import dataclasses; import datetime; import functools; import logging; import os; \
+import pathlib; import string; import textwrap; import time; import typing; \
+from collections.abc import Sequence; from typing import List, Dict, Union; \
+import haiku as hk; import jax; import numpy as np; from jax import numpy as jnp; \
+from alphafold.common import residue_constants; \
+from alphafold.common.protein import Protein, to_mmcif; \
+from alphafold3.common import base_config, folding_input; \
+from alphafold3.constants import chemical_components; \
+import alphafold3.cpp; \
+from alphafold3.data import featurisation, pipeline; \
+from alphafold3.jax.attention import attention; \
+from alphafold3.model import features, params, post_processing; \
+from alphafold3.model.components import base_model, utils; \
+from alphafold3.model.diffusion import model as diffusion_model; \
+from alphapulldown.folding_backend.folding_backend import FoldingBackend; \
+from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject; \
+print('All imports succeeded!')"
