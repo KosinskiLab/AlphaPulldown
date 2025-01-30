@@ -1,4 +1,4 @@
-# AlphaPulldown: Version 2.0.0
+# AlphaPulldown: Version 2.0.1
 
 > AlphaPulldown fully **maintains backward compatibility** with input files and scripts from versions 1.x.
 
@@ -6,7 +6,7 @@
 
 <!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
 
-- [AlphaPulldown: Version 2.0.0 (Beta)](#alphapulldown-version-200-beta)
+- [AlphaPulldown: Version 2.0.1](#alphapulldown-version-201)
    * [Table of Contents](#table-of-contents)
 - [About AlphaPulldown](#about-alphapulldown)
    * [Overview](#overview)
@@ -299,7 +299,7 @@ You can delete the <writable_image_dir> now.
 
 ## 2. Configuration
 
-Adjust `config/config.yaml` for your particular use case. It is possible to use pre-calculated features (e.g. [downloaded from our features database](https://github.com/KosinskiLab/AlphaPulldown?tab=readme-ov-file#installation)) by adding paths to the features to your config/config.yaml
+Adjust [`config/config.yaml`](https://github.com/KosinskiLab/AlphaPulldownSnakemake/blob/main/config/config.yaml) for your particular use case. It is possible to use pre-calculated features (e.g. [downloaded from our features database](https://github.com/KosinskiLab/AlphaPulldown?tab=readme-ov-file#installation)) by adding paths to the features to your config/config.yaml
 
 ```yaml
 feature_directory :
@@ -313,7 +313,15 @@ If you want to use CCP4 for analysis, open `config/config.yaml` in a text editor
 ```yaml
 analysis_container : "/path/to/fold_analysis_latest_withCCP4.sif"
 ```
-
+If you want to change folding backend, simply add `folding-backend` flag to the `structure_inference_arguments`, e.g. for using AlphaFold3 backend:
+```yaml
+structure_inference_arguments:
+  --fold_backend: alphafold3
+  --<other-flags>
+```
+Please do not forget to change `alphafold-data-directory` and add backend specific flags.
+> [!NOTE]
+> At the moment AlphaPulldown supports the following backends: alphafold, alphafold3, alphalink and unifold.
 **input_files**
 This variable holds the path to your sample sheet, where each line corresponds to a folding job. For this pipeline we use the following format specification:
 
