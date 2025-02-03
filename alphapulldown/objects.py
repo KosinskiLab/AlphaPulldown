@@ -450,12 +450,13 @@ class MultimericObject:
     multimeric_template_dir: a directory where all the multimeric templates mmcifs files are stored
     """
 
-    def __init__(self, interactors: list, pair_msa: bool = True, 
+    def __init__(self, interactors: list, input: list, pair_msa: bool = True, 
                  multimeric_template: bool = False,
                  multimeric_template_meta_data: str = None,
                  multimeric_template_dir:str = None) -> None:
         self.description = ""
         self.interactors = interactors
+        self.input = input
         self.build_description_monomer_mapping()
         self.pair_msa = pair_msa
         self.multimeric_template = multimeric_template
@@ -479,11 +480,23 @@ class MultimericObject:
 
     def create_output_name(self):
         """a method to create output name"""
+        list_oligo = self.input[0].split("+")
+        oligo_count = 0
         for i in range(len(self.interactors)):
             if i == 0:
-                self.description += f"{self.interactors[i].description}"
+                if ":" in list_oligo[i] :
+                   self.description += f"{self.interactors[i].description}_homo_{list_oligo[i].split(':')[1]}er"
+                else :
+                   self.description += f"{self.interactors[i].description}"
             else:
-                self.description += f"_and_{self.interactors[i].description}"
+                if self.interactors[i].description in self.description :
+                   oligo_count += 1
+                   pass
+                else :
+                   if ":" in list_oligo[i-oligo_count] :
+                      self.description += f"_and_{self.interactors[i].description}_homo_{list_oligo[i-oligo_count].split(':')[1]}er"
+                   else :
+                      self.description += f"_and_{self.interactors[i].description}"
 
     def create_chain_id_map(self):
         """a method to create chain id"""
