@@ -223,6 +223,7 @@ def pre_modelling_setup(
         # this means it's going to be a MultimericObject
         object_to_model = MultimericObject(
             interactors=interactors,
+            input=flags.input,
             pair_msa= flags.pair_msa,
             multimeric_template=flags.multimeric_template,
             multimeric_template_meta_data=flags.description_file,
