@@ -1,4 +1,4 @@
-# AlphaPulldown: Version 2.0.1
+# AlphaPulldown: Version 2.x.
 
 > AlphaPulldown fully **maintains backward compatibility** with input files and scripts from versions 1.x.
 
@@ -6,7 +6,7 @@
 
 <!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
 
-- [AlphaPulldown: Version 2.0.1](#alphapulldown-version-201)
+- [AlphaPulldown: Version 2.x.](#alphapulldown-version-201)
    * [Table of Contents](#table-of-contents)
 - [About AlphaPulldown](#about-alphapulldown)
    * [Overview](#overview)
