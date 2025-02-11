@@ -229,7 +229,7 @@ class MonomericObject:
         self.feature_dict = build_monomer_feature(self.sequence, unpaired_msa[0], template_features[0])
 
         # Fix: Change tuple to list so that we can concatenate with msa_pairing.MSA_FEATURES.
-        valid_feats = msa_pairing.MSA_FEATURES + ["msa_species_identifiers", "msa_uniprot_accession_identifiers"]
+        valid_feats = msa_pairing.MSA_FEATURES + ("msa_species_identifiers", "msa_uniprot_accession_identifiers")
         feats = {f"{k}_all_seq": v for k, v in self.feature_dict.items() if k in valid_feats}
 
         # Add default template confidence and release date if missing.

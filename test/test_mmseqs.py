@@ -2,10 +2,7 @@ import os
 import tempfile
 import numpy as np
 
-from absl import logging
 from absl.testing import absltest
-
-# Import the class to test. Adjust the module path as needed.
 from alphapulldown.objects import MonomericObject
 
 # Dummy implementations for the functions used by make_mmseq_features.
@@ -15,9 +12,9 @@ def fake_build_monomer_feature(sequence, msa, template_features):
             "template_confidence_scores": None,
             "template_release_date": None}
 
-# Dummy msa_pairing.MSA_FEATURES list.
+# Define fake MSA_FEATURES as a tuple.
 class FakeMSAPairing:
-    MSA_FEATURES = ["dummy_feature"]
+    MSA_FEATURES = ("dummy_feature",)
 
 # Save originals to restore later.
 _original_build_monomer_feature = None
@@ -64,7 +61,7 @@ class MmseqFeaturesTest(absltest.TestCase):
         objects_mod.get_msa_and_templates = fake_get_msa_and_templates
         objects_mod.unserialize_msa = fake_unserialize_msa
 
-        # Override msa_pairing.MSA_FEATURES in the module where make_mmseq_features uses it.
+        # Override msa_pairing.MSA_FEATURES with a tuple.
         objects_mod.msa_pairing.MSA_FEATURES = FakeMSAPairing.MSA_FEATURES
 
     def tearDown(self):
@@ -93,7 +90,7 @@ class MmseqFeaturesTest(absltest.TestCase):
         )
         # Our fake_unserialize_msa returns fake values that we check:
         self.assertEqual(self.monomer.feature_dict["dummy_feature"], 42)
-        # Check that template_confidence_scores and template_release_date got set:
+        # Check that template_confidence_scores and template_release_date got set.
         self.assertTrue(isinstance(self.monomer.feature_dict["template_confidence_scores"], np.ndarray))
         self.assertEqual(self.monomer.feature_dict["template_release_date"], ['none'])
 
@@ -114,7 +111,7 @@ class MmseqFeaturesTest(absltest.TestCase):
         self.assertEqual(self.monomer.feature_dict["dummy_feature"], 42)
         # The a3m file should now exist.
         self.assertTrue(os.path.isfile(a3m_path))
-        # Check that the file contains our dummy content from fake_get_msa_and_templates branch.
+        # Check that the file contains our dummy content from the fake_get_msa_and_templates branch.
         with open(a3m_path) as f:
             msa_content = f.read()
         self.assertIn("FAKE_UNPAIRED", msa_content)
