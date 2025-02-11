@@ -305,22 +305,11 @@ def create_and_save_monomer_objects(monomer, pipeline):
 
     # Create features
     if FLAGS.use_mmseqs2:
-        if FLAGS.use_precomputed_msas:
-            logging.info("Using precomputed MSAs for mmseqs2: loading from disk.")
-            # Ensure a pipeline is available (create one if necessary)
-            if pipeline is None:
-                pipeline = create_pipeline()
-            monomer.make_features(
-                pipeline=pipeline,
-                output_dir=FLAGS.output_dir,
-                use_precomputed_msa=True,
-                save_msa=FLAGS.save_msa_files,
-            )
-        else:
             logging.info("Running MMseqs2 for feature generation...")
             monomer.make_mmseq_features(
                 DEFAULT_API_SERVER=DEFAULT_API_SERVER,
-                output_dir=FLAGS.output_dir
+                output_dir=FLAGS.output_dir,
+                use_precomputed_msa=FLAGS.use_precomputed_msas,
             )
     else:
         monomer.make_features(
