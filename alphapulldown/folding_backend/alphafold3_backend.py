@@ -13,33 +13,29 @@ import functools
 import logging
 import os
 import pathlib
-import string
-import textwrap
 import time
 import typing
 from collections.abc import Sequence
 from typing import List, Dict, Union
 
+import alphafold3.cpp
 import haiku as hk
 import jax
 import numpy as np
+from alphafold3.common import base_config
+from alphafold3.common import folding_input
+from alphafold3.constants import chemical_components
+from alphafold3.data import featurisation
+from alphafold3.jax.attention import attention
+from alphafold3.model import features, params, post_processing
+from alphafold3.model import model
+from alphafold3.model.components import utils
 from jax import numpy as jnp
 
 from alphafold.common import residue_constants
 from alphafold.common.protein import Protein, to_mmcif
-from alphafold3.common import base_config
-from alphafold3.common import folding_input
-from alphafold3.constants import chemical_components
-import alphafold3.cpp
-from alphafold3.data import featurisation
-from alphafold3.data import pipeline
-from alphafold3.jax.attention import attention
-from alphafold3.model import features, params, post_processing
-from alphafold3.model.components import utils
-from alphafold3.model import model
 from alphapulldown.folding_backend.folding_backend import FoldingBackend
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
-
 
 # -----------------------------------------------------------------------------
 # Global Constants and Type Definitions
@@ -513,8 +509,14 @@ class AlphaFold3Backend(FoldingBackend):
             if compute_capability < 6.0:
                 raise ValueError('AlphaFold 3 requires at least GPU compute capability 6.0.')
             elif 7.0 <= compute_capability < 8.0:
-                raise ValueError('Known unresolved numerical issues with GPU compute capability 7.x.')
-
+                xla_flags = os.environ.get('XLA_FLAGS')
+                required_flag = '--xla_disable_hlo_passes=custom-kernel-fusion-rewriter'
+                if not xla_flags or required_flag not in xla_flags:
+                    raise ValueError(
+                        'For devices with GPU compute capability 7.x (see'
+                        ' https://developer.nvidia.com/cuda-gpus) the ENV XLA_FLAGS must'
+                        f' include "{required_flag}".'
+                    )
         logging.info(f'Found local devices: {gpu_devices}')
         logging.info('Building model from scratch...')
 
