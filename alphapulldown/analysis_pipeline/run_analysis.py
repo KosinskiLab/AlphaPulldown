@@ -82,15 +82,15 @@ def find_structure_file(directory: str, model: str) -> str:
 class InterfaceAnalysis:
     """
     Represents a single interface between two chains.
-    Calculates per-interface metrics, e.g.:
-      - average interface pLDDT (using B-factors as a proxy)
-      - number of atom-atom contact pairs between the two chains.
+    Calculates per-interface metrics, for example:
+      - Average interface pLDDT (using B-factors as a proxy)
+      - Number of atom-atom contact pairs between the two chains.
     """
     def __init__(self, chain1, chain2, cutoff: float) -> None:
         """
         Args:
-            chain1: First chain (a Bio.PDB.Chain object)
-            chain2: Second chain (a Bio.PDB.Chain object)
+            chain1: First chain (a Bio.PDB.Chain object).
+            chain2: Second chain (a Bio.PDB.Chain object).
             cutoff: Distance cutoff for interface determination.
         """
         self.chain1 = chain1
@@ -102,13 +102,12 @@ class InterfaceAnalysis:
         """
         Identify residues in chain1 and chain2 that are at the interface.
         Returns:
-            A tuple (set_of_residues_chain1, set_of_residues_chain2)
+            A tuple (set_of_residues_chain1, set_of_residues_chain2).
         """
-        res1_set = set()
-        res2_set = set()
+        res1_set: Set = set()
+        res2_set: Set = set()
         for res1 in self.chain1:
             for res2 in self.chain2:
-                # Check if any atom in res1 is within cutoff of any atom in res2.
                 for atom1 in res1:
                     for atom2 in res2:
                         if atom1 - atom2 < self.cutoff:
@@ -122,14 +121,16 @@ class InterfaceAnalysis:
 
     def average_interface_plddt(self) -> float:
         """
-        Calculates the average pLDDT over the interface residues.
-        Here, the B-factor is used as a proxy for pLDDT.
+        Calculates the average interface pLDDT over residues in the interface.
+        Here, the B-factor of the CA atom is used as a proxy.
         """
         bvals = []
-        # Combine interface residues from both chains.
-        for res in self.interface_residues_chain1.union(self.interface_residues_chain2):
-            # Use CA atom if available.
-            atom = res["CA"] if "CA" in res.child_dict else list(res.child_dict.values())[0]
+        residues = self.interface_residues_chain1.union(self.interface_residues_chain2)
+        for res in residues:
+            try:
+                atom = res["CA"]
+            except KeyError:
+                atom = list(res.child_dict.values())[0]
             bvals.append(atom.get_bfactor())
         return sum(bvals) / len(bvals) if bvals else float('nan')
 
@@ -166,7 +167,6 @@ class ComplexAnalysis:
         self.structure_file = structure_file
         self.cutoff = cutoff
 
-        # Choose the appropriate parser.
         ext = os.path.splitext(structure_file)[1].lower()
         if ext == ".cif":
             parser = MMCIFParser(QUIET=True)
@@ -196,12 +196,11 @@ class ComplexAnalysis:
             self._iptm_ptm = None
             self._iptm = None
 
-        # Create an InterfaceAnalysis object for every pair of chains.
         self.interfaces = self._create_interfaces()
 
     def _create_interfaces(self) -> List[InterfaceAnalysis]:
         """
-        For each pairwise combination of chains in the first model, create an InterfaceAnalysis.
+        Create an InterfaceAnalysis object for each pairwise combination of chains.
         """
         interfaces = []
         model = next(self.structure.get_models())
@@ -214,26 +213,14 @@ class ComplexAnalysis:
                 interfaces.append(InterfaceAnalysis(chains[i], chains[j], self.cutoff))
         return interfaces
 
-    @cached_property
-    def iptm_ptm(self) -> float:
-        """Combined AlphaFold ipTM and pTM score (multimer only)."""
-        return self._iptm_ptm if self._iptm_ptm is not None else float('nan')
-
-    @cached_property
-    def iptm(self) -> float:
-        """AlphaFold ipTM score (multimer only)."""
-        return self._iptm if self._iptm is not None else float('nan')
-
-    @cached_property
-    def pdockq(self) -> float:
-        """Global docking quality score computed via a sigmoid formulation."""
-        L, x0, k, b = 0.827, 261.398, 0.036, 0.221
-        contacts = self.contact_pairs_global()
-        return L / (1 + math.exp(-k * (contacts - x0))) + b
+    @property
+    def num_chains(self) -> int:
+        """Return the number of chains in the complex."""
+        return len(list(self.structure.get_chains()))
 
     def contact_pairs_global(self) -> int:
         """
-        Count atom-atom contacts over the entire complex.
+        Counts atom-atom contacts over the entire complex.
         """
         count = 0
         residues = list(self.structure.get_residues())
@@ -248,9 +235,57 @@ class ComplexAnalysis:
         return count
 
     @cached_property
+    def pdockq(self) -> float:
+        """Global docking quality score computed via a sigmoid formulation."""
+        L, x0, k, b = 0.827, 261.398, 0.036, 0.221
+        contacts = self.contact_pairs_global()
+        return L / (1 + math.exp(-k * (contacts - x0))) + b
+
+    def compute_complex_score(self) -> float:
+        """
+        Computes a 'complex score' as global average interface pLDDT times log10(total contacts+1).
+        """
+        return self.average_interface_plddt * math.log10(self.contact_pairs_global() + 1)
+
+    def calculate_mpDockQ(self, complex_score: float) -> float:
+        """
+        Calculate the mpDockQ score using a sigmoid formulation.
+        Parameters: L = 0.724, x0 = 152.611, k = 0.052, b = 0.018.
+        """
+        L, x0, k, b = 0.724, 152.611, 0.052, 0.018
+        return L / (1 + math.exp(-k * (complex_score - x0))) + b
+
+    @cached_property
+    def mpdockq(self) -> float:
+        """
+        Global multi-protein docking quality score for the complex.
+        """
+        score = self.compute_complex_score()
+        return self.calculate_mpDockQ(score)
+
+    @cached_property
+    def iptm_ptm(self) -> float:
+        """Combined AlphaFold ipTM and pTM score (multimer only)."""
+        return self._iptm_ptm if self._iptm_ptm is not None else float('nan')
+
+    @cached_property
+    def iptm(self) -> float:
+        """AlphaFold ipTM score (multimer only)."""
+        return self._iptm if self._iptm is not None else float('nan')
+
+    @cached_property
     def average_interface_pae(self) -> float:
         """Global average PAE for the complex."""
-        pae_values: List[float] = [value for row in self.pae_data for value in row]
+        pae_values: List[float] = []
+        for row in self.pae_data:
+            for v in row:
+                try:
+                    # Skip header strings.
+                    if isinstance(v, str) and v in ("predicted_aligned_error", "max_predicted_aligned_error"):
+                        continue
+                    pae_values.append(float(v))
+                except Exception as e:
+                    logging.error("Error converting PAE value %s to float: %s", v, e)
         good_values = [v for v in pae_values if v < self.cutoff]
         return sum(good_values) / len(good_values) if good_values else float('nan')
 
@@ -264,6 +299,11 @@ class ComplexAnalysis:
             return float('nan')
         values = [iface.average_interface_plddt() for iface in self.interfaces]
         return sum(values) / len(values)
+
+    @cached_property
+    def contact_pairs(self) -> int:
+        """Global contact pairs count over the entire complex."""
+        return self.contact_pairs_global()
 
     @cached_property
     def num_intf_residues(self) -> int:
@@ -305,11 +345,6 @@ class ComplexAnalysis:
         return sum(1 for res in all_res if res.get_resname() in charged_res)
 
     @cached_property
-    def contact_pairs(self) -> int:
-        """Global contact pairs count over the entire complex."""
-        return self.contact_pairs_global()
-
-    @cached_property
     def sc(self) -> float:
         """Global shape complementarity score (dummy implementation)."""
         return 0.65
@@ -341,60 +376,69 @@ def process_all_models(directory: str, cutoff: float) -> None:
     ranking_data = parse_ranking_debug_json_all(directory)
     models_order: List[str] = ranking_data["order"]
 
-    output_file = os.path.join(directory, "scores.csv")
+    # Define output CSV headers with tab delimiter.
     headers = [
-        "model", "iptm_ptm", "iptm", "pdockq", "mpdockq", "average_interface_pae",
-        "average_interface_plddt", "num_intf_residues", "polar", "hydrophobic",
-        "charged", "contact_pairs", "sc", "hb", "sb", "int_solv_en", "int_area",
-        "max_predicted_aligned_error", "predicted_aligned_error"
+        "jobs", "iptm_ptm", "iptm", "pDockQ/mpDockQ", "average_interface_pae",
+        "average_interface_plddt", "binding_energy", "interface", "Num_intf_residues",
+        "Polar", "Hydrophobic", "Charged", "contact_pairs", " sc", " hb", " sb",
+        " int_solv_en", " int_area"
     ]
-
+    output_file = os.path.join(directory, "scores.csv")
     with open(output_file, "w", newline="") as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=headers)
+        writer = csv.DictWriter(csvfile, fieldnames=headers, delimiter='\t')
         writer.writeheader()
         for model in models_order:
             try:
                 r_metric = get_ranking_metric_for_model(ranking_data, model)
                 struct_file = find_structure_file(directory, model)
                 pae_file = os.path.join(directory, f"pae_{model}.json")
-                complex_analysis = ComplexAnalysis(struct_file, pae_file, r_metric, cutoff)
+                comp = ComplexAnalysis(struct_file, pae_file, r_metric, cutoff)
+                # Use mpDockQ if more than one chain; otherwise, use pdockq.
+                score_val = comp.mpdockq if comp.num_chains > 1 else comp.pdockq
+                # Dummy binding energy: -1.3 times total global contact pairs.
+                binding_energy = -1.3 * comp.contact_pairs_global()
+                # For interface, simply choose the best interface label (chain IDs e.g. "A_B").
+                if comp.interfaces:
+                    best_iface = max(comp.interfaces, key=lambda x: x.average_interface_plddt())
+                    iface_label = f"{best_iface.chain1.id}_{best_iface.chain2.id}"
+                else:
+                    iface_label = ""
                 row = {
-                    "model": model,
-                    "iptm_ptm": complex_analysis.iptm_ptm,
-                    "iptm": complex_analysis.iptm,
-                    "pdockq": complex_analysis.pdockq,
-                    "mpdockq": complex_analysis.mpdockq,
-                    "average_interface_pae": complex_analysis.average_interface_pae,
-                    "average_interface_plddt": complex_analysis.average_interface_plddt,
-                    "num_intf_residues": complex_analysis.num_intf_residues,
-                    "polar": complex_analysis.polar,
-                    "hydrophobic": complex_analysis.hydrophobic,
-                    "charged": complex_analysis.charged,
-                    "contact_pairs": complex_analysis.contact_pairs,
-                    "sc": complex_analysis.sc,
-                    "hb": complex_analysis.hb,
-                    "sb": complex_analysis.sb,
-                    "int_solv_en": complex_analysis.int_solv_en,
-                    "int_area": complex_analysis.int_area,
-                    "max_predicted_aligned_error": complex_analysis.max_predicted_aligned_error,
-                    "predicted_aligned_error": complex_analysis.predicted_aligned_error
+                    "jobs": model,
+                    "iptm_ptm": comp.iptm_ptm,
+                    "iptm": comp.iptm,
+                    "pDockQ/mpDockQ": score_val,
+                    "average_interface_pae": comp.average_interface_pae,
+                    "average_interface_plddt": comp.average_interface_plddt,
+                    "binding_energy": binding_energy,
+                    "interface": iface_label,
+                    "Num_intf_residues": comp.num_intf_residues,
+                    "Polar": comp.polar,
+                    "Hydrophobic": comp.hydrophobic,
+                    "Charged": comp.charged,
+                    "contact_pairs": comp.contact_pairs,
+                    " sc": comp.sc,
+                    " hb": comp.hb,
+                    " sb": comp.sb,
+                    " int_solv_en": comp.int_solv_en,
+                    " int_area": comp.int_area
                 }
                 writer.writerow(row)
                 logging.info("Processed model: %s", model)
-                # Write per-interface metrics to a separate CSV if interfaces exist.
-                if complex_analysis.interfaces:
-                    interface_file = os.path.join(directory, f"{model}_interface_metrics.csv")
-                    with open(interface_file, "w", newline="") as ifile:
-                        iface_headers = ["interface", "average_interface_plddt", "contact_pairs"]
-                        iface_writer = csv.DictWriter(ifile, fieldnames=iface_headers)
+                # Write per-interface metrics to a separate CSV file.
+                if comp.interfaces:
+                    iface_file = os.path.join(directory, f"{model}_interface_metrics.csv")
+                    iface_headers = ["interface", "average_interface_plddt", "contact_pairs"]
+                    with open(iface_file, "w", newline="") as ifile:
+                        iface_writer = csv.DictWriter(ifile, fieldnames=iface_headers, delimiter='\t')
                         iface_writer.writeheader()
-                        for iface in complex_analysis.interfaces:
+                        for iface in comp.interfaces:
                             iface_writer.writerow({
                                 "interface": f"{iface.chain1.id}_{iface.chain2.id}",
                                 "average_interface_plddt": iface.average_interface_plddt(),
                                 "contact_pairs": iface.contact_pairs()
                             })
-                    logging.info("Interface metrics written to %s", interface_file)
+                    logging.info("Interface metrics written to %s", iface_file)
             except Exception as e:
                 logging.error("Error processing model %s: %s", model, e)
     logging.info("Global scores written to %s", output_file)
