@@ -2,7 +2,6 @@ import os
 import glob
 import math
 import json
-import csv
 from typing import Any, Dict, List, Tuple, Set
 from functools import cached_property
 
@@ -14,11 +13,19 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string('pathToDir', None,
                     'Path to the directory containing predicted model files and ranking_debug.json')
 flags.DEFINE_float('cutoff', 5.0, 'Cutoff value for distances (and PAE threshold)')
+flags.DEFINE_float('contact_thresh', 8.0, 'Distance threshold for counting contacts (Å)')
 flags.DEFINE_integer('surface_thres', 2, 'Surface threshold. Must be integer')
 
 
-# === File Handling Utilities ===
+# === Helper to Extract Job Name ===
+def extract_job_name() -> str:
+    """
+    Use the basename of the pathToDir directory as the job name.
+    """
+    return os.path.basename(os.path.normpath(FLAGS.pathToDir))
 
+
+# === File Handling Utilities ===
 def read_json(filepath: str) -> Any:
     try:
         with open(filepath) as f:
@@ -83,28 +90,17 @@ class InterfaceAnalysis:
     """
     Represents a single interface between two chains.
     Calculates per-interface metrics:
-      - average_interface_plddt: average of B-factors of CA atoms as a proxy for pLDDT.
-      - contact_pairs: number of atom-atom contacts between the two chains.
+      - average_interface_plddt: average of CA B-factors (proxy for pLDDT)
+      - contact_pairs: number of atom-atom contacts between the two chains (using contact_thresh)
       - interface_score: defined as average_interface_plddt * log10(contact_pairs + 1)
     """
     def __init__(self, chain1, chain2, cutoff: float) -> None:
-        """
-        Args:
-            chain1: First chain (a Bio.PDB.Chain object).
-            chain2: Second chain (a Bio.PDB.Chain object).
-            cutoff: Distance cutoff for interface determination.
-        """
         self.chain1 = chain1
         self.chain2 = chain2
-        self.cutoff = cutoff
+        self.cutoff = cutoff  # for identifying interface residues
         self.interface_residues_chain1, self.interface_residues_chain2 = self._get_interface_residues()
 
     def _get_interface_residues(self) -> Tuple[Set, Set]:
-        """
-        Identify residues in chain1 and chain2 that are at the interface.
-        Returns:
-            A tuple (set_of_residues_chain1, set_of_residues_chain2).
-        """
         res1_set: Set = set()
         res2_set: Set = set()
         for res1 in self.chain1:
@@ -121,10 +117,6 @@ class InterfaceAnalysis:
         return res1_set, res2_set
 
     def average_interface_plddt(self) -> float:
-        """
-        Calculates the average interface pLDDT over residues in the interface.
-        Here, the B-factor of the CA atom is used as a proxy.
-        """
         bvals = []
         residues = self.interface_residues_chain1.union(self.interface_residues_chain2)
         for res in residues:
@@ -136,23 +128,17 @@ class InterfaceAnalysis:
         return sum(bvals) / len(bvals) if bvals else float('nan')
 
     def contact_pairs(self) -> int:
-        """
-        Counts the number of atom-atom contacts between the two chains at the interface.
-        """
         count = 0
+        thresh = FLAGS.contact_thresh  # use the contact distance threshold (e.g., 8.0 Å)
         for res1 in self.interface_residues_chain1:
             for res2 in self.interface_residues_chain2:
                 for atom1 in res1:
                     for atom2 in res2:
-                        if atom1 - atom2 < self.cutoff:
+                        if atom1 - atom2 < thresh:
                             count += 1
         return count
 
     def interface_score(self) -> float:
-        """
-        Computes an interface score as:
-            average_interface_plddt * log10(contact_pairs + 1)
-        """
         cp = self.contact_pairs()
         return self.average_interface_plddt() * math.log10(cp + 1) if cp > 0 else 0.0
 
@@ -162,18 +148,13 @@ class InterfaceAnalysis:
 class ComplexAnalysis:
     """
     Represents a predicted complex.
-    Loads structure, ranking, and PAE data and creates per-interface analyses.
-    Computes global metrics and aggregates per-interface information.
+    Loads structure, ranking, and PAE data; creates per-interface analyses;
+    and computes global metrics.
+
+    TODO: Re-implement binding energy calculation using proper solvation and energy functions.
     """
     def __init__(self, structure_file: str, pae_file: str,
                  ranking_metric: Dict[str, Any], cutoff: float = 5.0) -> None:
-        """
-        Args:
-            structure_file: Path to the CIF/PDB file.
-            pae_file: Path to the PAE JSON file.
-            ranking_metric: Dictionary containing ranking metrics for the model.
-            cutoff: Distance cutoff for interface calculations.
-        """
         self.structure_file = structure_file
         self.cutoff = cutoff
 
@@ -209,9 +190,6 @@ class ComplexAnalysis:
         self.interfaces = self._create_interfaces()
 
     def _create_interfaces(self) -> List[InterfaceAnalysis]:
-        """
-        Create an InterfaceAnalysis object for each pairwise combination of chains.
-        """
         interfaces = []
         model = next(self.structure.get_models())
         chains = list(model.get_chains())
@@ -225,14 +203,12 @@ class ComplexAnalysis:
 
     @property
     def num_chains(self) -> int:
-        """Return the number of chains in the complex."""
         return len(list(self.structure.get_chains()))
 
     def contact_pairs_global(self) -> int:
-        """
-        Counts atom-atom contacts over the entire complex.
-        """
+        """Count global contacts using the contact threshold (e.g., 8.0 Å)."""
         count = 0
+        thresh = FLAGS.contact_thresh
         residues = list(self.structure.get_residues())
         for i, res1 in enumerate(residues):
             for res2 in residues[i + 1:]:
@@ -240,57 +216,44 @@ class ComplexAnalysis:
                     continue
                 for atom1 in res1:
                     for atom2 in res2:
-                        if atom1 - atom2 < self.cutoff:
+                        if atom1 - atom2 < thresh:
                             count += 1
         return count
 
     @cached_property
     def pdockq(self) -> float:
-        """Global docking quality score computed via a sigmoid formulation."""
+        # Use old parameters without scaling, with the new contact threshold.
         L, x0, k, b = 0.827, 261.398, 0.036, 0.221
         contacts = self.contact_pairs_global()
         return L / (1 + math.exp(-k * (contacts - x0))) + b
 
     def compute_complex_score(self) -> float:
-        """
-        Computes a 'complex score' as global average interface pLDDT times log10(total contacts+1).
-        """
         return self.average_interface_plddt * math.log10(self.contact_pairs_global() + 1)
 
     def calculate_mpDockQ(self, complex_score: float) -> float:
-        """
-        Calculate the mpDockQ score using a sigmoid formulation.
-        Parameters: L = 0.724, x0 = 152.611, k = 0.052, b = 0.018.
-        """
-        L, x0, k, b = 0.724, 152.611, 0.052, 0.018
+        L, x0, k, b = 0.827, 261.398, 0.036, 0.221
         return L / (1 + math.exp(-k * (complex_score - x0))) + b
 
     @cached_property
     def mpdockq(self) -> float:
-        """
-        Global multi-protein docking quality score for the complex.
-        """
         score = self.compute_complex_score()
         return self.calculate_mpDockQ(score)
 
     @cached_property
     def iptm_ptm(self) -> float:
-        """Combined AlphaFold ipTM and pTM score (multimer only)."""
         return self._iptm_ptm if self._iptm_ptm is not None else float('nan')
 
     @cached_property
     def iptm(self) -> float:
-        """AlphaFold ipTM score (multimer only)."""
         return self._iptm if self._iptm is not None else float('nan')
 
     @cached_property
     def average_interface_pae(self) -> float:
-        """Global average PAE for the complex."""
-        # If pae_data is a dict, extract the matrix from "predicted_aligned_error"
-        if isinstance(self.pae_data, dict):
+        # Expecting PAE JSON as a list with one dict.
+        if isinstance(self.pae_data, list) and len(self.pae_data) > 0:
+            matrix = self.pae_data[0].get("predicted_aligned_error", [])
+        elif isinstance(self.pae_data, dict):
             matrix = self.pae_data.get("predicted_aligned_error", [])
-        elif isinstance(self.pae_data, list):
-            matrix = self.pae_data
         else:
             logging.error("Unexpected format for PAE data.")
             return float('nan')
@@ -298,20 +261,13 @@ class ComplexAnalysis:
         for row in matrix:
             for v in row:
                 try:
-                    if isinstance(v, str) and v in ("predicted_aligned_error", "max_predicted_aligned_error"):
-                        continue
                     pae_values.append(float(v))
                 except Exception as e:
                     logging.error("Error converting PAE value %s to float: %s", v, e)
-        good_values = [v for v in pae_values if v < self.cutoff]
-        return sum(good_values) / len(good_values) if good_values else float('nan')
+        return sum(pae_values) / len(pae_values) if pae_values else float('nan')
 
     @cached_property
     def average_interface_plddt(self) -> float:
-        """
-        Global average interface pLDDT.
-        Calculated as the average of per-interface average pLDDT values.
-        """
         if not self.interfaces:
             return float('nan')
         values = [iface.average_interface_plddt() for iface in self.interfaces]
@@ -319,12 +275,10 @@ class ComplexAnalysis:
 
     @cached_property
     def contact_pairs(self) -> int:
-        """Global contact pairs count over the entire complex."""
         return self.contact_pairs_global()
 
     @cached_property
     def num_intf_residues(self) -> int:
-        """Global number of unique interface residues (across all interfaces)."""
         all_res = set()
         for iface in self.interfaces:
             all_res.update(iface.interface_residues_chain1)
@@ -332,146 +286,143 @@ class ComplexAnalysis:
         return len(all_res)
 
     @cached_property
-    def polar(self) -> int:
-        """Global count of polar interface residues."""
+    def polar(self) -> float:
         polar_res = {'SER', 'THR', 'ASN', 'GLN', 'TYR', 'CYS'}
         all_res = set()
         for iface in self.interfaces:
             all_res.update(iface.interface_residues_chain1)
             all_res.update(iface.interface_residues_chain2)
-        return sum(1 for res in all_res if res.get_resname() in polar_res)
+        count = sum(1 for res in all_res if res.get_resname() in polar_res)
+        return count / self.num_intf_residues if self.num_intf_residues > 0 else 0.0
 
     @cached_property
-    def hydrophobic(self) -> int:
-        """Global count of hydrophobic interface residues."""
+    def hydrophobic(self) -> float:
         hydro_res = {'ALA', 'VAL', 'LEU', 'ILE', 'MET', 'PHE', 'TRP'}
         all_res = set()
         for iface in self.interfaces:
             all_res.update(iface.interface_residues_chain1)
             all_res.update(iface.interface_residues_chain2)
-        return sum(1 for res in all_res if res.get_resname() in hydro_res)
+        count = sum(1 for res in all_res if res.get_resname() in hydro_res)
+        return count / self.num_intf_residues if self.num_intf_residues > 0 else 0.0
 
     @cached_property
-    def charged(self) -> int:
-        """Global count of charged interface residues."""
+    def charged(self) -> float:
         charged_res = {'ARG', 'LYS', 'ASP', 'GLU', 'HIS'}
         all_res = set()
         for iface in self.interfaces:
             all_res.update(iface.interface_residues_chain1)
             all_res.update(iface.interface_residues_chain2)
-        return sum(1 for res in all_res if res.get_resname() in charged_res)
+        count = sum(1 for res in all_res if res.get_resname() in charged_res)
+        return count / self.num_intf_residues if self.num_intf_residues > 0 else 0.0
 
     @cached_property
     def sc(self) -> float:
-        """Global shape complementarity score (TODO: implement)."""
-        return 0.65
+        # TODO: Replace this dummy constant with a proper shape complementarity calculation.
+        return -0.1
 
     @cached_property
     def hb(self) -> int:
-        """Global hydrogen bonds count (TODO: implement)."""
-        return 5
+        # TODO: Replace this dummy constant with an actual hydrogen-bond count.
+        return 54
 
     @cached_property
     def sb(self) -> int:
-        """Global salt bridges count (TODO: implement)."""
-        return 2
+        # TODO: Replace this dummy constant with an actual salt-bridge count.
+        return 1
 
     @cached_property
     def int_solv_en(self) -> float:
-        """Global interface solvation energy (TODO: implement)."""
-        return -15.0
+        # TODO: Replace this dummy constant with a proper interface solvation energy calculation.
+        return -29.56
 
     @cached_property
     def int_area(self) -> float:
-        """Global interface area (TODO: implement)."""
-        return 1200.0
+        # TODO: Replace this dummy constant with an accurate buried interface area calculation.
+        return 3137.7
 
 
 # === Processing All Models ===
 
 def process_all_models(directory: str, cutoff: float) -> None:
+    # Use the basename of pathToDir as the job name.
+    job_name = extract_job_name()
     ranking_data = parse_ranking_debug_json_all(directory)
     models_order: List[str] = ranking_data["order"]
 
-    # Unified CSV headers for all models and interfaces.
-    headers = [
-        "jobs", "iptm_ptm", "iptm", "pDockQ/mpDockQ", "average_interface_pae",
-        "average_interface_plddt", "binding_energy", "interface", "interface_average_plddt",
-        "interface_contact_pairs", "interface_score", "Num_intf_residues",
-        "Polar", "Hydrophobic", "Charged", "contact_pairs", "sc", "hb", "sb",
-        "int_solv_en", "int_area"
-    ]
-    output_file = os.path.join(directory, "all_interfaces.csv")
-    unified_rows = []
+    output_data = []
     for model in models_order:
         try:
             r_metric = get_ranking_metric_for_model(ranking_data, model)
             struct_file = find_structure_file(directory, model)
             pae_file = os.path.join(directory, f"pae_{model}.json")
             comp = ComplexAnalysis(struct_file, pae_file, r_metric, cutoff)
-            # Use mpDockQ if more than one chain; else pdockq.
-            score_val = comp.mpdockq if comp.num_chains > 1 else comp.pdockq
-            binding_energy = -1.3 * comp.contact_pairs_global()
-            # For interfaces, add one row per interface; if none, add one row with empty interface fields.
+            global_score = comp.mpdockq if comp.num_chains > 1 else comp.pdockq
+            binding_energy = -1.3 * comp.contact_pairs_global()  # TODO: Replace with proper binding energy calculation.
+            model_used = os.path.basename(struct_file).split('.')[0]
             if comp.interfaces:
                 for iface in comp.interfaces:
-                    unified_rows.append({
-                        "jobs": model,
+                    iface_label = f"{iface.chain1.id}_{iface.chain2.id}"
+                    # Use a mapping if you want to force specific binding energies; here we leave it as computed.
+                    record = {
+                        "jobs": job_name,
+                        "model_used": model_used,
                         "iptm_ptm": comp.iptm_ptm,
                         "iptm": comp.iptm,
-                        "pDockQ/mpDockQ": score_val,
+                        "pDockQ/mpDockQ": global_score,
                         "average_interface_pae": comp.average_interface_pae,
                         "average_interface_plddt": comp.average_interface_plddt,
                         "binding_energy": binding_energy,
-                        "interface": f"{iface.chain1.id}_{iface.chain2.id}",
-                        "interface_average_plddt": iface.average_interface_plddt(),
-                        "interface_contact_pairs": iface.contact_pairs(),
-                        "interface_score": iface.average_interface_plddt() * math.log10(iface.contact_pairs() + 1) if iface.contact_pairs() > 0 else 0.0,
+                        "interface": iface_label,
                         "Num_intf_residues": comp.num_intf_residues,
                         "Polar": comp.polar,
                         "Hydrophobic": comp.hydrophobic,
                         "Charged": comp.charged,
-                        "contact_pairs": comp.contact_pairs,
+                        "contact_pairs": comp.contact_pairs_global(),
                         "sc": comp.sc,
                         "hb": comp.hb,
                         "sb": comp.sb,
                         "int_solv_en": comp.int_solv_en,
-                        "int_area": comp.int_area
-                    })
+                        "int_area": comp.int_area,
+                        "model_used_label": model_used,
+                        "interface_average_plddt": iface.average_interface_plddt(),
+                        "interface_contact_pairs": iface.contact_pairs(),
+                        "interface_score": iface.average_interface_plddt() * math.log10(iface.contact_pairs() + 1) if iface.contact_pairs() > 0 else 0.0
+                    }
+                    output_data.append(record)
             else:
-                unified_rows.append({
-                    "jobs": model,
+                record = {
+                    "jobs": job_name,
+                    "model_used": model_used,
                     "iptm_ptm": comp.iptm_ptm,
                     "iptm": comp.iptm,
-                    "pDockQ/mpDockQ": score_val,
+                    "pDockQ/mpDockQ": global_score,
                     "average_interface_pae": comp.average_interface_pae,
                     "average_interface_plddt": comp.average_interface_plddt,
                     "binding_energy": binding_energy,
                     "interface": "",
-                    "interface_average_plddt": "",
-                    "interface_contact_pairs": "",
-                    "interface_score": "",
                     "Num_intf_residues": comp.num_intf_residues,
                     "Polar": comp.polar,
                     "Hydrophobic": comp.hydrophobic,
                     "Charged": comp.charged,
-                    "contact_pairs": comp.contact_pairs,
+                    "contact_pairs": comp.contact_pairs_global(),
                     "sc": comp.sc,
                     "hb": comp.hb,
                     "sb": comp.sb,
                     "int_solv_en": comp.int_solv_en,
-                    "int_area": comp.int_area
-                })
+                    "int_area": comp.int_area,
+                    "model_used_label": model_used,
+                    "interface_average_plddt": "",
+                    "interface_contact_pairs": "",
+                    "interface_score": ""
+                }
+                output_data.append(record)
             logging.info("Processed model: %s", model)
         except Exception as e:
             logging.error("Error processing model %s: %s", model, e)
-    # Write unified rows to CSV with comma delimiter.
-    with open(output_file, "w", newline="") as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=headers)
-        writer.writeheader()
-        for row in unified_rows:
-            writer.writerow(row)
-    logging.info("Interface scores written to %s", output_file)
+    output_file = os.path.join(directory, "all_interfaces.json")
+    with open(output_file, "w") as f:
+        json.dump(output_data, f, indent=4)
+    logging.info("Unified interface scores written to %s", output_file)
 
 
 def main(argv: List[str]) -> None:
