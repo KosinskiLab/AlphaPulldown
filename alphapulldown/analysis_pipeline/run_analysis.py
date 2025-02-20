@@ -11,6 +11,17 @@ from absl import app, flags, logging
 from Bio.PDB import PDBParser, NeighborSearch
 from Bio.PDB.MMCIFParser import MMCIFParser
 
+# Constants for pdockq
+PD_L = 0.827
+PD_X0 = 261.398
+PD_K = 0.036
+PD_B = 0.221
+
+# Constants for mpdockq
+MPD_L = 0.9
+MPD_X0 = 250.0
+MPD_K = 0.04
+MPD_B = 0.2
 
 @enum.unique
 class ModelsToAnalyse(enum.Enum):
@@ -42,7 +53,7 @@ def extract_job_name() -> str:
     return os.path.basename(os.path.normpath(FLAGS.pathToDir))
 
 
-def _sigmoid(value: float, L: float = 0.827, x0: float = 261.398, k: float = 0.036, b: float = 0.221) -> float:
+def _sigmoid(value: float, L: float, x0: float, k: float, b: float) -> float:
     """Return the sigmoid of value using the given parameters."""
     return L / (1 + math.exp(-k * (value - x0))) + b
 
@@ -337,17 +348,17 @@ class ComplexAnalysis:
     def pdockq(self) -> float:
         """Global docking quality score computed from global contact pairs."""
         contacts = self.contact_pairs_global
-        return _sigmoid(contacts)
-
-    def compute_complex_score(self) -> float:
-        """Compute the complex score from global average_interface_plddt and global contact pairs."""
-        return self.average_interface_plddt * math.log10(self.contact_pairs_global + 1)
+        return _sigmoid(contacts, PD_L, PD_X0, PD_K, PD_B)
 
     @cached_property
     def mpdockq(self) -> float:
         """Compute mpDockQ using the complex score."""
         score = self.compute_complex_score()
-        return _sigmoid(score)
+        return _sigmoid(score, MPD_L, MPD_X0, MPD_K, MPD_B)
+
+    def compute_complex_score(self) -> float:
+        """Compute the complex score from global average_interface_plddt and global contact pairs."""
+        return self.average_interface_plddt * math.log10(self.contact_pairs_global + 1)
 
     @cached_property
     def iptm_ptm(self) -> float:
