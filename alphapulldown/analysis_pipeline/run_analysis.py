@@ -1,7 +1,9 @@
+import enum
 import os
 import glob
 import math
 import json
+import csv
 from typing import Any, Dict, List, Tuple, Set
 from functools import cached_property
 
@@ -9,12 +11,25 @@ from absl import app, flags, logging
 from Bio.PDB import PDBParser
 from Bio.PDB.MMCIFParser import MMCIFParser
 
+@enum.unique
+class ModelsToAnalyse(enum.Enum):
+  BEST = 0
+  ALL = 1
+
 FLAGS = flags.FLAGS
 flags.DEFINE_string('pathToDir', None,
                     'Path to the directory containing predicted model files and ranking_debug.json')
 flags.DEFINE_float('cutoff', 5.0, 'Cutoff value for distances (and PAE threshold)')
+flags.DEFINE_enum_class(
+    "models_to_analyse",
+    ModelsToAnalyse.BEST,
+    ModelsToAnalyse,
+    "The predicted models to run the analysis pipeline on. "
+    "If `all`, all models are used. If `best`, only the "
+    "most confident model ranked_0 is used.",
+)
+
 flags.DEFINE_float('contact_thresh', 8.0, 'Distance threshold for counting contacts (Å)')
-flags.DEFINE_integer('surface_thres', 2, 'Surface threshold. Must be integer')
 
 
 # === Helper to Extract Job Name ===
@@ -347,10 +362,15 @@ def process_all_models(directory: str, cutoff: float) -> None:
     # Use the basename of pathToDir as the job name.
     job_name = extract_job_name()
     ranking_data = parse_ranking_debug_json_all(directory)
-    models_order: List[str] = ranking_data["order"]
+    ranked_order: List[str] = ranking_data["order"]
 
     output_data = []
-    for model in models_order:
+    if FLAGS.models_to_analyse == ModelsToAnalyse.BEST:
+        models = [ranked_order[0]]
+    elif FLAGS.models_to_analyse == ModelsToAnalyse.ALL:
+        models = ranked_order
+
+    for model in models:
         try:
             r_metric = get_ranking_metric_for_model(ranking_data, model)
             struct_file = find_structure_file(directory, model)
@@ -358,7 +378,7 @@ def process_all_models(directory: str, cutoff: float) -> None:
             comp = ComplexAnalysis(struct_file, pae_file, r_metric, cutoff)
             global_score = comp.mpdockq if comp.num_chains > 1 else comp.pdockq
             binding_energy = -1.3 * comp.contact_pairs_global()  # TODO: Replace with proper binding energy calculation.
-            model_used = os.path.basename(struct_file).split('.')[0]
+            model_used = model
             if comp.interfaces:
                 for iface in comp.interfaces:
                     iface_label = f"{iface.chain1.id}_{iface.chain2.id}"
@@ -366,13 +386,13 @@ def process_all_models(directory: str, cutoff: float) -> None:
                     record = {
                         "jobs": job_name,
                         "model_used": model_used,
+                        "interface": iface_label,
                         "iptm_ptm": comp.iptm_ptm,
                         "iptm": comp.iptm,
                         "pDockQ/mpDockQ": global_score,
                         "average_interface_pae": comp.average_interface_pae,
                         "average_interface_plddt": comp.average_interface_plddt,
                         "binding_energy": binding_energy,
-                        "interface": iface_label,
                         "Num_intf_residues": comp.num_intf_residues,
                         "Polar": comp.polar,
                         "Hydrophobic": comp.hydrophobic,
@@ -419,9 +439,11 @@ def process_all_models(directory: str, cutoff: float) -> None:
             logging.info("Processed model: %s", model)
         except Exception as e:
             logging.error("Error processing model %s: %s", model, e)
-    output_file = os.path.join(directory, "all_interfaces.json")
-    with open(output_file, "w") as f:
-        json.dump(output_data, f, indent=4)
+    output_file = os.path.join(directory, "interfaces.csv")
+    with open(output_file, "w", newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=output_data[0].keys())
+        writer.writeheader()
+        writer.writerows(output_data)
     logging.info("Unified interface scores written to %s", output_file)
 
 
