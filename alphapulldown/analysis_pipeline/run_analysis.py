@@ -12,6 +12,18 @@ from absl import app, flags, logging
 from Bio.PDB import PDBParser, NeighborSearch
 from Bio.PDB.MMCIFParser import MMCIFParser
 
+# Constants for pdockq
+PD_L = 0.827
+PD_X0 = 261.398
+PD_K = 0.036
+PD_B = 0.221
+
+# Constants for mpdockq
+MPD_L = 0.9
+MPD_X0 = 250.0
+MPD_K = 0.04
+MPD_B = 0.2
+
 @enum.unique
 class ModelsToAnalyse(enum.Enum):
     BEST = 0
@@ -21,8 +33,9 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string('pathToDir', None,
                     'Path to the directory containing predicted model files and ranking_debug.json')
 # Use one flag for all distance-based filtering.
-flags.DEFINE_float('contact_thresh', 4.0,
-                   'Distance threshold for both residue identification and counting contacts (Å)')
+flags.DEFINE_float('contact_thresh', 12.0,
+                   'Distance threshold for counting contacts (Å). '
+                   'Two residues are interacting if their C-Beta are within this distance.')
 # Interfaces with average PAE above this value will be skipped.
 flags.DEFINE_float('pae_filter', 100.0,
                    'Maximum acceptable average interface PAE; interfaces above this are skipped')
@@ -41,7 +54,7 @@ def extract_job_name() -> str:
     return os.path.basename(os.path.normpath(FLAGS.pathToDir))
 
 
-def _sigmoid(value: float, L: float = 0.827, x0: float = 261.398, k: float = 0.036, b: float = 0.221) -> float:
+def _sigmoid(value: float, L: float, x0: float, k: float, b: float) -> float:
     """Return the sigmoid of value using the given parameters."""
     return L / (1 + math.exp(-k * (value - x0))) + b
 
@@ -109,12 +122,20 @@ class InterfaceAnalysis:
     Represents a single interface between two chains.
     Calculates per-interface metrics:
       - average_interface_plddt: average CA B-factor (proxy for pLDDT)
-      - contact_pairs: number of atom–atom contacts (using all atoms) between the two chains
+      - contact_pairs: number of residue–residue contacts (using C-Betas) between the two chains
       - score_complex: defined as average_interface_plddt * log10(contact_pairs + 1)
       - num_intf_residues: number of interface residues (union of residues from both chains)
       - polar, hydrophobic, charged: normalized fractions of interface residues
-      - pDockQ2: computed using a PTM-transformation of PAE values (with d₀=10); also returns ipSAE (mean_ptm)
-    """
+      - pDockQ is computed from the mean pLDDT score of interface residues and the log(number of contacts).
+    pDockQ = 0.724 / (1 + exp(–0.052 × (mean_pLDDT × log₁₀(n_contacts) – 152.611))) + 0.018
+      - pDockQ2 incorporates PAE. Instead of using only the count of contacts, it first transforms the inter-chain PAE
+      values with a pTM function to get an interface confidence measure and then uses the product of the mean pLDDT
+      and this average “PTM” value.
+    pDockQ2 = 1.31 / (1 + exp(–0.075 × (mean_pLDDT × mean_ptm – 84.733))) + 0.005
+      - ipSAE (mean_ptm): ipSAE is based solely on the PAE values. It uses the ptm function:
+    ptm(x, d₀) = 1/(1 + (x/d₀)²)
+    to the PAE scores and then averages these values over the interface.
+"""
     def __init__(self, chain1, chain2, contact_thresh: float) -> None:
         self.chain1 = chain1
         self.chain2 = chain2
