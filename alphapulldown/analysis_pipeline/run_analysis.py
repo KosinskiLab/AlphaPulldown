@@ -475,7 +475,7 @@ class ComplexAnalysis:
     def contact_pairs_global(self) -> int:
         """Count global contacts using the contact threshold."""
         count = 0
-        thresh = FLAGS.contact_thresh
+        thresh = self.contact_thresh
         residues = list(self.structure.get_residues())
         for i, res1 in enumerate(residues):
             for res2 in residues[i + 1:]:
