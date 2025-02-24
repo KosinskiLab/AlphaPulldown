@@ -12,13 +12,6 @@ from absl import app, flags, logging
 from Bio.PDB import PDBParser, NeighborSearch
 from Bio.PDB.MMCIFParser import MMCIFParser
 
-# --- Global Constants ---
-# Constants for pDockQ (global complex scores)
-PD_L = 0.827
-PD_X0 = 261.398
-PD_K = 0.036
-PD_B = 0.221
-
 # Constants for mpDockQ (global complex scores)
 MPD_L = 0.9
 MPD_X0 = 250.0
@@ -60,17 +53,14 @@ flags.DEFINE_enum_class(
 )
 flags.DEFINE_integer('surface_thres', 2, 'Surface threshold. Must be integer')
 
-
 # --- Helper Functions ---
 def extract_job_name() -> str:
     """Use the basename of the pathToDir directory as the job name."""
     return os.path.basename(os.path.normpath(FLAGS.pathToDir))
 
-
 def _sigmoid(value: float, L: float, x0: float, k: float, b: float) -> float:
     """Return the sigmoid of value using the given parameters."""
     return L / (1 + math.exp(-k * (value - x0))) + b
-
 
 def read_json(filepath: str) -> Any:
     try:
@@ -81,7 +71,6 @@ def read_json(filepath: str) -> Any:
     except Exception as e:
         raise ValueError(f"Error parsing {filepath}: {e}")
 
-
 def parse_ranking_debug_json_all(directory: str) -> Dict[str, Any]:
     path = os.path.join(directory, "ranking_debug.json")
     data = read_json(path)
@@ -89,8 +78,8 @@ def parse_ranking_debug_json_all(directory: str) -> Dict[str, Any]:
         raise ValueError("Invalid ranking_debug.json: missing or invalid 'order' key")
     return data
 
-
 def get_ranking_metric_for_model(data: Dict[str, Any], model: str) -> Dict[str, Any]:
+    """Return metric dict for the given model, handling monomer vs multimer logic."""
     match (("iptm+ptm" in data, "iptm" in data, "plddts" in data, "ptm" in data)):
         case (True, True, _, _):
             if model not in data["iptm+ptm"] or model not in data["iptm"]:
@@ -109,14 +98,12 @@ def get_ranking_metric_for_model(data: Dict[str, Any], model: str) -> Dict[str, 
         case _:
             raise ValueError("Invalid ranking_debug.json: expected multimer or monomer keys not found")
 
-
 def load_pae_file(directory: str, model: str) -> Dict[str, Any]:
     pae_filename = f"pae_{model}.json"
     path = os.path.join(directory, pae_filename)
     if not os.path.exists(path):
         raise FileNotFoundError(f"PAE file '{pae_filename}' not found in directory '{directory}'.")
     return read_json(path)
-
 
 def find_structure_file(directory: str, model: str) -> str:
     cif_files = glob.glob(os.path.join(directory, f"*{model}*.cif"))
@@ -126,7 +113,6 @@ def find_structure_file(directory: str, model: str) -> str:
     if pdb_files:
         return pdb_files[0]
     raise ValueError(f"No structure file (CIF or PDB) found for model '{model}' in directory.")
-
 
 # --- Precomputation Helper Functions ---
 def compute_interface_avg_plddt(precomputed: Tuple[Set[Any], Set[Any], Set[Tuple[Any, Any]]]) -> float:
@@ -140,7 +126,6 @@ def compute_interface_avg_plddt(precomputed: Tuple[Set[Any], Set[Any], Set[Tuple
             atom = res["CA"]
         bvals.append(atom.get_bfactor())
     return sum(bvals) / len(bvals) if bvals else float('nan')
-
 
 def compute_interface_avg_pae(precomputed: Tuple[Set[Any], Set[Any], Set[Tuple[Any, Any]]],
                               pae_matrix: List[List[float]],
@@ -162,23 +147,14 @@ def compute_interface_avg_pae(precomputed: Tuple[Set[Any], Set[Any], Set[Tuple[A
             continue
     return sum(pae_values) / len(pae_values) if pae_values else float('nan')
 
-
 # --- InterfaceAnalysis Class ---
 class InterfaceAnalysis:
     """
     Represents a single interface between two chains.
-    Calculates per-interface metrics:
-      - average_interface_plddt: average CA B-factor (proxy for pLDDT)
-      - average_interface_pae: average PAE over the contact pairs.
-      - contact_pairs: number of residue–residue contacts (using C-Betas) between the two chains
-      - score_complex: defined as average_interface_plddt * log10(contact_pairs + 1)
-      - num_intf_residues: number of interface residues (union of residues from both chains)
-      - polar, hydrophobic, charged: normalized fractions of interface residues
-      - pDockQ: computed from mean pLDDT and number of contacts
-      - pDockQ2: incorporates PAE
-      - ipSAE, lis, etc.
+    Calculates per-interface metrics: average pLDDT, average PAE, pDockQ, pDockQ2, etc.
     """
-    def __init__(self, chain1: List[Any], chain2: List[Any], contact_thresh: float,
+    def __init__(self, chain1: List[Any], chain2: List[Any],
+                 contact_thresh: float,
                  pae_matrix: List[List[float]],
                  res_index_map: Dict[Tuple[str, Any], int]) -> None:
         self.chain1 = chain1
@@ -186,12 +162,16 @@ class InterfaceAnalysis:
         self.contact_thresh = contact_thresh
         self._pae_matrix = pae_matrix
         self._res_index_map = res_index_map
-        # Compute contact pairs and interacting residues.
+
+        # Identify interacting residues and contact pairs once:
         self.precomputed = self._get_interface_residues()
         self.interface_residues_chain1, self.interface_residues_chain2, self.pairs = self.precomputed
-        # Compute average interface pLDDT and PAE from the interacting residues.
+
+        # Average interface pLDDT and PAE:
         self._average_interface_plddt = compute_interface_avg_plddt(self.precomputed)
-        self._average_interface_pae = compute_interface_avg_pae(self.precomputed, pae_matrix, res_index_map)
+        self._average_interface_pae = compute_interface_avg_pae(self.precomputed,
+                                                                pae_matrix,
+                                                                res_index_map)
 
     def _get_interface_residues(self) -> Tuple[Set[Any], Set[Any], Set[Tuple[Any, Any]]]:
         """Identify interacting residues and contact pairs using representative atoms (CB if available, else CA)."""
@@ -210,33 +190,30 @@ class InterfaceAnalysis:
 
     @cached_property
     def average_interface_plddt(self) -> float:
-        """Return the computed average interface pLDDT."""
         return self._average_interface_plddt
 
     @cached_property
     def average_interface_pae(self) -> float:
-        """Return the computed average interface PAE."""
         return self._average_interface_pae
 
     @cached_property
     def contact_pairs(self) -> int:
-        """Return the number of unique residue–residue contacts."""
         return len(self.pairs)
 
     @cached_property
     def score_complex(self) -> float:
-        """Compute the interface score = average_interface_plddt * log10(contact_pairs + 1)."""
+        """= average_interface_plddt * log10(contact_pairs)."""
         cp = self.contact_pairs
         return self.average_interface_plddt * math.log10(cp) if cp > 0 else 0.0
 
     @property
     def num_intf_residues(self) -> int:
-        """Return the number of interface residues (union of residues from both chains)."""
+        """Union of residues from both sides of the interface."""
         return len(self.interface_residues_chain1.union(self.interface_residues_chain2))
 
     @property
     def polar(self) -> float:
-        """Return the normalized fraction of polar residues at the interface."""
+        """Normalized fraction of polar residues at the interface."""
         polar_res = {'SER', 'THR', 'ASN', 'GLN', 'TYR', 'CYS'}
         residues = self.interface_residues_chain1.union(self.interface_residues_chain2)
         count = sum(1 for res in residues if res.get_resname() in polar_res)
@@ -244,7 +221,7 @@ class InterfaceAnalysis:
 
     @property
     def hydrophobic(self) -> float:
-        """Return the normalized fraction of hydrophobic residues at the interface."""
+        """Normalized fraction of hydrophobic residues at the interface."""
         hydro_res = {'ALA', 'VAL', 'LEU', 'ILE', 'MET', 'PHE', 'TRP'}
         residues = self.interface_residues_chain1.union(self.interface_residues_chain2)
         count = sum(1 for res in residues if res.get_resname() in hydro_res)
@@ -252,17 +229,17 @@ class InterfaceAnalysis:
 
     @property
     def charged(self) -> float:
-        """Return the normalized fraction of charged residues at the interface."""
+        """Normalized fraction of charged residues at the interface."""
         charged_res = {'ARG', 'LYS', 'ASP', 'GLU', 'HIS'}
         residues = self.interface_residues_chain1.union(self.interface_residues_chain2)
         count = sum(1 for res in residues if res.get_resname() in charged_res)
         return count / len(residues) if residues else 0.0
 
+    @cached_property
     def pDockQ(self) -> float:
         """
-        Compute interface-level pDockQ using the global constants:
-          IPD_L / (1 + exp(-IPD_K*(x - IPD_X0))) + IPD_B
-        where x = (mean_pLDDT * log10(n_contacts)).
+        Compute interface-level pDockQ using IPD_L, IPD_X0, IPD_K, IPD_B.
+        x = (mean_pLDDT * log10(n_contacts)).
         """
         n_contacts = self.contact_pairs
         if n_contacts <= 0:
@@ -273,8 +250,7 @@ class InterfaceAnalysis:
     @cached_property
     def _ptm_values(self) -> List[float]:
         """
-        Return the list of PTM-transformed PAE values for all interface contact pairs.
-        Computed once, then cached.
+        Cached: list of PTM-transformed PAE for all contact pairs: 1 / [1 + (pae_val / D0)^2].
         """
         ptm_values = []
         for res1, res2 in self.pairs:
@@ -293,9 +269,10 @@ class InterfaceAnalysis:
 
     def pDockQ2(self) -> Tuple[float, float]:
         """
-        Compute interface-level pDockQ2 using global constants:
-          IPD2_L / (1 + exp(-IPD2_K*(x - IPD2_X0))) + IPD2_B
-        where x = average_interface_plddt * mean_ptm, and mean_ptm = average of PTM-transformed PAE.
+        Interface-level pDockQ2:
+        IPD2_L / (1 + exp(-IPD2_K*(x - IPD2_X0))) + IPD2_B
+        where x = average_interface_plddt * mean_ptm,
+              mean_ptm = average of PTM-transformed PAE.
         Returns (pDockQ2_val, mean_ptm).
         """
         ptm_values = self._ptm_values
@@ -305,13 +282,12 @@ class InterfaceAnalysis:
         return pDockQ2_val, mean_ptm
 
     def ipsae(self) -> float:
-        """Compute ipSAE (mean_ptm), i.e., the average PTM-transformed PAE."""
+        """ipSAE = average PTM-transformed PAE for the interface."""
         ptm_values = self._ptm_values
         return sum(ptm_values) / len(ptm_values) if ptm_values else 0.0
 
     def lis(self) -> float:
         """
-        Compute the LIS score for this interface.
         Average of (12 - PAE)/12 for PAE <= 12 in the submatrix referencing chain1 x chain2.
         """
         cid1 = self.chain1[0].get_parent().id
@@ -328,7 +304,7 @@ class InterfaceAnalysis:
         scores = (12 - valid) / 12
         return float(np.mean(scores))
 
-    # Dummy methods for additional interface metrics.
+    # Dummy placeholders
     @cached_property
     def sc(self) -> float:
         """Dummy shape complementarity."""
@@ -354,26 +330,13 @@ class InterfaceAnalysis:
         """Dummy buried interface area."""
         return 3137.7
 
-    @cached_property
-    def pdockq_interface(self) -> float:
-        """Dummy interface docking score (pDockQ) calls self.pDockQ()."""
-        return self.pDockQ()
 
-    @cached_property
-    def mpdockq_interface(self) -> float:
-        """Dummy interface docking score (mpDockQ) computed from interface score."""
-        score = self.score_complex
-        return _sigmoid(score, MPD_L, MPD_X0, MPD_K, MPD_B)
-
-
-# --- ComplexAnalysis Class ---
 class ComplexAnalysis:
     """
     Represents a predicted complex.
-    Loads structure, ranking, and PAE data; creates per-interface analyses;
-    computes global metrics; and calculates average interface pLDDT/PAE from interchain residue pairs.
+    Loads structure, ranking, PAE data; creates per-interface analyses;
+    computes global metrics, etc.
     """
-
     def __init__(self, structure_file: str, pae_file: str,
                  ranking_metric: Dict[str, Any], contact_thresh: float) -> None:
         self.structure_file = structure_file
@@ -393,6 +356,7 @@ class ComplexAnalysis:
         except Exception as e:
             logging.error("Error extracting max_predicted_aligned_error: %s", e)
             self.max_predicted_aligned_error = float('nan')
+
         try:
             self._predicted_aligned_error = self.pae_data[0]["predicted_aligned_error"]
         except Exception as e:
@@ -406,126 +370,102 @@ class ComplexAnalysis:
             self._iptm_ptm = None
             self._iptm = None
 
-        self.res_index_map = self._build_residue_index_map()
-        # Cache the full PAE matrix (loaded once)
-        self.pae_matrix = self._predicted_aligned_error
-        self.interfaces = self._create_interfaces()
-
-    def _build_residue_index_map(self) -> Dict[Tuple[str, Any], int]:
-        """
-        Build a mapping from (chain id, residue id) to sequential index.
-        Assumes that the residue order in the structure matches the PAE matrix.
-        """
-        index_map = {}
-        index = 0
-        model = next(self.structure.get_models())
-        for chain in model.get_chains():
-            for res in chain:
-                index_map[(chain.id, res.id)] = index
-                index += 1
-        return index_map
-
-    def _create_interfaces(self) -> List[InterfaceAnalysis]:
-        """
-        Create an InterfaceAnalysis object for each chain pair.
-        Only save an interface if there is at least one interacting residue.
-        """
-        interfaces = []
+        # Build the residue index map & create interfaces in one pass
         model = next(self.structure.get_models())
         chains = list(model.get_chains())
-        if len(chains) < 2:
-            logging.info("Only one chain detected; no interfaces.")
-            return interfaces
+        self.res_index_map: Dict[Tuple[str, Any], int] = {}
+        idx = 0
+        for chain in chains:
+            for res in chain:
+                self.res_index_map[(chain.id, res.id)] = idx
+                idx += 1
+
+        # Cache the PAE matrix
+        self.pae_matrix = self._predicted_aligned_error
+
+        # Create interface analyses
+        self.interfaces = []
         for i in range(len(chains)):
             for j in range(i + 1, len(chains)):
                 iface = InterfaceAnalysis(
-                    list(chains[i]), list(chains[j]),
+                    list(chains[i]),
+                    list(chains[j]),
                     self.contact_thresh,
                     self.pae_matrix,
                     self.res_index_map
                 )
                 if iface.num_intf_residues > 0:
-                    interfaces.append(iface)
-        return interfaces
+                    self.interfaces.append(iface)
 
     @property
-    def average_interface_pae(self) -> float:
-        """
-        Global average interface PAE: average over all interfaces that pass the PAE filter.
-        """
-        if not self.interfaces:
-            return float('nan')
-        pae_list = [
-            iface.average_interface_pae
-            for iface in self.interfaces
-            if (not math.isnan(iface.average_interface_pae)
-                and iface.average_interface_pae <= FLAGS.pae_filter)
-        ]
-        return sum(pae_list) / len(pae_list) if pae_list else float('nan')
+    def num_chains(self) -> int:
+        """Number of chains in the first model."""
+        model = next(self.structure.get_models())
+        return len(list(model.get_chains()))
 
-    @cached_property
-    def average_interface_plddt(self) -> float:
-        """Global average interface pLDDT computed over all interfaces."""
-        if not self.interfaces:
-            return float('nan')
-        values = [iface.average_interface_plddt for iface in self.interfaces]
-        return sum(values) / len(values)
-
-    @cached_property
-    def contact_pairs_global(self) -> int:
-        """Count global contacts using the contact threshold."""
-        count = 0
-        thresh = self.contact_thresh
-        residues = list(self.structure.get_residues())
-        for i, res1 in enumerate(residues):
-            for res2 in residues[i + 1:]:
-                # Skip if same chain
-                if res1.get_parent().id == res2.get_parent().id:
-                    continue
-                for atom1 in res1:
-                    for atom2 in res2:
-                        if atom1 - atom2 < thresh:
-                            count += 1
-        return count
-
-    @cached_property
-    def pdockq(self) -> float:
-        """
-        Global docking quality score (pDockQ) from global contact pairs,
-        using the constants PD_L, PD_X0, PD_K, PD_B.
-        """
-        contacts = self.contact_pairs_global
-        return _sigmoid(contacts, PD_L, PD_X0, PD_K, PD_B)
-
-    @cached_property
-    def compute_complex_score(self) -> float:
-        """
-        Compute the global complex score = average_interface_plddt * log10(contact_pairs_global + 1).
-        """
-        return self.average_interface_plddt * math.log10(self.contact_pairs_global + 1)
-
-    @cached_property
-    def mpdockq(self) -> float:
-        """
-        Compute mpDockQ from the complex score, using MPD_L, MPD_X0, MPD_K, MPD_B.
-        """
-        score = self.compute_complex_score
-        return _sigmoid(score, MPD_L, MPD_X0, MPD_K, MPD_B)
-
-    @cached_property
+    @property
     def iptm_ptm(self) -> float:
         return self._iptm_ptm if self._iptm_ptm is not None else float('nan')
 
-    @cached_property
+    @property
     def iptm(self) -> float:
         return self._iptm if self._iptm is not None else float('nan')
 
     @property
-    def num_chains(self) -> int:
-        """Return the number of chains in the first model."""
-        model = next(self.structure.get_models())
-        return len(list(model.get_chains()))
+    def average_interface_pae(self) -> float:
+        """Global average interface PAE over all interfaces that pass the PAE filter."""
+        if not self.interfaces:
+            return float('nan')
+        valid_pae = [
+            iface.average_interface_pae
+            for iface in self.interfaces
+            if not math.isnan(iface.average_interface_pae) and iface.average_interface_pae <= FLAGS.pae_filter
+        ]
+        return sum(valid_pae) / len(valid_pae) if valid_pae else float('nan')
 
+    @cached_property
+    def average_interface_plddt(self) -> float:
+        """Global average interface pLDDT over all interfaces."""
+        if not self.interfaces:
+            return float('nan')
+        vals = [iface.average_interface_plddt for iface in self.interfaces]
+        return sum(vals) / len(vals)
+
+    @cached_property
+    def contact_pairs_global(self) -> int:
+        """Count global contacts using a 3D NeighborSearch over all atoms in different chains."""
+        model = next(self.structure.get_models())
+        all_atoms = list(model.get_atoms())
+        ns = NeighborSearch(all_atoms)
+
+        visited_pairs = set()
+        count = 0
+        for atom1 in all_atoms:
+            neighbors = ns.search(atom1.coord, self.contact_thresh)
+            for atom2 in neighbors:
+                if atom1 is atom2:
+                    continue
+                chain1 = atom1.get_parent().get_parent().id
+                chain2 = atom2.get_parent().get_parent().id
+                if chain1 == chain2:
+                    continue
+                pair = tuple(sorted([id(atom1), id(atom2)]))
+                if pair not in visited_pairs:
+                    visited_pairs.add(pair)
+                    count += 1
+        return count
+
+    @cached_property
+    def compute_complex_score(self) -> float:
+        """= average_interface_plddt * log10(contact_pairs_global + 1)."""
+        return self.average_interface_plddt * math.log10(self.contact_pairs_global + 1)
+
+    @cached_property
+    def mpDockQ(self) -> float:
+        """Compute mpDockQ from the global complex score only if more than 2 chains."""
+        if self.num_chains <= 2:
+            return float('nan')
+        return _sigmoid(self.compute_complex_score, MPD_L, MPD_X0, MPD_K, MPD_B)
 
 # --- Processing All Models ---
 def process_all_models(directory: str, contact_thresh: float) -> None:
@@ -546,17 +486,17 @@ def process_all_models(directory: str, contact_thresh: float) -> None:
             pae_file = os.path.join(directory, f"pae_{model}.json")
             comp = ComplexAnalysis(struct_file, pae_file, r_metric, contact_thresh)
 
-            # If only one chain, we fall back to pDockQ; else use mpDockQ
-            global_score = comp.mpdockq if comp.num_chains > 1 else comp.pdockq
+            # If single chain, fallback to pDockQ from the first interface; else use mpDockQ
+            if comp.num_chains > 1:
+                global_score = comp.mpDockQ
+            else:
+                global_score = comp.interfaces[0].pDockQ if comp.interfaces else 0.0
+
             binding_energy = -1.3 * comp.contact_pairs_global  # Placeholder for real calculation
             model_used = model
 
             if comp.interfaces:
                 for iface in comp.interfaces:
-                    # Label the interface by the chain IDs
-                    iface_label = f"{iface.chain1[0].get_parent().id}_{iface.chain2[0].get_parent().id}"
-
-                    # Skip interfaces with no residues or high average PAE
                     if iface.num_intf_residues == 0:
                         continue
                     if iface.average_interface_pae > FLAGS.pae_filter:
@@ -565,6 +505,7 @@ def process_all_models(directory: str, contact_thresh: float) -> None:
                     pDockQ2_val, _ = iface.pDockQ2()
                     ipSAE_val = iface.ipsae()
                     lis_val = iface.lis()
+                    iface_label = f"{iface.chain1[0].get_parent().id}_{iface.chain2[0].get_parent().id}"
 
                     record = {
                         "jobs": job_name,
@@ -584,15 +525,6 @@ def process_all_models(directory: str, contact_thresh: float) -> None:
                         "interface_pDockQ2": pDockQ2_val,
                         "interface_ipSAE": ipSAE_val,
                         "interface_LIS": lis_val,
-                        "binding_energy": binding_energy,
-                        "model_used_label": model_used,
-                        "interface_sc": iface.sc,
-                        "interface_hb": iface.hb,
-                        "interface_sb": iface.sb,
-                        "interface_int_solv_en": iface.int_solv_en,
-                        "interface_int_area": iface.int_area,
-                        "interface_pdockq": iface.pdockq_interface,
-                        "interface_mpdockq": iface.mpdockq_interface
                     }
                     output_data.append(record)
 
@@ -614,11 +546,9 @@ def process_all_models(directory: str, contact_thresh: float) -> None:
             f.write("")
     logging.info("Unified interface scores written to %s", output_file)
 
-
 def main(argv) -> None:
     del argv
     process_all_models(FLAGS.pathToDir, FLAGS.contact_thresh)
-
 
 if __name__ == '__main__':
     app.run(main)
