@@ -258,7 +258,7 @@ class AlphaFoldBackend(FoldingBackend):
         allow_resume: bool,
         skip_templates: bool,
         output_dir: Dict,
-        random_seed: int = 42,
+        random_seed: int,
         **kwargs,
     ) -> dict:
         """
@@ -321,6 +321,8 @@ class AlphaFoldBackend(FoldingBackend):
                                 None], residue_constants.atom_type_num, axis=-1
                             )
                             model_random_seed = model_index + random_seed * len(model_runners)
+                            logging.info(f"Running prediction using model {model_name} "
+                                         f"and random seed: {model_random_seed}")
                             processed_feature_dict = model_runner.process_features(
                                 original_feature_dict, random_seed=model_random_seed
                             )

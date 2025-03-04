@@ -18,6 +18,8 @@ from absl import logging
 import glob
 import shutil
 import lzma
+import random
+import sys
 from alphapulldown.folding_backend import backend
 from alphapulldown.folding_backend.alphafold_backend import ModelsToRelax
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
@@ -160,7 +162,6 @@ def predict_structure(
     objects_to_model: List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject], str]],
     model_flags: Dict,
     postprocess_flags: Dict,
-    random_seed: int = 42,
     fold_backend: str = "alphafold"
 ) -> None:
     """
@@ -179,13 +180,19 @@ def predict_structure(
         Dictionary of flags passed to the respective backend's postprocess function.
     random_seed : int, optional
         The random seed for initializing the prediction process to ensure reproducibility.
-        Default is 42.
+        Default is randomly generated.
     fold_backend : str, optional
         Backend used for folding, defaults to alphafold.
     """
     backend.change_backend(backend_name=fold_backend)
     model_runners_and_configs = backend.setup(**model_flags)
-
+    if FLAGS.random_seed is not None:
+        random_seed = FLAGS.random_seed
+    else:
+        if fold_backend in ['alphafold', 'alphalink']:
+            random_seed = random.randrange(sys.maxsize // len(model_runners_and_configs["model_runners"]))
+        elif fold_backend=='alphafold3':
+            random_seed = random.randrange(2**32 - 1)
     predicted_jobs = backend.predict(
         **model_runners_and_configs,
         objects_to_model=objects_to_model,
