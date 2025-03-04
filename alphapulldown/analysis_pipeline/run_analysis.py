@@ -13,21 +13,25 @@ from Bio.PDB import PDBParser, NeighborSearch
 from Bio.PDB.MMCIFParser import MMCIFParser
 
 # Constants for mpDockQ (global complex scores)
-MPD_L = 0.9
-MPD_X0 = 250.0
-MPD_K = 0.04
-MPD_B = 0.2
-
-# Constant for PAE transformation
-D0 = 10.0
+# https://www.nature.com/articles/s41467-022-33729-4
+# https://github.com/patrickbryant1/MoLPC/blame/master/README.md#L106
+# numbers are taken from the paper, github numbers are different!
+MPD_L = 0.728
+MPD_X0 = 309.375
+MPD_K = 0.098
+MPD_B = 0.262
 
 # Constants for interface-level pDockQ:
+# https://www.nature.com/articles/s41467-022-28865-w
 IPD_L = 0.724
 IPD_X0 = 152.611
 IPD_K = 0.052
 IPD_B = 0.018
 
 # Constants for interface-level pDockQ2:
+# https://academic.oup.com/bioinformatics/article/39/7/btad424/7219714?login=false
+# Constant for PAE transformation
+D0 = 10.0
 IPD2_L = 1.31
 IPD2_X0 = 84.733
 IPD2_K = 0.075
