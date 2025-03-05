@@ -7,37 +7,56 @@ from typing import Any, Dict, List, Tuple, Set
 from functools import cached_property
 import enum
 import numpy as np
+from dataclasses import dataclass
 
 from absl import app, flags, logging
 from Bio.PDB import PDBParser, NeighborSearch
 from Bio.PDB.MMCIFParser import MMCIFParser
 
+##################################################
+# DockQ constants & data structures
+##################################################
+
+def _sigmoid(value: float, L: float, x0: float, k: float, b: float) -> float:
+    """Return the sigmoid of 'value' using the given parameters."""
+    return L / (1 + math.exp(-k * (value - x0))) + b
+
+@dataclass(frozen=True)
+class DockQConstants:
+    """
+    Dataclass to hold the L, X0, K, B constants for
+    each DockQ-type score (pDockQ, pDockQ2, mpDockQ).
+    """
+    L: float
+    X0: float
+    K: float
+    B: float
+
+    def score(self, x: float) -> float:
+        """Applies the stored constants to compute the sigmoid for x."""
+        return _sigmoid(x, self.L, self.X0, self.K, self.B)
+
+
+# ------------------------------------------------------------------------------
+# Constants for interface-level pDockQ
+# https://www.nature.com/articles/s41467-022-28865-w
+PDOCKQ_CONSTANTS = DockQConstants(L=0.724, X0=152.611, K=0.052, B=0.018)
+
+# ------------------------------------------------------------------------------
+# Constants for interface-level pDockQ2
+# https://academic.oup.com/bioinformatics/article/39/7/btad424/7219714?login=false
+# Also uses D0 for the PAE transformation
+D0 = 10.0
+PDOCKQ2_CONSTANTS = DockQConstants(L=1.31, X0=84.733, K=0.075, B=0.005)
+
+# ------------------------------------------------------------------------------
 # Constants for mpDockQ (global complex scores)
 # https://www.nature.com/articles/s41467-022-33729-4
 # https://github.com/patrickbryant1/MoLPC/blame/master/README.md#L106
 # numbers are taken from the paper, github numbers are different!
-MPD_L = 0.728
-MPD_X0 = 309.375
-MPD_K = 0.098
-MPD_B = 0.262
+MPDOCKQ_CONSTANTS = DockQConstants(L=0.728, X0=309.375, K=0.098, B=0.262)
+# ------------------------------------------------------------------------------
 
-# Constants for interface-level pDockQ:
-# https://www.nature.com/articles/s41467-022-28865-w
-IPD_L = 0.724
-IPD_X0 = 152.611
-IPD_K = 0.052
-IPD_B = 0.018
-
-# Constants for interface-level pDockQ2:
-# https://academic.oup.com/bioinformatics/article/39/7/btad424/7219714?login=false
-# Constant for PAE transformation
-D0 = 10.0
-IPD2_L = 1.31
-IPD2_X0 = 84.733
-IPD2_K = 0.075
-IPD2_B = 0.005
-
-# class that sums numbers
 
 @enum.unique
 class ModelsToAnalyse(enum.Enum):
@@ -60,15 +79,13 @@ flags.DEFINE_enum_class(
     "If `all`, all models are used. If `best`, only the most confident model (ranked_0) is used.",
 )
 
+##################################################
+# Helper functions
+##################################################
 
-# --- Helper Functions ---
 def extract_job_name() -> str:
     """Use the basename of the pathToDir directory as the job name."""
     return os.path.basename(os.path.normpath(FLAGS.pathToDir))
-
-def _sigmoid(value: float, L: float, x0: float, k: float, b: float) -> float:
-    """Return the sigmoid of value using the given parameters."""
-    return L / (1 + math.exp(-k * (value - x0))) + b
 
 def read_json(filepath: str) -> Any:
     try:
@@ -87,7 +104,9 @@ def parse_ranking_debug_json_all(directory: str) -> Dict[str, Any]:
     return data
 
 def get_ranking_metric_for_model(data: Dict[str, Any], model: str) -> Dict[str, Any]:
-    """Return metric dict for the given model, handling monomer vs multimer logic."""
+    """
+    Return metric dict for the given model, handling monomer vs multimer logic.
+    """
     match (("iptm+ptm" in data, "iptm" in data, "plddts" in data, "ptm" in data)):
         case (True, True, _, _):
             if model not in data["iptm+ptm"] or model not in data["iptm"]:
@@ -122,9 +141,17 @@ def find_structure_file(directory: str, model: str) -> str:
         return pdb_files[0]
     raise ValueError(f"No structure file (CIF or PDB) found for model '{model}' in directory.")
 
-# --- Precomputation Helper Functions ---
-def compute_interface_avg_plddt(precomputed: Tuple[Set[Any], Set[Any], Set[Tuple[Any, Any]]]) -> float:
-    """Compute the average interface pLDDT (proxy via CA B-factor) over the union of interface residues."""
+##################################################
+# Precomputation helper functions
+##################################################
+
+def compute_interface_avg_plddt(
+    precomputed: Tuple[Set[Any], Set[Any], Set[Tuple[Any, Any]]]
+) -> float:
+    """
+    Compute the average interface pLDDT (proxy via CA B-factor) over
+    the union of interface residues.
+    """
     res_set = precomputed[0].union(precomputed[1])
     bvals = []
     for res in res_set:
@@ -135,10 +162,14 @@ def compute_interface_avg_plddt(precomputed: Tuple[Set[Any], Set[Any], Set[Tuple
         bvals.append(atom.get_bfactor())
     return sum(bvals) / len(bvals) if bvals else float('nan')
 
-def compute_interface_avg_pae(precomputed: Tuple[Set[Any], Set[Any], Set[Tuple[Any, Any]]],
-                              pae_matrix: List[List[float]],
-                              res_index_map: Dict[Tuple[str, Any], int]) -> float:
-    """Compute the average PAE over all contact pairs (both directions)."""
+def compute_interface_avg_pae(
+    precomputed: Tuple[Set[Any], Set[Any], Set[Tuple[Any, Any]]],
+    pae_matrix: List[List[float]],
+    res_index_map: Dict[Tuple[str, Any], int]
+) -> float:
+    """
+    Compute the average PAE over all contact pairs (both directions).
+    """
     pae_values = []
     for res1, res2 in precomputed[2]:
         key1 = (res1.get_parent().id, res1.id)
@@ -155,16 +186,23 @@ def compute_interface_avg_pae(precomputed: Tuple[Set[Any], Set[Any], Set[Tuple[A
             continue
     return sum(pae_values) / len(pae_values) if pae_values else float('nan')
 
-# --- InterfaceAnalysis Class ---
+##################################################
+# InterfaceAnalysis
+##################################################
+
 class InterfaceAnalysis:
     """
     Represents a single interface between two chains.
     Calculates per-interface metrics: average pLDDT, average PAE, pDockQ, pDockQ2, etc.
     """
-    def __init__(self, chain1: List[Any], chain2: List[Any],
-                 contact_thresh: float,
-                 pae_matrix: List[List[float]],
-                 res_index_map: Dict[Tuple[str, Any], int]) -> None:
+    def __init__(
+        self,
+        chain1: List[Any],
+        chain2: List[Any],
+        contact_thresh: float,
+        pae_matrix: List[List[float]],
+        res_index_map: Dict[Tuple[str, Any], int]
+    ) -> None:
         self.chain1 = chain1
         self.chain2 = chain2
         self.contact_thresh = contact_thresh
@@ -177,12 +215,17 @@ class InterfaceAnalysis:
 
         # Average interface pLDDT and PAE:
         self._average_interface_plddt = compute_interface_avg_plddt(self.precomputed)
-        self._average_interface_pae = compute_interface_avg_pae(self.precomputed,
-                                                                pae_matrix,
-                                                                res_index_map)
+        self._average_interface_pae = compute_interface_avg_pae(
+            self.precomputed,
+            pae_matrix,
+            res_index_map
+        )
 
     def _get_interface_residues(self) -> Tuple[Set[Any], Set[Any], Set[Tuple[Any, Any]]]:
-        """Identify interacting residues and contact pairs using representative atoms (CB if available, else CA)."""
+        """
+        Identify interacting residues and contact pairs using representative
+        atoms (CB if available, else CA).
+        """
         res_pairs: Set[Tuple[Any, Any]] = set()
         atoms1 = [res["CB"] if "CB" in res else res["CA"] for res in self.chain1]
         atoms2 = [res["CB"] if "CB" in res else res["CA"] for res in self.chain2]
@@ -210,7 +253,9 @@ class InterfaceAnalysis:
 
     @cached_property
     def score_complex(self) -> float:
-        """= average_interface_plddt * log10(contact_pairs)."""
+        """
+        = average_interface_plddt * log10(contact_pairs).
+        """
         cp = self.contact_pairs
         return self.average_interface_plddt * math.log10(cp) if cp > 0 else 0.0
 
@@ -246,19 +291,20 @@ class InterfaceAnalysis:
     @cached_property
     def pDockQ(self) -> float:
         """
-        Compute interface-level pDockQ using IPD_L, IPD_X0, IPD_K, IPD_B.
+        Compute interface-level pDockQ using PDOCKQ_CONSTANTS.
         x = (mean_pLDDT * log10(n_contacts)).
         """
         n_contacts = self.contact_pairs
         if n_contacts <= 0:
             return 0.0
         x = self.average_interface_plddt * math.log10(n_contacts)
-        return _sigmoid(x, IPD_L, IPD_X0, IPD_K, IPD_B)
+        return PDOCKQ_CONSTANTS.score(x)
 
     @cached_property
     def _ptm_values(self) -> List[float]:
         """
-        Cached: list of PTM-transformed PAE for all contact pairs: 1 / [1 + (pae_val / D0)^2].
+        Cached: list of PTM-transformed PAE for all contact pairs:
+        1 / [1 + (pae_val / D0)^2].
         """
         ptm_values = []
         for res1, res2 in self.pairs:
@@ -277,8 +323,8 @@ class InterfaceAnalysis:
 
     def pDockQ2(self) -> Tuple[float, float]:
         """
-        Interface-level pDockQ2:
-        IPD2_L / (1 + exp(-IPD2_K*(x - IPD2_X0))) + IPD2_B
+        Interface-level pDockQ2 using PDOCKQ2_CONSTANTS.
+        pDockQ2_val = L / (1 + exp(-K*(x - X0))) + B
         where x = average_interface_plddt * mean_ptm,
               mean_ptm = average of PTM-transformed PAE.
         Returns (pDockQ2_val, mean_ptm).
@@ -286,7 +332,7 @@ class InterfaceAnalysis:
         ptm_values = self._ptm_values
         mean_ptm = sum(ptm_values) / len(ptm_values) if ptm_values else 0.0
         x = self.average_interface_plddt * mean_ptm
-        pDockQ2_val = _sigmoid(x, IPD2_L, IPD2_X0, IPD2_K, IPD2_B)
+        pDockQ2_val = PDOCKQ2_CONSTANTS.score(x)
         return pDockQ2_val, mean_ptm
 
     def ipsae(self) -> float:
@@ -338,6 +384,9 @@ class InterfaceAnalysis:
         """Dummy buried interface area."""
         return 3137.7
 
+##################################################
+# ComplexAnalysis
+##################################################
 
 class ComplexAnalysis:
     """
@@ -345,8 +394,13 @@ class ComplexAnalysis:
     Loads structure, ranking, PAE data; creates per-interface analyses;
     computes global metrics, etc.
     """
-    def __init__(self, structure_file: str, pae_file: str,
-                 ranking_metric: Dict[str, Any], contact_thresh: float) -> None:
+    def __init__(
+        self,
+        structure_file: str,
+        pae_file: str,
+        ranking_metric: Dict[str, Any],
+        contact_thresh: float
+    ) -> None:
         self.structure_file = structure_file
         self.contact_thresh = contact_thresh
 
@@ -371,6 +425,7 @@ class ComplexAnalysis:
             logging.error("Error extracting predicted_aligned_error: %s", e)
             self._predicted_aligned_error = None
 
+        # If it's a multimer model, we have iptm+ptm, iptm. If not, we fallback to plddts + ptm
         if ranking_metric.get("multimer"):
             self._iptm_ptm = ranking_metric["iptm+ptm"]
             self._iptm = ranking_metric["iptm"]
@@ -421,13 +476,17 @@ class ComplexAnalysis:
 
     @property
     def average_interface_pae(self) -> float:
-        """Global average interface PAE over all interfaces that pass the PAE filter."""
+        """
+        Global average interface PAE over all interfaces
+        that pass the PAE filter.
+        """
         if not self.interfaces:
             return float('nan')
         valid_pae = [
             iface.average_interface_pae
             for iface in self.interfaces
-            if not math.isnan(iface.average_interface_pae) and iface.average_interface_pae <= FLAGS.pae_filter
+            if not math.isnan(iface.average_interface_pae)
+               and iface.average_interface_pae <= FLAGS.pae_filter
         ]
         return sum(valid_pae) / len(valid_pae) if valid_pae else float('nan')
 
@@ -441,7 +500,10 @@ class ComplexAnalysis:
 
     @cached_property
     def contact_pairs_global(self) -> int:
-        """Count global contacts using a 3D NeighborSearch over all atoms in different chains."""
+        """
+        Count global contacts using a 3D NeighborSearch
+        over all atoms in different chains.
+        """
         model = next(self.structure.get_models())
         all_atoms = list(model.get_atoms())
         ns = NeighborSearch(all_atoms)
@@ -465,17 +527,25 @@ class ComplexAnalysis:
 
     @cached_property
     def compute_complex_score(self) -> float:
-        """= average_interface_plddt * log10(contact_pairs_global + 1)."""
+        """
+        = average_interface_plddt * log10(contact_pairs_global + 1).
+        """
         return self.average_interface_plddt * math.log10(self.contact_pairs_global + 1)
 
     @cached_property
     def mpDockQ(self) -> float:
-        """Compute mpDockQ from the global complex score only if more than 2 chains."""
+        """
+        Compute mpDockQ from the global complex score only if more than 2 chains.
+        Otherwise, return NaN (not meaningful for single interface).
+        """
         if self.num_chains <= 2:
             return float('nan')
-        return _sigmoid(self.compute_complex_score, MPD_L, MPD_X0, MPD_K, MPD_B)
+        return MPDOCKQ_CONSTANTS.score(self.compute_complex_score)
 
-# --- Processing All Models ---
+##################################################
+# Processing all models
+##################################################
+
 def process_all_models(directory: str, contact_thresh: float) -> None:
     job_name = extract_job_name()
     ranking_data = parse_ranking_debug_json_all(directory)
@@ -500,7 +570,8 @@ def process_all_models(directory: str, contact_thresh: float) -> None:
             else:
                 global_score = comp.interfaces[0].pDockQ if comp.interfaces else 0.0
 
-            binding_energy = -1.3 * comp.contact_pairs_global  # Placeholder for real calculation
+            # Dummy placeholder for binding energy
+            binding_energy = -1.3 * comp.contact_pairs_global
             model_used = model
 
             if comp.interfaces:
@@ -553,6 +624,7 @@ def process_all_models(directory: str, contact_thresh: float) -> None:
         else:
             f.write("")
     logging.info("Unified interface scores written to %s", output_file)
+
 
 def main(argv) -> None:
     del argv
