@@ -10,8 +10,18 @@ import numpy as np
 from dataclasses import dataclass
 
 from absl import app, flags, logging
-from Bio.PDB import PDBParser, NeighborSearch
-from Bio.PDB.MMCIFParser import MMCIFParser
+
+from Bio.PDB import (
+    PDBParser,
+    MMCIFParser,
+    NeighborSearch,
+    Structure,
+    Model,
+    Chain,
+    Residue,
+)
+from Bio.PDB.SASA import ShrakeRupley  # For SASA computations
+from Bio.PDB.Atom import Atom
 
 ##################################################
 # DockQ constants & data structures
@@ -36,7 +46,6 @@ class DockQConstants:
         """Applies the stored constants to compute the sigmoid for x."""
         return _sigmoid(x, self.L, self.X0, self.K, self.B)
 
-
 # ------------------------------------------------------------------------------
 # Constants for interface-level pDockQ
 # https://www.nature.com/articles/s41467-022-28865-w
@@ -44,7 +53,7 @@ PDOCKQ_CONSTANTS = DockQConstants(L=0.724, X0=152.611, K=0.052, B=0.018)
 
 # ------------------------------------------------------------------------------
 # Constants for interface-level pDockQ2
-# https://academic.oup.com/bioinformatics/article/39/7/btad424/7219714?login=false
+# https://academic.oup.com/bioinformatics/article/39/7/btad424/7219714
 # Also uses D0 for the PAE transformation
 D0 = 10.0
 PDOCKQ2_CONSTANTS = DockQConstants(L=1.31, X0=84.733, K=0.075, B=0.005)
@@ -52,8 +61,6 @@ PDOCKQ2_CONSTANTS = DockQConstants(L=1.31, X0=84.733, K=0.075, B=0.005)
 # ------------------------------------------------------------------------------
 # Constants for mpDockQ (global complex scores)
 # https://www.nature.com/articles/s41467-022-33729-4
-# https://github.com/patrickbryant1/MoLPC/blame/master/README.md#L106
-# numbers are taken from the paper, github numbers are different!
 MPDOCKQ_CONSTANTS = DockQConstants(L=0.728, X0=309.375, K=0.098, B=0.262)
 # ------------------------------------------------------------------------------
 
@@ -68,10 +75,9 @@ flags.DEFINE_string('pathToDir', None,
                     'Path to the directory containing predicted model files and ranking_debug.json')
 flags.DEFINE_float('contact_thresh', 8.0,
                    'Distance threshold for counting contacts (Å). Two residues '
-                   'are interacting if their C-Beta are within this distance. Default is 8 A.')
+                   'are interacting if their C-Beta are within this distance. Default is 8 Å.')
 flags.DEFINE_float('pae_filter', 100.0,
-                   'Maximum acceptable average interface PAE; interfaces above this are skipped.'
-                   'Default: do not skip anything.')
+                   'Maximum acceptable average interface PAE; interfaces above this are skipped.')
 flags.DEFINE_enum_class(
     "models_to_analyse",
     ModelsToAnalyse.BEST,
@@ -80,7 +86,7 @@ flags.DEFINE_enum_class(
 )
 
 ##################################################
-# Helper functions
+# Simple reading / parsing helpers
 ##################################################
 
 def extract_job_name() -> str:
@@ -88,13 +94,10 @@ def extract_job_name() -> str:
     return os.path.basename(os.path.normpath(FLAGS.pathToDir))
 
 def read_json(filepath: str) -> Any:
-    try:
-        with open(filepath) as f:
-            data = json.load(f)
-        logging.info("Loaded JSON file: %s", filepath)
-        return data
-    except Exception as e:
-        raise ValueError(f"Error parsing {filepath}: {e}")
+    with open(filepath) as f:
+        data = json.load(f)
+    logging.info("Loaded JSON file: %s", filepath)
+    return data
 
 def parse_ranking_debug_json_all(directory: str) -> Dict[str, Any]:
     path = os.path.join(directory, "ranking_debug.json")
@@ -104,9 +107,6 @@ def parse_ranking_debug_json_all(directory: str) -> Dict[str, Any]:
     return data
 
 def get_ranking_metric_for_model(data: Dict[str, Any], model: str) -> Dict[str, Any]:
-    """
-    Return metric dict for the given model, handling monomer vs multimer logic.
-    """
     match (("iptm+ptm" in data, "iptm" in data, "plddts" in data, "ptm" in data)):
         case (True, True, _, _):
             if model not in data["iptm+ptm"] or model not in data["iptm"]:
@@ -142,16 +142,13 @@ def find_structure_file(directory: str, model: str) -> str:
     raise ValueError(f"No structure file (CIF or PDB) found for model '{model}' in directory.")
 
 ##################################################
-# Precomputation helper functions
+# Precomputation helpers
 ##################################################
 
 def compute_interface_avg_plddt(
     precomputed: Tuple[Set[Any], Set[Any], Set[Tuple[Any, Any]]]
 ) -> float:
-    """
-    Compute the average interface pLDDT (proxy via CA B-factor) over
-    the union of interface residues.
-    """
+    """Compute the average interface pLDDT (proxy via CA B-factor) over the union of interface residues."""
     res_set = precomputed[0].union(precomputed[1])
     bvals = []
     for res in res_set:
@@ -167,9 +164,7 @@ def compute_interface_avg_pae(
     pae_matrix: List[List[float]],
     res_index_map: Dict[Tuple[str, Any], int]
 ) -> float:
-    """
-    Compute the average PAE over all contact pairs (both directions).
-    """
+    """Compute the average PAE over all contact pairs (both directions)."""
     pae_values = []
     for res1, res2 in precomputed[2]:
         key1 = (res1.get_parent().id, res1.id)
@@ -187,13 +182,123 @@ def compute_interface_avg_pae(
     return sum(pae_values) / len(pae_values) if pae_values else float('nan')
 
 ##################################################
+# Simple shape complementarity from Lawrence & Colman (1993)
+# Approximation (toy).
+##################################################
+
+def approximate_sc_lc93(surfaceA, surfaceB, w=0.5):
+    """
+    Partial re-implementation of shape complementarity from:
+      Lawrence, M. C. & Colman, P. M. (1993).
+      Shape complementarity at protein/protein interfaces.
+      J. Mol. Biol. 234, 946–950.
+
+    We compute for each surface point xA in A:
+       S_{A->B}(xA) = (nA . -nB') * exp[-w*(dist^2)]
+    where xB' is the nearest surface point in B, nB' is that point's normal.
+    Then we take the median over xA, do the same for B->A, average them => Sc.
+
+    We skip the 1.5 Å "peripheral band" step for brevity and rely on
+    approximate "buried-surface" identification.
+    """
+    if not surfaceA or not surfaceB:
+        return 0.0
+
+    coordsB = np.array([pt[0] for pt in surfaceB])
+    normalsB = [pt[1] for pt in surfaceB]
+
+    scoresA = []
+    for (xyzA, normA) in surfaceA:
+        diff = coordsB - xyzA
+        dist_sq = np.sum(diff * diff, axis=1)
+        idx_min = np.argmin(dist_sq)
+        best_dist = math.sqrt(dist_sq[idx_min])
+        best_normB = normalsB[idx_min]
+        dotval = np.dot(normA, -best_normB)
+        local_score = dotval * math.exp(-w * (best_dist ** 2))
+        scoresA.append(local_score)
+
+    coordsA = np.array([pt[0] for pt in surfaceA])
+    normalsA = [pt[1] for pt in surfaceA]
+    scoresB = []
+    for (xyzB, normB) in surfaceB:
+        diff = coordsA - xyzB
+        dist_sq = np.sum(diff * diff, axis=1)
+        idx_min = np.argmin(dist_sq)
+        best_dist = math.sqrt(dist_sq[idx_min])
+        best_normA = normalsA[idx_min]
+        dotval = np.dot(normB, -best_normA)
+        local_score = dotval * math.exp(-w * (best_dist ** 2))
+        scoresB.append(local_score)
+
+    medA = np.median(scoresA)
+    medB = np.median(scoresB)
+    return 0.5 * (medA + medB)
+
+def gather_buried_surface_points(chain_residues, other_chain_residues, distance_cutoff=5.0, dot_density=15):
+    """
+    Approximate "buried portion" of a chain's molecular surface
+    by:
+      1) generating surface points & normals via ShrakeRupley
+      2) marking any points within 'distance_cutoff' of the other chain => "buried"
+
+    We skip the formal "exclude a 1.5 A band" from the LC93 approach for brevity.
+    Returns a list of (xyz, normal).
+    """
+    sr = ShrakeRupley(probe_radius=1.4, n_points=dot_density)
+    struct = Structure.Structure("tempA")
+    model = Model.Model(0)
+    struct.add(model)
+    cZ = Chain.Chain("Z")
+    model.add(cZ)
+    for r in chain_residues:
+        cZ.add(r.copy())
+
+    sr.compute(struct, level="A")  # per atom => "EXP_DOTS"
+
+    surface_points = []
+    for r in cZ:
+        for a in r:
+            dots = a.xtra.get("EXP_DOTS", [])
+            for (x, y, z, nx, ny, nz) in dots:
+                surface_points.append((np.array([x, y, z]), np.array([nx, ny, nz])))
+
+    # Gather heavy atoms from the other chain
+    other_atoms = []
+    for rr in other_chain_residues:
+        for atm in rr.get_atoms():
+            if atm.element.upper() != "H":
+                other_atoms.append(atm)
+
+    if not surface_points or not other_atoms:
+        return []
+
+    coords_other = np.array([atm.coord for atm in other_atoms])
+    cutoff_sq = distance_cutoff ** 2
+
+    buried = []
+    for (xyz, norm) in surface_points:
+        diff = coords_other - xyz
+        dist_sq = np.sum(diff * diff, axis=1)
+        if np.any(dist_sq <= cutoff_sq):
+            buried.append((xyz, norm))
+
+    return buried
+
+##################################################
 # InterfaceAnalysis
 ##################################################
 
 class InterfaceAnalysis:
     """
     Represents a single interface between two chains.
-    Calculates per-interface metrics: average pLDDT, average PAE, pDockQ, pDockQ2, etc.
+    Calculates:
+      - average PAE, pLDDT
+      - pDockQ, pDockQ2, ipSAE, LIS
+      - shape complementarity (approx)
+      - interface area & solvation energy (via ShrakeRupley)
+      - hydrogen bonds (hb)
+      - salt bridges (sb)
     """
     def __init__(
         self,
@@ -209,23 +314,16 @@ class InterfaceAnalysis:
         self._pae_matrix = pae_matrix
         self._res_index_map = res_index_map
 
-        # Identify interacting residues and contact pairs once:
+        # Identify interacting residues and contact pairs once
         self.precomputed = self._get_interface_residues()
         self.interface_residues_chain1, self.interface_residues_chain2, self.pairs = self.precomputed
 
-        # Average interface pLDDT and PAE:
+        # Summaries
         self._average_interface_plddt = compute_interface_avg_plddt(self.precomputed)
-        self._average_interface_pae = compute_interface_avg_pae(
-            self.precomputed,
-            pae_matrix,
-            res_index_map
-        )
+        self._average_interface_pae = compute_interface_avg_pae(self.precomputed, pae_matrix, res_index_map)
 
     def _get_interface_residues(self) -> Tuple[Set[Any], Set[Any], Set[Tuple[Any, Any]]]:
-        """
-        Identify interacting residues and contact pairs using representative
-        atoms (CB if available, else CA).
-        """
+        """Identify interacting residues and contact pairs using CB/CA and neighbor search."""
         res_pairs: Set[Tuple[Any, Any]] = set()
         atoms1 = [res["CB"] if "CB" in res else res["CA"] for res in self.chain1]
         atoms2 = [res["CB"] if "CB" in res else res["CA"] for res in self.chain2]
@@ -253,20 +351,16 @@ class InterfaceAnalysis:
 
     @cached_property
     def score_complex(self) -> float:
-        """
-        = average_interface_plddt * log10(contact_pairs).
-        """
+        """= average_interface_plddt * log10(contact_pairs)."""
         cp = self.contact_pairs
         return self.average_interface_plddt * math.log10(cp) if cp > 0 else 0.0
 
     @property
     def num_intf_residues(self) -> int:
-        """Union of residues from both sides of the interface."""
         return len(self.interface_residues_chain1.union(self.interface_residues_chain2))
 
     @property
     def polar(self) -> float:
-        """Normalized fraction of polar residues at the interface."""
         polar_res = {'SER', 'THR', 'ASN', 'GLN', 'TYR', 'CYS'}
         residues = self.interface_residues_chain1.union(self.interface_residues_chain2)
         count = sum(1 for res in residues if res.get_resname() in polar_res)
@@ -274,7 +368,6 @@ class InterfaceAnalysis:
 
     @property
     def hydrophobic(self) -> float:
-        """Normalized fraction of hydrophobic residues at the interface."""
         hydro_res = {'ALA', 'VAL', 'LEU', 'ILE', 'MET', 'PHE', 'TRP'}
         residues = self.interface_residues_chain1.union(self.interface_residues_chain2)
         count = sum(1 for res in residues if res.get_resname() in hydro_res)
@@ -282,18 +375,16 @@ class InterfaceAnalysis:
 
     @property
     def charged(self) -> float:
-        """Normalized fraction of charged residues at the interface."""
         charged_res = {'ARG', 'LYS', 'ASP', 'GLU', 'HIS'}
         residues = self.interface_residues_chain1.union(self.interface_residues_chain2)
         count = sum(1 for res in residues if res.get_resname() in charged_res)
         return count / len(residues) if residues else 0.0
 
+    # -------------------------------------------------------
+    # pDockQ, pDockQ2, ipSAE, LIS
+    # -------------------------------------------------------
     @cached_property
     def pDockQ(self) -> float:
-        """
-        Compute interface-level pDockQ using PDOCKQ_CONSTANTS.
-        x = (mean_pLDDT * log10(n_contacts)).
-        """
         n_contacts = self.contact_pairs
         if n_contacts <= 0:
             return 0.0
@@ -302,10 +393,6 @@ class InterfaceAnalysis:
 
     @cached_property
     def _ptm_values(self) -> List[float]:
-        """
-        Cached: list of PTM-transformed PAE for all contact pairs:
-        1 / [1 + (pae_val / D0)^2].
-        """
         ptm_values = []
         for res1, res2 in self.pairs:
             key1 = (res1.get_parent().id, res1.id)
@@ -322,13 +409,6 @@ class InterfaceAnalysis:
         return ptm_values
 
     def pDockQ2(self) -> Tuple[float, float]:
-        """
-        Interface-level pDockQ2 using PDOCKQ2_CONSTANTS.
-        pDockQ2_val = L / (1 + exp(-K*(x - X0))) + B
-        where x = average_interface_plddt * mean_ptm,
-              mean_ptm = average of PTM-transformed PAE.
-        Returns (pDockQ2_val, mean_ptm).
-        """
         ptm_values = self._ptm_values
         mean_ptm = sum(ptm_values) / len(ptm_values) if ptm_values else 0.0
         x = self.average_interface_plddt * mean_ptm
@@ -336,53 +416,206 @@ class InterfaceAnalysis:
         return pDockQ2_val, mean_ptm
 
     def ipsae(self) -> float:
-        """ipSAE = average PTM-transformed PAE for the interface."""
         ptm_values = self._ptm_values
         return sum(ptm_values) / len(ptm_values) if ptm_values else 0.0
 
     def lis(self) -> float:
         """
-        Average of (12 - PAE)/12 for PAE <= 12 in the submatrix referencing chain1 x chain2.
+        LIS: average of (12 - PAE)/12 over all i-j with PAE <=12
         """
+        if not self._pae_matrix:
+            return 0.0
         cid1 = self.chain1[0].get_parent().id
         cid2 = self.chain2[0].get_parent().id
         indices_chain1 = [i for ((c, _), i) in self._res_index_map.items() if c == cid1]
         indices_chain2 = [i for ((c, _), i) in self._res_index_map.items() if c == cid2]
         if not indices_chain1 or not indices_chain2:
             return 0.0
-        pae_arr = np.array(self._pae_matrix)
-        submatrix = pae_arr[np.ix_(indices_chain1, indices_chain2)]
+
+        arr = np.array(self._pae_matrix)
+        submatrix = arr[np.ix_(indices_chain1, indices_chain2)]
         valid = submatrix[submatrix <= 12]
         if valid.size == 0:
             return 0.0
-        scores = (12 - valid) / 12
+        scores = (12.0 - valid) / 12.0
         return float(np.mean(scores))
 
-    # Dummy placeholders
-    @cached_property
-    def sc(self) -> float:
-        """Dummy shape complementarity."""
-        return -0.1
-
+    # -------------------------------------------------------
+    # Hydrogen bonds (hb)
+    # -------------------------------------------------------
     @cached_property
     def hb(self) -> int:
-        """Dummy hydrogen bond count."""
-        return 54
+        """
+        Naive hydrogen-bond count: any chain1 N/O atom within 3.5 Å
+        of chain2 N/O atom (ignores angles, etc.).
+        """
+        chain1_atoms = []
+        for residue in self.chain1:
+            for atom in residue.get_atoms():
+                aname = atom.get_id().upper()
+                if aname.startswith("N") or aname.startswith("O"):
+                    chain1_atoms.append(atom)
 
+        chain2_atoms = []
+        for residue in self.chain2:
+            for atom in residue.get_atoms():
+                aname = atom.get_id().upper()
+                if aname.startswith("N") or aname.startswith("O"):
+                    chain2_atoms.append(atom)
+
+        if not chain1_atoms or not chain2_atoms:
+            return 0
+
+        cutoff = 3.5
+        ns = NeighborSearch(chain1_atoms + chain2_atoms)
+        visited_pairs = set()
+        hbond_count = 0
+
+        for a1 in chain1_atoms:
+            neighbors = ns.search(a1.coord, cutoff)
+            for a2 in neighbors:
+                if a2 in chain2_atoms and a2 is not a1:
+                    pair = tuple(sorted([id(a1), id(a2)]))
+                    if pair not in visited_pairs:
+                        visited_pairs.add(pair)
+                        hbond_count += 1
+
+        return hbond_count
+
+    # -------------------------------------------------------
+    # Salt bridges (sb)
+    # -------------------------------------------------------
     @cached_property
     def sb(self) -> int:
-        """Dummy salt bridge count."""
-        return 1
+        """
+        Naive salt-bridge count: side-chain atoms of ARG/LYS within 4.0 Å
+        of side-chain atoms of ASP/GLU. Ignores orientation.
+        """
+        pos_res = {"ARG", "LYS"}
+        neg_res = {"ASP", "GLU"}
+
+        chain1_atoms = []
+        for residue in self.chain1:
+            rname = residue.get_resname()
+            if rname in pos_res or rname in neg_res:
+                for atom in residue.get_atoms():
+                    if atom.get_id() not in ("N", "CA", "C", "O"):
+                        chain1_atoms.append(atom)
+
+        chain2_atoms = []
+        for residue in self.chain2:
+            rname = residue.get_resname()
+            if rname in pos_res or rname in neg_res:
+                for atom in residue.get_atoms():
+                    if atom.get_id() not in ("N", "CA", "C", "O"):
+                        chain2_atoms.append(atom)
+
+        if not chain1_atoms or not chain2_atoms:
+            return 0
+
+        cutoff = 4.0
+        ns = NeighborSearch(chain1_atoms + chain2_atoms)
+        visited_pairs = set()
+        sb_count = 0
+
+        for a1 in chain1_atoms:
+            r1_name = a1.get_parent().get_resname()
+            neighbors = ns.search(a1.coord, cutoff)
+            for a2 in neighbors:
+                if a2 in chain2_atoms and a2 is not a1:
+                    r2_name = a2.get_parent().get_resname()
+                    if ((r1_name in pos_res and r2_name in neg_res) or
+                        (r1_name in neg_res and r2_name in pos_res)):
+                        pair = tuple(sorted([id(a1), id(a2)]))
+                        if pair not in visited_pairs:
+                            visited_pairs.add(pair)
+                            sb_count += 1
+
+        return sb_count
+
+    # -------------------------------------------------------
+    # Shape complementarity
+    # -------------------------------------------------------
+    @cached_property
+    def sc(self) -> float:
+        """
+        Approximate shape complementarity following
+        Lawrence & Colman (1993) (CCP4 sc code).
+        """
+        surfaceA = gather_buried_surface_points(
+            self.interface_residues_chain1, self.interface_residues_chain2,
+            distance_cutoff=5.0, dot_density=15
+        )
+        surfaceB = gather_buried_surface_points(
+            self.interface_residues_chain2, self.interface_residues_chain1,
+            distance_cutoff=5.0, dot_density=15
+        )
+        return approximate_sc_lc93(surfaceA, surfaceB, w=0.5)
+
+    # -------------------------------------------------------
+    # Interface area & solvation energy
+    # -------------------------------------------------------
+    @cached_property
+    def int_area(self) -> float:
+        """
+        Interface area:
+          (SASA(chain1) + SASA(chain2)) - SASA(chain1+chain2)
+        """
+        sasa_c1 = self._compute_sasa_for_chain(self.chain1)
+        sasa_c2 = self._compute_sasa_for_chain(self.chain2)
+        sasa_complex = self._compute_sasa_for_complex(self.chain1, self.chain2)
+        return (sasa_c1 + sasa_c2) - sasa_complex
 
     @cached_property
     def int_solv_en(self) -> float:
-        """Dummy interface solvation energy."""
-        return -29.56
+        """
+        Rough solvation energy = -gamma * (buried_area).
+        gamma ~ 0.0072 (kcal/mol/Å^2).
+        """
+        gamma = 0.0072
+        return -gamma * self.int_area
 
-    @cached_property
-    def int_area(self) -> float:
-        """Dummy buried interface area."""
-        return 3137.7
+    # -----------
+    # SASA Helpers
+    # -----------
+    def _compute_sasa_for_chain(self, chain_res_list: List[Residue]) -> float:
+        sr = ShrakeRupley()
+        tmp_struct = Structure.Structure("chain_s")
+        tmp_model = Model.Model(0)
+        tmp_struct.add(tmp_model)
+        c = Chain.Chain("X")
+        tmp_model.add(c)
+        for r in chain_res_list:
+            c.add(r.copy())
+
+        sr.compute(tmp_struct, level="R")
+        total_sasa = 0.0
+        for r in c:
+            rsasa = r.xtra.get("EXP_RSASA", 0.0)
+            total_sasa += rsasa
+        return total_sasa
+
+    def _compute_sasa_for_complex(self, chain1: List[Residue], chain2: List[Residue]) -> float:
+        sr = ShrakeRupley()
+        tmp_struct = Structure.Structure("complex_s")
+        tmp_model = Model.Model(0)
+        tmp_struct.add(tmp_model)
+        cA = Chain.Chain("A")
+        cB = Chain.Chain("B")
+        tmp_model.add(cA)
+        tmp_model.add(cB)
+        for r in chain1:
+            cA.add(r.copy())
+        for r in chain2:
+            cB.add(r.copy())
+
+        sr.compute(tmp_struct, level="R")
+        total_sasa = 0.0
+        for c in (cA, cB):
+            for r in c:
+                rsasa = r.xtra.get("EXP_RSASA", 0.0)
+                total_sasa += rsasa
+        return total_sasa
 
 ##################################################
 # ComplexAnalysis
@@ -392,7 +625,7 @@ class ComplexAnalysis:
     """
     Represents a predicted complex.
     Loads structure, ranking, PAE data; creates per-interface analyses;
-    computes global metrics, etc.
+    computes global metrics (mpDockQ, etc.).
     """
     def __init__(
         self,
@@ -425,7 +658,6 @@ class ComplexAnalysis:
             logging.error("Error extracting predicted_aligned_error: %s", e)
             self._predicted_aligned_error = None
 
-        # If it's a multimer model, we have iptm+ptm, iptm. If not, we fallback to plddts + ptm
         if ranking_metric.get("multimer"):
             self._iptm_ptm = ranking_metric["iptm+ptm"]
             self._iptm = ranking_metric["iptm"]
@@ -433,17 +665,16 @@ class ComplexAnalysis:
             self._iptm_ptm = None
             self._iptm = None
 
-        # Build the residue index map & create interfaces in one pass
+        # Build the residue index map & create interfaces
         model = next(self.structure.get_models())
         chains = list(model.get_chains())
         self.res_index_map: Dict[Tuple[str, Any], int] = {}
         idx = 0
-        for chain in chains:
-            for res in chain:
-                self.res_index_map[(chain.id, res.id)] = idx
+        for chn in chains:
+            for res in chn:
+                self.res_index_map[(chn.id, res.id)] = idx
                 idx += 1
 
-        # Cache the PAE matrix
         self.pae_matrix = self._predicted_aligned_error
 
         # Create interface analyses
@@ -462,7 +693,6 @@ class ComplexAnalysis:
 
     @property
     def num_chains(self) -> int:
-        """Number of chains in the first model."""
         model = next(self.structure.get_models())
         return len(list(model.get_chains()))
 
@@ -476,10 +706,6 @@ class ComplexAnalysis:
 
     @property
     def average_interface_pae(self) -> float:
-        """
-        Global average interface PAE over all interfaces
-        that pass the PAE filter.
-        """
         if not self.interfaces:
             return float('nan')
         valid_pae = [
@@ -492,7 +718,6 @@ class ComplexAnalysis:
 
     @cached_property
     def average_interface_plddt(self) -> float:
-        """Global average interface pLDDT over all interfaces."""
         if not self.interfaces:
             return float('nan')
         vals = [iface.average_interface_plddt for iface in self.interfaces]
@@ -500,10 +725,6 @@ class ComplexAnalysis:
 
     @cached_property
     def contact_pairs_global(self) -> int:
-        """
-        Count global contacts using a 3D NeighborSearch
-        over all atoms in different chains.
-        """
         model = next(self.structure.get_models())
         all_atoms = list(model.get_atoms())
         ns = NeighborSearch(all_atoms)
@@ -527,16 +748,13 @@ class ComplexAnalysis:
 
     @cached_property
     def compute_complex_score(self) -> float:
-        """
-        = average_interface_plddt * log10(contact_pairs_global + 1).
-        """
+        """= average_interface_plddt * log10(contact_pairs_global + 1)."""
         return self.average_interface_plddt * math.log10(self.contact_pairs_global + 1)
 
     @cached_property
     def mpDockQ(self) -> float:
         """
-        Compute mpDockQ from the global complex score only if more than 2 chains.
-        Otherwise, return NaN (not meaningful for single interface).
+        mpDockQ: only meaningful if num_chains > 2
         """
         if self.num_chains <= 2:
             return float('nan')
@@ -564,14 +782,13 @@ def process_all_models(directory: str, contact_thresh: float) -> None:
             pae_file = os.path.join(directory, f"pae_{model}.json")
             comp = ComplexAnalysis(struct_file, pae_file, r_metric, contact_thresh)
 
-            # If single chain, fallback to pDockQ from the first interface; else use mpDockQ
+            # If single chain, fallback to pDockQ from the first interface; else mpDockQ
             if comp.num_chains > 1:
                 global_score = comp.mpDockQ
             else:
                 global_score = comp.interfaces[0].pDockQ if comp.interfaces else 0.0
 
-            # Dummy placeholder for binding energy
-            binding_energy = -1.3 * comp.contact_pairs_global
+            binding_energy = -1.3 * comp.contact_pairs_global  # placeholder or real
             model_used = model
 
             if comp.interfaces:
@@ -604,6 +821,12 @@ def process_all_models(directory: str, contact_thresh: float) -> None:
                         "interface_pDockQ2": pDockQ2_val,
                         "interface_ipSAE": ipSAE_val,
                         "interface_LIS": lis_val,
+                        # approximated from CCP4
+                        "interface_hb": iface.hb,
+                        "interface_sb": iface.sb,
+                        "interface_sc": iface.sc,
+                        "interface_area": iface.int_area,
+                        "interface_solv_en": iface.int_solv_en,
                     }
                     output_data.append(record)
 
@@ -624,7 +847,6 @@ def process_all_models(directory: str, contact_thresh: float) -> None:
         else:
             f.write("")
     logging.info("Unified interface scores written to %s", output_file)
-
 
 def main(argv) -> None:
     del argv
