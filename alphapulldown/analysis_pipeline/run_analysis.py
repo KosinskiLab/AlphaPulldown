@@ -37,6 +37,8 @@ IPD2_X0 = 84.733
 IPD2_K = 0.075
 IPD2_B = 0.005
 
+# class that sums numbers
+
 @enum.unique
 class ModelsToAnalyse(enum.Enum):
     BEST = 0
@@ -45,17 +47,19 @@ class ModelsToAnalyse(enum.Enum):
 FLAGS = flags.FLAGS
 flags.DEFINE_string('pathToDir', None,
                     'Path to the directory containing predicted model files and ranking_debug.json')
-flags.DEFINE_float('contact_thresh', 12.0,
-                   'Distance threshold for counting contacts (Å). Two residues are interacting if their C-Beta are within this distance.')
+flags.DEFINE_float('contact_thresh', 8.0,
+                   'Distance threshold for counting contacts (Å). Two residues '
+                   'are interacting if their C-Beta are within this distance. Default is 8 A.')
 flags.DEFINE_float('pae_filter', 100.0,
-                   'Maximum acceptable average interface PAE; interfaces above this are skipped')
+                   'Maximum acceptable average interface PAE; interfaces above this are skipped.'
+                   'Default: do not skip anything.')
 flags.DEFINE_enum_class(
     "models_to_analyse",
     ModelsToAnalyse.BEST,
     ModelsToAnalyse,
     "If `all`, all models are used. If `best`, only the most confident model (ranked_0) is used.",
 )
-flags.DEFINE_integer('surface_thres', 2, 'Surface threshold. Must be integer')
+
 
 # --- Helper Functions ---
 def extract_job_name() -> str:
