@@ -253,7 +253,7 @@ class InterfaceAnalysis:
         if n_contacts <= 0:
             return 0.0
         x = self.average_interface_plddt * math.log10(n_contacts)
-        return IPD_L / (1 + math.exp(-IPD_K * (x - IPD_X0))) + IPD_B
+        return _sigmoid(x, IPD_L, IPD_X0, IPD_K, IPD_B)
 
     @cached_property
     def _ptm_values(self) -> List[float]:
@@ -286,7 +286,7 @@ class InterfaceAnalysis:
         ptm_values = self._ptm_values
         mean_ptm = sum(ptm_values) / len(ptm_values) if ptm_values else 0.0
         x = self.average_interface_plddt * mean_ptm
-        pDockQ2_val = IPD2_L / (1 + math.exp(-IPD2_K * (x - IPD2_X0))) + IPD2_B
+        pDockQ2_val = _sigmoid(x, IPD2_L, IPD2_X0, IPD2_K, IPD2_B)
         return pDockQ2_val, mean_ptm
 
     def ipsae(self) -> float:
