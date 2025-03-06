@@ -163,6 +163,9 @@ def create_arguments(local_path_to_custom_template_db=None):
     FLAGS.pdb70_database_path = get_database_path(
         FLAGS.pdb70_database_path, "pdb70/pdb70")
 
+    FLAGS.uniprot_database_path = get_database_path(
+        FLAGS.uniprot_database_path, "uniprot/uniprot.fasta")
+
     use_small_bfd = FLAGS.db_preset == "reduced_dbs"
     flags_dict.update({"use_small_bfd": use_small_bfd})
     flags_dict.update({"fasta_paths": FLAGS.fasta_paths})
@@ -331,7 +334,7 @@ def create_and_save_monomer_objects(monomer, pipeline):
     del monomer
 
 
-def check_template_date_and_uniprot():
+def check_template_date():
     """
     Checks if the max_template_date is provided and updates the flags dictionary with the path to the Uniprot database.
     Exits the script if max_template_date is not provided or if the Uniprot database file is not found.
@@ -339,14 +342,6 @@ def check_template_date_and_uniprot():
     if not FLAGS.max_template_date:
         logging.info(
             "You have not provided a max_template_date. Please specify a date and run again.")
-        sys.exit()
-    uniprot_database_path = os.path.join(
-        FLAGS.data_dir, "uniprot/uniprot.fasta")
-    flags_dict.update({"uniprot_database_path": uniprot_database_path})
-    if not os.path.isfile(uniprot_database_path):
-        logging.info(
-            f"Failed to find uniprot.fasta under {uniprot_database_path}."
-            f" Please make sure your data_dir has been configured correctly.")
         sys.exit()
 
 
@@ -358,7 +353,7 @@ def process_sequences_individual_mode():
     """
     create_arguments()
     uniprot_runner = None if FLAGS.use_mmseqs2 else create_uniprot_runner(FLAGS.jackhmmer_binary_path,
-                                                                          FLAGS.uniref90_database_path)
+                                                                          FLAGS.uniprot_database_path)
     pipeline = None if FLAGS.use_mmseqs2 else create_pipeline()
     seq_idx = 0
     for curr_seq, curr_desc in iter_seqs(FLAGS.fasta_paths):
@@ -415,7 +410,7 @@ def process_multimeric_features(feat, idx):
 
         if not FLAGS.use_mmseqs2:
             uniprot_runner = create_uniprot_runner(
-                FLAGS.jackhmmer_binary_path, FLAGS.uniref90_database_path)
+                FLAGS.jackhmmer_binary_path, FLAGS.uniprot_database_path)
         else:
             uniprot_runner = None
         pipeline = create_pipeline()
@@ -435,7 +430,7 @@ def main(argv):
             "Multiple processes are trying to create the same folder now.")
         pass
     if not FLAGS.use_mmseqs2:
-        check_template_date_and_uniprot()
+        check_template_date()
 
     if not FLAGS.path_to_mmt:
         process_sequences_individual_mode()
