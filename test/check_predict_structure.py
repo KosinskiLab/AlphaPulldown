@@ -479,6 +479,92 @@ class TestResume(_TestBase):
             print(f"{result.stderr}")
             self.assertIn("(2048, 121)", result.stdout + result.stderr) 
             self.assertNotIn("(2049, 121)", result.stdout + result.stderr)
+class TestFeatureComparison(_TestBase):
+    """Compare features.pkl from run_alphafold.py vs. multimeric_objects_features.pkl
+       from run_structure_prediction.py, and print all keys/shapes."""
+
+    def setUp(self):
+        super().setUp()
+        # Adjust paths to match your local setup.
+        # This locates {AlphaPulldown project root}/alphafold/run_alphafold.py
+        project_root = os.path.dirname(alphapulldown.__path__[0])
+        self.script_path_alphafold = os.path.join(project_root, "alphafold", "run_alphafold.py")
+        self.script_path_structpred = self.script_path2  # from _TestBase
+
+        # Example FASTAs for a two-chain multimer test
+        self.fasta_a = os.path.join(self.test_fastas_dir, "3L4Q_A.fasta")
+        self.fasta_b = os.path.join(self.test_fastas_dir, "3L4Q_B.fasta")
+
+    def test__compare_multimeric_features_pickles(self):
+        # 1) Run run_alphafold.py
+        run_alphafold_cmd = [
+            sys.executable,
+            self.script_path_alphafold,
+            f"--fasta_paths={self.fasta_a},{self.fasta_b}",
+            "--max_template_date=2050-10-10",
+            f"--output_dir={self.output_dir}",
+            "--model_preset=multimer",
+            "--data_dir=/scratch/AlphaFold_DBs/2.3.0",
+            "--uniref90_database_path=/scratch/AlphaFold_DBs/2.3.0/uniref90/uniref90.fasta",
+            "--mgnify_database_path=/scratch/AlphaFold_DBs/2.3.0/mgnify/mgy_clusters_2022_05.fa",
+            "--bfd_database_path=/scratch/AlphaFold_DBs/2.3.0/bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt",
+            "--uniref30_database_path=/scratch/AlphaFold_DBs/2.3.0/uniref30/UniRef30_2023_02",
+            "--uniprot_database_path=/scratch/AlphaFold_DBs/2.3.0/uniprot/uniprot.fasta",
+            "--pdb_seqres_database_path=/scratch/AlphaFold_DBs/2.3.0/pdb_seqres/pdb_seqres.txt",
+            "--template_mmcif_dir=/scratch/AlphaFold_DBs/2.3.0/pdb_mmcif/mmcif_files",
+            "--obsolete_pdbs_path=/scratch/AlphaFold_DBs/2.3.0/pdb_mmcif/obsolete.dat",
+            "--use_gpu_relax",
+        ]
+        result = subprocess.run(run_alphafold_cmd, capture_output=True, text=True)
+        self.assertEqual(
+            result.returncode, 0,
+            f"run_alphafold.py failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+        )
+
+        # 2) Run run_structure_prediction.py with --save_features_for_multimeric_object
+        run_structure_prediction_cmd = [
+            sys.executable,
+            self.script_path_structpred,
+            "--input=3L4Q_A+3L4Q_B",
+            f"--output_directory={self.output_dir}",
+            "--data_directory=/scratch/AlphaFold_DBs/2.3.0/",
+            f"--features_directory={self.test_features_dir}",
+            "--save_features_for_multimeric_object"
+        ]
+        result2 = subprocess.run(run_structure_prediction_cmd, capture_output=True, text=True)
+        self.assertEqual(
+            result2.returncode, 0,
+            f"run_structure_prediction.py failed:\nSTDOUT:\n{result2.stdout}\nSTDERR:\n{result2.stderr}"
+        )
+
+        # 3) Compare the two pickle files
+        features_pkl = os.path.join(self.output_dir, "features.pkl")
+        multimeric_pkl = os.path.join(self.output_dir, "multimeric_objects_features.pkl")
+        self.assertTrue(os.path.exists(features_pkl), "No features.pkl found in output directory.")
+        self.assertTrue(os.path.exists(multimeric_pkl), "No multimeric_objects_features.pkl found in output directory.")
+
+        with open(features_pkl, "rb") as fh1, open(multimeric_pkl, "rb") as fh2:
+            d1 = pickle.load(fh1)
+            d2 = pickle.load(fh2)
+
+        # Print all keys and shapes (if NumPy array) for features.pkl
+        print("\n=== features.pkl keys ===")
+        for k, v in sorted(d1.items()):
+            shape_str = v.shape if hasattr(v, "shape") else type(v)
+            print(f"  {k}: {shape_str}")
+
+        # Print all keys and shapes (if NumPy array) for multimeric_objects_features.pkl
+        print("\n=== multimeric_objects_features.pkl keys ===")
+        for k, v in sorted(d2.items()):
+            shape_str = v.shape if hasattr(v, "shape") else type(v)
+            print(f"  {k}: {shape_str}")
+
+        # 4) Ensure top-level keys match. You can also compare sub-keys or array contents as needed.
+        self.assertEqual(
+            set(d1.keys()), set(d2.keys()),
+            "Mismatch in top-level keys between features.pkl and multimeric_objects_features.pkl."
+        )
+
 
 #TODO: Add tests for other modeling examples subclassing the class above
 #TODO: Add tests that assess that the modeling results are as expected from native AlphaFold2

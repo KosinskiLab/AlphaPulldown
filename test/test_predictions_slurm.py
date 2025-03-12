@@ -125,6 +125,8 @@ pytest -s test/check_predict_structure.py::{class_name}::{test_name}
         {"testcase_name": "continue_relax", "i": 7, "class_name": "TestResume", "test_name": "test__continue_relax"},
         {"testcase_name": "continue_prediction", "i": 8, "class_name": "TestResume", "test_name": "test__continue_prediction"},
         {"testcase_name": "long_name", "i": 9, "class_name": "TestRunModes", "test_name": "test__long_name"},
+        {"testcase_name": "feature_comparison", "i": 10, "class_name": "TestFeatureComparison", "test_name": "test__compare_multimeric_features_pickles"},
+
     )
     def test_predict_structure(self, i: int, class_name: str, test_name: str):
         conda_env = os.environ.get('CONDA_DEFAULT_ENV')
