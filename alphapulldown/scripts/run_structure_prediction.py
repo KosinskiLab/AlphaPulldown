@@ -7,6 +7,8 @@
     Author: Valentin Maurer <valentin.maurer@embl-hamburg.de>
             Dmitry Molodenskiy <dmitry.molodenskiy@embl-hamburg.de>
 """
+import pickle
+
 import jax
 gpus = jax.local_devices(backend='gpu')
 from absl import flags, app
@@ -50,6 +52,8 @@ flags.DEFINE_integer('num_predictions_per_model', 1,
                      'Number of predictions per model, defaults to 1.')
 flags.DEFINE_boolean('pair_msa', True,
                      'Whether to pair the MSAs when constructing multimer objects. Default is True')
+flags.DEFINE_boolean('save_features_for_multimeric_object', False,
+                     'Whether to save features for multimeric object.')
 flags.DEFINE_boolean('skip_templates', False,
                      'Do not use template features when modelling')
 flags.DEFINE_boolean('msa_depth_scan', False,
@@ -235,6 +239,8 @@ def pre_modelling_setup(
             multimeric_template_meta_data=flags.description_file,
             multimeric_template_dir=flags.path_to_mmt,
         )
+        if FLAGS.save_features_for_multimeric_object:
+            pickle.dump(MultimericObject.feature_dict, open(join(output_dir, "multimeric_object_features.pkl"), "wb"))
     else:
         # means it's going to be a MonomericObject or a ChoppedObject
         object_to_model= interactors[0]
@@ -311,8 +317,6 @@ def pre_modelling_setup(
                     shutil.copyfile(feature_json, output_path)
         else:
             logging.warning(f"No feature metadata found for {interactor.description} in {feature_dir}")
-
-    return object_to_model, flags_dict, postprocess_flags, output_dir
 
     return object_to_model, flags_dict, postprocess_flags, output_dir
 
