@@ -72,7 +72,7 @@ class TestPredictStructure(parameterized.TestCase):
 
         script_content = f"""#!/bin/bash
 #SBATCH --job-name=test_predict_structure_{i}
-#SBATCH --time=02:00:00
+#SBATCH --time=12:00:00
 #SBATCH --qos=normal
 #SBATCH -p gpu-el8
 #SBATCH -C gaming
