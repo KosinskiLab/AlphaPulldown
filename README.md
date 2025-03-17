@@ -1813,6 +1813,9 @@ At this time, there is only one option left unexplained: `--compress`. It tells 
 
 Instead of generating feature files locally, you can download them from the **AlphaPulldown Features Database**, which contains precomputed protein **features for major model organisms**.
 
+>[!WARNING]
+>The MSA features in this database do not include pairing information, which may result in reduced accuracy.
+
 ## Installation
 
 >[!NOTE]
