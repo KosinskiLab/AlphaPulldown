@@ -37,7 +37,8 @@ class TestCreateIndividualFeaturesWithTemplates(parameterized.TestCase):
 
         self.create_mock_file(root_dir / 'uniref90/uniref90.fasta')
         self.create_mock_file(root_dir / 'mgnify/mgy_clusters_2022_05.fa')
-        self.create_mock_file(root_dir / 'uniprot/uniprot.fasta')
+        with open(root_dir / 'uniprot' / 'uniprot.fasta', 'w') as f:
+            f.write(">dummy_uniprot\nAAAAAAAAAAAAAAAAAAA\n")
         self.create_mock_file(root_dir / 'bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt_hhm.ffindex')
         self.create_mock_file(root_dir / 'uniref30/UniRef30_2021_03_hhm.ffindex')
         self.create_mock_file(root_dir / 'uniref30/UniRef30_2023_02_hhm.ffindex')
