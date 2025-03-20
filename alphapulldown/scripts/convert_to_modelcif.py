@@ -219,7 +219,7 @@ class _Biopython2ModelCIF(modelcif.model.AbInitioModel):
 
         # outsource PAE to associated file
         arc_files = [
-            modelcif.associated.LocalPairwiseQAScoresFile(
+            modelcif.associated.QAMetricsFile(
                 f"{file_prefix}_local_pairwise_qa.cif",
                 categories=["_ma_qa_metric_local_pairwise"],
                 copy_categories=["_ma_qa_metric"],
