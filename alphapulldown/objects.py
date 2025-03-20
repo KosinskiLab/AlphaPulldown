@@ -108,7 +108,7 @@ class MonomericObject:
         result = pipeline.run_msa_tool(
             uniprot_msa_runner,
             input_fasta_path,
-            f"{output_dir}/uniprot.sto",
+            f"{output_dir}/uniprot_hits.sto",
             "sto",
             use_precomputed_msa,
         )
