@@ -281,8 +281,25 @@ def pre_modelling_setup(
 
     if flags.use_ap_style:
         output_dir = join(output_dir, object_to_model.description)
+    if flags.use_ap_style:
+        list_oligo = object_to_model.description.split("_and_")
+        if len(list_oligo) == len(set(list_oligo)) : #no homo-oligomer
+           output_dir = join(output_dir, object_to_model.description)
+        else :
+            old_output_dir = output_dir
+            for oligo in set(list_oligo) :
+                number_oligo = list_oligo.count(oligo)
+                if output_dir == old_output_dir :
+                    if number_oligo != 1 :
+                        output_dir += f"/{oligo}_homo_{number_oligo}er"
+                    else :
+                        output_dir += f"/{oligo}"
+                else :
+                    if number_oligo != 1 :
+                        output_dir += f"_and_{oligo}_homo_{number_oligo}er"
+                    else :
+                        output_dir += f"_and_{oligo}"
     if len(output_dir) > 4096: #max path length for most filesystems
-        # TODO: rename complex to something shorter
         logging.warning(f"Output directory path is too long: {output_dir}."
                         "Please use a shorter path with --output_directory.")
     makedirs(output_dir, exist_ok=True)
