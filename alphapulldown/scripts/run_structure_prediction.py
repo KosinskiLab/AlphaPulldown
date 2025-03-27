@@ -280,8 +280,6 @@ def pre_modelling_setup(
     }
 
     if flags.use_ap_style:
-        output_dir = join(output_dir, object_to_model.description)
-    if flags.use_ap_style:
         list_oligo = object_to_model.description.split("_and_")
         if len(list_oligo) == len(set(list_oligo)) : #no homo-oligomer
            output_dir = join(output_dir, object_to_model.description)
