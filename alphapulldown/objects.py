@@ -648,9 +648,9 @@ create_individual_features.py
         )
         self.feature_dict = pipeline_multimer.pad_msa(self.feature_dict, 512)
 
-        # make integer to np.array
-        for k in ['num_alignments']:
-            self.feature_dict[k] = np.array([self.feature_dict[k]])
+        ## make integer to np.array
+        #for k in ['num_alignments']:
+        #    self.feature_dict[k] = np.array([self.feature_dict[k]])
         if self.multimeric_template:
             self.feature_dict['template_sequence'] = []
             self.feature_dict['multichain_mask'] = self.multichain_mask
