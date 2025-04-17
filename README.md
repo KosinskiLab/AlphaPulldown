@@ -536,7 +536,7 @@ python3 -m pip install alphapulldown
 ```
 
 ```bash
-pip install -U "jax[cuda12]"
+pip install -U "jax[cuda12]"==0.5.3
 ```
    
 > [!NOTE] 
