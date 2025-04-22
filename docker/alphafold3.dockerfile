@@ -89,9 +89,9 @@ RUN conda run -n af3 pip install --upgrade pip && \
 # -----------------------------------------------------------------------------
 # 5) Clone + Install AlphaPulldown (No Deps)
 # -----------------------------------------------------------------------------
-#RUN git clone --recurse-submodules https://github.com/KosinskiLab/AlphaPulldown.git /AlphaPulldown
-COPY . /AlphaPulldown
-WORKDIR /AlphaPulldown
+RUN git clone --recurse-submodules https://github.com/KosinskiLab/AlphaPulldown.git /AlphaPulldown
+#COPY . /AlphaPulldown
+WORKDIR AlphaPulldown
 RUN conda run -n af3 pip install . --no-deps && ls
 
 # -----------------------------------------------------------------------------

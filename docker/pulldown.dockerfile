@@ -47,8 +47,8 @@ RUN mamba install -y -c conda-forge -c bioconda -c omnia --solver classic \
 RUN mkdir -p /root/.ssh && chmod 700 /root/.ssh
 RUN ssh-keyscan github.com >> /root/.ssh/known_hosts
 
-#RUN  git clone --recurse-submodules git@github.com:KosinskiLab/AlphaPulldown.git
-COPY . /AlphaPulldown
+RUN  git clone --recurse-submodules https://github.com/KosinskiLab/AlphaPulldown.git
+#COPY . /AlphaPulldown
 WORKDIR AlphaPulldown
 RUN pip3 install .
 
