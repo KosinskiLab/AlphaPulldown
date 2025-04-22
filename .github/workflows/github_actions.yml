@@ -38,12 +38,12 @@ jobs:
       - if: matrix.install-type == 'user'
         run: |
           pip install alphapulldown
-          pip install -U "jax[cuda12]"
+          pip install -U "jax[cuda12]"==0.5.3
 
       - if: matrix.install-type == 'developer'
         run: |
           pip install .
-          pip install -U "jax[cuda12]"
+          pip install -U "jax[cuda12]"==0.5.3
           # export PYTHONPATH=$PWD/AlphaLink2:$PYTHONPATH
           # install dependencies for AlphaLink backend
           # pip install torch==1.13.0+cu117 --extra-index-url https://download.pytorch.org/whl/cu117
