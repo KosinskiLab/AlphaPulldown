@@ -12,16 +12,17 @@ class TestCreateMultimericObject(parameterized.TestCase):
 
     def setUp(self) -> None:
         test_dir = os.path.dirname(os.path.abspath(__file__))
-        self.ap_features = os.path.join(test_dir, "test_data", "features")
+        self.ap_features = os.path.join(
+            test_dir, "test_data", "predictions", "af_vs_ap")
         self.af_features = os.path.join(
             test_dir, "test_data", "predictions", "af_vs_ap", "A0A024R1R8+P61626_orig"
         )
 
         # Load pickled monomer features
-        with open(os.path.join(self.ap_features, 'P61626.pkl'), 'rb') as f:
-            self.monomer2 = pickle.load(f)
-        with open(os.path.join(self.ap_features, 'A0A024R1R8.pkl'), 'rb') as f:
+        with open(os.path.join(self.ap_features, 'A0A024R1R8_orig.pkl'), 'rb') as f:
             self.monomer1 = pickle.load(f)
+        with open(os.path.join(self.ap_features, 'P61626_orig.pkl'), 'rb') as f:
+            self.monomer2 = pickle.load(f)
 
         # Load reference multimer features
         with open(os.path.join(self.af_features, "features.pkl"), 'rb') as f:
