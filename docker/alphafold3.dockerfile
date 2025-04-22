@@ -74,14 +74,14 @@ RUN mamba create -n af3 -y \
 # 4) Extra Python Packages
 # -----------------------------------------------------------------------------
 RUN conda run -n af3 pip install --upgrade pip && \
-    conda run -n af3 pip install --no-cache-dir \
+    conda run -n af3 pip install --force-reinstall --no-cache-dir \
       dm-haiku==0.0.13 \
       chex==0.1.87 \
       dm-tree==0.1.8 \
       jaxtyping==0.2.34 \
       jmp==0.0.4 \
       ml-dtypes==0.5.0 \
-      "jax[cuda12]" \
+      "jax[cuda12]"==0.5.3 \
       triton==3.1.0 \
       jax-triton==0.2.0 && \
     conda run -n af3 pip cache purge
@@ -89,9 +89,10 @@ RUN conda run -n af3 pip install --upgrade pip && \
 # -----------------------------------------------------------------------------
 # 5) Clone + Install AlphaPulldown (No Deps)
 # -----------------------------------------------------------------------------
-RUN git clone --recurse-submodules https://github.com/KosinskiLab/AlphaPulldown.git /AlphaPulldown
+#RUN git clone --recurse-submodules https://github.com/KosinskiLab/AlphaPulldown.git /AlphaPulldown
+COPY . /AlphaPulldown
 WORKDIR /AlphaPulldown
-RUN conda run -n af3 pip install . --no-deps
+RUN conda run -n af3 pip install . --no-deps && ls
 
 # -----------------------------------------------------------------------------
 # 6) ENV Vars to Force UTF-8 Reading + Build AlphaFold 3
@@ -102,7 +103,8 @@ ENV SKBUILD_CONFIGURE_OPTIONS="-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF"
 ENV SKBUILD_BUILD_OPTIONS="-j1"
 WORKDIR /AlphaPulldown/alphafold3
 ENV CMAKE_CXX_STANDARD=17
-ENV CXXFLAGS="-O2 -fno-lto -std=gnu++17"
+#RUN apt-get update && apt-get install -y g++-12
+ENV CXXFLAGS="-O2 -fno-lto -std=gnu++20 -fno-inline"
 
 RUN conda run -n af3 pip install --upgrade pip scikit_build_core pybind11 "cmake>=3.28" ninja && \
     conda run -n af3 pip install --no-build-isolation --no-deps . && \

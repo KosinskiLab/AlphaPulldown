@@ -47,14 +47,15 @@ RUN mamba install -y -c conda-forge -c bioconda -c omnia --solver classic \
 RUN mkdir -p /root/.ssh && chmod 700 /root/.ssh
 RUN ssh-keyscan github.com >> /root/.ssh/known_hosts
 
-RUN --mount=type=ssh git clone --recurse-submodules git@github.com:KosinskiLab/AlphaPulldown.git
+#RUN  git clone --recurse-submodules git@github.com:KosinskiLab/AlphaPulldown.git
+COPY . /AlphaPulldown
 WORKDIR AlphaPulldown
 RUN pip3 install .
 
 RUN pip3 install --upgrade pip --no-cache-dir \
     && pip3 install --upgrade --no-cache-dir \
       pytest \
-      "jax[cuda12]"
+      "jax[cuda12]"==0.5.3
 RUN chmod u+s /sbin/ldconfig.real
 
 ENTRYPOINT ["bash"]
