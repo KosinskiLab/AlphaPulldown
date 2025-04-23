@@ -1,0 +1,156 @@
+Query         chain_A 
+Match_columns 64
+No_of_seqs    157 out of 1149
+Neff          3.74555
+Searched_HMMs 80799
+Date          Wed Apr 23 12:46:28 2025
+Command       /g/easybuild/x86_64/Rocky/8/genoa/software/HH-suite/3.3.0-gompi-2023a/bin/hhsearch -i /scratch/jobs/25467349/tmpja9tazf5/query.a3m -o /scratch/jobs/25467349/tmpja9tazf5/output.hhr -maxseq 1000000 -d /scratch/AlphaFold_DBs/2.3.2/pdb70/pdb70 
+
+ No Hit                             Prob E-value P-value  Score    SS Cols Query HMM  Template HMM
+  1 6MZM_D TAF1, Transcription ini  15.6 1.4E+02  0.0017   28.1   0.0   44   10-53    905-949 (1025)
+  2 6MZL_E TAF1, Transcription ini  14.7 1.5E+02  0.0018   28.0   0.0   44   10-53    965-1009(1085)
+  3 2GTJ_A FYN-binding protein; SH  12.7 1.8E+02  0.0023   18.9   0.0   19   16-34      2-20  (96)
+  4 5L4K_Z 26S proteasome non-ATPa  11.0 2.2E+02  0.0028   24.8   0.0   26    7-32     30-55  (908)
+  5 6MSB_f 26S proteasome; Proteos  11.0 2.2E+02  0.0028   24.8   0.0   26    7-32     30-55  (908)
+  6 6MSK_f 26S proteasome; Proteos  10.9 2.3E+02  0.0028   24.7   0.0   26    7-32     30-55  (892)
+  7 2V7Q_J ATP SYNTHASE SUBUNIT AL  10.4 2.4E+02   0.003   18.1   0.0   21   20-40     25-45  (66)
+  8 5LQZ_J ATP synthase subunit f,  10.4 2.4E+02   0.003   18.1   0.0   21   20-40     25-45  (66)
+  9 5SUP_H ATP-dependent RNA helic   9.4 2.8E+02  0.0034   15.3   0.0   20   10-29      9-28  (32)
+ 10 5SUP_I ATP-dependent RNA helic   9.4 2.8E+02  0.0034   15.3   0.0   20   10-29      9-28  (32)
+
+No 1
+>6MZM_D TAF1, Transcription initiation factor TFIID; Transcription, DNA, Nuclear, transcription-dna complex;{Homo sapiens}
+Probab=15.59  E-value=1.4e+02  Score=28.10  Aligned_cols=44  Identities=25%  Similarity=0.363  Sum_probs=25.1  Template_Neff=4.000
+
+Q chain_A          10 KALKQPKKQAKEMDEEEKAFKQKQKEEQ-KKLEVLKAKVVGKGPL   53 (64)
+Q Consensus        10 KpLKqPKKq~ke~DeeD~afkqKqkeeq-kkl~elk~ka~gKGPL   53 (64)
+                      .-|+..|-..++-|.|+...|+|.||-| .++++++.+++.---|
+T Consensus       905 ~LlraAKSRs~~EDpEq~RLKqKAKemQq~E~eqmRqr~AN~TAL  949 (1025)
+T 6MZM_D          905 ILMRAAKSRSRQEDPEQLRLKQKAKEMQQQELAQMRQRDANLTAL  949 (1025)
+T ss_pred             HHHHHHHHhhcccCHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH
+Confidence            3445555555666777777777665443 3556666655444333
+
+
+No 2
+>6MZL_E TAF1, Transcription initiation factor TFIID; Transcription, DNA, Nuclear; 23.0A {Homo sapiens}
+Probab=14.66  E-value=1.5e+02  Score=28.05  Aligned_cols=44  Identities=25%  Similarity=0.363  Sum_probs=3.3  Template_Neff=3.900
+
+Q chain_A          10 KALKQPKKQAKEMDEEEKAFKQKQKEEQ-KKLEVLKAKVVGKGPL   53 (64)
+Q Consensus        10 KpLKqPKKq~ke~DeeD~afkqKqkeeq-kkl~elk~ka~gKGPL   53 (64)
+                      .-|+..|-..++-|.|+...|+|.||-| .++++++.+++.---|
+T Consensus       965 ~LlrAAKSRsk~EDpEq~RLKqKAKemQq~E~eqmRqR~ANlTAL 1009 (1085)
+T 6MZL_E          965 ILMRAAKSRSRQEDPEQLRLKQKAKEMQQQELAQMRQRDANLTAL 1009 (1085)
+T ss_dssp             HHHHHHC--------------------------------------
+T ss_pred             HHHHHHHHhhcccCHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH
+Confidence            3445555555666777777777765543 3556666655544333
+
+
+No 3
+>2GTJ_A FYN-binding protein; SH3, redox, SIGNALING PROTEIN; NMR {Homo sapiens}
+Probab=12.72  E-value=1.8e+02  Score=18.95  Aligned_cols=19  Identities=42%  Similarity=0.580  Sum_probs=12.3  Template_Neff=6.400
+
+Q chain_A          16 KKQAKEMDEEEKAFKQKQK   34 (64)
+Q Consensus        16 KKq~ke~DeeD~afkqKqk   34 (64)
+                      ||..|.++.+|+.|+.+=+
+T Consensus         2 ~~~~k~~~~~~~~~~k~fk   20 (96)
+T 2GTJ_A            2 KKEQKEKEKKEQEIKKKFK   20 (96)
+T ss_dssp             CCCCSCCCCCCHHHCCCCC
+T ss_pred             hhHHHHHHHHHHHHHHHhC
+Confidence            3445567777777777655
+
+
+No 4
+>5L4K_Z 26S proteasome non-ATPase regulatory subunit; proteostasis, AAA-ATPase, structural protein; 4.5A {Homo sapiens}
+Probab=11.01  E-value=2.2e+02  Score=24.80  Aligned_cols=26  Identities=27%  Similarity=0.502  Sum_probs=20.1  Template_Neff=8.300
+
+Q chain_A           7 GKKKALKQPKKQAKEMDEEEKAFKQK   32 (64)
+Q Consensus         7 GKkKpLKqPKKq~ke~DeeD~afkqK   32 (64)
+                      |+.+|.+.+.....+|.|||...|+.
+T Consensus        30 ~~~~~~~~~~~~~~~~~~ed~~lk~~   55 (908)
+T 5L4K_Z           30 GKERRDAGDKDKEQELSEEDKQLQDE   55 (908)
+T ss_dssp             TTTTCCCCCSCCSSSHHHHHTTHHHH
+T ss_pred             cccccccCCcchhhhccHHHHHHHHH
+Confidence            45666677777788899999888775
+
+
+No 5
+>6MSB_f 26S proteasome; Proteosome, HYDROLASE; HET: ADP, ATP; 3.0A {Homo sapiens}
+Probab=11.01  E-value=2.2e+02  Score=24.80  Aligned_cols=26  Identities=27%  Similarity=0.502  Sum_probs=20.1  Template_Neff=8.300
+
+Q chain_A           7 GKKKALKQPKKQAKEMDEEEKAFKQK   32 (64)
+Q Consensus         7 GKkKpLKqPKKq~ke~DeeD~afkqK   32 (64)
+                      |+.+|.+.+.....+|.|||...|+.
+T Consensus        30 ~~~~~~~~~~~~~~~~~~ed~~lk~~   55 (908)
+T 6MSB_f           30 GKERRDAGDKDKEQELSEEDKQLQDE   55 (908)
+T ss_dssp             HHHHHHHHHHHHHHHTTSCSSCCSCT
+T ss_pred             cccccccCCcchhhhccHHHHHHHHH
+Confidence            45666677777788899999888775
+
+
+No 6
+>6MSK_f 26S proteasome; Proteosome, HYDROLASE; HET: ADP, ATP; 3.2A {Homo sapiens}
+Probab=10.91  E-value=2.3e+02  Score=24.66  Aligned_cols=26  Identities=27%  Similarity=0.502  Sum_probs=19.9  Template_Neff=8.400
+
+Q chain_A           7 GKKKALKQPKKQAKEMDEEEKAFKQK   32 (64)
+Q Consensus         7 GKkKpLKqPKKq~ke~DeeD~afkqK   32 (64)
+                      |+.+|.+.+.....+|.|||...|+.
+T Consensus        30 ~~~~~~~~~~~~~~~~~~ed~~lk~~   55 (892)
+T 6MSK_f           30 GKERRDAGDKDKEQELSEEDKQLQDE   55 (892)
+T ss_dssp             HHHHHHHHHHHHHHHHHHSTTCCSCT
+T ss_pred             cccccccCCcchhhhccHHHHHHHHH
+Confidence            45666677777788899999888775
+
+
+No 7
+>2V7Q_J ATP SYNTHASE SUBUNIT ALPHA HEART; ION TRANSPORT, MITOCHONDRION, TRANSIT PEPTIDE; HET: ADP, ATP; 2.1A {BOS TAURUS} SCOP: h.4.8.1
+Probab=10.42  E-value=2.4e+02  Score=18.11  Aligned_cols=21  Identities=38%  Similarity=0.610  Sum_probs=14.5  Template_Neff=4.000
+
+Q chain_A          20 KEMDEEEKAFKQKQKEEQKKL   40 (64)
+Q Consensus        20 ke~DeeD~afkqKqkeeqkkl   40 (64)
+                      ++.-.|+.-|.++++|.-++|
+T Consensus        25 rE~A~Ee~Y~rq~E~EqL~~L   45 (66)
+T 2V7Q_J           25 REQAEEERYFRARAKEQLAAL   45 (66)
+T ss_dssp             HHHHHHHHHHHHHHHHHHHHH
+T ss_pred             HHHHHHHHHHHHHHHHHHHHH
+Confidence            566788889999876643333
+
+
+No 8
+>5LQZ_J ATP synthase subunit f, ATP; ATP synthase, hydrolase; HET: ADP, ATP; 7.0A {Ogataea angusta}
+Probab=10.42  E-value=2.4e+02  Score=18.11  Aligned_cols=21  Identities=38%  Similarity=0.610  Sum_probs=14.5  Template_Neff=4.000
+
+Q chain_A          20 KEMDEEEKAFKQKQKEEQKKL   40 (64)
+Q Consensus        20 ke~DeeD~afkqKqkeeqkkl   40 (64)
+                      ++.-.|+.-|.++++|.-++|
+T Consensus        25 rE~A~Ee~Y~rq~E~EqL~~L   45 (66)
+T 5LQZ_J           25 REQAEEERYFRARAKEQLAAL   45 (66)
+T ss_pred             HHHHHHHHHHHHHHHHHHHHH
+Confidence            566788889999876643333
+
+
+No 9
+>5SUP_H ATP-dependent RNA helicase SUB2, YRA1/RNA; mRNA export, HYDROLASE-RNA complex; HET: ADP, BEF; 2.6A {Saccharomyces cerevisiae}
+Probab=9.44  E-value=2.8e+02  Score=15.26  Aligned_cols=20  Identities=30%  Similarity=0.453  Sum_probs=13.8  Template_Neff=4.600
+
+Q chain_A          10 KALKQPKKQAKEMDEEEKAF   29 (64)
+Q Consensus        10 KpLKqPKKq~ke~DeeD~af   29 (64)
+                      ..-..|++.+.+||.|=-+|
+T Consensus         9 ~~~~~~~~TaeeLDaELd~Y   28 (32)
+T 5SUP_H            9 KREKPAKKSLEDLDKEMADY   28 (32)
+T ss_pred             CCCCCCCCCHHHHHHHHHHH
+Confidence            34566777888888775554
+
+
+No 10
+>5SUP_I ATP-dependent RNA helicase SUB2, YRA1/RNA; mRNA export, HYDROLASE-RNA complex; HET: ADP, BEF; 2.6A {Saccharomyces cerevisiae}
+Probab=9.44  E-value=2.8e+02  Score=15.26  Aligned_cols=20  Identities=30%  Similarity=0.453  Sum_probs=13.8  Template_Neff=4.600
+
+Q chain_A          10 KALKQPKKQAKEMDEEEKAF   29 (64)
+Q Consensus        10 KpLKqPKKq~ke~DeeD~af   29 (64)
+                      ..-..|++.+.+||.|=-+|
+T Consensus         9 ~~~~~~~~TaeeLDaELd~Y   28 (32)
+T 5SUP_I            9 KREKPAKKSLEDLDKEMADY   28 (32)
+T ss_pred             CCCCCCCCCHHHHHHHHHHH
+Confidence            34566777888888775554
+
+
