@@ -3,10 +3,10 @@ import os
 import pickle
 import numpy as np
 
-from alphafold.common.residue_constants import ID_TO_HHBLITS_AA
+from alphafold.common.residue_constants import ID_TO_HHBLITS_AA, MAP_HHBLITS_AATYPE_TO_OUR_AATYPE
 from alphapulldown.objects import MonomericObject, MultimericObject
 
-
+print(MAP_HHBLITS_AATYPE_TO_OUR_AATYPE)
 class TestCreateMultimericObject(parameterized.TestCase):
     """A class that tests creation of a MultimericObject feature_dict."""
 
@@ -111,6 +111,7 @@ class TestCreateMultimericObject(parameterized.TestCase):
             mismatch_summary = (
                 f"\nMismatch summary (pair_msa={pair_msa}):\n" + "\n".join(mismatch_info)
             )
+            print(mismatch_summary)
             self.fail(mismatch_summary)
 
         # If we get here, everything matched
@@ -121,6 +122,8 @@ class TestCreateMultimericObject(parameterized.TestCase):
         # (Optional) Dump shapes and MSAs for debugging
         #
         print(f"\n=== Reference features.pkl (pair_msa={pair_msa}) ===")
+
+        OUR_AATYPE_TO_ID_HHBLITS_AA = {v: k for k, v in enumerate(MAP_HHBLITS_AATYPE_TO_OUR_AATYPE)}
         for k, v in sorted(ref_feats.items()):
             shape_str = v.shape if hasattr(v, "shape") else type(v)
             print(f"  {k}: {shape_str}")
@@ -128,7 +131,7 @@ class TestCreateMultimericObject(parameterized.TestCase):
                 with open("af_msa.sto", 'w') as f:
                     f.write("# STOCKHOLM 1.0\n\n")
                     for i, row in enumerate(v):
-                        seq = "".join(ID_TO_HHBLITS_AA[idx] for idx in row)
+                        seq = "".join(ID_TO_HHBLITS_AA[OUR_AATYPE_TO_ID_HHBLITS_AA[idx]] for idx in row)
                         f.write(f"seq_{i} {seq}\n")
                     f.write("//\n")
 
@@ -141,7 +144,7 @@ class TestCreateMultimericObject(parameterized.TestCase):
                 with open(f"ap_msa_{suffix}_pairing.sto", 'w') as f:
                     f.write("# STOCKHOLM 1.0\n\n")
                     for i, row in enumerate(v):
-                        seq = "".join(ID_TO_HHBLITS_AA[idx] for idx in row)
+                        seq = "".join(ID_TO_HHBLITS_AA[OUR_AATYPE_TO_ID_HHBLITS_AA[idx]] for idx in row)
                         f.write(f"seq_{i} {seq}\n")
                     f.write("//\n")
 
