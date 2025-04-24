@@ -63,7 +63,7 @@ class TestCreateMultimericObject(parameterized.TestCase):
     _PRED_DIR = _TEST_DATA / "predictions" / "af_vs_ap"
     _FASTA = _FASTAS_DIR / "A0A024R1R8+P61626_orig.fasta"
 
-    _ALPHAFOLD_DB_232 = pathlib.Path("/mnt/alphafold/AlphaFold_DBs/2.3.2")
+    _ALPHAFOLD_DB_232 = pathlib.Path("/g/alphafold/AlphaFold_DBs/2.3.2")
 
     # Mapping of monomer pickle filenames (after create_individual_features.py)
     _MONOMER_PICKLES = [
