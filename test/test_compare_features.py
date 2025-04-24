@@ -63,8 +63,7 @@ class TestCreateMultimericObject(parameterized.TestCase):
     _PRED_DIR = _TEST_DATA / "predictions" / "af_vs_ap"
     _FASTA = _FASTAS_DIR / "A0A024R1R8+P61626_orig.fasta"
 
-    _ALPHAFOLD_DB_232 = pathlib.Path("/g/alphafold/AlphaFold_DBs/2.3.2")
-    _ALPHAFOLD_DB_230 = pathlib.Path("/g/alphafold/AlphaFold_DBs/2.3.2")
+    _ALPHAFOLD_DB_232 = pathlib.Path("/mnt/alphafold/AlphaFold_DBs/2.3.2")
 
     # Mapping of monomer pickle filenames (after create_individual_features.py)
     _MONOMER_PICKLES = [
@@ -79,52 +78,60 @@ class TestCreateMultimericObject(parameterized.TestCase):
     # Class‑level set‑up (runs once per test run, not per parameterisation)
     # ------------------------------------------------------------------
     @classmethod
-    def setUpClass(cls) -> None:  # noqa: D401  (Google style just fine)
+    def setUpClass(cls) -> None:  # noqa: D401
         super().setUpClass()
 
-        # Ensure deterministic folder structure.
+        # Make sure the prediction folder exists.
         cls._PRED_DIR.mkdir(parents=True, exist_ok=True)
 
         # ------------------------------------------------------------------
-        # 1. Generate *monomeric* pickles (only if not already present)
+        # 0. Wipe any pickles from a previous test run
         # ------------------------------------------------------------------
-        if not all(p.exists() for p in cls._MONOMER_PICKLES):
-            create_cmd = (
-                "create_individual_features.py "
-                f"--output_dir={cls._PRED_DIR} "
-                f"--fasta_paths={cls._FASTA} "
-                "--max_template_date=2050-10-10 "
-                "--use_precomputed_msas "
-                f"--data_dir={cls._ALPHAFOLD_DB_232}"
-            )
-            _run_shell(create_cmd)
+        for f in cls._MONOMER_PICKLES:
+            if f.exists():
+                f.unlink()
+        if cls._MULTIMER_PICKLE.exists():
+            cls._MULTIMER_PICKLE.unlink()
 
         # ------------------------------------------------------------------
-        # 2. Generate *multimeric* features.pkl (only if not already present)
+        # 1. Generate *monomeric* pickles
         # ------------------------------------------------------------------
-        if not cls._MULTIMER_PICKLE.exists():
-            run_cmd = (
-                "run_alphafold.py "
-                f"--output_dir={cls._PRED_DIR} "
-                f"--fasta_paths={cls._FASTA} "
-                "--max_template_date=2050-10-10 "
-                "--model_preset=multimer "
-                "--use_precomputed_msas "
-                f"--data_dir={cls._ALPHAFOLD_DB_232}/ "
-                f"--uniref90_database_path={cls._ALPHAFOLD_DB_232}/uniref90/uniref90.fasta "
-                f"--mgnify_database_path={cls._ALPHAFOLD_DB_232}/mgnify/mgy_clusters_2022_05.fa "
-                f"--template_mmcif_dir={cls._ALPHAFOLD_DB_232}/pdb_mmcif/mmcif_files "
-                f"--obsolete_pdbs_path={cls._ALPHAFOLD_DB_232}/pdb_mmcif/obsolete.dat "
-                "--use_gpu_relax=true "
-                f"--bfd_database_path={cls._ALPHAFOLD_DB_232}/bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt "
-                f"--uniref30_database_path={cls._ALPHAFOLD_DB_232}/uniref30/UniRef30_2023_02 "
-                f"--pdb_seqres_database_path={cls._ALPHAFOLD_DB_232}/pdb_seqres/pdb_seqres.txt "
-                f"--uniprot_database_path={cls._ALPHAFOLD_DB_232}/uniprot/uniprot.fasta"
-            )
-            _run_shell(run_cmd)
+        create_cmd = (
+            "create_individual_features.py "
+            f"--output_dir={cls._PRED_DIR} "
+            f"--fasta_paths={cls._FASTA} "
+            "--max_template_date=2050-10-10 "
+            "--use_precomputed_msas "
+            f"--data_dir={cls._ALPHAFOLD_DB_232}"
+        )
+        _run_shell(create_cmd)
 
         # ------------------------------------------------------------------
-        # 3. Load features into memory for the actual tests
+        # 2. Generate *multimeric* features.pkl
+        # ------------------------------------------------------------------
+        run_cmd = (
+            "run_alphafold.py "
+            f"--output_dir={cls._PRED_DIR} "
+            f"--fasta_paths={cls._FASTA} "
+            "--max_template_date=2050-10-10 "
+            "--model_preset=multimer "
+            "--use_precomputed_msas "
+            f"--data_dir={cls._ALPHAFOLD_DB_232}/ "
+            f"--uniref90_database_path={cls._ALPHAFOLD_DB_232}/uniref90/uniref90.fasta "
+            f"--mgnify_database_path={cls._ALPHAFOLD_DB_232}/mgnify/mgy_clusters_2022_05.fa "
+            f"--template_mmcif_dir={cls._ALPHAFOLD_DB_232}/pdb_mmcif/mmcif_files "
+            f"--obsolete_pdbs_path={cls._ALPHAFOLD_DB_232}/pdb_mmcif/obsolete.dat "
+            "--use_gpu_relax=true "
+            f"--bfd_database_path={cls._ALPHAFOLD_DB_232}/bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt "
+            f"--uniref30_database_path={cls._ALPHAFOLD_DB_232}/uniref30/UniRef30_2023_02 "
+            f"--pdb_seqres_database_path={cls._ALPHAFOLD_DB_232}/pdb_seqres/pdb_seqres.txt "
+            f"--uniprot_database_path={cls._ALPHAFOLD_DB_232}/uniprot/uniprot.fasta "
+            "--features_only"
+        )
+        _run_shell(run_cmd)
+
+        # ------------------------------------------------------------------
+        # 3. Load the freshly-generated pickles
         # ------------------------------------------------------------------
         with open(cls._MONOMER_PICKLES[0], "rb") as fh:
             cls.monomer1_feats = pickle.load(fh)
@@ -133,17 +140,15 @@ class TestCreateMultimericObject(parameterized.TestCase):
         with open(cls._MULTIMER_PICKLE, "rb") as fh:
             cls.af_multimer_feats = pickle.load(fh)
 
-        # The comparison logic will reuse these sets.
-        cls._ALLOWED_DIFF_NO_PAIR: set[str] = {
+        # Sets used by the comparison logic
+        cls._ALLOWED_DIFF_NO_PAIR = {
             "bert_mask",
             "cluster_bias_mask",
             "deletion_matrix",
             "msa",
             "msa_mask",
         }
-        cls._SKIP_KEYS: set[str] = set()  # Add keys here to skip entirely.
-
-        # Pre‑compute reverse map once (small optimisation for msa dump)
+        cls._SKIP_KEYS = set()
         cls._OUR_AATYPE_TO_ID = {
             v: k for k, v in enumerate(MAP_HHBLITS_AATYPE_TO_OUR_AATYPE)
         }
