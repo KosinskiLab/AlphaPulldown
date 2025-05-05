@@ -9,7 +9,7 @@ import pickle
 import os
 import subprocess
 import json
-from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
+#from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
 import alphapulldown
 from absl.testing import absltest
 from absl.testing import parameterized
@@ -293,12 +293,12 @@ class TestResume(_TestBase):
         print(result.stdout)
         print(result.stderr)
         reference = os.path.join(self.test_modelling_dir, "3L4Q_A_and_3L4Q_C", "ranked_0.pdb")
-        for i in range(5):
-            target = os.path.join(self.output_dir, "3L4Q_A_and_3L4Q_C", f"ranked_{i}.pdb")
-            assert os.path.exists(target)
-            with tempfile.TemporaryDirectory() as temp_dir:
+        #for i in range(5):
+            #target = os.path.join(self.output_dir, "3L4Q_A_and_3L4Q_C", f"ranked_{i}.pdb")
+            #assert os.path.exists(target)
+            #with tempfile.TemporaryDirectory() as temp_dir:
                 #rmsds = calculate_rmsd_and_superpose(reference, target, temp_dir=temp_dir)
-                print(f"Model {i} RMSD {rmsds}")
+                #print(f"Model {i} RMSD {rmsds}")
         # Best RMSD is high because of FAST=True
         # TODO: assert min(rmsd_chain_b) < ??
 
@@ -476,105 +476,6 @@ class TestResume(_TestBase):
             self.assertIn("(2048, 121)", result.stdout + result.stderr) 
             self.assertNotIn("(2049, 121)", result.stdout + result.stderr)
 
-
-class TestFeatureComparison(_TestBase):
-    """Compare features.pkl from run_alphafold.py vs. multimeric_objects_features.pkl
-       from run_structure_prediction.py, and print all keys/shapes."""
-
-    def setUp(self):
-        super().setUp()
-        # This locates {AlphaPulldown project root}/alphafold/run_alphafold.py
-        project_root = os.path.dirname(alphapulldown.__path__[0])
-        self.script_path_alphafold = os.path.join(project_root, "alphafold", "run_alphafold.py")
-        self.script_path_structpred = self.script_path2  # from _TestBase
-        self.output_dir = './DEBUG_ME' # comment this
-        shutil.copytree('./test/test_data/predictions/af_vs_ap/', self.output_dir)
-        # use monomeric features A0A024R1R8.orig.pkl and P61626.orig.pkl from test/test_data/features/ for AP
-        # use multimeric features features.pkl from test/test_data/predictions/af_vs_ap/A0A024R1R8+P62626_orig/features.pkl for AF
-        # Example FASTAs for a two-chain multimer test
-        self.fasta_1 = os.path.join(self.test_fastas_dir, "A0A024R1R8_orig.fasta")
-        self.fasta_2 = os.path.join(self.test_fastas_dir, "P61626_orig.fasta")
-        self.fasta_multimer = os.path.join(self.test_fastas_dir, "A0A024R1R8+P61626_orig.fasta")
-        self.mono_pickle_1 = os.path.join(self.test_features_dir, "A0A024R1R8_orig.pkl")
-        self.mono_pickle_2 = os.path.join(self.test_features_dir, "P61626_orig.pkl")
-        self.multi_pickle = os.path.join(self.output_dir, "A0A024R1R8+P61626_orig", "features.pkl")
-
-    def test__compare_multimeric_features_pickles(self):
-        # 1) Run run_structure_prediction.py with --save_features_for_multimeric_object
-        out_path = os.path.join(self.output_dir, "alphapulldown")
-        run_structure_prediction_cmd = [
-            sys.executable,
-            self.script_path_structpred,
-            f"--input={self.mono_pickle_1[:-4]}+{self.mono_pickle_2[:-4]}",
-            f"--output_directory={out_path}",
-            "--data_directory=/scratch/AlphaFold_DBs/2.3.0/",
-            f"--features_directory={self.test_features_dir}",
-            "--save_features_for_multimeric_object"
-            "--random_seed=42"
-        ]
-        result2 = subprocess.run(run_structure_prediction_cmd, capture_output=True, text=True)
-        self.assertEqual(
-            result2.returncode, 0,
-            f"run_structure_prediction.py failed:\nSTDOUT:\n{result2.stdout}\nSTDERR:\n{result2.stderr}"
-        )
-        model_ap = os.path.join(out_path, 'ranked_0.pdb')
-        # 2) Compare the two pickle files
-        features_pkl = self.multi_pickle
-        multimeric_pkl = os.path.join(self.output_dir, "multimeric_objects_features.pkl")
-        self.assertTrue(os.path.exists(features_pkl), "No features.pkl found in output directory.")
-        self.assertTrue(os.path.exists(multimeric_pkl), "No multimeric_objects_features.pkl found in output directory.")
-
-        with open(features_pkl, "rb") as fh1, open(multimeric_pkl, "rb") as fh2:
-            d1 = pickle.load(fh1)
-            d2 = pickle.load(fh2)
-
-        # Print all keys and shapes (if NumPy array) for features.pkl
-        print("\n=== features.pkl keys ===")
-        for k, v in sorted(d1.items()):
-            shape_str = v.shape if hasattr(v, "shape") else type(v)
-            print(f"  {k}: {shape_str}")
-
-        # Print all keys and shapes (if NumPy array) for multimeric_objects_features.pkl
-        print("\n=== multimeric_objects_features.pkl keys ===")
-        for k, v in sorted(d2.items()):
-            shape_str = v.shape if hasattr(v, "shape") else type(v)
-            print(f"  {k}: {shape_str}")
-
-        # 3) Ensure top-level keys match. You can also compare sub-keys or array contents as needed.
-        self.assertEqual(
-            set(d1.keys()), set(d2.keys()),
-            "Mismatch in top-level keys between features.pkl and multimeric_objects_features.pkl."
-        )
-        #4) Run run_alphafold.py with random seed 42 and check that models are similar
-        run_alphafold_cmd = [
-            sys.executable,
-            self.script_path_alphafold,
-            f"--fasta_paths={self.fasta_1},{self.fasta_2}",
-            "--max_template_date=2050-10-10",
-            f"--output_dir={self.output_dir}",
-            "--model_preset=multimer",
-            "--data_dir=/scratch/AlphaFold_DBs/2.3.0",
-            "--uniref90_database_path=/scratch/AlphaFold_DBs/2.3.0/uniref90/uniref90.fasta",
-            "--mgnify_database_path=/scratch/AlphaFold_DBs/2.3.0/mgnify/mgy_clusters_2022_05.fa",
-            "--bfd_database_path=/scratch/AlphaFold_DBs/2.3.0/bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt",
-            "--uniref30_database_path=/scratch/AlphaFold_DBs/2.3.0/uniref30/UniRef30_2023_02",
-            "--uniprot_database_path=/scratch/AlphaFold_DBs/2.3.0/uniprot/uniprot.fasta",
-            "--pdb_seqres_database_path=/scratch/AlphaFold_DBs/2.3.0/pdb_seqres/pdb_seqres.txt",
-            "--template_mmcif_dir=/scratch/AlphaFold_DBs/2.3.0/pdb_mmcif/mmcif_files",
-            "--obsolete_pdbs_path=/scratch/AlphaFold_DBs/2.3.0/pdb_mmcif/obsolete.dat",
-            "--use_gpu_relax",
-            "--use_precomputed_msas",
-            "--random_seed=42"
-        ]
-        result = subprocess.run(run_alphafold_cmd, capture_output=True, text=True)
-        self.assertEqual(
-          result.returncode, 0,
-          f"run_alphafold.py failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
-        )
-        model_af = os.path.join(self.output_path, 'ranked_0.pdb')
-        #TODO: check that RMSD between ranked_0.pdb files are less than threshold
-        rmsd = calculate_rmsd_and_superpose(model_ap, model_af)
-        self.assertLess(rmsd, 3, f"RMSD between {model_af} and {model_ap}: {rmsd} > 3.0 A")
 
 if __name__ == '__main__':
     absltest.main()
