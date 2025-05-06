@@ -33,7 +33,7 @@ RUN conda install --solver=classic -y \
     conda-forge::libarchive \
     conda-forge::git
 
-RUN mamba install -y -c conda-forge -c bioconda -c omnia --solver classic \
+RUN mamba install -y -c conda-forge -c bioconda -c omnia \
       openmm==8.0 \
       pdbfixer==1.9 \
       kalign2 \
