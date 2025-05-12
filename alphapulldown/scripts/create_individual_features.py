@@ -16,7 +16,6 @@ from absl import logging, app, flags
 from alphafold.data import templates
 from alphafold.data.pipeline import DataPipeline
 from alphafold.data.tools import hmmsearch, hhsearch
-from colabfold.utils import DEFAULT_API_SERVER
 
 from alphapulldown.utils.create_custom_template_db import create_db
 from alphapulldown.objects import MonomericObject
@@ -310,7 +309,6 @@ def create_and_save_monomer_objects(monomer, pipeline):
     if FLAGS.use_mmseqs2:
             logging.info("Running MMseqs2 for feature generation...")
             monomer.make_mmseq_features(
-                DEFAULT_API_SERVER=DEFAULT_API_SERVER,
                 output_dir=FLAGS.output_dir,
                 use_precomputed_msa=FLAGS.use_precomputed_msas,
             )
