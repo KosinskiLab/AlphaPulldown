@@ -3,7 +3,8 @@ from absl import logging
 import csv
 import contextlib
 import tempfile
-
+import subprocess
+from pathlib import Path
 
 @contextlib.contextmanager
 def temp_fasta_file(sequence_str):
@@ -143,3 +144,25 @@ def parse_fasta(fasta_string: str):
         sequences[index] += line
 
     return sequences, descriptions
+
+def zip_msa_files(msa_dir: Path) -> None:
+    """Gzip all MSA files in directory"""
+    for ext in ['.a3m', '.fasta', '.sto', '.hmm']:
+        for f in msa_dir.glob(f"*{ext}"):
+            subprocess.run(["gzip", str(f)], check=False)
+
+
+def unzip_msa_files(msa_dir: Path) -> bool:
+    """Gunzip all .gz files in directory; return True if any"""
+    found = False
+    for gz in msa_dir.glob("*.gz"):
+        subprocess.run(["gunzip", str(gz)], check=False)
+        found = True
+    return found
+
+
+def remove_msa_files(msa_dir: Path) -> None:
+    """Remove raw MSA files after processing"""
+    for ext in ['.a3m', '.fasta', '.sto', '.hmm']:
+        for f in msa_dir.glob(f"*{ext}"):
+            f.unlink(missing_ok=True)
