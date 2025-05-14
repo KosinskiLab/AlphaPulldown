@@ -15,7 +15,7 @@ from alphafold.data import pipeline_multimer
 from alphafold.data import pipeline
 from alphafold.data import msa_pairing
 from alphafold.data import feature_processing
-from pathlib import Path as plPath
+from pathlib import Path
 from typing import List, Dict
 from colabfold.batch import get_msa_and_templates, msa_to_str, build_monomer_feature, unserialize_msa
 from colabfold.utils import DEFAULT_API_SERVER
@@ -54,13 +54,13 @@ class MonomericObject:
         """
         A static method that zip individual msa files within the given msa_output_path folder
         """
-        def zip_individual_file(msa_file: plPath):
+        def zip_individual_file(msa_file: Path):
             assert os.path.exists(msa_file)
             cmd = f"gzip {msa_file}"
             _ = subprocess.run(cmd, shell=True, capture_output=True, text=True)
 
         msa_file_endings = ['.a3m', '.fasta', '.sto', '.hmm']
-        msa_files = [i for i in plPath(
+        msa_files = [i for i in Path(
             msa_output_path).iterdir() if i.suffix in msa_file_endings]
         if len(msa_files) > 0:
             for msa_file in msa_files:
@@ -71,12 +71,12 @@ class MonomericObject:
         """
         A static method that unzip msa files in a folder if they exist
         """
-        def unzip_individual_file(msa_file: plPath):
+        def unzip_individual_file(msa_file: Path):
             assert os.path.exists(msa_file)
             cmd = f"gunzip {msa_file}"
             _ = subprocess.run(cmd, shell=True, capture_output=True, text=True)
 
-        zipped_files = [i for i in plPath(
+        zipped_files = [i for i in Path(
             msa_output_path).iterdir() if i.suffix == '.gz']
         if len(zipped_files) > 0:
             for zipped_file in zipped_files:
@@ -89,7 +89,7 @@ class MonomericObject:
     def remove_msa_files(msa_output_path: str):
         """A method that remove msa files is save_msa is set to False"""
         msa_file_endings = ['.a3m', '.fasta', '.sto', '.hmm']
-        msa_files = [i for i in plPath(
+        msa_files = [i for i in Path(
             msa_output_path).iterdir() if i.suffix in msa_file_endings]
         if len(msa_files) > 0:
             for msa_file in msa_files:
@@ -175,104 +175,107 @@ class MonomericObject:
                 os.path.join(output_dir, self.description))
 
     def make_mmseq_features(
-            self,
-            output_dir: str,
-            compress_msa_files: bool = False,
-            use_precomputed_msa: bool = False,
-    ):
+        self,
+        output_dir: str | Path,
+        *,
+        compress_msa_files: bool = False,
+        use_precomputed_msa: bool = False,
+    ) -> dict:
         """
-        Build an MSA (and, if possible, real template features) for a single
-        MonomericObject.  Falls back to mk_mock_template only when no template
-        files are available – and logs a warning when that happens.
+        Build an MSA (and template features) for *one* `MonomericObject`.
+
+        The function
+
+        * re-uses a .a3m if `use_precomputed_msa` is True **and** the file exists,
+          otherwise it calls ColabFold’s MMseqs2 API;
+        * optionally compresses the newly created MSA/env folder;
+        * raises `RuntimeError` if no templates are found;
+        * always returns the freshly populated `feature_dict`.
         """
-        # ---------- paths & housekeeping ---------------------------------
-        output_dir = plPath(output_dir)
-        output_dir.mkdir(exist_ok=True)
+        output_dir = Path(output_dir).expanduser().resolve()
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # ───────── housekeeping ────────────────────────────────────────────────
         using_zipped = MonomericObject.unzip_msa_files(output_dir)
 
         msa_mode      = "mmseqs2_uniref_env"
         use_templates = True
 
-        a3m_path      = output_dir / f"{self.description}.a3m"
-        env_dir       = output_dir / f"{self.description}_env"
-        templates_dir = env_dir / "templates_101"
-        custom_tpl_path = str(templates_dir) if templates_dir.exists() else None
+        a3m_path       = output_dir / f"{self.description}.a3m"
+        env_dir        = output_dir / f"{self.description}_env"
+        templates_dir  = env_dir / "templates_101"
+        custom_tpl_dir = str(templates_dir) if templates_dir.exists() else None
 
-        # ---------- choose branch ----------------------------------------
+        def _strip_headers(a3m_text: str) -> str:
+            """Remove comment lines so ColabFold doesn't choke on them later."""
+            return "\n".join(
+                ln for ln in a3m_text.splitlines() if not ln.startswith("#")
+            )
+
+        # ───────── obtain MSA + templates ──────────────────────────────────────
         if use_precomputed_msa and a3m_path.is_file():
-            # *Always* reuse the existing A3M; reuse templates if we have them.
-            logging.info(f"Using pre-computed MSA (and templates) in {output_dir}")
-            a3m_lines = [a3m_path.read_text()]
+            logging.info("Re-using pre-computed MSA in %s", a3m_path)
+            a3m_serialised = _strip_headers(a3m_path.read_text())
+            a3m_lines      = [a3m_serialised]
 
             (unpaired_msa, _,
              query_seqs_unique, query_seqs_cardinality,
              template_features) = get_msa_and_templates(
-                jobname              = self.description,
-                query_sequences      = self.sequence,
-                a3m_lines            = a3m_lines,
-                result_dir           = output_dir,
-                msa_mode             = msa_mode,
-                use_templates        = use_templates,
-                custom_template_path = custom_tpl_path,   # may be None
-                pair_mode            = "none",
-                host_url             = DEFAULT_API_SERVER,
-                user_agent           = "alphapulldown",
+                jobname=self.description,
+                query_sequences=self.sequence,
+                a3m_lines=a3m_lines,
+                result_dir=output_dir,
+                msa_mode=msa_mode,
+                use_templates=use_templates,
+                custom_template_path=custom_tpl_dir,
+                pair_mode="none",
+                host_url=DEFAULT_API_SERVER,
+                user_agent="alphapulldown",
             )
         else:
-            # (Re)compute the MSA and templates from scratch.
             logging.info(
-                "Computing MSA with MMseqs2.\n"
-                "Please cite Mirdita M. et al., *Nat Methods* (2022) 19:679–682."
+                "Computing MSA from scratch with MMseqs2 "
+                "(Mirdita et al., Nat Methods 19 (2022) 679–682)."
             )
-            (unpaired_msa, paired_msa,
+            (unpaired_msa, _,
              query_seqs_unique, query_seqs_cardinality,
              template_features) = get_msa_and_templates(
-                jobname              = self.description,
-                query_sequences      = self.sequence,
-                a3m_lines            = None,
-                result_dir           = output_dir,
-                msa_mode             = msa_mode,
-                use_templates        = use_templates,
-                custom_template_path = None,
-                pair_mode            = "none",
-                host_url             = DEFAULT_API_SERVER,
-                user_agent           = "alphapulldown",
+                jobname=self.description,
+                query_sequences=self.sequence,
+                a3m_lines=None,
+                result_dir=output_dir,
+                msa_mode=msa_mode,
+                use_templates=use_templates,
+                custom_template_path=None,
+                pair_mode="none",
+                host_url=DEFAULT_API_SERVER,
+                user_agent="alphapulldown",
             )
 
-            # Serialise the fresh MSA to disk so it can be reused next time.
+            # serialise for future runs
             msa_serialised = msa_to_str(
-                unpaired_msa, paired_msa,
+                unpaired_msa, None,
                 query_seqs_unique, query_seqs_cardinality
             )
             a3m_path.write_text(msa_serialised)
-            a3m_lines = [msa_serialised]
 
-            if compress_msa_files:
+            if compress_msa_files and not using_zipped:
                 MonomericObject.zip_msa_files(env_dir)
 
-        # ---------- warn if we fell back to mock templates ---------------
-        mock_idx = [
-            i for i, tf in enumerate(template_features)
-            if len(tf.get("template_domain_names", [])) == 0
-               or all(x == b"none" for x in tf["template_domain_names"])
-        ]
-        if mock_idx:
-            logging.warning(
-                f"⚠️  Falling back to mk_mock_template for sequence index(es): {mock_idx}"
-            )
+        # ───────── sanity-check templates ──────────────────────────────────────
+        names = template_features[0]["template_domain_names"]
+        empty = (len(names) == 0) or all(n == b'none' for n in names)
+        if empty:
+            logging.warning("No templates found for %s", self.description)
 
-        # ---------- strip header comments & build features ---------------
-        a3m_lines[0] = "\n".join(
-            ln for ln in a3m_lines[0].splitlines() if not ln.startswith("#")
-        )
-
+        # ───────── feature assembly ────────────────────────────────────────────
         self.feature_dict = build_monomer_feature(
             self.sequence,
             unpaired_msa[0],
             template_features[0],
         )
 
-        # add *_all_seq copies of selected MSA features
+        # copy selected MSA features to *_all_seq, cf. AlphaFold-Multimer
         valid_feats = msa_pairing.MSA_FEATURES + (
             "msa_species_identifiers",
             "msa_uniprot_accession_identifiers",
@@ -283,7 +286,7 @@ class MonomericObject:
             if k in valid_feats
         })
 
-        # ensure required template keys are present
+        # ensure downstream keys exist
         if self.feature_dict.get("template_confidence_scores") is None:
             self.feature_dict["template_confidence_scores"] = np.full(
                 (1, len(self.sequence)), 1.0, dtype=np.float32
@@ -291,11 +294,11 @@ class MonomericObject:
         if self.feature_dict.get("template_release_date") is None:
             self.feature_dict["template_release_date"] = ["none"]
 
-        # ---------- clean-up --------------------------------------------
-        if using_zipped:
+        # ───────── cleanup ─────────────────────────────────────────────────────
+        if compress_msa_files and not using_zipped:
             MonomericObject.zip_msa_files(output_dir)
 
-
+        return self.feature_dict
 
 class ChoppedObject(MonomericObject):
     """chopped monomeric objects"""
