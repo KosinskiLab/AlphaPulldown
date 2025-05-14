@@ -1440,16 +1440,16 @@ Alternatively, if you haven't generated feature files with a custom template but
 
 #### Script Execution for TrueMultimer Structure Prediction
 
-Run the script `create_individual_features.py` as described in the [2.1. Basic Run](#21-basic-run) but with the flag `--multimeric_mode=True`. 
+Run the script `run_multimer_jobs.py` as described in the [2.1. Basic Run](#21-basic-run) but with the flag `--multimeric_template=True`. 
 
 > [!NOTE]
 > To increase the impact of the custom templates on the final prediction (making the model more similar to the template), you can decrease the influence of the MSA by specifying the MSA depth with the `--msa_depth=<number>` flag.
 
-Alternatively, run the script `create_individual_features.py` with features, new templates, and a description file by adding the following flags:
+Alternatively, run the script `run_multimer_jobs.py` with features, new templates, and a description file by adding the following flags:
 
 * `--path_to_mmt=<path to template directory>`: Path to your templates directory with custom template files in PDB or CIF format. Same as for [1.4. Run with Custom Templates (TrueMultimer)](#14-run-with-custom-templates-truemultimer)
 * `--description_file=<description.csv>`: Path to the description file. Same as for [1.4. Run with Custom Templates (TrueMultimer)](#14-run-with-custom-templates-truemultimer)
-* `--multimeric_mode=True`
+* `--multimeric_template=True`
 
 #### Output and the next step
 
