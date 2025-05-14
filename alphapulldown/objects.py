@@ -299,78 +299,78 @@ class MonomericObject:
         )
         return msa_feats, tpl_feats
 
-    class MultimericObject:
-        """Combine multiple MonomericObject features into multimeric feature set"""
+class MultimericObject:
+    """Combine multiple MonomericObject features into multimeric feature set"""
 
-        def __init__(
-                self,
-                interactors: List[MonomericObject],
-                pair_msa: bool = True,
-                multimeric_template: bool = False,
-                multimeric_template_meta_data: Optional[str] = None,
-                multimeric_template_dir: Optional[str] = None,
-        ):
-            self.interactors = interactors
-            self.pair_msa = pair_msa
-            self.multimeric_template = multimeric_template
-            self.chain_id_map: Dict[str, Any] = {}
-            self.multimeric_template_dir = multimeric_template_dir
+    def __init__(
+            self,
+            interactors: List[MonomericObject],
+            pair_msa: bool = True,
+            multimeric_template: bool = False,
+            multimeric_template_meta_data: Optional[str] = None,
+            multimeric_template_dir: Optional[str] = None,
+    ):
+        self.interactors = interactors
+        self.pair_msa = pair_msa
+        self.multimeric_template = multimeric_template
+        self.chain_id_map: Dict[str, Any] = {}
+        self.multimeric_template_dir = multimeric_template_dir
 
-            # load and attach multimeric‐template metadata if requested
-            if multimeric_template and multimeric_template_meta_data and multimeric_template_dir:
-                try:
-                    self.multimeric_template_meta_data = prepare_multimeric_template_meta_info(
-                        multimeric_template_meta_data,
-                        multimeric_template_dir
-                    )
-                except Exception as e:
-                    raise TemplateFeatureError(f"Failed to parse multimeric template metadata: {e}") from e
+        # load and attach multimeric‐template metadata if requested
+        if multimeric_template and multimeric_template_meta_data and multimeric_template_dir:
+            try:
+                self.multimeric_template_meta_data = prepare_multimeric_template_meta_info(
+                    multimeric_template_meta_data,
+                    multimeric_template_dir
+                )
+            except Exception as e:
+                raise TemplateFeatureError(f"Failed to parse multimeric template metadata: {e}") from e
 
-            # ensure each monomer has features
-            for mono in interactors:
-                if mono.features is None:
-                    raise MissingFeatureError(f"Missing features for interactor {mono.description}")
+        # ensure each monomer has features
+        for mono in interactors:
+            if mono.features is None:
+                raise MissingFeatureError(f"Missing features for interactor {mono.description}")
 
-            # insert per‐chain template features if requested
-            if self.multimeric_template:
-                for mon_id, mapping in self.multimeric_template_meta_data.items():
-                    mono = next(m for m in self.interactors if m.sequence.identifier == mon_id)
-                    for cif_file, chain_id in mapping.items():
-                        pdb_id = Path(cif_file).stem
-                        try:
-                            ext_feats = extract_multimeric_template_features_for_single_chain(
-                                query_seq=mono.sequence.sequence,
-                                pdb_id=pdb_id,
-                                chain_id=chain_id,
-                                mmcif_file=str(Path(self.multimeric_template_dir) / cif_file)
-                            )
-                        except Exception as e:
-                            raise TemplateFeatureError(
-                                f"Error extracting template features from {cif_file}: {e}") from e
-                        mono.raw_features.update(ext_feats.features)
+        # insert per‐chain template features if requested
+        if self.multimeric_template:
+            for mon_id, mapping in self.multimeric_template_meta_data.items():
+                mono = next(m for m in self.interactors if m.sequence.identifier == mon_id)
+                for cif_file, chain_id in mapping.items():
+                    pdb_id = Path(cif_file).stem
+                    try:
+                        ext_feats = extract_multimeric_template_features_for_single_chain(
+                            query_seq=mono.sequence.sequence,
+                            pdb_id=pdb_id,
+                            chain_id=chain_id,
+                            mmcif_file=str(Path(self.multimeric_template_dir) / cif_file)
+                        )
+                    except Exception as e:
+                        raise TemplateFeatureError(
+                            f"Error extracting template features from {cif_file}: {e}") from e
+                    mono.raw_features.update(ext_feats.features)
 
-            # build mapping from chain IDs to sequences
-            all_fasta = "".join(f">{m.sequence.identifier}\n{m.sequence.sequence}\n" for m in self.interactors)
-            seqs, descs = parsers.parse_fasta(all_fasta)
-            self.chain_id_map = pipeline_multimer._make_chain_id_map(sequences=seqs, descriptions=descs)
+        # build mapping from chain IDs to sequences
+        all_fasta = "".join(f">{m.sequence.identifier}\n{m.sequence.sequence}\n" for m in self.interactors)
+        seqs, descs = parsers.parse_fasta(all_fasta)
+        self.chain_id_map = pipeline_multimer._make_chain_id_map(sequences=seqs, descriptions=descs)
 
-            # merge into a single feature dict
-            per_chain = {}
-            for chain_id, mono in zip(self.chain_id_map, self.interactors):
-                raw = mono.raw_features
-                per_chain[chain_id] = pipeline_multimer.convert_monomer_features(raw, chain_id)
+        # merge into a single feature dict
+        per_chain = {}
+        for chain_id, mono in zip(self.chain_id_map, self.interactors):
+            raw = mono.raw_features
+            per_chain[chain_id] = pipeline_multimer.convert_monomer_features(raw, chain_id)
 
-            # pair MSAs if desired, then pad and finalize
-            chains_for_pairing = (
-                msa_pairing.create_paired_features(per_chain.values())
-                if pair_msa and not feature_processing._is_homomer_or_monomer(per_chain.values())
-                else per_chain.values()
-            )
+        # pair MSAs if desired, then pad and finalize
+        chains_for_pairing = (
+            msa_pairing.create_paired_features(per_chain.values())
+            if pair_msa and not feature_processing._is_homomer_or_monomer(per_chain.values())
+            else per_chain.values()
+        )
 
-            merged = msa_pairing.merge_chain_features(
-                np_chains_list=chains_for_pairing,
-                pair_msa_sequences=pair_msa,
-                max_templates=4
-            )
-            processed = feature_processing.process_final(merged)
-            self.feature_dict = pipeline_multimer.pad_msa(processed, max_msa=512)
+        merged = msa_pairing.merge_chain_features(
+            np_chains_list=chains_for_pairing,
+            pair_msa_sequences=pair_msa,
+            max_templates=4
+        )
+        processed = feature_processing.process_final(merged)
+        self.feature_dict = pipeline_multimer.pad_msa(processed, max_msa=512)
