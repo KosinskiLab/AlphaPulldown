@@ -1021,7 +1021,7 @@ The result pkl files will be stored as: `proteinA.TMPL.cif.A.pkl` and `proteinA.
 
 >**Tip:** If you have already generated feature files (`.pkl`) for protein sequences without custom templates or with the
 
- different templates, instead of generating them once again with the new template, you can go directly to the [prediction step](#24-run-with-custom-templates-truemultimer) and use `templates` and `description.csv` in combination with previously generated features. During the run, it will replace templates in the features `.pkl` file with the new one.
+ different templates, instead of generating them once again with the new template, you can go directly to the [prediction step](#25-run-with-custom-templates-truemultimer) and use `templates` and `description.csv` in combination with previously generated features. During the run, it will replace templates in the features `.pkl` file with the new one.
 
 Run the following script:
 
@@ -1051,7 +1051,7 @@ Pickle format features for each protein in the `description.csv` file stored in 
 
 #### Next step
 
-Go to the next step [2.4. Run with custom templates (TrueMultimer)](#25-run-with-custom-templates-truemultimer).
+Go to the next step [2.5. Run with custom templates (TrueMultimer)](#25-run-with-custom-templates-truemultimer).
 
 </details>
 
@@ -1440,12 +1440,13 @@ This step requires the feature files (`.pkl`) generated with custom templates du
 
 Run the script `run_multimer_jobs.py` as described in the [2.1. Basic Run](#21-basic-run) but with the flag `--multimeric_template=True`. 
 
-> [!NOTE]
-> To increase the impact of the custom templates on the final prediction (making the model more similar to the template), you can decrease the influence of the MSA by specifying the MSA depth with the `--msa_depth=<number>` flag.
+>[!Note]
+>To increase the impact of the custom templates on the final prediction (making the model more similar to the template), you can decrease the influence of the MSA by specifying the MSA depth with the `--msa_depth=<number>` flag.
 
-Alternatively, if you haven't generated feature files with a custom template but have feature files from the [1.1. Basic Run](#11-basic-run) or features with different templates, you can provide those feature files in combination with the `templates` directory containing custom templates and `description.csv` as outlined in [1.4. Run with Custom Templates (TrueMultimer)](#14-run-with-custom-templates-truemultimer). Then templates will be taken from the provided template files and rewritten in the features on-the-fly, whereas the MSA features will be taken directly from the original feature files. 
-> [!Warning]
+Alternatively, if you haven't generated feature files with a custom template but have feature files from the [1.1. Basic Run](#11-basic-run) or features with different templates, you can provide those feature files in combination with the `templates` directory containing custom templates and `description.csv` as outlined in [1.4. Run with Custom Templates (TrueMultimer)](#14-run-with-custom-templates-truemultimer). Then templates will be taken from the provided template files and rewritten in the features `.pkl` files on-the-fly, whereas the MSA features will be taken directly from the original features files. 
+>[!Warning]
 > This mode is faster, but less accurate and works only if sequences of templates are nearly identical to the query sequence. It is recommended to use this mode only if you know what you do. 
+
 To run the script `run_multimer_jobs.py` in the fast mode you need to specify features, new templates, and a description file by adding the following flags:
 * `--path_to_mmt=<path to template directory>`: Path to your templates directory with custom template files in PDB or CIF format. Same as for [1.4. Run with Custom Templates (TrueMultimer)](#14-run-with-custom-templates-truemultimer)
 * `--description_file=<description.csv>`: Path to the description file. Same as for [1.4. Run with Custom Templates (TrueMultimer)](#14-run-with-custom-templates-truemultimer)
