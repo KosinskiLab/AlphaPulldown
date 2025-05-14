@@ -40,6 +40,37 @@ class MissingFeatureError(AlphaPulldownError):
 class TemplateFeatureError(AlphaPulldownError):
     """Raised for errors processing multimeric template features."""
 
+# Helper to create a MonomericObject for a subsequence range
+def make_monomer_from_range(
+    fasta_path: str,
+    chain_index: int,
+    start: int,
+    stop: int,
+    uniprot_runner: Optional[jackhmmer.Jackhmmer] = None
+) -> 'MonomericObject':
+    """
+    Parse a region from a FASTA file and return a MonomericObject for that subsequence.
+
+    Args:
+        fasta_path: Path to input FASTA file.
+        chain_index: Index of the sequence in the file (0-based).
+        start: 1-based start position.
+        stop: 1-based end position (inclusive).
+        uniprot_runner: Optional Jackhmmer runner.
+    Raises:
+        AlphaPulldownError: for parsing or index errors.
+    """
+    content = Path(fasta_path).read_text()
+    seqs, descs = parsers.parse_fasta(content)
+    try:
+        seq = seqs[chain_index]
+        desc = descs[chain_index]
+    except IndexError:
+        raise AlphaPulldownError(f"Chain index {chain_index} out of bounds for {fasta_path}")
+    region = ProteinSequence(desc, seq).get_region(start, stop)
+    mono = MonomericObject(region.identifier, region.sequence, uniprot_runner)
+    return mono
+
 @dataclass
 class ProteinSequence:
     """A protein sequence with identifier"""
