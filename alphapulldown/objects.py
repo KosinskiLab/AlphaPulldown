@@ -3,10 +3,10 @@ Create monomeric or multimeric objects using different pipelines
 Copyright (c) 2025 European Molecular Biology Laboratory
 Author: Dmitry Molodenskiy <dmitry.molodenskiy@embl-hamburg.de>
 """
+from __future__ import annotations
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional, Tuple
-from __future__ import annotations
 import numpy as np
 from absl import logging
 from alphafold.data.tools import jackhmmer

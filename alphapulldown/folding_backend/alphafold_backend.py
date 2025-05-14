@@ -18,7 +18,7 @@ import numpy as np
 from copy import copy
 import jax.numpy as jnp
 from alphapulldown.utils.plotting import plot_pae_from_matrix
-from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
+from alphapulldown.objects import MultimericObject, MonomericObject
 from alphapulldown.utils.post_modelling import post_prediction_process
 #from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
 from alphapulldown.utils.modelling_setup import pad_input_features
@@ -427,7 +427,7 @@ class AlphaFoldBackend(FoldingBackend):
 
     @staticmethod
     def predict(model_runners: Dict,
-                objects_to_model: List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject], str]],
+                objects_to_model: List[Dict[Union[MultimericObject, MonomericObject], str]],
                 allow_resume: bool,
                 skip_templates: bool,
                 random_seed: int = 42,
