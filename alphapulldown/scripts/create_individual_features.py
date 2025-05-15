@@ -12,15 +12,11 @@ from datetime import date
 from pathlib import Path
 
 from absl import app, flags, logging
-from alphafold.data.pipeline import DataPipeline
-from alphafold.data import templates as tpl
-from alphafold.data.tools import hmmsearch, hhsearch
 
 from alphapulldown.utils.create_custom_template_db import create_db
 from alphapulldown.providers import UniprotMSAProvider, MMseqsMSAProvider, HMMERTemplateProvider, HHsearchTemplateProvider
-from alphapulldown.objects import MonomericObject
+from alphapulldown.builders import MonomericObject
 from alphapulldown.utils.file_handling import iter_seqs, parse_csv_file
-from alphapulldown.utils.modelling_setup import create_uniprot_runner
 from alphapulldown.utils import save_meta_data
 
 # Flags
@@ -73,31 +69,32 @@ DB_SUBPATHS = {
 }
 
 def resolve_path(val, key):
-    return val or os.path.join(FLAGS.data_dir, DB_SUBPATHS[key])
+    return Path(val) if val else Path(FLAGS.data_dir) / DB_SUBPATHS[key]
 
 def init_args(custom_db=None):
-    FLAGS.uniref30_database_path = resolve_path(FLAGS.uniref30_database_path,'uniref30')
-    FLAGS.uniref90_database_path = resolve_path(FLAGS.uniref90_database_path,'uniref90')
-    FLAGS.mgnify_database_path = resolve_path(FLAGS.mgnify_database_path,'mgnify')
-    FLAGS.bfd_database_path = resolve_path(FLAGS.bfd_database_path,'bfd')
-    FLAGS.small_bfd_database_path = resolve_path(FLAGS.small_bfd_database_path,'small_bfd')
-    FLAGS.pdb70_database_path = resolve_path(FLAGS.pdb70_database_path,'pdb70')
+    FLAGS.uniref30_database_path = str(resolve_path(FLAGS.uniref30_database_path, 'uniref30'))
+    FLAGS.uniref90_database_path = str(resolve_path(FLAGS.uniref90_database_path, 'uniref90'))
+    FLAGS.mgnify_database_path = str(resolve_path(FLAGS.mgnify_database_path, 'mgnify'))
+    FLAGS.bfd_database_path    = str(resolve_path(FLAGS.bfd_database_path,    'bfd'))
+    FLAGS.small_bfd_database_path = str(resolve_path(FLAGS.small_bfd_database_path, 'small_bfd'))
+    FLAGS.pdb70_database_path  = str(resolve_path(FLAGS.pdb70_database_path,  'pdb70'))
+
     if custom_db:
-        base=Path(custom_db)
-        FLAGS.pdb_seqres_database_path=str(base/'pdb_seqres'/'pdb_seqres.txt')
-        FLAGS.template_mmcif_dir=str(base/'pdb_mmcif'/'mmcif_files')
-        FLAGS.obsolete_pdbs_path=str(base/'pdb_mmcif'/'obsolete.dat')
+        base = Path(custom_db)
+        FLAGS.pdb_seqres_database_path = str(base / 'pdb_seqres' / 'pdb_seqres.txt')
+        FLAGS.template_mmcif_dir       = str(base / 'pdb_mmcif'  / 'mmcif_files')
+        FLAGS.obsolete_pdbs_path       = str(base / 'pdb_mmcif'  / 'obsolete.dat')
     else:
-        FLAGS.pdb_seqres_database_path = FLAGS.pdb_seqres_database_path or os.path.join(FLAGS.data_dir,'pdb_seqres/pdb_seqres.txt')
-        FLAGS.template_mmcif_dir = FLAGS.template_mmcif_dir or os.path.join(FLAGS.data_dir,'pdb_mmcif/mmcif_files')
-        FLAGS.obsolete_pdbs_path = FLAGS.obsolete_pdbs_path or os.path.join(FLAGS.data_dir,'pdb_mmcif/obsolete.dat')
-    return FLAGS.flag_values_dict()
+        FLAGS.pdb_seqres_database_path = FLAGS.pdb_seqres_database_path or str(Path(FLAGS.data_dir) / 'pdb_seqres/pdb_seqres.txt')
+        FLAGS.template_mmcif_dir       = FLAGS.template_mmcif_dir       or str(Path(FLAGS.data_dir) / 'pdb_mmcif/mmcif_files')
+        FLAGS.obsolete_pdbs_path       = FLAGS.obsolete_pdbs_path       or str(Path(FLAGS.data_dir) / 'pdb_mmcif/obsolete.dat')
+
 
 
 def build_providers():
     # MSA provider
     if FLAGS.use_mmseqs2:
-        msa_provider = MMseqsMSAProvider(FLAGS.hhblits_binary_path)
+        msa_provider = MMseqsMSAProvider()
     else:
         msa_provider = UniprotMSAProvider(FLAGS.jackhmmer_binary_path, FLAGS.uniprot_database_path)
     # Template provider
@@ -177,7 +174,6 @@ def process_multimeric():
         with tempfile.TemporaryDirectory() as tmp:
             create_db(tmp, feat['templates'], feat['chains'], FLAGS.threshold_clashes, FLAGS.hh_allowance, FLAGS.plddt_threshold)
             init_args(tmp)
-            msa_provider, tpl_provider = build_providers()
             mono = MonomericObject(feat['protein'], feat['sequence'], msa_provider, tpl_provider)
             process_monomer(mono)
 

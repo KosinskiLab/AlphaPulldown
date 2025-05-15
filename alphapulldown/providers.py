@@ -1,22 +1,30 @@
 """ Abstract interface and concrete implementations for MSA backends
 
-    Copyright (c) 2024 European Molecular Biology Laboratory
+    Copyright (c) 2025 European Molecular Biology Laboratory
     Author: Dmitry Molodenskiy <dmitry.molodenskiy@embl-hamburg.de>
 """
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Tuple, Optional
+from typing import Tuple
 
-import numpy as np
 from alphafold.data.tools import jackhmmer
 from alphafold.data import parsers, pipeline
 from colabfold.batch import get_msa_and_templates, msa_to_str, build_monomer_feature
 from colabfold.utils import DEFAULT_API_SERVER
 
-from alphapulldown.objects import MSAFeatures, TemplateFeatures
+from alphapulldown.features import MSAFeatures, TemplateFeatures
 from alphapulldown.utils.file_handling import temp_fasta_file
+import numpy as np
 
+_DUMMY_TPL = TemplateFeatures(
+    aatype=np.zeros((1, 1), dtype=np.int32),
+    all_atom_positions=np.zeros((1, 1, 3), dtype=np.float32),
+    all_atom_mask=np.zeros((1, 1, 3), dtype=np.float32),
+    template_domain_names=[],
+    confidence_scores=None,
+    release_date=None
+)
 
 class MSAProvider(ABC):
     """Abstract base class for MSA/template feature providers."""
@@ -50,6 +58,7 @@ class UniprotMSAProvider(MSAProvider):
         )
         self._max_hits = max_hits
 
+
     def run(
         self,
         seq_id: str,
@@ -68,7 +77,6 @@ class UniprotMSAProvider(MSAProvider):
             )
         msa = parsers.parse_stockholm(result['sto']).truncate(max_seqs=self._max_hits)
         feats = pipeline.make_msa_features([msa])
-        # wrap into MSAFeatures
         valid = pipeline.MSA_FEATURES + ('msa_species_identifiers',)
         msa_dict = {k: feats[k] for k in valid}
         msa_feats = MSAFeatures(
@@ -77,26 +85,15 @@ class UniprotMSAProvider(MSAProvider):
             species_identifiers=list(msa_dict['msa_species_identifiers_all_seq']),
             uniprot_accessions=None
         )
-        # dummy template
-        seq_len = len(sequence)
-        tpl_feats = TemplateFeatures(
-            aatype=np.zeros((1, seq_len), dtype=np.int32),
-            all_atom_positions=np.zeros((1, seq_len, 3), dtype=np.float32),
-            all_atom_mask=np.zeros((1, seq_len, 3), dtype=np.float32),
-            template_domain_names=[],
-            confidence_scores=np.ones((1, seq_len), dtype=np.float32),
-            release_date=np.array(['none'])
-        )
-        return msa_feats, tpl_feats
+        # return msa + dummy template
+        return msa_feats, _DUMMY_TPL
+
 
 
 class MMseqsMSAProvider(MSAProvider):
     """ColabFold MMseqs2-based MSA provider"""
 
-    def __init__(
-        self,
-        api_server: str = DEFAULT_API_SERVER
-    ):
+    def __init__(self, api_server: str = DEFAULT_API_SERVER):
         self.api = api_server
 
     def run(
@@ -107,44 +104,23 @@ class MMseqsMSAProvider(MSAProvider):
         use_precomputed: bool
     ) -> Tuple[MSAFeatures, TemplateFeatures]:
         a3m = outdir / f"{seq_id}.a3m"
-        if use_precomputed and a3m.is_file():
-            lines = [msa_to_str(
-                *get_msa_and_templates(
-                    jobname=seq_id,
-                    query_sequences=sequence,
-                    a3m_lines=[a3m.read_text()],
-                    result_dir=str(outdir),
-                    msa_mode="mmseqs2_uniref_env",
-                    use_templates=True,
-                    host_url=self.api,
-                    user_agent="alphapulldown"
-                )[:1]
-            )]
-            unpaired, *_ , tpl_raw = get_msa_and_templates(
-                jobname=seq_id,
-                query_sequences=sequence,
-                a3m_lines=lines,
-                result_dir=str(outdir),
-                msa_mode="mmseqs2_uniref_env",
-                use_templates=True,
-                host_url=self.api,
-                user_agent="alphapulldown"
-            )
-        else:
-            unpaired, *_ , tpl_raw = get_msa_and_templates(
-                jobname=seq_id,
-                query_sequences=sequence,
-                a3m_lines=None,
-                result_dir=str(outdir),
-                msa_mode="mmseqs2_uniref_env",
-                use_templates=True,
-                host_url=self.api,
-                user_agent="alphapulldown"
-            )
-            serialized = msa_to_str(unpaired, None, None, None)
-            a3m.write_text(serialized)
+        a3m_lines = [a3m.read_text()] if (use_precomputed and a3m.is_file()) else None
 
-        fea = build_monomer_feature(sequence, unpaired[0], tpl_raw[0])
+        # Single call
+        unpaired, paired, tpl_raw = get_msa_and_templates(
+            jobname=seq_id,
+            query_sequences=sequence,
+            a3m_lines=a3m_lines,
+            result_dir=str(outdir),
+            msa_mode="mmseqs2_uniref_env",
+            use_templates=True,
+            host_url=self.api,
+            user_agent="alphapulldown",
+        )
+        if not (use_precomputed and a3m.is_file()):
+            a3m.write_text(msa_to_str(unpaired, paired, tpl_raw))
+
+        fea = build_monomer_feature(sequence, unpaired, tpl_raw)
         msa_feats = MSAFeatures(
             msa=fea['msa'],
             deletion_matrix=fea['deletion_matrix_int'],
@@ -160,7 +136,6 @@ class MMseqsMSAProvider(MSAProvider):
             release_date=fea.get('template_release_date')
         )
         return msa_feats, tpl_feats
-
 
 # ---------- Template providers ----------
 

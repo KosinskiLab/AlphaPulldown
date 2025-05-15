@@ -6,7 +6,6 @@ Author: Dmitry Molodenskiy <dmitry.molodenskiy@embl-hamburg.de>
 
 from __future__ import annotations
 from pathlib import Path
-from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional, Tuple
 import numpy as np
 from absl import logging
@@ -17,21 +16,9 @@ from alphapulldown.utils.multimeric_template_utils import (
     prepare_multimeric_template_meta_info,
 )
 from alphapulldown.providers import MSAProvider, TemplateProvider
+from alphapulldown.features import ProteinSequence, ProteinFeatures, AlphaPulldownError, MissingFeatureError
 
 logging.set_verbosity(logging.INFO)
-
-# Custom exceptions for clearer error handling
-class AlphaPulldownError(Exception):
-    """Base exception for AlphaPulldown errors."""
-
-class InvalidRegionError(AlphaPulldownError):
-    """Raised when a requested sequence region is invalid."""
-
-class MissingFeatureError(AlphaPulldownError):
-    """Raised when expected features are missing for a MonomericObject."""
-
-class TemplateFeatureError(AlphaPulldownError):
-    """Raised for errors processing multimeric template features."""
 
 # Helper to create a MonomericObject for a subsequence range
 def make_monomer_from_range(
@@ -55,120 +42,6 @@ def make_monomer_from_range(
         raise AlphaPulldownError(f"Chain index {chain_index} out of bounds for {fasta_path}")
     region = ProteinSequence(desc, seq).get_region(start, stop)
     return MonomericObject(region.identifier, region.sequence, msa_provider, tpl_provider)
-
-@dataclass
-class ProteinSequence:
-    """A protein sequence with identifier"""
-    identifier: str
-    sequence: str
-
-    @property
-    def length(self) -> int:
-        return len(self.sequence)
-
-    def get_region(self, start: int, end: int) -> 'ProteinSequence':
-        if start < 1 or end > self.length or start > end:
-            raise InvalidRegionError(f"Invalid region: {start}-{end} for length {self.length}")
-        return ProteinSequence(
-            identifier=f"{self.identifier}_{start}-{end}",
-            sequence=self.sequence[start-1:end]
-        )
-
-@dataclass
-class MSAFeatures:
-    """Multiple sequence alignment features"""
-    msa: np.ndarray
-    deletion_matrix: np.ndarray
-    species_identifiers: List[str]
-    uniprot_accessions: Optional[List[str]] = None
-
-    @property
-    def num_sequences(self) -> int:
-        return self.msa.shape[0]
-
-    @property
-    def sequence_length(self) -> int:
-        return self.msa.shape[1]
-
-    def get_region(self, start: int, end: int) -> 'MSAFeatures':
-        idx0 = start - 1
-        return MSAFeatures(
-            msa=self.msa[:, idx0:end],
-            deletion_matrix=self.deletion_matrix[:, idx0:end],
-            species_identifiers=self.species_identifiers,
-            uniprot_accessions=self.uniprot_accessions
-        )
-
-@dataclass
-class TemplateFeatures:
-    """Template features for structure prediction"""
-    aatype: np.ndarray
-    all_atom_positions: np.ndarray
-    all_atom_mask: np.ndarray
-    template_domain_names: List[str]
-    confidence_scores: Optional[np.ndarray] = None
-    release_date: Optional[np.ndarray] = None
-
-    @property
-    def num_templates(self) -> int:
-        return self.aatype.shape[0]
-
-    @property
-    def sequence_length(self) -> int:
-        return self.aatype.shape[1]
-
-    def get_region(self, start: int, end: int) -> 'TemplateFeatures':
-        idx0 = start - 1
-        return TemplateFeatures(
-            aatype=self.aatype[:, idx0:end],
-            all_atom_positions=self.all_atom_positions[:, idx0:end],
-            all_atom_mask=self.all_atom_mask[:, idx0:end],
-            template_domain_names=self.template_domain_names,
-            confidence_scores=(None if self.confidence_scores is None else self.confidence_scores[:, idx0:end]),
-            release_date=(None if self.release_date is None else self.release_date[:, idx0:end])
-        )
-
-@dataclass
-class ProteinFeatures:
-    """Complete set of features for a protein"""
-    sequence: ProteinSequence
-    msa: MSAFeatures
-    template: TemplateFeatures
-    extra: Dict[str, Any] = field(default_factory=dict)
-
-    def get_region(self, start: int, end: int) -> 'ProteinFeatures':
-        return ProteinFeatures(
-            sequence=self.sequence.get_region(start, end),
-            msa=self.msa.get_region(start, end),
-            template=self.template.get_region(start, end),
-            extra=self.extra.copy()
-        )
-
-    def get_regions(self, ranges: List[Tuple[int, int]]) -> 'ProteinFeatures':
-        sliced = [self.get_region(s, e) for s, e in ranges]
-        new_seq = ''.join(sf.sequence.sequence for sf in sliced)
-        new_id = f"{self.sequence.identifier}_" + '_'.join(f"{s}-{e}" for s, e in ranges)
-        new_sequence = ProteinSequence(identifier=new_id, sequence=new_seq)
-        new_msa = MSAFeatures(
-            msa=np.concatenate([sf.msa.msa for sf in sliced], axis=1),
-            deletion_matrix=np.concatenate([sf.msa.deletion_matrix for sf in sliced], axis=1),
-            species_identifiers=self.msa.species_identifiers,
-            uniprot_accessions=self.msa.uniprot_accessions
-        )
-        new_template = TemplateFeatures(
-            aatype=np.concatenate([sf.template.aatype for sf in sliced], axis=1),
-            all_atom_positions=np.concatenate([sf.template.all_atom_positions for sf in sliced], axis=1),
-            all_atom_mask=np.concatenate([sf.template.all_atom_mask for sf in sliced], axis=1),
-            template_domain_names=self.template.template_domain_names,
-            confidence_scores=None if self.template.confidence_scores is None else np.concatenate([sf.template.confidence_scores for sf in sliced], axis=1),
-            release_date=None if self.template.release_date is None else np.concatenate([sf.template.release_date for sf in sliced], axis=1)
-        )
-        return ProteinFeatures(
-            sequence=new_sequence,
-            msa=new_msa,
-            template=new_template,
-            extra=self.extra.copy()
-        )
 
 class MonomericObject:
     """
@@ -199,8 +72,7 @@ class MonomericObject:
     ) -> ProteinFeatures:
         outdir = Path(output_dir) / self.description
         outdir.mkdir(parents=True, exist_ok=True)
-        # unzip any existing MSAs
-        zipped = unzip_msa_files(outdir)
+        unzip_msa_files(outdir)
         # generate MSA and template features
         msa_feats, dummy_tpl = self.msa_provider.run(
             seq_id=self.description,
@@ -214,8 +86,6 @@ class MonomericObject:
             remove_msa_files(outdir)
         if compress_msa:
             zip_msa_files(outdir)
-            if zipped:
-                zip_msa_files(outdir)
         self.features = ProteinFeatures(
             sequence=self.sequence,
             msa=msa_feats,
