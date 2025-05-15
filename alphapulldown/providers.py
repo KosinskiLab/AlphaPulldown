@@ -7,7 +7,7 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Tuple
-
+from absl import logging
 from alphafold.data.tools import jackhmmer
 from alphafold.data import parsers, pipeline
 from colabfold.batch import get_msa_and_templates, msa_to_str, build_monomer_feature
@@ -17,7 +17,7 @@ from alphapulldown.features import MSAFeatures, TemplateFeatures
 from alphapulldown.utils.file_handling import temp_fasta_file
 import numpy as np
 
-_DUMMY_TPL = TemplateFeatures(
+EMPTY_TEMPLATES = TemplateFeatures(
     aatype=np.zeros((1, 1), dtype=np.int32),
     all_atom_positions=np.zeros((1, 1, 3), dtype=np.float32),
     all_atom_mask=np.zeros((1, 1, 3), dtype=np.float32),
@@ -86,7 +86,7 @@ class UniprotMSAProvider(MSAProvider):
             uniprot_accessions=None
         )
         # return msa + dummy template
-        return msa_feats, _DUMMY_TPL
+        return msa_feats, EMPTY_TEMPLATES
 
 
 
@@ -103,38 +103,67 @@ class MMseqsMSAProvider(MSAProvider):
         outdir: Path,
         use_precomputed: bool
     ) -> Tuple[MSAFeatures, TemplateFeatures]:
-        a3m = outdir / f"{seq_id}.a3m"
-        a3m_lines = [a3m.read_text()] if (use_precomputed and a3m.is_file()) else None
+        outdir = Path(outdir)
+        outdir.mkdir(parents=True, exist_ok=True)
+        a3m_path = outdir / f"{seq_id}.a3m"
 
-        # Single call
-        unpaired, paired, tpl_raw = get_msa_and_templates(
+        def _strip_headers(txt: str) -> str:
+            return "\n".join(ln for ln in txt.splitlines() if not ln.startswith("#"))
+
+        # Decide if we reuse the A3M
+        if use_precomputed and a3m_path.is_file():
+            a3m_lines = [_strip_headers(a3m_path.read_text())]
+        else:
+            a3m_lines = None
+
+        # Unpack all five returns
+        a3m_lines, paired_lines, uniq, card, tpl_list = get_msa_and_templates(
             jobname=seq_id,
             query_sequences=sequence,
             a3m_lines=a3m_lines,
-            result_dir=str(outdir),
+            result_dir=outdir,
             msa_mode="mmseqs2_uniref_env",
             use_templates=True,
+            custom_template_path=None,
+            pair_mode="none",
             host_url=self.api,
             user_agent="alphapulldown",
         )
-        if not (use_precomputed and a3m.is_file()):
-            a3m.write_text(msa_to_str(unpaired, paired, tpl_raw))
 
-        fea = build_monomer_feature(sequence, unpaired, tpl_raw)
+        # If we didn’t reuse the A3M, write it out for future runs
+        if a3m_lines is not None and not use_precomputed:
+            from colabfold.batch import msa_to_str
+            a3m_path.write_text(msa_to_str(a3m_lines, paired_lines, uniq, card))
+
+        # Grab the first MSA string and the first template dict
+        unpaired0 = a3m_lines[0]
+        tpl0       = tpl_list[0]
+
+        # Warn if no templates were found
+        names = tpl0.get("template_domain_names", [])
+        if not names or all(n == b"none" for n in names):
+            logging.warning("No templates found for %s", seq_id)
+
+        # Build the feature dict
+        from colabfold.batch import build_monomer_feature
+        fea = build_monomer_feature(sequence, unpaired0, tpl0)
+
+        # Wrap in our dataclasses
         msa_feats = MSAFeatures(
-            msa=fea['msa'],
-            deletion_matrix=fea['deletion_matrix_int'],
-            species_identifiers=[s.decode() for s in fea['msa_species_identifiers']],
+            msa=fea["msa"],
+            deletion_matrix=fea["deletion_matrix_int"],
+            species_identifiers=[s.decode() for s in fea["msa_species_identifiers"]],
             uniprot_accessions=None
         )
         tpl_feats = TemplateFeatures(
-            aatype=fea['template_aatype'],
-            all_atom_positions=fea['template_all_atom_positions'],
-            all_atom_mask=fea['template_all_atom_masks'],
-            template_domain_names=[dn.decode() for dn in fea['template_domain_names']],
-            confidence_scores=fea.get('template_confidence_scores'),
-            release_date=fea.get('template_release_date')
+            aatype=fea["template_aatype"],
+            all_atom_positions=fea["template_all_atom_positions"],
+            all_atom_mask=fea["template_all_atom_masks"],
+            template_domain_names=[dn.decode() for dn in fea["template_domain_names"]],
+            confidence_scores=fea.get("template_confidence_scores"),
+            release_date=fea.get("template_release_date")
         )
+
         return msa_feats, tpl_feats
 
 # ---------- Template providers ----------

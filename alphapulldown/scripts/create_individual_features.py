@@ -119,8 +119,9 @@ def build_providers():
 
 
 def process_monomer(mono):
-    pkl = os.path.join(FLAGS.output_dir,f"{mono.description}.pkl")
-    if FLAGS.skip_existing and os.path.exists(pkl+('.xz' if FLAGS.compress_features else '')):
+    pkl = Path(FLAGS.output_dir) / f"{mono.description}.pkl"
+    existing = pkl.with_suffix(pkl.suffix + '.xz') if FLAGS.compress_features else pkl
+    if FLAGS.skip_existing and existing.exists():
         logging.info(f"Skipping {mono.description}")
         return
     meta = save_meta_data.get_meta_dict(FLAGS.flag_values_dict())
@@ -131,7 +132,7 @@ def process_monomer(mono):
         save_msa=FLAGS.save_msa_files,
         compress_msa=FLAGS.compress_features
     )
-    save_pickle(mono,pkl)
+    save_pickle(mono,pkl, FLAGS.compress_features)
 
 
 def process_individual():

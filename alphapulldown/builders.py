@@ -15,7 +15,7 @@ from alphapulldown.utils.multimeric_template_utils import (
     extract_multimeric_template_features_for_single_chain,
     prepare_multimeric_template_meta_info,
 )
-from alphapulldown.providers import MSAProvider, TemplateProvider
+from alphapulldown.providers import MSAProvider, TemplateProvider, MMseqsMSAProvider
 from alphapulldown.features import ProteinSequence, ProteinFeatures, AlphaPulldownError, MissingFeatureError
 
 logging.set_verbosity(logging.INFO)
@@ -72,20 +72,32 @@ class MonomericObject:
     ) -> ProteinFeatures:
         outdir = Path(output_dir) / self.description
         outdir.mkdir(parents=True, exist_ok=True)
+
+        # unzip if needed
         unzip_msa_files(outdir)
-        # generate MSA and template features
-        msa_feats, dummy_tpl = self.msa_provider.run(
+
+        # always call the MSA provider
+        msa_res, tpl_res = self.msa_provider.run(
             seq_id=self.description,
             sequence=self.sequence.sequence,
             outdir=outdir,
             use_precomputed=use_precomputed_msa
         )
-        tpl_feats = self.tpl_provider.run(self.sequence.sequence)
-        # post-process cleaning
+
+        if isinstance(self.msa_provider, MMseqsMSAProvider):
+            # MMseqs2 already gave us real templates
+            msa_feats, tpl_feats = msa_res, tpl_res
+        else:
+            # ignore the dummy tpl_res and get real templates separately
+            msa_feats = msa_res
+            tpl_feats = self.tpl_provider.run(self.sequence.sequence)
+
+        # cleanup and optional re‐zipping
         if not save_msa:
             remove_msa_files(outdir)
         if compress_msa:
             zip_msa_files(outdir)
+
         self.features = ProteinFeatures(
             sequence=self.sequence,
             msa=msa_feats,
