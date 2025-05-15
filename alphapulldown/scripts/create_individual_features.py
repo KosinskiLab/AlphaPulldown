@@ -152,6 +152,7 @@ def save_meta(outdir, desc):
     fname = f"{desc}_feature_metadata_{date.today()}.json"
     open_fn = lzma.open if FLAGS.compress_features else open
     mode = 'wt' if FLAGS.compress_features else 'w'
+    ext = '.xz' if FLAGS.compress_features else ''
     with open_fn(os.path.join(outdir, fname) + ext, mode) as f:
         json.dump(meta, f)
 
