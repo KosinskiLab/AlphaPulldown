@@ -4,11 +4,7 @@
     Allows custom multimeric templates via PDB/mmCIF and CSV descriptors.
 """
 import os
-import json
-import lzma
-import pickle
 import tempfile
-from datetime import date
 from pathlib import Path
 
 from absl import app, flags, logging
@@ -16,7 +12,7 @@ from absl import app, flags, logging
 from alphapulldown.utils.create_custom_template_db import create_db
 from alphapulldown.providers import UniprotMSAProvider, MMseqsMSAProvider, HMMERTemplateProvider, HHsearchTemplateProvider
 from alphapulldown.builders import MonomericObject
-from alphapulldown.utils.file_handling import iter_seqs, parse_csv_file
+from alphapulldown.utils.file_handling import iter_seqs, parse_csv_file, save_pickle, save_meta
 from alphapulldown.utils import save_meta_data
 
 # Flags
@@ -122,29 +118,13 @@ def build_providers():
     return msa_provider, tpl_provider
 
 
-def save_pickle(obj, path):
-    opener = lzma.open if FLAGS.compress_features else open
-    ext = '.xz' if FLAGS.compress_features else ''
-    with opener(path+ext,'wb') as f:
-        pickle.dump(obj,f)
-
-
-def save_meta(outdir, desc):
-    meta = save_meta_data.get_meta_dict(FLAGS.flag_values_dict())
-    fname = f"{desc}_feature_metadata_{date.today()}.json"
-    opener = lzma.open if FLAGS.compress_features else open
-    mode = 'wt' if FLAGS.compress_features else 'w'
-    ext = '.xz' if FLAGS.compress_features else ''
-    with opener(os.path.join(outdir,fname)+ext,mode) as f:
-        json.dump(meta,f)
-
-
 def process_monomer(mono):
     pkl = os.path.join(FLAGS.output_dir,f"{mono.description}.pkl")
     if FLAGS.skip_existing and os.path.exists(pkl+('.xz' if FLAGS.compress_features else '')):
         logging.info(f"Skipping {mono.description}")
         return
-    save_meta(FLAGS.output_dir, mono.description)
+    meta = save_meta_data.get_meta_dict(FLAGS.flag_values_dict())
+    save_meta(FLAGS.output_dir, mono.description, meta, FLAGS.compress_features)
     mono.make_features(
         output_dir=FLAGS.output_dir,
         use_precomputed_msa=FLAGS.use_precomputed_msas,

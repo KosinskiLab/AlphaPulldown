@@ -5,6 +5,11 @@ import contextlib
 import tempfile
 import subprocess
 from pathlib import Path
+import json
+import lzma
+import pickle
+from datetime import date
+
 
 @contextlib.contextmanager
 def temp_fasta_file(sequence_str):
@@ -166,3 +171,19 @@ def remove_msa_files(msa_dir: Path) -> None:
     for ext in ['.a3m', '.fasta', '.sto', '.hmm']:
         for f in msa_dir.glob(f"*{ext}"):
             f.unlink(missing_ok=True)
+
+
+def save_pickle(obj, path, compress_features):
+    opener = lzma.open if compress_features else open
+    ext = '.xz' if compress_features else ''
+    with opener(path+ext,'wb') as f:
+        pickle.dump(obj,f)
+
+
+def save_meta(outdir, desc, meta, compress_features):
+    fname = f"{desc}_feature_metadata_{date.today()}.json"
+    opener = lzma.open if compress_features else open
+    mode = 'wt' if compress_features else 'w'
+    ext = '.xz' if compress_features else ''
+    with opener(os.path.join(outdir,fname)+ext,mode) as f:
+        json.dump(meta, f)
