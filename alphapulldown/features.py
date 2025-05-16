@@ -96,7 +96,7 @@ class TemplateFeatures:
         return TemplateFeatures(
             aatype=self.aatype[:, idx0:end, :],
             all_atom_positions=self.all_atom_positions[:, idx0:end, :, :],
-            all_atom_mask=self.all_atom_mask[:, idx0:end, :, :],
+            all_atom_mask=self.all_atom_mask[:, idx0:end, :],
             template_domain_names=list(self.template_domain_names),
             confidence_scores=(
                 None if self.confidence_scores is None
