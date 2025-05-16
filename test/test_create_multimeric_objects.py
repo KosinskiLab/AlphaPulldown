@@ -1,5 +1,5 @@
 from absl.testing import absltest
-from alphapulldown.objects import MultimericObject
+from alphapulldown.builders import MultimericObject
 import pickle
 import numpy as np
 

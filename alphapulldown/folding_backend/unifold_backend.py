@@ -6,7 +6,7 @@
 """
 from typing import Dict
 
-from alphapulldown.objects import MultimericObject
+from alphapulldown.builders import MultimericObject
 
 from .folding_backend import FoldingBackend
 

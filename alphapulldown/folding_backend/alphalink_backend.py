@@ -14,7 +14,7 @@ from os.path import join, exists, splitext
 from shutil import copyfile
 import re, json
 from alphapulldown.folding_backend.alphafold_backend import _save_pae_json_file
-from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
+from alphapulldown.builders import MultimericObject, MonomericObject
 from alphapulldown.utils.plotting import plot_pae_from_matrix
 from .folding_backend import FoldingBackend
 import torch
@@ -302,7 +302,7 @@ class AlphaLinkBackend(FoldingBackend):
         configs: Dict,
         param_path: str,
         crosslinks: str,
-        objects_to_model: List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject], str]],
+        objects_to_model: List[Dict[Union[MultimericObject, MonomericObject], str]],
         **kwargs,
     ):
         """

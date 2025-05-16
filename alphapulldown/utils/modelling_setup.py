@@ -18,7 +18,7 @@ import numpy as np
 from absl import logging
 from alphafold.data import parsers, templates
 from alphafold.data.tools import jackhmmer as jackhmmer_tool
-from alphapulldown.objects import make_monomer_from_range, MonomericObject
+from alphapulldown.builders import make_monomer_from_range, MonomericObject
 
 logging.set_verbosity(logging.INFO)
 
@@ -99,6 +99,36 @@ def create_interactors(
         all_objects.append(objs)
     return all_objects
 
+def create_custom_info(all_proteins : List[List[Dict[str, str]]]) -> List[Dict[str, List[str]]]:
+    """
+    Create a dictionary representation of data for a custom input file.
+
+    Parameters
+    ----------
+    all_proteins : List[List[Dict[str, str]]]
+       A list of lists of protein names or sequences. Each element
+       of the list is a nother list of dictionaries thats should be included in the data.
+
+    Returns
+    -------
+     List[Dict[str, List[str]]]
+        A list of dictionaries. Within each dictionary: each key is a column name following the
+        pattern 'col_X' where X is the column index starting from 1.
+        Each key maps to a list containing a single protein name or
+        sequence from the input list.
+
+    """
+    output = []
+    def process_single_dictionary(all_proteins):
+        num_cols = len(all_proteins)
+        data = dict()
+        for i in range(num_cols):
+            data[f"col_{i + 1}"] = [all_proteins[i]]
+        return data
+    for i in all_proteins:
+        curr_data = process_single_dictionary(i)
+        output.append(curr_data)
+    return output
 
 def load_monomer_objects(
     monomer_dir_dict: Dict[str,str],

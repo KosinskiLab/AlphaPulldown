@@ -35,7 +35,7 @@ from typing import Dict
 from alphafold.common.residue_constants import (
     ID_TO_HHBLITS_AA, MAP_HHBLITS_AATYPE_TO_OUR_AATYPE,
 )
-from alphapulldown.objects import MonomericObject, MultimericObject
+from alphapulldown.builders import MonomericObject, MultimericObject
 
 # ───────────── helpers ────────────────────────────────────────────────────────
 AA_ID_TO_CHAR = {v: k for k, v in enumerate(MAP_HHBLITS_AATYPE_TO_OUR_AATYPE)}

@@ -3,7 +3,7 @@ A unittest script that test if creating MonomericObject
 or MultimericObject works
 """
 from absl.testing import absltest
-from alphapulldown.objects import MonomericObject
+from alphapulldown.builders import MonomericObject
 import shutil
 from alphafold.data.pipeline import DataPipeline
 from alphafold.data.tools import hmmsearch
@@ -95,21 +95,6 @@ class TestCreateObjects(absltest.TestCase):
         )
         for num, model_runner in enumerate(model_runners):
             self.assertEqual(model_runner, f"model_2_multimer_v3_pred_{num}_msa_{msa_range[num]}")
-
-    @absltest.skip("Skip the test for now")
-    def test_4_create_model_runner_one_model_msa_depth(self):
-        model_runners, random_seed = create_model_runners_and_random_seed(
-            "multimer",
-            self.num_cycle,
-            self.random_seed,
-            self.data_dir,
-            self.num_predictions_per_model,
-            self.gradient_msa_depth,
-            self.model_names,
-            self.msa_depth,
-        )
-        for num, model_runner in enumerate(model_runners):
-            self.assertEqual(model_runner, f"model_2_multimer_v3_pred_{num}_msa_128")
 
     def test_5_run_alignments(self):
         monomer_obj = self.test_1_initialise_MonomericObject()

@@ -35,7 +35,7 @@ from jax import numpy as jnp
 from alphafold.common import residue_constants
 from alphafold.common.protein import Protein, to_mmcif
 from alphapulldown.folding_backend.folding_backend import FoldingBackend
-from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
+from alphapulldown.builders import MultimericObject, MonomericObject
 
 # -----------------------------------------------------------------------------
 # Global Constants and Type Definitions
@@ -186,7 +186,7 @@ class ModelRunner:
 # -----------------------------------------------------------------------------
 
 def _convert_to_fold_input(
-    object_to_model: Union[MonomericObject, ChoppedObject, MultimericObject],
+    object_to_model: Union[MonomericObject, MultimericObject],
     random_seed: int,
 ) -> folding_input.Input:
     """Convert a given object to AlphaFold3 fold input."""
@@ -216,10 +216,10 @@ def _convert_to_fold_input(
         return '\n'.join(msa_sequences)
 
     def _monomeric_to_chain(
-        mono_obj: Union[MonomericObject, ChoppedObject],
+        mono_obj: Union[MonomericObject],
         chain_id: str
     ) -> folding_input.ProteinChain:
-        """Converts a single MonomericObject or ChoppedObject into a ProteinChain."""
+        """Converts a single MonomericObject into a ProteinChain."""
         sequence = mono_obj.sequence
         feature_dict = mono_obj.feature_dict
 
@@ -536,7 +536,7 @@ class AlphaFold3Backend(FoldingBackend):
     @staticmethod
     def predict(
         model_runner: ModelRunner,
-        objects_to_model: List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject], str]],
+        objects_to_model: List[Dict[Union[MultimericObject, MonomericObject], str]],
         random_seed: int,
         buckets: int,
         **kwargs,

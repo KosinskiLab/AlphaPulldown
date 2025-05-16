@@ -20,7 +20,7 @@ from typing import Tuple, Union
 
 from alphapulldown.folding_backend import backend
 from alphapulldown.folding_backend.alphafold_backend import ModelsToRelax
-from alphapulldown.objects import MonomericObject, MultimericObject
+from alphapulldown.builders import MonomericObject, MultimericObject
 from alphapulldown.utils.modelling_setup import create_interactors, create_custom_info, parse_fold
 
 logging.set_verbosity(logging.INFO)

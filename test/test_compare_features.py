@@ -28,7 +28,7 @@ from absl.testing import absltest, parameterized
 
 # AlphaFold / AlphaPulldown imports
 from alphafold.common.residue_constants import MAP_HHBLITS_AATYPE_TO_OUR_AATYPE
-from alphapulldown.objects import MultimericObject
+from alphapulldown.builders import MultimericObject
 
 # -----------------------------------------------------------------------------
 # Helper functions

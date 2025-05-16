@@ -12,7 +12,7 @@ from typing import Dict, List
 from os.path import exists, join
 
 from alphapulldown.folding_backend import FoldingBackendManager
-from alphapulldown.objects import MultimericObject, MonomericObject
+from alphapulldown.builders import MultimericObject, MonomericObject
 from alphapulldown.utils.modelling_setup import create_interactors
 from absl import logging
 logging.set_verbosity(logging.INFO)
