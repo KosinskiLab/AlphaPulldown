@@ -163,9 +163,12 @@ class MonomericObject:
 
         # post processing
         if (not save_msa) and (not use_precomputed_msa):
+            logging.info("You chose not to save MSA files and not use precomputed MSA files.")     
             MonomericObject.remove_msa_files(msa_output_path=msa_output_dir)
         elif (not save_msa) and use_precomputed_msa:
-            logging.warning("You chose not to save MSA files but still want to use precomputed MSA files thus the precomputed MSA files will NOT be removed.")     
+            logging.info("You chose not to save MSA files but still want to use precomputed MSA files.")
+            logging.info("MSA files are deleted because features were successfully generated.")
+            MonomericObject.remove_msa_files(msa_output_path=msa_output_dir)
         if compress_msa_files:
             MonomericObject.zip_msa_files(msa_output_dir)
         if using_zipped_msa_files:
