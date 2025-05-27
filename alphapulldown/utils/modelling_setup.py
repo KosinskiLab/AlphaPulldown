@@ -35,56 +35,69 @@ def parse_fold(input_list, features_directory, protein_delimiter):
 
     Raises:
         FileNotFoundError: If any required protein features are missing.
+        ValueError: If the format of the input specifications is incorrect.
     """
+    def format_error(spec):
+        raise ValueError(f"Your format: {spec} is wrong. The program will terminate.")
+
+    def extract_copy_and_regions(tokens, spec):
+        # try head copy then tail copy, default to 1
+        if len(tokens) > 1:
+            try:
+                return int(tokens[1]), tokens[2:]
+            except ValueError:
+                pass
+            try:
+                return int(tokens[-1]), tokens[1:-1]
+            except ValueError:
+                pass
+        return 1, tokens[1:]
+
+    def parse_regions(region_tokens, spec):
+        if not region_tokens:
+            return "all"
+        regions = []
+        for tok in region_tokens:
+            parts = tok.split("-")
+            if len(parts) != 2:
+                format_error(spec)
+            try:
+                regions.append(tuple(map(int, parts)))
+            except ValueError:
+                format_error(spec)
+        return regions
+
+    def feature_exists(name):
+        return any(
+            exists(join(dirpath, f"{name}{ext}"))
+            for dirpath in features_directory
+            for ext in (".pkl", ".pkl.xz")
+        )
+
     all_folding_jobs = []
-    missing_features = set()  # Initialize as a set to collect unique missing features
-    for i in input_list:
+    missing_features = set()
+
+    for spec in input_list:
         formatted_folds = []
-        protein_folds = [x.split(":") for x in i.split(protein_delimiter)]
-        for protein_fold in protein_folds:
-            name, number, region = None, 1, "all"
+        for pf in spec.split(protein_delimiter):
+            tokens = pf.split(":")
+            if not tokens or not tokens[0]:
+                format_error(spec)
 
-            if len(protein_fold) == 1:
-                # Format: [protein_name]
-                name = protein_fold[0]
-            elif len(protein_fold) > 1:
-                name = protein_fold[0]
-                if "-" in protein_fold[1]:
-                    # Format: [protein_name:1-10:14-30:40-100:etc]
-                    try:
-                        number = 1
-                        region = protein_fold[1:]
-                        region = [tuple(int(x) for x in r.split("-")) for r in region]
-                    except Exception:
-                        logging.error(f"Your format: {i} is wrong. The program will terminate.")
-                        sys.exit()
-                else:
-                    # Format: [protein_name:copy_number:1-10:14-30:40-100:etc]
-                    try:
-                        number = int(protein_fold[1])
-                        if len(protein_fold) > 2:
-                            region = protein_fold[2:]
-                            region = [tuple(int(x) for x in r.split("-")) for r in region]
-                    except Exception:
-                        logging.error(f"Your format: {i} is wrong. The program will terminate.")
-                        sys.exit()
+            name = tokens[0]
+            number, region_tokens = extract_copy_and_regions(tokens, spec)
+            regions = parse_regions(region_tokens, spec)
 
-            number = int(number)
-            # Check for missing features
-            if not any(
-                exists(join(monomer_dir, f"{name}{ext}"))
-                for monomer_dir in features_directory
-                for ext in [".pkl", ".pkl.xz"]
-            ):
-                missing_features.add(name)  # Use .add() since missing_features is a set
+            if not feature_exists(name):
+                missing_features.add(name)
 
-            formatted_folds.extend([{name: region} for _ in range(number)])
+            formatted_folds += [{name: regions} for _ in range(number)]
+
         all_folding_jobs.append(formatted_folds)
 
     if missing_features:
-        raise FileNotFoundError(
-            f"{sorted(missing_features)} not found in {features_directory}"
-        )
+        raise FileNotFoundError(f"{sorted(missing_features)} not found in {features_directory}")
+
     return all_folding_jobs
 
 def pad_input_features(feature_dict: dict, 

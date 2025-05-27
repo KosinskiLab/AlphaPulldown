@@ -60,6 +60,17 @@ class TestParseFold(parameterized.TestCase):
             'expected_result': [[{'protein1': [(1, 10), (20, 30)]}, {'protein1': [(1, 10), (20, 30)]}]],
         },
         {
+            'testcase_name': 'single_protein_with_region_and_copy',
+            'input': ['protein1:1-10:20-30:2'],
+            'features_directory': ['dir1'],
+            'protein_delimiter': '_',
+            'mock_side_effect': {
+                'dir1/protein1.pkl': True,
+                'dir1/protein1.pkl.xz': False,
+            },
+            'expected_result': [[{'protein1': [(1, 10), (20, 30)]}, {'protein1': [(1, 10), (20, 30)]}]],
+        },
+        {
             'testcase_name': 'multiple_proteins',
             'input': ['protein1:2_protein2:1-50'],
             'features_directory': ['dir1'],
@@ -92,7 +103,7 @@ class TestParseFold(parameterized.TestCase):
             'features_directory': ['dir1'],
             'protein_delimiter': '_',
             'mock_side_effect': {},
-            'expected_exception': SystemExit,
+            'expected_exception': ValueError,
         },
         {
             'testcase_name': 'feature_exists_in_multiple_dirs',
