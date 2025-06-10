@@ -85,13 +85,21 @@ class MonomericObject:
 
     @staticmethod
     def remove_msa_files(msa_output_path: str):
-        """A method that remove msa files is save_msa is set to False"""
-        msa_file_endings = ['.a3m', '.fasta', '.sto', '.hmm']
-        msa_files = [i for i in plPath(
-            msa_output_path).iterdir() if i.suffix in msa_file_endings]
-        if len(msa_files) > 0:
-            for msa_file in msa_files:
-                os.remove(msa_file)
+        """Remove MSA files and delete the directory if it’s empty."""
+        msa_dir = plPath(msa_output_path)
+        if not msa_dir.is_dir():
+            return
+
+        msa_suffixes = {'.a3m', '.fasta', '.sto', '.hmm'}
+
+        # delete all matching MSA files
+        for f in msa_dir.iterdir():
+            if f.is_file() and f.suffix in msa_suffixes:
+                f.unlink()
+
+        # if the directory’s empty now, remove it
+        if not any(msa_dir.iterdir()):
+            msa_dir.rmdir()
 
     def all_seq_msa_features(
             self,
