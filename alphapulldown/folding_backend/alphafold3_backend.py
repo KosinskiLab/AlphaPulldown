@@ -534,27 +534,134 @@ class AlphaFold3Backend(FoldingBackend):
         return {'model_runner': model_runner}
 
     @staticmethod
+    def prepare_input(
+        objects_to_model: List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject, 'folding_input.Input'], str]],
+        random_seed: int,
+        af3_input_json: List[str] = None,
+        features_directory: str = None,
+    ) -> List[Dict[folding_input.Input, str]]:
+        """Prepares and merges input objects for prediction.
+        
+        Args:
+            objects_to_model: List of AlphaPulldown objects to model
+            random_seed: Random seed for prediction
+            af3_input_json: List of paths to AlphaFold3 input.json files
+            features_directory: Directory containing features
+            
+        Returns:
+            List of prepared fold inputs with their output directories
+        """
+        # Convert AlphaPulldown objects to chains
+        protein_chains = []
+        output_dir = None
+        for mapping in objects_to_model:
+            (object_to_model, out_dir), = mapping.items()
+            output_dir = out_dir  # Keep last output_dir as default
+            
+            if isinstance(object_to_model, folding_input.Input):
+                protein_chains.extend(object_to_model.chains)
+            else:
+                fold_input = _convert_to_fold_input(object_to_model, random_seed)
+                protein_chains.extend(fold_input.chains)
+
+        # If no objects to process, return empty list
+        if not protein_chains and not af3_input_json:
+            return []
+
+        # Process input.json files if present
+        json_chains = []
+        merged_name = "merged_job"
+        merged_seeds = [random_seed]
+        merged_bonded_atom_pairs = None
+        merged_user_ccd = None
+
+        if af3_input_json:
+            # Parse input.json files
+            input_objs = [
+                folding_input.Input.from_json(open(json_path).read())
+                for json_path in af3_input_json
+            ]
+            
+            # Collect chains and metadata from input.json
+            for input_obj in input_objs:
+                json_chains.extend(input_obj.chains)
+                if not merged_name or merged_name == "merged_job":
+                    merged_name = input_obj.name
+                if not merged_seeds or merged_seeds == [random_seed]:
+                    merged_seeds = input_obj.rng_seeds
+                if not merged_bonded_atom_pairs:
+                    merged_bonded_atom_pairs = input_obj.bonded_atom_pairs
+                if not merged_user_ccd:
+                    merged_user_ccd = input_obj.user_ccd
+
+        # Generate unique chain IDs
+        used_chain_ids = {chain.id for chain in json_chains}
+        chain_id_gen = (
+            c for c in string.ascii_uppercase
+        ) + (
+            ''.join(chars) for i in range(2, 4)
+            for chars in itertools.product(string.ascii_uppercase, repeat=i)
+        )
+
+        # Assign new chain IDs to protein chains
+        for chain in protein_chains:
+            while True:
+                chain_id = next(chain_id_gen)
+                if chain_id not in used_chain_ids:
+                    used_chain_ids.add(chain_id)
+                    chain = chain.__class__(
+                        id=chain_id,
+                        sequence=chain.sequence,
+                        ptms=chain.ptms,
+                        unpaired_msa=chain.unpaired_msa,
+                        paired_msa=chain.paired_msa,
+                        templates=chain.templates,
+                    )
+                    break
+
+        # Create merged input
+        merged_input = folding_input.Input(
+            name=f"{merged_name}_with_proteins" if protein_chains else merged_name,
+            chains=json_chains + protein_chains,
+            rng_seeds=merged_seeds,
+            bonded_atom_pairs=merged_bonded_atom_pairs,
+            user_ccd=merged_user_ccd
+        )
+
+        return [{merged_input: output_dir or "merged_output"}]
+
+    @staticmethod
     def predict(
         model_runner: ModelRunner,
-        objects_to_model: List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject], str]],
+        objects_to_model: List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject, 'folding_input.Input'], str]],
         random_seed: int,
         buckets: int,
         **kwargs,
     ):
-        """Predicts structures for a list of objects using AlphaFold 3."""
+        """Predicts structures for a list of objects using AlphaFold 3.
+        Supports merging AlphaPulldown protein objects and input.json objects into a single job.
+        """
         if isinstance(buckets, int):
             buckets = [buckets]
         buckets = tuple(int(b) for b in buckets)
 
-        for mapping in objects_to_model:
-            (object_to_model, output_dir), = mapping.items()
+        # Prepare inputs
+        prepared_inputs = AlphaFold3Backend.prepare_input(
+            objects_to_model=objects_to_model,
+            random_seed=random_seed,
+            af3_input_json=kwargs.get("af3_input_json"),
+            features_directory=kwargs.get("features_directory"),
+        )
+
+        # Run predictions
+        for mapping in prepared_inputs:
+            (fold_input_obj, output_dir), = mapping.items()
             try:
                 os.makedirs(output_dir, exist_ok=True)
             except OSError as e:
                 logging.error(f'Failed to create output directory {output_dir}: {e}')
                 raise
 
-            fold_input_obj = _convert_to_fold_input(object_to_model, random_seed)
             logging.info(f'Processing fold input {fold_input_obj.name}')
 
             prediction_result = process_fold_input(
@@ -565,7 +672,7 @@ class AlphaFold3Backend(FoldingBackend):
             )
 
             yield {
-                object_to_model: {
+                fold_input_obj: {
                     "prediction_results": prediction_result,
                     "output_dir": output_dir
                 }

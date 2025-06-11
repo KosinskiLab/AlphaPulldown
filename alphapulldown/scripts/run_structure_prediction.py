@@ -142,6 +142,11 @@ flags.DEFINE_integer(
     'Number of diffusion samples to generate.',
 )
 
+flags.DEFINE_list(
+    'af3_input_json',
+    None,
+    'Path(s) to AlphaFold3 input.json file(s). Only used if fold_backend=alphafold3.'
+)
 # Post-processing settings
 flags.DEFINE_boolean('compress_result_pickles', False,
                      'Whether the result pickles are going to be gzipped. Default False.')
@@ -352,10 +357,30 @@ def main(argv):
     for index, interactors in enumerate(all_interactors):
         object_to_model, flags_dict, postprocess_flags, output_dir = pre_modelling_setup(interactors, FLAGS, output_dir = FLAGS.output_directory[index])
         objects_to_model.append({object_to_model: output_dir})
-
+    # Prepare model and postprocess flags
+    model_flags = {
+        "num_diffusion_samples": FLAGS.num_diffusion_samples,
+        "flash_attention_implementation": FLAGS.flash_attention_implementation,
+        "buckets": FLAGS.buckets,
+        "jax_compilation_cache_dir": FLAGS.jax_compilation_cache_dir,
+        "model_dir": FLAGS.data_directory,
+        "af3_input_json": FLAGS.af3_input_json,
+        "features_directory": FLAGS.features_directory,
+        # Any other flags needed for backend can be added here
+    }
+    postprocess_flags = {
+        "compress_pickles": FLAGS.compress_result_pickles,
+        "remove_pickles": FLAGS.remove_result_pickles,
+        "remove_keys_from_pickles": FLAGS.remove_keys_from_pickles,
+        "use_gpu_relax": FLAGS.use_gpu_relax,
+        "models_to_relax": FLAGS.models_to_relax,
+        "features_directory": FLAGS.features_directory,
+        "convert_to_modelcif": FLAGS.convert_to_modelcif
+    }
+    # For alphafold3, merging with input.json is handled in the backend
     predict_structure(
         objects_to_model=objects_to_model,
-        model_flags=flags_dict,
+        model_flags=model_flags,
         fold_backend=FLAGS.fold_backend,
         postprocess_flags=postprocess_flags
     )
