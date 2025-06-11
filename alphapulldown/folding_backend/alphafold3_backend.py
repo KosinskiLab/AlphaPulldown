@@ -17,6 +17,9 @@ import time
 import typing
 from collections.abc import Sequence
 from typing import List, Dict, Union
+import json
+import itertools
+import string
 
 import alphafold3.cpp
 import haiku as hk
@@ -557,75 +560,112 @@ class AlphaFold3Backend(FoldingBackend):
         for mapping in objects_to_model:
             (object_to_model, out_dir), = mapping.items()
             output_dir = out_dir  # Keep last output_dir as default
-            
+    
             if isinstance(object_to_model, folding_input.Input):
                 protein_chains.extend(object_to_model.chains)
             else:
                 fold_input = _convert_to_fold_input(object_to_model, random_seed)
                 protein_chains.extend(fold_input.chains)
-
+    
         # If no objects to process, return empty list
         if not protein_chains and not af3_input_json:
             return []
-
+    
         # Process input.json files if present
         json_chains = []
         merged_name = "merged_job"
         merged_seeds = [random_seed]
         merged_bonded_atom_pairs = None
         merged_user_ccd = None
-
+    
         if af3_input_json:
             # Parse input.json files
-            input_objs = [
-                folding_input.Input.from_json(open(json_path).read())
-                for json_path in af3_input_json
-            ]
-            
-            # Collect chains and metadata from input.json
+            input_objs = []
+            for json_path in af3_input_json:
+                try:
+                    with open(json_path) as f:
+                        json_str = f.read()
+    
+                    # Parse raw JSON to detect format
+                    raw_json = json.loads(json_str)
+    
+                    # Handle different JSON dialects
+                    if isinstance(raw_json, list):
+                        # AlphaFold Server JSON format
+                        logging.info(f'Detected AlphaFold Server JSON format in {json_path}')
+                        for fold_job_idx, fold_job in enumerate(raw_json):
+                            try:
+                                input_obj = folding_input.Input.from_alphafoldserver_fold_job(fold_job)
+                                input_objs.append(input_obj)
+                            except ValueError as e:
+                                raise ValueError(
+                                    f'Failed to load fold job {fold_job_idx} from {json_path}'
+                                    f' (AlphaFold Server dialect): {e}'
+                                ) from e
+                    else:
+                        # AlphaFold 3 JSON format
+                        logging.info(f'Detected AlphaFold 3 JSON format in {json_path}')
+                        try:
+                            # Validate required fields for AlphaFold 3 format
+                            required_fields = {
+                                'dialect', 'version', 'name', 'modelSeeds', 
+                                'sequences'
+                            }
+                            missing_fields = required_fields - set(raw_json.keys())
+                            if missing_fields:
+                                raise ValueError(
+                                    f'Missing required fields in AlphaFold 3 JSON: {missing_fields}'
+                                )
+                            
+                            # Validate dialect and version
+                            if raw_json['dialect'] != folding_input.JSON_DIALECT:
+                                raise ValueError(
+                                    f'Unsupported dialect: {raw_json["dialect"]}, '
+                                    f'expected {folding_input.JSON_DIALECT}'
+                                )
+                            if raw_json['version'] not in folding_input.JSON_VERSIONS:
+                                raise ValueError(
+                                    f'Unsupported version: {raw_json["version"]}, '
+                                    f'expected one of {folding_input.JSON_VERSIONS}'
+                                )
+                            
+                            # Validate sequences
+                            if not raw_json['sequences']:
+                                raise ValueError('No sequences provided in input JSON')
+                            
+                            # Validate model seeds
+                            if not raw_json['modelSeeds']:
+                                raise ValueError('No model seeds provided in input JSON')
+                            
+                            input_obj = folding_input.Input.from_json(json_str)
+                            input_objs.append(input_obj)
+                        except ValueError as e:
+                            raise ValueError(
+                                f'Failed to load {json_path} (AlphaFold 3 dialect): {e}'
+                            ) from e
+    
+                except json.JSONDecodeError as e:
+                    raise ValueError(f'Failed to parse {json_path} as JSON: {e}') from e
+    
+            # Collect chains from input objects
             for input_obj in input_objs:
                 json_chains.extend(input_obj.chains)
-                if not merged_name or merged_name == "merged_job":
+                if input_obj.name:
                     merged_name = input_obj.name
-                if not merged_seeds or merged_seeds == [random_seed]:
-                    merged_seeds = input_obj.rng_seeds
-                if not merged_bonded_atom_pairs:
+                if input_obj.rng_seeds:
+                    merged_seeds = list(input_obj.rng_seeds)
+                if input_obj.bonded_atom_pairs:
                     merged_bonded_atom_pairs = input_obj.bonded_atom_pairs
-                if not merged_user_ccd:
+                if input_obj.user_ccd:
                     merged_user_ccd = input_obj.user_ccd
-
-        # Generate unique chain IDs
-        used_chain_ids = {chain.id for chain in json_chains}
-        chain_id_gen = (
-            c for c in string.ascii_uppercase
-        ) + (
-            ''.join(chars) for i in range(2, 4)
-            for chars in itertools.product(string.ascii_uppercase, repeat=i)
-        )
-
-        # Assign new chain IDs to protein chains
-        for chain in protein_chains:
-            while True:
-                chain_id = next(chain_id_gen)
-                if chain_id not in used_chain_ids:
-                    used_chain_ids.add(chain_id)
-                    chain = chain.__class__(
-                        id=chain_id,
-                        sequence=chain.sequence,
-                        ptms=chain.ptms,
-                        unpaired_msa=chain.unpaired_msa,
-                        paired_msa=chain.paired_msa,
-                        templates=chain.templates,
-                    )
-                    break
-
-        # Create merged input
+    
+        # Create merged input with protein chains first, then JSON chains
         merged_input = folding_input.Input(
-            name=f"{merged_name}_with_proteins" if protein_chains else merged_name,
-            chains=json_chains + protein_chains,
-            rng_seeds=merged_seeds,
+            name=merged_name,
+            chains=protein_chains + json_chains,  # Keep protein chains first
+            rng_seeds=tuple(merged_seeds),
             bonded_atom_pairs=merged_bonded_atom_pairs,
-            user_ccd=merged_user_ccd
+            user_ccd=merged_user_ccd,
         )
 
         return [{merged_input: output_dir or "merged_output"}]
