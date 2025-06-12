@@ -7,10 +7,7 @@ wrapper decides *how* each case is executed.
 """
 from __future__ import annotations
 
-import json
 import os
-import pickle
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -27,7 +24,7 @@ import alphapulldown
 # Point to the full Alphafold database once, via env-var.
 DATA_DIR = os.getenv(
     "ALPHAFOLD_DATA_DIR",
-    "/g/alphafold/AlphaFold_DBs/2.3.0"   #  default for EMBL cluster
+    "/g/alphafold/AlphaFold_DBs/3.0.0"   #  default for EMBL cluster
 )
 if not os.path.exists(DATA_DIR):
     absltest.skip("set $ALPHAFOLD_DATA_DIR to run Alphafold functional tests")
@@ -50,8 +47,8 @@ class _TestBase(parameterized.TestCase):
         self.test_modelling_dir = self.test_data_dir / "predictions"
 
         # output dir – ephemeral
-        self.tempdir = tempfile.TemporaryDirectory()
-        self.output_dir = Path(self.tempdir.name)
+        self.output_dir = Path("test/test_data/predictions/af3_backend/")
+        self.output_dir.mkdir(parents=True, exist_ok=True)
 
         # paths to alphapulldown CLI scripts
         apd_path = Path(alphapulldown.__path__[0])
