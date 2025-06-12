@@ -69,7 +69,9 @@ def main(argv):
     parent_dir = os.path.dirname(os.path.abspath(__file__))
     base_command = [f"python3 {parent_dir}/run_structure_prediction.py"]
 
-    fold_backend, model_dir = "alphafold", FLAGS.data_dir
+    # Use the specified fold_backend, only override for alphalink/unifold
+    fold_backend = FLAGS.fold_backend
+    model_dir = FLAGS.data_dir
     if FLAGS.use_alphalink:
         fold_backend, model_dir = "alphalink", FLAGS.alphalink_weight
     elif FLAGS.use_unifold:
