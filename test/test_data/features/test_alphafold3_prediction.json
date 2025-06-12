@@ -1,0 +1,29 @@
+{
+  "dialect": "alphafold3",
+  "version": 1,
+  "name": "test_protein_rna",
+  "sequences": [
+    {
+      "protein": {
+        "id": "A",
+        "sequence": "MSSHEGGKKKALKQPKKQAKEMDEEEKAFKQKQKEEQKKLEVLKAKVVGKGPLATGGIKKSGKK",
+        "modifications": [],
+        "unpairedMsa": null,
+        "pairedMsa": null,
+        "templates": []
+      }
+    },
+    {
+      "rna": {
+        "id": "B",
+        "sequence": "GAUUACA",
+        "modifications": [],
+        "unpairedMsa": null,
+        "pairedMsa": null
+      }
+    }
+  ],
+  "modelSeeds": [42],
+  "bondedAtomPairs": null,
+  "userCCD": null
+} 
