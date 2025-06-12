@@ -206,6 +206,8 @@ def predict_structure(
         **model_runners_and_configs,
         objects_to_model=objects_to_model,
         random_seed=random_seed,
+        allow_resume=model_flags.get("allow_resume", False),
+        skip_templates=model_flags.get("skip_templates", False),
         **model_flags
     )
 
@@ -359,6 +361,9 @@ def main(argv):
         objects_to_model.append({object_to_model: output_dir})
     # Prepare model and postprocess flags
     model_flags = {
+        "model_name": "monomer_ptm",  # Default model name
+        "num_cycle": FLAGS.num_cycle,
+        "num_multimer_predictions_per_model": FLAGS.num_predictions_per_model,
         "num_diffusion_samples": FLAGS.num_diffusion_samples,
         "flash_attention_implementation": FLAGS.flash_attention_implementation,
         "buckets": FLAGS.buckets,
