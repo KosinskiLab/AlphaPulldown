@@ -16,7 +16,11 @@ import re
 import shutil
 import subprocess
 import time
+import threading
 from pathlib import Path
+from queue import Queue
+from typing import Dict, List
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from absl.testing import absltest, parameterized
 
@@ -71,8 +75,44 @@ def _gpu_env() -> dict[str, str]:
 class TestAlphaFold3PredictStructure(parameterized.TestCase):
     # collect (job_id, log_file, test_name) for later inspection
     job_info_list: list[dict[str, str]] = []
+    # Queue to collect failures
+    failure_queue: Queue = Queue()
+    # Dictionary to track job status
+    job_status: Dict[str, str] = {}
 
-    # ---------- suite-level set-up / tear-down ----------------------------- #
+    def _check_log_file(self, job_info: Dict[str, str], timeout: int = 7200):
+        """Check a single log file for completion and PASSED status."""
+        start_time = time.time()
+        log_path = Path(job_info["log_file"])
+        test_name = job_info["test_name"]
+        
+        while time.time() - start_time < timeout:
+            if not log_path.exists():
+                time.sleep(10)
+                continue
+                
+            try:
+                content = log_path.read_text()
+                if "PASSED" in content:
+                    self.job_status[test_name] = "PASSED"
+                    print(f"{test_name}: PASSED")
+                    return
+                elif "FAILED" in content or "ERROR" in content:
+                    self.job_status[test_name] = "FAILED"
+                    print(f"\n--- LOG FOR FAILED TEST: {test_name} ---\n{content}\n--- END LOG ---\n")
+                    self.failure_queue.put(f"{test_name}: FAILED")
+                    return
+            except Exception as e:
+                self.job_status[test_name] = "ERROR"
+                print(f"Error reading log file {log_path}: {e}")
+                self.failure_queue.put(f"{test_name}: Error reading log - {e}")
+                return
+                
+            time.sleep(10)
+            
+        self.job_status[test_name] = "TIMEOUT"
+        self.failure_queue.put(f"{test_name}: TIMEOUT after {timeout}s")
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -85,6 +125,8 @@ class TestAlphaFold3PredictStructure(parameterized.TestCase):
             logging.warning("test_logs directory already exists – deleting it")
             shutil.rmtree(cls.base_path)
         cls.base_path.mkdir(parents=True)
+        cls.failure_queue = Queue()
+        cls.job_status = {}
 
     @classmethod
     def tearDownClass(cls):
@@ -92,45 +134,26 @@ class TestAlphaFold3PredictStructure(parameterized.TestCase):
         if not cls.job_info_list:  # nothing was submitted → local run
             return
 
-        # -------- wait until all Slurm jobs are gone ---------------------- #
-        job_ids = {j["job_id"] for j in cls.job_info_list}
-        timeout = 7200  # seconds
-        start = time.time()
+        # Start a thread for each job to check its log file
+        with ThreadPoolExecutor(max_workers=len(cls.job_info_list)) as executor:
+            futures = {
+                executor.submit(cls._check_log_file, cls, job): job["test_name"]
+                for job in cls.job_info_list
+            }
+            
+            # Wait for all futures to complete
+            for future in as_completed(futures):
+                test_name = futures[future]
+                try:
+                    future.result()
+                except Exception as e:
+                    print(f"Error checking log for {test_name}: {e}")
+                    cls.failure_queue.put(f"{test_name}: Error in log checking - {e}")
 
-        while True:
-            try:
-                running = set(
-                    subprocess.check_output(
-                        ["squeue", "-h", "-u", os.environ["USER"], "-o", "%A"]
-                    )
-                    .decode()
-                    .strip()
-                    .splitlines()
-                )
-            except Exception as exc:
-                print(f"squeue failed: {exc}")
-                break
-
-            if not (job_ids & running):
-                break
-            if time.time() - start > timeout:
-                print("timeout while waiting for Slurm jobs; continuing anyway")
-                break
-            time.sleep(10)
-
-        # -------- scan logs for PASS/FAIL --------------------------------- #
+        # Collect all failures
         failures = []
-        for job in cls.job_info_list:
-            lf = Path(job["log_file"])
-            if not lf.exists():
-                failures.append(f"{job['test_name']}: log file missing")
-                continue
-            content = lf.read_text()
-            if "PASSED" in content:
-                print(f"{job['test_name']}: PASSED")
-            else:
-                print(f"\n--- LOG FOR FAILED TEST: {job['test_name']} ---\n{content}\n--- END LOG ---\n")
-                failures.append(f"{job['test_name']}: FAILED – keyword 'PASSED' absent")
+        while not cls.failure_queue.empty():
+            failures.append(cls.failure_queue.get())
 
         if failures:
             raise RuntimeError("Some Slurm tests failed:\n" + "\n".join(failures))
@@ -241,6 +264,8 @@ class TestAlphaFold3PredictStructure(parameterized.TestCase):
         """Route each parameterised test either through Slurm or local run."""
         if self._is_slurm_available():
             self._submit_sbatch(i, cls, test)
+            # Don't show PASSED here - wait for log check
+            print(f"Submitted job for {cls}::{test}")
         else:
             print("Slurm unavailable – running locally")
             self._run_test_locally(cls, test)

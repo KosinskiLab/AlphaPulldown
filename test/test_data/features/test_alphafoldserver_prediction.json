@@ -1,0 +1,21 @@
+[{
+  "name": "test_protein_rna",
+  "modelSeeds": ["42"],
+  "sequences": [
+    {
+      "proteinChain": {
+        "sequence": "MSSHEGGKKKALKQPKKQAKEMDEEEKAFKQKQKEEQKKLEVLKAKVVGKGPLATGGIKKSGKK",
+        "count": 1,
+        "useStructureTemplate": true
+      }
+    },
+    {
+      "dnaSequence": {
+        "sequence": "GATTACA",
+        "count": 1
+      }
+    }
+  ],
+  "dialect": "alphafoldserver",
+  "version": 1
+}] 
