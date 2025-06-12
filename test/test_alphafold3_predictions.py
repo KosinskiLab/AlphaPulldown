@@ -129,6 +129,7 @@ class TestAlphaFold3PredictStructure(parameterized.TestCase):
             if "PASSED" in content:
                 print(f"{job['test_name']}: PASSED")
             else:
+                print(f"\n--- LOG FOR FAILED TEST: {job['test_name']} ---\n{content}\n--- END LOG ---\n")
                 failures.append(f"{job['test_name']}: FAILED – keyword 'PASSED' absent")
 
         if failures:
