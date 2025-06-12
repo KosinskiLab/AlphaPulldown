@@ -414,14 +414,8 @@ def process_fold_input(
         logging.error('Fold input has no chains.')
         raise ValueError('Fold input has no chains.')
 
-    # Handle output directory naming
-    if os.path.exists(output_dir) and os.listdir(output_dir):
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        new_output_dir = f'{output_dir}_{timestamp}'
-        logging.warning(
-            f'Output directory {output_dir} exists and is non-empty, using {new_output_dir} instead.'
-        )
-        output_dir = new_output_dir
+    # Create output directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
 
     # Check model parameters can be loaded
     if model_runner is not None:
@@ -437,7 +431,6 @@ def process_fold_input(
 
     # Write input JSON
     logging.info(f'Writing model input JSON to {output_dir}')
-    os.makedirs(output_dir, exist_ok=True)
     with open(
         os.path.join(output_dir, f'{fold_input.sanitised_name()}_data.json'), 'wt'
     ) as f:
