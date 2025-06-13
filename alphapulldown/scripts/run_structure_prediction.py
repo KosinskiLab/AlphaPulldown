@@ -305,7 +305,13 @@ def pre_modelling_setup(
     if len(output_dir) > 4096: #max path length for most filesystems
         logging.warning(f"Output directory path is too long: {output_dir}."
                         "Please use a shorter path with --output_directory.")
-    makedirs(output_dir, exist_ok=True)
+    
+    # Create parent directories first
+    parent_dir = os.path.dirname(output_dir)
+    if parent_dir:
+        os.makedirs(parent_dir, exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
+    
     # Copy features metadata to output directory
     for interactor in interactors:
         for feature_dir in flags.features_directory:
