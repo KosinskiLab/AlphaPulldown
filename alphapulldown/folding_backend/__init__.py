@@ -111,3 +111,16 @@ class FoldingBackendManager:
 
 
 backend = FoldingBackendManager()
+
+def change_backend(backend_name: str) -> None:
+    """Change the backend for structure prediction.
+
+    Args:
+        backend_name: Name of the backend to use.
+    """
+    if backend_name not in ["alphafold", "unifold", "alphafold3"]:
+        raise NotImplementedError(
+            f"Available backends are alphafold, unifold, alphafold3 - not {backend_name}."
+        )
+    global backend
+    backend.change_backend(backend_name)
