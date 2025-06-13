@@ -12,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+import shutil
 
 from absl.testing import absltest, parameterized
 
@@ -34,6 +35,15 @@ if not os.path.exists(DATA_DIR):
 #                       common helper mix-in / assertions                     #
 # --------------------------------------------------------------------------- #
 class _TestBase(parameterized.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        # Create a base directory for all test outputs
+        cls.base_output_dir = Path("test/test_data/predictions/af3_backend")
+        if cls.base_output_dir.exists():
+            shutil.rmtree(cls.base_output_dir)
+        cls.base_output_dir.mkdir(parents=True, exist_ok=True)
+
     def setUp(self):
         super().setUp()
 
@@ -42,12 +52,13 @@ class _TestBase(parameterized.TestCase):
         self.test_data_dir = this_dir / "test_data"
         self.test_fastas_dir = self.test_data_dir / "fastas"
         self.test_features_dir = self.test_data_dir / "features"
-        self.test_protein_lists_dir = self.test_data_dir / "protein_lists"
-        self.test_templates_dir = self.test_data_dir / "templates"
-        self.test_modelling_dir = self.test_data_dir / "predictions"
+        self.test_protein_lists_dir = this_dir / "test_data" / "protein_lists"
+        self.test_templates_dir = this_dir / "test_data" / "templates"
+        self.test_modelling_dir = this_dir / "test_data" / "predictions"
 
-        # output dir – ephemeral
-        self.output_dir = Path("test/test_data/predictions/af3_backend/")
+        # Create a unique output directory for this test
+        test_name = self._testMethodName
+        self.output_dir = self.base_output_dir / test_name
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         # paths to alphapulldown CLI scripts
@@ -55,52 +66,54 @@ class _TestBase(parameterized.TestCase):
         self.script_multimer = apd_path / "scripts" / "run_multimer_jobs.py"
         self.script_single = apd_path / "scripts" / "run_structure_prediction.py"
 
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        # Clean up all test outputs after all tests are done
+        if cls.base_output_dir.exists():
+            shutil.rmtree(cls.base_output_dir)
+
     # ---------------- assertions reused by all subclasses ----------------- #
     def _runCommonTests(self, res: subprocess.CompletedProcess, multimer: bool, dirname: str | None = None):
         print(res.stdout)
         print(res.stderr)
         self.assertEqual(res.returncode, 0, "sub-process failed")
 
-        dirs = [dirname] if dirname else [
-            d for d in os.listdir(self.output_dir) if Path(self.output_dir, d).is_dir()
-        ]
+        # Look in the parent directory for output files
+        files = list(self.output_dir.iterdir())
+        print(f"contents of {self.output_dir}: {[f.name for f in files]}")
 
-        for d in dirs:
-            folder = self.output_dir / d
-            files = list(folder.iterdir())
-            print(f"contents of {folder}: {[f.name for f in files]}")
+        # Check for AlphaFold3 output files
+        # 1. Main output files
+        self.assertIn("TERMS_OF_USE.md", {f.name for f in files})
+        self.assertIn("ranking_scores.csv", {f.name for f in files})
+        
+        # 2. Data and confidence files
+        data_files = [f for f in files if f.name.endswith("_data.json")]
+        conf_files = [f for f in files if f.name.endswith("_confidences.json")]
+        summary_conf_files = [f for f in files if f.name.endswith("_summary_confidences.json")]
+        model_files = [f for f in files if f.name.endswith("_model.cif")]
+        
+        self.assertTrue(len(data_files) > 0, "No data.json files found")
+        self.assertTrue(len(conf_files) > 0, "No confidences.json files found")
+        self.assertTrue(len(summary_conf_files) > 0, "No summary_confidences.json files found")
+        self.assertTrue(len(model_files) > 0, "No model.cif files found")
 
-            # Check for AlphaFold3 output files
-            # 1. Main output files
-            self.assertIn("TERMS_OF_USE.md", {f.name for f in files})
-            self.assertIn("ranking_scores.csv", {f.name for f in files})
-            
-            # 2. Data and confidence files
-            data_files = [f for f in files if f.name.endswith("_data.json")]
-            conf_files = [f for f in files if f.name.endswith("_confidences.json")]
-            summary_conf_files = [f for f in files if f.name.endswith("_summary_confidences.json")]
-            model_files = [f for f in files if f.name.endswith("_model.cif")]
-            
-            self.assertTrue(len(data_files) > 0, "No data.json files found")
-            self.assertTrue(len(conf_files) > 0, "No confidences.json files found")
-            self.assertTrue(len(summary_conf_files) > 0, "No summary_confidences.json files found")
-            self.assertTrue(len(model_files) > 0, "No model.cif files found")
+        # 3. Check sample directories
+        sample_dirs = [f for f in files if f.is_dir() and f.name.startswith("seed-")]
+        self.assertEqual(len(sample_dirs), 5, "Expected 5 sample directories")
 
-            # 3. Check sample directories
-            sample_dirs = [f for f in files if f.is_dir() and f.name.startswith("seed-")]
-            self.assertEqual(len(sample_dirs), 5, "Expected 5 sample directories")
+        for sample_dir in sample_dirs:
+            sample_files = list(sample_dir.iterdir())
+            self.assertIn("confidences.json", {f.name for f in sample_files})
+            self.assertIn("model.cif", {f.name for f in sample_files})
+            self.assertIn("summary_confidences.json", {f.name for f in sample_files})
 
-            for sample_dir in sample_dirs:
-                sample_files = list(sample_dir.iterdir())
-                self.assertIn("confidences.json", {f.name for f in sample_files})
-                self.assertIn("model.cif", {f.name for f in sample_files})
-                self.assertIn("summary_confidences.json", {f.name for f in sample_files})
-
-            # 4. Verify ranking scores
-            with open(folder / "ranking_scores.csv") as f:
-                lines = f.readlines()
-                self.assertTrue(len(lines) > 1, "ranking_scores.csv should have header and data")
-                self.assertEqual(len(lines[0].strip().split(",")), 3, "ranking_scores.csv should have 3 columns")
+        # 4. Verify ranking scores
+        with open(self.output_dir / "ranking_scores.csv") as f:
+            lines = f.readlines()
+            self.assertTrue(len(lines) > 1, "ranking_scores.csv should have header and data")
+            self.assertEqual(len(lines[0].strip().split(",")), 3, "ranking_scores.csv should have 3 columns")
 
     # convenience builder
     def _args(self, *, plist, mode, script, af3_input_json=None):
