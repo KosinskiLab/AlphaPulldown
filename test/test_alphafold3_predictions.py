@@ -24,6 +24,14 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from absl.testing import absltest, parameterized
 
+# Set environment variables for GPU usage
+os.environ["XLA_FLAGS"] = "--xla_disable_hlo_passes=custom-kernel-fusion-rewriter --xla_gpu_force_compilation_parallelism=false"
+os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "true"
+os.environ["XLA_CLIENT_MEM_FRACTION"] = "0.95"
+os.environ["JAX_FLASH_ATTENTION_IMPL"] = "xla"
+# Remove deprecated variable
+if "XLA_PYTHON_CLIENT_MEM_FRACTION" in os.environ:
+    del os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"]
 
 # --------------------------------------------------------------------------- #
 #                          generic capability helpers                         #
@@ -42,30 +50,15 @@ def _has_gpu() -> bool:
 
 
 def _gpu_env() -> dict[str, str]:
-    """
-    Return a copy of os.environ with extra keys that stop XLA/JAX from
-    pre-allocating all GPU RAM.  Works the same in Slurm and local mode.
-    """
+    """Return environment variables for GPU usage."""
     env = os.environ.copy()
-    try:
-        total = int(
-            subprocess.check_output(
-                [
-                    "nvidia-smi",
-                    "--query-gpu=memory.total",
-                    "--format=csv,noheader,nounits",
-                ]
-            )
-            .decode()
-            .splitlines()[0]
-        )
-        # leave ≈10 % head-room
-        env["XLA_PYTHON_CLIENT_MEM_FRACTION"] = f"{max(0.1, min(0.9, 0.9 * 16000 / total)):.3f}"
-    except Exception:
-        env["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.8"
-
-    env["TF_FORCE_UNIFIED_MEMORY"] = "1"
-    env["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
+    env["XLA_FLAGS"] = "--xla_disable_hlo_passes=custom-kernel-fusion-rewriter --xla_gpu_force_compilation_parallelism=0"
+    env["XLA_PYTHON_CLIENT_PREALLOCATE"] = "true"
+    env["XLA_CLIENT_MEM_FRACTION"] = "0.95"
+    env["JAX_FLASH_ATTENTION_IMPL"] = "xla"
+    # Remove deprecated variable if present
+    if "XLA_PYTHON_CLIENT_MEM_FRACTION" in env:
+        del env["XLA_PYTHON_CLIENT_MEM_FRACTION"]
     return env
 
 
@@ -164,6 +157,11 @@ class TestAlphaFold3PredictStructure(parameterized.TestCase):
         if not _has_gpu():
             self.skipTest("NVIDIA GPU not detected – skipping Alphafold3 tests")
 
+        # Check for correct conda environment
+        conda_env = os.environ.get("CONDA_DEFAULT_ENV")
+        if not conda_env or conda_env != "AlphaPulldown_alphafold3":
+            self.fail(f"Tests must be run in the AlphaPulldown_alphafold3 environment. Current environment: {conda_env}")
+
         self.case_dir = self.base_path / self._testMethodName
         self.case_dir.mkdir(parents=True, exist_ok=True)
 
@@ -183,7 +181,10 @@ class TestAlphaFold3PredictStructure(parameterized.TestCase):
 
     # -- run on the workstation ------------------------------------------- #
     def _run_test_locally(self, cls_name: str, test_name: str):
-        conda = os.environ.get("CONDA_DEFAULT_ENV") or ""
+        conda = os.environ.get("CONDA_DEFAULT_ENV")
+        if not conda or conda != "AlphaPulldown_alphafold3":
+            self.fail(f"Tests must be run in the AlphaPulldown_alphafold3 environment. Current environment: {conda}")
+
         cmd = [
             "bash",
             "-c",
@@ -203,8 +204,8 @@ class TestAlphaFold3PredictStructure(parameterized.TestCase):
             self.skipTest("requested Slurm path, but Slurm unavailable")
 
         conda = os.environ.get("CONDA_DEFAULT_ENV")
-        if not conda:
-            self.fail("CONDA_DEFAULT_ENV is not set inside Slurm submission")
+        if not conda or conda != "AlphaPulldown_alphafold3":
+            self.fail(f"Tests must be run in the AlphaPulldown_alphafold3 environment. Current environment: {conda}")
 
         script = (
             f"#!/bin/bash\n"
@@ -223,9 +224,12 @@ class TestAlphaFold3PredictStructure(parameterized.TestCase):
             f"MAXRAM=$(echo $(ulimit -m) / 1024.0 | bc)\n"
             f"GPUMEM=$(nvidia-smi --query-gpu=memory.total"
             f" --format=csv,noheader,nounits | head -1)\n"
-            f"export XLA_PYTHON_CLIENT_MEM_FRACTION=$(echo \"scale=3;$MAXRAM/$GPUMEM\" | bc)\n"
+            f"export XLA_CLIENT_MEM_FRACTION=$(echo \"scale=3;$MAXRAM/$GPUMEM\" | bc)\n"
             f"export TF_FORCE_UNIFIED_MEMORY=1\n"
-            f"export XLA_PYTHON_CLIENT_PREALLOCATE=false\n\n"
+            f"export XLA_PYTHON_CLIENT_PREALLOCATE=false\n"
+            f"export XLA_FLAGS=\"--xla_gpu_enable_triton_gemm=false\"\n"
+            f"# Remove deprecated variable if present\n"
+            f"unset XLA_PYTHON_CLIENT_MEM_FRACTION\n\n"
             f"echo 'Running {cls_name}::{test_name}'\n"
             f"pytest -s test/check_alphafold3_predictions.py::{cls_name}::{test_name}\n"
         )

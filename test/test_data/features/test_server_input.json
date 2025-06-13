@@ -1,1 +1,9 @@
-[{"name": "test_server_input", "modelSeeds": [42], "sequences": [{"proteinChain": {"sequence": "MESAIAEGGASRFSASSGGGGSRGAPQHYPKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA", "count": 1, "modifications": []}}]}]
+{
+  "version": 1,
+  "name": "test_server_input",
+  "dialect": "alphafold3",
+  "modelSeeds": [42],
+  "sequences": [
+    {"id": "C", "type": "protein"}
+  ]
+}
