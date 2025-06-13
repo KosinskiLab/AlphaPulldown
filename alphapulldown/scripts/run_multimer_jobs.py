@@ -11,6 +11,8 @@ import subprocess
 from absl import app, logging, flags
 import os
 import sys
+import jax
+gpus = jax.local_devices(backend='gpu')
 from alphapulldown.scripts.run_structure_prediction import FLAGS
 from alphapulldown.utils.create_combinations import process_files
 

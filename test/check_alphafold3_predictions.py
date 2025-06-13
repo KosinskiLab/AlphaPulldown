@@ -104,7 +104,31 @@ class _TestBase(parameterized.TestCase):
 
     # convenience builder
     def _args(self, *, plist, mode, script, af3_input_json=None):
-        if script == "run_multimer_jobs.py":
+        if script == "run_structure_prediction.py":
+            # Read the protein list file to get the input sequence
+            with open(self.test_protein_lists_dir / plist) as f:
+                input_seq = f.read().strip()
+            
+            # Format the input sequence according to the expected format
+            # Format: [fasta_path:number:start-stop],[...]
+            formatted_input = input_seq.replace(";", ",").replace("+", ",")
+            
+            args = [
+                sys.executable,
+                str(self.script_single),
+                f"--input={formatted_input}",
+                f"--output_directory={self.output_dir}",
+                "--num_cycle=1",
+                "--num_predictions_per_model=1",
+                f"--data_directory={DATA_DIR}",
+                f"--features_directory={self.test_features_dir}",
+                "--fold_backend=alphafold3",
+                "--flash_attention_implementation=xla",
+            ]
+            if af3_input_json:
+                args.append(f"--af3_input_json={af3_input_json}")
+            return args
+        else:  # run_multimer_jobs.py
             args = [
                 sys.executable,
                 str(self.script_multimer),
@@ -126,21 +150,6 @@ class _TestBase(parameterized.TestCase):
             if af3_input_json:
                 args.append(f"--af3_input_json={af3_input_json}")
             return args
-        else:  # run_structure_prediction.py
-            args = [
-                sys.executable,
-                str(self.script_single),
-                "--input=A0A075B6L2:10:1-3:4-5:6-7:7-8",
-                f"--output_directory={self.output_dir}",
-                "--num_cycle=1",
-                "--num_predictions_per_model=1",
-                f"--data_directory={DATA_DIR}",
-                f"--features_directory={self.test_features_dir}",
-                "--fold_backend=alphafold3",
-            ]
-            if af3_input_json:
-                args.append(f"--af3_input_json={af3_input_json}")
-            return args
 
 
 # --------------------------------------------------------------------------- #
@@ -148,43 +157,71 @@ class _TestBase(parameterized.TestCase):
 # --------------------------------------------------------------------------- #
 class TestAlphaFold3RunModes(_TestBase):
     @parameterized.named_parameters(
-        dict(testcase_name="monomer", protein_list="test_monomer.txt", mode="custom", script="run_multimer_jobs.py"),
-        dict(testcase_name="monomer_with_rna", protein_list="test_monomer_with_rna.txt", mode="custom", script="run_multimer_jobs.py"),
-        dict(testcase_name="dimer", protein_list="test_dimer.txt", mode="custom", script="run_multimer_jobs.py"),
-        dict(testcase_name="dimer_with_rna", protein_list="test_dimer_with_rna.txt", mode="custom", script="run_multimer_jobs.py"),
-        dict(testcase_name="trimer", protein_list="test_trimer.txt", mode="custom", script="run_multimer_jobs.py"),
-        dict(testcase_name="homo_oligomer", protein_list="test_homooligomer.txt", mode="homo-oligomer", script="run_multimer_jobs.py"),
-        dict(testcase_name="chopped_dimer", protein_list="test_dimer_chopped.txt", mode="custom", script="run_multimer_jobs.py"),
+        dict(testcase_name="monomer", protein_list="test_monomer.txt", mode="custom", script="run_structure_prediction.py"),
+        dict(testcase_name="monomer_with_rna", protein_list="test_monomer_with_rna.txt", mode="custom", script="run_structure_prediction.py"),
+        dict(testcase_name="dimer", protein_list="test_dimer.txt", mode="custom", script="run_structure_prediction.py"),
+        dict(testcase_name="dimer_with_rna", protein_list="test_dimer_with_rna.txt", mode="custom", script="run_structure_prediction.py"),
+        dict(testcase_name="trimer", protein_list="test_trimer.txt", mode="custom", script="run_structure_prediction.py"),
+        dict(testcase_name="homo_oligomer", protein_list="test_homooligomer.txt", mode="homo-oligomer", script="run_structure_prediction.py"),
+        dict(testcase_name="chopped_dimer", protein_list="test_dimer_chopped.txt", mode="custom", script="run_structure_prediction.py"),
         dict(testcase_name="long_name", protein_list="test_long_name.txt", mode="custom", script="run_structure_prediction.py"),
         # New test cases for mixing with test_input.json
         dict(
             testcase_name="monomer_with_json", 
             protein_list="test_monomer.txt", 
             mode="custom", 
-            script="run_multimer_jobs.py",
+            script="run_structure_prediction.py",
             af3_input_json=str(Path(__file__).parent / "test_data/features/test_input.json")
         ),
         dict(
             testcase_name="dimer_with_json", 
             protein_list="test_dimer.txt", 
             mode="custom", 
-            script="run_multimer_jobs.py",
+            script="run_structure_prediction.py",
             af3_input_json=str(Path(__file__).parent / "test_data/features/test_input.json")
         ),
         dict(
             testcase_name="protein_rna_complex", 
             protein_list="test_monomer.txt", 
             mode="custom", 
-            script="run_multimer_jobs.py",
+            script="run_structure_prediction.py",
             af3_input_json=str(Path(__file__).parent / "test_data/features/test_protein_rna.json")
         ),
     )
     def test_(self, protein_list, mode, script, af3_input_json=None):
         multimer = "monomer" not in protein_list
+        # Create environment with GPU settings
+        env = os.environ.copy()
+        env["XLA_FLAGS"] = "--xla_disable_hlo_passes=custom-kernel-fusion-rewriter --xla_gpu_force_compilation_parallelism=0"
+        env["XLA_PYTHON_CLIENT_PREALLOCATE"] = "true"
+        env["XLA_CLIENT_MEM_FRACTION"] = "0.95"
+        env["JAX_FLASH_ATTENTION_IMPL"] = "xla"
+        # Remove deprecated variable if present
+        if "XLA_PYTHON_CLIENT_MEM_FRACTION" in env:
+            del env["XLA_PYTHON_CLIENT_MEM_FRACTION"]
+        
+        # Debug output
+        print("\nEnvironment variables:")
+        print(f"XLA_FLAGS: {env.get('XLA_FLAGS')}")
+        print(f"XLA_PYTHON_CLIENT_PREALLOCATE: {env.get('XLA_PYTHON_CLIENT_PREALLOCATE')}")
+        print(f"XLA_CLIENT_MEM_FRACTION: {env.get('XLA_CLIENT_MEM_FRACTION')}")
+        print(f"JAX_FLASH_ATTENTION_IMPL: {env.get('JAX_FLASH_ATTENTION_IMPL')}")
+        
+        # Check GPU availability
+        try:
+            import jax
+            print("\nJAX GPU devices:")
+            print(jax.devices())
+            print("JAX GPU local devices:")
+            print(jax.local_devices(backend='gpu'))
+        except Exception as e:
+            print(f"\nError checking JAX GPU: {e}")
+        
         res = subprocess.run(
-            self._args(plist=protein_list, mode=mode, script=script, af3_input_json=af3_input_json), 
-            capture_output=True, 
-            text=True
+            self._args(plist=protein_list, mode=mode, script=script, af3_input_json=af3_input_json),
+            capture_output=True,
+            text=True,
+            env=env
         )
         self._runCommonTests(res, multimer)
 

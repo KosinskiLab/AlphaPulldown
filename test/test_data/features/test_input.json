@@ -1,1 +1,11 @@
-{"dialect": "alphafold3", "version": 1, "name": "test_input", "modelSeeds": [42], "sequences": [{"protein": {"id": "C", "sequence": "MESAIAEGGASRFSASSGGGGSRGAPQHYPKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA", "modifications": [], "unpairedMsa": null, "pairedMsa": null, "templates": []}}], "bondedAtomPairs": [], "userCCD": null}
+{
+  "version": 1,
+  "name": "test_input",
+  "dialect": "alphafold3",
+  "modelSeeds": [42],
+  "sequences": [
+    {"id": "C", "type": "protein"}
+  ],
+  "bondedAtomPairs": [],
+  "userCCD": null
+}

@@ -193,9 +193,14 @@ def _convert_to_fold_input(
     random_seed: int,
 ) -> folding_input.Input:
     """Convert a given object to AlphaFold3 fold input."""
-    # (Unchanged from your original code, except for any references to base_model)
-    # ...
-    chain_id_gen = (chr(c) for c in range(ord('A'), ord('Z') + 1))
+    def get_chain_id(index: int) -> str:
+        """Generate chain IDs in sequence: A-Z, AA-AZ, BA-BZ, etc."""
+        if index < 26:
+            return chr(ord('A') + index)
+        else:
+            first_char = chr(ord('A') + (index // 26) - 1)
+            second_char = chr(ord('A') + (index % 26))
+            return first_char + second_char
 
     def insert_release_date_into_mmcif(
         mmcif_string: str, revision_date: str = '2100-01-01'
@@ -290,13 +295,11 @@ def _convert_to_fold_input(
         return chain
 
     if isinstance(object_to_model, (MonomericObject, ChoppedObject)):
-        chain_id = next(chain_id_gen)
-        chains = [_monomeric_to_chain(object_to_model, chain_id)]
+        chains = [_monomeric_to_chain(object_to_model, get_chain_id(0))]
     elif isinstance(object_to_model, MultimericObject):
         chains = []
-        for interactor in object_to_model.interactors:
-            chain_id = next(chain_id_gen)
-            chain = _monomeric_to_chain(interactor, chain_id)
+        for i, interactor in enumerate(object_to_model.interactors):
+            chain = _monomeric_to_chain(interactor, get_chain_id(i))
             chains.append(chain)
     else:
         logging.error("Unsupported object type for folding input conversion.")
@@ -651,6 +654,28 @@ class AlphaFold3Backend(FoldingBackend):
                     merged_bonded_atom_pairs = input_obj.bonded_atom_pairs
                 if input_obj.user_ccd:
                     merged_user_ccd = input_obj.user_ccd
+
+        # Ensure unique chain IDs across all chains
+        def get_chain_id(index: int) -> str:
+            """Generate chain IDs in sequence: A-Z, AA-AZ, BA-BZ, etc."""
+            if index < 26:
+                return chr(ord('A') + index)
+            else:
+                first_char = chr(ord('A') + (index // 26) - 1)
+                second_char = chr(ord('A') + (index % 26))
+                return first_char + second_char
+
+        # Get existing chain IDs
+        existing_chain_ids = {chain.id for chain in protein_chains}
+        
+        # Update JSON chain IDs to ensure uniqueness
+        for i, chain in enumerate(json_chains):
+            new_id = chain.id
+            while new_id in existing_chain_ids:
+                new_id = get_chain_id(len(existing_chain_ids))
+            existing_chain_ids.add(new_id)
+            # Create a new chain with the updated ID
+            json_chains[i] = dataclasses.replace(chain, id=new_id)
     
         # Create merged input with protein chains first, then JSON chains
         merged_input = folding_input.Input(
