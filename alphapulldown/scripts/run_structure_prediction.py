@@ -338,33 +338,50 @@ def pre_modelling_setup(
     return object_to_model, flags_dict, postprocess_flags, output_dir
 
 def main(argv):
-    parsed_input = parse_fold(FLAGS.input, FLAGS.features_directory, FLAGS.protein_delimiter)
-    data = create_custom_info(parsed_input)
+    # Parse inputs and build interactor objects
+    parsed = parse_fold(FLAGS.input, FLAGS.features_directory, FLAGS.protein_delimiter)
+    data = create_custom_info(parsed)
     all_interactors = create_interactors(data, FLAGS.features_directory)
-    objects_to_model = [] 
 
-    if len(FLAGS.input) != len(FLAGS.output_directory):
-        FLAGS.output_directory *= len(FLAGS.input)
-
-    if len(FLAGS.input) != len(FLAGS.output_directory):
+    n = len(FLAGS.input)
+    # Normalize output dirs
+    if len(FLAGS.output_directory) == 1:
+        out_dirs = FLAGS.output_directory * n
+    elif len(FLAGS.output_directory) == n:
+        out_dirs = FLAGS.output_directory
+    else:
         raise ValueError(
-            "Either specify one output_directory per fold or one for all folds."
+            "Either specify one output_directory for all folds or one per fold."
         )
 
-    for index, interactors in enumerate(all_interactors):
-        # Check if this is a JSON input by checking if it's a list with a single item
-        # that has a 'json_input' key in its dictionary
-        if (interactors and len(interactors) == 1 and 
-            isinstance(interactors[0], dict) and 
-            'json_input' in interactors[0]):
-            # For JSON input, we'll pass it directly to AlphaFold3 backend
-            json_path = interactors[0]['json_input']
-            objects_to_model.append({json_path: FLAGS.output_directory[index]})
+    # Prepare the list of jobs
+    objects_to_model = []
+    for interactors, out_dir in zip(all_interactors, out_dirs):
+        if not interactors:
             continue
-            
-        object_to_model, flags_dict, postprocess_flags, output_dir = pre_modelling_setup(interactors, FLAGS, output_dir = FLAGS.output_directory[index])
-        objects_to_model.append({object_to_model: output_dir})
-    # Prepare model and postprocess flags
+
+        # Separate JSON-only entries
+        json_paths = [
+            d['json_input']
+            for d in interactors
+            if isinstance(d, dict) and 'json_input' in d
+        ]
+        prot_objs = [
+            x for x in interactors
+            if not (isinstance(x, dict) and 'json_input' in x)
+        ]
+
+        # First handle any protein objects
+        if prot_objs:
+            obj, mflags, pflags, real_out = pre_modelling_setup(
+                prot_objs, FLAGS, output_dir=out_dir
+            )
+            objects_to_model.append({obj: real_out})
+        # Then handle any number of JSON inputs
+        for jp in json_paths:
+            objects_to_model.append({jp: out_dir})
+
+    # Build flags dicts for predict_structure
     model_flags = {
         "num_diffusion_samples": FLAGS.num_diffusion_samples,
         "flash_attention_implementation": FLAGS.flash_attention_implementation,
@@ -372,7 +389,6 @@ def main(argv):
         "jax_compilation_cache_dir": FLAGS.jax_compilation_cache_dir,
         "model_dir": FLAGS.data_directory,
         "features_directory": FLAGS.features_directory,
-        # Any other flags needed for backend can be added here
     }
     postprocess_flags = {
         "compress_pickles": FLAGS.compress_result_pickles,
@@ -383,12 +399,12 @@ def main(argv):
         "features_directory": FLAGS.features_directory,
         "convert_to_modelcif": FLAGS.convert_to_modelcif
     }
-    # For alphafold3, merging with input.json is handled in the backend
+
     predict_structure(
         objects_to_model=objects_to_model,
         model_flags=model_flags,
-        fold_backend=FLAGS.fold_backend,
-        postprocess_flags=postprocess_flags
+        postprocess_flags=postprocess_flags,
+        fold_backend=FLAGS.fold_backend
     )
 
 

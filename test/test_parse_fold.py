@@ -118,6 +118,51 @@ class TestParseFold(parameterized.TestCase):
             },
             'expected_result': [[{'protein1': 'all'}]],
         },
+        # New test cases for JSON handling
+        {
+            'testcase_name': 'single_json_file',
+            'input': ['rna.json'],
+            'features_directory': ['dir1'],
+            'protein_delimiter': '+',
+            'mock_side_effect': {
+                'dir1/rna.json': True,
+            },
+            'expected_result': [[{'json_input': 'dir1/rna.json'}]],
+        },
+        {
+            'testcase_name': 'json_with_protein',
+            'input': ['protein1+rna.json'],
+            'features_directory': ['dir1'],
+            'protein_delimiter': '+',
+            'mock_side_effect': {
+                'dir1/protein1.pkl': True,
+                'dir1/protein1.pkl.xz': False,
+                'dir1/rna.json': True,
+            },
+            'expected_result': [[{'protein1': 'all'}, {'json_input': 'dir1/rna.json'}]],
+        },
+        {
+            'testcase_name': 'missing_json_file',
+            'input': ['rna.json'],
+            'features_directory': ['dir1'],
+            'protein_delimiter': '+',
+            'mock_side_effect': {
+                'dir1/rna.json': False,
+            },
+            'expected_exception': FileNotFoundError,
+            'expected_exception_message': "['rna.json'] not found in ['dir1']",
+        },
+        {
+            'testcase_name': 'json_in_multiple_dirs',
+            'input': ['rna.json'],
+            'features_directory': ['dir1', 'dir2'],
+            'protein_delimiter': '+',
+            'mock_side_effect': {
+                'dir1/rna.json': False,
+                'dir2/rna.json': True,
+            },
+            'expected_result': [[{'json_input': 'dir2/rna.json'}]],
+        },
     )
     def test_parse_fold(self, input, features_directory, protein_delimiter, mock_side_effect,
                         expected_result=None, expected_exception=None, expected_exception_message=None):
