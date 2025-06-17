@@ -1,1 +1,1 @@
-test_protein_rna.json
+A0A024R1R8;rna.json

@@ -359,9 +359,6 @@ def main(argv):
             'json_input' in interactors[0]):
             # For JSON input, we'll pass it directly to AlphaFold3 backend
             json_path = interactors[0]['json_input']
-            if not os.path.exists(json_path):
-                json_path = os.path.join(FLAGS.features_directory[0], json_path)
-            # Use the JSON path as the key instead of the dictionary
             objects_to_model.append({json_path: FLAGS.output_directory[index]})
             continue
             
