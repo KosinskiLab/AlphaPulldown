@@ -1,15 +1,15 @@
 {
     "dialect": "alphafold3",
-    "version": 3,
-    "name": "rna",
-    "modelSeeds": [
-      1
-    ],
+    "version": 1,
+    "name": "RNA chain",
+    "modelSeeds": [42],
     "sequences": [
       {
         "rna": {
           "id": "R",
-          "sequence": "GAUUACA"
+          "sequence": "GGCGGCGGCGGC",
+          "unpairedMsa": ">sequence_0\nGGCGGCGGCGGC",
+          "modifications": []
         }
       }
     ]
