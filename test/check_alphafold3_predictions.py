@@ -6,7 +6,7 @@ The script is identical for Slurm and workstation users – only the
 wrapper decides *how* each case is executed.
 """
 from __future__ import annotations
-
+import io
 import os
 import subprocess
 import sys
@@ -18,6 +18,7 @@ import argparse
 from absl.testing import absltest, parameterized
 
 import alphapulldown
+from alphapulldown.utils.create_combinations import process_files
 
 
 # --------------------------------------------------------------------------- #
@@ -124,13 +125,17 @@ class _TestBase(parameterized.TestCase):
     # convenience builder
     def _args(self, *, plist, mode, script):
         if script == "run_structure_prediction.py":
-            # Read the protein list file to convert into input
-            with open(self.test_protein_lists_dir / plist) as f:
-                input_seq = f.read().strip()
-            
             # Format from run_multimer_jobs.py input to run_structure_prediction.py input
-            formatted_input = input_seq.replace(";", "+").replace(",", ":")
-            
+            buffer = io.StringIO()
+            _ = process_files(
+                input_files=[str(self.test_protein_lists_dir / plist)],
+                output_path=buffer,
+                exclude_permutations = True
+            )
+            buffer.seek(0)
+            formatted_input_lines = [x.strip().replace(",", ":").replace(";", "+") for x in buffer.readlines() if x.strip()]
+            # Use the first non-empty line as the input string
+            formatted_input = formatted_input_lines[0] if formatted_input_lines else ""
             args = [
                 sys.executable,
                 str(self.script_single),
@@ -155,12 +160,9 @@ class _TestBase(parameterized.TestCase):
                 "--job_index=1",
                 f"--output_path={self.output_dir}",
                 f"--mode={mode}",
-                "--fold_backend=alphafold3",
-                (
-                    "--oligomer_state_file"
-                    if mode == "homo-oligomer"
-                    else "--protein_lists"
-                )
+                "--oligomer_state_file"
+                if mode == "homo-oligomer"
+                else "--protein_lists"
                 + f"={self.test_protein_lists_dir / plist}",
             ]
             return args

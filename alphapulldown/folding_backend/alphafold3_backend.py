@@ -20,6 +20,7 @@ from typing import List, Dict, Union, Tuple
 import json
 import itertools
 import string
+import sys
 
 import alphafold3.cpp
 import haiku as hk
@@ -34,11 +35,14 @@ from alphafold3.model import features, params, post_processing
 from alphafold3.model import model
 from alphafold3.model.components import utils
 from jax import numpy as jnp
+from absl import flags
 
 from alphafold.common import residue_constants
 from alphafold.common.protein import Protein, to_mmcif
 from alphapulldown.folding_backend.folding_backend import FoldingBackend
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
+
+FLAGS = flags.FLAGS
 
 # -----------------------------------------------------------------------------
 # Global Constants and Type Definitions
