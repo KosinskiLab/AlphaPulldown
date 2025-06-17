@@ -1,0 +1,16 @@
+{
+    "dialect": "alphafold3",
+    "version": 3,
+    "name": "rna",
+    "modelSeeds": [
+      1
+    ],
+    "sequences": [
+      {
+        "rna": {
+          "id": "R",
+          "sequence": "GAUUACA"
+        }
+      }
+    ]
+  }

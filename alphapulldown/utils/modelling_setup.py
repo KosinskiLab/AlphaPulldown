@@ -38,7 +38,14 @@ def parse_fold(input_list, features_directory, protein_delimiter):
     """
     all_folding_jobs = []
     missing_features = set()  # Initialize as a set to collect unique missing features
+    
     for i in input_list:
+        # Check if input is a JSON file
+        if i.endswith('.json'):
+            # For JSON files, we'll pass them directly to AlphaFold3 backend
+            all_folding_jobs.append([{'json_input': i}])
+            continue
+            
         formatted_folds = []
         protein_folds = [x.split(":") for x in i.split(protein_delimiter)]
         for protein_fold in protein_folds:
@@ -74,7 +81,7 @@ def parse_fold(input_list, features_directory, protein_delimiter):
             if not any(
                 exists(join(monomer_dir, f"{name}{ext}"))
                 for monomer_dir in features_directory
-                for ext in [".pkl", ".pkl.xz"]
+                for ext in [".pkl", ".pkl.xz", ".json"]
             ):
                 missing_features.add(name)  # Use .add() since missing_features is a set
 
@@ -255,21 +262,27 @@ def load_monomer_objects(monomer_dir_dict, protein_name):
 
 
 def create_interactors(data : List[Dict[str, List[str]]], 
-                       monomer_objects_dir : List[str], i : int = 0) -> List[List[Union[MonomericObject, ChoppedObject]]]:
+                       monomer_objects_dir : List[str], i : int = 0) -> List[List[Union[MonomericObject, ChoppedObject, Dict[str, str]]]]:
     """
-    A function to a list of monomer objects
+    A function to create a list of monomer objects
 
     Args
     data: a dictionary object storing interactors' names and regions
 
     Return:
-    A list in which each element is a list of MonomericObject/ChoppedObject
+    A list in which each element is a list of MonomericObject/ChoppedObject or a dict with json_input key
     """
     def process_each_dict(data,monomer_objects_dir):
         interactors = []
         monomer_dir_dict = make_dir_monomer_dictionary(monomer_objects_dir)
         for k in data.keys():
             for curr_interactor_name, curr_interactor_region in data[k][i].items():
+                # Check if this is a JSON input
+                if curr_interactor_name == 'json_input':
+                    # For JSON input, we'll pass it directly to AlphaFold3 backend
+                    # The actual loading of the JSON will be done in the backend
+                    return [{'json_input': curr_interactor_region}]
+                
                 monomer = load_monomer_objects(monomer_dir_dict, curr_interactor_name)
                 if check_empty_templates(monomer.feature_dict):
                     monomer.feature_dict = mk_mock_template(monomer.feature_dict)

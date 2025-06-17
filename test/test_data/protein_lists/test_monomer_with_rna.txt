@@ -1,1 +1,1 @@
-A0A075B6L2_RNA 
+test_protein_rna.json

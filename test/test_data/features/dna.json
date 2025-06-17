@@ -1,0 +1,16 @@
+{
+    "dialect": "alphafold3",
+    "version": 3,
+    "name": "dna",
+    "modelSeeds": [
+      1
+    ],
+    "sequences": [
+      {
+        "dna": {
+          "id": "D",
+          "sequence": "GATTACA"
+        }
+      }
+    ]
+  }

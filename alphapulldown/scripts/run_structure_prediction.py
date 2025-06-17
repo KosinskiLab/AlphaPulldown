@@ -142,11 +142,6 @@ flags.DEFINE_integer(
     'Number of diffusion samples to generate.',
 )
 
-flags.DEFINE_list(
-    'af3_input_json',
-    None,
-    'Path(s) to AlphaFold3 input.json file(s). Only used if fold_backend=alphafold3.'
-)
 # Post-processing settings
 flags.DEFINE_boolean('compress_result_pickles', False,
                      'Whether the result pickles are going to be gzipped. Default False.')
@@ -168,7 +163,7 @@ flags.DEFINE_string('fold_backend', 'alphafold',
 FLAGS = flags.FLAGS
 
 def predict_structure(
-    objects_to_model: List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject], str]],
+    objects_to_model: List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject, Dict[str, str]], str]],
     model_flags: Dict,
     postprocess_flags: Dict,
     fold_backend: str = "alphafold"
@@ -178,18 +173,14 @@ def predict_structure(
 
     Parameters
     ----------
-    objects_to_model : A list of dictionareis. Each dicionary has a key of MultimericObject or MonomericObject or ChoppedObject
-       which is an instance of `MultimericObject` representing the multimeric/monomeric structure(s).
-       for which predictions are to be made. These objects should be created using functions like
-    `create_multimer_objects()`, `create_custom_jobs()`, or `create_homooligomers()`.
-    The value of each dictionary is the corresponding output_dir to save the modelling results. 
+    objects_to_model : A list of dictionaries. Each dictionary has a key of either:
+        - MultimericObject, MonomericObject, or ChoppedObject for AlphaPulldown objects
+        - Dict[str, str] with 'json_input' key for JSON inputs
+       The value of each dictionary is the corresponding output_dir to save the modelling results.
     model_flags : Dict
         Dictionary of flags passed to the respective backend's predict function.
     postprocess_flags : Dict
         Dictionary of flags passed to the respective backend's postprocess function.
-    random_seed : int, optional
-        The random seed for initializing the prediction process to ensure reproducibility.
-        Default is randomly generated.
     fold_backend : str, optional
         Backend used for folding, defaults to alphafold.
     """
@@ -361,6 +352,19 @@ def main(argv):
         )
 
     for index, interactors in enumerate(all_interactors):
+        # Check if this is a JSON input by checking if it's a list with a single item
+        # that has a 'json_input' key in its dictionary
+        if (interactors and len(interactors) == 1 and 
+            isinstance(interactors[0], dict) and 
+            'json_input' in interactors[0]):
+            # For JSON input, we'll pass it directly to AlphaFold3 backend
+            json_path = interactors[0]['json_input']
+            if not os.path.exists(json_path):
+                json_path = os.path.join(FLAGS.features_directory[0], json_path)
+            # Use the JSON path as the key instead of the dictionary
+            objects_to_model.append({json_path: FLAGS.output_directory[index]})
+            continue
+            
         object_to_model, flags_dict, postprocess_flags, output_dir = pre_modelling_setup(interactors, FLAGS, output_dir = FLAGS.output_directory[index])
         objects_to_model.append({object_to_model: output_dir})
     # Prepare model and postprocess flags
@@ -370,7 +374,6 @@ def main(argv):
         "buckets": FLAGS.buckets,
         "jax_compilation_cache_dir": FLAGS.jax_compilation_cache_dir,
         "model_dir": FLAGS.data_directory,
-        "af3_input_json": FLAGS.af3_input_json,
         "features_directory": FLAGS.features_directory,
         # Any other flags needed for backend can be added here
     }
