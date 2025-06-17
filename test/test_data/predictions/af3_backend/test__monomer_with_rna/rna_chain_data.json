@@ -1,19 +1,19 @@
 {
   "dialect": "alphafold3",
   "version": 3,
-  "name": "rna",
+  "name": "RNA chain",
   "sequences": [
     {
       "rna": {
         "id": "R",
-        "sequence": "GAUUACA",
+        "sequence": "GGCGGCGGCGGC",
         "modifications": [],
-        "unpairedMsa": null
+        "unpairedMsa": ">sequence_0\nGGCGGCGGCGGC"
       }
     }
   ],
   "modelSeeds": [
-    1
+    42
   ],
   "bondedAtomPairs": null,
   "userCCD": null

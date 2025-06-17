@@ -665,8 +665,8 @@ class AlphaFold3Backend(FoldingBackend):
             if isinstance(obj, str) and obj.endswith('.json'):
                 # Handle JSON input
                 with open(obj, 'r') as f:
-                    json_str = f.read()  # Read as string instead of parsing
-                fold_input = folding_input.Input.from_json(json_str)
+                    json_data = json.load(f)  # Parse JSON into a dictionary
+                fold_input = folding_input.Input.from_json(json.dumps(json_data))
             else:
                 # Handle AlphaPulldown objects
                 fold_input = AlphaFold3Backend._convert_to_fold_input(obj)
@@ -692,7 +692,7 @@ class AlphaFold3Backend(FoldingBackend):
 
         # Prepare inputs
         prepared_inputs = AlphaFold3Backend.prepare_input(objects_to_model=objects_to_model, random_seed=random_seed)
-
+        logging.info(f"prepared input: {prepared_inputs}")
         # Run predictions
         for mapping in prepared_inputs:
             fold_input_obj, output_dir = next(iter(mapping.items()))
