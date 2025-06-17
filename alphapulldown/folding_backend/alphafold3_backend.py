@@ -8,7 +8,7 @@ Author: Dmitry Molodenskiy <dmitry.molodenskiy@embl-hamburg.de>
 
 import csv
 import dataclasses
-import datetime
+import collections
 import functools
 import logging
 import os
@@ -18,9 +18,7 @@ import typing
 from collections.abc import Sequence
 from typing import List, Dict, Union, Tuple
 import json
-import itertools
-import string
-import sys
+
 
 import alphafold3.cpp
 import haiku as hk
@@ -646,35 +644,57 @@ class AlphaFold3Backend(FoldingBackend):
         objects_to_model: List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject, str], str]],
         random_seed: int,
     ) -> List[Dict['folding_input.Input', str]]:
-        """Prepares inputs for AlphaFold 3 prediction.
-        
-        Args:
-            objects_to_model: A list of dictionaries. Each dictionary has a key of either:
-                - MultimericObject, MonomericObject, or ChoppedObject for AlphaPulldown objects
-                - str (path to JSON file) for JSON inputs
-                The value of each dictionary is the corresponding output_dir to save the modelling results.
-            random_seed: Random seed for reproducibility.
-            
-        Returns:
-            A list of dictionaries mapping AlphaFold3 Input objects to output directories.
-        """
-        prepared_inputs = []
+        """Prepares inputs for AlphaFold 3 prediction, grouping all chains/ligands
+        with the same output_dir into one Input (a complex)."""
+        # 1) group all objects by output_dir
+        dir2objs: Dict[str, List[Union[str, MultimericObject, MonomericObject, ChoppedObject]]] = collections.defaultdict(list)
         for obj_dict in objects_to_model:
-            obj, output_dir = next(iter(obj_dict.items()))
-            
-            if isinstance(obj, str) and obj.endswith('.json'):
-                # Handle JSON input
-                with open(obj, 'r') as f:
-                    json_data = json.load(f)  # Parse JSON into a dictionary
-                fold_input = folding_input.Input.from_json(json.dumps(json_data))
-            else:
-                # Handle AlphaPulldown objects
-                fold_input = AlphaFold3Backend._convert_to_fold_input(obj)
-            
-            prepared_inputs.append({fold_input: output_dir})
-                
-        return prepared_inputs
+            obj, out_dir = next(iter(obj_dict.items()))
+            dir2objs[out_dir].append(obj)
 
+        prepared = []
+        for out_dir, objs in dir2objs.items():
+            inputs: List[folding_input.Input] = []
+            # 2) convert each object (or JSON) into an Input
+            for obj in objs:
+                if isinstance(obj, str) and obj.endswith('.json'):
+                    with open(obj, 'r') as f:
+                        raw = json.load(f)
+                    inp = folding_input.Input.from_json(json.dumps(raw))
+                else:
+                    inp = _convert_to_fold_input(obj, random_seed=random_seed)
+                inputs.append(inp)
+
+            # 3) if there’s more than one Input, merge them into one complex
+            if len(inputs) == 1:
+                merged = inputs[0]
+            else:
+                # concatenate their names (you can tweak the separator)
+                name = '+'.join(inp.name for inp in inputs)
+                all_chains = []
+                all_seeds = []
+                all_bonds = []
+                user_ccd = None
+
+                for inp in inputs:
+                    all_chains.extend(inp.chains)
+                    all_seeds.extend(inp.rng_seeds)
+                    if inp.bonded_atom_pairs:
+                        all_bonds.extend(inp.bonded_atom_pairs)
+                    if inp.user_ccd:
+                        user_ccd = inp.user_ccd
+
+                merged = folding_input.Input(
+                    name=name,
+                    chains=all_chains,
+                    rng_seeds=all_seeds,
+                    bonded_atom_pairs=all_bonds or None,
+                    user_ccd=user_ccd,
+                )
+
+            prepared.append({merged: out_dir})
+
+        return prepared
     @staticmethod
     def predict(
         model_runner: ModelRunner,
