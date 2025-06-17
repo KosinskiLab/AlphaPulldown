@@ -342,7 +342,6 @@ def main(argv):
     parsed = parse_fold(FLAGS.input, FLAGS.features_directory, FLAGS.protein_delimiter)
     data = create_custom_info(parsed)
     all_interactors = create_interactors(data, FLAGS.features_directory)
-
     n = len(FLAGS.input)
     # Normalize output dirs
     if len(FLAGS.output_directory) == 1:

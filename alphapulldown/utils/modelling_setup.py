@@ -307,9 +307,8 @@ def create_interactors(data : List[Dict[str, List[str]]],
             for curr_interactor_name, curr_interactor_region in data[k][i].items():
                 # Check if this is a JSON input
                 if curr_interactor_name == 'json_input':
-                    # For JSON input, we'll pass it directly to AlphaFold3 backend
-                    # The actual loading of the JSON will be done in the backend
-                    return [{'json_input': curr_interactor_region}]
+                    interactors.append({'json_input': curr_interactor_region})
+                    continue
                 
                 monomer = load_monomer_objects(monomer_dir_dict, curr_interactor_name)
                 if check_empty_templates(monomer.feature_dict):
