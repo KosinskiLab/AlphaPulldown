@@ -16,7 +16,7 @@ import pathlib
 import time
 import typing
 from collections.abc import Sequence
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Tuple
 import json
 import itertools
 import string
@@ -183,6 +183,18 @@ class ModelRunner:
             )
         )
 
+    def extract_embeddings(
+        self,
+        result: model.ModelResult,
+    ) -> dict[str, np.ndarray] | None:
+        """Extracts embeddings from model output if available."""
+        if 'embeddings' not in result:
+            return None
+        return {
+            'single': np.asarray(result['embeddings']['single']),
+            'pair': np.asarray(result['embeddings']['pair']),
+        }
+
 
 # -----------------------------------------------------------------------------
 # Core Logic Functions (Conversion, Prediction, Processing, Output)
@@ -226,23 +238,20 @@ def _convert_to_fold_input(
         return "\n".join(pdb_data)
 
     def msa_array_to_a3m(msa_array):
-        """Convert MSA array to A3M format."""
+        """Converts MSA numpy array to A3M formatted string."""
         if msa_array is None:
             return ""
-        # Convert numpy integers to amino acid characters
-        msa_list = []
+        msa_sequences = []
         for i, msa_seq in enumerate(msa_array):
-            # Convert each integer to its corresponding amino acid character
             seq_str = ''.join([residue_constants.ID_TO_HHBLITS_AA.get(int(aa), 'X') for aa in msa_seq])
-            msa_list.append(f'>sequence_{i}\n{seq_str}')
-        return '\n'.join(msa_list)
+            msa_sequences.append(f'>sequence_{i}\n{seq_str}')
+        return '\n'.join(msa_sequences)
 
     def _monomeric_to_chain(
         mono_obj: Union[MonomericObject, ChoppedObject],
         chain_id: str
     ) -> folding_input.ProteinChain:
         """Converts a single MonomericObject or ChoppedObject into a ProteinChain."""
-        logging.info(f"Creating chain with ID: {chain_id}")
         sequence = mono_obj.sequence
         feature_dict = mono_obj.feature_dict
 
@@ -309,19 +318,18 @@ def _convert_to_fold_input(
         )
         return chain
 
-    # Create chains with unique IDs
+    # Process the input object and generate chains
+    chains = []
     if isinstance(object_to_model, (MonomericObject, ChoppedObject)):
         chain_id = get_next_chain_id()
         chains = [_monomeric_to_chain(object_to_model, chain_id)]
     elif isinstance(object_to_model, MultimericObject):
-        chains = []
         for interactor in object_to_model.interactors:
             chain_id = get_next_chain_id()
             chain = _monomeric_to_chain(interactor, chain_id)
             chains.append(chain)
     else:
-        logging.error("Unsupported object type for folding input conversion.")
-        raise TypeError("Unsupported object type for folding input conversion.")
+        raise TypeError(f"Unsupported object type for folding input conversion: {type(object_to_model)}")
 
     return folding_input.Input(
         name=object_to_model.description,
@@ -329,6 +337,86 @@ def _convert_to_fold_input(
         chains=chains,
     )
 
+def _parse_json_input(json_path: pathlib.Path) -> List[folding_input.Input]:
+    """Parse JSON input file and return a list of fold inputs.
+    
+    Args:
+        json_path: Path to the JSON input file
+        
+    Returns:
+        List of fold inputs
+        
+    Raises:
+        ValueError: If the JSON file is invalid or contains no valid fold inputs
+    """
+    try:
+        with open(json_path) as f:
+            json_str = f.read()
+            raw_json = json.loads(json_str)
+    except json.JSONDecodeError as e:
+        raise ValueError(f'Failed to parse {json_path} as JSON: {e}') from e
+    except Exception as e:
+        raise ValueError(f'Failed to read {json_path}: {e}') from e
+
+    input_objs = []
+    
+    # Handle different JSON dialects
+    if isinstance(raw_json, list):
+        # AlphaFold Server JSON format
+        logging.info(f'Detected AlphaFold Server JSON format in {json_path}')
+        for fold_job_idx, fold_job in enumerate(raw_json):
+            try:
+                input_obj = folding_input.Input.from_alphafoldserver_fold_job(fold_job)
+                input_objs.append(input_obj)
+            except ValueError as e:
+                raise ValueError(
+                    f'Failed to load fold job {fold_job_idx} from {json_path}'
+                    f' (AlphaFold Server dialect): {e}'
+                ) from e
+    else:
+        # AlphaFold 3 JSON format
+        logging.info(f'Detected AlphaFold 3 JSON format in {json_path}')
+        try:
+            # Validate required fields for AlphaFold 3 format
+            required_fields = {
+                'dialect', 'version', 'name', 'modelSeeds', 
+                'sequences'
+            }
+            missing_fields = required_fields - set(raw_json.keys())
+            if missing_fields:
+                raise ValueError(
+                    f'Missing required fields in AlphaFold 3 JSON: {missing_fields}'
+                )
+            
+            # Validate dialect and version
+            if raw_json['dialect'] != folding_input.JSON_DIALECT:
+                raise ValueError(
+                    f'Unsupported dialect: {raw_json["dialect"]}, '
+                    f'expected {folding_input.JSON_DIALECT}'
+                )
+            if raw_json['version'] not in folding_input.JSON_VERSIONS:
+                raise ValueError(
+                    f'Unsupported version: {raw_json["version"]}, '
+                    f'expected one of {folding_input.JSON_VERSIONS}'
+                )
+            
+            # Validate sequences and model seeds
+            if not raw_json['sequences']:
+                raise ValueError('No sequences provided in input JSON')
+            if not raw_json['modelSeeds']:
+                raise ValueError('No model seeds provided in input JSON')
+            
+            input_obj = folding_input.Input.from_json(json_str)
+            input_objs.append(input_obj)
+        except ValueError as e:
+            raise ValueError(
+                f'Failed to load {json_path} (AlphaFold 3 dialect): {e}'
+            ) from e
+
+    if not input_objs:
+        raise ValueError(f"No valid fold inputs found in {json_path}")
+    
+    return input_objs
 
 def write_outputs(
     all_inference_results: Sequence[ResultsForSeed],
@@ -499,7 +587,6 @@ class AlphaFold3Backend(FoldingBackend):
         **kwargs,
     ) -> Dict:
         """Sets up the ModelRunner with the given configurations."""
-
         # Suppose we rely on your new code's "model.Model" or a custom class
         from alphafold3.model.model import Model as MyNewModel
 
@@ -552,148 +639,42 @@ class AlphaFold3Backend(FoldingBackend):
 
     @staticmethod
     def prepare_input(
-        objects_to_model: List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject, 'folding_input.Input'], str]],
+        objects_to_model: List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject, str], str]],
         random_seed: int,
-        af3_input_json: List[str] = None,
-        features_directory: str = None,
-    ) -> List[Dict[folding_input.Input, str]]:
-        """Prepare input for AlphaFold3 prediction."""
-        def get_chain_id(index: int) -> str:
-            """Generate chain IDs in sequence (A-Z, AA-AZ, BA-BZ, etc.)."""
-            if index < 26:
-                return chr(ord('A') + index)
-            else:
-                first_char = chr(ord('A') + (index // 26) - 1)
-                second_char = chr(ord('A') + (index % 26))
-                return first_char + second_char
-
-        def insert_release_date_into_mmcif(
-            mmcif_string: str, revision_date: str = '2100-01-01'
-        ) -> str:
-            pdb_data = mmcif_string.splitlines()
-            header_lines = [
-                "_entry.id   pdb",
-                "_pdbx_audit_revision_history.revision_date"
-            ]
-            release_date_line = f"{revision_date}"
-            pdb_data.insert(2, "\n".join(header_lines))
-            pdb_data.insert(3, release_date_line)
-            return "\n".join(pdb_data)
-
-        def msa_array_to_a3m(msa_array):
-            """Converts MSA numpy array to A3M formatted string."""
-            msa_sequences = []
-            for i, msa_seq in enumerate(msa_array):
-                seq_str = ''.join([residue_constants.ID_TO_HHBLITS_AA.get(int(aa), 'X') for aa in msa_seq])
-                msa_sequences.append(f'>sequence_{i}\n{seq_str}')
-            return '\n'.join(msa_sequences)
-
-        def _monomeric_to_chain(
-            mono_obj: Union[MonomericObject, ChoppedObject],
-            chain_id: str
-        ) -> folding_input.ProteinChain:
-            """Converts a single MonomericObject or ChoppedObject into a ProteinChain."""
-            sequence = mono_obj.sequence
-            feature_dict = mono_obj.feature_dict
-
-            # Convert MSA arrays to A3M.
-            msa_array = feature_dict.get('msa')
-            unpaired_msa = msa_array_to_a3m(msa_array) if msa_array is not None else ""
-            paired_msa = ""  # For this simplified logic, no paired MSA is handled here.
-
-            # Process templates if present
-            templates = []
-            if 'template_aatype' in feature_dict:
-                num_templates = feature_dict['template_aatype'].shape[0]
-                for i in range(num_templates):
-                    pdb_code_chain = feature_dict["template_domain_names"][i].decode('utf-8')
-                    if '_' in pdb_code_chain:
-                        pdb_code, chain_id_template = pdb_code_chain.split('_')
-                    else:
-                        pdb_code = pdb_code_chain
-                        chain_id_template = 'A'
-
-                    template_aatype_onehot = feature_dict["template_aatype"][i]
-                    template_aatype_hhblits_id = np.argmax(template_aatype_onehot, axis=-1)
-                    template_aatype_int = HHBLITS_TO_INTERNAL_AATYPE[template_aatype_hhblits_id]
-
-                    unique_aatypes = np.unique(template_aatype_int)
-                    if not np.all((unique_aatypes >= 0) & (unique_aatypes <= 20)):
-                        raise ValueError(f"Unexpected aatype indices found: {unique_aatypes}")
-
-                    template_mask = feature_dict["template_all_atom_masks"][i]
-                    chain_index_array = np.zeros_like(feature_dict["residue_index"], dtype=int)
-                    template_sequence = feature_dict["template_sequence"][i]
-                    if isinstance(template_sequence, bytes):
-                        template_sequence = template_sequence.decode('utf-8')
-
-                    protein = Protein(
-                        atom_positions=feature_dict["template_all_atom_positions"][i],
-                        atom_mask=template_mask,
-                        aatype=template_aatype_int,
-                        residue_index=feature_dict["residue_index"],
-                        chain_index=chain_index_array,
-                        b_factors=np.zeros(template_mask.shape, dtype=float),
-                    )
-
-                    mmcif_string = to_mmcif(
-                        prot=protein, file_id=pdb_code, model_type='Monomer'
-                    )
-                    new_mmcif_string = insert_release_date_into_mmcif(mmcif_string)
-                    query_to_template_map = {j: j for j in range(len(template_sequence))}
-
-                    templates.append(
-                        folding_input.Template(
-                            mmcif=new_mmcif_string,
-                            query_to_template_map=query_to_template_map,
-                        )
-                    )
-
-            chain = folding_input.ProteinChain(
-                id=chain_id,
-                sequence=sequence,
-                ptms=[],
-                unpaired_msa=unpaired_msa,
-                paired_msa=paired_msa,
-                templates=templates,
-            )
-            return chain
-
+    ) -> List[Dict['folding_input.Input', str]]:
+        """Prepares inputs for AlphaFold 3 prediction.
+        
+        Args:
+            objects_to_model: A list of dictionaries. Each dictionary has a key of either:
+                - MultimericObject, MonomericObject, or ChoppedObject for AlphaPulldown objects
+                - str (path to JSON file) for JSON inputs
+                The value of each dictionary is the corresponding output_dir to save the modelling results.
+            random_seed: Random seed for reproducibility.
+            
+        Returns:
+            A list of dictionaries mapping AlphaFold3 Input objects to output directories.
+        """
         prepared_inputs = []
-        chain_id_counter = 0
-        for object_dict in objects_to_model:
-            object_to_model, output_dir = next(iter(object_dict.items()))
-            logging.info(f"Processing object: {object_to_model.description}")
-
-            # Create chains with unique IDs
-            if isinstance(object_to_model, (MonomericObject, ChoppedObject)):
-                chain_id = get_chain_id(chain_id_counter)
-                chain_id_counter += 1
-                chains = [_monomeric_to_chain(object_to_model, chain_id)]
-            elif isinstance(object_to_model, MultimericObject):
-                chains = []
-                for interactor in object_to_model.interactors:
-                    chain_id = get_chain_id(chain_id_counter)
-                    chain_id_counter += 1
-                    chain = _monomeric_to_chain(interactor, chain_id)
-                    chains.append(chain)
+        for obj_dict in objects_to_model:
+            obj, output_dir = next(iter(obj_dict.items()))
+            
+            if isinstance(obj, str) and obj.endswith('.json'):
+                # Handle JSON input
+                with open(obj, 'r') as f:
+                    json_str = f.read()  # Read as string instead of parsing
+                fold_input = folding_input.Input.from_json(json_str)
             else:
-                logging.error("Unsupported object type for folding input conversion.")
-                raise TypeError("Unsupported object type for folding input conversion.")
-
-            input_obj = folding_input.Input(
-                name=object_to_model.description,
-                rng_seeds=[random_seed],
-                chains=chains,
-            )
-            prepared_inputs.append({input_obj: output_dir})
-
+                # Handle AlphaPulldown objects
+                fold_input = AlphaFold3Backend._convert_to_fold_input(obj)
+            
+            prepared_inputs.append({fold_input: output_dir})
+                
         return prepared_inputs
 
     @staticmethod
     def predict(
         model_runner: ModelRunner,
-        objects_to_model: List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject, 'folding_input.Input'], str]],
+        objects_to_model: List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject, Dict[str, str]], str]],
         random_seed: int,
         buckets: int,
         **kwargs,
@@ -706,16 +687,11 @@ class AlphaFold3Backend(FoldingBackend):
         buckets = tuple(int(b) for b in buckets)
 
         # Prepare inputs
-        prepared_inputs = AlphaFold3Backend.prepare_input(
-            objects_to_model=objects_to_model,
-            random_seed=random_seed,
-            af3_input_json=kwargs.get("af3_input_json"),
-            features_directory=kwargs.get("features_directory"),
-        )
+        prepared_inputs = AlphaFold3Backend.prepare_input(objects_to_model=objects_to_model, random_seed=random_seed)
 
         # Run predictions
         for mapping in prepared_inputs:
-            (fold_input_obj, output_dir), = mapping.items()
+            fold_input_obj, output_dir = next(iter(mapping.items()))
             try:
                 os.makedirs(output_dir, exist_ok=True)
             except OSError as e:
@@ -741,4 +717,5 @@ class AlphaFold3Backend(FoldingBackend):
     @staticmethod
     def postprocess(**kwargs) -> None:
         pass
+
 

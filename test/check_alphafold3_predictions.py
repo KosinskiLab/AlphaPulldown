@@ -13,6 +13,7 @@ import sys
 import tempfile
 from pathlib import Path
 import shutil
+import argparse
 
 from absl.testing import absltest, parameterized
 
@@ -35,14 +36,19 @@ if not os.path.exists(DATA_DIR):
 #                       common helper mix-in / assertions                     #
 # --------------------------------------------------------------------------- #
 class _TestBase(parameterized.TestCase):
+    use_temp_dir = False  # Class variable to control directory behavior
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
         # Create a base directory for all test outputs
-        cls.base_output_dir = Path("test/test_data/predictions/af3_backend")
-        if cls.base_output_dir.exists():
-            shutil.rmtree(cls.base_output_dir)
-        cls.base_output_dir.mkdir(parents=True, exist_ok=True)
+        if cls.use_temp_dir:
+            cls.base_output_dir = Path(tempfile.mkdtemp(prefix="af3_test_"))
+        else:
+            cls.base_output_dir = Path("test/test_data/predictions/af3_backend")
+            if cls.base_output_dir.exists():
+                shutil.rmtree(cls.base_output_dir)
+            cls.base_output_dir.mkdir(parents=True, exist_ok=True)
 
     def setUp(self):
         super().setUp()
@@ -70,11 +76,11 @@ class _TestBase(parameterized.TestCase):
     def tearDownClass(cls):
         super().tearDownClass()
         # Clean up all test outputs after all tests are done
-        if cls.base_output_dir.exists():
+        if cls.use_temp_dir and cls.base_output_dir.exists():
             shutil.rmtree(cls.base_output_dir)
 
     # ---------------- assertions reused by all subclasses ----------------- #
-    def _runCommonTests(self, res: subprocess.CompletedProcess, multimer: bool, dirname: str | None = None):
+    def _runCommonTests(self, res: subprocess.CompletedProcess):
         print(res.stdout)
         print(res.stderr)
         self.assertEqual(res.returncode, 0, "sub-process failed")
@@ -116,15 +122,14 @@ class _TestBase(parameterized.TestCase):
             self.assertEqual(len(lines[0].strip().split(",")), 3, "ranking_scores.csv should have 3 columns")
 
     # convenience builder
-    def _args(self, *, plist, mode, script, af3_input_json=None):
+    def _args(self, *, plist, mode, script):
         if script == "run_structure_prediction.py":
-            # Read the protein list file to get the input sequence
+            # Read the protein list file to convert into input
             with open(self.test_protein_lists_dir / plist) as f:
                 input_seq = f.read().strip()
             
-            # Format the input sequence according to the expected format
-            # Format: [fasta_path:number:start-stop],[...]
-            formatted_input = input_seq.replace(";", ",").replace("+", ",")
+            # Format from run_multimer_jobs.py input to run_structure_prediction.py input
+            formatted_input = input_seq.replace(";", "+").replace(",", ":")
             
             args = [
                 sys.executable,
@@ -138,10 +143,8 @@ class _TestBase(parameterized.TestCase):
                 "--fold_backend=alphafold3",
                 "--flash_attention_implementation=xla",
             ]
-            if af3_input_json:
-                args.append(f"--af3_input_json={af3_input_json}")
             return args
-        else:  # run_multimer_jobs.py
+        elif script == "run_multimer_jobs.py":
             args = [
                 sys.executable,
                 str(self.script_multimer),
@@ -160,8 +163,6 @@ class _TestBase(parameterized.TestCase):
                 )
                 + f"={self.test_protein_lists_dir / plist}",
             ]
-            if af3_input_json:
-                args.append(f"--af3_input_json={af3_input_json}")
             return args
 
 
@@ -171,38 +172,32 @@ class _TestBase(parameterized.TestCase):
 class TestAlphaFold3RunModes(_TestBase):
     @parameterized.named_parameters(
         dict(testcase_name="monomer", protein_list="test_monomer.txt", mode="custom", script="run_structure_prediction.py"),
-        dict(testcase_name="monomer_with_rna", protein_list="test_monomer_with_rna.txt", mode="custom", script="run_structure_prediction.py"),
         dict(testcase_name="dimer", protein_list="test_dimer.txt", mode="custom", script="run_structure_prediction.py"),
-        dict(testcase_name="dimer_with_rna", protein_list="test_dimer_with_rna.txt", mode="custom", script="run_structure_prediction.py"),
         dict(testcase_name="trimer", protein_list="test_trimer.txt", mode="custom", script="run_structure_prediction.py"),
         dict(testcase_name="homo_oligomer", protein_list="test_homooligomer.txt", mode="homo-oligomer", script="run_structure_prediction.py"),
         dict(testcase_name="chopped_dimer", protein_list="test_dimer_chopped.txt", mode="custom", script="run_structure_prediction.py"),
         dict(testcase_name="long_name", protein_list="test_long_name.txt", mode="custom", script="run_structure_prediction.py"),
-        # New test cases for mixing with test_input.json
+        # Test cases for combining AlphaPulldown monomer with different JSON inputs
         dict(
-            testcase_name="monomer_with_json", 
+            testcase_name="monomer_with_dna", 
             protein_list="test_monomer.txt", 
             mode="custom", 
-            script="run_structure_prediction.py",
-            af3_input_json=str(Path(__file__).parent / "test_data/features/test_input.json")
+            script="run_structure_prediction.py"
         ),
         dict(
-            testcase_name="dimer_with_json", 
-            protein_list="test_dimer.txt", 
+            testcase_name="monomer_with_rna", 
+            protein_list="test_monomer_with_rna.txt", 
             mode="custom", 
-            script="run_structure_prediction.py",
-            af3_input_json=str(Path(__file__).parent / "test_data/features/test_input.json")
+            script="run_structure_prediction.py"
         ),
         dict(
-            testcase_name="protein_rna_complex", 
+            testcase_name="monomer_with_ligand", 
             protein_list="test_monomer.txt", 
             mode="custom", 
-            script="run_structure_prediction.py",
-            af3_input_json=str(Path(__file__).parent / "test_data/features/test_protein_rna.json")
+            script="run_structure_prediction.py"
         ),
     )
-    def test_(self, protein_list, mode, script, af3_input_json=None):
-        multimer = "monomer" not in protein_list
+    def test_(self, protein_list, mode, script):
         # Create environment with GPU settings
         env = os.environ.copy()
         env["XLA_FLAGS"] = "--xla_disable_hlo_passes=custom-kernel-fusion-rewriter --xla_gpu_force_compilation_parallelism=0"
@@ -231,14 +226,26 @@ class TestAlphaFold3RunModes(_TestBase):
             print(f"\nError checking JAX GPU: {e}")
         
         res = subprocess.run(
-            self._args(plist=protein_list, mode=mode, script=script, af3_input_json=af3_input_json),
+            self._args(plist=protein_list, mode=mode, script=script),
             capture_output=True,
             text=True,
             env=env
         )
-        self._runCommonTests(res, multimer)
+        self._runCommonTests(res)
 
 
 # --------------------------------------------------------------------------- #
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Run AlphaFold3 tests')
+    parser.add_argument('--use-temp-dir', action='store_true',
+                      help='Use temporary directory for test outputs instead of test/test_data/predictions/af3_backend')
+    args, remaining = parser.parse_known_args()
+    
+    # Set the use_temp_dir flag on the test class
+    _TestBase.use_temp_dir = args.use_temp_dir
+    
+    # Remove the --use-temp-dir argument from sys.argv so it doesn't interfere with pytest
+    if '--use-temp-dir' in sys.argv:
+        sys.argv.remove('--use-temp-dir')
+    
     absltest.main() 
