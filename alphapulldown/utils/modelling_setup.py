@@ -7,10 +7,8 @@ import os
 import sys
 import pickle
 import lzma
-import importlib.util
 from typing import List,Dict,Union
 import numpy as np
-import alphafold
 from alphafold.data.tools import jackhmmer
 from alphafold.data import templates
 from alphapulldown.objects import MonomericObject
@@ -19,6 +17,7 @@ from alphapulldown.objects import ChoppedObject
 from alphapulldown.utils.file_handling import make_dir_monomer_dictionary
 from absl import logging
 logging.set_verbosity(logging.INFO)
+
 
 
 def parse_fold(input_list, features_directory, protein_delimiter):
@@ -38,7 +37,8 @@ def parse_fold(input_list, features_directory, protein_delimiter):
         ValueError: If the format of the input specifications is incorrect.
     """
     def format_error(spec):
-        raise ValueError(f"Your format: {spec} is wrong. The program will terminate.")
+        print(f"Your format: {spec} is wrong. The program will terminate.")
+        sys.exit(1)
 
     def extract_copy_and_regions(tokens, spec):
         # try head copy then tail copy, default to 1
@@ -74,58 +74,48 @@ def parse_fold(input_list, features_directory, protein_delimiter):
             for ext in (".pkl", ".pkl.xz")
         )
 
+    def json_exists(name):
+        return any(
+            exists(join(dirpath, name))
+            for dirpath in features_directory
+        )
+
     all_folding_jobs = []
-    missing_features = set()  # Initialize as a set to collect unique missing features
-    
-    for i in input_list:
-        # Check if input is a JSON file
-        if i.endswith('.json'):
-            # For JSON files, we'll pass them directly to AlphaFold3 backend
-            all_folding_jobs.append([{'json_input': i}])
-            continue
-            
+    missing_features = set()
+
+    for spec in input_list:
         formatted_folds = []
-        protein_folds = [x.split(":") for x in i.split(protein_delimiter)]
-        for protein_fold in protein_folds:
-            name, number, region = None, 1, "all"
-
-            if len(protein_fold) == 1:
-                # Format: [protein_name]
-                name = protein_fold[0]
-            elif len(protein_fold) > 1:
-                name = protein_fold[0]
-                if "-" in protein_fold[1]:
-                    # Format: [protein_name:1-10:14-30:40-100:etc]
-                    try:
-                        number = 1
-                        region = protein_fold[1:]
-                        region = [tuple(int(x) for x in r.split("-")) for r in region]
-                    except Exception:
-                        logging.error(f"Your format: {i} is wrong. The program will terminate.")
-                        sys.exit()
+        for pf in spec.split(protein_delimiter):
+            # Handle JSON input
+            if pf.endswith('.json'):
+                json_name = pf
+                if json_exists(json_name):
+                    for d in features_directory:
+                        path = join(d, json_name)
+                        if exists(path):
+                            formatted_folds.append({'json_input': path})
+                            break
                 else:
-                    # Format: [protein_name:copy_number:1-10:14-30:40-100:etc]
-                    try:
-                        number = int(protein_fold[1])
-                        if len(protein_fold) > 2:
-                            region = protein_fold[2:]
-                            region = [tuple(int(x) for x in r.split("-")) for r in region]
-                    except Exception:
-                        logging.error(f"Your format: {i} is wrong. The program will terminate.")
-                        sys.exit()
+                    missing_features.add(json_name)
+                continue
 
-            number = int(number)
-            # Check for missing features
-            if not any(
-                exists(join(monomer_dir, f"{name}{ext}"))
-                for monomer_dir in features_directory
-                for ext in [".pkl", ".pkl.xz", ".json"]
-            ):
-                missing_features.add(name)  # Use .add() since missing_features is a set
+            # Handle protein input
+            tokens = pf.split(":")
+            if not tokens or not tokens[0]:
+                format_error(spec)
+
+            name = tokens[0]
+            number, region_tokens = extract_copy_and_regions(tokens, spec)
+            regions = parse_regions(region_tokens, spec)
+
+            if not feature_exists(name):
+                missing_features.add(name)
+                continue
 
             formatted_folds += [{name: regions} for _ in range(number)]
 
-        all_folding_jobs.append(formatted_folds)
+        if formatted_folds:
+            all_folding_jobs.append(formatted_folds)
 
     if missing_features:
         raise FileNotFoundError(f"{sorted(missing_features)} not found in {features_directory}")
