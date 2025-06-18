@@ -1,15 +1,14 @@
 {
     "dialect": "alphafold3",
-    "version": 3,
-    "name": "dna",
-    "modelSeeds": [
-      1
-    ],
+    "version": 1,
+    "name": "DNA chain",
+    "modelSeeds": [42],
     "sequences": [
       {
         "dna": {
           "id": "D",
-          "sequence": "GATTACA"
+          "sequence": "GATTACA",
+          "modifications": []
         }
       }
     ]

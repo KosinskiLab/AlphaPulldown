@@ -1,0 +1,25 @@
+{
+    "dialect": "alphafold3",
+    "version": 1,
+    "name": "Protein with PTMs",
+    "modelSeeds": [42],
+    "sequences": [
+      {
+        "protein": {
+          "id": "P",
+          "sequence": "MKTVRQERLKSIVRILERSKEPVSGAQLAEELSVSRQVIVQDIAYLRSLGYNIVATPRGYVLAGG",
+          "unpairedMsa": ">sequence_0\nMKTVRQERLKSIVRILERSKEPVSGAQLAEELSVSRQVIVQDIAYLRSLGYNIVATPRGYVLAGG",
+          "modifications": [
+            {
+              "ptmType": "PHOSPHORYLATION",
+              "ptmPosition": 15
+            },
+            {
+              "ptmType": "ACETYLATION", 
+              "ptmPosition": 1
+            }
+          ]
+        }
+      }
+    ]
+  } 
