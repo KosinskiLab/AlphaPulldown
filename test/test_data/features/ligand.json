@@ -1,17 +1,13 @@
 {
     "dialect": "alphafold3",
-    "version": 3,
-    "name": "ligand",
-    "modelSeeds": [
-      1
-    ],
+    "version": 1,
+    "name": "Ligand",
+    "modelSeeds": [42],
     "sequences": [
       {
         "ligand": {
           "id": "L",
-          "ccdCodes": [
-            "ATP"
-          ]
+          "ccdCodes": ["ATP"]
         }
       }
     ]
