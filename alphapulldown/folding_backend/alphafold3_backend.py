@@ -300,9 +300,8 @@ def _convert_to_fold_input(
                 mmcif_string = to_mmcif(
                     prot=protein, file_id=pdb_code, model_type='Monomer'
                 )
-                new_mmcif_string = insert_release_date_into_mmcif(mmcif_string)
                 query_to_template_map = {j: j for j in range(len(template_sequence))}
-
+                new_mmcif_string = insert_release_date_into_mmcif(mmcif_string)
                 templates.append(
                     folding_input.Template(
                         mmcif=new_mmcif_string,
@@ -339,11 +338,12 @@ def _convert_to_fold_input(
         chains=chains,
     )
 
-def _parse_json_input(json_path: pathlib.Path) -> List[folding_input.Input]:
+def _parse_json_input(json_path: pathlib.Path, num_predictions_per_model: int = 1) -> List[folding_input.Input]:
     """Parse JSON input file and return a list of fold inputs.
     
     Args:
         json_path: Path to the JSON input file
+        num_predictions_per_model: Number of predictions to generate (determines number of seeds)
         
     Returns:
         List of fold inputs
@@ -368,7 +368,22 @@ def _parse_json_input(json_path: pathlib.Path) -> List[folding_input.Input]:
         logging.info(f'Detected AlphaFold Server JSON format in {json_path}')
         for fold_job_idx, fold_job in enumerate(raw_json):
             try:
-                input_obj = folding_input.Input.from_alphafoldserver_fold_job(fold_job)
+                # Check if modelSeeds are specified and warn if they will be ignored
+                if 'modelSeeds' in fold_job and fold_job['modelSeeds']:
+                    logging.warning(f'Ignoring modelSeeds from JSON file {json_path} (fold job {fold_job_idx}) - will generate {num_predictions_per_model} random seeds instead')
+                
+                # Create a copy of the fold job without modelSeeds to force automatic generation
+                fold_job_copy = fold_job.copy()
+                if 'modelSeeds' in fold_job_copy:
+                    del fold_job_copy['modelSeeds']
+                
+                input_obj = folding_input.Input.from_alphafoldserver_fold_job(fold_job_copy)
+                
+                # Override the seeds with the specified number
+                import random
+                generated_seeds = [random.randint(0, 2**32 - 1) for _ in range(num_predictions_per_model)]
+                input_obj = dataclasses.replace(input_obj, rng_seeds=generated_seeds)
+                
                 input_objs.append(input_obj)
             except ValueError as e:
                 raise ValueError(
@@ -381,8 +396,7 @@ def _parse_json_input(json_path: pathlib.Path) -> List[folding_input.Input]:
         try:
             # Validate required fields for AlphaFold 3 format
             required_fields = {
-                'dialect', 'version', 'name', 'modelSeeds', 
-                'sequences'
+                'dialect', 'version', 'name', 'sequences'
             }
             missing_fields = required_fields - set(raw_json.keys())
             if missing_fields:
@@ -402,13 +416,30 @@ def _parse_json_input(json_path: pathlib.Path) -> List[folding_input.Input]:
                     f'expected one of {folding_input.JSON_VERSIONS}'
                 )
             
-            # Validate sequences and model seeds
+            # Validate sequences
             if not raw_json['sequences']:
                 raise ValueError('No sequences provided in input JSON')
-            if not raw_json['modelSeeds']:
-                raise ValueError('No model seeds provided in input JSON')
             
-            input_obj = folding_input.Input.from_json(json_str)
+            # Check if modelSeeds are specified and warn if they will be ignored
+            if 'modelSeeds' in raw_json and raw_json['modelSeeds']:
+                logging.warning(f'Ignoring modelSeeds from JSON file {json_path} - will generate {num_predictions_per_model} random seeds instead')
+            
+            # Create a copy of the JSON and ensure modelSeeds are present (will be overridden later)
+            raw_json_copy = raw_json.copy()
+            if 'modelSeeds' not in raw_json_copy or not raw_json_copy['modelSeeds']:
+                # Add a placeholder seed to satisfy the from_json requirement
+                raw_json_copy['modelSeeds'] = [0]
+            
+            # Re-serialize the JSON with modelSeeds
+            json_str_modified = json.dumps(raw_json_copy)
+            
+            input_obj = folding_input.Input.from_json(json_str_modified)
+            
+            # Override the seeds with the specified number
+            import random
+            generated_seeds = [random.randint(0, 2**32 - 1) for _ in range(num_predictions_per_model)]
+            input_obj = dataclasses.replace(input_obj, rng_seeds=generated_seeds)
+            
             input_objs.append(input_obj)
         except ValueError as e:
             raise ValueError(
@@ -643,6 +674,7 @@ class AlphaFold3Backend(FoldingBackend):
     def prepare_input(
         objects_to_model: List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject, str], str]],
         random_seed: int,
+        num_predictions_per_model: int = 1,
     ) -> List[Dict['folding_input.Input', str]]:
         """Prepares inputs for AlphaFold 3 prediction, grouping all chains/ligands
         with the same output_dir into one Input (a complex)."""
@@ -658,14 +690,12 @@ class AlphaFold3Backend(FoldingBackend):
             # 2) convert each object (or JSON) into an Input
             for obj in objs:
                 if isinstance(obj, str) and obj.endswith('.json'):
-                    with open(obj, 'r') as f:
-                        raw = json.load(f)
-                    inp = folding_input.Input.from_json(json.dumps(raw))
+                    inp = _parse_json_input(pathlib.Path(obj), num_predictions_per_model)[0]
                 else:
                     inp = _convert_to_fold_input(obj, random_seed=random_seed)
                 inputs.append(inp)
 
-            # 3) if there’s more than one Input, merge them into one complex
+            # 3) if there's more than one Input, merge them into one complex
             if len(inputs) == 1:
                 merged = inputs[0]
             else:
@@ -676,9 +706,21 @@ class AlphaFold3Backend(FoldingBackend):
                 all_bonds = []
                 user_ccd = None
 
+                # Find JSON inputs to get their seeds
+                json_seeds = []
+                for inp in inputs:
+                    # Check if this input came from a JSON file by looking at the name pattern
+                    # or by checking if it has the expected number of seeds
+                    if len(inp.rng_seeds) == num_predictions_per_model:
+                        json_seeds = inp.rng_seeds
+                        break
+                
+                # If no JSON seeds found, use the first input's seeds
+                if not json_seeds and inputs:
+                    json_seeds = inputs[0].rng_seeds
+
                 for inp in inputs:
                     all_chains.extend(inp.chains)
-                    all_seeds.extend(inp.rng_seeds)
                     if inp.bonded_atom_pairs:
                         all_bonds.extend(inp.bonded_atom_pairs)
                     if inp.user_ccd:
@@ -687,7 +729,7 @@ class AlphaFold3Backend(FoldingBackend):
                 merged = folding_input.Input(
                     name=name,
                     chains=all_chains,
-                    rng_seeds=all_seeds,
+                    rng_seeds=json_seeds,
                     bonded_atom_pairs=all_bonds or None,
                     user_ccd=user_ccd,
                 )
@@ -695,12 +737,14 @@ class AlphaFold3Backend(FoldingBackend):
             prepared.append({merged: out_dir})
 
         return prepared
+
     @staticmethod
     def predict(
         model_runner: ModelRunner,
         objects_to_model: List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject, Dict[str, str]], str]],
         random_seed: int,
         buckets: int,
+        num_predictions_per_model: int = 1,
         **kwargs,
     ):
         """Predicts structures for a list of objects using AlphaFold 3.
@@ -711,7 +755,11 @@ class AlphaFold3Backend(FoldingBackend):
         buckets = tuple(int(b) for b in buckets)
 
         # Prepare inputs
-        prepared_inputs = AlphaFold3Backend.prepare_input(objects_to_model=objects_to_model, random_seed=random_seed)
+        prepared_inputs = AlphaFold3Backend.prepare_input(
+            objects_to_model=objects_to_model, 
+            random_seed=random_seed, 
+            num_predictions_per_model=num_predictions_per_model
+        )
         logging.info(f"prepared input: {prepared_inputs}")
         # Run predictions
         for mapping in prepared_inputs:

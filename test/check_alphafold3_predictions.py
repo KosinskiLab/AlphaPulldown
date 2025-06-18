@@ -181,20 +181,27 @@ class TestAlphaFold3RunModes(_TestBase):
         dict(testcase_name="long_name", protein_list="test_long_name.txt", mode="custom", script="run_structure_prediction.py"),
         # Test cases for combining AlphaPulldown monomer with different JSON inputs
         dict(
-            testcase_name="monomer_with_dna", 
-            protein_list="test_monomer.txt", 
-            mode="custom", 
-            script="run_structure_prediction.py"
-        ),
-        dict(
             testcase_name="monomer_with_rna", 
             protein_list="test_monomer_with_rna.txt", 
             mode="custom", 
             script="run_structure_prediction.py"
         ),
         dict(
+            testcase_name="monomer_with_dna", 
+            protein_list="test_monomer_with_dna.txt", 
+            mode="custom", 
+            script="run_structure_prediction.py"
+        ),
+        dict(
             testcase_name="monomer_with_ligand", 
-            protein_list="test_monomer.txt", 
+            protein_list="test_monomer_with_ligand.txt", 
+            mode="custom", 
+            script="run_structure_prediction.py"
+        ),
+        # Test case for protein with PTMs from JSON
+        dict(
+            testcase_name="protein_with_ptms", 
+            protein_list="test_protein_with_ptms.txt", 
             mode="custom", 
             script="run_structure_prediction.py"
         ),
