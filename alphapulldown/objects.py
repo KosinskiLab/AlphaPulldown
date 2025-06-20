@@ -288,8 +288,15 @@ class ChoppedObject(MonomericObject):
         ]
         new_domain_name = msa_feature["domain_name"]
         new_residue_index = msa_feature["residue_index"][start_point:end_point]
-        new_sequence = np.array(
-            [msa_feature["sequence"][0][start_point:end_point]])
+        
+        # Extract sequence properly from the feature dict
+        if isinstance(msa_feature["sequence"][0], bytes):
+            full_sequence = msa_feature["sequence"][0].decode("utf-8")
+        else:
+            full_sequence = str(msa_feature["sequence"][0])
+        sliced_sequence = full_sequence[start_point:end_point]
+        new_sequence = np.array([sliced_sequence.encode()])
+        
         new_deletion_mtx = msa_feature["deletion_matrix_int"][:,
                                                               start_point:end_point]
         new_deletion_mtx_all_seq = msa_feature["deletion_matrix_int_all_seq"][
@@ -317,7 +324,7 @@ class ChoppedObject(MonomericObject):
             "msa_species_identifiers_all_seq": new_uniprot_species_all_seq,
         }
 
-        return new_msa_feature, new_sequence[0].decode("utf-8")
+        return new_msa_feature, sliced_sequence
 
     def prepare_new_template_feature_dict(
             self, template_feature, start_point, end_point
@@ -330,6 +337,22 @@ class ChoppedObject(MonomericObject):
         """
         start_point = start_point - 1
         length = end_point - start_point
+        
+        # Check if template fields exist
+        if "template_aatype" not in template_feature:
+            # Return empty template features if no templates
+            new_template_feature = {
+                "template_aatype": np.zeros((0, length, 22), dtype=np.float32),
+                "template_all_atom_masks": np.zeros((0, length, 37), dtype=np.float32),
+                "template_all_atom_positions": np.zeros((0, length, 37, 3), dtype=np.float32),
+                "template_domain_names": np.array([], dtype=object),
+                "template_sequence": np.array([], dtype=object),
+                "template_sum_probs": np.zeros((0, 1), dtype=np.float32),
+                "template_confidence_scores": np.array([[1] * length]),
+                "template_release_date": np.array(['none'])
+            }
+            return new_template_feature
+        
         new_template_aatype = template_feature["template_aatype"][
             :, start_point:end_point, :
         ]
@@ -348,6 +371,18 @@ class ChoppedObject(MonomericObject):
         else:
             new_template_confidence_scores = np.array([[1] * length])
         new_template_release_date = template_feature.get("template_release_date", np.array(['none']))
+        
+        # Slice template_sequence to match the chopped region
+        if len(new_template_sequence) > 0:
+            sliced_template_sequences = []
+            for template_seq in new_template_sequence:
+                if isinstance(template_seq, bytes):
+                    template_seq_str = template_seq.decode('utf-8')
+                else:
+                    template_seq_str = str(template_seq)
+                sliced_seq = template_seq_str[start_point:end_point]
+                sliced_template_sequences.append(sliced_seq.encode())
+            new_template_sequence = np.array(sliced_template_sequences)
         
         new_template_feature = {
             "template_aatype": new_template_aatype,
@@ -432,31 +467,36 @@ class ChoppedObject(MonomericObject):
 
     def prepare_final_sliced_feature_dict(self):
         """prepare final features for the corresponding region"""
+        # Reset new_sequence at the start
+        self.new_sequence = ""
+        
         if len(self.regions) == 1:
-            start_point = self.regions[0][0]
-            end_point = self.regions[0][1]
+            start_point = self.regions[0][0] + 1  # Convert to 1-based indexing
+            end_point = self.regions[0][1]        # Keep as is (exclusive)
             self.new_feature_dict = self.prepare_individual_sliced_feature_dict(
                 self.feature_dict, start_point, end_point
             )
-            self.sequence = self.new_sequence
             self.feature_dict = self.new_feature_dict
             self.new_feature_dict = dict()
         elif len(self.regions) > 1:
             temp_feature_dicts = []
             for sub_region in self.regions:
-                start_point = sub_region[0]
-                end_point = sub_region[1]
+                start_point = sub_region[0] + 1  # Convert to 1-based indexing
+                end_point = sub_region[1]        # Keep as is (exclusive)
                 curr_feature_dict = self.prepare_individual_sliced_feature_dict(
                     self.feature_dict, start_point, end_point
                 )
                 temp_feature_dicts.append(curr_feature_dict)
-            self.sequence = self.new_sequence
             self.new_feature_dict = self.concatenate_sliced_feature_dict(
                 temp_feature_dicts
             )
             self.feature_dict = self.new_feature_dict
             self.new_feature_dict = dict()
             del temp_feature_dicts
+        # Always set self.sequence to the concatenated sequence
+        self.sequence = self.new_sequence
+        # Also update the feature_dict 'sequence' field to match
+        self.feature_dict["sequence"] = np.array([self.new_sequence.encode()])
 
 
 class MultimericObject:
