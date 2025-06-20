@@ -145,6 +145,19 @@ class _TestBase(parameterized.TestCase):
                     chain_id = dna_seq.get('id', 'A')
                     sequence = dna_seq.get('sequence', '')
                     sequences.append((chain_id, sequence))
+                elif 'ligand' in seq_data:
+                    ligand_seq = seq_data['ligand']
+                    chain_id = ligand_seq.get('id', 'L')
+                    # For ligands, we use the CCD codes as the "sequence"
+                    ccd_codes = ligand_seq.get('ccdCodes', [])
+                    if ccd_codes:
+                        # Join multiple CCD codes if present (e.g., ["ATP", "MG"] -> "ATP+MG")
+                        sequence = '+'.join(ccd_codes)
+                    else:
+                        # Fallback to SMILES if no CCD codes
+                        smiles = ligand_seq.get('smiles', '')
+                        sequence = f"SMILES:{smiles}" if smiles else "UNKNOWN_LIGAND"
+                    sequences.append((chain_id, sequence))
         return sequences
 
     def _apply_ptms_to_sequence(self, sequence: str, modifications: List[Dict]) -> str:
@@ -371,7 +384,6 @@ class _TestBase(parameterized.TestCase):
         
         try:
             from Bio.PDB import MMCIFParser
-            from Bio.PDB.Polypeptide import protein_letters_3to1
             
             # Parse the CIF file
             parser = MMCIFParser(QUIET=True)
@@ -383,24 +395,75 @@ class _TestBase(parameterized.TestCase):
             # Extract sequences for each chain
             for chain in model:
                 chain_id = chain.id
-                sequence = ""
                 
                 # Get residues in order
                 residues = list(chain.get_residues())
                 residues.sort(key=lambda r: r.id[1])  # Sort by residue number
                 
+                # Separate standard residues from HETATM records
+                standard_residues = []
+                hetatm_residues = []
+                
                 for residue in residues:
-                    # Skip non-standard residues and water
-                    if residue.id[0] == " ":  # Standard residue
-                        res_name = residue.resname
-                        if res_name in protein_letters_3to1:
-                            sequence += protein_letters_3to1[res_name]
+                    hetfield, resseq, icode = residue.id
+                    res_name = residue.resname
+                    
+                    if hetfield == " ":
+                        # Standard residue (protein, DNA, RNA)
+                        standard_residues.append((resseq, res_name))
+                    elif hetfield != "W":  # Skip water molecules
+                        # HETATM record (ligand or PTM)
+                        hetatm_residues.append((resseq, res_name))
+                
+                # Check if this chain contains any HETATM records (ligands)
+                has_ligand_hetatm = any(res_name in self._ligand_ccd_codes for _, res_name in hetatm_residues)
+                
+                if has_ligand_hetatm:
+                    # This is a ligand chain - extract HETATM residues
+                    ligand_codes = []
+                    for _, res_name in hetatm_residues:
+                        if res_name in self._ligand_ccd_codes:
+                            ligand_codes.append(res_name)
+                        else:
+                            ligand_codes.append("UNKNOWN")
+                    
+                    if ligand_codes:
+                        # Join multiple ligand codes if present (e.g., ["ATP", "MG"] -> "ATP+MG")
+                        sequence = '+'.join(ligand_codes)
+                    else:
+                        sequence = "UNKNOWN_LIGAND"
+                else:
+                    # This is a polymer chain (protein, DNA, RNA) - extract base sequence
+                    sequence = ""
+                    unknown_residues = []
+                    
+                    for _, res_name in standard_residues:
+                        # Try protein first
+                        if res_name in self._protein_letters_3to1:
+                            sequence += self._protein_letters_3to1[res_name]
+                        # Try DNA
                         elif res_name in self._dna_letters_3to1:
                             sequence += self._dna_letters_3to1[res_name]
+                        # Try RNA
                         elif res_name in self._rna_letters_3to1:
                             sequence += self._rna_letters_3to1[res_name]
+                        # Try RNA with spaces (PDBData format)
+                        elif res_name + "  " in self._rna_letters_3to1:
+                            sequence += self._rna_letters_3to1[res_name + "  "]
+                        # Try DNA with spaces (PDBData format)
+                        elif res_name + " " in self._dna_letters_3to1:
+                            sequence += self._dna_letters_3to1[res_name + " "]
                         else:
                             sequence += "X"  # Unknown residue
+                            unknown_residues.append(res_name)
+                    
+                    # Debug: print unknown residues
+                    if unknown_residues:
+                        print(f"Warning: Unknown residues in chain {chain_id}: {set(unknown_residues)}")
+                    
+                    # Apply PTMs from HETATM records if present
+                    if hetatm_residues and sequence:
+                        sequence = self._apply_ptms_from_hetatm(sequence, hetatm_residues)
                 
                 if sequence:  # Only add if we have a sequence
                     chains_and_sequences.append((chain_id, sequence))
@@ -416,24 +479,89 @@ class _TestBase(parameterized.TestCase):
         
         return chains_and_sequences
 
+    def _apply_ptms_from_hetatm(self, sequence: str, hetatm_residues: List[Tuple[int, str]]) -> str:
+        """
+        Apply PTMs from HETATM records to the protein sequence.
+        
+        Args:
+            sequence: Base protein sequence
+            hetatm_residues: List of (residue_number, residue_name) tuples from HETATM records
+            
+        Returns:
+            Modified sequence with PTMs applied
+        """
+        # Convert to list for easier modification
+        seq_list = list(sequence)
+        
+        for resseq, res_name in hetatm_residues:
+            ptm_position = resseq - 1  # Convert to 0-based indexing
+            
+            if ptm_position < len(seq_list):
+                if res_name == "HYS":
+                    # N-terminal histidine modification - replace N-terminal methionine with HYS
+                    if ptm_position == 0 and seq_list[0] == 'M':
+                        # Replace M with H (histidine) - HYS is the CCD code, but we use H for sequence
+                        seq_list[0] = 'H'
+                elif res_name == "2MG":
+                    # 2-methylguanosine modification - replace G with modified G
+                    # For simplicity, we'll keep it as G since the exact representation may vary
+                    pass
+                # Add more PTM types as needed
+                else:
+                    print(f"Warning: Unknown PTM type '{res_name}' at position {ptm_position + 1}")
+        
+        return ''.join(seq_list)
+
     @property
     def _dna_letters_3to1(self):
-        """DNA three-letter to one-letter code mapping."""
-        return {
-            'DA': 'A',  # 2'-deoxyadenosine
-            'DT': 'T',  # thymidine
-            'DG': 'G',  # 2'-deoxyguanosine
-            'DC': 'C',  # 2'-deoxycytidine
-        }
+        """DNA three-letter to one-letter code mapping using Bio.Data.PDBData."""
+        try:
+            from Bio.Data.PDBData import nucleic_letters_3to1_extended
+            return nucleic_letters_3to1_extended
+        except ImportError:
+            # Fallback if PDBData is not available
+            return {
+                'DA': 'A',   # deoxyadenosine
+                'DT': 'T',   # deoxythymidine
+                'DG': 'G',   # deoxyguanosine
+                'DC': 'C',   # deoxycytidine
+            }
 
     @property
     def _rna_letters_3to1(self):
-        """RNA three-letter to one-letter code mapping."""
+        """RNA three-letter to one-letter code mapping using Bio.Data.PDBData."""
+        try:
+            from Bio.Data.PDBData import nucleic_letters_3to1_extended
+            return nucleic_letters_3to1_extended
+        except ImportError:
+            # Fallback if PDBData is not available
+            return {
+                'A': 'A',   # adenosine
+                'U': 'U',   # uridine
+                'G': 'G',   # guanosine
+                'C': 'C',   # cytidine
+            }
+
+    @property
+    def _protein_letters_3to1(self):
+        """Protein three-letter to one-letter code mapping using Bio.Data.PDBData."""
+        try:
+            from Bio.Data.PDBData import protein_letters_3to1_extended
+            return protein_letters_3to1_extended
+        except ImportError:
+            # Fallback if PDBData is not available
+            from Bio.Data.IUPACData import protein_letters_3to1
+            return {**protein_letters_3to1, 'UNK': 'X'}
+
+    @property
+    def _ligand_ccd_codes(self):
+        """Common ligand CCD codes that might appear in CIF files."""
         return {
-            'A': 'A',   # adenosine
-            'U': 'U',   # uridine
-            'G': 'G',   # guanosine
-            'C': 'C',   # cytidine
+            'ATP', 'ADP', 'AMP', 'GTP', 'GDP', 'GMP', 'CTP', 'CDP', 'CMP',
+            'UTP', 'UDP', 'UMP', 'NAD', 'NADH', 'FAD', 'FADH2', 'COA',
+            'HEM', 'MG', 'CA', 'ZN', 'FE', 'CU', 'MN', 'K', 'NA', 'CL',
+            'SO4', 'PO4', 'NO3', 'CO3', 'HCO3', 'OH', 'H2O', 'DMS', 'EDO',
+            'GOL', 'PEG', 'PEO', 'MPD', 'BME', 'DTT', 'TCEP', 'GSH', 'GSSG'
         }
 
     def _extract_cif_chains_and_sequences_regex(self, cif_path: Path) -> List[Tuple[str, str]]:
@@ -451,58 +579,73 @@ class _TestBase(parameterized.TestCase):
         with open(cif_path, 'r') as f:
             cif_content = f.read()
         
-        # Parse the CIF file to extract chain information
-        # Look for _entity_poly_seq table which contains sequence information
-        # Format: entity_id num mon_id (e.g., "1 n MET 1" or "2 n DA 1")
-        entity_poly_seq_pattern = r'(\d+)\s+n\s+([A-Z]{2,3})\s+(\d+)'
-        
-        # Also look for _struct_asym table to get chain IDs
+        # Extract unique chain IDs from _struct_asym table
         # Format: chain_id entity_id (e.g., "A 1")
         struct_asym_pattern = r'([A-Z])\s+(\d+)'
-        
-        # Extract entity to chain mapping
-        entity_to_chains = {}
         struct_asym_matches = re.findall(struct_asym_pattern, cif_content)
+        
+        # Create mapping of entity_id to chain_ids
+        entity_to_chains = {}
         for chain_id, entity_id in struct_asym_matches:
             entity_id = int(entity_id)
             if entity_id not in entity_to_chains:
                 entity_to_chains[entity_id] = []
             entity_to_chains[entity_id].append(chain_id)
         
-        # Extract sequences for each entity
-        entity_sequences = {}
+        # Extract sequences for each entity from _entity_poly_seq table
+        # Format: entity_id num mon_id (e.g., "1 n MET 1" or "2 n DA 1")
+        entity_poly_seq_pattern = r'(\d+)\s+n\s+([A-Z]{2,3})\s+(\d+)'
         entity_poly_seq_matches = re.findall(entity_poly_seq_pattern, cif_content)
         
+        # Group residues by entity_id
+        entity_sequences = {}
         for entity_id, mon_id, num in entity_poly_seq_matches:
             entity_id = int(entity_id)
             if entity_id not in entity_sequences:
                 entity_sequences[entity_id] = []
             entity_sequences[entity_id].append((int(num), mon_id))
         
-        # Convert three-letter codes to one-letter sequences
-        three_to_one = {
-            # Protein residues
-            'ALA': 'A', 'ARG': 'R', 'ASN': 'N', 'ASP': 'D', 'CYS': 'C',
-            'GLN': 'Q', 'GLU': 'E', 'GLY': 'G', 'HIS': 'H', 'ILE': 'I',
-            'LEU': 'L', 'LYS': 'K', 'MET': 'M', 'PHE': 'F', 'PRO': 'P',
-            'SER': 'S', 'THR': 'T', 'TRP': 'W', 'TYR': 'Y', 'VAL': 'V',
-            'UNK': 'X',
-            # DNA nucleotides
-            'DA': 'A', 'DT': 'T', 'DG': 'G', 'DC': 'C',
-            # RNA nucleotides
-            'A': 'A', 'U': 'U', 'G': 'G', 'C': 'C',
-        }
+        # Extract ligand information from _pdbx_nonpoly_scheme entries
+        # Look for single entries (not loops) with format:
+        # _pdbx_nonpoly_scheme.asym_id L
+        # _pdbx_nonpoly_scheme.mon_id ATP
+        nonpoly_asym_pattern = r'_pdbx_nonpoly_scheme\.asym_id\s+([A-Z])'
+        nonpoly_mon_pattern = r'_pdbx_nonpoly_scheme\.mon_id\s+([A-Z0-9]+)'
         
-        # Build sequences for each entity
+        nonpoly_asym_matches = re.findall(nonpoly_asym_pattern, cif_content)
+        nonpoly_mon_matches = re.findall(nonpoly_mon_pattern, cif_content)
+        
+        # Create ligand chains directly
+        for asym_id, mon_id in zip(nonpoly_asym_matches, nonpoly_mon_matches):
+            chains_and_sequences.append((asym_id, mon_id))
+        
+        # Convert three-letter codes to one-letter sequences for polymer entities
+        try:
+            # Use comprehensive dictionaries from PDBData
+            three_to_one = {}
+            three_to_one.update(self._protein_letters_3to1)
+            three_to_one.update(self._dna_letters_3to1)
+            three_to_one.update(self._rna_letters_3to1)
+        except ImportError:
+            # Fallback if PDBData is not available
+            from Bio.Data.IUPACData import protein_letters_3to1
+            three_to_one = {**protein_letters_3to1, 'UNK': 'X'}
+            # Add DNA and RNA mappings
+            three_to_one.update(self._dna_letters_3to1)
+            three_to_one.update(self._rna_letters_3to1)
+        
+        # Build sequences for each polymer entity
         for entity_id, residues in entity_sequences.items():
             # Sort by residue number
             residues.sort(key=lambda x: x[0])
             sequence = ''.join([three_to_one.get(res[1], 'X') for res in residues])
             
-            # Get chain IDs for this entity
+            # Get chain IDs for this entity - only add one entry per chain
             if entity_id in entity_to_chains:
                 for chain_id in entity_to_chains[entity_id]:
-                    chains_and_sequences.append((chain_id, sequence))
+                    # Check if we already have this chain_id to avoid duplicates
+                    if not any(existing_chain_id == chain_id for existing_chain_id, _ in chains_and_sequences):
+                        chains_and_sequences.append((chain_id, sequence))
         
         return chains_and_sequences
 
