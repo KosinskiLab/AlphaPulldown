@@ -343,7 +343,10 @@ class ChoppedObject(MonomericObject):
         new_template_sequence = template_feature["template_sequence"]
         new_template_sum_probs = template_feature["template_sum_probs"]
         # below are the template features introduced by mmseqs2 alignments
-        new_template_confidence_scores = template_feature.get("template_confidence_scores", np.array([[1] * length]))
+        if "template_confidence_scores" in template_feature:
+            new_template_confidence_scores = template_feature["template_confidence_scores"][:, start_point:end_point]
+        else:
+            new_template_confidence_scores = np.array([[1] * length])
         new_template_release_date = template_feature.get("template_release_date", np.array(['none']))
         
         new_template_feature = {
@@ -378,8 +381,28 @@ class ChoppedObject(MonomericObject):
         """concatenate regions such as 1-200 + 500-600"""
         output_dict = feature_dicts[0]
         num_alignment = feature_dicts[0]["num_alignments"][0]
+
+        # Template metadata fields: keep only from the first slice
+        template_metadata_fields = [
+            "template_domain_names",
+            "template_sequence",
+            "template_sum_probs",
+            "template_release_date"
+        ]
+        for field in template_metadata_fields:
+            if field in output_dict:
+                output_dict[field] = feature_dicts[0][field]
+
+        # For template_confidence_scores, concatenate only the correct slices
+        if "template_confidence_scores" in output_dict:
+            output_dict["template_confidence_scores"] = np.concatenate(
+                [fd["template_confidence_scores"] for fd in feature_dicts], axis=1
+            )
+
         for sub_dict in feature_dicts[1:]:
             for k in feature_dicts[0].keys():
+                if k in template_metadata_fields or k == "template_confidence_scores":
+                    continue  # Already handled above
                 if sub_dict[k].ndim > 1:
                     if k == "aatype":
                         output_dict[k] = np.concatenate(
