@@ -340,14 +340,16 @@ class ChoppedObject(MonomericObject):
         template_feature is actually the full feature_dict
         """
         start_point = start_point - 1
-        length = end_point - start_point
+        range_length = end_point - start_point
         
         # Check if template fields exist
         if "template_aatype" not in template_feature:
             # Return empty template features if no templates
+            logging.info(f"No templates found for {self.description}")
+            length = len(self.sequence)
             new_template_feature = {
-                "template_aatype": np.zeros((0, length, 22), dtype=np.float32),
-                "template_all_atom_masks": np.zeros((0, length, 37), dtype=np.float32),
+                "template_aatype": np.ones((0, length, 22) * 21, dtype=np.float32),
+                "template_all_atom_masks": np.ones((0, length, 37), dtype=np.float32),
                 "template_all_atom_positions": np.zeros((0, length, 37, 3), dtype=np.float32),
                 "template_domain_names": np.array([], dtype=object),
                 "template_sequence": np.array([], dtype=object),
@@ -481,7 +483,7 @@ class ChoppedObject(MonomericObject):
         self.new_sequence = ""
         
         if len(self.regions) == 1:
-            start_point = self.regions[0][0] - 1  # Convert to 1-based indexing
+            start_point = self.regions[0][0] - 1  # Convert to 0-based indexing
             end_point = self.regions[0][1]        # Keep as is (exclusive)
             self.new_feature_dict = self.prepare_individual_sliced_feature_dict(
                 self.feature_dict, start_point, end_point
@@ -491,7 +493,7 @@ class ChoppedObject(MonomericObject):
         elif len(self.regions) > 1:
             temp_feature_dicts = []
             for sub_region in self.regions:
-                start_point = sub_region[0] + 1  # Convert to 1-based indexing
+                start_point = sub_region[0] - 1  # Convert to 0-based indexing
                 end_point = sub_region[1]        # Keep as is (exclusive)
                 curr_feature_dict = self.prepare_individual_sliced_feature_dict(
                     self.feature_dict, start_point, end_point

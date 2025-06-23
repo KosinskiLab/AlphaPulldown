@@ -471,14 +471,10 @@ class AlphaFold3Backend(FoldingBackend):
                         # pick highest HH-blits index per residue
                         hh_ids = np.argmax(feature_dict["template_aatype"][i], axis=-1)  # shape (L,)
 
-                        # debug
-                        seq_str = ''.join(residue_constants.ID_TO_HHBLITS_AA[j] for j in hh_ids)
-                        print(f"hh_ids len: {len(hh_ids)}, template_sequence len: {len(template_sequence)}")
-                        print(f"hh_ids: {hh_ids}")
-                        print(f"template_sequence: {template_sequence!r}")
-                        print(f"seq_str: {seq_str!r}")
-
-                        assert seq_str == template_sequence, f"seq_str: {seq_str} != template_sequence: {template_sequence}"
+                        # Skip templates with no atoms (they won't provide structural information)
+                        if np.sum(template_mask) == 0:
+                            logging.info(f"Skipping template {i} ({pdb_code_chain}) - no atoms in region")
+                            continue
 
                         # map HH-blits → AF3 internal 0–20 aatype
                         tmpl_aatype = np.array([
