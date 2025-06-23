@@ -16,7 +16,7 @@ from alphafold.data import pipeline
 from alphafold.data import msa_pairing
 from alphafold.data import feature_processing
 from pathlib import Path as plPath
-from typing import List, Dict
+from typing import List, Dict, Any, Tuple
 from colabfold.batch import get_msa_and_templates, msa_to_str, build_monomer_feature, unserialize_msa
 from alphapulldown.utils.multimeric_template_utils import (extract_multimeric_template_features_for_single_chain,
                                                      prepare_multimeric_template_meta_info)
@@ -255,265 +255,210 @@ class MonomericObject:
 
 
 class ChoppedObject(MonomericObject):
-    """chopped monomeric objects"""
+    """A monomeric object chopped into specified regions."""
 
-    def __init__(self, description, sequence, feature_dict, regions) -> None:
+    def __init__(
+        self,
+        description: str,
+        sequence: str,
+        feature_dict: Dict[str, Any],
+        regions: List[Tuple[int, int]],
+    ) -> None:
         super().__init__(description, sequence)
+        self.monomeric_description = description
         self.feature_dict = feature_dict
         self.regions = regions
         self.new_sequence = ""
-        self.new_feature_dict = dict()
-        self.monomeric_description = description
-        self.description = description
+        self.new_feature_dict: Dict[str, Any] = {}
         self.prepare_new_self_description()
 
-    def prepare_new_self_description(self):
-        """prepare self_description of chopped proteins"""
-        for r in self.regions:
-            self.description += f"_{r[0]}-{r[1]}"
+    def prepare_new_self_description(self) -> None:
+        """Builds a description string with appended region tags."""
+        self.description = self.monomeric_description
+        for start, end in self.regions:
+            self.description += f"_{start}-{end}"
 
-    def prepare_new_msa_feature(self, msa_feature, start_point, end_point):
+    def prepare_new_msa_feature(
+        self, msa: Dict[str, Any], start: int, end: int
+    ) -> Tuple[Dict[str, Any], str]:
         """
-        prepare msa features
+        Slice MSA features to [start:end) (1-based coords).
+        Returns (new_feature_dict, sliced_sequence_str).
+        """
+        i0, i1 = start - 1, end
+        length = i1 - i0
 
-        Args:
-        msa_feature is actually the full feature_dict
-        """
-        start_point = start_point - 1
-        length = end_point - start_point
-        new_seq_length = np.array([length] * length)
-        new_aa_type = msa_feature["aatype"][start_point:end_point, :]
-        new_between_segment_residue = msa_feature["between_segment_residues"][
-            start_point:end_point
-        ]
-        new_domain_name = msa_feature["domain_name"]
-        
-        # Normalize residue_index to start from 1 and be continuous
-        # This ensures compatibility with AlphaFold2's to_mmcif function
-        original_residue_index = msa_feature["residue_index"][start_point:end_point]
-        new_residue_index = np.arange(1, length + 1, dtype=np.int32)
-        
-        # Extract sequence properly from the feature dict
-        if isinstance(msa_feature["sequence"][0], bytes):
-            full_sequence = msa_feature["sequence"][0].decode("utf-8")
-        else:
-            full_sequence = str(msa_feature["sequence"][0])
-        sliced_sequence = full_sequence[start_point:end_point]
-        new_sequence = np.array([sliced_sequence.encode()])
-        
-        new_deletion_mtx = msa_feature["deletion_matrix_int"][:,
-                                                              start_point:end_point]
-        new_deletion_mtx_all_seq = msa_feature["deletion_matrix_int_all_seq"][
-            :, start_point:end_point
-        ]
-        new_msa = msa_feature["msa"][:, start_point:end_point]
-        new_msa_all_seq = msa_feature["msa_all_seq"][:, start_point:end_point]
-        new_num_alignments = np.array([msa_feature["msa"].shape[0]] * length)
-        new_uniprot_species = msa_feature["msa_species_identifiers"]
-        new_uniprot_species_all_seq = msa_feature["msa_species_identifiers_all_seq"]
+        aatype = msa["aatype"][i0:i1, :]
+        bsr = msa["between_segment_residues"][i0:i1]
+        residue_index = np.arange(1, length + 1, dtype=np.int32)
+
+        seq0 = msa["sequence"][0]
+        full_seq = seq0.decode() if isinstance(seq0, (bytes, bytearray)) else str(seq0)
+        sliced_seq = full_seq[i0:i1]
+        sequence_arr = np.array([sliced_seq.encode()])
+
+        deletions       = msa["deletion_matrix_int"][ :, i0:i1]
+        deletions_all   = msa["deletion_matrix_int_all_seq"][ :, i0:i1]
+        msa_arr         = msa["msa"][ :, i0:i1]
+        msa_all         = msa["msa_all_seq"][ :, i0:i1]
+        num_alignments  = np.full(length, msa_arr.shape[0], dtype=np.int32)
+        species         = msa["msa_species_identifiers"]
+        species_all     = msa["msa_species_identifiers_all_seq"]
+        domain_name     = msa["domain_name"]
 
         new_msa_feature = {
-            "aatype": new_aa_type,
-            "between_segment_residues": new_between_segment_residue,
-            "domain_name": new_domain_name,
-            "residue_index": new_residue_index,
-            "seq_length": new_seq_length,
-            "sequence": new_sequence,
-            "deletion_matrix_int": new_deletion_mtx,
-            "msa": new_msa,
-            "num_alignments": new_num_alignments,
-            "msa_species_identifiers": new_uniprot_species,
-            "msa_all_seq": new_msa_all_seq,
-            "deletion_matrix_int_all_seq": new_deletion_mtx_all_seq,
-            "msa_species_identifiers_all_seq": new_uniprot_species_all_seq,
+            "aatype": aatype,
+            "between_segment_residues": bsr,
+            "domain_name": domain_name,
+            "residue_index": residue_index,
+            "seq_length": np.full(length, length, dtype=np.int32),
+            "sequence": sequence_arr,
+            "deletion_matrix_int": deletions,
+            "msa": msa_arr,
+            "num_alignments": num_alignments,
+            "msa_species_identifiers": species,
+            "msa_all_seq": msa_all,
+            "deletion_matrix_int_all_seq": deletions_all,
+            "msa_species_identifiers_all_seq": species_all,
         }
+        return new_msa_feature, sliced_seq
 
-        return new_msa_feature, sliced_sequence
-
-    def prepare_new_template_feature_dict(
-            self, template_feature, start_point, end_point
-    ):
+    def prepare_new_template_feature(
+        self, tmpl: Dict[str, Any], start: int, end: int
+    ) -> Dict[str, Any]:
         """
-        prepare template features
-
-        Args:
-        template_feature is actually the full feature_dict
+        Slice template features to [start:end) (1-based coords).
+        If no templates are present, returns empty arrays.
         """
-        start_point = start_point - 1
-        range_length = end_point - start_point
-        
-        # Check if template fields exist
-        if "template_aatype" not in template_feature:
-            # Return empty template features if no templates
-            logging.info(f"No templates found for {self.description}")
-            length = len(self.sequence)
-            new_template_feature = {
-                "template_aatype": np.ones((0, length, 22) * 21, dtype=np.float32),
-                "template_all_atom_masks": np.ones((0, length, 37), dtype=np.float32),
-                "template_all_atom_positions": np.zeros((0, length, 37, 3), dtype=np.float32),
-                "template_domain_names": np.array([], dtype=object),
-                "template_sequence": np.array([], dtype=object),
-                "template_sum_probs": np.zeros((0, 1), dtype=np.float32),
-                "template_confidence_scores": np.array([[1] * length]),
-                "template_release_date": np.array(['none'])
+        i0, i1 = start - 1, end
+        length = i1 - i0
+
+        if "template_aatype" not in tmpl:
+            logging.info("No templates for %s", self.description)
+            return {
+                "template_aatype":             np.empty((0, length, 22), dtype=np.float32),
+                "template_all_atom_masks":     np.empty((0, length, 37), dtype=np.float32),
+                "template_all_atom_positions": np.empty((0, length, 37, 3), dtype=np.float32),
+                "template_domain_names":       np.array([], dtype=object),
+                "template_sequence":           np.array([], dtype=object),
+                "template_sum_probs":          np.empty((0,), dtype=np.float32),
+                "template_confidence_scores":  np.empty((0, length), dtype=np.float32),
+                "template_release_date":       np.array([], dtype=object),
             }
-            return new_template_feature
-        
-        # Slice template features to match the chopped region
-        # Note: residue_index normalization is handled in prepare_new_msa_feature
-        new_template_aatype = template_feature["template_aatype"][
-            :, start_point:end_point, :
-        ]
-        new_template_all_atom_masks = template_feature["template_all_atom_masks"][
-            :, start_point:end_point, :
-        ]
-        new_template_all_atom_positions = template_feature[
-            "template_all_atom_positions"
-        ][:, start_point:end_point, :, :]
-        new_template_domain_names = template_feature["template_domain_names"]
-        new_template_sequence = template_feature["template_sequence"]
-        new_template_sum_probs = template_feature["template_sum_probs"]
-        # below are the template features introduced by mmseqs2 alignments
-        if "template_confidence_scores" in template_feature:
-            new_template_confidence_scores = template_feature["template_confidence_scores"][:, start_point:end_point]
+
+        new_taa   = tmpl["template_aatype"][:, i0:i1, :]
+        new_masks = tmpl["template_all_atom_masks"][ :, i0:i1, :]
+        new_pos   = tmpl["template_all_atom_positions"][ :, i0:i1, :, :]
+
+        domains      = tmpl.get("template_domain_names", np.array([], dtype=object))
+        release_dates= tmpl.get("template_release_date", np.array([], dtype=object))
+        sum_probs    = tmpl.get("template_sum_probs", np.empty((0,), dtype=np.float32))
+
+        if "template_confidence_scores" in tmpl:
+            conf = tmpl["template_confidence_scores"][ :, i0:i1]
         else:
-            new_template_confidence_scores = np.array([[1] * length])
-        new_template_release_date = template_feature.get("template_release_date", np.array(['none']))
-        
-        # Slice template_sequence to match the chopped region
-        if len(new_template_sequence) > 0:
-            sliced_template_sequences = []
-            for template_seq in new_template_sequence:
-                if isinstance(template_seq, bytes):
-                    template_seq_str = template_seq.decode('utf-8')
-                else:
-                    template_seq_str = str(template_seq)
-                sliced_seq = template_seq_str[start_point:end_point]
-                sliced_template_sequences.append(sliced_seq.encode())
-            new_template_sequence = np.array(sliced_template_sequences)
-        
-        new_template_feature = {
-            "template_aatype": new_template_aatype,
-            "template_all_atom_masks": new_template_all_atom_masks,
-            "template_all_atom_positions": new_template_all_atom_positions,
-            "template_domain_names": new_template_domain_names,
-            "template_sequence": new_template_sequence,
-            "template_sum_probs": new_template_sum_probs,
-            "template_confidence_scores": new_template_confidence_scores,
-            "template_release_date": new_template_release_date
+            conf = np.ones((new_taa.shape[0], length), dtype=np.float32)
+
+        seqs = []
+        for s in tmpl.get("template_sequence", []):
+            s_str = s.decode() if isinstance(s, (bytes, bytearray)) else str(s)
+            seqs.append(s_str[i0:i1].encode())
+        seqs_arr = np.array(seqs, dtype=object)
+
+        return {
+            "template_aatype":             new_taa,
+            "template_all_atom_masks":     new_masks,
+            "template_all_atom_positions": new_pos,
+            "template_domain_names":       domains,
+            "template_sequence":           seqs_arr,
+            "template_sum_probs":          sum_probs,
+            "template_confidence_scores":  conf,
+            "template_release_date":       release_dates,
         }
-        return new_template_feature
 
     def prepare_individual_sliced_feature_dict(
-            self, feature_dict, start_point, end_point
-    ):
-        """combine prepare_new_template_feature_dict and prepare_new_template_feature_dict"""
-        new_msa_feature, new_sequence = self.prepare_new_msa_feature(
-            feature_dict, start_point, end_point
-        )
-        sliced_feature_dict = {
-            **self.prepare_new_template_feature_dict(
-                feature_dict, start_point, end_point
-            ),
-            **new_msa_feature,
+        self, feats: Dict[str, Any], start: int, end: int
+    ) -> Dict[str, Any]:
+        """Combine MSA- and template-based slicing for one region."""
+        msa_feat, seq_fragment = self.prepare_new_msa_feature(feats, start, end)
+        tmpl_feat              = self.prepare_new_template_feature(feats, start, end)
+        self.new_sequence     += seq_fragment
+        return {**tmpl_feat, **msa_feat}
+
+    def concatenate_sliced_feature_dict(
+        self, slice_dicts: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """
+        Merge sliced feature dicts into one continuous feature_dict,
+        using explicit axis mapping per key.
+        """
+        out = slice_dicts[0].copy()
+        num_align = out["num_alignments"][0]
+
+        # specify concat axis for particular 2D/ND keys
+        axis_map = {
+            # MSA features (seqs x residues)
+            "deletion_matrix_int":            1,
+            "deletion_matrix_int_all_seq":    1,
+            "msa":                            1,
+            "msa_all_seq":                    1,
+            # template confidence (templates x residues)
+            "template_confidence_scores":     1,
         }
-        # Fix: always concatenate as string
-        if isinstance(new_sequence, np.ndarray):
-            new_sequence_str = new_sequence[0].decode() if isinstance(new_sequence[0], bytes) else str(new_sequence[0])
-        else:
-            new_sequence_str = new_sequence
-        self.new_sequence = self.new_sequence + new_sequence_str
-        return sliced_feature_dict
 
-    def concatenate_sliced_feature_dict(self, feature_dicts: list):
-        """concatenate regions such as 1-200 + 500-600"""
-        output_dict = feature_dicts[0]
-        num_alignment = feature_dicts[0]["num_alignments"][0]
-
-        # Template metadata fields: keep only from the first slice
-        template_metadata_fields = [
-            "template_domain_names",
-            "template_sequence",
-            "template_sum_probs",
-            "template_release_date"
-        ]
-        for field in template_metadata_fields:
-            if field in output_dict:
-                output_dict[field] = feature_dicts[0][field]
-
-        # For template_confidence_scores, concatenate only the correct slices
-        if "template_confidence_scores" in output_dict:
-            output_dict["template_confidence_scores"] = np.concatenate(
-                [fd["template_confidence_scores"] for fd in feature_dicts], axis=1
+        # merge template confidence separately
+        if "template_confidence_scores" in out:
+            out["template_confidence_scores"] = np.concatenate(
+                [sd["template_confidence_scores"] for sd in slice_dicts],
+                axis=axis_map["template_confidence_scores"],
             )
 
-        for sub_dict in feature_dicts[1:]:
-            for k in feature_dicts[0].keys():
-                if k in template_metadata_fields or k == "template_confidence_scores":
-                    continue  # Already handled above
-                if sub_dict[k].ndim > 1:
-                    if k == "aatype":
-                        output_dict[k] = np.concatenate(
-                            (output_dict[k], sub_dict[k]), axis=0
-                        )
-                    elif "msa_species_identifiers" in k:
-                        pass
-                    else:
-                        output_dict[k] = np.concatenate(
-                            (output_dict[k], sub_dict[k]), axis=1
-                        )
-                elif sub_dict[k].ndim == 1:
-                    if "msa_species_identifiers" in k:
-                        pass
-                    else:
-                        output_dict[k] = np.concatenate(
-                            (output_dict[k], sub_dict[k]), axis=0
-                        )
-
-        # Ensure residue_index is continuous across all concatenated regions
-        total_length = len(self.new_sequence)
-        output_dict["residue_index"] = np.arange(1, total_length + 1, dtype=np.int32)
-
-        update_dict = {
-            "seq_length": np.array([len(self.new_sequence)] * len(self.new_sequence)),
-            "num_alignments": np.array([num_alignment] * len(self.new_sequence)),
-            "sequence": np.array([self.new_sequence.encode()]),
+        skip = {
+            "template_domain_names", "template_sequence",
+            "template_sum_probs", "template_release_date",
+            "msa_species_identifiers", "msa_species_identifiers_all_seq",
         }
-        output_dict.update(update_dict)
-        return output_dict
 
-    def prepare_final_sliced_feature_dict(self):
-        """prepare final features for the corresponding region"""
-        # Reset new_sequence at the start
+        for key, base_arr in list(out.items()):
+            if key in skip or key == "template_confidence_scores":
+                continue
+            arrs = [sd[key] for sd in slice_dicts]
+            ndim = base_arr.ndim
+            if ndim == 1:
+                out[key] = np.concatenate(arrs, axis=0)
+            elif ndim == 2:
+                ax = axis_map.get(key, 0)
+                out[key] = np.concatenate(arrs, axis=ax)
+            else:
+                # for 3D+ arrays (e.g., template_aatype, masks, positions)
+                # residues axis=1, so concat on axis 1
+                out[key] = np.concatenate(arrs, axis=1)
+
+        total_len = len(self.new_sequence)
+        out["residue_index"]    = np.arange(1, total_len + 1, dtype=np.int32)
+        out["seq_length"]       = np.full(total_len, total_len, dtype=np.int32)
+        out["num_alignments"]   = np.full(total_len, num_align, dtype=np.int32)
+        out["sequence"]         = np.array([self.new_sequence.encode()])
+
+        return out
+
+    def prepare_final_sliced_feature_dict(self) -> None:
+        """
+        Chop self.feature_dict into regions, update self.sequence & feature_dict.
+        """
         self.new_sequence = ""
-        
-        if len(self.regions) == 1:
-            start_point = self.regions[0][0]  # Pass as 1-based
-            end_point = self.regions[0][1]    # Keep as is (exclusive)
-            self.new_feature_dict = self.prepare_individual_sliced_feature_dict(
-                self.feature_dict, start_point, end_point
-            )
-            self.feature_dict = self.new_feature_dict
-            self.new_feature_dict = dict()
-        elif len(self.regions) > 1:
-            temp_feature_dicts = []
-            for sub_region in self.regions:
-                start_point = sub_region[0]  # Pass as 1-based
-                end_point = sub_region[1]    # Keep as is (exclusive)
-                curr_feature_dict = self.prepare_individual_sliced_feature_dict(
-                    self.feature_dict, start_point, end_point
-                )
-                temp_feature_dicts.append(curr_feature_dict)
-            self.new_feature_dict = self.concatenate_sliced_feature_dict(
-                temp_feature_dicts
-            )
-            self.feature_dict = self.new_feature_dict
-            self.new_feature_dict = dict()
-            del temp_feature_dicts
-        # Always set self.sequence to the concatenated sequence
+        slices = [
+            self.prepare_individual_sliced_feature_dict(
+                self.feature_dict, start, end
+            ) for start, end in self.regions
+        ]
+
+        final = slices[0] if len(slices) == 1 else self.concatenate_sliced_feature_dict(slices)
+
         self.sequence = self.new_sequence
-        # Also update the feature_dict 'sequence' field to match
-        self.feature_dict["sequence"] = np.array([self.new_sequence.encode()])
+        self.feature_dict = final
+        self.new_feature_dict = {}
+
 
 
 class MultimericObject:
