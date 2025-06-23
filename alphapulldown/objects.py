@@ -287,7 +287,11 @@ class ChoppedObject(MonomericObject):
             start_point:end_point
         ]
         new_domain_name = msa_feature["domain_name"]
-        new_residue_index = msa_feature["residue_index"][start_point:end_point]
+        
+        # Normalize residue_index to start from 1 and be continuous
+        # This ensures compatibility with AlphaFold2's to_mmcif function
+        original_residue_index = msa_feature["residue_index"][start_point:end_point]
+        new_residue_index = np.arange(1, length + 1, dtype=np.int32)
         
         # Extract sequence properly from the feature dict
         if isinstance(msa_feature["sequence"][0], bytes):
@@ -330,7 +334,7 @@ class ChoppedObject(MonomericObject):
             self, template_feature, start_point, end_point
     ):
         """
-        prepare template  features
+        prepare template features
 
         Args:
         template_feature is actually the full feature_dict
@@ -353,6 +357,8 @@ class ChoppedObject(MonomericObject):
             }
             return new_template_feature
         
+        # Slice template features to match the chopped region
+        # Note: residue_index normalization is handled in prepare_new_msa_feature
         new_template_aatype = template_feature["template_aatype"][
             :, start_point:end_point, :
         ]
@@ -457,6 +463,10 @@ class ChoppedObject(MonomericObject):
                             (output_dict[k], sub_dict[k]), axis=0
                         )
 
+        # Ensure residue_index is continuous across all concatenated regions
+        total_length = len(self.new_sequence)
+        output_dict["residue_index"] = np.arange(1, total_length + 1, dtype=np.int32)
+
         update_dict = {
             "seq_length": np.array([len(self.new_sequence)] * len(self.new_sequence)),
             "num_alignments": np.array([num_alignment] * len(self.new_sequence)),
@@ -471,7 +481,7 @@ class ChoppedObject(MonomericObject):
         self.new_sequence = ""
         
         if len(self.regions) == 1:
-            start_point = self.regions[0][0] + 1  # Convert to 1-based indexing
+            start_point = self.regions[0][0] - 1  # Convert to 1-based indexing
             end_point = self.regions[0][1]        # Keep as is (exclusive)
             self.new_feature_dict = self.prepare_individual_sliced_feature_dict(
                 self.feature_dict, start_point, end_point
