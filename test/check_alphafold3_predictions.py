@@ -41,7 +41,7 @@ if not os.path.exists(DATA_DIR):
 #                       common helper mix-in / assertions                     #
 # --------------------------------------------------------------------------- #
 class _TestBase(parameterized.TestCase):
-    use_temp_dir = False  # Class variable to control directory behavior
+    use_temp_dir = True  # Class variable to control directory behavior - default to True
 
     @classmethod
     def setUpClass(cls):
@@ -52,7 +52,11 @@ class _TestBase(parameterized.TestCase):
         else:
             cls.base_output_dir = Path("test/test_data/predictions/af3_backend")
             if cls.base_output_dir.exists():
-                shutil.rmtree(cls.base_output_dir)
+                try:
+                    shutil.rmtree(cls.base_output_dir)
+                except (PermissionError, OSError) as e:
+                    # If we can't remove the directory due to permissions, just warn and continue
+                    print(f"Warning: Could not remove existing output directory {cls.base_output_dir}: {e}")
             cls.base_output_dir.mkdir(parents=True, exist_ok=True)
 
     def setUp(self):
@@ -82,7 +86,21 @@ class _TestBase(parameterized.TestCase):
         super().tearDownClass()
         # Clean up all test outputs after all tests are done
         if cls.use_temp_dir and cls.base_output_dir.exists():
-            shutil.rmtree(cls.base_output_dir)
+            try:
+                shutil.rmtree(cls.base_output_dir)
+            except (PermissionError, OSError) as e:
+                # If we can't remove the temp directory, just warn
+                print(f"Warning: Could not remove temporary directory {cls.base_output_dir}: {e}")
+                # Try to remove individual files that we can
+                try:
+                    for item in cls.base_output_dir.rglob("*"):
+                        if item.is_file():
+                            try:
+                                item.unlink()
+                            except (PermissionError, OSError):
+                                pass  # Skip files we can't remove
+                except Exception:
+                    pass  # Ignore any errors during cleanup
 
     def _get_sequence_from_pkl(self, protein_name: str) -> str:
         """Extract sequence from a PKL file."""
@@ -282,6 +300,50 @@ class _TestBase(parameterized.TestCase):
         
         return []
 
+    def _process_homo_oligomer_chopped_line(self, line: str) -> List[Tuple[str, str]]:
+        """Process a homo-oligomer of chopped proteins (format: 'PROTEIN,number,regions')."""
+        if "," not in line:
+            return []
+        
+        parts = line.split(",")
+        if len(parts) < 3:
+            return []
+        
+        protein_name = parts[0].strip()
+        num_copies = int(parts[1].strip())
+        
+        # Parse regions (everything after the number of copies)
+        regions = []
+        for region_str in parts[2:]:
+            if "-" in region_str:
+                s, e = region_str.split("-")
+                regions.append((int(s), int(e)))
+        
+        # Get the chopped sequence
+        def get_chopped_sequence(protein_name: str, regions: list) -> str:
+            full_sequence = self._get_sequence_for_protein(protein_name)
+            if not full_sequence:
+                return None
+            chopped_sequence = ""
+            for start, end in regions:
+                # Convert to 0-based indexing
+                start_idx = start - 1
+                end_idx = end  # end is exclusive
+                chopped_sequence += full_sequence[start_idx:end_idx]
+            return chopped_sequence
+        
+        sequence = get_chopped_sequence(protein_name, regions)
+        if not sequence:
+            return []
+        
+        # Create multiple copies with different chain IDs
+        sequences = []
+        for i in range(num_copies):
+            chain_id = chr(ord('A') + i)
+            sequences.append((chain_id, sequence))
+        
+        return sequences
+
     def _extract_expected_sequences(self, protein_list: str) -> List[Tuple[str, str]]:
         """
         Extract expected sequences from input files based on test case name.
@@ -316,9 +378,13 @@ class _TestBase(parameterized.TestCase):
                     # Multiple proteins separated by semicolons
                     sequences = self._process_mixed_line(line)
                 
-                case "test_dimer_chopped" | "test_long_name":
+                case "test_dimer_chopped":
                     # Chopped proteins (comma-separated ranges)
                     sequences = self._process_chopped_protein_line(line)
+                
+                case "test_long_name":
+                    # Homo-oligomer of chopped proteins: "PROTEIN,number,regions"
+                    sequences = self._process_homo_oligomer_chopped_line(line)
                 
                 case "test_monomer_with_rna" | "test_monomer_with_dna" | "test_monomer_with_ligand":
                     # Mixed inputs (protein + JSON)
