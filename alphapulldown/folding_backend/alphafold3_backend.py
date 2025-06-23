@@ -503,12 +503,12 @@ class AlphaFold3Backend(FoldingBackend):
                         new_mmcif_string = insert_release_date_into_mmcif(mmcif_string)
                         query_to_template_map = {j: j for j in range(len(template_sequence))}
                         
-                        # Save template for debugging
-                        os.makedirs("templates_debug", exist_ok=True)
-                        cif_filename = os.path.join("templates_debug", f"{pdb_code_chain}_{chain_id}_template_{i}.cif")
-                        with open(cif_filename, "w") as cif_file:
-                            cif_file.write(new_mmcif_string)
-                        logging.info(f"Wrote template mmCIF to {cif_filename}")
+                        ## Save template for debugging
+                        #os.makedirs("templates_debug", exist_ok=True)
+                        #cif_filename = os.path.join("templates_debug", f"{pdb_code_chain}_{chain_id}_template_{i}.cif")
+                        #with open(cif_filename, "w") as cif_file:
+                        #    cif_file.write(new_mmcif_string)
+                        #logging.info(f"Wrote template mmCIF to {cif_filename}")
                         
                         templates.append(
                             folding_input.Template(
@@ -546,15 +546,49 @@ class AlphaFold3Backend(FoldingBackend):
 
         prepared_inputs = []
         chain_id_counter = 0
+        
+        # Collect all chains from different inputs
+        all_chains = []
+        job_name = "combined_prediction"
+        
         for object_dict in objects_to_model:
             object_to_model, output_dir = next(iter(object_dict.items()))
-            logging.info(f"Processing object: {object_to_model.description}")
+            
+            # Handle JSON file paths
+            if isinstance(object_to_model, str) and object_to_model.endswith('.json'):
+                # Parse JSON file into folding_input.Input
+                try:
+                    with open(object_to_model, 'r') as f:
+                        json_str = f.read()
+                    # Create folding_input.Input from JSON string
+                    input_obj = folding_input.Input.from_json(json_str)
+                    # Extract chains from the parsed input
+                    all_chains.extend(input_obj.chains)
+                    # Use the name from the JSON if it's the first one, otherwise combine names
+                    if len(all_chains) == len(input_obj.chains):
+                        job_name = input_obj.name
+                    else:
+                        job_name = f"{job_name}_and_{input_obj.name}"
+                    continue
+                except Exception as e:
+                    logging.error(f"Failed to parse JSON file {object_to_model}: {e}")
+                    raise
+            
+            # Handle other object types
+            if isinstance(object_to_model, str):
+                description = object_to_model
+            elif isinstance(object_to_model, (MonomericObject, MultimericObject, ChoppedObject)):
+                description = object_to_model.description
+            else:
+                raise TypeError(f"Unsupported object type for folding input conversion: {type(object_to_model)}")
+            logging.info(f"Processing object: {description}")
 
             # Create chains with unique IDs
             if isinstance(object_to_model, (MonomericObject, ChoppedObject)):
                 chain_id = get_chain_id(chain_id_counter)
                 chain_id_counter += 1
                 chains = [_monomeric_to_chain(object_to_model, chain_id)]
+                all_chains.extend(chains)
             elif isinstance(object_to_model, MultimericObject):
                 chains = []
                 for interactor in object_to_model.interactors:
@@ -562,16 +596,21 @@ class AlphaFold3Backend(FoldingBackend):
                     chain_id_counter += 1
                     chain = _monomeric_to_chain(interactor, chain_id)
                     chains.append(chain)
+                all_chains.extend(chains)
             else:
                 logging.error("Unsupported object type for folding input conversion.")
                 raise TypeError("Unsupported object type for folding input conversion.")
 
-            input_obj = folding_input.Input(
-                name=object_to_model.description,
+        # Create a single combined input with all chains
+        if all_chains:
+            combined_input = folding_input.Input(
+                name=job_name,
                 rng_seeds=[random_seed],
-                chains=chains,
+                chains=all_chains,
             )
-            prepared_inputs.append({input_obj: output_dir})
+            # Use the output directory from the first object
+            first_output_dir = next(iter(objects_to_model[0].values()))
+            prepared_inputs.append({combined_input: first_output_dir})
 
         return prepared_inputs
 

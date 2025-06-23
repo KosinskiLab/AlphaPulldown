@@ -1,0 +1,35 @@
+{
+ "chain_iptm": [
+  0.07,
+  0.07
+ ],
+ "chain_pair_iptm": [
+  [
+   0.12,
+   0.07
+  ],
+  [
+   0.07,
+   0.13
+  ]
+ ],
+ "chain_pair_pae_min": [
+  [
+   0.78,
+   13.74
+  ],
+  [
+   12.32,
+   0.77
+  ]
+ ],
+ "chain_ptm": [
+  0.12,
+  0.13
+ ],
+ "fraction_disordered": 1.0,
+ "has_clash": 0.0,
+ "iptm": 0.07,
+ "ptm": 0.13,
+ "ranking_score": 0.58
+}
