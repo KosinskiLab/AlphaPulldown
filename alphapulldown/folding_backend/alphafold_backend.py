@@ -127,7 +127,7 @@ class AlphaFoldBackend(FoldingBackend):
         model_name: str,
         num_cycle: int,
         model_dir: str,
-        num_multimer_predictions_per_model: int,
+        num_predictions_per_model: int,
         msa_depth_scan=False,
         model_names_custom: List[str] = None,
         msa_depth=None,
@@ -139,13 +139,13 @@ class AlphaFoldBackend(FoldingBackend):
 
         Parameters
         ----------
-        model_name : str
+        model_names : str
             The preset model configuration name.
         num_cycle : int
             The number of recycling iterations to be used in prediction.
         model_dir : str
             The directory containing model parameters.
-        num_multimer_predictions_per_model : int
+        num_predictions_per_model : int
             The number of multimer predictions to perform for each model.
         msa_depth_scan : bool, optional
             Whether to adjust MSA depth logarithmically, default is False.
@@ -216,7 +216,7 @@ class AlphaFoldBackend(FoldingBackend):
                     np.logspace(
                         np.log10(16),
                         np.log10(num_msa),
-                        num_multimer_predictions_per_model,
+                        num_predictions_per_model,
                     )
                 ).astype(int)
 
@@ -224,11 +224,11 @@ class AlphaFoldBackend(FoldingBackend):
                     np.logspace(
                         np.log10(32),
                         np.log10(num_extra_msa),
-                        num_multimer_predictions_per_model,
+                        num_predictions_per_model,
                     )
                 ).astype(int)
 
-            for i in range(num_multimer_predictions_per_model):
+            for i in range(num_predictions_per_model):
                 logging.debug(f"msa_depth is type : {type(msa_depth)} value: {msa_depth}")
                 logging.debug(f"msa_depth_scan is type: {type(msa_depth_scan)} value: {msa_depth_scan}")
                 if msa_depth or msa_depth_scan:

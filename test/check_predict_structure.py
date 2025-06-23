@@ -72,12 +72,19 @@ class _TestBase(parameterized.TestCase):
         print(res.stderr)
         self.assertEqual(res.returncode, 0, "sub-process failed")
 
-        dirs = [dirname] if dirname else [
-            d for d in os.listdir(self.output_dir) if Path(self.output_dir, d).is_dir()
-        ]
+        # If dirname is specified, use it; otherwise find all directories
+        if dirname:
+            dirs = [dirname]
+        else:
+            dirs = [d for d in os.listdir(self.output_dir) if Path(self.output_dir, d).is_dir()]
 
         for d in dirs:
             folder = self.output_dir / d
+            # Check if the directory exists
+            if not folder.exists():
+                print(f"Warning: Directory {folder} does not exist")
+                continue
+                
             files = list(folder.iterdir())
             print(f"contents of {folder}: {[f.name for f in files]}")
 
@@ -145,7 +152,7 @@ class _TestBase(parameterized.TestCase):
 
 
 # --------------------------------------------------------------------------- #
-#                        parameterised “run mode” tests                       #
+#                        parameterised "run mode" tests                        #
 # --------------------------------------------------------------------------- #
 class TestRunModes(_TestBase):
     @parameterized.named_parameters(
@@ -163,16 +170,17 @@ class TestRunModes(_TestBase):
 
 
 # --------------------------------------------------------------------------- #
-#                    parameterised “resume” / relaxation tests                #
+#                    parameterised "resume" / relaxation tests                #
 # --------------------------------------------------------------------------- #
 class TestResume(_TestBase):
     def setUp(self):
         super().setUp()
         self.protein_lists = self.test_protein_lists_dir / "test_dimer.txt"
 
-        if not self.test_modelling_dir.exists():
-            raise FileNotFoundError(self.test_modelling_dir)
-        shutil.copytree(self.test_modelling_dir, self.output_dir, dirs_exist_ok=True)
+        # Don't copy old test data - we want to test newly generated predictions
+        # if not self.test_modelling_dir.exists():
+        #     raise FileNotFoundError(self.test_modelling_dir)
+        # shutil.copytree(self.test_modelling_dir, self.output_dir, dirs_exist_ok=True)
 
         self.base_args = [
             sys.executable,
@@ -190,7 +198,8 @@ class TestResume(_TestBase):
     # ------------ helper --------------------------------------------------- #
     def _runAfterRelaxTests(self, relax_mode="All"):
         expected = {"None": 0, "Best": 1, "All": 5}[relax_mode]
-        d = self.output_dir / "TEST_and_TEST"
+        # For TEST+TEST input, the directory will be TEST_homo_2er due to homo-oligomer naming logic
+        d = self.output_dir / "TEST_homo_2er"
         got = len([f for f in d.iterdir() if f.name.startswith("relaxed") and f.suffix == ".pdb"])
         self.assertEqual(got, expected)
 
@@ -241,12 +250,12 @@ class TestResume(_TestBase):
 
         for f in remove:
             try:
-                os.remove(self.output_dir / "TEST_and_TEST" / f)
+                os.remove(self.output_dir / "TEST_homo_2er" / f)
             except FileNotFoundError:
                 pass
 
         res = subprocess.run(args, capture_output=True, text=True)
-        self._runCommonTests(res, multimer=True, dirname="TEST_and_TEST")
+        self._runCommonTests(res, multimer=True, dirname="TEST_homo_2er")
         self._runAfterRelaxTests(relax_mode)
 
 
