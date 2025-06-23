@@ -338,6 +338,30 @@ class _TestBase(parameterized.TestCase):
 
     def _process_chopped_protein_line(self, line: str) -> List[Tuple[str, str]]:
         """Process a line with chopped proteins (comma-separated ranges)."""
+        def get_chopped_sequence(protein_name: str, regions: list) -> str:
+            # Get the full sequence from PKL or FASTA
+            full_sequence = self._get_sequence_for_protein(protein_name)
+            if not full_sequence:
+                return None
+            chopped_sequence = ""
+            for start, end in regions:
+                # Convert to 0-based indexing
+                start_idx = start - 1
+                end_idx = end  # end is exclusive
+                chopped_sequence += full_sequence[start_idx:end_idx]
+            return chopped_sequence
+
+        def parse_protein_and_regions(part: str):
+            # Example: A0A075B6L2,1-10,2-5,3-12
+            tokens = [x.strip() for x in part.split(",")]
+            protein_name = tokens[0]
+            regions = []
+            for region_str in tokens[1:]:
+                if "-" in region_str:
+                    s, e = region_str.split("-")
+                    regions.append((int(s), int(e)))
+            return protein_name, regions
+
         if ";" in line:
             # Multiple chopped proteins
             sequences = []
@@ -345,12 +369,11 @@ class _TestBase(parameterized.TestCase):
             for i, part in enumerate(parts):
                 part = part.strip()
                 if "," in part:
-                    # Extract protein name before first comma
-                    protein_name = part.split(",")[0].strip()
+                    protein_name, regions = parse_protein_and_regions(part)
+                    sequence = get_chopped_sequence(protein_name, regions)
                 else:
                     protein_name = part
-                
-                sequence = self._get_sequence_for_protein(protein_name)
+                    sequence = self._get_sequence_for_protein(protein_name)
                 if sequence:
                     chain_id = chr(ord('A') + i)
                     sequences.append((chain_id, sequence))
@@ -359,15 +382,13 @@ class _TestBase(parameterized.TestCase):
             # Single chopped protein
             part = line.strip()
             if "," in part:
-                # Extract protein name before first comma
-                protein_name = part.split(",")[0].strip()
+                protein_name, regions = parse_protein_and_regions(part)
+                sequence = get_chopped_sequence(protein_name, regions)
             else:
                 protein_name = part
-            
-            sequence = self._get_sequence_for_protein(protein_name)
+                sequence = self._get_sequence_for_protein(protein_name)
             if sequence:
                 return [('A', sequence)]
-        
         return []
 
     def _extract_cif_chains_and_sequences(self, cif_path: Path) -> List[Tuple[str, str]]:

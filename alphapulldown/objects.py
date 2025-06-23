@@ -417,7 +417,12 @@ class ChoppedObject(MonomericObject):
             ),
             **new_msa_feature,
         }
-        self.new_sequence = self.new_sequence + new_sequence
+        # Fix: always concatenate as string
+        if isinstance(new_sequence, np.ndarray):
+            new_sequence_str = new_sequence[0].decode() if isinstance(new_sequence[0], bytes) else str(new_sequence[0])
+        else:
+            new_sequence_str = new_sequence
+        self.new_sequence = self.new_sequence + new_sequence_str
         return sliced_feature_dict
 
     def concatenate_sliced_feature_dict(self, feature_dicts: list):
@@ -483,8 +488,8 @@ class ChoppedObject(MonomericObject):
         self.new_sequence = ""
         
         if len(self.regions) == 1:
-            start_point = self.regions[0][0] - 1  # Convert to 0-based indexing
-            end_point = self.regions[0][1]        # Keep as is (exclusive)
+            start_point = self.regions[0][0]  # Pass as 1-based
+            end_point = self.regions[0][1]    # Keep as is (exclusive)
             self.new_feature_dict = self.prepare_individual_sliced_feature_dict(
                 self.feature_dict, start_point, end_point
             )
@@ -493,8 +498,8 @@ class ChoppedObject(MonomericObject):
         elif len(self.regions) > 1:
             temp_feature_dicts = []
             for sub_region in self.regions:
-                start_point = sub_region[0] - 1  # Convert to 0-based indexing
-                end_point = sub_region[1]        # Keep as is (exclusive)
+                start_point = sub_region[0]  # Pass as 1-based
+                end_point = sub_region[1]    # Keep as is (exclusive)
                 curr_feature_dict = self.prepare_individual_sliced_feature_dict(
                     self.feature_dict, start_point, end_point
                 )
