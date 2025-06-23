@@ -15,6 +15,7 @@ import jax
 gpus = jax.local_devices(backend='gpu')
 from alphapulldown.scripts.run_structure_prediction import FLAGS
 from alphapulldown.utils.create_combinations import process_files
+from alphapulldown.folding_backend.alphafold_backend import ModelsToRelax
 
 logging.set_verbosity(logging.INFO)
 
@@ -79,6 +80,14 @@ def main(argv):
     elif FLAGS.use_unifold:
         fold_backend, model_dir = "unifold", FLAGS.unifold_param
 
+    # Convert string models_to_relax to enum value
+    models_to_relax_mapping = {
+        'None': ModelsToRelax.NONE,
+        'All': ModelsToRelax.ALL,
+        'Best': ModelsToRelax.BEST
+    }
+    models_to_relax_enum = models_to_relax_mapping[FLAGS.models_to_relax]
+
     constant_args = {
         "--input": None,
         "--output_directory": FLAGS.output_path,
@@ -103,7 +112,7 @@ def main(argv):
         "--protein_delimiter": FLAGS.protein_delimiter,
         "--desired_num_res": FLAGS.desired_num_res,
         "--desired_num_msa": FLAGS.desired_num_msa,
-        "--models_to_relax": FLAGS.models_to_relax
+        "--models_to_relax": models_to_relax_enum.name
     }
 
     command_args = {}
