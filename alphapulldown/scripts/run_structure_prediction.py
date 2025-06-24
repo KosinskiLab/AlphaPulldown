@@ -117,6 +117,7 @@ flags.DEFINE_list(
     'buckets',
     # pyformat: disable
     ['64', '128', '256', '512', '768', '1024', '1280', '1536', '2048', '2560', '3072',
+    ['64', '128', '256', '512', '768', '1024', '1280', '1536', '2048', '2560', '3072',
      '3584', '4096', '4608', '5120'],
     # pyformat: enable
     'Strictly increasing order of token sizes for which to cache compilations.'
@@ -173,10 +174,10 @@ def predict_structure(
 
     Parameters
     ----------
-    objects_to_model : A list of dictionaries. Each dictionary has keys 'object' and 'output_dir'.
-       The 'object' key contains an instance of MultimericObject, MonomericObject, or ChoppedObject
-       representing the multimeric/monomeric structure(s) for which predictions are to be made.
-       The 'output_dir' key contains the corresponding output directory to save the modelling results.
+    objects_to_model : A list of dictionaries. Each dictionary has a key of either:
+        - MultimericObject, MonomericObject, or ChoppedObject for AlphaPulldown objects
+        - Dict[str, str] with 'json_input' key for JSON inputs
+       The value of each dictionary is the corresponding output_dir to save the modelling results.
     model_flags : Dict
         Dictionary of flags passed to the respective backend's predict function.
     postprocess_flags : Dict
