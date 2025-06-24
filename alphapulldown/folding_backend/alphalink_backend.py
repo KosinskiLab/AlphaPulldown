@@ -302,7 +302,7 @@ class AlphaLinkBackend(FoldingBackend):
         configs: Dict,
         param_path: str,
         crosslinks: str,
-        objects_to_model: List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject], str]],
+        objects_to_model: List[Dict[str, Union[MultimericObject, MonomericObject, ChoppedObject, str]]],
         **kwargs,
     ):
         """
@@ -310,19 +310,24 @@ class AlphaLinkBackend(FoldingBackend):
 
         Parameters
         ----------
-        model_config : Dict
+        configs : Dict
             Configuration dictionary for the AlphaLink model obtained from
             py:meth:`AlphaLinkBackend.setup`.
-        multimeric_object : MultimericObject
-            An object containing the features of the multimeric protein to predict.
-        output_dir : str
-            The directory where the prediction outputs will be saved.
+        param_path : str
+            Path to the AlphaLink model parameters.
+        crosslinks : str
+            Path to crosslink information pickle for AlphaLink.
+        objects_to_model : List[Dict[str, Union[MultimericObject, MonomericObject, ChoppedObject, str]]]
+            A list of dictionaries. Each dictionary has keys 'object' and 'output_dir'.
+            The 'object' key contains an instance of MultimericObject, MonomericObject, or ChoppedObject.
+            The 'output_dir' key contains the corresponding output directory to save the modelling results.
         **kwargs : dict
             Additional keyword arguments for prediction.
         """
         logging.warning(f"You chose to model with AlphaLink2 via AlphaPulldown. Please also cite:K.Stahl,O.Brock and J.Rappsilber, Modelling protein complexes with crosslinking mass spectrometry and deep learning, 2023, doi: 10.1101/2023.06.07.544059")
-        for m in objects_to_model:
-            object_to_model, output_dir = next(iter(m.items()))
+        for entry in objects_to_model:
+            object_to_model = entry['object']
+            output_dir = entry['output_dir']
             makedirs(output_dir, exist_ok=True)
             AlphaLinkBackend.predict_iterations(object_to_model.feature_dict,output_dir,
                                                 configs=configs,crosslinks=crosslinks,
@@ -330,8 +335,9 @@ class AlphaLinkBackend(FoldingBackend):
                                                 chain_id_map=object_to_model.chain_id_map,
                                                 param_path=param_path,
             )
-            yield {object_to_model: {"prediction_results": "",
-                                     "output_dir": output_dir}}
+            yield {'object': object_to_model, 
+                   'prediction_results': "",
+                   'output_dir': output_dir}
 
     @staticmethod
     def postprocess(prediction_results: Dict,

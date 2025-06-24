@@ -427,13 +427,15 @@ class AlphaFoldBackend(FoldingBackend):
 
     @staticmethod
     def predict(model_runners: Dict,
-                objects_to_model: List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject], str]],
+                objects_to_model: list,  # List of dicts with 'object' and 'output_dir'
                 allow_resume: bool,
                 skip_templates: bool,
                 random_seed: int = 42,
                 **kwargs):
-        for m in objects_to_model:
-            object_to_model, output_dir = next(iter(m.items()))
+        for entry in objects_to_model:
+            object_to_model = entry['object']
+            output_dir = entry['output_dir']
+            
             prediction_results = AlphaFoldBackend.predict_individual_job(
                 model_runners=model_runners,
                 multimeric_object=object_to_model,
@@ -444,8 +446,9 @@ class AlphaFoldBackend(FoldingBackend):
                 **kwargs
             )
             
-            yield {object_to_model: {"prediction_results": prediction_results,
-                                     "output_dir": output_dir}}
+            yield {'object': object_to_model, 
+                   'prediction_results': prediction_results,
+                   'output_dir': output_dir}
             
     @staticmethod
     def recalculate_confidence(prediction_results: Dict, multimer_mode:bool, 
