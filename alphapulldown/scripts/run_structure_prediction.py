@@ -212,30 +212,27 @@ def predict_structure(
         )
 
 def pre_modelling_setup(
-    interactors : List[Union[MonomericObject, ChoppedObject]], flags, output_dir) -> Tuple[Union[MultimericObject,MonomericObject, ChoppedObject], dict, dict, str]:
+    interactors : List[Union[MonomericObject, ChoppedObject]], output_dir) -> Tuple[Union[MultimericObject,MonomericObject, ChoppedObject], str]:
     """
-    A function that sets up objects that to be modelled 
-    and settings dictionaries 
+    A function that sets up objects to be modelled and handles output directory preparation.
 
     Args:
-    inteactors: A list of MOnomericobejct or ChoppedObject. If len(interactors) ==1, 
+    interactors: A list of MonomericObject or ChoppedObject. If len(interactors) == 1, 
     that means a monomeric modelling job should be done. Otherwise, it will be a multimeric modelling job
-    args: argparse results
+    output_dir: base output directory
 
     Return:
     A MultimericObject or MonomericObject
-    A dictionary of flags_dict
-    A dicionatry of postprocessing_flags
-    output_directory of this particular modelling job
+    output_directory for this particular modelling job
     """
     if len(interactors) > 1:
         # this means it's going to be a MultimericObject
         object_to_model = MultimericObject(
             interactors=interactors,
-            pair_msa= flags.pair_msa,
-            multimeric_template=flags.multimeric_template,
-            multimeric_template_meta_data=flags.description_file,
-            multimeric_template_dir=flags.path_to_mmt,
+            pair_msa=FLAGS.pair_msa,
+            multimeric_template=FLAGS.multimeric_template,
+            multimeric_template_meta_data=FLAGS.description_file,
+            multimeric_template_dir=FLAGS.path_to_mmt,
         )
         if FLAGS.save_features_for_multimeric_object:
             pickle.dump(MultimericObject.feature_dict, open(join(output_dir, "multimeric_object_features.pkl"), "wb"))
@@ -244,41 +241,7 @@ def pre_modelling_setup(
         object_to_model= interactors[0]
         object_to_model.input_seqs = [object_to_model.sequence]
 
-    # TODO: Add backend specific flags here
-    flags_dict = {
-        "model_name": "monomer_ptm",
-        "num_cycle": flags.num_cycle,
-        "model_dir": FLAGS.data_directory,
-        "num_predictions_per_model": flags.num_predictions_per_model,
-        "crosslinks": flags.crosslinks,
-        "desired_num_res": flags.desired_num_res,
-        "desired_num_msa": flags.desired_num_msa,
-        "skip_templates": flags.skip_templates,
-        "allow_resume": flags.allow_resume,
-        "num_diffusion_samples": FLAGS.num_diffusion_samples,
-        "flash_attention_implementation": FLAGS.flash_attention_implementation,
-        "buckets": FLAGS.buckets,
-        "jax_compilation_cache_dir": FLAGS.jax_compilation_cache_dir,
-        "features_directory": FLAGS.features_directory,
-    }
-
-    if isinstance(object_to_model, MultimericObject):
-        flags_dict["model_name"] = "multimer"
-        flags_dict["msa_depth_scan"] = flags.msa_depth_scan
-        flags_dict["model_names_custom"] = flags.model_names
-        flags_dict["msa_depth"] = flags.msa_depth
-
-    postprocess_flags = {
-        "compress_pickles": flags.compress_result_pickles,
-        "remove_pickles": flags.remove_result_pickles,
-        "remove_keys_from_pickles": flags.remove_keys_from_pickles,
-        "use_gpu_relax": flags.use_gpu_relax,
-        "models_to_relax": flags.models_to_relax,
-        "features_directory": flags.features_directory,
-        "convert_to_modelcif": flags.convert_to_modelcif
-    }
-
-    if flags.use_ap_style:
+    if FLAGS.use_ap_style:
         list_oligo = object_to_model.description.split("_and_")
         if len(list_oligo) == len(set(list_oligo)) : #no homo-oligomer
            output_dir = join(output_dir, object_to_model.description)
@@ -308,7 +271,7 @@ def pre_modelling_setup(
     
     # Copy features metadata to output directory
     for interactor in interactors:
-        for feature_dir in flags.features_directory:
+        for feature_dir in FLAGS.features_directory:
             # meta.json is named the same way as the pickle file
             if isinstance(interactor, ChoppedObject):
                 description = interactor.monomeric_description
@@ -338,7 +301,7 @@ def pre_modelling_setup(
         else:
             logging.warning(f"No feature metadata found for {interactor.description} in {feature_dir}")
 
-    return object_to_model, flags_dict, postprocess_flags, output_dir
+    return object_to_model, output_dir
 
 def main(argv):
     # Parse inputs and build interactor objects
@@ -356,15 +319,46 @@ def main(argv):
             "Either specify one output_directory for all folds or one per fold."
         )
 
+    # Define default model and postprocess flags
+    default_model_flags = {
+        "model_name": "monomer_ptm",
+        "num_cycle": FLAGS.num_cycle,
+        "model_dir": FLAGS.data_directory,
+        "num_predictions_per_model": FLAGS.num_predictions_per_model,
+        "crosslinks": FLAGS.crosslinks,
+        "desired_num_res": FLAGS.desired_num_res,
+        "desired_num_msa": FLAGS.desired_num_msa,
+        "skip_templates": FLAGS.skip_templates,
+        "allow_resume": FLAGS.allow_resume,
+        "num_diffusion_samples": FLAGS.num_diffusion_samples,
+        "flash_attention_implementation": FLAGS.flash_attention_implementation,
+        "buckets": FLAGS.buckets,
+        "jax_compilation_cache_dir": FLAGS.jax_compilation_cache_dir,
+        "features_directory": FLAGS.features_directory,
+    }
+
+    default_postprocess_flags = {
+        "compress_pickles": FLAGS.compress_result_pickles,
+        "remove_pickles": FLAGS.remove_result_pickles,
+        "remove_keys_from_pickles": FLAGS.remove_keys_from_pickles,
+        "use_gpu_relax": FLAGS.use_gpu_relax,
+        "models_to_relax": FLAGS.models_to_relax,
+        "features_directory": FLAGS.features_directory,
+        "convert_to_modelcif": FLAGS.convert_to_modelcif
+    }
+
     # Prepare the list of jobs
     objects_to_model = []
+    final_model_flags = default_model_flags
+    final_postprocess_flags = default_postprocess_flags
+    
     for interactors, out_dir in zip(all_interactors, out_dirs):
         if not interactors:
             continue
 
         # Separate JSON-only entries
-        json_paths = [
-            d['json_input']
+        json_dicts = [
+            d
             for d in interactors
             if isinstance(d, dict) and 'json_input' in d
         ]
@@ -375,21 +369,33 @@ def main(argv):
 
         # First handle any protein objects
         if prot_objs:
-            obj, mflags, pflags, real_out = pre_modelling_setup(
-                prot_objs, FLAGS, output_dir=out_dir
+            obj, real_out = pre_modelling_setup(
+                prot_objs, output_dir=out_dir
             )
             objects_to_model.append({'object': obj, 'output_dir': real_out})
+            
+            # Update final flags based on object type
+            final_model_flags = default_model_flags.copy()
+            final_postprocess_flags = default_postprocess_flags.copy()
+            
+            if isinstance(obj, MultimericObject):
+                final_model_flags.update({
+                    "model_name": "multimer",
+                    "msa_depth_scan": FLAGS.msa_depth_scan,
+                    "model_names_custom": FLAGS.model_names,
+                    "msa_depth": FLAGS.msa_depth
+                })
         # Then handle any number of JSON inputs
-        for jp in json_paths:
-            objects_to_model.append({'object': jp, 'output_dir': out_dir})
+        for json_dict in json_dicts:
+            objects_to_model.append({'object': json_dict, 'output_dir': out_dir})
 
-
-    predict_structure(
-        objects_to_model=objects_to_model,
-        model_flags=mflags,
-        postprocess_flags=pflags,
-        fold_backend=FLAGS.fold_backend
-    )
+    if objects_to_model:
+        predict_structure(
+            objects_to_model=objects_to_model,
+            model_flags=final_model_flags,
+            postprocess_flags=final_postprocess_flags,
+            fold_backend=FLAGS.fold_backend
+        )
 
 
 if __name__ == '__main__':

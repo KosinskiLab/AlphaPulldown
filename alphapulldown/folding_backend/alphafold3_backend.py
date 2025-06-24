@@ -572,7 +572,7 @@ class AlphaFold3Backend(FoldingBackend):
     @staticmethod
     def predict(
         model_runner: ModelRunner,
-        objects_to_model: List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject, 'folding_input.Input'], str]],
+        objects_to_model: List[Dict[str, Union[MultimericObject, MonomericObject, ChoppedObject, 'folding_input.Input', str]]],
         random_seed: int,
         buckets: int,
         **kwargs,
