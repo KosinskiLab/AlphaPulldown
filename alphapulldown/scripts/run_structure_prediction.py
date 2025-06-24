@@ -116,7 +116,7 @@ flags.DEFINE_string(
 flags.DEFINE_list(
     'buckets',
     # pyformat: disable
-    ['256', '512', '768', '1024', '1280', '1536', '2048', '2560', '3072',
+    ['64', '128', '256', '512', '768', '1024', '1280', '1536', '2048', '2560', '3072',
      '3584', '4096', '4608', '5120'],
     # pyformat: enable
     'Strictly increasing order of token sizes for which to cache compilations.'
@@ -163,7 +163,7 @@ flags.DEFINE_string('fold_backend', 'alphafold',
 FLAGS = flags.FLAGS
 
 def predict_structure(
-    objects_to_model: List[Dict[str, Union[MultimericObject, MonomericObject, ChoppedObject, str]]],
+    objects_to_model: List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject, Dict[str, str]], str]],
     model_flags: Dict,
     postprocess_flags: Dict,
     fold_backend: str = "alphafold"
@@ -249,7 +249,7 @@ def pre_modelling_setup(
         "model_name": "monomer_ptm",
         "num_cycle": flags.num_cycle,
         "model_dir": flags.data_directory,
-        "num_predictions_per_model": flags.num_predictions_per_model,
+        "num_multimer_predictions_per_model": flags.num_predictions_per_model,
         "crosslinks": flags.crosslinks,
         "desired_num_res": flags.desired_num_res,
         "desired_num_msa": flags.desired_num_msa,
@@ -341,23 +341,49 @@ def pre_modelling_setup(
     return object_to_model, flags_dict, postprocess_flags, output_dir
 
 def main(argv):
-    parsed_input = parse_fold(FLAGS.input, FLAGS.features_directory, FLAGS.protein_delimiter)
-    data = create_custom_info(parsed_input)
+    # Parse inputs and build interactor objects
+    parsed = parse_fold(FLAGS.input, FLAGS.features_directory, FLAGS.protein_delimiter)
+    data = create_custom_info(parsed)
     all_interactors = create_interactors(data, FLAGS.features_directory)
-    objects_to_model = [] 
-
-    if len(FLAGS.input) != len(FLAGS.output_directory):
-        FLAGS.output_directory *= len(FLAGS.input)
-
-    if len(FLAGS.input) != len(FLAGS.output_directory):
+    n = len(FLAGS.input)
+    # Normalize output dirs
+    if len(FLAGS.output_directory) == 1:
+        out_dirs = FLAGS.output_directory * n
+    elif len(FLAGS.output_directory) == n:
+        out_dirs = FLAGS.output_directory
+    else:
         raise ValueError(
-            "Either specify one output_directory per fold or one for all folds."
+            "Either specify one output_directory for all folds or one per fold."
         )
 
-    for index, interactors in enumerate(all_interactors):
-        object_to_model, flags_dict, postprocess_flags, output_dir = pre_modelling_setup(interactors, FLAGS, output_dir = FLAGS.output_directory[index])
-        objects_to_model.append({object_to_model: output_dir})
-    # Prepare model and postprocess flags
+    # Prepare the list of jobs
+    objects_to_model = []
+    for interactors, out_dir in zip(all_interactors, out_dirs):
+        if not interactors:
+            continue
+
+        # Separate JSON-only entries
+        json_paths = [
+            d['json_input']
+            for d in interactors
+            if isinstance(d, dict) and 'json_input' in d
+        ]
+        prot_objs = [
+            x for x in interactors
+            if not (isinstance(x, dict) and 'json_input' in x)
+        ]
+
+        # First handle any protein objects
+        if prot_objs:
+            obj, mflags, pflags, real_out = pre_modelling_setup(
+                prot_objs, FLAGS, output_dir=out_dir
+            )
+            objects_to_model.append({obj: real_out})
+        # Then handle any number of JSON inputs
+        for jp in json_paths:
+            objects_to_model.append({jp: out_dir})
+
+    # Build flags dicts for predict_structure
     model_flags = {
         "num_diffusion_samples": FLAGS.num_diffusion_samples,
         "flash_attention_implementation": FLAGS.flash_attention_implementation,
@@ -365,22 +391,6 @@ def main(argv):
         "jax_compilation_cache_dir": FLAGS.jax_compilation_cache_dir,
         "model_dir": FLAGS.data_directory,
         "features_directory": FLAGS.features_directory,
-        "model_names": FLAGS.model_preset,
-        "model_names_custom": FLAGS.model_names,
-        "msa_depth_scan": FLAGS.msa_depth_scan,
-        "msa_depth": FLAGS.msa_depth,
-        "pair_msa": FLAGS.pair_msa,
-        "multimeric_template": FLAGS.multimeric_template,
-        "multimeric_template_meta_data": FLAGS.description_file,
-        "multimeric_template_dir": FLAGS.path_to_mmt,
-        "num_cycle": FLAGS.num_cycle,
-        "num_predictions_per_model": FLAGS.num_predictions_per_model,
-        "crosslinks": FLAGS.crosslinks,
-        "desired_num_res": FLAGS.desired_num_res,
-        "desired_num_msa": FLAGS.desired_num_msa,
-        "skip_templates": FLAGS.skip_templates,
-        "allow_resume": FLAGS.allow_resume,
-        # Any other flags needed for backend can be added here
     }
     postprocess_flags = {
         "compress_pickles": FLAGS.compress_result_pickles,
@@ -391,12 +401,12 @@ def main(argv):
         "features_directory": FLAGS.features_directory,
         "convert_to_modelcif": FLAGS.convert_to_modelcif
     }
-    # For alphafold3, merging with input.json is handled in the backend
+
     predict_structure(
         objects_to_model=objects_to_model,
         model_flags=model_flags,
-        fold_backend=FLAGS.fold_backend,
-        postprocess_flags=postprocess_flags
+        postprocess_flags=postprocess_flags,
+        fold_backend=FLAGS.fold_backend
     )
 
 
