@@ -190,7 +190,7 @@ class TestResume(_TestBase):
     # ------------ helper --------------------------------------------------- #
     def _runAfterRelaxTests(self, relax_mode="All"):
         expected = {"None": 0, "Best": 1, "All": 5}[relax_mode]
-        d = self.output_dir / "TEST_and_TEST"
+        d = self.output_dir / "TEST_homo_2er"
         got = len([f for f in d.iterdir() if f.name.startswith("relaxed") and f.suffix == ".pdb"])
         self.assertEqual(got, expected)
 
@@ -241,12 +241,12 @@ class TestResume(_TestBase):
 
         for f in remove:
             try:
-                os.remove(self.output_dir / "TEST_and_TEST" / f)
+                os.remove(self.output_dir / "TEST_homo_2er" / f)
             except FileNotFoundError:
                 pass
 
         res = subprocess.run(args, capture_output=True, text=True)
-        self._runCommonTests(res, multimer=True, dirname="TEST_and_TEST")
+        self._runCommonTests(res, multimer=True, dirname="TEST_homo_2er")
         self._runAfterRelaxTests(relax_mode)
 
 

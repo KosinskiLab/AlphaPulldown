@@ -117,7 +117,6 @@ flags.DEFINE_list(
     'buckets',
     # pyformat: disable
     ['64', '128', '256', '512', '768', '1024', '1280', '1536', '2048', '2560', '3072',
-    ['64', '128', '256', '512', '768', '1024', '1280', '1536', '2048', '2560', '3072',
      '3584', '4096', '4608', '5120'],
     # pyformat: enable
     'Strictly increasing order of token sizes for which to cache compilations.'
@@ -164,7 +163,7 @@ flags.DEFINE_string('fold_backend', 'alphafold',
 FLAGS = flags.FLAGS
 
 def predict_structure(
-    objects_to_model: List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject, Dict[str, str]], str]],
+    objects_to_model: List[Dict[str, Union[MultimericObject, MonomericObject, ChoppedObject, str]]],
     model_flags: Dict,
     postprocess_flags: Dict,
     fold_backend: str = "alphafold"
@@ -249,18 +248,18 @@ def pre_modelling_setup(
     flags_dict = {
         "model_name": "monomer_ptm",
         "num_cycle": flags.num_cycle,
-        "model_dir": flags.data_directory,
-        "num_multimer_predictions_per_model": flags.num_predictions_per_model,
+        "model_dir": FLAGS.data_directory,
+        "num_predictions_per_model": flags.num_predictions_per_model,
         "crosslinks": flags.crosslinks,
         "desired_num_res": flags.desired_num_res,
         "desired_num_msa": flags.desired_num_msa,
         "skip_templates": flags.skip_templates,
-        "allow_resume" : flags.allow_resume,
-        "num_diffusion_samples" : flags.num_diffusion_samples,
-        "flash_attention_implementation" : flags.flash_attention_implementation,
-        "buckets" : flags.buckets,
-        "jax_compilation_cache_dir" : flags.jax_compilation_cache_dir,
-        "num_predictions_per_model" : flags.num_predictions_per_model,
+        "allow_resume": flags.allow_resume,
+        "num_diffusion_samples": FLAGS.num_diffusion_samples,
+        "flash_attention_implementation": FLAGS.flash_attention_implementation,
+        "buckets": FLAGS.buckets,
+        "jax_compilation_cache_dir": FLAGS.jax_compilation_cache_dir,
+        "features_directory": FLAGS.features_directory,
     }
 
     if isinstance(object_to_model, MultimericObject):
@@ -379,34 +378,16 @@ def main(argv):
             obj, mflags, pflags, real_out = pre_modelling_setup(
                 prot_objs, FLAGS, output_dir=out_dir
             )
-            objects_to_model.append({obj: real_out})
+            objects_to_model.append({'object': obj, 'output_dir': real_out})
         # Then handle any number of JSON inputs
         for jp in json_paths:
-            objects_to_model.append({jp: out_dir})
+            objects_to_model.append({'object': jp, 'output_dir': out_dir})
 
-    # Build flags dicts for predict_structure
-    model_flags = {
-        "num_diffusion_samples": FLAGS.num_diffusion_samples,
-        "flash_attention_implementation": FLAGS.flash_attention_implementation,
-        "buckets": FLAGS.buckets,
-        "jax_compilation_cache_dir": FLAGS.jax_compilation_cache_dir,
-        "model_dir": FLAGS.data_directory,
-        "features_directory": FLAGS.features_directory,
-    }
-    postprocess_flags = {
-        "compress_pickles": FLAGS.compress_result_pickles,
-        "remove_pickles": FLAGS.remove_result_pickles,
-        "remove_keys_from_pickles": FLAGS.remove_keys_from_pickles,
-        "use_gpu_relax": FLAGS.use_gpu_relax,
-        "models_to_relax": FLAGS.models_to_relax,
-        "features_directory": FLAGS.features_directory,
-        "convert_to_modelcif": FLAGS.convert_to_modelcif
-    }
 
     predict_structure(
         objects_to_model=objects_to_model,
-        model_flags=model_flags,
-        postprocess_flags=postprocess_flags,
+        model_flags=mflags,
+        postprocess_flags=pflags,
         fold_backend=FLAGS.fold_backend
     )
 
