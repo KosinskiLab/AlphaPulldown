@@ -103,7 +103,7 @@ class TestParseFold(parameterized.TestCase):
             'features_directory': ['dir1'],
             'protein_delimiter': '_',
             'mock_side_effect': {},
-            'expected_exception': ValueError,
+            'expected_exception': SystemExit,
         },
         {
             'testcase_name': 'feature_exists_in_multiple_dirs',
