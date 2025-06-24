@@ -163,7 +163,7 @@ flags.DEFINE_string('fold_backend', 'alphafold',
 FLAGS = flags.FLAGS
 
 def predict_structure(
-    objects_to_model: List[Dict[Union[MultimericObject, MonomericObject, ChoppedObject], str]],
+    objects_to_model: List[Dict[str, Union[MultimericObject, MonomericObject, ChoppedObject, str]]],
     model_flags: Dict,
     postprocess_flags: Dict,
     fold_backend: str = "alphafold"
@@ -173,18 +173,14 @@ def predict_structure(
 
     Parameters
     ----------
-    objects_to_model : A list of dictionareis. Each dicionary has a key of MultimericObject or MonomericObject or ChoppedObject
-       which is an instance of `MultimericObject` representing the multimeric/monomeric structure(s).
-       for which predictions are to be made. These objects should be created using functions like
-    `create_multimer_objects()`, `create_custom_jobs()`, or `create_homooligomers()`.
-    The value of each dictionary is the corresponding output_dir to save the modelling results. 
+    objects_to_model : A list of dictionaries. Each dictionary has keys 'object' and 'output_dir'.
+       The 'object' key contains an instance of MultimericObject, MonomericObject, or ChoppedObject
+       representing the multimeric/monomeric structure(s) for which predictions are to be made.
+       The 'output_dir' key contains the corresponding output directory to save the modelling results.
     model_flags : Dict
         Dictionary of flags passed to the respective backend's predict function.
     postprocess_flags : Dict
         Dictionary of flags passed to the respective backend's postprocess function.
-    random_seed : int, optional
-        The random seed for initializing the prediction process to ensure reproducibility.
-        Default is randomly generated.
     fold_backend : str, optional
         Backend used for folding, defaults to alphafold.
     """
@@ -205,12 +201,14 @@ def predict_structure(
     )
 
     for predicted_job in predicted_jobs:
-        object_to_model, prediction_results = next(iter(predicted_job.items()))
+        object_to_model = predicted_job['object']
+        prediction_results = predicted_job['prediction_results']
+        output_dir = predicted_job['output_dir']
         backend.postprocess(
             **postprocess_flags,
             multimeric_object=object_to_model,
-            prediction_results = prediction_results['prediction_results'],
-            output_dir = prediction_results['output_dir']
+            prediction_results=prediction_results,
+            output_dir=output_dir
         )
 
 def pre_modelling_setup(
@@ -261,6 +259,7 @@ def pre_modelling_setup(
         "flash_attention_implementation" : flags.flash_attention_implementation,
         "buckets" : flags.buckets,
         "jax_compilation_cache_dir" : flags.jax_compilation_cache_dir,
+        "num_predictions_per_model" : flags.num_predictions_per_model,
     }
 
     if isinstance(object_to_model, MultimericObject):
