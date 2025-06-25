@@ -90,8 +90,8 @@ RUN conda run -n af3 pip install --upgrade pip && \
 # 5) Clone + Install AlphaPulldown (No Deps)
 # -----------------------------------------------------------------------------
 RUN git clone --recurse-submodules https://github.com/KosinskiLab/AlphaPulldown.git /AlphaPulldown
-#COPY . /AlphaPulldown
-WORKDIR AlphaPulldown
+# COPY . /AlphaPulldown
+WORKDIR /AlphaPulldown
 RUN conda run -n af3 pip install . --no-deps && ls
 
 # -----------------------------------------------------------------------------
@@ -103,7 +103,6 @@ ENV SKBUILD_CONFIGURE_OPTIONS="-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF"
 ENV SKBUILD_BUILD_OPTIONS="-j1"
 WORKDIR /AlphaPulldown/alphafold3
 ENV CMAKE_CXX_STANDARD=17
-#RUN apt-get update && apt-get install -y g++-12
 ENV CXXFLAGS="-O2 -fno-lto -std=gnu++20 -fno-inline"
 
 RUN conda run -n af3 pip install --upgrade pip scikit_build_core pybind11 "cmake>=3.28" ninja && \
@@ -113,9 +112,21 @@ RUN conda run -n af3 pip install --upgrade pip scikit_build_core pybind11 "cmake
 # -----------------------------------------------------------------------------
 # 7) Optional XLA Vars
 # -----------------------------------------------------------------------------
-ENV XLA_FLAGS="--xla_gpu_enable_triton_gemm=false" \
+ENV NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility \
+    XLA_FLAGS="--xla_disable_hlo_passes=custom-kernel-fusion-rewriter --xla_gpu_force_compilation_parallelism=0" \
+    JAX_FLASH_ATTENTION_IMPL=xla \
+    XLA_CLIENT_MEM_FRACTION=0.95 \
     XLA_PYTHON_CLIENT_PREALLOCATE=true \
-    XLA_CLIENT_MEM_FRACTION=0.95
+    ALPHAFOLD_DATA_DIR=/g/kosinski/dima/alphafold3_weights/ \
+    CONDA_DEFAULT_ENV=af3 \
+    PYTHONUTF8=1 \
+    PYTHONIOENCODING=utf-8 \
+    CMAKE_CXX_STANDARD=17 \
+    SKBUILD_CONFIGURE_OPTIONS="-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF" \
+    SKBUILD_BUILD_OPTIONS="-j1" \
+    PATH="/opt/conda/envs/af3/bin:$PATH" \
+    LD_LIBRARY_PATH="/opt/conda/lib:/usr/local/nvidia/lib:/usr/local/nvidia/lib64:$LD_LIBRARY_PATH"
 
 # -----------------------------------------------------------------------------
 # 8) Link run_structure_prediction.py
@@ -131,10 +142,11 @@ RUN ls -la /AlphaPulldown && \
     fi
 
 # -----------------------------------------------------------------------------
-# 9) Provide Shell Inside "af3"
+# 9) Provide Shell Inside "af3" by default
 # -----------------------------------------------------------------------------
-ENV PATH="/opt/conda/envs/af3/bin:$PATH"
-ENTRYPOINT ["/bin/bash"]
+SHELL ["/bin/bash", "-l", "-c"]
+RUN conda init bash && echo "conda activate af3" >> ~/.bashrc
+ENTRYPOINT ["bash", "-l"]
 
 # -----------------------------------------------------------------------------
 # 10) Validate imports automatically (Optional)
@@ -157,3 +169,4 @@ from alphafold3.model import model; \
 from alphapulldown.folding_backend.folding_backend import FoldingBackend; \
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject; \
 print('All imports succeeded!')"
+
