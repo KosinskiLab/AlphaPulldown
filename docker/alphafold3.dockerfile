@@ -95,15 +95,16 @@ WORKDIR /AlphaPulldown
 RUN conda run -n af3 pip install . --no-deps && ls
 
 # -----------------------------------------------------------------------------
-# 6) ENV Vars to Force UTF-8 Reading + Build AlphaFold 3
+# 6) ENV Vars to Force Build AlphaFold 3
 # -----------------------------------------------------------------------------
-ENV PYTHONIOENCODING=utf-8
-ENV PYTHONUTF8=1
-ENV SKBUILD_CONFIGURE_OPTIONS="-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF"
-ENV SKBUILD_BUILD_OPTIONS="-j1"
 WORKDIR /AlphaPulldown/alphafold3
 ENV CMAKE_CXX_STANDARD=17
 ENV CXXFLAGS="-O2 -fno-lto -std=gnu++20 -fno-inline"
+ENV PYTHONUTF8=1
+ENV PYTHONIOENCODING=utf-8
+ENV CMAKE_CXX_STANDARD=17
+ENV SKBUILD_CONFIGURE_OPTIONS="-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF"
+ENV SKBUILD_BUILD_OPTIONS="-j1"
 
 RUN conda run -n af3 pip install --upgrade pip scikit_build_core pybind11 "cmake>=3.28" ninja && \
     conda run -n af3 pip install --no-build-isolation --no-deps . && \
@@ -112,19 +113,21 @@ RUN conda run -n af3 pip install --upgrade pip scikit_build_core pybind11 "cmake
 # -----------------------------------------------------------------------------
 # 7) Optional XLA Vars
 # -----------------------------------------------------------------------------
+# To work around a known XLA issue causing the compilation time to greatly
+# increase, the following environment variable setting XLA flags must be enabled
+# when running AlphaFold 3. Note that if using CUDA capability 7 GPUs, it is
+# necessary to set the following XLA_FLAGS value instead:
+# ENV XLA_FLAGS="--xla_disable_hlo_passes=custom-kernel-fusion-rewriter"
+# (no need to disable gemm in that case as it is not supported for such GPU).
+ENV XLA_FLAGS="--xla_gpu_enable_triton_gemm=false"
+# Memory settings used for folding up to 5,120 tokens on A100 80 GB.
+ENV XLA_PYTHON_CLIENT_PREALLOCATE=true
+ENV XLA_CLIENT_MEM_FRACTION=0.95
+ENV TF_FORCE_UNIFIED_MEMORY='1'
+
 ENV NVIDIA_VISIBLE_DEVICES=all \
     NVIDIA_DRIVER_CAPABILITIES=compute,utility \
-    XLA_FLAGS="--xla_disable_hlo_passes=custom-kernel-fusion-rewriter --xla_gpu_force_compilation_parallelism=0" \
-    JAX_FLASH_ATTENTION_IMPL=xla \
-    XLA_CLIENT_MEM_FRACTION=0.95 \
-    XLA_PYTHON_CLIENT_PREALLOCATE=true \
-    ALPHAFOLD_DATA_DIR=/g/kosinski/dima/alphafold3_weights/ \
     CONDA_DEFAULT_ENV=af3 \
-    PYTHONUTF8=1 \
-    PYTHONIOENCODING=utf-8 \
-    CMAKE_CXX_STANDARD=17 \
-    SKBUILD_CONFIGURE_OPTIONS="-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF" \
-    SKBUILD_BUILD_OPTIONS="-j1" \
     PATH="/opt/conda/envs/af3/bin:$PATH" \
     LD_LIBRARY_PATH="/opt/conda/lib:/usr/local/nvidia/lib:/usr/local/nvidia/lib64:$LD_LIBRARY_PATH"
 
