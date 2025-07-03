@@ -7,6 +7,7 @@ wrapper decides *how* each case is executed.
 """
 from __future__ import annotations
 
+import io
 import json
 import os
 import pickle
@@ -19,6 +20,7 @@ from pathlib import Path
 from absl.testing import absltest, parameterized
 
 import alphapulldown
+from alphapulldown.utils.create_combinations import process_files
 
 
 # --------------------------------------------------------------------------- #
@@ -45,6 +47,24 @@ if FAST:
 #                       common helper mix-in / assertions                     #
 # --------------------------------------------------------------------------- #
 class _TestBase(parameterized.TestCase):
+    use_temp_dir = True  # Class variable to control directory behavior - default to True
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        # Create a base directory for all test outputs
+        if cls.use_temp_dir:
+            cls.base_output_dir = Path(tempfile.mkdtemp(prefix="af2_test_"))
+        else:
+            cls.base_output_dir = Path("test/test_data/predictions/af2_backend")
+            if cls.base_output_dir.exists():
+                try:
+                    shutil.rmtree(cls.base_output_dir)
+                except (PermissionError, OSError) as e:
+                    # If we can't remove the directory due to permissions, just warn and continue
+                    print(f"Warning: Could not remove existing output directory {cls.base_output_dir}: {e}")
+            cls.base_output_dir.mkdir(parents=True, exist_ok=True)
+
     def setUp(self):
         super().setUp()
 
@@ -57,14 +77,36 @@ class _TestBase(parameterized.TestCase):
         self.test_templates_dir = self.test_data_dir / "templates"
         self.test_modelling_dir = self.test_data_dir / "predictions"
 
-        # output dir – ephemeral
-        self.tempdir = tempfile.TemporaryDirectory()
-        self.output_dir = Path(self.tempdir.name)
+        # Create a unique output directory for this test
+        test_name = self._testMethodName
+        self.output_dir = self.base_output_dir / test_name
+        self.output_dir.mkdir(parents=True, exist_ok=True)
 
         # paths to alphapulldown CLI scripts
         apd_path = Path(alphapulldown.__path__[0])
         self.script_multimer = apd_path / "scripts" / "run_multimer_jobs.py"
         self.script_single = apd_path / "scripts" / "run_structure_prediction.py"
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        # Clean up all test outputs after all tests are done
+        if cls.use_temp_dir and cls.base_output_dir.exists():
+            try:
+                shutil.rmtree(cls.base_output_dir)
+            except (PermissionError, OSError) as e:
+                # If we can't remove the temp directory, just warn
+                print(f"Warning: Could not remove temporary directory {cls.base_output_dir}: {e}")
+                # Try to remove individual files that we can
+                try:
+                    for item in cls.base_output_dir.rglob("*"):
+                        if item.is_file():
+                            try:
+                                item.unlink()
+                            except (PermissionError, OSError):
+                                pass  # Skip files we can't remove
+                except Exception:
+                    pass  # Ignore any errors during cleanup
 
     # ---------------- assertions reused by all subclasses ----------------- #
     def _runCommonTests(self, res: subprocess.CompletedProcess, multimer: bool, dirname: str | None = None):
@@ -132,10 +174,21 @@ class _TestBase(parameterized.TestCase):
                 + f"={self.test_protein_lists_dir / plist}",
             ]
         else:  # run_structure_prediction.py
+            # Format from run_multimer_jobs.py input to run_structure_prediction.py input
+            buffer = io.StringIO()
+            _ = process_files(
+                input_files=[str(self.test_protein_lists_dir / plist)],
+                output_path=buffer,
+                exclude_permutations = True
+            )
+            buffer.seek(0)
+            formatted_input_lines = [x.strip().replace(",", ":").replace(";", "+") for x in buffer.readlines() if x.strip()]
+            # Use the first non-empty line as the input string
+            formatted_input = formatted_input_lines[0] if formatted_input_lines else ""
             return [
                 sys.executable,
                 str(self.script_single),
-                "--input=A0A075B6L2:10:1-3:4-5:6-7:7-8",
+                f"--input={formatted_input}",
                 f"--output_directory={self.output_dir}",
                 "--num_cycle=1",
                 "--num_predictions_per_model=1",
@@ -251,5 +304,19 @@ class TestResume(_TestBase):
 
 
 # --------------------------------------------------------------------------- #
+def _parse_test_args():
+    """Parse test-specific arguments that work with both absltest and pytest."""
+    # Check for --use-temp-dir in sys.argv or environment variable
+    use_temp_dir = '--use-temp-dir' in sys.argv or os.getenv('USE_TEMP_DIR', '').lower() in ('1', 'true', 'yes')
+    
+    # Remove the argument from sys.argv if present to avoid conflicts
+    while '--use-temp-dir' in sys.argv:
+        sys.argv.remove('--use-temp-dir')
+    
+    return use_temp_dir
+
+# Parse arguments at module level to work with both absltest and pytest
+_TestBase.use_temp_dir = _parse_test_args()
+
 if __name__ == "__main__":
     absltest.main()

@@ -13,7 +13,6 @@ import sys
 import tempfile
 from pathlib import Path
 import shutil
-import argparse
 import pickle
 import json
 import re
@@ -31,7 +30,7 @@ from alphapulldown.utils.create_combinations import process_files
 # Point to the full Alphafold database once, via env-var.
 DATA_DIR = os.getenv(
     "ALPHAFOLD_DATA_DIR",
-    "/g/alphafold/AlphaFold_DBs/3.0.0"   #  default for EMBL cluster
+    "/g/kosinski/dima/alphafold3_weights/"   #  default for EMBL cluster
 )
 if not os.path.exists(DATA_DIR):
     absltest.skip("set $ALPHAFOLD_DATA_DIR to run Alphafold functional tests")
@@ -1052,17 +1051,19 @@ class TestAlphaFold3RunModes(_TestBase):
 
 
 # --------------------------------------------------------------------------- #
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Run AlphaFold3 tests')
-    parser.add_argument('--use-temp-dir', action='store_true',
-                      help='Use temporary directory for test outputs instead of test/test_data/predictions/af3_backend')
-    args, remaining = parser.parse_known_args()
+def _parse_test_args():
+    """Parse test-specific arguments that work with both absltest and pytest."""
+    # Check for --use-temp-dir in sys.argv or environment variable
+    use_temp_dir = '--use-temp-dir' in sys.argv or os.getenv('USE_TEMP_DIR', '').lower() in ('1', 'true', 'yes')
     
-    # Set the use_temp_dir flag on the test class
-    _TestBase.use_temp_dir = args.use_temp_dir
-    
-    # Remove the --use-temp-dir argument from sys.argv so it doesn't interfere with pytest
-    if '--use-temp-dir' in sys.argv:
+    # Remove the argument from sys.argv if present to avoid conflicts
+    while '--use-temp-dir' in sys.argv:
         sys.argv.remove('--use-temp-dir')
     
+    return use_temp_dir
+
+# Parse arguments at module level to work with both absltest and pytest
+_TestBase.use_temp_dir = _parse_test_args()
+
+if __name__ == "__main__":
     absltest.main() 
