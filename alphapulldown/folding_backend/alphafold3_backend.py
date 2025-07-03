@@ -8,7 +8,6 @@ Author: Dmitry Molodenskiy <dmitry.molodenskiy@embl-hamburg.de>
 
 import csv
 import dataclasses
-import datetime
 import functools
 import logging
 import os
@@ -17,9 +16,6 @@ import time
 import typing
 from collections.abc import Sequence
 from typing import List, Dict, Union
-import json
-import itertools
-import string
 
 import alphafold3.cpp
 import haiku as hk
@@ -541,7 +537,7 @@ class AlphaFold3Backend(FoldingBackend):
         prepared_inputs = []
         chain_id_counter = [0]  # Use a list to allow pass-by-reference
         all_chains = []
-        job_name = "combined_prediction"
+        job_name = "ranked_0"
 
         for entry in objects_to_model:
             object_to_model = entry['object']
@@ -580,9 +576,6 @@ class AlphaFold3Backend(FoldingBackend):
         """Predicts structures for a list of objects using AlphaFold 3.
         Supports merging AlphaPulldown protein objects and input.json objects into a single job.
         """
-        """Predicts structures for a list of objects using AlphaFold 3.
-        Supports merging AlphaPulldown protein objects and input.json objects into a single job.
-        """
         if isinstance(buckets, int):
             buckets = [buckets]
         buckets = tuple(int(b) for b in buckets)
@@ -598,17 +591,13 @@ class AlphaFold3Backend(FoldingBackend):
         # Run predictions
         for mapping in prepared_inputs:
             (fold_input_obj, output_dir), = mapping.items()
-        # Prepare inputs
-        prepared_inputs = AlphaFold3Backend.prepare_input(
-            objects_to_model=objects_to_model,
-            random_seed=random_seed,
-            af3_input_json=kwargs.get("af3_input_json"),
-            features_directory=kwargs.get("features_directory"),
-        )
-
-        # Run predictions
-        for mapping in prepared_inputs:
-            (fold_input_obj, output_dir), = mapping.items()
+            
+            # Expand to multiple seeds if num_seeds is specified
+            num_seeds = kwargs.get('num_seeds')
+            if num_seeds is not None:
+                logging.info(f'Expanding fold job {fold_input_obj.name} to {num_seeds} seeds')
+                fold_input_obj = fold_input_obj.with_multiple_seeds(num_seeds)
+            
             try:
                 os.makedirs(output_dir, exist_ok=True)
             except OSError as e:

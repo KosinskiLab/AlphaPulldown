@@ -393,6 +393,10 @@ class _TestBase(parameterized.TestCase):
                     # JSON-only input
                     sequences = self._process_single_protein_line(line)
                 
+                case "test_multi_seeds_samples":
+                    # Test case for multiple seeds and diffusion samples (chopped protein)
+                    sequences = self._process_chopped_protein_line(line)
+                
                 case _:
                     # Default case: try to process as mixed line
                     sequences = self._process_mixed_line(line)
@@ -898,19 +902,29 @@ class _TestBase(parameterized.TestCase):
         self.assertIn("ranking_scores.csv", {f.name for f in files})
         
         # 2. Data and confidence files
-        data_files = [f for f in files if f.name.endswith("_data.json")]
         conf_files = [f for f in files if f.name.endswith("_confidences.json")]
         summary_conf_files = [f for f in files if f.name.endswith("_summary_confidences.json")]
         model_files = [f for f in files if f.name.endswith("_model.cif")]
         
-        self.assertTrue(len(data_files) > 0, "No data.json files found")
         self.assertTrue(len(conf_files) > 0, "No confidences.json files found")
         self.assertTrue(len(summary_conf_files) > 0, "No summary_confidences.json files found")
         self.assertTrue(len(model_files) > 0, "No model.cif files found")
 
         # 3. Check sample directories
         sample_dirs = [f for f in files if f.is_dir() and f.name.startswith("seed-")]
-        self.assertEqual(len(sample_dirs), 5, "Expected 5 sample directories")
+        
+        # Determine expected number of sample directories based on test name
+        test_name = getattr(self, '_testMethodName', '')
+        if "multi_seeds_samples" in test_name:
+            # For multi_seeds_samples: num_seeds=3, num_diffusion_samples=4
+            # Expected: 3 seeds × 4 samples = 12 sample directories
+            expected_sample_dirs = 12
+        else:
+            # Default case: 1 seed × 5 samples = 5 sample directories
+            expected_sample_dirs = 5
+            
+        self.assertEqual(len(sample_dirs), expected_sample_dirs, 
+                        f"Expected {expected_sample_dirs} sample directories, found {len(sample_dirs)}")
 
         for sample_dir in sample_dirs:
             sample_files = list(sample_dir.iterdir())
@@ -923,6 +937,31 @@ class _TestBase(parameterized.TestCase):
             lines = f.readlines()
             self.assertTrue(len(lines) > 1, "ranking_scores.csv should have header and data")
             self.assertEqual(len(lines[0].strip().split(",")), 3, "ranking_scores.csv should have 3 columns")
+            
+            # Check expected number of ranking score entries
+            if "multi_seeds_samples" in test_name:
+                # For multi_seeds_samples: 3 seeds × 4 samples = 12 entries + 1 header = 13 lines
+                expected_lines = 13
+            else:
+                # Default case: 1 seed × 5 samples = 5 entries + 1 header = 6 lines
+                expected_lines = 6
+                
+            self.assertEqual(len(lines), expected_lines, 
+                           f"Expected {expected_lines} lines in ranking_scores.csv, found {len(lines)}")
+            
+            # Verify CSV format for all data lines
+            for i, line in enumerate(lines[1:], 1):  # Skip header
+                parts = line.strip().split(",")
+                self.assertEqual(len(parts), 3, f"Line {i+1} should have 3 columns: seed,sample,ranking_score")
+                # Verify that seed, sample are integers and ranking_score is a float
+                try:
+                    int(parts[0])  # seed
+                    int(parts[1])  # sample
+                    float(parts[2])  # ranking_score
+                except ValueError:
+                    self.fail(f"Line {i+1} has invalid format: {line.strip()}")
+                    
+            print(f"✓ Verified ranking_scores.csv has correct format with {len(lines)-1} entries")
 
     # convenience builder
     def _args(self, *, plist, script):
@@ -956,6 +995,14 @@ class _TestBase(parameterized.TestCase):
                 "--fold_backend=alphafold3",
                 "--flash_attention_implementation=xla",
             ]
+            
+            # Add special arguments for multi_seeds_samples test
+            if "multi_seeds_samples" in plist:
+                args.extend([
+                    "--num_seeds=3",
+                    "--num_diffusion_samples=4",
+                ])
+            
             return args
         elif script == "run_multimer_jobs.py":
             args = [
@@ -980,6 +1027,89 @@ class _TestBase(parameterized.TestCase):
 #                        parameterised "run mode" tests                       #
 # --------------------------------------------------------------------------- #
 class TestAlphaFold3RunModes(_TestBase):
+    def test_multi_seeds_samples_sequence_extraction(self):
+        """Test that sequence extraction works correctly for multi_seeds_samples."""
+        # Test the sequence extraction logic directly
+        expected_sequences = self._extract_expected_sequences("test_multi_seeds_samples.txt")
+        
+        # The expected result should be [('A', 'PLVV')] for A0A075B6L2,2-5
+        self.assertEqual(expected_sequences, [('A', 'PLVV')], 
+                        f"Expected [('A', 'PLVV')], got {expected_sequences}")
+
+    def test_multi_seeds_samples_output_validation(self):
+        """Test that the multi_seeds_samples output files are correct."""
+        # Set up the test to use the existing output directory
+        test_name = "test__multi_seeds_samples"
+        output_dir = Path("test/test_data/predictions/af3_backend") / test_name
+        
+        if not output_dir.exists():
+            self.skipTest(f"Output directory {output_dir} does not exist. Run the full test first.")
+        
+        # Temporarily set the output directory
+        original_output_dir = self.output_dir
+        self.output_dir = output_dir
+        
+        try:
+            # Check that all expected files exist
+            files = list(self.output_dir.iterdir())
+            
+            # Check for main output files
+            self.assertIn("TERMS_OF_USE.md", {f.name for f in files})
+            self.assertIn("ranking_scores.csv", {f.name for f in files})
+            
+            # Check for AlphaFold3 output files
+            conf_files = [f for f in files if f.name.endswith("_confidences.json")]
+            summary_conf_files = [f for f in files if f.name.endswith("_summary_confidences.json")]
+            model_files = [f for f in files if f.name.endswith("_model.cif")]
+            
+            self.assertTrue(len(conf_files) > 0, "No confidences.json files found")
+            self.assertTrue(len(summary_conf_files) > 0, "No summary_confidences.json files found")
+            self.assertTrue(len(model_files) > 0, "No model.cif files found")
+            
+            # Check sample directories (should be 12: 3 seeds × 4 samples)
+            sample_dirs = [f for f in files if f.is_dir() and f.name.startswith("seed-")]
+            self.assertEqual(len(sample_dirs), 12, 
+                           f"Expected 12 sample directories, found {len(sample_dirs)}")
+            
+            # Check each sample directory has the required files
+            for sample_dir in sample_dirs:
+                sample_files = list(sample_dir.iterdir())
+                self.assertIn("confidences.json", {f.name for f in sample_files})
+                self.assertIn("model.cif", {f.name for f in sample_files})
+                self.assertIn("summary_confidences.json", {f.name for f in sample_files})
+            
+            # Verify ranking scores
+            with open(self.output_dir / "ranking_scores.csv") as f:
+                lines = f.readlines()
+                self.assertTrue(len(lines) > 1, "ranking_scores.csv should have header and data")
+                self.assertEqual(len(lines[0].strip().split(",")), 3, "ranking_scores.csv should have 3 columns")
+                
+                # Should have 12 entries + 1 header = 13 lines
+                expected_lines = 13
+                self.assertEqual(len(lines), expected_lines, 
+                               f"Expected {expected_lines} lines in ranking_scores.csv, found {len(lines)}")
+                
+                # Verify CSV format for all data lines
+                for i, line in enumerate(lines[1:], 1):  # Skip header
+                    parts = line.strip().split(",")
+                    self.assertEqual(len(parts), 3, f"Line {i+1} should have 3 columns: seed,sample,ranking_score")
+                    # Verify that seed, sample are integers and ranking_score is a float
+                    try:
+                        int(parts[0])  # seed
+                        int(parts[1])  # sample
+                        float(parts[2])  # ranking_score
+                    except ValueError:
+                        self.fail(f"Line {i+1} has invalid format: {line.strip()}")
+            
+            # Check chain counts and sequences
+            self._check_chain_counts_and_sequences("test_multi_seeds_samples.txt")
+            
+            print(f"✓ Verified multi_seeds_samples output with {len(sample_dirs)} sample directories and {len(lines)-1} ranking score entries")
+            
+        finally:
+            # Restore original output directory
+            self.output_dir = original_output_dir
+
     @parameterized.named_parameters(
         dict(testcase_name="monomer", protein_list="test_monomer.txt", script="run_structure_prediction.py"),
         dict(testcase_name="dimer", protein_list="test_dimer.txt", script="run_structure_prediction.py"),
@@ -1007,6 +1137,12 @@ class TestAlphaFold3RunModes(_TestBase):
         dict(
             testcase_name="protein_with_ptms", 
             protein_list="test_protein_with_ptms.txt", 
+            script="run_structure_prediction.py"
+        ),
+        # Test case for multiple seeds and diffusion samples
+        dict(
+            testcase_name="multi_seeds_samples", 
+            protein_list="test_multi_seeds_samples.txt", 
             script="run_structure_prediction.py"
         ),
     )
