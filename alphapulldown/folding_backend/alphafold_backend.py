@@ -396,6 +396,12 @@ class AlphaFoldBackend(FoldingBackend):
                 prediction_result['plddt'][:,
                                            None], residue_constants.atom_type_num, axis=-1
             )
+            
+            # Fix chain indexing: asym_id should be 0-based for proper chain assignment
+            # AlphaFold assigns asym_id starting from 1, but PDB chain IDs expect 0-based indexing
+            if 'asym_id' in processed_feature_dict:
+                processed_feature_dict['asym_id'] = processed_feature_dict['asym_id'] - 1
+            
             unrelaxed_protein = protein.from_prediction(
                 features=processed_feature_dict,
                 result=prediction_result,
