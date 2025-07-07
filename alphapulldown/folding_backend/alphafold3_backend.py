@@ -381,6 +381,10 @@ class AlphaFold3Backend(FoldingBackend):
         features_directory: str = None,
     ) -> list:
         """Prepare input for AlphaFold3 prediction."""
+        logging.info(f"prepare_input called with {len(objects_to_model)} objects to model")
+        for i, entry in enumerate(objects_to_model):
+            logging.info(f"Object {i}: {entry}")
+        
         def get_chain_id(index: int) -> str:
             if index < 26:
                 return chr(ord('A') + index)
@@ -388,6 +392,15 @@ class AlphaFold3Backend(FoldingBackend):
                 first_char = chr(ord('A') + (index // 26) - 1)
                 second_char = chr(ord('A') + (index % 26))
                 return first_char + second_char
+
+        def get_next_available_chain_id(used_chain_ids: set, chain_id_counter_ref) -> str:
+            """Get the next available chain ID that's not already used."""
+            while True:
+                chain_id = get_chain_id(chain_id_counter_ref[0])
+                if chain_id not in used_chain_ids:
+                    chain_id_counter_ref[0] += 1
+                    return chain_id
+                chain_id_counter_ref[0] += 1
 
         def insert_release_date_into_mmcif(
             mmcif_string: str, revision_date: str = '2100-01-01'
@@ -502,16 +515,68 @@ class AlphaFold3Backend(FoldingBackend):
             )
             return chain
 
-        def _process_single_object(obj, chain_id_counter_ref):
+        def _process_single_object(obj, chain_id_counter_ref, used_chain_ids: set):
             nonlocal all_chains, job_name
             if isinstance(obj, dict) and 'json_input' in obj:
                 json_path = obj['json_input']
+                logging.info(f"Processing JSON file: {json_path}")
                 try:
                     with open(json_path, 'r') as f:
                         json_str = f.read()
                     input_obj = folding_input.Input.from_json(json_str)
-                    all_chains.extend(input_obj.chains)
-                    if len(all_chains) == len(input_obj.chains):
+                    # Track the chain IDs from the JSON file
+                    logging.info(f"JSON file {json_path} contains chains with IDs: {[chain.id for chain in input_obj.chains]}")
+                    
+                    # Check for duplicate chain IDs and modify them if necessary
+                    modified_chains = []
+                    for chain in input_obj.chains:
+                        original_id = chain.id
+                        new_id = original_id
+                        
+                        # If this chain ID is already used, generate a new one
+                        if original_id in used_chain_ids:
+                            new_id = get_next_available_chain_id(used_chain_ids, chain_id_counter_ref)
+                            logging.info(f"Chain ID '{original_id}' already used, changing to '{new_id}'")
+                        
+                        used_chain_ids.add(new_id)
+                        logging.info(f"Added chain ID '{new_id}' from JSON file {json_path}")
+                        
+                        # Create a new chain with the modified ID
+                        if isinstance(chain, folding_input.ProteinChain):
+                            modified_chain = folding_input.ProteinChain(
+                                id=new_id,
+                                sequence=chain.sequence,
+                                ptms=chain.ptms,
+                                paired_msa=chain.paired_msa,
+                                unpaired_msa=chain.unpaired_msa,
+                                templates=chain.templates,
+                            )
+                        elif isinstance(chain, folding_input.RnaChain):
+                            modified_chain = folding_input.RnaChain(
+                                id=new_id,
+                                sequence=chain.sequence,
+                                modifications=chain.modifications,
+                                unpaired_msa=chain.unpaired_msa,
+                            )
+                        elif isinstance(chain, folding_input.DnaChain):
+                            modified_chain = folding_input.DnaChain(
+                                id=new_id,
+                                sequence=chain.sequence,
+                                modifications=chain.modifications(),
+                            )
+                        elif isinstance(chain, folding_input.Ligand):
+                            modified_chain = folding_input.Ligand(
+                                id=new_id,
+                                ccd_ids=chain.ccd_ids,
+                                smiles=chain.smiles,
+                            )
+                        else:
+                            raise TypeError(f"Unsupported chain type: {type(chain)}")
+                        
+                        modified_chains.append(modified_chain)
+                    
+                    all_chains.extend(modified_chains)
+                    if len(all_chains) == len(modified_chains):
                         job_name = input_obj.name
                     else:
                         job_name = f"{job_name}_and_{input_obj.name}"
@@ -519,15 +584,17 @@ class AlphaFold3Backend(FoldingBackend):
                     logging.error(f"Failed to parse JSON file {json_path}: {e}")
                     raise
             elif isinstance(obj, (MonomericObject, ChoppedObject)):
-                chain_id = get_chain_id(chain_id_counter_ref[0])
-                chain_id_counter_ref[0] += 1
+                chain_id = get_next_available_chain_id(used_chain_ids, chain_id_counter_ref)
+                used_chain_ids.add(chain_id)
+                logging.info(f"Added chain ID '{chain_id}' for AlphaPulldown object")
                 chains = [_monomeric_to_chain(obj, chain_id)]
                 all_chains.extend(chains)
             elif isinstance(obj, MultimericObject):
                 chains = []
                 for interactor in obj.interactors:
-                    chain_id = get_chain_id(chain_id_counter_ref[0])
-                    chain_id_counter_ref[0] += 1
+                    chain_id = get_next_available_chain_id(used_chain_ids, chain_id_counter_ref)
+                    used_chain_ids.add(chain_id)
+                    logging.info(f"Added chain ID '{chain_id}' for multimeric interactor")
                     chain = _monomeric_to_chain(interactor, chain_id)
                     chains.append(chain)
                 all_chains.extend(chains)
@@ -536,6 +603,7 @@ class AlphaFold3Backend(FoldingBackend):
 
         prepared_inputs = []
         chain_id_counter = [0]  # Use a list to allow pass-by-reference
+        used_chain_ids = set()  # Track used chain IDs
         all_chains = []
         job_name = "ranked_0"
 
@@ -546,11 +614,15 @@ class AlphaFold3Backend(FoldingBackend):
             # If object_to_model is a list, process each element
             if isinstance(object_to_model, list):
                 for sub_obj in object_to_model:
-                    _process_single_object(sub_obj, chain_id_counter)
+                    _process_single_object(sub_obj, chain_id_counter, used_chain_ids)
                 continue  # Done with this entry
 
             # Otherwise, process as a single object
-            _process_single_object(object_to_model, chain_id_counter)
+            _process_single_object(object_to_model, chain_id_counter, used_chain_ids)
+
+        # Debug: Print all chain IDs before creating the combined input
+        logging.info(f"All chain IDs before creating combined input: {[chain.id for chain in all_chains]}")
+        logging.info(f"Used chain IDs set: {used_chain_ids}")
 
         # Create a single combined input with all chains
         if all_chains:
@@ -576,11 +648,16 @@ class AlphaFold3Backend(FoldingBackend):
         """Predicts structures for a list of objects using AlphaFold 3.
         Supports merging AlphaPulldown protein objects and input.json objects into a single job.
         """
+        logging.info(f"predict called with {len(objects_to_model)} objects to model")
+        for i, obj in enumerate(objects_to_model):
+            logging.info(f"Object {i}: {obj}")
+        
         if isinstance(buckets, int):
             buckets = [buckets]
         buckets = tuple(int(b) for b in buckets)
 
         # Prepare inputs
+        logging.info("Calling prepare_input...")
         prepared_inputs = AlphaFold3Backend.prepare_input(
             objects_to_model=objects_to_model,
             random_seed=random_seed,
