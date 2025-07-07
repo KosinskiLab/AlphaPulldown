@@ -449,6 +449,7 @@ class ChoppedObject(MonomericObject):
         ]
 
         final = slices[0] if len(slices) == 1 else self.concatenate_sliced_feature_dict(slices)
+        final['domain_name'] = self.feature_dict['domain_name']
 
         self.sequence = self.new_sequence
         self.feature_dict = final
