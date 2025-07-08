@@ -135,8 +135,8 @@ def create_arguments(local_custom_template_db=None):
     FLAGS.obsolete_pdbs_path = get_database_path("obsolete_pdbs")
     if local_custom_template_db:
         FLAGS.pdb_seqres_database_path = os.path.join(local_custom_template_db, "pdb_seqres.txt")
-        FLAGS.template_mmcif_dir = os.path.join(local_custom_template_db, "mmcif_files")
-        FLAGS.obsolete_pdbs_path = os.path.join(local_custom_template_db, "obsolete.dat")
+        FLAGS.template_mmcif_dir = os.path.join(local_custom_template_db, "pdb_mmcif", "mmcif_files")
+        FLAGS.obsolete_pdbs_path = os.path.join(local_custom_template_db, "pdb_mmcif", "obsolete.dat")
 
 def check_template_date():
     """Check if the max_template_date is provided."""
