@@ -1,264 +1,175 @@
 #!/usr/bin/env python3
 # coding: utf-8
-# Create features for AlphaFold from fasta file(s) or a csv file with descriptions for multimeric templates
-# #
+"""
+Feature generator for AlphaFold 2 and AlphaFold 3, supporting classic Hmmer, MMseqs2, and truemultimer modes.
+
+"""
+
 import json
 import lzma
 import os
 import pickle
-import sys
 import shutil
+import sys
 import tempfile
 from datetime import datetime
 from pathlib import Path
 
 from absl import logging, app, flags
-from alphafold.data import templates
-from alphafold.data.pipeline import DataPipeline
-from alphafold.data.tools import hmmsearch, hhsearch
 from colabfold.utils import DEFAULT_API_SERVER
 
+# AlphaFold2 imports
+from alphafold.data import templates
+from alphafold.data.pipeline import DataPipeline as AF2DataPipeline
+from alphafold.data.tools import hmmsearch, hhsearch
+
+# AlphaPulldown helpers
 from alphapulldown.utils.create_custom_template_db import create_db
 from alphapulldown.objects import MonomericObject
 from alphapulldown.utils.file_handling import iter_seqs, parse_csv_file
 from alphapulldown.utils.modelling_setup import create_uniprot_runner
 from alphapulldown.utils import save_meta_data
 
+# Try to import AlphaFold3, but it's optional
+try:
+    from alphafold3.data.pipeline import DataPipeline as AF3DataPipeline, DataPipelineConfig as AF3DataPipelineConfig
+    from alphafold3.common import folding_input
+except ImportError:
+    AF3DataPipeline = None
+    AF3DataPipelineConfig = None
+    folding_input = None
 
-# AlphaFold flags
-flags.DEFINE_list(
-    'fasta_paths', None, 'Paths to FASTA files, each containing a prediction '
-    'target that will be folded one after another. If a FASTA file contains '
-    'multiple sequences, then it will be folded as a multimer. Paths should be '
-    'separated by commas. All FASTA paths must have a unique basename as the '
-    'basename is used to name the output directories for each prediction.')
+# =================== Database Maps ===================
+AF2_DATABASES = {
+    "uniref90": "uniref90/uniref90.fasta",
+    "uniref30": "uniref30/UniRef30_2023_02",
+    "mgnify": "mgnify/mgy_clusters_2022_05.fa",
+    "bfd": "bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt",
+    "small_bfd": "small_bfd/bfd-first_non_consensus_sequences.fasta",
+    "pdb70": "pdb70/pdb70",
+    "uniprot": "uniprot/uniprot.fasta",
+    "pdb_seqres": "pdb_seqres/pdb_seqres.txt",
+    "template_mmcif_dir": "pdb_mmcif/mmcif_files",
+    "obsolete_pdbs": "pdb_mmcif/obsolete.dat",
+}
 
+AF3_DATABASES = {
+    "uniref90": "uniref90_2022_05.fa",
+    "uniref30": "uniref30/UniRef30_2023_02",
+    "mgnify": "mgy_clusters_2022_05.fa",
+    "bfd": "bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt",
+    "small_bfd": "bfd-first_non_consensus_sequences.fasta",
+    "pdb_seqres": "pdb_seqres_2022_09_28.fasta",
+    "template_mmcif_dir": "mmcif_files",
+    "obsolete_pdbs": "obsolete.dat",
+    "pdb70": "pdb70/pdb70",
+    "uniprot": "uniprot_all_2021_04.fa",
+    "ntrna": "nt_rna_2023_02_23_clust_seq_id_90_cov_80_rep_seq.fasta",
+    "rfam": "rfam_14_9_clust_seq_id_90_cov_80_rep_seq.fasta",
+    "rna_central": "rnacentral_active_seq_id_90_cov_80_linclust.fasta",
+}
+
+# =================== Flags ===================
+flags.DEFINE_enum(
+    'data_pipeline', 'alphafold2', ['alphafold2', 'alphafold3'],
+    'Choose pipeline: alphafold2 or alphafold3'
+)
+flags.DEFINE_list('fasta_paths', None, 'Paths to FASTA files, each containing a prediction target.')
 flags.DEFINE_string('data_dir', None, 'Path to directory of supporting data.')
-flags.DEFINE_string('output_dir', None, 'Path to a directory that will '
-                    'store the results.')
-flags.DEFINE_string('jackhmmer_binary_path', shutil.which('jackhmmer'),
-                    'Path to the JackHMMER executable.')
-flags.DEFINE_string('hhblits_binary_path', shutil.which('hhblits'),
-                    'Path to the HHblits executable.')
-flags.DEFINE_string('hhsearch_binary_path', shutil.which('hhsearch'),
-                    'Path to the HHsearch executable.')
-flags.DEFINE_string('hmmsearch_binary_path', shutil.which('hmmsearch'),
-                    'Path to the hmmsearch executable.')
-flags.DEFINE_string('hmmbuild_binary_path', shutil.which('hmmbuild'),
-                    'Path to the hmmbuild executable.')
-flags.DEFINE_string('kalign_binary_path', shutil.which('kalign'),
-                    'Path to the Kalign executable.')
-flags.DEFINE_string('uniref90_database_path', None, 'Path to the Uniref90 '
-                    'database for use by JackHMMER.')
-flags.DEFINE_string('mgnify_database_path', None, 'Path to the MGnify '
-                    'database for use by JackHMMER.')
-flags.DEFINE_string('bfd_database_path', None, 'Path to the BFD '
-                    'database for use by HHblits.')
-flags.DEFINE_string('small_bfd_database_path', None, 'Path to the small '
-                    'version of BFD used with the "reduced_dbs" preset.')
-flags.DEFINE_string('uniref30_database_path', None, 'Path to the UniRef30 '
-                    'database for use by HHblits.')
-flags.DEFINE_string('uniprot_database_path', None, 'Path to the Uniprot '
-                    'database for use by JackHMMer.')
-flags.DEFINE_string('pdb70_database_path', None, 'Path to the PDB70 '
-                    'database for use by HHsearch.')
-flags.DEFINE_string('pdb_seqres_database_path', None, 'Path to the PDB '
-                    'seqres database for use by hmmsearch.')
-flags.DEFINE_string('template_mmcif_dir', None, 'Path to a directory with '
-                    'template mmCIF structures, each named <pdb_id>.cif')
-flags.DEFINE_string('max_template_date', None, 'Maximum template release date '
-                    'to consider. Important if folding historical test sets.')
-flags.DEFINE_string('obsolete_pdbs_path', None, 'Path to file containing a '
-                    'mapping from obsolete PDB IDs to the PDB IDs of their '
-                    'replacements.')
-flags.DEFINE_enum('db_preset', 'full_dbs',
-                  ['full_dbs', 'reduced_dbs'],
-                  'Choose preset MSA database configuration - '
-                  'smaller genetic database config (reduced_dbs) or '
-                  'full genetic database config  (full_dbs)')
-flags.DEFINE_boolean('use_precomputed_msas', False, 'Whether to read MSAs that '
-                     'have been written to disk instead of running the MSA '
-                     'tools. The MSA files are looked up in the output '
-                     'directory, so it must stay the same between multiple '
-                     'runs that are to reuse the MSAs. WARNING: This will not '
-                     'check if the sequence, database or configuration have '
-                     'changed.')
-# AlphaPulldown specific flags
-flags.DEFINE_bool("use_mmseqs2", False,
-                  "Use mmseqs2 remotely or not. 'true' or 'false', default is 'false'")
-flags.DEFINE_bool("save_msa_files", False, "Save MSA output or not")
-flags.DEFINE_bool("skip_existing", False,
-                  "Skip existing monomer feature pickles or not")
-flags.DEFINE_string("new_uniclust_dir", None,
-                    "Directory where new version of uniclust is stored")
-flags.DEFINE_integer(
-    "seq_index", None, "Index of sequence in the fasta file, starting from 1")
-
-flags.DEFINE_boolean("use_hhsearch", False,
-                     "Use hhsearch instead of hmmsearch when looking for structure template. Default is False")
-
-flags.DEFINE_boolean("compress_features", False,
-                     "Compress features.pkl and meta.json files using lzma algorithm. Default is False")
-
-# Flags related to TrueMultimer
-flags.DEFINE_string("path_to_mmt", None,
-                    "Path to directory with multimeric template mmCIF files")
-flags.DEFINE_string("description_file", None,
-                    "Path to the text file with descriptions")
-flags.DEFINE_float("threshold_clashes", 1000,
-                   "Threshold for VDW overlap to identify clashes. The VDW overlap between two atoms is defined as "
-                   "the sum of their VDW radii minus the distance between their centers."
-                   "If the overlap exceeds this threshold, the two atoms are considered to be clashing."
-                   "A positive threshold is how far the VDW surfaces are allowed to interpenetrate before considering "
-                   "the atoms to be clashing."
-                   "(default: 1000, i.e. no threshold, for thresholding, use 0.6-0.9)")
-flags.DEFINE_float("hb_allowance", 0.4,
-                   "Additional allowance for hydrogen bonding (default: 0.4)")
-flags.DEFINE_float("plddt_threshold", 0,
-                   "Threshold for pLDDT score (default: 0)")
-flags.DEFINE_boolean("multiple_mmts", False,
-                     "Use multiple mmts or not. 'true' or 'false', default is 'false'")
+flags.DEFINE_string('output_dir', None, 'Path to output directory.')
+flags.DEFINE_string('jackhmmer_binary_path', shutil.which('jackhmmer'), '')
+flags.DEFINE_string('hhblits_binary_path', shutil.which('hhblits'), '')
+flags.DEFINE_string('hhsearch_binary_path', shutil.which('hhsearch'), '')
+flags.DEFINE_string('hmmsearch_binary_path', shutil.which('hmmsearch'), '')
+flags.DEFINE_string('hmmbuild_binary_path', shutil.which('hmmbuild'), '')
+flags.DEFINE_string('kalign_binary_path', shutil.which('kalign'), '')
+flags.DEFINE_string('uniref90_database_path', None, '')
+flags.DEFINE_string('mgnify_database_path', None, '')
+flags.DEFINE_string('bfd_database_path', None, '')
+flags.DEFINE_string('small_bfd_database_path', None, '')
+flags.DEFINE_string('uniref30_database_path', None, '')
+flags.DEFINE_string('uniprot_database_path', None, '')
+flags.DEFINE_string('pdb70_database_path', None, '')
+flags.DEFINE_string('pdb_seqres_database_path', None, '')
+flags.DEFINE_string('template_mmcif_dir', None, '')
+flags.DEFINE_string('max_template_date', None, 'Max template release date.')
+flags.DEFINE_string('obsolete_pdbs_path', None, '')
+flags.DEFINE_enum('db_preset', 'full_dbs', ['full_dbs', 'reduced_dbs'], '')
+flags.DEFINE_boolean('use_precomputed_msas', False, '')
+flags.DEFINE_bool("use_mmseqs2", False, "")
+flags.DEFINE_bool("save_msa_files", False, "")
+flags.DEFINE_bool("skip_existing", False, "")
+flags.DEFINE_string("new_uniclust_dir", None, "")
+flags.DEFINE_integer("seq_index", None, "")
+flags.DEFINE_boolean("use_hhsearch", False, "")
+flags.DEFINE_boolean("compress_features", False, "")
+flags.DEFINE_string("path_to_mmt", None, "")
+flags.DEFINE_string("description_file", None, "")
+flags.DEFINE_float("threshold_clashes", 1000, "")
+flags.DEFINE_float("hb_allowance", 0.4, "")
+flags.DEFINE_float("plddt_threshold", 0, "")
+flags.DEFINE_boolean("multiple_mmts", False, "")
 
 FLAGS = flags.FLAGS
 
-MAX_TEMPLATE_HITS = 20
+# =================== Helper Functions ===================
 
-flags_dict = FLAGS.flag_values_dict()
+def get_database_path(key):
+    """Return the absolute path for a given database key, depending on pipeline."""
+    db_map = AF3_DATABASES if FLAGS.data_pipeline == 'alphafold3' else AF2_DATABASES
+    default_subpath = db_map[key]
+    return os.path.join(FLAGS.data_dir, default_subpath)
 
+def create_arguments(local_custom_template_db=None):
+    """Set all database paths in FLAGS for the selected AlphaFold version.
+    Optionally override template paths with a local custom template DB."""
+    FLAGS.uniref90_database_path = get_database_path("uniref90")
+    FLAGS.uniref30_database_path = get_database_path("uniref30")
+    FLAGS.mgnify_database_path = get_database_path("mgnify")
+    FLAGS.bfd_database_path = get_database_path("bfd")
+    FLAGS.small_bfd_database_path = get_database_path("small_bfd")
+    FLAGS.pdb70_database_path = get_database_path("pdb70")
+    FLAGS.uniprot_database_path = get_database_path("uniprot")
+    FLAGS.pdb_seqres_database_path = get_database_path("pdb_seqres")
+    FLAGS.template_mmcif_dir = get_database_path("template_mmcif_dir")
+    FLAGS.obsolete_pdbs_path = get_database_path("obsolete_pdbs")
+    if local_custom_template_db:
+        FLAGS.pdb_seqres_database_path = os.path.join(local_custom_template_db, "pdb_seqres.txt")
+        FLAGS.template_mmcif_dir = os.path.join(local_custom_template_db, "mmcif_files")
+        FLAGS.obsolete_pdbs_path = os.path.join(local_custom_template_db, "obsolete.dat")
 
-def get_database_path(flag_value, default_subpath):
-    """
-    Retrieves the database path based on a flag value or a default subpath.
+def check_template_date():
+    """Check if the max_template_date is provided."""
+    if not FLAGS.max_template_date:
+        logging.error("You have not provided a max_template_date. Please specify a date and run again.")
+        sys.exit(1)
 
-    Args:
-    flag_value (str): The value of the flag specifying the database path.
-    default_subpath (str): The default subpath to use if the flag value is not set.
+# =================== AlphaFold 2 Feature Creation ===================
 
-    Returns:
-    str: The final path to the database.
-    """
-    return flag_value or os.path.join(FLAGS.data_dir, default_subpath)
-
-
-def create_arguments(local_path_to_custom_template_db=None):
-    """
-    Updates the (global) flags dictionary with paths to various databases required for AlphaFold. If a local path to a
-    custom template database is provided, pdb-related paths are set to this local database.
-
-    Args:
-    local_path_to_custom_template_db (str, optional): Path to a local custom template database. Defaults to None.
-    """
-    global use_small_bfd
-
-    FLAGS.uniref30_database_path = get_database_path(FLAGS.uniref30_database_path,
-                                                     "uniref30/UniRef30_2023_02")
-    FLAGS.uniref90_database_path = get_database_path(FLAGS.uniref90_database_path,
-                                                     "uniref90/uniref90.fasta")
-    FLAGS.mgnify_database_path = get_database_path(FLAGS.mgnify_database_path,
-                                                   "mgnify/mgy_clusters_2022_05.fa")
-    FLAGS.bfd_database_path = get_database_path(FLAGS.bfd_database_path,
-                                                "bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt")
-    FLAGS.small_bfd_database_path = get_database_path(FLAGS.small_bfd_database_path,
-                                                      "small_bfd/bfd-first_non_consensus_sequences.fasta")
-    FLAGS.pdb70_database_path = get_database_path(
-        FLAGS.pdb70_database_path, "pdb70/pdb70")
-
-    FLAGS.uniprot_database_path = get_database_path(
-        FLAGS.uniprot_database_path, "uniprot/uniprot.fasta")
-
+def create_pipeline_af2():
+    """Create and configure the AlphaFold2 data pipeline."""
     use_small_bfd = FLAGS.db_preset == "reduced_dbs"
-    flags_dict.update({"use_small_bfd": use_small_bfd})
-    flags_dict.update({"fasta_paths": FLAGS.fasta_paths})
-
-    # Update pdb related flags
-    if local_path_to_custom_template_db:
-        FLAGS.pdb_seqres_database_path = os.path.join(
-            local_path_to_custom_template_db, "pdb_seqres", "pdb_seqres.txt")
-        flags_dict.update(
-            {"pdb_seqres_database_path": FLAGS.pdb_seqres_database_path})
-        FLAGS.template_mmcif_dir = os.path.join(
-            local_path_to_custom_template_db, "pdb_mmcif", "mmcif_files")
-        flags_dict.update({"template_mmcif_dir": FLAGS.template_mmcif_dir})
-        FLAGS.obsolete_pdbs_path = os.path.join(
-            local_path_to_custom_template_db, "pdb_mmcif", "obsolete.dat")
-        flags_dict.update({"obsolete_pdbs_path": FLAGS.obsolete_pdbs_path})
-    else:
-        FLAGS.pdb_seqres_database_path = get_database_path(
-            FLAGS.pdb_seqres_database_path, "pdb_seqres/pdb_seqres.txt")
-        flags_dict.update(
-            {"pdb_seqres_database_path": FLAGS.pdb_seqres_database_path})
-        FLAGS.template_mmcif_dir = get_database_path(
-            FLAGS.template_mmcif_dir, "pdb_mmcif/mmcif_files")
-        flags_dict.update({"template_mmcif_dir": FLAGS.template_mmcif_dir})
-        FLAGS.obsolete_pdbs_path = get_database_path(
-            FLAGS.obsolete_pdbs_path, "pdb_mmcif/obsolete.dat")
-        flags_dict.update({"obsolete_pdbs_path": FLAGS.obsolete_pdbs_path})
-
-
-def create_custom_db(temp_dir, protein, template_paths, chains):
-    """
-    Creates a custom template database for a specific protein using given templates and chains.
-
-    Args:
-    temp_dir (str): The temporary directory to store the custom database.
-    protein (str): The name of the protein for which the database is created.
-    templates (list): A list of template file paths.
-    chains (list): A list of chain identifiers corresponding to the templates.
-
-    Returns:
-    Path: The path to the created custom template database.
-    """
-    threashold_clashes = FLAGS.threshold_clashes
-    hb_allowance = FLAGS.hb_allowance
-    plddt_threshold = FLAGS.plddt_threshold
-    # local_path_to_custom_template_db = Path(".") / "custom_template_db" / protein # DEBUG
-    local_path_to_custom_template_db = Path(
-        temp_dir) / "custom_template_db" / protein
-    logging.info(f"Path to local database: {local_path_to_custom_template_db}")
-    create_db(
-        local_path_to_custom_template_db, template_paths, chains, threashold_clashes, hb_allowance, plddt_threshold
-    )
-
-    return local_path_to_custom_template_db
-
-
-def create_pipeline():
-    """
-    Creates and returns a data pipeline for AlphaFold, configured with necessary binary paths and database paths.
-
-    Returns:
-    DataPipeline: An instance of the AlphaFold DataPipeline configured with necessary paths.
-    """
     if FLAGS.use_hhsearch:
-        logging.info("Will use hhsearch looking for templates")
         template_searcher = hhsearch.HHSearch(
-            binary_path=FLAGS.hhsearch_binary_path,
-            databases=[FLAGS.pdb70_database_path]
+            binary_path=FLAGS.hhsearch_binary_path, databases=[FLAGS.pdb70_database_path]
         )
         template_featuriser = templates.HhsearchHitFeaturizer(
-            mmcif_dir=FLAGS.template_mmcif_dir,
-            max_template_date=FLAGS.max_template_date,
-            max_hits=MAX_TEMPLATE_HITS,
-            kalign_binary_path=FLAGS.kalign_binary_path,
-            release_dates_path=None,
-            obsolete_pdbs_path=FLAGS.obsolete_pdbs_path
+            mmcif_dir=FLAGS.template_mmcif_dir, max_template_date=FLAGS.max_template_date,
+            max_hits=20, kalign_binary_path=FLAGS.kalign_binary_path,
+            release_dates_path=None, obsolete_pdbs_path=FLAGS.obsolete_pdbs_path
         )
     else:
-        logging.info("Will use hmmsearch looking for templates")
         template_featuriser = templates.HmmsearchHitFeaturizer(
-            mmcif_dir=FLAGS.template_mmcif_dir,
-            max_template_date=FLAGS.max_template_date,
-            max_hits=MAX_TEMPLATE_HITS,
-            kalign_binary_path=FLAGS.kalign_binary_path,
-            obsolete_pdbs_path=FLAGS.obsolete_pdbs_path,
-            release_dates_path=None,
+            mmcif_dir=FLAGS.template_mmcif_dir, max_template_date=FLAGS.max_template_date,
+            max_hits=20, kalign_binary_path=FLAGS.kalign_binary_path,
+            obsolete_pdbs_path=FLAGS.obsolete_pdbs_path, release_dates_path=None
         )
         template_searcher = hmmsearch.Hmmsearch(
             binary_path=FLAGS.hmmsearch_binary_path,
             hmmbuild_binary_path=FLAGS.hmmbuild_binary_path,
-            database_path=FLAGS.pdb_seqres_database_path,
+            database_path=FLAGS.pdb_seqres_database_path
         )
-    monomer_data_pipeline = DataPipeline(
+    return AF2DataPipeline(
         jackhmmer_binary_path=FLAGS.jackhmmer_binary_path,
         hhblits_binary_path=FLAGS.hhblits_binary_path,
         uniref90_database_path=FLAGS.uniref90_database_path,
@@ -271,58 +182,48 @@ def create_pipeline():
         template_searcher=template_searcher,
         template_featurizer=template_featuriser
     )
-    return monomer_data_pipeline
 
+def create_individual_features():
+    """Generate AlphaFold2 features for each monomer sequence."""
+    create_arguments()
+    pipeline = create_pipeline_af2()
+    uniprot_runner = None if FLAGS.use_mmseqs2 else create_uniprot_runner(
+        FLAGS.jackhmmer_binary_path, FLAGS.uniprot_database_path
+    )
+    for seq_idx, (seq, desc) in enumerate(iter_seqs(FLAGS.fasta_paths), 1):
+        if FLAGS.seq_index is None or seq_idx == FLAGS.seq_index:
+            monomer = MonomericObject(desc, seq)
+            monomer.uniprot_runner = uniprot_runner
+            create_and_save_monomer_objects(monomer, pipeline)
 
 def create_and_save_monomer_objects(monomer, pipeline):
-    """
-    Processes a MonomericObject to create and save its features. Skips processing if the feature file already exists
-    and skipping is enabled.
-
-    Args:
-    monomer (MonomericObject): The monomeric object to process.
-    pipeline (DataPipeline): The data pipeline object for feature creation.
-    """
+    """Save a MonomericObject after feature creation (pickled, optionally compressed)."""
+    # Ensure output directory exists
+    os.makedirs(FLAGS.output_dir, exist_ok=True)
+    
     pickle_path = os.path.join(FLAGS.output_dir, f"{monomer.description}.pkl")
     if FLAGS.compress_features:
-        pickle_path = pickle_path + ".xz"
-    # Check if we should skip existing files
+        pickle_path += ".xz"
     if FLAGS.skip_existing and os.path.exists(pickle_path):
-        logging.info(
-            f"Feature file for {monomer.description} already exists. Skipping...")
+        logging.info(f"Feature file for {monomer.description} already exists. Skipping...")
         return
-
-    # Save metadata
-    meta_dict = save_meta_data.get_meta_dict(flags_dict)
+    meta_dict = save_meta_data.get_meta_dict(FLAGS.flag_values_dict())
     metadata_output_path = os.path.join(
-        FLAGS.output_dir,
-        f"{monomer.description}_feature_metadata_{datetime.now().date()}.json"
+        FLAGS.output_dir, f"{monomer.description}_feature_metadata_{datetime.now().date()}.json"
     )
-
     if FLAGS.compress_features:
         with lzma.open(metadata_output_path + '.xz', "wt") as meta_data_outfile:
             json.dump(meta_dict, meta_data_outfile)
     else:
         with open(metadata_output_path, "w") as meta_data_outfile:
             json.dump(meta_dict, meta_data_outfile)
-
-    # Create features
     if FLAGS.use_mmseqs2:
-            logging.info("Running MMseqs2 for feature generation...")
-            monomer.make_mmseq_features(
-                DEFAULT_API_SERVER=DEFAULT_API_SERVER,
-                output_dir=FLAGS.output_dir,
-                use_precomputed_msa=FLAGS.use_precomputed_msas,
-            )
+        monomer.make_mmseq_features(DEFAULT_API_SERVER=DEFAULT_API_SERVER, output_dir=FLAGS.output_dir, use_precomputed_msa=FLAGS.use_precomputed_msas)
     else:
         monomer.make_features(
-            pipeline=pipeline,
-            output_dir=FLAGS.output_dir,
+            pipeline=pipeline, output_dir=FLAGS.output_dir,
             use_precomputed_msa=FLAGS.use_precomputed_msas,
-            save_msa=FLAGS.save_msa_files,
-        )
-
-    # Save the processed monomer object
+            save_msa=FLAGS.save_msa_files)
     if FLAGS.compress_features:
         with lzma.open(pickle_path, "wb") as pickle_file:
             pickle.dump(monomer, pickle_file)
@@ -330,113 +231,127 @@ def create_and_save_monomer_objects(monomer, pipeline):
         with open(pickle_path, "wb") as pickle_file:
             pickle.dump(monomer, pickle_file)
 
-    # Optional: Clear monomer from memory if necessary
-    del monomer
-
-
-def check_template_date():
-    """
-    Checks if the max_template_date is provided and updates the flags dictionary with the path to the Uniprot database.
-    Exits the script if max_template_date is not provided or if the Uniprot database file is not found.
-    """
-    if not FLAGS.max_template_date:
-        logging.info(
-            "You have not provided a max_template_date. Please specify a date and run again.")
-        sys.exit()
-
-
-def process_sequences_individual_mode():
-    """
-    Processes individual sequences specified in the fasta files. For each sequence, it creates a MonomericObject,
-    processes it, and saves its features. Skips processing if the sequence index does not match the seq_index flag.
-
-    """
-    create_arguments()
-    uniprot_runner = None if FLAGS.use_mmseqs2 else create_uniprot_runner(FLAGS.jackhmmer_binary_path,
-                                                                          FLAGS.uniprot_database_path)
-    pipeline = None if FLAGS.use_mmseqs2 else create_pipeline()
-    seq_idx = 0
-    for curr_seq, curr_desc in iter_seqs(FLAGS.fasta_paths):
-        seq_idx += 1
-        if FLAGS.seq_index is None or (FLAGS.seq_index == seq_idx):
-            if curr_desc and not curr_desc.isspace():
-                curr_monomer = MonomericObject(curr_desc, curr_seq)
-                curr_monomer.uniprot_runner = uniprot_runner
-                create_and_save_monomer_objects(curr_monomer, pipeline)
-
-
-def process_sequences_multimeric_mode():
-    """
-    Processes sequences in multimeric mode using descriptions from a CSV file. For each entry in the CSV file,
-    it processes the corresponding sequence if it matches the seq_index flag.
-    """
-    fasta_paths = FLAGS.fasta_paths
-    feats = parse_csv_file(FLAGS.description_file, fasta_paths, FLAGS.path_to_mmt, FLAGS.multiple_mmts)
-
+def create_individual_features_truemultimer():
+    """Generate features in TrueMultimer mode, one set per entry in the description CSV."""
+    feats = parse_csv_file(
+        FLAGS.description_file, FLAGS.fasta_paths, FLAGS.path_to_mmt, FLAGS.multiple_mmts
+    )
     for idx, feat in enumerate(feats, 1):
-        if FLAGS.seq_index is None or (FLAGS.seq_index == idx):
-            logging.info(f"seq_index: {FLAGS.seq_index}, feats: {feat}")
+        if FLAGS.seq_index is None or idx == FLAGS.seq_index:
             process_multimeric_features(feat, idx)
 
-
 def process_multimeric_features(feat, idx):
-    """
-    Processes a multimeric feature from a provided feature dictionary. It checks for the existence of template files
-    and creates a custom database for the specified protein. It then processes the protein and saves its features.
-
-    Args:
-    feat (dict): A dictionary containing protein information and its corresponding templates and chains.
-    idx (int): The index of the current protein being processed.
-    """
+    """Process a multimeric feature from a parsed CSV entry."""
     for temp_path in feat["templates"]:
         if not os.path.isfile(temp_path):
-            logging.error(f"Template file {temp_path} does not exist.")
-            raise FileNotFoundError(
-                f"Template file {temp_path} does not exist.")
-
-    protein = feat["protein"]
-    chains = feat["chains"]
-    template_paths = feat["templates"]
-    logging.info(
-        f"Processing {protein}: templates: {templates}, chains: {chains}")
-
+            raise FileNotFoundError(f"Template file {temp_path} does not exist.")
+    protein, chains, template_paths = feat["protein"], feat["chains"], feat["templates"]
     with tempfile.TemporaryDirectory() as temp_dir:
-        local_path_to_custom_db = create_custom_db(
-            temp_dir, protein, template_paths, chains)
+        local_path_to_custom_db = create_custom_db(temp_dir, protein, template_paths, chains)
         create_arguments(local_path_to_custom_db)
+        uniprot_runner = None if FLAGS.use_mmseqs2 else create_uniprot_runner(
+            FLAGS.jackhmmer_binary_path, FLAGS.uniprot_database_path
+        )
+        pipeline = create_pipeline_af2()
+        monomer = MonomericObject(protein, feat['sequence'])
+        monomer.uniprot_runner = uniprot_runner
+        create_and_save_monomer_objects(monomer, pipeline)
 
-        flags_dict.update({f"protein": protein, f"multimeric_templates_{idx}": template_paths,
-                           f"multimeric_chains_{idx}": chains})
+def create_custom_db(temp_dir, protein, template_paths, chains):
+    """Create a local custom template DB for TrueMultimer/AF2."""
+    local_path_to_custom_template_db = Path(temp_dir) / "custom_template_db" / protein
+    create_db(
+        local_path_to_custom_template_db, template_paths, chains,
+        FLAGS.threshold_clashes, FLAGS.hb_allowance, FLAGS.plddt_threshold
+    )
+    return local_path_to_custom_template_db
 
-        if not FLAGS.use_mmseqs2:
-            uniprot_runner = create_uniprot_runner(
-                FLAGS.jackhmmer_binary_path, FLAGS.uniprot_database_path)
-        else:
-            uniprot_runner = None
-        pipeline = create_pipeline()
-        curr_monomer = MonomericObject(protein, feat['sequence'])
-        curr_monomer.uniprot_runner = uniprot_runner
-        create_and_save_monomer_objects(curr_monomer, pipeline)
+# =================== AlphaFold 3 Feature Creation ===================
 
+def create_pipeline_af3():
+    """Create the AlphaFold3 pipeline. Raises if AF3 not available."""
+    if AF3DataPipeline is None or AF3DataPipelineConfig is None:
+        raise ImportError("alphafold3.data.pipeline not available")
+    config = AF3DataPipelineConfig(
+        jackhmmer_binary_path=FLAGS.jackhmmer_binary_path,
+        nhmmer_binary_path=FLAGS.hmmsearch_binary_path,
+        hmmalign_binary_path=FLAGS.kalign_binary_path,
+        hmmsearch_binary_path=FLAGS.hmmsearch_binary_path,
+        hmmbuild_binary_path=FLAGS.hmmbuild_binary_path,
+        small_bfd_database_path=get_database_path("small_bfd"),
+        mgnify_database_path=get_database_path("mgnify"),
+        uniprot_cluster_annot_database_path=get_database_path("uniprot"),
+        uniref90_database_path=get_database_path("uniref90"),
+        ntrna_database_path=get_database_path("ntrna"),
+        rfam_database_path=get_database_path("rfam"),
+        rna_central_database_path=get_database_path("rna_central"),
+        pdb_database_path=get_database_path("template_mmcif_dir"),
+        seqres_database_path=get_database_path("pdb_seqres"),
+        jackhmmer_n_cpu=8,
+        nhmmer_n_cpu=8,
+        max_template_date=FLAGS.max_template_date
+    )
+    return AF3DataPipeline(config)
+
+def create_af3_individual_features():
+    """Generate AlphaFold3 features, one .json per chain."""
+    # Ensure output directory exists
+    os.makedirs(FLAGS.output_dir, exist_ok=True)
+    
+    pipeline = create_pipeline_af3()
+    for seq_idx, (seq, desc) in enumerate(iter_seqs(FLAGS.fasta_paths), 1):
+        if FLAGS.seq_index is None or seq_idx == FLAGS.seq_index:
+            # Create AlphaFold3 input object with proper chain structure
+            try:
+                # Determine chain type based on sequence content
+                if all(c in 'ACDEFGHIKLMNPQRSTVWY' for c in seq.upper()):
+                    # Protein sequence
+                    from alphafold3.common.folding_input import ProteinChain
+                    chain = ProteinChain(sequence=seq, id=desc, ptms=[])
+                elif all(c in 'ACGU' for c in seq.upper()):
+                    # RNA sequence
+                    from alphafold3.common.folding_input import RnaChain
+                    chain = RnaChain(sequence=seq, id=desc)
+                elif all(c in 'ACGT' for c in seq.upper()):
+                    # DNA sequence
+                    from alphafold3.common.folding_input import DnaChain
+                    chain = DnaChain(sequence=seq, id=desc)
+                else:
+                    # Default to protein
+                    from alphafold3.common.folding_input import ProteinChain
+                    chain = ProteinChain(sequence=seq, id=desc, ptms=[])
+                
+                input_obj = folding_input.Input(
+                    name=desc,
+                    chains=[chain],
+                    rng_seeds=[42]
+                )
+                
+                features = pipeline.process(input_obj)
+                outpath = Path(FLAGS.output_dir) / f"{desc}_af3_input.json"
+                if hasattr(features, "to_json"):
+                    outpath.write_text(features.to_json())
+                else:
+                    outpath.write_text(json.dumps(features))
+                    
+            except Exception as e:
+                logging.error(f"Failed to create AlphaFold3 input object for {desc}: {e}")
+                continue
+
+# =================== Main Entry Point ===================
 
 def main(argv):
-    del argv  # Unused.
-    if FLAGS.use_mmseqs2 and FLAGS.path_to_mmt is not None:
-        raise ValueError("Multimeric templates and MMseqs2 can't be used together.")
-    try:
-        Path(FLAGS.output_dir).mkdir(parents=True, exist_ok=True)
-    except FileExistsError:
-        logging.error(
-            "Multiple processes are trying to create the same folder now.")
-        pass
-    if not FLAGS.use_mmseqs2:
-        check_template_date()
-
-    if not FLAGS.path_to_mmt:
-        process_sequences_individual_mode()
+    """Main entry: dispatch to AF2 or AF3, truemultimer or not."""
+    del argv
+    Path(FLAGS.output_dir).mkdir(parents=True, exist_ok=True)
+    if FLAGS.data_pipeline == "alphafold3":
+        create_af3_individual_features()
     else:
-        process_sequences_multimeric_mode()
-
+        check_template_date()
+        if FLAGS.path_to_mmt:
+            create_individual_features_truemultimer()
+        else:
+            create_individual_features()
 
 if __name__ == "__main__":
     flags.mark_flags_as_required(
