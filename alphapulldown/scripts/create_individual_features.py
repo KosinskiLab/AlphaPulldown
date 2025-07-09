@@ -82,6 +82,8 @@ flags.DEFINE_string('hhblits_binary_path', shutil.which('hhblits'), '')
 flags.DEFINE_string('hhsearch_binary_path', shutil.which('hhsearch'), '')
 flags.DEFINE_string('hmmsearch_binary_path', shutil.which('hmmsearch'), '')
 flags.DEFINE_string('hmmbuild_binary_path', shutil.which('hmmbuild'), '')
+flags.DEFINE_string('nhmmer_binary_path', shutil.which('nhmmer'), '')
+flags.DEFINE_string('hmmalign_binary_path', shutil.which('hmmalign'), '')
 flags.DEFINE_string('kalign_binary_path', shutil.which('kalign'), '')
 flags.DEFINE_string('uniref90_database_path', None, '')
 flags.DEFINE_string('mgnify_database_path', None, '')
@@ -274,8 +276,8 @@ def create_pipeline_af3():
         raise ImportError("alphafold3.data.pipeline not available")
     config = AF3DataPipelineConfig(
         jackhmmer_binary_path=FLAGS.jackhmmer_binary_path,
-        nhmmer_binary_path=FLAGS.hmmsearch_binary_path,
-        hmmalign_binary_path=FLAGS.kalign_binary_path,
+        nhmmer_binary_path=FLAGS.nhmmer_binary_path,
+        hmmalign_binary_path=FLAGS.hmmalign_binary_path,
         hmmsearch_binary_path=FLAGS.hmmsearch_binary_path,
         hmmbuild_binary_path=FLAGS.hmmbuild_binary_path,
         small_bfd_database_path=get_database_path("small_bfd"),
@@ -303,23 +305,32 @@ def create_af3_individual_features():
         if FLAGS.seq_index is None or seq_idx == FLAGS.seq_index:
             # Create AlphaFold3 input object with proper chain structure
             try:
+                # Generate proper chain ID using AlphaFold3's int_id_to_str_id function
+                try:
+                    from alphafold3.structure.mmcif import int_id_to_str_id
+                    chain_id = int_id_to_str_id(seq_idx)
+                except ImportError:
+                    # Fallback if mmcif_lib is not available
+                    chain_id = chr(ord('A') + (seq_idx - 1) % 26)
+                    if seq_idx > 26:
+                        # For sequences beyond 26, use AA, BB, etc.
+                        chain_id = chain_id + chain_id
+                
                 # Determine chain type based on sequence content
                 if all(c in 'ACDEFGHIKLMNPQRSTVWY' for c in seq.upper()):
                     # Protein sequence
                     from alphafold3.common.folding_input import ProteinChain
-                    chain = ProteinChain(sequence=seq, id=desc, ptms=[])
+                    chain = ProteinChain(sequence=seq, id=chain_id, ptms=[])
                 elif all(c in 'ACGU' for c in seq.upper()):
                     # RNA sequence
                     from alphafold3.common.folding_input import RnaChain
-                    chain = RnaChain(sequence=seq, id=desc)
+                    chain = RnaChain(sequence=seq, id=chain_id, modifications=[])
                 elif all(c in 'ACGT' for c in seq.upper()):
                     # DNA sequence
                     from alphafold3.common.folding_input import DnaChain
-                    chain = DnaChain(sequence=seq, id=desc)
+                    chain = DnaChain(sequence=seq, id=chain_id, modifications=[])
                 else:
-                    # Default to protein
-                    from alphafold3.common.folding_input import ProteinChain
-                    chain = ProteinChain(sequence=seq, id=desc, ptms=[])
+                    raise ValueError(f"Invalid sequence: {seq}")
                 
                 input_obj = folding_input.Input(
                     name=desc,
