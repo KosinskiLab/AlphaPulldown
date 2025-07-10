@@ -53,13 +53,7 @@ jobs:
           # python setup.py install --disable-cuda-ext
           # cd ..
       - run: |
-          python test/test_python_imports.py
-          pytest -s test/test_custom_db.py
-          pytest -s test/test_remove_clashes_low_plddt.py
-          pytest -s test/test_modelcif.py
-          pytest -s test/test_features_with_templates.py
-          pytest -s test/test_post_prediction.py
-          pytest -s test/test_parse_fold.py
+          pytest test/
           #export PYTHONPATH=$PWD/alphapulldown/analysis_pipeline:$PYTHONPATH
           ## Test analysis pipeline
           #conda install -c bioconda biopandas
