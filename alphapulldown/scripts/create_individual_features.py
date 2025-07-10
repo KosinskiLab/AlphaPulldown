@@ -274,6 +274,11 @@ def create_pipeline_af3():
     """Create the AlphaFold3 pipeline. Raises if AF3 not available."""
     if AF3DataPipeline is None or AF3DataPipelineConfig is None:
         raise ImportError("alphafold3.data.pipeline not available")
+    
+    # Convert max_template_date string to datetime.date object
+    import datetime
+    max_template_date = datetime.date.fromisoformat(FLAGS.max_template_date)
+    
     config = AF3DataPipelineConfig(
         jackhmmer_binary_path=FLAGS.jackhmmer_binary_path,
         nhmmer_binary_path=FLAGS.nhmmer_binary_path,
@@ -291,7 +296,7 @@ def create_pipeline_af3():
         seqres_database_path=get_database_path("pdb_seqres"),
         jackhmmer_n_cpu=8,
         nhmmer_n_cpu=8,
-        max_template_date=FLAGS.max_template_date
+        max_template_date=max_template_date
     )
     return AF3DataPipeline(config)
 
