@@ -328,19 +328,18 @@ def create_af3_individual_features():
                         chain_id = chain_id + chain_id
                 
                 # Determine chain type based on sequence content
-                if all(c in 'ACGUN' for c in seq.upper()):
-                    # RNA sequence
-                    from alphafold3.common.folding_input import RnaChain
-                    chain = RnaChain(sequence=seq, id=chain_id, modifications=[])
-                elif all(c in 'ACGTN' for c in seq.upper()):
+                if all(c in 'ACGTN' for c in seq.upper()):
                     # DNA sequence
                     from alphafold3.common.folding_input import DnaChain
                     chain = DnaChain(sequence=seq, id=chain_id, modifications=[])
-                elif all(c in 'ACDEFGHIKLMNPQRSTVWY' for c in seq.upper()):
+                elif all(c in 'ACGUN' for c in seq.upper()):
+                    # RNA sequence
+                    from alphafold3.common.folding_input import RnaChain
+                    chain = RnaChain(sequence=seq, id=chain_id, modifications=[])
+                elif all(c in 'ACDEFGHIKLMNPQRSTVWYX' for c in seq.upper()):
                     # Protein sequence
                     from alphafold3.common.folding_input import ProteinChain
                     chain = ProteinChain(sequence=seq, id=chain_id, ptms=[])
-
                 else:
                     raise ValueError(f"Invalid sequence: {seq}")
                 
