@@ -308,6 +308,12 @@ def create_af3_individual_features():
     pipeline = create_pipeline_af3()
     for seq_idx, (seq, desc) in enumerate(iter_seqs(FLAGS.fasta_paths), 1):
         if FLAGS.seq_index is None or seq_idx == FLAGS.seq_index:
+            # Check if output file already exists and skip if requested
+            outpath = Path(FLAGS.output_dir) / f"{desc}_af3_input.json"
+            if FLAGS.skip_existing and outpath.exists():
+                logging.info(f"Feature file for {desc} already exists. Skipping...")
+                continue
+            
             # Create AlphaFold3 input object with proper chain structure
             try:
                 # Generate proper chain ID using AlphaFold3's int_id_to_str_id function
@@ -345,7 +351,6 @@ def create_af3_individual_features():
                 )
                 
                 features = pipeline.process(input_obj)
-                outpath = Path(FLAGS.output_dir) / f"{desc}_af3_input.json"
                 if hasattr(features, "to_json"):
                     outpath.write_text(features.to_json())
                 else:
