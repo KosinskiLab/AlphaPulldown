@@ -21,16 +21,16 @@ from alphafold.common.protein import _from_bio_structure, to_mmcif
 FLAGS = flags.FLAGS
 
 
-def save_seqres(code, chain, s, path, duplicate):
+def save_seqres(code, chain, s, seqres_path, duplicate):
     """
     o code - four letter PDB-like code
     o chain - chain ID
     o s - sequence
-    o path - path to the pdb_seqresi, unique for each chain
+    o seqres_path - path to the pdb_seqres.txt file
     Returns:
         o Path to the file
     """
-    fn = path / 'pdb_seqres.txt'
+    fn = seqres_path
 
     seqres_entries = []
     if duplicate:
@@ -86,12 +86,12 @@ def create_dir_and_remove_files(dir_path, files_to_remove=[]):
                 target_file.unlink()
 
 
-def create_tree(pdb_mmcif_dir, mmcif_dir, seqres_dir, templates_dir):
+def create_tree(pdb_mmcif_dir, mmcif_dir, seqres_path, templates_dir):
     """
     Create the db structure with empty directories
     o pdb_mmcif_dir - path to the output directory
     o mmcif_dir - path to the mmcif directory
-    o seqres_dir - path to the seqres directory
+    o seqres_path - path to the pdb_seqres.txt file (not a directory)
     o templates_dir - path to the directory with all-chain templates in mmcif format
     Returns:
         o None
@@ -107,7 +107,10 @@ def create_tree(pdb_mmcif_dir, mmcif_dir, seqres_dir, templates_dir):
     with open(pdb_mmcif_dir / 'obsolete.dat', 'a'):
         pass
 
-    create_dir_and_remove_files(seqres_dir, ['pdb_seqres.txt'])
+    # Create empty pdb_seqres.txt file at the correct location
+    seqres_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(seqres_path, 'a'):
+        pass
 
 
 def copy_file_exclude_lines(starting_with, src, dst):
@@ -123,7 +126,7 @@ def copy_file_exclude_lines(starting_with, src, dst):
             if not line.startswith(starting_with):
                 outfile.write(line)
 
-def _prepare_template(template, code, chain_id, mmcif_dir, seqres_dir, templates_dir,
+def _prepare_template(template, code, chain_id, mmcif_dir, seqres_path, templates_dir,
                       threshold_clashes, hb_allowance, plddt_threshold, number_of_templates):
     """
     Process and prepare each template.
@@ -137,7 +140,7 @@ def _prepare_template(template, code, chain_id, mmcif_dir, seqres_dir, templates
     mmcif_obj = MmcifChainFiltered(new_template, code, chain_id)
     # Determine the full sequence
     seqres = mmcif_obj.sequence_seqres if mmcif_obj.sequence_seqres else mmcif_obj.sequence_atom
-    sqrres_path = save_seqres(code, chain_id, seqres, seqres_dir, duplicate)
+    sqrres_path = save_seqres(code, chain_id, seqres, seqres_path, duplicate)
     logging.info(f"SEQRES saved to {sqrres_path}!")
 
     # Remove clashes and low pLDDT regions for each template
@@ -176,10 +179,10 @@ def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, pldd
     # Create the database structure
     pdb_mmcif_dir = out_path / 'pdb_mmcif'
     mmcif_dir = pdb_mmcif_dir / 'mmcif_files'
-    seqres_dir = Path(out_path) / 'pdb_seqres'
-    templates_dir = Path(out_path) / 'templates'
+    seqres_path = out_path / 'pdb_seqres.txt'
+    templates_dir = out_path / 'templates'
 
-    create_tree(pdb_mmcif_dir, mmcif_dir, seqres_dir, templates_dir)
+    create_tree(pdb_mmcif_dir, mmcif_dir, seqres_path, templates_dir)
 
     # Process each template/chain pair
     for template, chain_id in zip(templates, chains):
@@ -188,7 +191,7 @@ def create_db(out_path, templates, chains, threshold_clashes, hb_allowance, pldd
         logging.info(f"Template code: {code}")
         assert len(code) == 4
         _prepare_template(
-            template, code, chain_id, mmcif_dir, seqres_dir, templates_dir,
+            template, code, chain_id, mmcif_dir, seqres_path, templates_dir,
             threshold_clashes, hb_allowance, plddt_threshold, len(templates)
         )
 

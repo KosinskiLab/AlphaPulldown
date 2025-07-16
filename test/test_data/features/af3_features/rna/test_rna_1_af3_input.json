@@ -1,0 +1,22 @@
+{
+  "dialect": "alphafold3",
+  "version": 3,
+  "name": "combined_prediction",
+  "sequences": [
+    {
+      "protein": {
+        "id": "A",
+        "sequence": "AUGGCUACGUAGCUAGCUAGCUAGCUAGCUAGCUAGCUAGCUAGCUAGCUAGCUAGCUAGC",
+        "modifications": [],
+        "unpairedMsa": ">sequence_0\nAXGGCXACGXAGCXAGCXAGCXAGCXAGCXAGCXAGCXAGCXAGCXAGCXAGCXAGCXAGC",
+        "pairedMsa": "",
+        "templates": []
+      }
+    }
+  ],
+  "modelSeeds": [
+    42
+  ],
+  "bondedAtomPairs": null,
+  "userCCD": null
+}
