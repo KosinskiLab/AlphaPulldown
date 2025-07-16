@@ -141,6 +141,17 @@ flags.DEFINE_integer(
     5,
     'Number of diffusion samples to generate.',
 )
+flags.DEFINE_integer(
+    'num_seeds',
+    None,
+    'Number of seeds to use for inference. If set, only a single seed must be'
+    ' provided in the input JSON. AlphaFold 3 will then generate random seeds'
+    ' in sequence, starting from the single seed specified in the input JSON.'
+    ' The full input JSON produced by AlphaFold 3 will include the generated'
+    ' random seeds. If not set, AlphaFold 3 will use the seeds as provided in'
+    ' the input JSON.',
+    lower_bound=1,
+)
 
 # Post-processing settings
 flags.DEFINE_boolean('compress_result_pickles', False,
@@ -335,6 +346,7 @@ def main(argv):
         "buckets": FLAGS.buckets,
         "jax_compilation_cache_dir": FLAGS.jax_compilation_cache_dir,
         "features_directory": FLAGS.features_directory,
+        "num_seeds": FLAGS.num_seeds,
     }
 
     default_postprocess_flags = {

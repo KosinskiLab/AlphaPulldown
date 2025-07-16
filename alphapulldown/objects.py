@@ -290,29 +290,25 @@ class ChoppedObject(MonomericObject):
 
         aatype = msa["aatype"][i0:i1, :]
         bsr = msa["between_segment_residues"][i0:i1]
-        residue_index = np.arange(1, length + 1, dtype=np.int32)
-
-        seq0 = msa["sequence"][0]
-        full_seq = seq0.decode() if isinstance(seq0, (bytes, bytearray)) else str(seq0)
-        sliced_seq = full_seq[i0:i1]
-        sequence_arr = np.array([sliced_seq.encode()])
-
+        residue_index = msa["residue_index"][i0:i1]
+        sliced_seq = np.array([msa["sequence"][0][i0:i1]])
+        sliced_seq_length = np.array([length] * length)
         deletions       = msa["deletion_matrix_int"][ :, i0:i1]
         deletions_all   = msa["deletion_matrix_int_all_seq"][ :, i0:i1]
         msa_arr         = msa["msa"][ :, i0:i1]
         msa_all         = msa["msa_all_seq"][ :, i0:i1]
-        num_alignments  = np.full(length, msa_arr.shape[0], dtype=np.int32)
+        num_alignments  = np.array([msa_arr.shape[0]] * length)
         species         = msa["msa_species_identifiers"]
         species_all     = msa["msa_species_identifiers_all_seq"]
-        domain_name     = msa["domain_name"]
+        #domain_name     = msa["domain_name"]
 
         new_msa_feature = {
             "aatype": aatype,
             "between_segment_residues": bsr,
-            "domain_name": domain_name,
+            #"domain_name": domain_name,
             "residue_index": residue_index,
-            "seq_length": np.full(length, length, dtype=np.int32),
-            "sequence": sequence_arr,
+            "seq_length": sliced_seq_length,
+            "sequence": sliced_seq,
             "deletion_matrix_int": deletions,
             "msa": msa_arr,
             "num_alignments": num_alignments,
@@ -321,7 +317,7 @@ class ChoppedObject(MonomericObject):
             "deletion_matrix_int_all_seq": deletions_all,
             "msa_species_identifiers_all_seq": species_all,
         }
-        return new_msa_feature, sliced_seq
+        return new_msa_feature, sliced_seq[0].decode("utf-8")
 
     def prepare_new_template_feature(
         self, tmpl: Dict[str, Any], start: int, end: int
@@ -435,7 +431,6 @@ class ChoppedObject(MonomericObject):
                 out[key] = np.concatenate(arrs, axis=1)
 
         total_len = len(self.new_sequence)
-        out["residue_index"]    = np.arange(1, total_len + 1, dtype=np.int32)
         out["seq_length"]       = np.full(total_len, total_len, dtype=np.int32)
         out["num_alignments"]   = np.full(total_len, num_align, dtype=np.int32)
         out["sequence"]         = np.array([self.new_sequence.encode()])
@@ -454,6 +449,7 @@ class ChoppedObject(MonomericObject):
         ]
 
         final = slices[0] if len(slices) == 1 else self.concatenate_sliced_feature_dict(slices)
+        final['domain_name'] = self.feature_dict['domain_name']
 
         self.sequence = self.new_sequence
         self.feature_dict = final
