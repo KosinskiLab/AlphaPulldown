@@ -1095,6 +1095,11 @@ proteinA,4,1-100;proteinB
 * Instead of repeating the protein name for homo-oligomers, specify the number of copies after the protein's name (e.g., `proteinB,4` for a tetramer).
 * Combine residue ranges and homooligomer notation for specific predictions (e.g., `proteinA,4,1-100;proteinB`).
 
+If you use `--fold_backend=alphafold3`, you can mix AlphaFold2 `.pkl` feature files with AlphaFold3 `*_data.json` features. To avoid confusion, always use the `.json` suffix for AlphaFold3 features — e.g. 
+```plaintext
+proteinA;proteinB.json;RNA.json
+```
+
 #### Script Execution: Structure Prediction
 
 To predict structures, activate the AlphaPulldown environment and run the script `run_multimer_jobs.py` as follows:
