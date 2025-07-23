@@ -338,7 +338,7 @@ structure_inference_arguments:
   --fold_backend: alphafold3
   --<other-flags>
 ```
-Please do not forget to change `alphafold-data-directory` and add backend specific flags.
+Please do not forget to change `alphafold-data-directory` (renamed to databases_directory in 2.0.4) and add backend specific flags.
 > [!NOTE]
 > At the moment AlphaPulldown supports the following backends: alphafold, alphafold3, alphalink and unifold.
 **input_files**
