@@ -134,10 +134,11 @@ def get_database_path(key):
 def create_arguments(local_custom_template_db=None):
     """Set all database paths in FLAGS for the selected AlphaFold version.
     Optionally override template paths with a local custom template DB."""
-    # When using MMseqs2 remotely (current implementation), database paths are not needed
+    # When using MMseqs2 (current implementation uses remote servers), database paths are not needed
     # Note: Current MMseqs2 implementation uses remote servers via DEFAULT_API_SERVER
     # For local MMseqs2, data_dir would be required and database paths would be set
-    if FLAGS.use_mmseqs2 and not FLAGS.data_dir:
+    if FLAGS.use_mmseqs2:
+        # When using MMseqs2, we don't need local database paths regardless of data_dir
         FLAGS.uniref90_database_path = None
         FLAGS.uniref30_database_path = None
         FLAGS.mgnify_database_path = None
@@ -177,9 +178,7 @@ def create_pipeline_af2():
     """Create and configure the AlphaFold2 data pipeline."""
     use_small_bfd = FLAGS.db_preset == "reduced_dbs"
     
-    # When using MMseqs2 (current implementation uses remote), we don't need template search/featurization
-    # Note: Current MMseqs2 implementation uses remote servers via DEFAULT_API_SERVER
-    # For local MMseqs2, template search/featurization would be needed
+    # When using MMseqs2, we don't need template search/featurization
     if FLAGS.use_mmseqs2:
         template_searcher = None
         template_featuriser = None
@@ -223,9 +222,7 @@ def create_individual_features():
     """Generate AlphaFold2 features for each monomer sequence."""
     create_arguments()
     
-    # When using MMseqs2 (current implementation uses remote), we don't need a pipeline or uniprot_runner
-    # Note: Current MMseqs2 implementation uses remote servers via DEFAULT_API_SERVER
-    # For local MMseqs2, pipeline and uniprot_runner would be needed
+    # When using MMseqs2, we don't need a pipeline or uniprot_runner
     if FLAGS.use_mmseqs2:
         pipeline = None
         uniprot_runner = None
@@ -295,9 +292,7 @@ def process_multimeric_features(feat, idx):
         local_path_to_custom_db = create_custom_db(temp_dir, protein, template_paths, chains)
         create_arguments(local_path_to_custom_db)
         
-        # When using MMseqs2 (current implementation uses remote), we don't need a pipeline or uniprot_runner
-        # Note: Current MMseqs2 implementation uses remote servers via DEFAULT_API_SERVER
-        # For local MMseqs2, pipeline and uniprot_runner would be needed
+        # When using MMseqs2, we don't need a pipeline or uniprot_runner
         if FLAGS.use_mmseqs2:
             pipeline = None
             uniprot_runner = None
@@ -425,10 +420,9 @@ def main(argv):
     # Check if all required flags are provided
     for flag_name in required_flags:
         if not getattr(FLAGS, flag_name):
-            if flag_name == "data_dir" and FLAGS.use_mmseqs2:
-                # data_dir is not required when using mmseqs2 with remote databases
-                continue
             logging.error(f"Required flag --{flag_name} is not provided.")
+            if flag_name == "data_dir" and FLAGS.use_mmseqs2:
+                logging.error("When using --use_mmseqs2, the --data_dir flag is not required as databases are accessed remotely.")
             sys.exit(1)
     
     Path(FLAGS.output_dir).mkdir(parents=True, exist_ok=True)
