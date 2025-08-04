@@ -54,7 +54,7 @@ class TestAlphaLinkFix(absltest.TestCase):
             f.write("TEST\n")
         
         # Mock the AlphaLink weights path
-        mock_weights_path = "/mock/alphalink/weights/AlphaLink-Multimer_SDA_v3.pt"
+        mock_weights_path = "/scratch/AlphaFold_DBs/alphalink_weights/AlphaLink-Multimer_SDA_v3.pt"
         mock_crosslinks_path = str(self.test_crosslinks_dir / "example_crosslink.pkl.gz")
         
         # Test command construction for run_multimer_jobs.py
