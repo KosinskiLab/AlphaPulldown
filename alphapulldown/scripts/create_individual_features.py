@@ -122,6 +122,10 @@ def get_database_path(key):
     if FLAGS.use_mmseqs2 and not FLAGS.data_dir:
         return None
     
+    # For non-MMseqs2, data_dir must be provided
+    if not FLAGS.data_dir:
+        raise ValueError("data_dir is required when not using MMseqs2")
+    
     db_map = AF3_DATABASES if FLAGS.data_pipeline == 'alphafold3' else AF2_DATABASES
     default_subpath = db_map[key]
     return os.path.join(FLAGS.data_dir, default_subpath)
