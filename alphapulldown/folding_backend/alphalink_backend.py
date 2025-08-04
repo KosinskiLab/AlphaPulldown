@@ -326,9 +326,22 @@ class AlphaLinkBackend(FoldingBackend):
             raise ValueError("Missing required parameters: configs, param_path, or crosslinks")
         
         logging.warning(f"You chose to model with AlphaLink2 via AlphaPulldown. Please also cite:K.Stahl,O.Brock and J.Rappsilber, Modelling protein complexes with crosslinking mass spectrometry and deep learning, 2023, doi: 10.1101/2023.06.07.544059")
+        
+        # Debug: Print the structure of objects_to_model
+        print(f"DEBUG: objects_to_model type: {type(objects_to_model)}")
+        print(f"DEBUG: objects_to_model length: {len(objects_to_model)}")
+        for i, entry in enumerate(objects_to_model):
+            print(f"DEBUG: Entry {i} type: {type(entry)}")
+            print(f"DEBUG: Entry {i} keys: {entry.keys() if isinstance(entry, dict) else 'Not a dict'}")
+            if isinstance(entry, dict):
+                print(f"DEBUG: Entry {i} object type: {type(entry.get('object'))}")
+                print(f"DEBUG: Entry {i} output_dir type: {type(entry.get('output_dir'))}")
+                print(f"DEBUG: Entry {i} output_dir value: {entry.get('output_dir')}")
+        
         for entry in objects_to_model:
             object_to_model = entry['object']
             output_dir = entry['output_dir']
+            print(f"DEBUG: About to create directory: {output_dir} (type: {type(output_dir)})")
             makedirs(output_dir, exist_ok=True)
             AlphaLinkBackend.predict_iterations(object_to_model.feature_dict,output_dir,
                                                 configs=configs,crosslinks=crosslinks,
