@@ -200,8 +200,11 @@ def predict_structure(
     if FLAGS.random_seed is not None:
         random_seed = FLAGS.random_seed
     else:
-        if fold_backend in ['alphafold', 'alphalink']:
+        if fold_backend == 'alphafold':
             random_seed = random.randrange(sys.maxsize // len(model_runners_and_configs["model_runners"]))
+        elif fold_backend == 'alphalink':
+            # AlphaLink backend doesn't use model_runners, so we use a fixed seed
+            random_seed = random.randrange(sys.maxsize)
         elif fold_backend=='alphafold3':
             random_seed = random.randrange(2**32 - 1)
     predicted_jobs = backend.predict(
