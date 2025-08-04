@@ -175,12 +175,14 @@ class _TestBase(parameterized.TestCase):
         
         for i, part in enumerate(parts):
             part = part.strip()
-            protein_name = part
             
-            sequence = self._get_sequence_for_protein(protein_name)
-            if sequence:
-                chain_id = chr(ord('A') + i)
-                sequences.append((chain_id, sequence))
+            # Process each part using the single protein line logic
+            part_sequences = self._process_single_protein_line(part)
+            
+            # Adjust chain IDs to be sequential across all parts
+            for j, (chain_id, sequence) in enumerate(part_sequences):
+                new_chain_id = chr(ord('A') + len(sequences) + j)
+                sequences.append((new_chain_id, sequence))
         
         return sequences
 
@@ -192,6 +194,11 @@ class _TestBase(parameterized.TestCase):
         if "," in part and part.count(",") >= 2:
             # This is a homo-oligomer chopped protein
             return self._process_homo_oligomer_chopped_line(part)
+        
+        # Check if this is a simple homo-oligomer (format: PROTEIN,NUM)
+        if "," in part and part.count(",") == 1:
+            # This is a simple homo-oligomer
+            return self._process_simple_homo_oligomer_line(part)
         
         # Regular single protein
         protein_name = part
@@ -208,18 +215,28 @@ class _TestBase(parameterized.TestCase):
             return []
         
         parts = line.split(",")
-        if len(parts) < 3:
+        if len(parts) < 2:
             return []
         
         protein_name = parts[0].strip()
-        num_copies = int(parts[1].strip())
         
-        # Parse regions (everything after the number of copies)
-        regions = []
-        for region_str in parts[2:]:
-            if "-" in region_str:
-                s, e = region_str.split("-")
-                regions.append((int(s), int(e)))
+        # Check if second part is a number (homo-oligomer) or a region (single chopped protein)
+        try:
+            num_copies = int(parts[1].strip())
+            # This is a homo-oligomer with chopped regions
+            regions = []
+            for region_str in parts[2:]:
+                if "-" in region_str:
+                    s, e = region_str.split("-")
+                    regions.append((int(s), int(e)))
+        except ValueError:
+            # This is a single chopped protein (format: PROTEIN,REGION1,REGION2,...)
+            num_copies = 1
+            regions = []
+            for region_str in parts[1:]:
+                if "-" in region_str:
+                    s, e = region_str.split("-")
+                    regions.append((int(s), int(e)))
         
         # Get the chopped sequence
         def get_chopped_sequence(protein_name: str, regions: list) -> str:
@@ -235,6 +252,31 @@ class _TestBase(parameterized.TestCase):
             return chopped_sequence
         
         sequence = get_chopped_sequence(protein_name, regions)
+        if not sequence:
+            return []
+        
+        # Create multiple copies with different chain IDs
+        sequences = []
+        for i in range(num_copies):
+            chain_id = chr(ord('A') + i)
+            sequences.append((chain_id, sequence))
+        
+        return sequences
+
+    def _process_simple_homo_oligomer_line(self, line: str) -> List[Tuple[str, str]]:
+        """Process a simple homo-oligomer (format: 'PROTEIN,NUMBER')."""
+        if "," not in line:
+            return []
+        
+        parts = line.split(",")
+        if len(parts) != 2:
+            return []
+        
+        protein_name = parts[0].strip()
+        num_copies = int(parts[1].strip())
+        
+        # Get the full sequence
+        sequence = self._get_sequence_for_protein(protein_name)
         if not sequence:
             return []
         
