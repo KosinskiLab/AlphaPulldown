@@ -118,6 +118,10 @@ FLAGS = flags.FLAGS
 
 def get_database_path(key):
     """Return the absolute path for a given database key, depending on pipeline."""
+    # When using MMseqs2 remotely, data_dir is not required
+    if FLAGS.use_mmseqs2 and not FLAGS.data_dir:
+        return None
+    
     db_map = AF3_DATABASES if FLAGS.data_pipeline == 'alphafold3' else AF2_DATABASES
     default_subpath = db_map[key]
     return os.path.join(FLAGS.data_dir, default_subpath)
@@ -125,16 +129,30 @@ def get_database_path(key):
 def create_arguments(local_custom_template_db=None):
     """Set all database paths in FLAGS for the selected AlphaFold version.
     Optionally override template paths with a local custom template DB."""
-    FLAGS.uniref90_database_path = get_database_path("uniref90")
-    FLAGS.uniref30_database_path = get_database_path("uniref30")
-    FLAGS.mgnify_database_path = get_database_path("mgnify")
-    FLAGS.bfd_database_path = get_database_path("bfd")
-    FLAGS.small_bfd_database_path = get_database_path("small_bfd")
-    FLAGS.pdb70_database_path = get_database_path("pdb70")
-    FLAGS.uniprot_database_path = get_database_path("uniprot")
-    FLAGS.pdb_seqres_database_path = get_database_path("pdb_seqres")
-    FLAGS.template_mmcif_dir = get_database_path("template_mmcif_dir")
-    FLAGS.obsolete_pdbs_path = get_database_path("obsolete_pdbs")
+    # When using MMseqs2 remotely, database paths are not needed
+    if FLAGS.use_mmseqs2 and not FLAGS.data_dir:
+        FLAGS.uniref90_database_path = None
+        FLAGS.uniref30_database_path = None
+        FLAGS.mgnify_database_path = None
+        FLAGS.bfd_database_path = None
+        FLAGS.small_bfd_database_path = None
+        FLAGS.pdb70_database_path = None
+        FLAGS.uniprot_database_path = None
+        FLAGS.pdb_seqres_database_path = None
+        FLAGS.template_mmcif_dir = None
+        FLAGS.obsolete_pdbs_path = None
+    else:
+        FLAGS.uniref90_database_path = get_database_path("uniref90")
+        FLAGS.uniref30_database_path = get_database_path("uniref30")
+        FLAGS.mgnify_database_path = get_database_path("mgnify")
+        FLAGS.bfd_database_path = get_database_path("bfd")
+        FLAGS.small_bfd_database_path = get_database_path("small_bfd")
+        FLAGS.pdb70_database_path = get_database_path("pdb70")
+        FLAGS.uniprot_database_path = get_database_path("uniprot")
+        FLAGS.pdb_seqres_database_path = get_database_path("pdb_seqres")
+        FLAGS.template_mmcif_dir = get_database_path("template_mmcif_dir")
+        FLAGS.obsolete_pdbs_path = get_database_path("obsolete_pdbs")
+    
     if local_custom_template_db:
         FLAGS.pdb_seqres_database_path = os.path.join(local_custom_template_db, "pdb_seqres.txt")
         FLAGS.template_mmcif_dir = os.path.join(local_custom_template_db, "pdb_mmcif", "mmcif_files")
@@ -151,26 +169,33 @@ def check_template_date():
 def create_pipeline_af2():
     """Create and configure the AlphaFold2 data pipeline."""
     use_small_bfd = FLAGS.db_preset == "reduced_dbs"
-    if FLAGS.use_hhsearch:
-        template_searcher = hhsearch.HHSearch(
-            binary_path=FLAGS.hhsearch_binary_path, databases=[FLAGS.pdb70_database_path]
-        )
-        template_featuriser = templates.HhsearchHitFeaturizer(
-            mmcif_dir=FLAGS.template_mmcif_dir, max_template_date=FLAGS.max_template_date,
-            max_hits=20, kalign_binary_path=FLAGS.kalign_binary_path,
-            release_dates_path=None, obsolete_pdbs_path=FLAGS.obsolete_pdbs_path
-        )
+    
+    # When using MMseqs2, we don't need template search/featurization
+    if FLAGS.use_mmseqs2:
+        template_searcher = None
+        template_featuriser = None
     else:
-        template_featuriser = templates.HmmsearchHitFeaturizer(
-            mmcif_dir=FLAGS.template_mmcif_dir, max_template_date=FLAGS.max_template_date,
-            max_hits=20, kalign_binary_path=FLAGS.kalign_binary_path,
-            obsolete_pdbs_path=FLAGS.obsolete_pdbs_path, release_dates_path=None
-        )
-        template_searcher = hmmsearch.Hmmsearch(
-            binary_path=FLAGS.hmmsearch_binary_path,
-            hmmbuild_binary_path=FLAGS.hmmbuild_binary_path,
-            database_path=FLAGS.pdb_seqres_database_path
-        )
+        if FLAGS.use_hhsearch:
+            template_searcher = hhsearch.HHSearch(
+                binary_path=FLAGS.hhsearch_binary_path, databases=[FLAGS.pdb70_database_path]
+            )
+            template_featuriser = templates.HhsearchHitFeaturizer(
+                mmcif_dir=FLAGS.template_mmcif_dir, max_template_date=FLAGS.max_template_date,
+                max_hits=20, kalign_binary_path=FLAGS.kalign_binary_path,
+                release_dates_path=None, obsolete_pdbs_path=FLAGS.obsolete_pdbs_path
+            )
+        else:
+            template_featuriser = templates.HmmsearchHitFeaturizer(
+                mmcif_dir=FLAGS.template_mmcif_dir, max_template_date=FLAGS.max_template_date,
+                max_hits=20, kalign_binary_path=FLAGS.kalign_binary_path,
+                obsolete_pdbs_path=FLAGS.obsolete_pdbs_path, release_dates_path=None
+            )
+            template_searcher = hmmsearch.Hmmsearch(
+                binary_path=FLAGS.hmmsearch_binary_path,
+                hmmbuild_binary_path=FLAGS.hmmbuild_binary_path,
+                database_path=FLAGS.pdb_seqres_database_path
+            )
+    
     return AF2DataPipeline(
         jackhmmer_binary_path=FLAGS.jackhmmer_binary_path,
         hhblits_binary_path=FLAGS.hhblits_binary_path,
@@ -188,10 +213,17 @@ def create_pipeline_af2():
 def create_individual_features():
     """Generate AlphaFold2 features for each monomer sequence."""
     create_arguments()
-    pipeline = create_pipeline_af2()
-    uniprot_runner = None if FLAGS.use_mmseqs2 else create_uniprot_runner(
-        FLAGS.jackhmmer_binary_path, FLAGS.uniprot_database_path
-    )
+    
+    # When using MMseqs2, we don't need a pipeline or uniprot_runner
+    if FLAGS.use_mmseqs2:
+        pipeline = None
+        uniprot_runner = None
+    else:
+        pipeline = create_pipeline_af2()
+        uniprot_runner = create_uniprot_runner(
+            FLAGS.jackhmmer_binary_path, FLAGS.uniprot_database_path
+        )
+    
     for seq_idx, (seq, desc) in enumerate(iter_seqs(FLAGS.fasta_paths), 1):
         if FLAGS.seq_index is None or seq_idx == FLAGS.seq_index:
             monomer = MonomericObject(desc, seq)
@@ -251,10 +283,17 @@ def process_multimeric_features(feat, idx):
     with tempfile.TemporaryDirectory() as temp_dir:
         local_path_to_custom_db = create_custom_db(temp_dir, protein, template_paths, chains)
         create_arguments(local_path_to_custom_db)
-        uniprot_runner = None if FLAGS.use_mmseqs2 else create_uniprot_runner(
-            FLAGS.jackhmmer_binary_path, FLAGS.uniprot_database_path
-        )
-        pipeline = create_pipeline_af2()
+        
+        # When using MMseqs2, we don't need a pipeline or uniprot_runner
+        if FLAGS.use_mmseqs2:
+            pipeline = None
+            uniprot_runner = None
+        else:
+            pipeline = create_pipeline_af2()
+            uniprot_runner = create_uniprot_runner(
+                FLAGS.jackhmmer_binary_path, FLAGS.uniprot_database_path
+            )
+        
         monomer = MonomericObject(protein, feat['sequence'])
         monomer.uniprot_runner = uniprot_runner
         create_and_save_monomer_objects(monomer, pipeline)
@@ -364,6 +403,20 @@ def create_af3_individual_features():
 def main(argv):
     """Main entry: dispatch to AF2 or AF3, truemultimer or not."""
     del argv
+    
+    # Validate required flags based on configuration
+    required_flags = ["fasta_paths", "output_dir", "max_template_date"]
+    if not FLAGS.use_mmseqs2:
+        required_flags.append("data_dir")
+    
+    # Check if all required flags are provided
+    for flag_name in required_flags:
+        if not getattr(FLAGS, flag_name):
+            logging.error(f"Required flag --{flag_name} is not provided.")
+            if flag_name == "data_dir" and FLAGS.use_mmseqs2:
+                logging.error("When using --use_mmseqs2, the --data_dir flag is not required as databases are accessed remotely.")
+            sys.exit(1)
+    
     Path(FLAGS.output_dir).mkdir(parents=True, exist_ok=True)
     if FLAGS.data_pipeline == "alphafold3":
         create_af3_individual_features()
@@ -375,7 +428,6 @@ def main(argv):
             create_individual_features()
 
 if __name__ == "__main__":
-    flags.mark_flags_as_required(
-        ["fasta_paths", "output_dir", "max_template_date", "data_dir"]
-    )
+    # Mark basic required flags (data_dir validation is handled in main())
+    flags.mark_flags_as_required(["fasta_paths", "output_dir", "max_template_date"])
     app.run(main)
