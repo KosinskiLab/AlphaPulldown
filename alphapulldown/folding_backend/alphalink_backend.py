@@ -339,10 +339,13 @@ class AlphaLinkBackend(FoldingBackend):
             # Get num_predictions_per_model from kwargs, default to 1
             num_predictions_per_model = kwargs.get('num_predictions_per_model', 1)
             
+            # Get chain_id_map if available, otherwise use None
+            chain_id_map = getattr(object_to_model, 'chain_id_map', None)
+            
             AlphaLinkBackend.predict_iterations(object_to_model.feature_dict,output_dir,
                                                 configs=configs,crosslinks=crosslinks,
                                                 input_seqs=object_to_model.input_seqs,
-                                                chain_id_map=object_to_model.chain_id_map,
+                                                chain_id_map=chain_id_map,
                                                 param_path=param_path,
                                                 num_inference=num_predictions_per_model,
             )
