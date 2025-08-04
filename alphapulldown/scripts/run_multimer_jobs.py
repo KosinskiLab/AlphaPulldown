@@ -105,11 +105,6 @@ def main(argv):
         "--desired_num_msa": FLAGS.desired_num_msa,
         "--models_to_relax": FLAGS.models_to_relax
     }
-    
-    # Add AlphaLink-specific flags
-    if FLAGS.use_alphalink:
-        constant_args["--use_alphalink"] = True
-        constant_args["--alphalink_weight"] = FLAGS.alphalink_weight
 
     command_args = {}
     for k, v in constant_args.items():
