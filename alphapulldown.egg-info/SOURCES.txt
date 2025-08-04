@@ -79,6 +79,7 @@ ColabFold/colabfold/pdb.py
 ColabFold/colabfold/plot.py
 ColabFold/colabfold/relax.py
 ColabFold/colabfold/utils.py
+alphafold/run_alphafold.py
 alphafold/alphafold/__init__.py
 alphafold/alphafold/version.py
 alphafold/alphafold/common/__init__.py

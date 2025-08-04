@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: alphapulldown
-Version: 2.0.4
+Version: 2.1.0
 Summary: Pipeline allows massive screening using alphafold
 Home-page: https://github.com/KosinskiLab/AlphaPulldown
 Author: EMBL Hamburg
@@ -376,7 +376,7 @@ structure_inference_arguments:
   --fold_backend: alphafold3
   --<other-flags>
 ```
-Please do not forget to change `alphafold-data-directory` and add backend specific flags.
+Please do not forget to change `alphafold-data-directory` (renamed to databases_directory in 2.0.4) and add backend specific flags.
 > [!NOTE]
 > At the moment AlphaPulldown supports the following backends: alphafold, alphafold3, alphalink and unifold.
 **input_files**
@@ -1132,6 +1132,11 @@ proteinA,4,1-100;proteinB
 * Use semicolons (`;`) to separate protein names within a complex.
 * Instead of repeating the protein name for homo-oligomers, specify the number of copies after the protein's name (e.g., `proteinB,4` for a tetramer).
 * Combine residue ranges and homooligomer notation for specific predictions (e.g., `proteinA,4,1-100;proteinB`).
+
+If you use `--fold_backend=alphafold3`, you can mix AlphaFold2 `.pkl` feature files with AlphaFold3 `*_data.json` features. To avoid confusion, always use the `.json` suffix for AlphaFold3 features — e.g. 
+```plaintext
+proteinA;proteinB.json;RNA.json
+```
 
 #### Script Execution: Structure Prediction
 

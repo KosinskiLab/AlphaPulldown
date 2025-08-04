@@ -446,11 +446,9 @@ class _TestBase(parameterized.TestCase):
                 f"--output_directory={self.output_dir}",
                 "--num_cycle=1",
                 "--num_predictions_per_model=1",
-                f"--data_directory={ALPHALINK_WEIGHTS_DIR}",
+                f"--data_directory={ALPHALINK_WEIGHTS_FILE}",
                 f"--features_directory={self.test_features_dir}",
                 "--fold_backend=alphalink",
-                "--use_alphalink=True",
-                f"--alphalink_weight={ALPHALINK_WEIGHTS_FILE}",
                 f"--crosslinks={self.test_crosslinks_dir}/example_crosslink.pkl.gz",
             ]
             
