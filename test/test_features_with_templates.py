@@ -205,6 +205,12 @@ class TestCreateIndividualFeaturesWithTemplates(parameterized.TestCase):
         pkl_path.unlink(missing_ok=True)
         json_path.unlink(missing_ok=True)
 
+    def test_mmseqs2_without_data_dir(self):
+        """Test that MMseqs2 works without data_dir flag."""
+        # This test verifies that MMseqs2 can work without requiring data_dir
+        # when using templates (truemultimer mode)
+        self.run_features_generation('3L4Q', 'A', 'cif', True)
+
     @absltest.skip("use_mmseqs2 must not be set when running with --path_to_mmts")
     def test_6a_mmseqs2(self):
         self.run_features_generation('3L4Q', 'A', 'cif', True)

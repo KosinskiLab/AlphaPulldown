@@ -323,14 +323,16 @@ class TestCreateIndividualFeaturesComprehensive:
         FLAGS.output_dir = output_dir
         FLAGS.max_template_date = "2021-09-30"
         FLAGS.data_pipeline = "alphafold2"
-        FLAGS.fasta_paths = []
+        FLAGS.fasta_paths = ["dummy.fasta"]  # Use a dummy path instead of empty list
         FLAGS.data_dir = "/test/db"
         
         # Mock the pipeline creation to avoid real database access
         with patch.object(create_features, 'create_pipeline_af2') as mock_af2_pipeline, \
-             patch.object(create_features, 'create_uniprot_runner') as mock_uniprot_runner:
+             patch.object(create_features, 'create_uniprot_runner') as mock_uniprot_runner, \
+             patch('alphapulldown.scripts.create_individual_features.iter_seqs') as mock_iter_seqs:
             mock_af2_pipeline.return_value = MagicMock()
             mock_uniprot_runner.return_value = MagicMock()
+            mock_iter_seqs.return_value = []  # Return empty iterator
             
             # The main function should create the output directory
             create_features.main([])
@@ -429,4 +431,229 @@ class TestCreateIndividualFeaturesComprehensive:
         create_features.create_arguments()
         assert FLAGS.data_dir == "/test/db", "Data directory should be preserved"
         assert FLAGS.max_template_date == "2021-09-30", "Max template date should be preserved"
-        logger.info("Flag preservation in custom template database mode successful") 
+        logger.info("Flag preservation in custom template database mode successful")
+
+    def test_mmseqs2_without_data_dir(self):
+        """Test that MMseqs2 works without data_dir flag."""
+        logger.info("Testing MMseqs2 without data_dir flag")
+        
+        # Initialize flags properly
+        from absl import flags
+        FLAGS = flags.FLAGS
+        FLAGS(['test'])  # Parse flags with dummy argv
+        
+        # Set up flags for MMseqs2 without data_dir
+        FLAGS.use_mmseqs2 = True
+        FLAGS.data_dir = None
+        FLAGS.fasta_paths = [os.path.join(self.fasta_dir, "single_protein.fasta")]
+        FLAGS.output_dir = os.path.join(self.test_dir, "test_output")
+        FLAGS.max_template_date = "2021-09-30"
+        
+        # Test that main() doesn't exit when data_dir is None but use_mmseqs2 is True
+        with patch('sys.exit') as mock_exit, \
+             patch('alphapulldown.scripts.create_individual_features.create_pipeline_af2') as mock_pipeline, \
+             patch('alphapulldown.scripts.create_individual_features.create_uniprot_runner') as mock_uniprot, \
+             patch('alphapulldown.objects.MonomericObject', DummyMonomer), \
+             patch('alphapulldown.utils.save_meta_data.get_meta_dict', return_value={}), \
+             patch('builtins.open', mock_open()), \
+             patch('pickle.dump'):
+            
+            mock_pipeline.return_value = MagicMock()
+            mock_uniprot.return_value = MagicMock()
+            
+            create_features.main([])
+            mock_exit.assert_not_called()
+        logger.info("MMseqs2 without data_dir flag test successful")
+
+    def test_mmseqs2_with_data_dir(self):
+        """Test that MMseqs2 works with data_dir flag (should still work)."""
+        logger.info("Testing MMseqs2 with data_dir flag")
+        
+        # Initialize flags properly
+        from absl import flags
+        FLAGS = flags.FLAGS
+        FLAGS(['test'])  # Parse flags with dummy argv
+        
+        # Set up flags for MMseqs2 with data_dir
+        FLAGS.use_mmseqs2 = True
+        FLAGS.data_dir = "/test/db"
+        FLAGS.fasta_paths = [os.path.join(self.fasta_dir, "single_protein.fasta")]
+        FLAGS.output_dir = os.path.join(self.test_dir, "test_output")
+        FLAGS.max_template_date = "2021-09-30"
+        
+        # Test that main() doesn't exit when data_dir is provided and use_mmseqs2 is True
+        with patch('sys.exit') as mock_exit, \
+             patch('alphapulldown.scripts.create_individual_features.create_pipeline_af2') as mock_pipeline, \
+             patch('alphapulldown.scripts.create_individual_features.create_uniprot_runner') as mock_uniprot, \
+             patch('alphapulldown.objects.MonomericObject', DummyMonomer), \
+             patch('alphapulldown.utils.save_meta_data.get_meta_dict', return_value={}), \
+             patch('builtins.open', mock_open()), \
+             patch('pickle.dump'):
+            
+            mock_pipeline.return_value = MagicMock()
+            mock_uniprot.return_value = MagicMock()
+            
+            create_features.main([])
+            mock_exit.assert_not_called()
+        logger.info("MMseqs2 with data_dir flag test successful")
+
+    def test_non_mmseqs2_without_data_dir(self):
+        """Test that non-MMseqs2 fails without data_dir flag."""
+        logger.info("Testing non-MMseqs2 without data_dir flag")
+        
+        # Initialize flags properly
+        from absl import flags
+        FLAGS = flags.FLAGS
+        FLAGS(['test'])  # Parse flags with dummy argv
+        
+        # Set up flags for non-MMseqs2 without data_dir
+        FLAGS.use_mmseqs2 = False
+        FLAGS.data_dir = None
+        FLAGS.fasta_paths = [os.path.join(self.fasta_dir, "single_protein.fasta")]
+        FLAGS.output_dir = os.path.join(self.test_dir, "test_output")
+        FLAGS.max_template_date = "2021-09-30"
+        
+        # Test that get_database_path raises ValueError when data_dir is None and use_mmseqs2 is False
+        with pytest.raises(ValueError, match="data_dir is required when not using MMseqs2"):
+            create_features.get_database_path("uniref90")
+        logger.info("Non-MMseqs2 without data_dir flag correctly failed")
+
+    def test_database_path_handling_mmseqs2(self):
+        """Test database path handling when using MMseqs2."""
+        logger.info("Testing database path handling with MMseqs2")
+        
+        # Initialize flags properly
+        from absl import flags
+        FLAGS = flags.FLAGS
+        FLAGS(['test'])  # Parse flags with dummy argv
+        
+        # Test with MMseqs2 and no data_dir
+        FLAGS.use_mmseqs2 = True
+        FLAGS.data_dir = None
+        
+        # Test get_database_path returns None
+        result = create_features.get_database_path("uniref90")
+        assert result is None, f"Expected None, got {result}"
+        
+        # Test create_arguments sets database paths to None
+        create_features.create_arguments()
+        assert FLAGS.uniref90_database_path is None, "uniref90_database_path should be None"
+        assert FLAGS.mgnify_database_path is None, "mgnify_database_path should be None"
+        assert FLAGS.bfd_database_path is None, "bfd_database_path should be None"
+        logger.info("Database path handling with MMseqs2 successful")
+
+    def test_pipeline_creation_mmseqs2(self):
+        """Test pipeline creation when using MMseqs2."""
+        logger.info("Testing pipeline creation with MMseqs2")
+        
+        # Initialize flags properly
+        from absl import flags
+        FLAGS = flags.FLAGS
+        FLAGS(['test'])  # Parse flags with dummy argv
+        
+        # Set up flags for MMseqs2
+        FLAGS.use_mmseqs2 = True
+        FLAGS.data_dir = None
+        FLAGS.db_preset = "full_dbs"
+        
+        # Mock the AF2DataPipeline to avoid real database access
+        with patch('alphapulldown.scripts.create_individual_features.AF2DataPipeline') as mock_pipeline:
+            mock_pipeline.return_value = MagicMock()
+            
+            # Test that pipeline creation doesn't fail
+            pipeline = create_features.create_pipeline_af2()
+            assert pipeline is not None, "Pipeline should be created successfully"
+            
+            # Verify that template_searcher and template_featurizer are None
+            # We can't directly access these, but we can verify the pipeline was created
+            mock_pipeline.assert_called_once()
+            logger.info("Pipeline creation with MMseqs2 successful")
+
+    def test_feature_creation_mmseqs2(self):
+        """Test feature creation when using MMseqs2."""
+        logger.info("Testing feature creation with MMseqs2")
+        
+        # Initialize flags properly
+        from absl import flags
+        FLAGS = flags.FLAGS
+        FLAGS(['test'])  # Parse flags with dummy argv
+        
+        # Set up flags for MMseqs2
+        FLAGS.use_mmseqs2 = True
+        FLAGS.data_dir = None
+        FLAGS.fasta_paths = [os.path.join(self.fasta_dir, "single_protein.fasta")]
+        FLAGS.output_dir = os.path.join(self.test_dir, "test_output")
+        FLAGS.max_template_date = "2021-09-30"
+        
+        # Mock the necessary functions to avoid real database access
+        with patch('alphapulldown.scripts.create_individual_features.create_pipeline_af2') as mock_pipeline, \
+             patch('alphapulldown.scripts.create_individual_features.create_uniprot_runner') as mock_uniprot, \
+             patch('alphapulldown.utils.file_handling.iter_seqs') as mock_iter_seqs, \
+             patch('alphapulldown.objects.MonomericObject', DummyMonomer), \
+             patch('alphapulldown.utils.save_meta_data.get_meta_dict', return_value={}), \
+             patch('builtins.open', mock_open()), \
+             patch('pickle.dump'):
+            
+            mock_iter_seqs.return_value = [("TESTSEQ", "test_protein")]
+            
+            # Test that feature creation doesn't fail
+            create_features.create_individual_features()
+            
+            # Verify that pipeline and uniprot_runner are None for MMseqs2
+            mock_pipeline.assert_not_called()
+            mock_uniprot.assert_not_called()
+            logger.info("Feature creation with MMseqs2 successful")
+
+    def test_flag_validation_mmseqs2(self):
+        """Test flag validation for MMseqs2 scenarios."""
+        logger.info("Testing flag validation for MMseqs2")
+        
+        # Initialize flags properly
+        from absl import flags
+        FLAGS = flags.FLAGS
+        FLAGS(['test'])  # Parse flags with dummy argv
+        
+        # Test case 1: MMseqs2 with data_dir (should work)
+        FLAGS.use_mmseqs2 = True
+        FLAGS.data_dir = "/test/db"
+        FLAGS.fasta_paths = [os.path.join(self.fasta_dir, "single_protein.fasta")]
+        FLAGS.output_dir = os.path.join(self.test_dir, "test_output")
+        FLAGS.max_template_date = "2021-09-30"
+        
+        with patch('sys.exit') as mock_exit, \
+             patch('alphapulldown.scripts.create_individual_features.create_pipeline_af2') as mock_pipeline, \
+             patch('alphapulldown.scripts.create_individual_features.create_uniprot_runner') as mock_uniprot, \
+             patch('alphapulldown.objects.MonomericObject', DummyMonomer), \
+             patch('alphapulldown.utils.save_meta_data.get_meta_dict', return_value={}), \
+             patch('builtins.open', mock_open()), \
+             patch('pickle.dump'):
+            
+            mock_pipeline.return_value = MagicMock()
+            mock_uniprot.return_value = MagicMock()
+            
+            create_features.main([])
+            mock_exit.assert_not_called()
+        
+        # Test case 2: MMseqs2 without data_dir (should work)
+        FLAGS.data_dir = None
+        with patch('sys.exit') as mock_exit, \
+             patch('alphapulldown.scripts.create_individual_features.create_pipeline_af2') as mock_pipeline, \
+             patch('alphapulldown.scripts.create_individual_features.create_uniprot_runner') as mock_uniprot, \
+             patch('alphapulldown.objects.MonomericObject', DummyMonomer), \
+             patch('alphapulldown.utils.save_meta_data.get_meta_dict', return_value={}), \
+             patch('builtins.open', mock_open()), \
+             patch('pickle.dump'):
+            
+            mock_pipeline.return_value = MagicMock()
+            mock_uniprot.return_value = MagicMock()
+            
+            create_features.main([])
+            mock_exit.assert_not_called()
+        
+        # Test case 3: Non-MMseqs2 without data_dir (should fail)
+        FLAGS.use_mmseqs2 = False
+        FLAGS.data_dir = None
+        with pytest.raises(SystemExit):
+            create_features.main([])
+        
+        logger.info("Flag validation for MMseqs2 scenarios successful") 
