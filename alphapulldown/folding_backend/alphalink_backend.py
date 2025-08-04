@@ -299,9 +299,6 @@ class AlphaLinkBackend(FoldingBackend):
 
     @staticmethod
     def predict(
-        configs: Dict,
-        param_path: str,
-        crosslinks: str,
         objects_to_model: List[Dict[str, Union[MultimericObject, MonomericObject, ChoppedObject, str]]],
         **kwargs,
     ):
@@ -310,20 +307,24 @@ class AlphaLinkBackend(FoldingBackend):
 
         Parameters
         ----------
-        configs : Dict
-            Configuration dictionary for the AlphaLink model obtained from
-            py:meth:`AlphaLinkBackend.setup`.
-        param_path : str
-            Path to the AlphaLink model parameters.
-        crosslinks : str
-            Path to crosslink information pickle for AlphaLink.
         objects_to_model : List[Dict[str, Union[MultimericObject, MonomericObject, ChoppedObject, str]]]
             A list of dictionaries. Each dictionary has keys 'object' and 'output_dir'.
             The 'object' key contains an instance of MultimericObject, MonomericObject, or ChoppedObject.
             The 'output_dir' key contains the corresponding output directory to save the modelling results.
         **kwargs : dict
-            Additional keyword arguments for prediction.
+            Additional keyword arguments including:
+            - configs: Configuration dictionary for the AlphaLink model
+            - param_path: Path to the AlphaLink model parameters
+            - crosslinks: Path to crosslink information pickle for AlphaLink
         """
+        # Extract required parameters from kwargs
+        configs = kwargs.get('configs')
+        param_path = kwargs.get('param_path')
+        crosslinks = kwargs.get('crosslinks')
+        
+        if not all([configs, param_path, crosslinks]):
+            raise ValueError("Missing required parameters: configs, param_path, or crosslinks")
+        
         logging.warning(f"You chose to model with AlphaLink2 via AlphaPulldown. Please also cite:K.Stahl,O.Brock and J.Rappsilber, Modelling protein complexes with crosslinking mass spectrometry and deep learning, 2023, doi: 10.1101/2023.06.07.544059")
         for entry in objects_to_model:
             object_to_model = entry['object']
