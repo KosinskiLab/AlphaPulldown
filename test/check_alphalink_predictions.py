@@ -838,6 +838,131 @@ ENDMDL
 
 
 # --------------------------------------------------------------------------- #
+#                    parameterised "run mode" tests (no crosslinks)           #
+# --------------------------------------------------------------------------- #
+class TestAlphaLinkRunModesNoCrosslinks(_TestBase):
+    @parameterized.named_parameters(
+        dict(testcase_name="monomer_no_xl", protein_list="test_monomer.txt", mode="custom", script="run_multimer_jobs.py"),
+        dict(testcase_name="dimer_no_xl", protein_list="test_dimer.txt", mode="custom", script="run_multimer_jobs.py"),
+    )
+    def test_(self, protein_list, mode, script):
+        # Create environment with GPU settings
+        env = os.environ.copy()
+        env["CUDA_VISIBLE_DEVICES"] = "0"  # Use first GPU
+        env["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
+
+        # Add comprehensive threading control to prevent SIGABRT
+        env["OMP_NUM_THREADS"] = "1"
+        env["MKL_NUM_THREADS"] = "1"
+        env["NUMEXPR_NUM_THREADS"] = "1"
+        env["OPENBLAS_NUM_THREADS"] = "1"
+        env["VECLIB_MAXIMUM_THREADS"] = "1"
+        env["BLAS_NUM_THREADS"] = "1"
+        env["LAPACK_NUM_THREADS"] = "1"
+        
+        # JAX/TensorFlow specific threading controls
+        env["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
+        env["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.8"
+        env["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
+        env["TF_CPP_MIN_LOG_LEVEL"] = "2"
+        
+        # Additional threading controls for TensorFlow/JAX
+        env["TF_NUM_INTEROP_THREADS"] = "1"
+        env["TF_NUM_INTRAOP_THREADS"] = "1"
+        env["JAX_PLATFORM_NAME"] = "gpu"
+        env["JAX_ENABLE_X64"] = "false"
+        
+        # More aggressive threading controls
+        env["XLA_FLAGS"] = "--xla_disable_hlo_passes=custom-kernel-fusion-rewriter --xla_gpu_force_compilation_parallelism=0"
+        env["JAX_FLASH_ATTENTION_IMPL"] = "xla"
+        env["TF_CPP_VMODULE"] = "gpu_process_state=1"
+        env["TF_CPP_MIN_LOG_LEVEL"] = "3"
+        
+        # Debug output
+        print("\nEnvironment variables:")
+        print(f"CUDA_VISIBLE_DEVICES: {env.get('CUDA_VISIBLE_DEVICES')}")
+        print(f"PYTORCH_CUDA_ALLOC_CONF: {env.get('PYTORCH_CUDA_ALLOC_CONF')}")
+        
+        # Check GPU availability
+        try:
+            import torch
+            print("\nPyTorch GPU devices:")
+            print(f"CUDA available: {torch.cuda.is_available()}")
+            if torch.cuda.is_available():
+                print(f"CUDA device count: {torch.cuda.device_count()}")
+                print(f"Current device: {torch.cuda.current_device()}")
+        except Exception as e:
+            print(f"\nError checking PyTorch GPU: {e}")
+        
+        res = subprocess.run(
+            self._args_no_crosslinks(plist=protein_list, script=script),
+            capture_output=True,
+            text=True,
+            env=env
+        )
+        self._runCommonTests(res)
+        
+        # Check chain counts and sequences
+        self._check_chain_counts_and_sequences(protein_list)
+
+    def _args_no_crosslinks(self, *, plist, script):
+        """Generate arguments for tests without crosslinks."""
+        # Determine mode from protein list name
+        if "homooligomer" in plist:
+            mode = "homo-oligomer"
+        else:
+            mode = "custom"
+            
+        if script == "run_structure_prediction.py":
+            # Format from run_multimer_jobs.py input to run_structure_prediction.py input
+            buffer = io.StringIO()
+            _ = process_files(
+                input_files=[str(self.test_protein_lists_dir / plist)],
+                output_path=buffer,
+                exclude_permutations = True
+            )
+            buffer.seek(0)
+            formatted_input_lines = [x.strip().replace(",", ":").replace(";", "+") for x in buffer.readlines() if x.strip()]
+            # Use the first non-empty line as the input string
+            formatted_input = formatted_input_lines[0] if formatted_input_lines else ""
+            args = [
+                sys.executable,
+                str(self.script_single),
+                f"--input={formatted_input}",
+                f"--output_directory={self.output_dir}",
+                "--num_cycle=1",
+                "--num_predictions_per_model=1",
+                f"--data_directory={ALPHALINK_WEIGHTS_FILE}",
+                f"--features_directory={self.test_features_dir}",
+                "--fold_backend=alphalink",
+                # No crosslinks parameter
+            ]
+            
+            return args
+        elif script == "run_multimer_jobs.py":
+            args = [
+                sys.executable,
+                str(self.script_multimer),
+                "--num_cycle=1",
+                "--num_predictions_per_model=1",
+                f"--data_dir={ALPHALINK_WEIGHTS_DIR}",
+                f"--monomer_objects_dir={self.test_features_dir}",
+                "--job_index=1",
+                f"--output_path={self.output_dir}",
+                f"--mode={mode}",
+                "--use_alphalink=True",
+                f"--alphalink_weight={ALPHALINK_WEIGHTS_FILE}",
+                # No crosslinks parameter
+                (
+                    "--oligomer_state_file"
+                    if mode == "homo-oligomer"
+                    else "--protein_lists"
+                ) + f"={self.test_protein_lists_dir / plist}",
+            ]
+            return args
+
+
+# --------------------------------------------------------------------------- #
 def _parse_test_args():
     """Parse test-specific arguments that work with both absltest and pytest."""
     # Check for --use-temp-dir in sys.argv or environment variable
