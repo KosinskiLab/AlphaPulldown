@@ -425,10 +425,10 @@ def main(argv):
     # Check if all required flags are provided
     for flag_name in required_flags:
         if not getattr(FLAGS, flag_name):
-            logging.error(f"Required flag --{flag_name} is not provided.")
             if flag_name == "data_dir" and FLAGS.use_mmseqs2:
-                logging.error("When using --use_mmseqs2, the --data_dir flag is not required as databases are accessed remotely.")
-                logging.error("Note: Current MMseqs2 implementation uses remote servers. For local MMseqs2, data_dir would be required.")
+                # data_dir is not required when using mmseqs2 with remote databases
+                continue
+            logging.error(f"Required flag --{flag_name} is not provided.")
             sys.exit(1)
     
     Path(FLAGS.output_dir).mkdir(parents=True, exist_ok=True)
