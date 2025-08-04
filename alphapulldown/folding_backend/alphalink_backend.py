@@ -275,6 +275,10 @@ class AlphaLinkBackend(FoldingBackend):
                         f"AlphaLink2_model_{it}_seed_{cur_seed}_{iptm_value:.3f}.pdb"
                     )
                     cur_plot_name = f"AlphaLink2_model_{it}_seed_{cur_seed}_{iptm_value:.3f}_pae.png"
+                    
+                    # Ensure output directory exists before saving files
+                    makedirs(output_dir, exist_ok=True)
+                    
                     # save pae json file
                     _save_pae_json_file(out['predicted_aligned_error'], str(np.max(out['predicted_aligned_error'])),
                                         output_dir, f"AlphaLink2_model_{it}_seed_{cur_seed}_{iptm_value:.3f}")
