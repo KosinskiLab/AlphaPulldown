@@ -187,6 +187,13 @@ class _TestBase(parameterized.TestCase):
     def _process_single_protein_line(self, line: str) -> List[Tuple[str, str]]:
         """Process a line with a single protein."""
         part = line.strip()
+        
+        # Check if this is a homo-oligomer chopped protein (format: PROTEIN,NUM,REGIONS)
+        if "," in part and part.count(",") >= 2:
+            # This is a homo-oligomer chopped protein
+            return self._process_homo_oligomer_chopped_line(part)
+        
+        # Regular single protein
         protein_name = part
         
         sequence = self._get_sequence_for_protein(protein_name)
@@ -194,6 +201,50 @@ class _TestBase(parameterized.TestCase):
             return [('A', sequence)]
         
         return []
+
+    def _process_homo_oligomer_chopped_line(self, line: str) -> List[Tuple[str, str]]:
+        """Process a homo-oligomer of chopped proteins (format: 'PROTEIN,NUMBER,REGIONS')."""
+        if "," not in line:
+            return []
+        
+        parts = line.split(",")
+        if len(parts) < 3:
+            return []
+        
+        protein_name = parts[0].strip()
+        num_copies = int(parts[1].strip())
+        
+        # Parse regions (everything after the number of copies)
+        regions = []
+        for region_str in parts[2:]:
+            if "-" in region_str:
+                s, e = region_str.split("-")
+                regions.append((int(s), int(e)))
+        
+        # Get the chopped sequence
+        def get_chopped_sequence(protein_name: str, regions: list) -> str:
+            full_sequence = self._get_sequence_for_protein(protein_name)
+            if not full_sequence:
+                return None
+            chopped_sequence = ""
+            for start, end in regions:
+                # Convert to 0-based indexing
+                start_idx = start - 1
+                end_idx = end  # end is exclusive
+                chopped_sequence += full_sequence[start_idx:end_idx]
+            return chopped_sequence
+        
+        sequence = get_chopped_sequence(protein_name, regions)
+        if not sequence:
+            return []
+        
+        # Create multiple copies with different chain IDs
+        sequences = []
+        for i in range(num_copies):
+            chain_id = chr(ord('A') + i)
+            sequences.append((chain_id, sequence))
+        
+        return sequences
 
     def _get_sequence_for_protein(self, protein_name: str, chain_id: str = 'A') -> str:
         """Get sequence for a single protein, trying PKL first, then FASTA."""
