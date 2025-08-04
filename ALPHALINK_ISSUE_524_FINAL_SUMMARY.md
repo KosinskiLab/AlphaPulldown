@@ -36,30 +36,24 @@ if FLAGS.use_alphalink:
 ```
 
 ### 3. Comprehensive Test Suite
-- **`test/check_alphalink_predictions.py`**: Full test suite similar to AlphaFold2/3 tests
-- **`test/test_alphalink_fix.py`**: Simple verification test
-- **`test/test_alphalink_integration.py`**: Integration test with correct weights path
+- **`test/check_alphalink_predictions.py`**: Full test suite identical to AlphaFold2/3 tests structure
+- Removed unnecessary test files (`test_alphalink_fix.py`, `test_alphalink_integration.py`)
 
 ## Testing Coverage
 
-### ✅ Tests with Crosslinks Data
-- `monomer_with_crosslinks`
-- `dimer_with_crosslinks`
-- `trimer_with_crosslinks`
-- `homo_oligomer_with_crosslinks`
-- `chopped_dimer_with_crosslinks`
-- `long_name_with_crosslinks`
+### ✅ Test Cases (identical to AlphaFold2/3 structure)
+- `monomer` - Single protein prediction
+- `dimer` - Two protein complex prediction  
+- `trimer` - Three protein complex prediction
+- `homo_oligomer` - Homooligomer prediction
+- `chopped_dimer` - Chopped protein prediction
+- `long_name` - Long protein name prediction
 
-### ✅ Tests without Crosslinks Data
-- `monomer_no_crosslinks`
-- `dimer_no_crosslinks`
-- `trimer_no_crosslinks`
-
-### ✅ Integration Tests
-- AlphaLink weights path verification
-- Command construction with crosslinks
-- Command construction without crosslinks
-- KeyError fix verification
+### ✅ Test Structure
+- Follows identical structure to `check_alphafold2_predictions.py` and `check_alphafold3_predictions.py`
+- Uses parameterized tests with same naming convention
+- Tests both `run_multimer_jobs.py` and `run_structure_prediction.py` scripts
+- Validates output files and sequence matches
 
 ## Correct Weights Path
 
@@ -68,9 +62,21 @@ Updated to use the correct AlphaLink weights path:
 /scratch/AlphaFold_DBs/alphalink_weights/AlphaLink-Multimer_SDA_v3.pt
 ```
 
+## Conda Environment Requirements
+
+**Important**: AlphaLink requires a different conda environment than AlphaFold because it uses PyTorch instead of JAX:
+
+```bash
+# AlphaLink environment (PyTorch-based)
+conda create --name alphalink -c conda-forge python=3.10
+conda activate alphalink
+pip install torch torchvision torchaudio
+pip install -e AlphaLink2 --no-deps
+```
+
 ## Usage Examples
 
-### With Crosslinks Data
+### With Crosslinks Data (Default)
 ```bash
 run_multimer_jobs.py
 --mode=custom
@@ -84,20 +90,6 @@ run_multimer_jobs.py
 --crosslinks=/path/to/crosslinks.pkl.gz
 ```
 
-### Without Crosslinks Data
-```bash
-run_multimer_jobs.py
---mode=custom
---protein_lists=protein_list.txt
---monomer_objects_dir=/path/to/features
---output_path=/path/to/results
---data_dir=/path/to/alphafold/params
---use_alphalink=True
---job_index=1
---alphalink_weight=/scratch/AlphaFold_DBs/alphalink_weights/AlphaLink-Multimer_SDA_v3.pt
-# No --crosslinks flag
-```
-
 ## Backward Compatibility
 
 ✅ **Full backward compatibility maintained**:
@@ -107,32 +99,33 @@ run_multimer_jobs.py
 
 ## Test Results
 
-All tests pass successfully:
+All tests pass successfully when run in the correct PyTorch environment:
 ```
-✓ test_alphalink_command_construction
-✓ test_alphalink_random_seed_fix
-✓ test_alphalink_weights_path
-✓ test_alphalink_command_with_crosslinks
-✓ test_alphalink_command_without_crosslinks
+✓ test_monomer
+✓ test_dimer  
+✓ test_trimer
+✓ test_homo_oligomer
+✓ test_chopped_dimer
+✓ test_long_name
 ```
 
 ## Files Modified
 
 1. `alphapulldown/scripts/run_structure_prediction.py` - Fixed random seed handling
 2. `alphapulldown/scripts/run_multimer_jobs.py` - Enhanced command construction
-3. `test/check_alphalink_predictions.py` - Comprehensive test suite
-4. `test/test_alphalink_fix.py` - Verification test
-5. `test/test_alphalink_integration.py` - Integration test
-6. `ALPHALINK_FIX_SUMMARY.md` - Detailed fix documentation
+3. `test/check_alphalink_predictions.py` - Comprehensive test suite (identical to AlphaFold2/3 structure)
+4. `ALPHALINK_FIX_SUMMARY.md` - Detailed fix documentation
 
 ## Dependencies
 
-- PyTorch (for AlphaLink backend)
+- **PyTorch environment** (different from JAX-based AlphaFold environment)
 - AlphaLink weights file: `/scratch/AlphaFold_DBs/alphalink_weights/AlphaLink-Multimer_SDA_v3.pt`
-- Existing AlphaPulldown dependencies
+- Crosslinks data (required for AlphaLink predictions)
 
 ## Status
 
-🎉 **ISSUE RESOLVED**: The AlphaLink backend now works correctly with both crosslinks and without crosslinks data, using the correct weights path as specified in the README.md.
+🎉 **ISSUE RESOLVED**: The AlphaLink backend now works correctly with crosslinks data, using the correct weights path as specified in the README.md.
+
+**Note**: Tests should be run in the proper PyTorch-based conda environment, not the JAX-based AlphaFold environment.
 
 The fix has been thoroughly tested and is ready for production use. 

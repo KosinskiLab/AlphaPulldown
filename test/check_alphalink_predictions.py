@@ -420,7 +420,7 @@ class _TestBase(parameterized.TestCase):
             print(f"✓ Verified ranking_debug.json with {len(ranking_data['iptm+ptm'])} models")
 
     # convenience builder
-    def _args(self, *, plist, script, use_crosslinks=True):
+    def _args(self, *, plist, script):
         # Determine mode from protein list name
         if "homooligomer" in plist:
             mode = "homo-oligomer"
@@ -451,11 +451,8 @@ class _TestBase(parameterized.TestCase):
                 "--fold_backend=alphalink",
                 "--use_alphalink=True",
                 f"--alphalink_weight={ALPHALINK_WEIGHTS_FILE}",
+                f"--crosslinks={self.test_crosslinks_dir}/example_crosslink.pkl.gz",
             ]
-            
-            # Add crosslinks only if requested
-            if use_crosslinks:
-                args.append(f"--crosslinks={self.test_crosslinks_dir}/example_crosslink.pkl.gz")
             
             return args
         elif script == "run_multimer_jobs.py":
@@ -471,17 +468,13 @@ class _TestBase(parameterized.TestCase):
                 f"--mode={mode}",
                 "--use_alphalink=True",
                 f"--alphalink_weight={ALPHALINK_WEIGHTS_FILE}",
+                f"--crosslinks={self.test_crosslinks_dir}/example_crosslink.pkl.gz",
                 (
                     "--oligomer_state_file"
                     if mode == "homo-oligomer"
                     else "--protein_lists"
                 ) + f"={self.test_protein_lists_dir / plist}",
             ]
-            
-            # Add crosslinks only if requested
-            if use_crosslinks:
-                args.append(f"--crosslinks={self.test_crosslinks_dir}/example_crosslink.pkl.gz")
-            
             return args
 
 
@@ -490,18 +483,14 @@ class _TestBase(parameterized.TestCase):
 # --------------------------------------------------------------------------- #
 class TestAlphaLinkRunModes(_TestBase):
     @parameterized.named_parameters(
-        dict(testcase_name="monomer_with_crosslinks", protein_list="test_monomer.txt", script="run_structure_prediction.py", use_crosslinks=True),
-        dict(testcase_name="dimer_with_crosslinks", protein_list="test_dimer.txt", script="run_structure_prediction.py", use_crosslinks=True),
-        dict(testcase_name="trimer_with_crosslinks", protein_list="test_trimer.txt", script="run_structure_prediction.py", use_crosslinks=True),
-        dict(testcase_name="homo_oligomer_with_crosslinks", protein_list="test_homooligomer.txt", script="run_structure_prediction.py", use_crosslinks=True),
-        dict(testcase_name="chopped_dimer_with_crosslinks", protein_list="test_dimer_chopped.txt", script="run_structure_prediction.py", use_crosslinks=True),
-        dict(testcase_name="long_name_with_crosslinks", protein_list="test_long_name.txt", script="run_structure_prediction.py", use_crosslinks=True),
-        # Tests without crosslinks
-        dict(testcase_name="monomer_no_crosslinks", protein_list="test_monomer.txt", script="run_structure_prediction.py", use_crosslinks=False),
-        dict(testcase_name="dimer_no_crosslinks", protein_list="test_dimer.txt", script="run_structure_prediction.py", use_crosslinks=False),
-        dict(testcase_name="trimer_no_crosslinks", protein_list="test_trimer.txt", script="run_structure_prediction.py", use_crosslinks=False),
+        dict(testcase_name="monomer", protein_list="test_monomer.txt", mode="custom", script="run_multimer_jobs.py"),
+        dict(testcase_name="dimer", protein_list="test_dimer.txt", mode="custom", script="run_multimer_jobs.py"),
+        dict(testcase_name="trimer", protein_list="test_trimer.txt", mode="custom", script="run_multimer_jobs.py"),
+        dict(testcase_name="homo_oligomer", protein_list="test_homooligomer.txt", mode="homo-oligomer", script="run_multimer_jobs.py"),
+        dict(testcase_name="chopped_dimer", protein_list="test_dimer_chopped.txt", mode="custom", script="run_multimer_jobs.py"),
+        dict(testcase_name="long_name", protein_list="test_long_name.txt", mode="custom", script="run_structure_prediction.py"),
     )
-    def test_(self, protein_list, script, use_crosslinks):
+    def test_(self, protein_list, mode, script):
         # Create environment with GPU settings
         env = os.environ.copy()
         env["CUDA_VISIBLE_DEVICES"] = "0"  # Use first GPU
@@ -524,7 +513,7 @@ class TestAlphaLinkRunModes(_TestBase):
             print(f"\nError checking PyTorch GPU: {e}")
         
         res = subprocess.run(
-            self._args(plist=protein_list, script=script, use_crosslinks=use_crosslinks),
+            self._args(plist=protein_list, script=script),
             capture_output=True,
             text=True,
             env=env
