@@ -273,8 +273,25 @@ class _TestBase(parameterized.TestCase):
         
         print(f"\nExpected sequences: {expected_sequences}")
         
+        # Find the actual output directory (might be a subdirectory)
+        files = list(self.output_dir.iterdir())
+        print(f"contents of {self.output_dir}: {[f.name for f in files]}")
+        
+        output_subdir = None
+        for item in files:
+            if item.is_dir():
+                # Check if this subdirectory contains AlphaLink output files
+                subdir_files = list(item.iterdir())
+                if any(f.name.startswith("AlphaLink2_model_") for f in subdir_files):
+                    output_subdir = item
+                    break
+        
+        # Use subdirectory if found, otherwise use main directory
+        check_dir = output_subdir if output_subdir else self.output_dir
+        print(f"Checking for PDB files in: {check_dir}")
+        
         # Find the predicted PDB files (should be in the output directory)
-        pdb_files = list(self.output_dir.glob("ranked_*.pdb"))
+        pdb_files = list(check_dir.glob("ranked_*.pdb"))
         if not pdb_files:
             self.fail("No predicted PDB files found")
         
