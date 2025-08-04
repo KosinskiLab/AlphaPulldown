@@ -578,12 +578,12 @@ class TestAlphaLinkRunModes(_TestBase):
         dict(testcase_name="long_name", protein_list="test_long_name.txt", mode="custom", script="run_structure_prediction.py"),
     )
     def test_(self, protein_list, mode, script):
-        # Create environment with GPU settings
+                # Create environment with GPU settings
         env = os.environ.copy()
         env["CUDA_VISIBLE_DEVICES"] = "0"  # Use first GPU
         env["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
-        
-        # Add threading control to prevent SIGABRT
+
+        # Add comprehensive threading control to prevent SIGABRT
         env["OMP_NUM_THREADS"] = "1"
         env["MKL_NUM_THREADS"] = "1"
         env["NUMEXPR_NUM_THREADS"] = "1"
@@ -591,6 +591,18 @@ class TestAlphaLinkRunModes(_TestBase):
         env["VECLIB_MAXIMUM_THREADS"] = "1"
         env["BLAS_NUM_THREADS"] = "1"
         env["LAPACK_NUM_THREADS"] = "1"
+        
+        # JAX/TensorFlow specific threading controls
+        env["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
+        env["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.8"
+        env["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
+        env["TF_CPP_MIN_LOG_LEVEL"] = "2"
+        
+        # Additional threading controls for TensorFlow/JAX
+        env["TF_NUM_INTEROP_THREADS"] = "1"
+        env["TF_NUM_INTRAOP_THREADS"] = "1"
+        env["JAX_PLATFORM_NAME"] = "gpu"
+        env["JAX_ENABLE_X64"] = "false"
         
         # Debug output
         print("\nEnvironment variables:")
@@ -618,6 +630,102 @@ class TestAlphaLinkRunModes(_TestBase):
         
         # Check chain counts and sequences
         self._check_chain_counts_and_sequences(protein_list)
+
+    def test_sequence_extraction_logic(self):
+        """Test that sequence extraction logic works correctly for AlphaLink."""
+        # Test the sequence extraction logic directly
+        expected_sequences = self._extract_expected_sequences("test_dimer.txt")
+        
+        # The expected result should be two chains with the same sequence
+        self.assertEqual(len(expected_sequences), 2, "Expected 2 chains for dimer")
+        self.assertEqual(expected_sequences[0][0], 'A', "First chain should be A")
+        self.assertEqual(expected_sequences[1][0], 'B', "Second chain should be B")
+        self.assertEqual(expected_sequences[0][1], expected_sequences[1][1], "Both chains should have same sequence")
+        
+        print(f"✓ Sequence extraction test passed: {expected_sequences}")
+
+    def test_sequence_validation_logic(self):
+        """Test that sequence validation logic works correctly for AlphaLink."""
+        # Create a mock PDB file content for testing
+        mock_pdb_content = """MODEL     1
+ATOM      1  N   MET A   1     -19.392  50.743 -64.012  1.00  0.18           N
+ATOM      2  CA  MET A   1     -18.196  50.030 -63.573  1.00  0.18           C
+ATOM      3  C   MET A   1     -17.866  50.361 -62.121  1.00  0.18           C
+ATOM      4  CB  MET A   1     -17.005  50.371 -64.470  1.00  0.18           C
+ATOM      5  O   MET A   1     -16.773  50.055 -61.643  1.00  0.18           O
+ATOM      6  CG  MET A   1     -15.901  49.327 -64.448  1.00  0.18           C
+ATOM      7  SD  MET A   1     -14.657  49.591 -65.770  1.00  0.18           S
+ATOM      8  CE  MET A   1     -14.920  48.094 -66.761  1.00  0.18           C
+ATOM      9  N   GLU A   2     -18.233  51.447 -61.285  1.00  0.15           N
+ATOM     10  CA  GLU A   2     -17.192  51.949 -60.394  1.00  0.15           C
+ATOM     11  C   GLU A   2     -16.837  50.918 -59.326  1.00  0.15           C
+ATOM     12  CB  GLU A   2     -17.632  53.259 -59.735  1.00  0.15           C
+ATOM     13  O   GLU A   2     -15.786  50.278 -59.399  1.00  0.15           O
+ATOM     14  CG  GLU A   2     -17.741  54.428 -60.704  1.00  0.15           C
+ATOM     15  CD  GLU A   2     -17.609  55.782 -60.026  1.00  0.15           C
+ATOM     16  OE1 GLU A   2     -17.061  56.721 -60.647  1.00  0.15           O
+ATOM     17  OE2 GLU A   2     -18.057  55.905 -58.864  1.00  0.15           O
+ATOM     18  N   SER A   3     -17.068  51.353 -58.065  1.00  0.16           N
+ATOM     19  CA  SER A   3     -16.123  51.594 -56.979  1.00  0.16           C
+ATOM     20  C   SER A   3     -15.456  52.936 -57.234  1.00  0.16           C
+ATOM     21  CB  SER A   3     -16.854  51.456 -55.633  1.00  0.16           C
+ATOM     22  OG  SER A   3     -17.854  50.456 -55.633  1.00  0.16           O
+ATOM     23  N   MET B   1     -19.392  50.743 -64.012  1.00  0.18           N
+ATOM     24  CA  MET B   1     -18.196  50.030 -63.573  1.00  0.18           C
+ATOM     25  C   MET B   1     -17.866  50.361 -62.121  1.00  0.18           C
+ATOM     26  CB  MET B   1     -17.005  50.371 -64.470  1.00  0.18           C
+ATOM     27  O   MET B   1     -16.773  50.055 -61.643  1.00  0.18           O
+ATOM     28  CG  MET B   1     -15.901  49.327 -64.448  1.00  0.18           C
+ATOM     29  SD  MET B   1     -14.657  49.591 -65.770  1.00  0.18           S
+ATOM     30  CE  MET B   1     -14.920  48.094 -66.761  1.00  0.18           C
+ATOM     31  N   GLU B   2     -18.233  51.447 -61.285  1.00  0.15           N
+ATOM     32  CA  GLU B   2     -17.192  51.949 -60.394  1.00  0.15           C
+ATOM     33  C   GLU B   2     -16.837  50.918 -59.326  1.00  0.15           C
+ATOM     34  CB  GLU B   2     -17.632  53.259 -59.735  1.00  0.15           C
+ATOM     35  O   GLU B   2     -15.786  50.278 -59.399  1.00  0.15           O
+ATOM     36  CG  GLU B   2     -17.741  54.428 -60.704  1.00  0.15           C
+ATOM     37  CD  GLU B   2     -17.609  55.782 -60.026  1.00  0.15           C
+ATOM     38  OE1 GLU B   2     -17.061  56.721 -60.647  1.00  0.15           O
+ATOM     39  OE2 GLU B   2     -18.057  55.905 -58.864  1.00  0.15           O
+ATOM     40  N   SER B   3     -17.068  51.353 -58.065  1.00  0.16           N
+ATOM     41  CA  SER B   3     -16.123  51.594 -56.979  1.00  0.16           C
+ATOM     42  C   SER B   3     -15.456  52.936 -57.234  1.00  0.16           C
+ATOM     43  CB  SER B   3     -16.854  51.456 -55.633  1.00  0.16           C
+ATOM     44  OG  SER B   3     -17.854  50.456 -55.633  1.00  0.16           O
+ENDMDL
+"""
+        
+        # Create a temporary PDB file
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.pdb', delete=False) as f:
+            f.write(mock_pdb_content)
+            temp_pdb_path = f.name
+        
+        try:
+            # Test the sequence extraction
+            chains_and_sequences = self._extract_pdb_chains_and_sequences(Path(temp_pdb_path))
+            
+            # Should have 2 chains
+            self.assertEqual(len(chains_and_sequences), 2, "Should have 2 chains")
+            
+            # Check chain IDs
+            chain_ids = [chain_id for chain_id, _ in chains_and_sequences]
+            self.assertEqual(set(chain_ids), {'A', 'B'}, "Should have chains A and B")
+            
+            # Check sequences are valid
+            sequences = [seq for _, seq in chains_and_sequences]
+            valid_aa = set('ACDEFGHIKLMNPQRSTVWY')
+            for i, sequence in enumerate(sequences):
+                self.assertGreater(len(sequence), 0, f"Sequence {i} should not be empty")
+                invalid_chars = set(sequence) - valid_aa
+                self.assertEqual(len(invalid_chars), 0, f"Sequence {i} should only contain valid amino acids")
+            
+            print(f"✓ Sequence validation test passed: {chains_and_sequences}")
+            
+        finally:
+            # Clean up
+            import os
+            os.unlink(temp_pdb_path)
 
 
 # --------------------------------------------------------------------------- #
