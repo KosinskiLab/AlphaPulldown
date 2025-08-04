@@ -163,6 +163,32 @@ class AlphaLinkBackend(FoldingBackend):
         return already_exists, iptm_value
     
     @staticmethod
+    def preprocess_features(feature_dict):
+        """
+        Preprocess features to ensure compatibility with AlphaLink2.
+        
+        AlphaLink2 expects certain features to be scalars, but AlphaPulldown
+        may provide them as arrays. This method converts arrays to scalars
+        where needed.
+        """
+        processed_features = feature_dict.copy()
+        
+        # Convert seq_length from array to scalar if needed
+        if "seq_length" in processed_features:
+            if hasattr(processed_features["seq_length"], "__len__") and len(processed_features["seq_length"]) > 1:
+                # If seq_length is an array, take the first value
+                processed_features["seq_length"] = processed_features["seq_length"][0]
+        
+        # Convert other potential array features to scalars
+        scalar_features = ["num_alignments", "num_templates"]
+        for feature_name in scalar_features:
+            if feature_name in processed_features:
+                if hasattr(processed_features[feature_name], "__len__") and len(processed_features[feature_name]) > 1:
+                    processed_features[feature_name] = processed_features[feature_name][0]
+        
+        return processed_features
+
+    @staticmethod
     def automatic_chunk_size(seq_len, device, is_bf16 = False):
         def get_device_mem(device):
             if device != "cpu" and torch.cuda.is_available():
@@ -217,8 +243,11 @@ class AlphaLinkBackend(FoldingBackend):
                     f"{curr_model_name} already done with iptm: {iptm_value}. Skipped.")
                 continue
             else:
+                # Preprocess features to ensure compatibility with AlphaLink2
+                processed_features = AlphaLinkBackend.preprocess_features(feature_dict)
+                
                 batch, _ = process_ap(config=configs.data,
-                                      features=feature_dict,
+                                      features=processed_features,
                                       mode="predict", labels=None,
                                       seed=cur_seed, batch_idx=None,
                                       data_idx=None, is_distillation=False,
