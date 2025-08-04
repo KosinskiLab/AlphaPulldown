@@ -294,28 +294,19 @@ class _TestBase(parameterized.TestCase):
             f"Expected {len(expected_sequences)} chains, but found {len(actual_chains_and_sequences)}"
         )
         
-        # For AlphaLink (generative model), validate that sequences are valid protein sequences
-        # but don't expect exact matches since AlphaLink generates novel sequences
+        # For AlphaLink, validate that sequences match the input sequences from pickle files
         actual_sequences = [seq for _, seq in actual_chains_and_sequences]
+        expected_sequences_only = [seq for _, seq in expected_sequences]
         
-        # Check that all sequences are valid protein sequences
-        valid_aa = set('ACDEFGHIKLMNPQRSTVWY')
-        for i, sequence in enumerate(actual_sequences):
-            self.assertGreater(
-                len(sequence),
-                0,
-                f"Sequence {i} is empty"
-            )
-            
-            # Check that sequence contains only valid amino acid characters
-            invalid_chars = set(sequence) - valid_aa
-            self.assertEqual(
-                len(invalid_chars),
-                0,
-                f"Sequence {i} contains invalid amino acid characters: {invalid_chars}"
-            )
-            
-            print(f"✓ Chain {i}: Valid protein sequence with {len(sequence)} residues")
+        # Sort sequences for comparison (since chain order might vary)
+        actual_sequences.sort()
+        expected_sequences_only.sort()
+        
+        self.assertEqual(
+            actual_sequences,
+            expected_sequences_only,
+            f"Sequences don't match. Expected: {expected_sequences_only}, Actual: {actual_sequences}"
+        )
         
         # Check that chain IDs are valid
         actual_chain_ids = [chain_id for chain_id, _ in actual_chains_and_sequences]

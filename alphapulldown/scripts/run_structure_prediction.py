@@ -351,6 +351,10 @@ def main(argv):
         "features_directory": FLAGS.features_directory,
         "num_seeds": FLAGS.num_seeds,
     }
+    
+    # Override model name for AlphaLink backend
+    if FLAGS.fold_backend == "alphalink":
+        default_model_flags["model_name"] = "multimer_af2_crop"
 
     default_postprocess_flags = {
         "compress_pickles": FLAGS.compress_result_pickles,
