@@ -585,7 +585,12 @@ singularity build <new_image.sif> <writable_image_dir>
     pip3 install torch==2.5.1+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
     ```
 > [!WARNING]
-> It is possible to have both alphafold with jax+CUDA and alphalink with pytorch + another version of CUDA in the same conda environment, but we haven't tested it for other combinations are there may be dependency conflicts. It is recommended to use different environments for different folding backends.
+> **Environment Requirements:** AlphaLink2 uses PyTorch while AlphaFold uses JAX. While it's technically possible to have both in the same conda environment, we recommend using separate environments to avoid dependency conflicts:
+> 
+> - **AlphaFold environment**: JAX-based for standard AlphaFold predictions
+> - **AlphaLink environment**: PyTorch-based for AlphaLink2 predictions with crosslinks
+> 
+> This ensures optimal performance and avoids potential conflicts between the different deep learning frameworks.
 
 2. Compile [UniCore](https://github.com/dptech-corp/Uni-Core).
     ```bash
@@ -1470,7 +1475,9 @@ As [Stahl et al., 2023](https://www.nature.com/articles/s41587-023-01704-z) show
 > **Cite:** If you use AlphaLink2, please remember to cite:
 > Stahl, K., Demann, L., Bremenkamp, R., Warneke, R., Hormes, B., Stülke, J., Brock, O., Rappsilber, J., Der, S.-M. ", & Mensch, S. (2024). Modelling protein complexes with crosslinking mass spectrometry and deep learning. BioRxiv, 2023.06.07.544059. https://doi.org/10.1101/2023.06.07.544059
 
-Before using, install AlphaLink2 as described [here](#4-installation-for-cross-link-input-data-by-alphalink2-optional).
+Before using, install AlphaLink2 as described [here](#04-installation-for-cross-link-input-data-by-alphalink2-optional).
+
+> **Important:** AlphaLink2 requires a PyTorch-based environment, which is different from the JAX-based environment used for AlphaFold. Make sure you have installed AlphaLink2 in the correct environment as described in the installation section.
 
 <details>
 
@@ -1507,7 +1514,7 @@ run_multimer_jobs.py --mode=custom \
 --data_dir=/g/alphafold/AlphaFold_DBs/2.3.0/ \
 --protein_lists=custom.txt \
 --monomer_objects_dir=/scratch/user/output/features \
---job_index=$SLURM_ARRAY_TASK_ID --alphalink_weight=/scratch/user/alphalink_weights/AlphaLink-Multimer_SDA_v3.pt \
+--job_index=$SLURM_ARRAY_TASK_ID --alphalink_weight=/scratch/AlphaFold_DBs/alphalink_weights/AlphaLink-Multimer_SDA_v3.pt \
 --use_alphalink=True --crosslinks=/path/to/crosslinks.pkl.gz 
 ```
 
