@@ -429,9 +429,24 @@ class _TestBase(parameterized.TestCase):
         print(res.stderr)
         self.assertEqual(res.returncode, 0, "sub-process failed")
 
-        # Look in the parent directory for output files
+        # Look for output files - they might be in a subdirectory
         files = list(self.output_dir.iterdir())
         print(f"contents of {self.output_dir}: {[f.name for f in files]}")
+        
+        # Find the actual output directory (might be a subdirectory)
+        output_subdir = None
+        for item in files:
+            if item.is_dir():
+                # Check if this subdirectory contains AlphaLink output files
+                subdir_files = list(item.iterdir())
+                if any(f.name.startswith("AlphaLink2_model_") for f in subdir_files):
+                    output_subdir = item
+                    break
+        
+        # Use subdirectory if found, otherwise use main directory
+        check_dir = output_subdir if output_subdir else self.output_dir
+        files = list(check_dir.iterdir())
+        print(f"contents of {check_dir}: {[f.name for f in files]}")
 
         # Check for AlphaLink output files
         # 1. Main output files
@@ -454,7 +469,7 @@ class _TestBase(parameterized.TestCase):
         self.assertTrue(len(pae_plot_files) > 0, "No PAE plot files found")
 
         # 6. Verify ranking debug JSON
-        with open(self.output_dir / "ranking_debug.json") as f:
+        with open(check_dir / "ranking_debug.json") as f:
             ranking_data = json.load(f)
             self.assertIn("iptm+ptm", ranking_data)
             self.assertIn("order", ranking_data)
