@@ -323,14 +323,16 @@ class TestCreateIndividualFeaturesComprehensive:
         FLAGS.output_dir = output_dir
         FLAGS.max_template_date = "2021-09-30"
         FLAGS.data_pipeline = "alphafold2"
-        FLAGS.fasta_paths = []
+        FLAGS.fasta_paths = ["dummy.fasta"]  # Use a dummy path instead of empty list
         FLAGS.data_dir = "/test/db"
         
         # Mock the pipeline creation to avoid real database access
         with patch.object(create_features, 'create_pipeline_af2') as mock_af2_pipeline, \
-             patch.object(create_features, 'create_uniprot_runner') as mock_uniprot_runner:
+             patch.object(create_features, 'create_uniprot_runner') as mock_uniprot_runner, \
+             patch('alphapulldown.scripts.create_individual_features.iter_seqs') as mock_iter_seqs:
             mock_af2_pipeline.return_value = MagicMock()
             mock_uniprot_runner.return_value = MagicMock()
+            mock_iter_seqs.return_value = []  # Return empty iterator
             
             # The main function should create the output directory
             create_features.main([])
