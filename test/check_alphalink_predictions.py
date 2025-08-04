@@ -545,6 +545,15 @@ class TestAlphaLinkRunModes(_TestBase):
         env["CUDA_VISIBLE_DEVICES"] = "0"  # Use first GPU
         env["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
         
+        # Add threading control to prevent SIGABRT
+        env["OMP_NUM_THREADS"] = "1"
+        env["MKL_NUM_THREADS"] = "1"
+        env["NUMEXPR_NUM_THREADS"] = "1"
+        env["OPENBLAS_NUM_THREADS"] = "1"
+        env["VECLIB_MAXIMUM_THREADS"] = "1"
+        env["BLAS_NUM_THREADS"] = "1"
+        env["LAPACK_NUM_THREADS"] = "1"
+        
         # Debug output
         print("\nEnvironment variables:")
         print(f"CUDA_VISIBLE_DEVICES: {env.get('CUDA_VISIBLE_DEVICES')}")
