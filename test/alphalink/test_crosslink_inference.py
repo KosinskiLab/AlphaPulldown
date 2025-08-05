@@ -13,7 +13,7 @@ class _TestBase(unittest.TestCase):
     def setUp(self) -> None:
         self.crosslink_file_path = os.path.join(os.path.dirname(__file__),"test_data/example_crosslink.pkl.gz")
         self.config_data_model_name = 'model_5_ptm_af2'
-        self.config_alphafold_model_name = 'multimer_af2_crop'
+        self.config_alphafold_model_name = 'alphalink_multimer'
 
 class TestCrosslinkInference(_TestBase):
     def setUp(self) -> None:

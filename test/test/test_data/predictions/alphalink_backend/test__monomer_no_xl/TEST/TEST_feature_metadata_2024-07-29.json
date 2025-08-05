@@ -49,7 +49,7 @@
       "version": "2.04"
     }
   },
-  "date": "2024-07-29 13:31:55",
+  "date": "2024-07-29 16:39:44",
   "other": {
     "logtostderr": "False",
     "alsologtostderr": "False",
@@ -71,7 +71,7 @@
     "runtime_oom_exit": "True",
     "hbm_oom_exit": "True",
     "xml_output_file": "",
-    "fasta_paths": "['test/test_data/fastas/A0A075B6L2.fasta', 'test/test_data/test.fasta']",
+    "fasta_paths": "['test/test_data/fastas/test.fasta']",
     "jackhmmer_binary_path": "/home/dmolodenskiy/.conda/envs/AlphaPulldownMamba/bin/jackhmmer",
     "hhblits_binary_path": "/home/dmolodenskiy/.conda/envs/AlphaPulldownMamba/bin/hhblits",
     "hhsearch_binary_path": "/home/dmolodenskiy/.conda/envs/AlphaPulldownMamba/bin/hhsearch",
