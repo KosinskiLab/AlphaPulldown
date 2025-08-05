@@ -4,3 +4,4 @@ __pycache__*
 .idea*
 test/test_data/predictions/af*
 build/
+*.egg-info/
