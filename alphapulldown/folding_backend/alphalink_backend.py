@@ -9,7 +9,7 @@
 import math, time
 from absl import logging
 from typing import Dict, List, Tuple, Union
-from os import listdir, makedirs
+import os
 from os.path import join, exists, splitext
 from shutil import copyfile
 import re, json
@@ -59,7 +59,10 @@ class AlphaLinkBackend(FoldingBackend):
         model_name : str
             The name of the model to use for prediction. Set to be multimer_af2_crop as used in AlphaLink2
         model_dir : str
-            Path to the pytorch checkpoint that corresponds to the neural network weights from AlphaLink2.
+            Path to either:
+            1. A directory containing AlphaLink weights files (e.g., AlphaLink-Multimer_SDA_v3.pt)
+            2. A specific AlphaLink weights file (e.g., /path/to/AlphaLink-Multimer_SDA_v3.pt)
+            Expected file names: AlphaLink-Multimer_SDA_v2.pt or AlphaLink-Multimer_SDA_v3.pt
         crosslinks : str
             The path to the file containing crosslinking data.
         **kwargs : dict
@@ -71,18 +74,69 @@ class AlphaLinkBackend(FoldingBackend):
             A dictionary records the path to the AlphaLink2 neural network weights
             i.e. a pytorch checkpoint file, crosslink information,
             and Pytorch model configs
+
+        Raises
+        ------
+        FileNotFoundError
+            If the AlphaLink weights file does not exist at the specified path.
+        ValueError
+            If the file does not have a .pt extension or is not a recognized AlphaLink weights file.
         """
-        if not exists(model_dir):
+        # Check if model_dir is a file or directory
+        if os.path.isfile(model_dir):
+            # Direct file path provided
+            weights_file = model_dir
+        elif os.path.isdir(model_dir):
+            # Directory provided, search for weights files
+            expected_names = ["AlphaLink-Multimer_SDA_v3.pt", "AlphaLink-Multimer_SDA_v2.pt"]
+            weights_file = None
+            
+            for filename in expected_names:
+                candidate_path = os.path.join(model_dir, filename)
+                if os.path.isfile(candidate_path):
+                    weights_file = candidate_path
+                    break
+            
+            if weights_file is None:
+                # List all .pt files in directory for better error message
+                pt_files = [f for f in os.listdir(model_dir) if f.endswith('.pt')]
+                if pt_files:
+                    raise FileNotFoundError(
+                        f"AlphaLink2 weights file not found in directory: {model_dir}. "
+                        f"Expected one of: {expected_names}. "
+                        f"Found .pt files: {pt_files}"
+                    )
+                else:
+                    raise FileNotFoundError(
+                        f"AlphaLink2 weights file not found in directory: {model_dir}. "
+                        f"Expected one of: {expected_names}. "
+                        f"No .pt files found in directory."
+                    )
+        else:
+            # Neither file nor directory exists
             raise FileNotFoundError(
-                f"AlphaLink2 network weight does not exist at: {model_dir}"
+                f"AlphaLink2 weights file or directory does not exist at: {model_dir}"
             )
-        if not model_dir.endswith(".pt"):
-            f"{model_dir} does not seem to be a pytorch checkpoint."
+        
+        # Check if it's a .pt file
+        if not weights_file.endswith(".pt"):
+            raise ValueError(
+                f"AlphaLink2 weights file must have .pt extension, got: {weights_file}"
+            )
+        
+        # Check if it's a recognized AlphaLink weights file
+        filename = os.path.basename(weights_file)
+        expected_names = ["AlphaLink-Multimer_SDA_v2.pt", "AlphaLink-Multimer_SDA_v3.pt"]
+        if filename not in expected_names:
+            logging.warning(
+                f"AlphaLink weights file name '{filename}' is not one of the expected names: {expected_names}. "
+                f"This might still work if the file contains valid AlphaLink weights."
+            )
 
         configs = model_config(model_name)
 
         return {
-            "param_path": model_dir,
+            "param_path": weights_file,
             "configs": configs,
         }
 
@@ -149,9 +203,9 @@ class AlphaLinkBackend(FoldingBackend):
         iptm_value: if exists already, return its iptm values, otherwise, returns None
         """
         pattern = r'_(\d+\.\d+)\.pdb$'
-        curr_pdb_file = [i for i in listdir(output_dir) if i.startswith(
+        curr_pdb_file = [i for i in os.listdir(output_dir) if i.startswith(
             curr_model_name) and i.endswith(".pdb")]
-        curr_pae_json = [i for i in listdir(output_dir) if i.startswith(
+        curr_pae_json = [i for i in os.listdir(output_dir) if i.startswith(
             f"pae_{curr_model_name}") and i.endswith(".json")]
         if len(curr_pdb_file) == 1 and len(curr_pae_json) == 1:
             matched = re.search(pattern, curr_pdb_file[0])
@@ -162,6 +216,109 @@ class AlphaLinkBackend(FoldingBackend):
             already_exists = False
         return already_exists, iptm_value
     
+    @staticmethod
+    def preprocess_features(feature_dict):
+        """
+        Preprocess features to ensure compatibility with AlphaLink2.
+        
+        AlphaLink2 expects certain features to be scalars, but AlphaPulldown
+        may provide them as arrays. This method converts arrays to scalars
+        where needed and adds missing features.
+        """
+        processed_features = feature_dict.copy()
+        
+        # Convert seq_length from array to scalar if needed
+        if "seq_length" in processed_features:
+            seq_length = processed_features["seq_length"]
+            try:
+                if hasattr(seq_length, "__len__") and hasattr(seq_length, "__iter__") and len(seq_length) > 1:
+                    # If seq_length is an array, take the first value
+                    processed_features["seq_length"] = seq_length[0]
+            except (TypeError, ValueError):
+                # seq_length is a scalar, leave it as is
+                pass
+        
+        # Convert other potential array features to scalars
+        scalar_features = ["num_alignments", "num_templates"]
+        for feature_name in scalar_features:
+            if feature_name in processed_features:
+                feature_value = processed_features[feature_name]
+                try:
+                    if hasattr(feature_value, "__len__") and hasattr(feature_value, "__iter__") and len(feature_value) > 1:
+                        processed_features[feature_name] = feature_value[0]
+                except (TypeError, ValueError):
+                    # feature_value is a scalar, leave it as is
+                    pass
+        
+        # Handle template feature key name differences
+        if "template_all_atom_masks" in processed_features and "template_all_atom_mask" not in processed_features:
+            processed_features["template_all_atom_mask"] = processed_features["template_all_atom_masks"]
+        
+        # Convert template features from one-hot to integer encoding if needed
+        if "template_aatype" in processed_features:
+            template_aatype = processed_features["template_aatype"]
+            if len(template_aatype.shape) == 3:
+                # Convert one-hot encoding to integer encoding
+                processed_features["template_aatype"] = np.argmax(template_aatype, axis=-1)
+        
+        # Fix template_sum_probs shape if needed
+        if "template_sum_probs" in processed_features:
+            template_sum_probs = processed_features["template_sum_probs"]
+            if len(template_sum_probs.shape) == 1:
+                # Reshape to match expected schema: (1, 1) instead of (1,)
+                processed_features["template_sum_probs"] = template_sum_probs.reshape(1, 1)
+        
+        # Add missing features that AlphaLink2 expects
+        seq_len = processed_features.get("seq_length", 0)
+        if isinstance(seq_len, (list, np.ndarray)):
+            try:
+                seq_len = seq_len[0] if len(seq_len) > 0 else 0
+            except (TypeError, ValueError):
+                # seq_len is a scalar, leave it as is
+                pass
+        
+        # Add deletion_matrix if missing
+        if "deletion_matrix" not in processed_features:
+            if "deletion_matrix_int" in processed_features:
+                processed_features["deletion_matrix"] = processed_features["deletion_matrix_int"]
+            else:
+                processed_features["deletion_matrix"] = np.zeros((1, seq_len))
+        
+        # Add extra_deletion_matrix if missing
+        if "extra_deletion_matrix" not in processed_features:
+            if "deletion_matrix_int_all_seq" in processed_features:
+                processed_features["extra_deletion_matrix"] = processed_features["deletion_matrix_int_all_seq"]
+            else:
+                processed_features["extra_deletion_matrix"] = np.zeros((1, seq_len))
+        
+        # Add msa_mask if missing
+        if "msa_mask" not in processed_features:
+            if "msa" in processed_features:
+                msa_shape = processed_features["msa"].shape
+                processed_features["msa_mask"] = np.ones(msa_shape)
+            else:
+                processed_features["msa_mask"] = np.ones((1, seq_len))
+        
+        # Add msa_row_mask if missing
+        if "msa_row_mask" not in processed_features:
+            if "msa" in processed_features:
+                msa_shape = processed_features["msa"].shape
+                processed_features["msa_row_mask"] = np.ones((msa_shape[0],))
+            else:
+                processed_features["msa_row_mask"] = np.ones((1,))
+        
+        # Add multimer-specific features if missing
+        if "asym_id" not in processed_features:
+            processed_features["asym_id"] = np.zeros(seq_len, dtype=np.int32)
+        
+        if "entity_id" not in processed_features:
+            processed_features["entity_id"] = np.zeros(seq_len, dtype=np.int32)
+        
+        if "sym_id" not in processed_features:
+            processed_features["sym_id"] = np.ones(seq_len, dtype=np.int32)
+        
+        return processed_features
+
     @staticmethod
     def automatic_chunk_size(seq_len, device, is_bf16 = False):
         def get_device_mem(device):
@@ -217,13 +374,19 @@ class AlphaLinkBackend(FoldingBackend):
                     f"{curr_model_name} already done with iptm: {iptm_value}. Skipped.")
                 continue
             else:
+                # Preprocess features to ensure compatibility with AlphaLink2
+                processed_features = AlphaLinkBackend.preprocess_features(feature_dict)
+                
+                # Convert empty crosslinks string to None
+                crosslinks_param = None if crosslinks == "" else crosslinks
+                
                 batch, _ = process_ap(config=configs.data,
-                                      features=feature_dict,
+                                      features=processed_features,
                                       mode="predict", labels=None,
                                       seed=cur_seed, batch_idx=None,
                                       data_idx=None, is_distillation=False,
                                       chain_id_map=chain_id_map,
-                                      crosslinks=crosslinks)
+                                      crosslinks=crosslinks_param)
                 # faster prediction with large chunk/block size
                 seq_len = batch["aatype"].shape[-1]
                 chunk_size, block_size = AlphaLinkBackend.automatic_chunk_size(
@@ -267,6 +430,11 @@ class AlphaLinkBackend(FoldingBackend):
                     plddt_b_factors = np.repeat(
                         plddt[..., None], residue_constants.atom_type_num, axis=-1
                     )
+                    # Weird bug in AlphaLink2 where asym_id is 9 instead of 'A' for monomers
+                    print(f"{batch['asym_id']}")
+                    if 'asym_id' in batch:
+                        if batch['asym_id'].all() == '9':
+                            batch['asym_id'] = 'A'
                     cur_protein = protein.from_prediction(
                         features=batch, result=out, b_factors=plddt_b_factors
                     )
@@ -275,6 +443,10 @@ class AlphaLinkBackend(FoldingBackend):
                         f"AlphaLink2_model_{it}_seed_{cur_seed}_{iptm_value:.3f}.pdb"
                     )
                     cur_plot_name = f"AlphaLink2_model_{it}_seed_{cur_seed}_{iptm_value:.3f}_pae.png"
+                    
+                    # Ensure output directory exists before saving files
+                    os.makedirs(output_dir, exist_ok=True)
+                    
                     # save pae json file
                     _save_pae_json_file(out['predicted_aligned_error'], str(np.max(out['predicted_aligned_error'])),
                                         output_dir, f"AlphaLink2_model_{it}_seed_{cur_seed}_{iptm_value:.3f}")
@@ -299,9 +471,6 @@ class AlphaLinkBackend(FoldingBackend):
 
     @staticmethod
     def predict(
-        configs: Dict,
-        param_path: str,
-        crosslinks: str,
         objects_to_model: List[Dict[str, Union[MultimericObject, MonomericObject, ChoppedObject, str]]],
         **kwargs,
     ):
@@ -310,30 +479,87 @@ class AlphaLinkBackend(FoldingBackend):
 
         Parameters
         ----------
-        configs : Dict
-            Configuration dictionary for the AlphaLink model obtained from
-            py:meth:`AlphaLinkBackend.setup`.
-        param_path : str
-            Path to the AlphaLink model parameters.
-        crosslinks : str
-            Path to crosslink information pickle for AlphaLink.
         objects_to_model : List[Dict[str, Union[MultimericObject, MonomericObject, ChoppedObject, str]]]
             A list of dictionaries. Each dictionary has keys 'object' and 'output_dir'.
             The 'object' key contains an instance of MultimericObject, MonomericObject, or ChoppedObject.
             The 'output_dir' key contains the corresponding output directory to save the modelling results.
         **kwargs : dict
-            Additional keyword arguments for prediction.
+            Additional keyword arguments including:
+            - configs: Configuration dictionary for the AlphaLink model
+            - param_path: Path to the AlphaLink model parameters
+            - crosslinks: Path to crosslink information pickle for AlphaLink
         """
+        # Extract required parameters from kwargs
+        configs = kwargs.get('configs')
+        param_path = kwargs.get('param_path')
+        crosslinks = kwargs.get('crosslinks')
+        
+        if not all([configs, param_path]):
+            raise ValueError("Missing required parameters: configs or param_path")
+        
+        # Make crosslinks optional - if not provided, use empty string
+        if crosslinks is None:
+            crosslinks = ""
+        
         logging.warning(f"You chose to model with AlphaLink2 via AlphaPulldown. Please also cite:K.Stahl,O.Brock and J.Rappsilber, Modelling protein complexes with crosslinking mass spectrometry and deep learning, 2023, doi: 10.1101/2023.06.07.544059")
+        
         for entry in objects_to_model:
             object_to_model = entry['object']
             output_dir = entry['output_dir']
-            makedirs(output_dir, exist_ok=True)
+            os.makedirs(output_dir, exist_ok=True)
+            
+            # Get num_predictions_per_model from kwargs, default to 1
+            num_predictions_per_model = kwargs.get('num_predictions_per_model', 1)
+            
+            # Get chain_id_map if available, otherwise create a default one
+            chain_id_map = getattr(object_to_model, 'chain_id_map', None)
+            if chain_id_map is None:
+                # Create a default chain_id_map for single chain proteins
+                # AlphaLink2 expects objects with descriptions, not just integers
+                from dataclasses import dataclass
+                
+                @dataclass
+                class ChainInfo:
+                    description: str
+                    sequence: str
+                
+                # Create a simple chain_id_map with proper objects
+                if hasattr(object_to_model, 'input_seqs') and object_to_model.input_seqs:
+                    # Use the first sequence as default
+                    sequence = object_to_model.input_seqs[0] if object_to_model.input_seqs else ""
+                    description = "default_chain"
+                else:
+                    sequence = ""
+                    description = "default_chain"
+                
+                chain_id_map = {'A': ChainInfo(description=description, sequence=sequence)}
+            else:
+                # If chain_id_map exists but contains integers, convert them to proper objects
+                if chain_id_map and isinstance(next(iter(chain_id_map.values())), int):
+                    from dataclasses import dataclass
+                    
+                    @dataclass
+                    class ChainInfo:
+                        description: str
+                        sequence: str
+                    
+                    # Convert integer-based chain_id_map to object-based
+                    converted_chain_id_map = {}
+                    for chain_id, chain_idx in chain_id_map.items():
+                        if hasattr(object_to_model, 'input_seqs') and object_to_model.input_seqs:
+                            sequence = object_to_model.input_seqs[chain_idx] if chain_idx < len(object_to_model.input_seqs) else ""
+                        else:
+                            sequence = ""
+                        description = f"chain_{chain_id}"
+                        converted_chain_id_map[chain_id] = ChainInfo(description=description, sequence=sequence)
+                    chain_id_map = converted_chain_id_map
+            
             AlphaLinkBackend.predict_iterations(object_to_model.feature_dict,output_dir,
                                                 configs=configs,crosslinks=crosslinks,
                                                 input_seqs=object_to_model.input_seqs,
-                                                chain_id_map=object_to_model.chain_id_map,
+                                                chain_id_map=chain_id_map,
                                                 param_path=param_path,
+                                                num_inference=num_predictions_per_model,
             )
             yield {'object': object_to_model, 
                    'prediction_results': "",
@@ -343,6 +569,7 @@ class AlphaLinkBackend(FoldingBackend):
     def postprocess(prediction_results: Dict,
                     output_dir: str,
                     **kwargs: Dict) -> None:
+        print(f"DEBUG: AlphaLink postprocess called with output_dir: {output_dir}")
         """
         Post-prediction process that makes AlphaLink2 results within 
         a sub-directory compatible with the analysis_pipeline
@@ -355,14 +582,25 @@ class AlphaLinkBackend(FoldingBackend):
             pattern = r'AlphaLink2_model_(\d+)_seed_(\d+)_(\d+\.\d+)\.pdb$'
             matched = re.search(pattern, pdb_file)
             iptm_value = matched.group(3)
-            model_name = splitext(pdb_file)[0]
+            # Extract just the filename without path
+            model_name = splitext(os.path.basename(pdb_file))[0]
             return (model_name, float(iptm_value))    
         
         def make_ranked_pdb_files(outputdir: str, order: list):
             for idx, model_name in enumerate(order):
                 new_file_name = join(outputdir, f"ranked_{idx}.pdb")
-                old_file_name = join(outputdir, f"{model_name}.pdb")
-                copyfile(old_file_name, new_file_name)
+                # Find the actual file path in subdirectories
+                old_file_name = None
+                for root, dirs, files in os.walk(outputdir):
+                    for file in files:
+                        if file == f"{model_name}.pdb":
+                            old_file_name = join(root, file)
+                            break
+                    if old_file_name:
+                        break
+                
+                if old_file_name and exists(old_file_name):
+                    copyfile(old_file_name, new_file_name)
 
         def create_ranking_debug_json(model_and_qualities:dict) -> Tuple[tuple, list]:
             """A function to create ranking_debug.json based on the iptm-ptm score"""
@@ -372,10 +610,19 @@ class AlphaLinkBackend(FoldingBackend):
             return json.dumps({"iptm+ptm": iptm_ptm, "order":order}), order
             
         model_and_qualities = dict()
-        all_pdb_files = [i for i in listdir(output_dir) if i.startswith("AlphaLink2_model_") and i.endswith(".pdb")]
+        
+        # Look for PDB files in the output directory and its subdirectories
+        all_pdb_files = []
+        for root, dirs, files in os.walk(output_dir):
+            for file in files:
+                if file.startswith("AlphaLink2_model_") and file.endswith(".pdb"):
+                    all_pdb_files.append(os.path.join(root, file))
+        
         model_and_qualities.update({model_and_values[0]: model_and_values[1] for model_and_values in [obtain_model_names_and_scores(i) for i in all_pdb_files]})
         ranking_debug_json,order = create_ranking_debug_json(model_and_qualities)
         make_ranked_pdb_files(output_dir, order)
+        
+        # Write ranking_debug.json to the main output directory
         with open(join(output_dir, "ranking_debug.json"),"w") as outfile:
             outfile.write(ranking_debug_json)
             outfile.close()

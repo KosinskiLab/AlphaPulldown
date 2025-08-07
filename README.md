@@ -113,7 +113,7 @@ If AlphaPulldown contributed significantly to your research, please cite the cor
 
 # About AlphaPulldown
 
-AlphaPulldown is a customized implementation of [AlphaFold-Multimer](https://github.com/google-deepmind/alphafold) designed for customizable high-throughput screening of protein-protein interactions. It extends AlphaFold’s capabilities by incorporating additional run options, such as customizable multimeric structural templates (TrueMultimer), [MMseqs2](https://github.com/soedinglab/MMseqs2) multiple sequence alignment (MSA) via [ColabFold](https://github.com/sokrypton/ColabFold) databases, protein fragment predictions, and the ability to incorporate mass spec data as an input using [AlphaLink2](https://github.com/Rappsilber-Laboratory/AlphaLink2/tree/main).
+AlphaPulldown is a customized implementation of [AlphaFold-Multimer](https://github.com/google-deepmind/alphafold) designed for customizable high-throughput screening of protein-protein interactions. It extends AlphaFold's capabilities by incorporating additional run options, such as customizable multimeric structural templates (TrueMultimer), [MMseqs2](https://github.com/soedinglab/MMseqs2) multiple sequence alignment (MSA) via [ColabFold](https://github.com/sokrypton/ColabFold) databases, protein fragment predictions, and the ability to incorporate mass spec data as an input using [AlphaLink2](https://github.com/Rappsilber-Laboratory/AlphaLink2/tree/main).
 
 AlphaPulldown can be used in two ways: either by a two-step pipeline made of **python scripts**, or by a **Snakemake pipeline** as a whole. For details on using the Snakemake pipeline, please refer to the separate GitHub [**repository**](https://github.com/KosinskiLab/AlphaPulldownSnakemake).
 
@@ -585,7 +585,12 @@ singularity build <new_image.sif> <writable_image_dir>
     pip3 install torch==2.5.1+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
     ```
 > [!WARNING]
-> It is possible to have both alphafold with jax+CUDA and alphalink with pytorch + another version of CUDA in the same conda environment, but we haven't tested it for other combinations are there may be dependency conflicts. It is recommended to use different environments for different folding backends.
+> **Environment Requirements:** AlphaLink2 uses PyTorch while AlphaFold uses JAX. While it's technically possible to have both in the same conda environment, we recommend using separate environments to avoid dependency conflicts:
+> 
+> - **AlphaFold environment**: JAX-based for standard AlphaFold predictions
+> - **AlphaLink environment**: PyTorch-based for AlphaLink2 predictions with crosslinks
+> 
+> This ensures optimal performance and avoids potential conflicts between the different deep learning frameworks.
 
 2. Compile [UniCore](https://github.com/dptech-corp/Uni-Core).
     ```bash
@@ -1125,14 +1130,22 @@ Explanation of arguments:
 * `--num_cycle`: specifies the number of times the AlphaFold neural network will run, using the output of one cycle as input for the next. Increasing this number may improve the quality of the final structures (especially for large complexes), but it will also increase the runtime.
 * `--num_predictions_per_model`: Specifies the number of predictions per model. The number of predicted structures is N\*5.  The default value is 1, which gives 5 structures.
 
+> [!NOTE]
+> **Flag Name Differences**: The two main scripts use different flag names for the same parameters:
+> - `run_multimer_jobs.py` uses: `--data_dir`, `--output_path`, `--monomer_objects_dir`, `--alphalink_weight`
+> - `run_structure_prediction.py` uses: `--data_directory`, `--output_directory`, `--features_directory`, `--data_directory` (for AlphaLink weights when `--fold_backend=alphalink`)
+> 
+> **AlphaLink Weights**: For AlphaLink backend, `--data_directory` (in `run_structure_prediction.py`) or `--alphalink_weight` (in `run_multimer_jobs.py`) can point to either a directory containing weights files or a specific weights file (e.g., `AlphaLink-Multimer_SDA_v3.pt`).
+
 <details>
 <summary>
 Full list of arguments (FLAGS):
 </summary>
 
-* `--alphalink_weight`: Path to AlphaLink neural network weights
+
 * `--data_dir`: Path to params directory
 *  --[no]dry_run: Report number of jobs that would be run and exit without running them. Default is False.
+* `--fold_backend`: Folding backend that should be used for structure prediction (default: 'alphafold'). Use 'alphalink' for AlphaLink2 predictions.
 * `--job_index`: index of sequence in the FASTA file, starting from 1 (an integer)
 * `--mode`: <pulldown|all_vs_all|homo-oligomer|custom>: choose the mode of running multimer jobs (default: 'pulldown')
 * `--models_to_relax`: <None|All|Best>: Which models to relax. Default is None, meaning no model will be relaxed (default: 'None')
@@ -1142,7 +1155,8 @@ Full list of arguments (FLAGS):
 * `--protein_lists`: protein list files (a comma-separated list)
 * `--unifold_model_name`: <multimer_af2|multimer_ft|multimer|multimer_af2_v3|multimer_af2_model45_v3>: choose unifold model structure (default: 'multimer_af2')
 * `--unifold_param`: Path to UniFold neural network weights
-* `--[no]use_alphalink`: Whether AlphaLink models are going to be used. Default is False (default: 'false')
+* `--alphalink_weight`: Path to AlphaLink neural network weights (for run_multimer_jobs.py only)
+* `--[no]use_alphalink`: Whether AlphaLink models are going to be used. Default is False (default: 'false'). Note: This flag is deprecated. Use `--fold_backend=alphalink` instead.
 * `--[no]use_unifold`: Whether UniFold models are going to be used. Default is False (default: 'false')
 
 alphapulldown.scripts.run_structure_prediction:
@@ -1150,7 +1164,7 @@ alphapulldown.scripts.run_structure_prediction:
 * `--[no]benchmark`: Run multiple JAX model evaluations to obtain a timing that excludes the compilation time, which should be more indicative of the time required for inferencing many proteins (default: 'false')
 * `--[no]compress_result_pickles`: Whether the result pickles are going to be gzipped. Default is False (default: 'false')
 * `--crosslinks`: Path to crosslink information pickle for AlphaLink
-* `--data_directory`: Path to directory containing model weights and parameters
+* `--data_directory`: Path to directory containing model weights and parameters (for AlphaLink2, this should point to the AlphaLink weights file when using --fold_backend=alphalink)
 * `--description_file`: Path to the text file with multimeric template instruction
 * `--desired_num_msa`: A desired number of msa to pad (an integer)
 * `--desired_num_res`: A desired number of residues to pad (an integer)
@@ -1468,9 +1482,11 @@ The [output](#output-3) and [next step](#next-step-4) are the same as those for 
 As [Stahl et al., 2023](https://www.nature.com/articles/s41587-023-01704-z) showed, integrating cross-link data with AlphaFold could improve the modelling quality in some challenging cases. Thus, AlphaPulldown has integrated the [AlphaLink2](https://github.com/Rappsilber-Laboratory/AlphaLink2/tree/main) pipeline, allowing users to combine cross-link data with AlphaFold Multimer inference without needing to calculate MSAs from scratch again.
 
 > **Cite:** If you use AlphaLink2, please remember to cite:
-> Stahl, K., Demann, L., Bremenkamp, R., Warneke, R., Hormes, B., Stülke, J., Brock, O., Rappsilber, J., Der, S.-M. ", & Mensch, S. (2024). Modelling protein complexes with crosslinking mass spectrometry and deep learning. BioRxiv, 2023.06.07.544059. https://doi.org/10.1101/2023.06.07.544059
+> Stahl, K., Demann, L., Bremenkamp, R., Warneke, R., Hormes, B., Stülke, J., Brock, O., Rappsilber, J., Der, S.-M., & Mensch, S. (2024). Modelling protein complexes with crosslinking mass spectrometry and deep learning. BioRxiv, 2023.06.07.544059. https://doi.org/10.1101/2023.06.07.544059
 
-Before using, install AlphaLink2 as described [here](#4-installation-for-cross-link-input-data-by-alphalink2-optional).
+Before using, install AlphaLink2 as described [here](#04-installation-for-cross-link-input-data-by-alphalink2-optional).
+
+> **Important:** AlphaLink2 requires a PyTorch-based environment, which is different from the JAX-based environment used for AlphaFold. Make sure you have installed AlphaLink2 in the correct environment as described in the installation section.
 
 <details>
 
@@ -1500,6 +1516,37 @@ Dictionaries like these should be stored in **```.pkl.gz```** files and provided
 
 Within the same conda environment, run in e.g. `custom` mode:
 
+**Recommended approach (using `--fold_backend`):**
+
+**Option 1: Point to directory containing weights files**
+```bash
+run_multimer_jobs.py --mode=custom \
+--num_predictions_per_model=1 \
+--output_path=/scratch/user/output/models \
+--data_dir=/scratch/AlphaFold_DBs/2.3.2/ \
+--protein_lists=custom.txt \
+--monomer_objects_dir=/scratch/user/output/features \
+--job_index=$SLURM_ARRAY_TASK_ID \
+--fold_backend=alphalink \
+--alphalink_weight=/scratch/AlphaFold_DBs/alphalink_weights/ \
+--crosslinks=/path/to/crosslinks.pkl.gz 
+```
+
+**Option 2: Point directly to weights file**
+```bash
+run_multimer_jobs.py --mode=custom \
+--num_predictions_per_model=1 \
+--output_path=/scratch/user/output/models \
+--data_dir=/scratch/AlphaFold_DBs/2.3.2/ \
+--protein_lists=custom.txt \
+--monomer_objects_dir=/scratch/user/output/features \
+--job_index=$SLURM_ARRAY_TASK_ID \
+--fold_backend=alphalink \
+--alphalink_weight=/scratch/AlphaFold_DBs/alphalink_weights/AlphaLink-Multimer_SDA_v3.pt \
+--crosslinks=/path/to/crosslinks.pkl.gz 
+```
+
+**Alternative approach (using deprecated flags):**
 ```bash
 run_multimer_jobs.py --mode=custom \
 --num_predictions_per_model=1 \
@@ -1507,11 +1554,44 @@ run_multimer_jobs.py --mode=custom \
 --data_dir=/g/alphafold/AlphaFold_DBs/2.3.0/ \
 --protein_lists=custom.txt \
 --monomer_objects_dir=/scratch/user/output/features \
---job_index=$SLURM_ARRAY_TASK_ID --alphalink_weight=/scratch/user/alphalink_weights/AlphaLink-Multimer_SDA_v3.pt \
---use_alphalink=True --crosslinks=/path/to/crosslinks.pkl.gz 
+--job_index=$SLURM_ARRAY_TASK_ID \
+--use_alphalink=True \
+--alphalink_weight=/scratch/AlphaFold_DBs/alphalink_weights/AlphaLink-Multimer_SDA_v3.pt \
+--crosslinks=/path/to/crosslinks.pkl.gz 
 ```
 
 The other modes provided by AlphaPulldown also work in the same way.
+
+**Note**: If you want to use `run_structure_prediction.py` directly with AlphaLink2, use this format:
+
+**Option 1: Point to directory containing weights files**
+```bash
+run_structure_prediction.py \
+--input="proteinA:1:1-100+proteinB:1:1-150" \
+--output_directory=/scratch/user/output/models \
+--data_directory=/scratch/AlphaFold_DBs/alphalink_weights/ \
+--features_directory=/scratch/user/output/features \
+--fold_backend=alphalink \
+--crosslinks=/path/to/crosslinks.pkl.gz
+```
+
+**Option 2: Point directly to weights file**
+```bash
+run_structure_prediction.py \
+--input="proteinA:1:1-100+proteinB:1:1-150" \
+--output_directory=/scratch/user/output/models \
+--data_directory=/scratch/AlphaFold_DBs/alphalink_weights/AlphaLink-Multimer_SDA_v3.pt \
+--features_directory=/scratch/user/output/features \
+--fold_backend=alphalink \
+--crosslinks=/path/to/crosslinks.pkl.gz
+```
+
+> [!NOTE]
+> **AlphaLink Weights**: When using AlphaLink backend, the `--data_directory` (for `run_structure_prediction.py`) or `--alphalink_weight` (for `run_multimer_jobs.py`) parameter can point to either:
+> 1. A directory containing AlphaLink weights files (e.g., `/path/to/alphalink_weights/` containing `AlphaLink-Multimer_SDA_v?.pt`)
+> 2. A specific AlphaLink weights file (e.g., `/path/to/AlphaLink-Multimer_SDA_v3.pt`)
+> 
+> The backend will automatically search for expected weights files (`AlphaLink-Multimer_SDA_v2.pt` or `AlphaLink-Multimer_SDA_v3.pt`) in the directory if a directory is provided.
 
 #### Output and the next step
 
@@ -1638,284 +1718,4 @@ In the JupyterLab window, choose output.ipynb if it does not open automatically.
 
 <br>
 
-To zoom in on PAE plots, double-click on them. To increase the number of displayed interactive models, add the argument `models` to the `parse_results()` or `parse_results_colour_chains()` functions.
-
-```python
-parse_results('./ProteinA_and_ProteinB', models=10)
-```
-
-> [!WARNING]
-> If the Jupyter Notebook contains too many proteins, some interactive structures may disappear due to memory limitations. To restore the output of the cell, simply rerun it by selecting the cell and going to **Run** > **Run Selected Cell** or pressing **Shift + Enter**.
-
-## Results table 
-
-Results table:
-
-* `predictions_with_good_interpae.csv` is generated during the [Create Results table](#create-results-table) for [**Scripts-Based Alphapulldown**](#scripts-based-alphapulldown).
-* `analysis.csv` generated in the `output/reports` for [**Snakemake AlphaPulldown**](#snakemake-alphapulldown)
-
-$\text{\color{red}Change description, add explain scores}$
-
-By default, you will have a CSV file named `predictions_with_good_interpae.txt` created in the directory `/path/to/your/output/dir` as you have given in the command above. `predictions_with_good_interpae.txt` reports: 1. iptm, iptm+ptm scores provided by AlphaFold 2. mpDockQ score developed by [Bryant _et al._, 2022](https://gitlab.com/patrickbryant1/molpc)  3. PI_score developed by [Malhotra _et al._, 2021](https://gitlab.com/sm2185/ppi_scoring/-/wikis/home). The detailed explanations of these scores can be found in our paper and an example screenshot of the table is below. ![example](./manuals/example_table_screenshot.png)
-
-## Results management scripts
-
-AlphaPulldown provides scripts to help optimize data storage and prepare structures for deposition.
-
-### Decrease the size of AlphaPulldown output
-
-The most space-consuming part of the [structure prediction results](#2-predict-structures-gpu-stage) are pickle files `result_model_{1,2,3,4,5}_*.pkl files`. Please refer to the [AlphaFold manual](https://github.com/google-deepmind/alphafold) for more details on output files. Some information in these files is needed only for very special tasks. The `truncate_pickles.py` script copies the output of AlphaPulldown to a new directory and deletes the specified information from the pickle files. It may decrease the size of the output up to 100 times. 
-
-```bash
-source activate AlphaPulldown
-truncate_pickles.py \
-  --src_dir=</path/to/source> \
-  --dst_dir=</path/to/destination> \
-  --keys_to_exclude=aligned_confidence_probs,distogram,masked_msa \
-  --number_of_threads=4 
-```
-
-* `--src_dir=</path/to/source>`: Replace `</path/to/source>` with the path to the structures output directory. This should be the same as the `--output_path` for the `run_multimer_jobs.py` script from the [Predict Structures](#2-predict-structures-gpu-stage) step.
-* `--dst_dir=</path/to/destination>`: Replace `</path/to/destination>` with the path of the directory to copy the truncated results to.
-* `--keys_to_exclude=aligned_confidence_probs,distogram,masked_msa`: A comma-separated list of keys that should be excluded from the copied pickle files. The default keys are "aligned_confidence_probs,distogram,masked_msa".
-* `--number_of_threads=4`: Number of threads to run in parallel. 
-
-### Convert Models from PDB Format to ModelCIF Format
-
-With PDB files now being marked
-
- as a legacy format, here is a way to convert PDB files produced by the [AlphaPulldown](https://github.com/KosinskiLab/AlphaPulldown) pipeline into [mmCIF](https://mmcif.wwpdb.org) files, including the [ModelCIF](https://mmcif.wwpdb.org/dictionaries/mmcif_ma.dic/Index/) extension.
-
-In addition to the general mmCIF tables, ModelCIF adds information relevant for a modeling experiment. This includes target-sequence annotation and a modeling protocol, describing the process by which a model was created, including software used with its parameters. To help users assess the reliability of a model, various quality metrics can be stored directly in a ModelCIF file or in associated files registered in the main file. ModelCIF is also the preferred format for [ModelArchive](https://www.modelarchive.org).
-
-As AlphaPulldown relies on [AlphaFold](https://github.com/google-deepmind/alphafold) to produce model coordinates, multiple models may be predicted in a single experiment. To accommodate different needs, `convert_to_modelcif.py` offers three major modes:
-
-* Convert all models into ModelCIF in separate files.
-* Only convert a specific single model.
-* Convert a specific model to ModelCIF but keep additional models in a Zip archive associated with the representative ModelCIF formatted model.
-
-#### 1. Convert all models to separate ModelCIF files
-
-The most general call of the conversion script, without any non-mandatory arguments, will create a ModelCIF file and an associated Zip archive for each model of each complex found in the `--ap_output` directory:
-
-```bash
-source activate AlphaPulldown
-convert_to_modelcif.py \
-  --ap_output <output path of run_multimer_jobs.py>
-```
-
-* `--ap_output`: Path to the structures directory. This should be the same as the `--output_path` for the `run_multimer_jobs.py` script from the [Predict Structures](#2-predict-structures-gpu-stage) step.
-
-The output is stored in the path that `--ap_output` points to. After running `convert_to_modelcif.py`, you should find a ModelCIF file and a Zip archive for each model PDB file in the AlphaPulldown output directory:
-
-<details>
-<summary>Output</summary>
-
-```plaintext
-ap_output
-    protein1_and_protein2
-        |-ranked_0.cif
-        |-ranked_0.pdb
-        |-ranked_0.zip
-        |-ranked_1.cif
-        |-ranked_1.pdb
-        |-ranked_1.zip
-        |-ranked_2.cif
-        |-ranked_2.pdb
-        |-ranked_2.zip
-        |-ranked_3.cif
-        |-ranked_3.pdb
-        |-ranked_3.zip
-        |-ranked_4.cif
-        |-ranked_4.pdb
-        |-ranked_4.zip
-        ...
-    ...
-```
-
-</details>
-
-#### 2. Only convert a specific single model for each complex
-
-If only a single model should be translated to ModelCIF, use the `--model_selected` option. Provide the ranking of the model as the value. For example, to convert the model ranked 0:
-
-```bash
-source activate AlphaPulldown
-convert_to_modelcif.py \
-  --ap_output <output path of run_multimer_jobs.py> \
-  --model_selected 0
-```
-
-This will create only one ModelCIF file and Zip archive in the path pointed at by `--ap_output`:
-
-<details>
-<summary>Output</summary>
-  
-```plaintext
-ap_output
-    protein1_and_protein2
-        |-ranked_0.cif
-        |-ranked_0.pdb
-        |-ranked_0.zip
-        |-ranked_1.pdb
-        |-ranked_2.pdb
-        |-ranked_3.pdb
-        |-ranked_4.pdb
-        ...
-    ...
-```
-
-</details>
-
-Besides `--model_selected`, the arguments are the same as for scenario 1.
-
-#### 3. Have a representative model and keep associated models
-
-Sometimes you want to focus on a certain model from the AlphaPulldown pipeline but don't want to completely discard the other models generated. For this, `convert_to_modelcif.py` can translate all models to ModelCIF but store the excess in the Zip archive of the selected model. This is achieved by adding the option `--add_associated` together with `--model_selected`.
-
-```bash
-source activate AlphaPulldown
-convert_to_modelcif.py \
-  --ap_output <output path of run_multimer_jobs.py> \
-  --model_selected 0 \
-  --add-associated
-```
-
-Arguments are the same as in scenarios 1 and 2 but include `--add_associated`.
-
-The output directory looks similar to when only converting a single model:
-
-<details>
-<summary>Output</summary>
-
-```plaintext
-ap_output
-    protein1_and_protein2
-        |-ranked_0.cif
-        |-ranked_0.pdb
-        |-ranked_0.zip
-        |-ranked_1.pdb
-        |-ranked_2.pdb
-        |-ranked_3.pdb
-        |-ranked_4.pdb
-        ...
-    ...
-```
-
-</details>
-
-But a peek into `ranked_0.zip` shows that it stored ModelCIF files and Zip archives for all remaining models of this modeling experiment:
-
-<details>
-<summary>Output</summary>
-
-```plaintext
-ranked_0.zip
-    |-ranked_0_local_pairwise_qa.cif
-    |-ranked_1.cif
-    |-ranked_1.zip
-    |-ranked_2.cif
-    |-ranked_2.zip
-    |-ranked_3.cif
-    |-ranked_3.zip
-    |-ranked_4.cif
-    |-ranked_4.zip
-```
-
-</details>
-
-#### Associated Zip Archives
-
-`convert_to_modelcif.py` produces two kinds of output: ModelCIF files and Zip archives for each model. The latter are called "associated files/archives" in ModelCIF terminology. Associated files are registered in their corresponding ModelCIF file by categories [`ma_entry_associated_files`](https://mmcif.wwpdb.org/dictionaries/mmcif_ma.dic/Categories/ma_entry_associated_files.html) and [`ma_associated_archive_file_details`](https://mmcif.wwpdb.org/dictionaries/mmcif_ma.dic/Categories/ma_associated_archive_file_details.html). Historically, this scheme was created to offload AlphaFold's pairwise alignment error lists, which drastically increase file size. Nowadays, the Zip archives are used for all kinds of supplementary information on models, not handled by ModelCIF.
-
-#### Miscellaneous Options
-
-At this time, there is only one option left unexplained: `--compress`. It tells the script to compress ModelCIF files using Gzip. In the case of `--add_associated`, the ModelCIF files in the associated Zip archive are also compressed.
-
-<br>
-
-# Features Database
-
-Instead of generating feature files locally, you can download them from the **AlphaPulldown Features Database**, which contains precomputed protein **features for major model organisms**.
-
->[!WARNING]
->The MSA features in this database do not include information necessary for pairing sequences from the same species, which may result in reduced accuracy. We are working on fixing this.
-
-## Installation
-
->[!NOTE]
->For EMBL cluster users:
->You can access the directory with generated features files at
->`/g/alphafold/input_features/`
-
-To access the Features Database, you need to install the [MinIO Client](https://min.io/docs/minio/linux/reference/minio-mc.html) (`mc`).
-
-### Steps:
-
-1. [Download](https://min.io/docs/minio/linux/reference/minio-mc.html#install-mc) the `mc` binary.
-2. Make the binary executable.
-3. Move it to your `PATH` for system-wide access.
-
-Example for AMD64 architecture:
-
-```bash
-curl -O https://dl.min.io/client/mc/release/linux-amd64/mc
-chmod +x mc
-sudo mv mc /usr/local/bin/
-```
-
-### Verify installation:
-
-To ensure `mc` is correctly installed, you can run:
-
-```bash
-mc --help
-```
-
-## Configuration
-
-Set up an alias for easy access to the AlphaPulldown Features Database hosted at EMBL:
-
-```bash
-mc alias set embl https://s3.embl.de "" "" --api S3v4
-```
-
-This alias allows you to interact with the Features Database as if it were a local directory.
-
-## Downloading Features
-
-Once `mc` is installed and configured, you can start accessing the Features Database. The `mc` commands mimic standard bash commands.
-
-### List available organisms:
-
-To view the list of available organisms with precomputed feature files, run:
-
-```bash
-mc ls embl/alphapulldown/input_features
-```
-
-Each organism directory contains compressed `.pkl.xz` feature files, named according to their **UniProt ID**.
-
-### Download specific protein features:
-
-For example, to download the feature file for the protein with UniProt ID Q6BF25 from *Escherichia coli*, use:
-
-```bash
-mc cp embl/alphapulldown/input_features/Escherichia_coli/Q6BF25.pkl.xz Q6BF25.pkl.xz
-```
-
-### Download all features for an organism:
-
-To download all feature files for proteins from a specific organism, such as *E. coli*, copy the entire directory:
-
-```bash
-mc cp --recursive embl/alphapulldown/input_features/Escherichia_coli/ ./Escherichia_coli/
-```
-
-Alternatively, you can mirror the contents of the organism’s directory, ensuring all files are synced between the source and your local directory:
-
-```bash
-mc mirror embl/alphapulldown/input_features/Escherichia_coli/ Escherichia_coli/
-```
-
-This command mirrors the remote directory to your local system, keeping both locations in sync.
+To zoom in on PAE plots, double-click on them. To increase the number of displayed interactive models, add the argument `models` to the `parse_results()` or `
