@@ -59,7 +59,10 @@ class AlphaLinkBackend(FoldingBackend):
         model_name : str
             The name of the model to use for prediction. Set to be multimer_af2_crop as used in AlphaLink2
         model_dir : str
-            Path to the pytorch checkpoint that corresponds to the neural network weights from AlphaLink2.
+            Path to either:
+            1. A directory containing AlphaLink weights files (e.g., AlphaLink-Multimer_SDA_v3.pt)
+            2. A specific AlphaLink weights file (e.g., /path/to/AlphaLink-Multimer_SDA_v3.pt)
+            Expected file names: AlphaLink-Multimer_SDA_v2.pt or AlphaLink-Multimer_SDA_v3.pt
         crosslinks : str
             The path to the file containing crosslinking data.
         **kwargs : dict
@@ -71,18 +74,69 @@ class AlphaLinkBackend(FoldingBackend):
             A dictionary records the path to the AlphaLink2 neural network weights
             i.e. a pytorch checkpoint file, crosslink information,
             and Pytorch model configs
+
+        Raises
+        ------
+        FileNotFoundError
+            If the AlphaLink weights file does not exist at the specified path.
+        ValueError
+            If the file does not have a .pt extension or is not a recognized AlphaLink weights file.
         """
-        if not exists(model_dir):
+        # Check if model_dir is a file or directory
+        if os.path.isfile(model_dir):
+            # Direct file path provided
+            weights_file = model_dir
+        elif os.path.isdir(model_dir):
+            # Directory provided, search for weights files
+            expected_names = ["AlphaLink-Multimer_SDA_v3.pt", "AlphaLink-Multimer_SDA_v2.pt"]
+            weights_file = None
+            
+            for filename in expected_names:
+                candidate_path = os.path.join(model_dir, filename)
+                if os.path.isfile(candidate_path):
+                    weights_file = candidate_path
+                    break
+            
+            if weights_file is None:
+                # List all .pt files in directory for better error message
+                pt_files = [f for f in os.listdir(model_dir) if f.endswith('.pt')]
+                if pt_files:
+                    raise FileNotFoundError(
+                        f"AlphaLink2 weights file not found in directory: {model_dir}. "
+                        f"Expected one of: {expected_names}. "
+                        f"Found .pt files: {pt_files}"
+                    )
+                else:
+                    raise FileNotFoundError(
+                        f"AlphaLink2 weights file not found in directory: {model_dir}. "
+                        f"Expected one of: {expected_names}. "
+                        f"No .pt files found in directory."
+                    )
+        else:
+            # Neither file nor directory exists
             raise FileNotFoundError(
-                f"AlphaLink2 network weight does not exist at: {model_dir}"
+                f"AlphaLink2 weights file or directory does not exist at: {model_dir}"
             )
-        if not model_dir.endswith(".pt"):
-            f"{model_dir} does not seem to be a pytorch checkpoint."
+        
+        # Check if it's a .pt file
+        if not weights_file.endswith(".pt"):
+            raise ValueError(
+                f"AlphaLink2 weights file must have .pt extension, got: {weights_file}"
+            )
+        
+        # Check if it's a recognized AlphaLink weights file
+        filename = os.path.basename(weights_file)
+        expected_names = ["AlphaLink-Multimer_SDA_v2.pt", "AlphaLink-Multimer_SDA_v3.pt"]
+        if filename not in expected_names:
+            logging.warning(
+                f"AlphaLink weights file name '{filename}' is not one of the expected names: {expected_names}. "
+                f"This might still work if the file contains valid AlphaLink weights."
+            )
 
         configs = model_config(model_name)
 
         return {
-            "param_path": model_dir,
+            "param_path": weights_file,
             "configs": configs,
         }
 
@@ -376,6 +430,11 @@ class AlphaLinkBackend(FoldingBackend):
                     plddt_b_factors = np.repeat(
                         plddt[..., None], residue_constants.atom_type_num, axis=-1
                     )
+                    # Weird bug in AlphaLink2 where asym_id is 9 instead of 'A' for monomers
+                    print(f"{batch['asym_id']}")
+                    if 'asym_id' in batch:
+                        if batch['asym_id'].all() == '9':
+                            batch['asym_id'] = 'A'
                     cur_protein = protein.from_prediction(
                         features=batch, result=out, b_factors=plddt_b_factors
                     )
@@ -542,12 +601,6 @@ class AlphaLinkBackend(FoldingBackend):
                 
                 if old_file_name and exists(old_file_name):
                     copyfile(old_file_name, new_file_name)
-                    
-                    # Also copy to parent directory for test compatibility
-                    parent_dir = os.path.dirname(outputdir)
-                    if parent_dir and parent_dir != outputdir:
-                        parent_ranked_file = join(parent_dir, f"ranked_{idx}.pdb")
-                        copyfile(old_file_name, parent_ranked_file)
 
         def create_ranking_debug_json(model_and_qualities:dict) -> Tuple[tuple, list]:
             """A function to create ranking_debug.json based on the iptm-ptm score"""
@@ -573,35 +626,3 @@ class AlphaLinkBackend(FoldingBackend):
         with open(join(output_dir, "ranking_debug.json"),"w") as outfile:
             outfile.write(ranking_debug_json)
             outfile.close()
-        
-        # Also copy ranking_debug.json to the parent directory for test compatibility
-        parent_dir = os.path.dirname(output_dir)
-        if parent_dir and parent_dir != output_dir:
-            parent_ranking_file = join(parent_dir, "ranking_debug.json")
-            with open(parent_ranking_file, "w") as outfile:
-                outfile.write(ranking_debug_json)
-                outfile.close()
-            
-            # Also copy AlphaLink2 model PDB files to parent directory for test compatibility
-            for root, dirs, files in os.walk(output_dir):
-                for file in files:
-                    if file.startswith("AlphaLink2_model_") and file.endswith(".pdb"):
-                        src_file = join(root, file)
-                        dst_file = join(parent_dir, file)
-                        copyfile(src_file, dst_file)
-            
-            # Also copy PAE JSON files to parent directory for test compatibility
-            for root, dirs, files in os.walk(output_dir):
-                for file in files:
-                    if file.startswith("pae_AlphaLink2_model_") and file.endswith(".json"):
-                        src_file = join(root, file)
-                        dst_file = join(parent_dir, file)
-                        copyfile(src_file, dst_file)
-            
-            # Also copy PAE plot PNG files to parent directory for test compatibility
-            for root, dirs, files in os.walk(output_dir):
-                for file in files:
-                    if file.startswith("AlphaLink2_model_") and file.endswith("_pae.png"):
-                        src_file = join(root, file)
-                        dst_file = join(parent_dir, file)
-                        copyfile(src_file, dst_file)

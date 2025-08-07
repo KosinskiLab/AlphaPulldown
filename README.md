@@ -1134,6 +1134,8 @@ Explanation of arguments:
 > **Flag Name Differences**: The two main scripts use different flag names for the same parameters:
 > - `run_multimer_jobs.py` uses: `--data_dir`, `--output_path`, `--monomer_objects_dir`, `--alphalink_weight`
 > - `run_structure_prediction.py` uses: `--data_directory`, `--output_directory`, `--features_directory`, `--data_directory` (for AlphaLink weights when `--fold_backend=alphalink`)
+> 
+> **AlphaLink Weights**: For AlphaLink backend, `--data_directory` (in `run_structure_prediction.py`) or `--alphalink_weight` (in `run_multimer_jobs.py`) can point to either a directory containing weights files or a specific weights file (e.g., `AlphaLink-Multimer_SDA_v3.pt`).
 
 <details>
 <summary>
@@ -1515,11 +1517,27 @@ Dictionaries like these should be stored in **```.pkl.gz```** files and provided
 Within the same conda environment, run in e.g. `custom` mode:
 
 **Recommended approach (using `--fold_backend`):**
+
+**Option 1: Point to directory containing weights files**
 ```bash
 run_multimer_jobs.py --mode=custom \
 --num_predictions_per_model=1 \
---output_path=/scratch/scratch/user/output/models \
---data_dir=/g/alphafold/AlphaFold_DBs/2.3.0/ \
+--output_path=/scratch/user/output/models \
+--data_dir=/scratch/AlphaFold_DBs/2.3.2/ \
+--protein_lists=custom.txt \
+--monomer_objects_dir=/scratch/user/output/features \
+--job_index=$SLURM_ARRAY_TASK_ID \
+--fold_backend=alphalink \
+--alphalink_weight=/scratch/AlphaFold_DBs/alphalink_weights/ \
+--crosslinks=/path/to/crosslinks.pkl.gz 
+```
+
+**Option 2: Point directly to weights file**
+```bash
+run_multimer_jobs.py --mode=custom \
+--num_predictions_per_model=1 \
+--output_path=/scratch/user/output/models \
+--data_dir=/scratch/AlphaFold_DBs/2.3.2/ \
 --protein_lists=custom.txt \
 --monomer_objects_dir=/scratch/user/output/features \
 --job_index=$SLURM_ARRAY_TASK_ID \
@@ -1545,6 +1563,19 @@ run_multimer_jobs.py --mode=custom \
 The other modes provided by AlphaPulldown also work in the same way.
 
 **Note**: If you want to use `run_structure_prediction.py` directly with AlphaLink2, use this format:
+
+**Option 1: Point to directory containing weights files**
+```bash
+run_structure_prediction.py \
+--input="proteinA:1:1-100+proteinB:1:1-150" \
+--output_directory=/scratch/user/output/models \
+--data_directory=/scratch/AlphaFold_DBs/alphalink_weights/ \
+--features_directory=/scratch/user/output/features \
+--fold_backend=alphalink \
+--crosslinks=/path/to/crosslinks.pkl.gz
+```
+
+**Option 2: Point directly to weights file**
 ```bash
 run_structure_prediction.py \
 --input="proteinA:1:1-100+proteinB:1:1-150" \
@@ -1554,6 +1585,13 @@ run_structure_prediction.py \
 --fold_backend=alphalink \
 --crosslinks=/path/to/crosslinks.pkl.gz
 ```
+
+> [!NOTE]
+> **AlphaLink Weights**: When using AlphaLink backend, the `--data_directory` (for `run_structure_prediction.py`) or `--alphalink_weight` (for `run_multimer_jobs.py`) parameter can point to either:
+> 1. A directory containing AlphaLink weights files (e.g., `/path/to/alphalink_weights/` containing `AlphaLink-Multimer_SDA_v?.pt`)
+> 2. A specific AlphaLink weights file (e.g., `/path/to/AlphaLink-Multimer_SDA_v3.pt`)
+> 
+> The backend will automatically search for expected weights files (`AlphaLink-Multimer_SDA_v2.pt` or `AlphaLink-Multimer_SDA_v3.pt`) in the directory if a directory is provided.
 
 #### Output and the next step
 
