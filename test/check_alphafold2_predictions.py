@@ -44,8 +44,8 @@ class _TestBase(parameterized.TestCase):
     def setUpClass(cls):
         super().setUpClass()
         # do the skip here so import-time doesn't abort discovery
-        if not DATA_DIR.is_dir():
-            cls.skipTest(f"set $ALPHAFOLD_DATA_DIR to run Alphafold functional tests (tried {DATA_DIR!r})")
+        #if not DATA_DIR.is_dir():
+        #    cls.skipTest(f"set $ALPHAFOLD_DATA_DIR to run Alphafold functional tests (tried {DATA_DIR!r})")
 
         # Create base output dir
         if cls.use_temp_dir:

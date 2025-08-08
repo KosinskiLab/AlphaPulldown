@@ -667,7 +667,10 @@ class AlphaFold3Backend(FoldingBackend):
 
         # Run predictions
         for mapping in prepared_inputs:
-            (fold_input_obj, output_dir), = mapping.items()
+            logging.info(f"Processing mapping: {mapping}")
+            if len(mapping) != 1:
+                raise ValueError(f"Expected exactly one item in mapping, got {len(mapping)}: {mapping}")
+            fold_input_obj, output_dir = next(iter(mapping.items()))
             
             # Expand to multiple seeds if num_seeds is specified
             num_seeds = kwargs.get('num_seeds')
