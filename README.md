@@ -547,15 +547,29 @@ This usually works, but on some compute systems, users may prefer to use other v
 
 ### 0.2. Installation using pip
 
-Activate the AlphaPulldown environment and install AlphaPulldown:
+Activate the AlphaPulldown environment and install AlphaPulldown. The base package includes the sequence/template tooling needed for feature creation (HH-suite, HMMER, Kalign, ModelCIF). Backend stacks are provided as extras to avoid dependency conflicts:
 
 ```bash
 source activate AlphaPulldown
 python3 -m pip install alphapulldown
+# Developers can use editable mode in a clone:
+# pip install -e .
 ```
 
+Backend-specific extras (install in the appropriate dedicated Conda envs):
+
 ```bash
-pip install -U "jax[cuda12]"==0.5.3
+# AlphaFold 2 environment (JAX-based in this project) + OpenMM tooling
+pip install -e .[alphafold2]
+
+# AlphaFold 3 environment (JAX/Triton/CUDA)
+pip install -e .[alphafold3]
+
+# AlphaLink2 environment (PyTorch). Requires UniFold (vendored) and Uni-Core installed separately.
+pip install -e .[alphalink2]
+
+# Developer tools
+pip install -e .[dev]
 ```
    
 > [!NOTE] 
@@ -582,6 +596,7 @@ singularity build <new_image.sif> <writable_image_dir>
 
 1. Make sure you have installed PyTorch corresponding to the pytorch CUDA version you have. Here we will take CUDA 11.8 and PyTorch 2.5.1 as an example: 
     ```bash
+    # Pick the right CUDA wheel for your system
     pip3 install torch==2.5.1+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
     ```
 > [!WARNING]
@@ -592,9 +607,9 @@ singularity build <new_image.sif> <writable_image_dir>
 > 
 > This ensures optimal performance and avoids potential conflicts between the different deep learning frameworks.
 
-2. Compile [UniCore](https://github.com/dptech-corp/Uni-Core).
+2. Compile [Uni-Core](https://github.com/dptech-corp/Uni-Core) in the AlphaLink2 environment (required for AlphaLink2 backend):
     ```bash
-    source activate AlphaPulldown
+    source activate AlphaPulldown  # use your AlphaLink2/PyTorch env
     git clone https://github.com/dptech-corp/Uni-Core.git
     cd Uni-Core
     pip3 install .
@@ -628,15 +643,17 @@ Please [add your SSH key to your GitHub account](https://docs.github.com/en/auth
     git submodule init
     git submodule update         
 2. Create the Conda environment as described in [Create Anaconda environment](#1-create-anaconda-environment) 
-3. Install AlphaPulldown package and add its submodules to the Conda environment (does not work if you want to update the dependencies)
+3. Install AlphaPulldown package (editable) and add extras as needed to the active environment (no need to install submodules separately anymore):
     
     ```bash
     source activate AlphaPulldown
     cd AlphaPulldown
     pip install -e .
-    pip install -e AlphaLink2 --no-deps
-    pip install -e ColabFold --no-deps
-    pip install -e alphafold --no-deps
+    # Optionally add extras
+    # pip install -e .[dev]
+    # pip install -e .[alphafold2]      # AF2 env
+    # pip install -e .[alphafold3]      # AF3 env
+    # pip install -e .[alphalink2]  # AlphaLink2 env (requires Uni-Core as above)
     ```
             
     You need to do it only once.

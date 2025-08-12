@@ -147,5 +147,8 @@ def main(argv):
             subprocess.run(" ".join(command), check=True, shell=True)
 
 
+def cli():
+    app.run(main)
+
 if __name__ == "__main__":
     app.run(main)

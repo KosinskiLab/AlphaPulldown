@@ -435,6 +435,11 @@ def main(argv):
         else:
             create_individual_features()
 
+def cli():
+    # Console entry point wrapper
+    flags.mark_flags_as_required(["fasta_paths", "output_dir", "max_template_date"])
+    app.run(main)
+
 if __name__ == "__main__":
     # Mark basic required flags (data_dir validation is handled in main())
     flags.mark_flags_as_required(["fasta_paths", "output_dir", "max_template_date"])

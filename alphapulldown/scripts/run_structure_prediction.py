@@ -422,6 +422,9 @@ def main(argv):
         )
 
 
+def cli():
+    app.run(main)
+
 if __name__ == '__main__':
     flags.mark_flag_as_required('input')
     flags.mark_flag_as_required('output_directory')
