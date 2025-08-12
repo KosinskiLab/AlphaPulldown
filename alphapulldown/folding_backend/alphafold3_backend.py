@@ -441,8 +441,8 @@ class AlphaFold3Backend(FoldingBackend):
             sequence = mono_obj.sequence
             feature_dict = mono_obj.feature_dict
             msa_array = feature_dict.get('msa')
-            unpaired_msa = msa_array_to_a3m(msa_array) if msa_array is not None else ""
-            paired_msa = ""
+            paired_msa = msa_array_to_a3m(msa_array) if msa_array is not None else ""
+            unpaired_msa = ""
             templates = []
             if 'template_aatype' in feature_dict:
                 num_templates = feature_dict['template_aatype'].shape[0]
@@ -626,6 +626,33 @@ class AlphaFold3Backend(FoldingBackend):
 
         # Create a single combined input with all chains
         if all_chains:
+            # If chains arrived from monomer JSONs with only unpaired MSAs, promote them to paired MSAs
+            # so AlphaFold3 can perform cross-chain pairing during featurisation.
+            promoted_chains: list[folding_input.ProteinChain | folding_input.RnaChain | folding_input.DnaChain | folding_input.Ligand] = []
+            for ch in all_chains:
+                # Only protein chains have paired/unpaired MSA fields
+                if isinstance(ch, folding_input.ProteinChain):
+                    try:
+                        has_empty_paired = (getattr(ch, 'paired_msa', None) in (None, ''))
+                        has_unpaired = bool(getattr(ch, 'unpaired_msa', ''))
+                        if has_empty_paired and has_unpaired:
+                            # Construct a new ProteinChain with unpaired -> paired, and clear unpaired
+                            new_chain = folding_input.ProteinChain(
+                                id=ch.id,
+                                sequence=ch.sequence,
+                                ptms=ch.ptms,
+                                paired_msa=ch.unpaired_msa,
+                                unpaired_msa='',
+                                templates=ch.templates,
+                            )
+                            promoted_chains.append(new_chain)
+                            continue
+                    except Exception:
+                        # If any attribute missing/unexpected, fall back to original chain
+                        pass
+                promoted_chains.append(ch)
+
+            all_chains = promoted_chains
             combined_input = folding_input.Input(
                 name=job_name,
                 rng_seeds=[random_seed],

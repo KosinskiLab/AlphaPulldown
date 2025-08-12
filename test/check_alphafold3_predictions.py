@@ -1027,6 +1027,84 @@ class _TestBase(parameterized.TestCase):
 #                        parameterised "run mode" tests                       #
 # --------------------------------------------------------------------------- #
 class TestAlphaFold3RunModes(_TestBase):
+    def test_af3_on_the_fly_pairing_from_json_features(self):
+        """
+        Build a dimer from two AF3 JSON monomer feature files that only contain
+        unpairedMsa. Ensure backend writes combined *_data.json where protein
+        chains have pairedMsa populated (promoted from unpairedMsa) so AF3 can
+        perform cross-chain pairing downstream. Skip model inference.
+        """
+        # Input JSONs (use repo-relative paths via test_features_dir)
+        json_a = self.test_features_dir / "af3_features/protein/A0A024R1R8_af3_input.json"
+        json_b = self.test_features_dir / "af3_features/protein/P61626_af3_input.json"
+
+        # Prepare objects_to_model input to backend: two JSON inputs merged into one complex
+        from alphapulldown.folding_backend.alphafold3_backend import AlphaFold3Backend, process_fold_input
+
+        objects_to_model = [
+            {"object": {"json_input": str(json_a)}, "output_dir": str(self.output_dir)},
+            {"object": {"json_input": str(json_b)}, "output_dir": str(self.output_dir)},
+        ]
+
+        # Use backend to prepare the combined input
+        mappings = AlphaFold3Backend.prepare_input(objects_to_model=objects_to_model, random_seed=42)
+        self.assertEqual(len(mappings), 1)
+        fold_input_obj, out_dir = next(iter(mappings[0].items()))
+
+        # Ask the backend helper to write *_data.json without inference
+        res = process_fold_input(
+            fold_input=fold_input_obj,
+            model_runner=None,
+            output_dir=str(self.output_dir),
+            buckets=(512,),
+        )
+        self.assertIsNotNone(res)
+
+        out_path = self.output_dir / f"{fold_input_obj.sanitised_name()}_data.json"
+
+        # Load JSON and verify that each protein chain now has pairedMsa populated
+        # (promoted from unpairedMsa) and unpairedMsa cleared.
+        with open(out_path, "rt") as f:
+            data = json.load(f)
+
+        # JSON structure depends on AF3 version; check sequences[*].protein fields
+        sequences = data.get("sequences", [])
+        self.assertGreaterEqual(len(sequences), 2, "Expected at least two chains in combined input")
+
+        # For protein entries, ensure at least one of pairedMsa/unpairedMsa is present
+        # and that our pipeline can promote unpaired -> paired (non-empty strings present in at least one field)
+        num_proteins = 0
+        num_with_promoted_paired = 0
+        for seq_entry in sequences:
+            if "protein" in seq_entry:
+                num_proteins += 1
+                protein = seq_entry["protein"]
+                paired = protein.get("pairedMsa", "") or ""
+                unpaired = protein.get("unpairedMsa", None)
+                # After promotion we expect pairedMsa to be non-empty and unpairedMsa to be ""
+                if isinstance(paired, str) and len(paired) > 0 and (unpaired == "" or unpaired is None):
+                    num_with_promoted_paired += 1
+
+        self.assertGreaterEqual(num_proteins, 2, "Expected two protein chains in the dimer test")
+        self.assertEqual(num_with_promoted_paired, num_proteins, "All protein chains must have pairedMsa populated and unpairedMsa cleared")
+
+        # Finally, assert that original monomer JSON has empty pairedMsa, to validate that
+        # we started from unpaired-only features.
+        with open(json_a, "rt") as f:
+            a_data = json.load(f)
+        with open(json_b, "rt") as f:
+            b_data = json.load(f)
+        def _paired_empty(d):
+            for seq_entry in d.get("sequences", []):
+                if "protein" in seq_entry:
+                    if seq_entry["protein"].get("pairedMsa", None):
+                        return False
+            return True
+        self.assertTrue(_paired_empty(a_data))
+        self.assertTrue(_paired_empty(b_data))
+
+        print("✓ Combined AF3 input JSON created; per-chain MSAs present for backend pairing")
+
     def test_multi_seeds_samples_sequence_extraction(self):
         """Test that sequence extraction works correctly for multi_seeds_samples."""
         # Test the sequence extraction logic directly
