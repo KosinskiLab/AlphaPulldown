@@ -1,0 +1,33 @@
+{
+    "arch": "x86_64",
+    "build": "h69a702a_1",
+    "build_number": 1,
+    "channel": "conda-forge",
+    "depends": [
+        "libgcc 14.2.0 h77fa898_1"
+    ],
+    "extracted_package_dir": "/home/dmolodenskiy/AlphaPulldown/conda/pkgs/libgcc-ng-14.2.0-h69a702a_1",
+    "files": [],
+    "fn": "libgcc-ng-14.2.0-h69a702a_1.conda",
+    "license": "GPL-3.0-only WITH GCC-exception-3.1",
+    "license_family": "GPL",
+    "link": {
+        "source": "/home/dmolodenskiy/AlphaPulldown/conda/pkgs/libgcc-ng-14.2.0-h69a702a_1",
+        "type": 1
+    },
+    "md5": "e39480b9ca41323497b05492a63bc35b",
+    "name": "libgcc-ng",
+    "package_tarball_full_path": "/home/dmolodenskiy/AlphaPulldown/conda/pkgs/libgcc-ng-14.2.0-h69a702a_1.tar.bz2",
+    "paths_data": {
+        "paths": [],
+        "paths_version": 1
+    },
+    "platform": "linux",
+    "requested_spec": "conda-forge/linux-64::libgcc-ng==14.2.0=h69a702a_1[md5=e39480b9ca41323497b05492a63bc35b]",
+    "sha256": "3a76969c80e9af8b6e7a55090088bc41da4cffcde9e2c71b17f44d37b7cb87f7",
+    "size": 54142,
+    "subdir": "linux-64",
+    "timestamp": 1729027726517,
+    "url": "https://conda.anaconda.org/conda-forge/linux-64/libgcc-ng-14.2.0-h69a702a_1.conda",
+    "version": "14.2.0"
+}

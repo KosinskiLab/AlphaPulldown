@@ -1,0 +1,17 @@
+{
+  "arch": null,
+  "build": "pyha55dd90_7",
+  "build_number": 7,
+  "depends": [
+    "__unix",
+    "python >=3.9"
+  ],
+  "license": "BSD-3-Clause",
+  "license_family": "BSD",
+  "name": "pysocks",
+  "noarch": "python",
+  "platform": null,
+  "subdir": "noarch",
+  "timestamp": 1733217331982,
+  "version": "1.7.1"
+}

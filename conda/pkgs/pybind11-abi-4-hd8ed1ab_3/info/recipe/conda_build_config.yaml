@@ -1,0 +1,32 @@
+CI: azure
+c_compiler: gcc
+cdt_name: cos6
+channel_sources: conda-forge,defaults
+channel_targets: conda-forge main
+cpu_optimization_target: nocona
+cran_mirror: https://cran.r-project.org
+cxx_compiler: gxx
+cxx_compiler_version: '9'
+docker_image: quay.io/condaforge/linux-anvil-comp7
+extend_keys:
+- extend_keys
+- pin_run_as_build
+- ignore_version
+- ignore_build_only_deps
+fortran_compiler: gfortran
+ignore_build_only_deps:
+- python
+- numpy
+lua: '5'
+numpy: '1.11'
+perl: 5.26.2
+pin_run_as_build:
+  python:
+    max_pin: x.x
+    min_pin: x.x
+  r-base:
+    min_pin: x.x
+    max_pin: x.x
+python: 3.7.* *_cpython
+r_base: '3.5'
+target_platform: linux-64

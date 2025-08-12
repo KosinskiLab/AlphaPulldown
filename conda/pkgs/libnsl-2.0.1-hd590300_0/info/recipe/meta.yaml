@@ -1,0 +1,59 @@
+# This file created by conda-build 3.24.0
+# meta.yaml template originally from:
+# /home/conda/recipe_root, last modified Sun Oct 15 08:32:21 2023
+# ------------------------------------------------
+
+package:
+  name: libnsl
+  version: 2.0.1
+source:
+  sha256: 59048b53be8d3904bf939313debf13956a881b0de79da40f7719a77bcd1e9c53
+  url: https://github.com/thkukuk/libnsl/archive/v2.0.1.tar.gz
+build:
+  number: '0'
+  run_exports:
+    - libnsl >=2.0.1,<2.1.0a0
+  string: hd590300_0
+requirements:
+  build:
+    - _libgcc_mutex 0.1 conda_forge
+    - _openmp_mutex 4.5 2_gnu
+    - binutils_impl_linux-64 2.40 hf600244_0
+    - binutils_linux-64 2.40 hbdbef99_2
+    - gcc_impl_linux-64 12.3.0 he2b93b0_2
+    - gcc_linux-64 12.3.0 h76fc315_2
+    - gnuconfig 2020.11.07 hd8ed1ab_0
+    - kernel-headers_linux-64 2.6.32 he073ed8_16
+    - ld_impl_linux-64 2.40 h41732ed_0
+    - libgcc-devel_linux-64 12.3.0 h8bca6fd_2
+    - libgcc-ng 13.2.0 h807b86a_2
+    - libgomp 13.2.0 h807b86a_2
+    - libsanitizer 12.3.0 h0f45ef3_2
+    - libstdcxx-ng 13.2.0 h7e041cc_2
+    - libtool 2.4.7 h27087fc_0
+    - make 4.3 hd18ef5c_1
+    - pkg-config 0.29.2 h36c2ea0_1008
+    - sysroot_linux-64 2.12 he073ed8_16
+  host:
+    - _libgcc_mutex 0.1 conda_forge
+    - _openmp_mutex 4.5 2_gnu
+    - libgcc-ng 13.2.0 h807b86a_2
+    - libgomp 13.2.0 h807b86a_2
+  run:
+    - libgcc-ng >=12
+test:
+  commands:
+    - test -f ${PREFIX}/lib/libnsl.so
+about:
+  home: https://github.com/thkukuk/libnsl
+  license: LGPL-2.1-only
+  license_family: GPL
+  license_file: COPYING
+  summary: Public client interface library for NIS(YP)
+extra:
+  copy_test_source_files: true
+  final: true
+  recipe-maintainers:
+    - isuruf
+    - izahn
+    - xhochy

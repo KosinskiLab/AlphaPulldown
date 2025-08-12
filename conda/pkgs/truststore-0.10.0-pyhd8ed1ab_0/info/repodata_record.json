@@ -1,0 +1,22 @@
+{
+    "arch": null,
+    "build": "pyhd8ed1ab_0",
+    "build_number": 0,
+    "channel": "conda-forge",
+    "depends": [
+        "python >=3.10"
+    ],
+    "fn": "truststore-0.10.0-pyhd8ed1ab_0.conda",
+    "license": "MIT",
+    "license_family": "MIT",
+    "md5": "ad1c20cd193e3044bcf17798c33b9d67",
+    "name": "truststore",
+    "noarch": "python",
+    "platform": null,
+    "sha256": "0d23d3b370fc0393d05468fbff5152826317d4495446f6b2cc4d446e21050808",
+    "size": 21799,
+    "subdir": "noarch",
+    "timestamp": 1729762456098,
+    "url": "https://conda.anaconda.org/conda-forge/noarch/truststore-0.10.0-pyhd8ed1ab_0.conda",
+    "version": "0.10.0"
+}

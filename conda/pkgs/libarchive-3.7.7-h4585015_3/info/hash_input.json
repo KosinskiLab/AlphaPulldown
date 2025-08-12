@@ -1,0 +1,18 @@
+{
+  "lz4_c": "1.10",
+  "target_platform": "linux-64",
+  "c_compiler": "gcc",
+  "c_compiler_version": "13",
+  "zstd": "1.5",
+  "libarchive": "3.7",
+  "lzo": "2",
+  "libxml2": "2",
+  "openssl": "3",
+  "bzip2": "1",
+  "liblzma_devel": "5",
+  "channel_targets": "conda-forge main",
+  "c_stdlib": "sysroot",
+  "zlib": "1",
+  "c_stdlib_version": "2.17",
+  "__glibc": "__glibc >=2.17,<3.0.a0"
+}

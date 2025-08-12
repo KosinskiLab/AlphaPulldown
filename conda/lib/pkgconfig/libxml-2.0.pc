@@ -1,0 +1,13 @@
+prefix=/home/dmolodenskiy/AlphaPulldown/conda
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+modules=1
+
+Name: libXML
+Version: 2.13.5
+Description: libXML library version2.
+Requires.private: 
+Libs: -L${libdir} -lxml2 
+Libs.private:  -L/home/dmolodenskiy/AlphaPulldown/conda/lib -lz -L/home/dmolodenskiy/AlphaPulldown/conda/lib -llzma  -L/home/dmolodenskiy/AlphaPulldown/conda/lib -liconv -lm   
+Cflags: -I${includedir}/libxml2 -I/home/dmolodenskiy/AlphaPulldown/conda/include 

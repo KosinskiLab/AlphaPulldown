@@ -1,0 +1,14 @@
+lib/libatomic.so
+lib/libatomic.so.1
+lib/libatomic.so.1.2.0
+lib/libgcc_s.so
+lib/libgcc_s.so.1
+lib/libitm.so
+lib/libitm.so.1
+lib/libitm.so.1.0.0
+lib/libquadmath.so
+lib/libquadmath.so.0
+lib/libquadmath.so.0.0.0
+share/info/libgomp.info
+share/info/libquadmath.info
+share/licenses/gcc-libs/RUNTIME.LIBRARY.EXCEPTION

@@ -1,0 +1,92 @@
+# This file created by conda-build 24.5.1
+# meta.yaml template originally from:
+# /home/conda/recipe_root, last modified Sun Jul 14 16:24:29 2024
+# ------------------------------------------------
+
+package:
+  name: bzip2
+  version: 1.0.8
+source:
+  patches:
+    - 0001-cross.patch
+    - 0002-Windows-Make-library-name-lowercase.patch
+    - 0003-Windows-Add-dyn-lib-build-rename-libbz2_static.patch
+  sha256: ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269
+  url: https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz
+build:
+  number: '7'
+  run_exports:
+    - bzip2 >=1.0.8,<2.0a0
+  string: h4bc722e_7
+requirements:
+  build:
+    - _libgcc_mutex 0.1 conda_forge
+    - _openmp_mutex 4.5 2_gnu
+    - _sysroot_linux-64_curr_repodata_hack 3 h69a702a_16
+    - binutils_impl_linux-64 2.40 ha1999f0_7
+    - binutils_linux-64 2.40 hb3c18ed_9
+    - gcc_impl_linux-64 12.3.0 h58ffeeb_13
+    - gcc_linux-64 12.3.0 h9528a6a_9
+    - kernel-headers_linux-64 3.10.0 h4a8ded7_16
+    - ld_impl_linux-64 2.40 hf3520f5_7
+    - libgcc-devel_linux-64 12.3.0 h6b66f73_113
+    - libgcc-ng 14.1.0 h77fa898_0
+    - libgomp 14.1.0 h77fa898_0
+    - libsanitizer 12.3.0 hb8811af_13
+    - libstdcxx-ng 14.1.0 hc0a3c3a_0
+    - make 4.3 hd18ef5c_1
+    - sysroot_linux-64 2.17 h4a8ded7_16
+    - tzdata 2024a h0c530f3_0
+  host:
+    - _libgcc_mutex 0.1 conda_forge
+    - _openmp_mutex 4.5 2_gnu
+    - libgcc-ng 14.1.0 h77fa898_0
+    - libgomp 14.1.0 h77fa898_0
+  run:
+    - __glibc >=2.17,<3.0.a0
+    - libgcc-ng >=12
+test:
+  commands:
+    - bzip2 --help
+    - test -f ${PREFIX}/bin/bunzip2
+    - test -f ${PREFIX}/bin/bzcat
+    - test -f ${PREFIX}/bin/bzcmp
+    - test -f ${PREFIX}/bin/bzdiff
+    - test -f ${PREFIX}/bin/bzegrep
+    - test -f ${PREFIX}/bin/bzfgrep
+    - test -f ${PREFIX}/bin/bzgrep
+    - test -f ${PREFIX}/bin/bzip2recover
+    - test -f ${PREFIX}/bin/bzip2
+    - test -f ${PREFIX}/bin/bzless
+    - test -f ${PREFIX}/bin/bzmore
+    - test -f ${PREFIX}/include/bzlib.h
+    - test -f ${PREFIX}/lib/libbz2.a
+    - test -f ${PREFIX}/lib/libbz2.so
+about:
+  description: 'Bzip2 is a freely available high-quality data compressor. It typically
+
+    compresses files to within 10% to 15% of the best available techniques,
+
+    whilst being around twice as fast at compression and six times faster
+
+    at decompression.
+
+    '
+  doc_url: http://www.bzip.org/docs.html
+  home: http://www.bzip.org/
+  license: bzip2-1.0.6
+  license_family: BSD
+  license_file: LICENSE
+  summary: high-quality data compressor
+extra:
+  copy_test_source_files: true
+  final: true
+  flow_run_id: azure_20240714.1.1
+  recipe-maintainers:
+    - isuruf
+    - jakirkham
+    - mbargull
+    - msarahan
+    - pelson
+  remote_url: https://github.com/conda-forge/bzip2-feedstock
+  sha: e044094adb40d9ac5a8dbbaa6d0854c608a2d02a

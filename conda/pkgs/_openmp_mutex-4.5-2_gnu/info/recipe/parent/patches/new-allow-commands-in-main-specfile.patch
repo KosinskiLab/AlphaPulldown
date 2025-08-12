@@ -1,0 +1,26 @@
+From 34e495874e7a1bc6ef774a8c4a1a1dd239ea03cb Mon Sep 17 00:00:00 2001
+From: Tim Snyder <snyder.tim@gmail.com>
+Date: Tue, 29 Mar 2022 22:33:27 +0000
+Subject: [PATCH] allow % commands in main specfile
+
+---
+ gcc/gcc.cc | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/gcc/gcc.cc b/gcc/gcc.cc
+index a716f7082..970cc0ba9 100644
+--- a/gcc/gcc.cc
++++ b/gcc/gcc.cc
+@@ -2095,7 +2095,8 @@ read_specs (const char *filename, bool main_p, bool user_p)
+       /* Is this a special command that starts with '%'? */
+       /* Don't allow this for the main specs file, since it would
+ 	 encourage people to overwrite it.  */
+-      if (*p == '%' && !main_p)
++      /* ::conda-forge:: allow use of commands in main specs */
++      if (*p == '%')
+ 	{
+ 	  p1 = p;
+ 	  while (*p && *p != '\n')
+-- 
+2.35.1
+

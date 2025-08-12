@@ -1,0 +1,14 @@
+{
+  "arch": "x86_64",
+  "build": "h0b41bf4_0",
+  "build_number": 0,
+  "depends": [
+    "libgcc-ng >=12"
+  ],
+  "license": "BSD-3-Clause",
+  "name": "libuuid",
+  "platform": "linux",
+  "subdir": "linux-64",
+  "timestamp": 1680112270483,
+  "version": "2.38.1"
+}

@@ -1,0 +1,28 @@
+{
+    "arch": "x86_64",
+    "build": "h0d44e9d_1",
+    "build_number": 1,
+    "channel": "conda-forge",
+    "constrains": [
+        "icu <0.0a0"
+    ],
+    "depends": [
+        "__glibc >=2.17,<3.0.a0",
+        "libgcc >=13",
+        "libiconv >=1.17,<2.0a0",
+        "liblzma >=5.6.3,<6.0a0",
+        "libzlib >=1.3.1,<2.0a0"
+    ],
+    "fn": "libxml2-2.13.5-h0d44e9d_1.conda",
+    "license": "MIT",
+    "license_family": "MIT",
+    "md5": "f5b05674697ae7d2c5932766695945e1",
+    "name": "libxml2",
+    "platform": "linux",
+    "sha256": "306e18aa647d8208ad2cd0e62d84933222b2fbe93d2d53cd5283d2256b1d54de",
+    "size": 689993,
+    "subdir": "linux-64",
+    "timestamp": 1733443678322,
+    "url": "https://conda.anaconda.org/conda-forge/linux-64/libxml2-2.13.5-h0d44e9d_1.conda",
+    "version": "2.13.5"
+}

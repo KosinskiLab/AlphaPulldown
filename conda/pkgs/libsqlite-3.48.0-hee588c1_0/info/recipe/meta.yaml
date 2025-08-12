@@ -1,0 +1,78 @@
+# This file created by conda-build 24.11.2
+# ------------------------------------------------
+
+package:
+  name: libsqlite
+  version: 3.48.0
+source:
+  patches: null
+  sha256: ac992f7fca3989de7ed1fe99c16363f848794c8c32a158dafd4eb927a2e02fd5
+  url: https://www.sqlite.org/2025/sqlite-autoconf-3480000.tar.gz
+build:
+  number: 0
+  run_exports:
+    - libsqlite >=3.48.0,<4.0a0
+  string: hee588c1_0
+requirements:
+  build:
+    - _libgcc_mutex 0.1 conda_forge
+    - _openmp_mutex 4.5 2_gnu
+    - binutils_impl_linux-64 2.43 h4bf12b8_2
+    - binutils_linux-64 2.43 h4852527_2
+    - gcc_impl_linux-64 13.3.0 hfea6d02_1
+    - gcc_linux-64 13.3.0 hc28eda2_7
+    - kernel-headers_linux-64 3.10.0 he073ed8_18
+    - ld_impl_linux-64 2.43 h712a8e2_2
+    - libgcc 14.2.0 h77fa898_1
+    - libgcc-devel_linux-64 13.3.0 h84ea5a7_101
+    - libgcc-ng 14.2.0 h69a702a_1
+    - libgomp 14.2.0 h77fa898_1
+    - libsanitizer 13.3.0 heb74ff8_1
+    - libstdcxx 14.2.0 hc0a3c3a_1
+    - libtool 2.4.7 he02047a_1
+    - make 4.4.1 hb9d3cd8_2
+    - sysroot_linux-64 2.17 h0157908_18
+    - tzdata 2025a h78e105d_0
+  host:
+    - _libgcc_mutex 0.1 conda_forge
+    - _openmp_mutex 4.5 2_gnu
+    - libgcc 14.2.0 h77fa898_1
+    - libgomp 14.2.0 h77fa898_1
+    - libzlib 1.3.1 hb9d3cd8_2
+    - zlib 1.3.1 hb9d3cd8_2
+  run:
+    - __glibc >=2.17,<3.0.a0
+    - libgcc >=13
+    - libzlib >=1.3.1,<2.0a0
+test:
+  commands:
+    - test -f $PREFIX/lib/libsqlite3${SHLIB_EXT}
+    - test ! -f $PREFIX/lib/libsqlite3.a
+    - test -f $PREFIX/include/sqlite3.h
+    - test -f $PREFIX/include/sqlite3ext.h
+about:
+  description: 'SQLite is a self-contained, high-reliability, embedded, full-featured,
+
+    public-domain, SQL database engine.It is the most used database engine
+
+    in the world.
+
+    '
+  dev_url: https://github.com/mackyle/sqlite
+  doc_source_url: https://github.com/mackyle/sqlite/tree/master/doc
+  doc_url: http://www.sqlite.org/docs.html
+  home: http://www.sqlite.org/
+  license: Unlicense
+  license_url: http://www.sqlite.org/copyright.html
+  summary: Implements a self-contained, zero-configuration, SQL database engine
+extra:
+  copy_test_source_files: true
+  final: true
+  flow_run_id: azure_20250117.2.1
+  recipe-maintainers:
+    - jakirkham
+    - mingwandroid
+    - msarahan
+    - ocefpaf
+  remote_url: https://github.com/conda-forge/sqlite-feedstock
+  sha: 2036902518e907813cc9777c527bbdbe21303937

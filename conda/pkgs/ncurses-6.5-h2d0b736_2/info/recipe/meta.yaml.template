@@ -1,0 +1,138 @@
+{% set version = "6_5" %}
+{% set pkg_version = ".".join(version.split("_")) %}
+
+package:
+  name: ncurses
+  version: {{ pkg_version }}
+
+source:
+  url: https://github.com/ThomasDickey/ncurses-snapshots/archive/refs/tags/v{{ version }}.tar.gz
+  sha256: 1600526b279b0acf42432fe31f6dfa3824a4da4262168bf8b3637660ff8c07c7
+
+build:
+  skip: true  # [win]
+  number: 2
+  run_exports:
+    # pretty good compat within major version
+    #  https://abi-laboratory.pro/tracker/timeline/ncurses/
+    - {{ pin_subpackage('ncurses') }}
+  # A C++ compiler is needed so that the cursesapp.h file is installed,
+  # but the library does not need libstdc++/libc++
+  ignore_run_exports_from:
+    - {{ compiler('cxx') }}
+    - libcxx
+    - libgcc
+
+requirements:
+  build:
+    - {{ stdlib('c') }}
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+    - pkg-config
+    - make
+    - libtool
+    - coreutils
+    - ncurses  # [build_platform != target_platform]
+  host:
+    # Need a separate host section so that ncurses doesn't remove -L$PREFIX/lib
+    - libcxx   # [osx]
+    - libgcc   # [linux]
+
+test:
+  requires:
+    - pkg-config
+  commands:
+    # Test libraries
+    {% set ncurses_libraries = [
+        "libncurses",
+        "libtinfo",
+        "libform",
+        "libmenu",
+        "libpanel",
+    ] %}
+    {% for each_ncurses_library in ncurses_libraries %}
+    - test ! -f ${PREFIX}/lib/{{ each_ncurses_library }}.a
+    - test ! -f ${PREFIX}/lib/{{ each_ncurses_library }}w.a
+    - test -f ${PREFIX}/lib/{{ each_ncurses_library }}.dylib    # [osx]
+    - test -f ${PREFIX}/lib/{{ each_ncurses_library }}w.dylib   # [osx]
+    - test -f ${PREFIX}/lib/{{ each_ncurses_library }}.so       # [linux]
+    - test -f ${PREFIX}/lib/{{ each_ncurses_library }}w.so      # [linux]
+    {% endfor %}
+
+    # Test include directories
+    - test -d ${PREFIX}/include/ncurses
+    - test -d ${PREFIX}/include/ncursesw
+
+    # Test headers
+    {% set ncurses_headers = [
+        "curses.h",
+        "cursesapp.h",
+        "cursesf.h",
+        "cursesm.h",
+        "cursesp.h",
+        "cursesw.h",
+        "cursslk.h",
+        "eti.h",
+        "etip.h",
+        "form.h",
+        "menu.h",
+        "ncurses.h",
+        "ncurses_dll.h",
+        "panel.h",
+        "term.h",
+        "term_entry.h",
+        "termcap.h",
+        "unctrl.h"
+    ] %}
+    {% for each_ncurses_header in ncurses_headers %}
+    - test -L ${PREFIX}/include/ncurses/{{ each_ncurses_header }}
+    - test -L ${PREFIX}/include/ncursesw/{{ each_ncurses_header }}
+    - test -f ${PREFIX}/include/{{ each_ncurses_header }}
+    {% endfor %}
+
+    # Test pkg-config files
+    {% set ncurses_pc_files = [
+        "form",
+        "menu",
+        "ncurses++",
+        "ncurses",
+        "panel",
+        "tinfo"
+    ] %}
+    {% for each_ncurses_pc_file in ncurses_pc_files %}
+    - test -f ${PREFIX}/lib/pkgconfig/{{ each_ncurses_pc_file }}.pc
+    - cat ${PREFIX}/lib/pkgconfig/{{ each_ncurses_pc_file }}.pc
+    - test -f ${PREFIX}/lib/pkgconfig/{{ each_ncurses_pc_file }}w.pc
+    - cat ${PREFIX}/lib/pkgconfig/{{ each_ncurses_pc_file }}w.pc
+    {% endfor %}
+
+    # Test ncurses library arguments.
+    - pkg-config ncurses --libs
+    - pkg-config ncurses --libs | grep "^-L${PREFIX}/lib .*-lncurses -ltinfo$"
+    - pkg-config tinfo --libs | grep "^-L${PREFIX}/lib .*-ltinfo$"
+    - pkg-config ncursesw --libs | grep "^-L${PREFIX}/lib .*-lncursesw -ltinfow$"
+    - pkg-config tinfow --libs | grep "^-L${PREFIX}/lib .*-ltinfow$"
+
+about:
+  home: http://www.gnu.org/software/ncurses/
+  # See https://github.com/mirror/ncurses/blob/3ef920d65fb2d4046096131d868ae8d4bba79d46/package/debian/copyright
+  license: X11 AND BSD-3-Clause
+  license_file: COPYING
+  summary: Library for text-based user interfaces
+  description: |
+    The ncurses (new curses) library is a free software
+    emulation of curses in System V Release 4.0 (SVr4),
+    and more. It uses terminfo format, supports pads and
+    color and multiple highlights and forms characters and
+    function-key mapping, and has all the other SVr4-curses
+    enhancements over BSD curses. SVr4 curses is better
+    known today as X/Open Curses
+  doc_url: http://invisible-island.net/ncurses/NCURSES-Programming-HOWTO.html
+  dev_url: http://invisible-island.net/ncurses/
+
+extra:
+  recipe-maintainers:
+    - jakirkham
+    - mingwandroid
+    - fhoehle
+    - h-vetinari

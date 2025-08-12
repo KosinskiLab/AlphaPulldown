@@ -1,0 +1,17 @@
+{
+  "arch": "x86_64",
+  "build": "h7b32b05_1",
+  "build_number": 1,
+  "depends": [
+    "__glibc >=2.17,<3.0.a0",
+    "ca-certificates",
+    "libgcc >=13"
+  ],
+  "license": "Apache-2.0",
+  "license_family": "Apache",
+  "name": "openssl",
+  "platform": "linux",
+  "subdir": "linux-64",
+  "timestamp": 1736086387286,
+  "version": "3.4.0"
+}

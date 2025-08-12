@@ -1,0 +1,17 @@
+{
+  "arch": "x86_64",
+  "build": "h712a8e2_2",
+  "build_number": 2,
+  "constrains": [
+    "binutils_impl_linux-64 2.43"
+  ],
+  "depends": [
+    "__glibc >=2.17,<3.0.a0"
+  ],
+  "license": "GPL-3.0-only",
+  "name": "ld_impl_linux-64",
+  "platform": "linux",
+  "subdir": "linux-64",
+  "timestamp": 1729655358674,
+  "version": "2.43"
+}

@@ -1,0 +1,14 @@
+{
+  "build": "pyh29332c3_1",
+  "build_number": 1,
+  "depends": [
+    "python >=3.9",
+    "python"
+  ],
+  "license": "BSD-3-Clause",
+  "name": "pycparser",
+  "noarch": "python",
+  "subdir": "noarch",
+  "timestamp": 1733195786147,
+  "version": "2.22"
+}

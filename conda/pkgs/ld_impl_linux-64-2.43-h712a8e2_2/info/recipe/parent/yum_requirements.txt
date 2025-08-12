@@ -1,0 +1,4 @@
+texinfo
+make
+gcc-c++
+binutils

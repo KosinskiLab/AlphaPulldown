@@ -1,0 +1,32 @@
+{
+    "arch": null,
+    "build": "hd8ed1ab_3",
+    "build_number": 3,
+    "channel": "conda-forge",
+    "depends": [],
+    "extracted_package_dir": "/home/dmolodenskiy/AlphaPulldown/conda/pkgs/pybind11-abi-4-hd8ed1ab_3",
+    "files": [],
+    "fn": "pybind11-abi-4-hd8ed1ab_3.tar.bz2",
+    "license": "BSD-3-Clause",
+    "license_family": "BSD",
+    "link": {
+        "source": "/home/dmolodenskiy/AlphaPulldown/conda/pkgs/pybind11-abi-4-hd8ed1ab_3",
+        "type": 1
+    },
+    "md5": "878f923dd6acc8aeb47a75da6c4098be",
+    "name": "pybind11-abi",
+    "noarch": "generic",
+    "package_tarball_full_path": "/home/dmolodenskiy/AlphaPulldown/conda/pkgs/pybind11-abi-4-hd8ed1ab_3.tar.bz2",
+    "paths_data": {
+        "paths": [],
+        "paths_version": 1
+    },
+    "platform": null,
+    "requested_spec": "conda-forge/noarch::pybind11-abi==4=hd8ed1ab_3[md5=878f923dd6acc8aeb47a75da6c4098be]",
+    "sha256": "d4fb485b79b11042a16dc6abfb0c44c4f557707c2653ac47c81e5d32b24a3bb0",
+    "size": 9906,
+    "subdir": "noarch",
+    "timestamp": 1610372835205,
+    "url": "https://conda.anaconda.org/conda-forge/noarch/pybind11-abi-4-hd8ed1ab_3.tar.bz2",
+    "version": "4"
+}

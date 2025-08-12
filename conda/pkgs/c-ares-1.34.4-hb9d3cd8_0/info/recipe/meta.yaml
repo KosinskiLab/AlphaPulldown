@@ -1,0 +1,58 @@
+# This file created by conda-build 24.11.2
+# meta.yaml template originally from:
+# /home/conda/recipe_root, last modified Sat Dec 14 20:26:00 2024
+# ------------------------------------------------
+
+package:
+  name: c-ares
+  version: 1.34.4
+source:
+  sha256: fa38dbed659ee4cc5a32df5e27deda575fa6852c79a72ba1af85de35a6ae222f
+  url: https://github.com/c-ares/c-ares/releases/download/v1.34.4/c-ares-1.34.4.tar.gz
+build:
+  number: '0'
+  run_exports:
+    - c-ares >=1.34.4,<2.0a0
+  string: hb9d3cd8_0
+requirements:
+  build:
+    - _libgcc_mutex 0.1 conda_forge
+    - _openmp_mutex 4.5 2_gnu
+    - binutils_impl_linux-64 2.43 h4bf12b8_2
+    - binutils_linux-64 2.43 h4852527_2
+    - cmake-no-system 3.31.1 h5888daf_0
+    - gcc_impl_linux-64 13.3.0 hfea6d02_1
+    - gcc_linux-64 13.3.0 hc28eda2_7
+    - kernel-headers_linux-64 3.10.0 he073ed8_18
+    - ld_impl_linux-64 2.43 h712a8e2_2
+    - libgcc 14.2.0 h77fa898_1
+    - libgcc-devel_linux-64 13.3.0 h84ea5a7_101
+    - libgcc-ng 14.2.0 h69a702a_1
+    - libgomp 14.2.0 h77fa898_1
+    - libsanitizer 13.3.0 heb74ff8_1
+    - libstdcxx 14.2.0 hc0a3c3a_1
+    - libstdcxx-ng 14.2.0 h4852527_1
+    - ninja 1.12.1 h297d8ca_0
+    - sysroot_linux-64 2.17 h4a8ded7_18
+    - tzdata 2024b hc8b5060_0
+  run:
+    - __glibc >=2.17,<3.0.a0
+    - libgcc >=13
+  run_constraint:
+    - c-ares-static <0a0
+about:
+  home: https://c-ares.haxx.se/
+  license: MIT
+  license_family: MIT
+  license_file: LICENSE.md
+  summary: This is c-ares, an asynchronous resolver library
+extra:
+  copy_test_source_files: true
+  final: true
+  flow_run_id: azure_20241214.2.1
+  recipe-maintainers:
+    - ocefpaf
+    - wesm
+    - xhochy
+  remote_url: https://github.com/conda-forge/c-ares-feedstock
+  sha: 08ac1d7ae15a21e1fd5370c07bed655c301a1013

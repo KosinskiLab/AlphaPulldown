@@ -1,0 +1,65 @@
+{% set version = "0.2.8" %}
+
+package:
+  name: ruamel.yaml.clib
+  version: {{ version }}
+
+source:
+  - url: https://pypi.io/packages/source/r/ruamel.yaml.clib/ruamel.yaml.clib-{{ version }}.tar.gz
+    sha256: beb2e0404003de9a4cab9753a8805a8fe9320ee6673136ed7f04255fe60bb512
+  - url: https://sourceforge.net/p/ruamel-yaml-clib/code/ci/{{ version }}/tree/_ruamel_yaml.pyx?format=raw
+    sha256: fb6b5653201f1ed89a951f6931fda377737156c4f30cadbd240f4d28f607665a
+    fn: _ruamel_yaml.pyx
+    patches:
+      # Patch from Fedora to address https://sourceforge.net/p/ruamel-yaml-clib/tickets/22/
+      - fix-typecasts-s390x._ruamel_yaml.pyx.patch
+  - url: https://sourceforge.net/p/ruamel-yaml-clib/code/ci/{{ version }}/tree/_ruamel_yaml.pxd?format=raw
+    sha256: ee35a75fd753a369bee439ec7e1826e77c7feaabf9c3ec9cf2f58110c7a95656
+    fn: _ruamel_yaml.pxd
+    patches:
+      # Patch from Fedora to address https://sourceforge.net/p/ruamel-yaml-clib/tickets/22/
+      - fix-typecasts-s390x._ruamel_yaml.pxd.patch
+
+build:
+  number: 1
+  script:
+    - cythonize _ruamel_yaml.pyx
+    - {{ PYTHON }} -m pip install . -vv
+
+requirements:
+  build:
+    - python                                 # [build_platform != target_platform]
+    - cython                                 # [build_platform != target_platform]
+    - cross-python_{{ target_platform }}     # [build_platform != target_platform]
+    - {{ compiler('c') }}
+    - {{ stdlib("c") }}
+  host:
+    - python
+    - cython
+    - pip
+    - setuptools
+  run:
+    - python
+
+test:
+  # Use downstreams and importlib.util.find_spec instead of a usual import test
+  # since we have a yet-to-be-resolved cyclic dependency with ruamel.yaml because
+  # ruamel.yaml.clib needs the "ruamel.yaml" Python namespace package which is
+  # currently shipped with all other ruamel.yaml code in our ruamel.yaml package.
+  # See https://github.com/conda-forge/ruamel.yaml-feedstock/issues/119 for details.
+  downstreams:
+    - ruamel.yaml
+  commands:
+    - python -c "from importlib.util import find_spec; assert find_spec('_ruamel_yaml')"
+
+about:
+  home: https://sourceforge.net/projects/ruamel-yaml-clib/
+  license: MIT
+  license_family: MIT
+  license_file: LICENSE
+  summary: C version of reader, parser and emitter for ruamel.yaml derived from libyaml
+
+extra:
+  recipe-maintainers:
+    - mbargull
+    - ocefpaf

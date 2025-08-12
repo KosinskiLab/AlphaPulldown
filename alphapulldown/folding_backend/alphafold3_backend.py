@@ -379,6 +379,7 @@ class AlphaFold3Backend(FoldingBackend):
         random_seed: int,
         af3_input_json: list = None,
         features_directory: str = None,
+        debug_templates: bool | None = None,
     ) -> list:
         """Prepare input for AlphaFold3 prediction."""
         logging.info(f"prepare_input called with {len(objects_to_model)} objects to model")
@@ -426,6 +427,44 @@ class AlphaFold3Backend(FoldingBackend):
             ]
             lines[insert_index:insert_index] = revision_lines
             return '\n'.join(lines)
+
+        def strip_entity_poly_seq_block(mmcif_string: str) -> str:
+            """Remove _entity_poly_seq loop to let AF3 reconstruct scheme from _atom_site.
+
+            AF3's parser can infer _pdbx_poly_seq_scheme directly from _atom_site and
+            avoids mismatches when our synthetic _entity_poly_seq has UNK entries.
+            """
+            lines = mmcif_string.splitlines()
+            out_lines = []
+            i = 0
+            while i < len(lines):
+                line = lines[i]
+                if line.strip() == 'loop_':
+                    # Peek ahead to see if this loop is for _entity_poly_seq
+                    j = i + 1
+                    is_entity_poly_seq = False
+                    while j < len(lines) and lines[j].strip().startswith('_'):
+                        if lines[j].strip().startswith('_entity_poly_seq.'):
+                            is_entity_poly_seq = True
+                        # Stop header scan when we reach first data row (no leading underscore)
+                        j += 1
+                        if j < len(lines) and not lines[j].strip().startswith('_'):
+                            break
+                    if is_entity_poly_seq:
+                        # Skip until next blank line or next loop_/category header
+                        k = j
+                        while k < len(lines):
+                            if lines[k].strip() == '' or lines[k].strip() == '#':
+                                k += 1
+                                break
+                            if lines[k].strip() == 'loop_':
+                                break
+                            k += 1
+                        i = k
+                        continue
+                out_lines.append(line)
+                i += 1
+            return '\n'.join(out_lines)
 
         def msa_array_to_a3m(msa_array):
             msa_sequences = []
@@ -482,7 +521,35 @@ class AlphaFold3Backend(FoldingBackend):
                             prot=protein, file_id=pdb_code, model_type='Monomer'
                         )
                         new_mmcif_string = insert_release_date_into_mmcif(mmcif_string)
-                        query_to_template_map = {j: j for j in range(len(template_sequence))}
+                        # Remove _entity_poly_seq to avoid mismatches during AF3 parsing
+                        new_mmcif_string = strip_entity_poly_seq_block(new_mmcif_string)
+                        # Optional debug dump of generated template mmCIF
+                        if debug_templates:
+                            try:
+                                os.makedirs("templates_debug", exist_ok=True)
+                                debug_fname = os.path.join(
+                                    "templates_debug",
+                                    f"generated_template_{pdb_code}_{chain_id_template}_chain{chain_id}_idx{i}.cif",
+                                )
+                                with open(debug_fname, "w") as f_dbg:
+                                    f_dbg.write(new_mmcif_string)
+                            except Exception:
+                                # Best-effort debug; ignore failures
+                                pass
+                        # Build query->template mapping only for residues that have any atoms
+                        # present in the template (avoid gaps causing index errors downstream).
+                        try:
+                            per_res_atom_mask = feature_dict["template_all_atom_masks"][i]
+                            # Boolean mask: True if any atom present for this residue
+                            present_res_mask = np.any(per_res_atom_mask > 0, axis=-1)
+                            # Map compact template indices (0..N_present-1) to original residue indices
+                            residue_indices_present = [idx for idx, present in enumerate(present_res_mask) if present]
+                            compact_index_by_residue = {res_idx: compact_idx for compact_idx, res_idx in enumerate(residue_indices_present)}
+                            # Query indices are positions in the template sequence aligned to the query
+                            query_to_template_map = {res_idx: compact_index_by_residue[res_idx] for res_idx in residue_indices_present}
+                        except Exception:
+                            # Fallback to identity if masks missing, though this may error later
+                            query_to_template_map = {j: j for j in range(len(template_sequence))}
                         templates.append(
                             folding_input.Template(
                                 mmcif=new_mmcif_string,
@@ -690,6 +757,7 @@ class AlphaFold3Backend(FoldingBackend):
             random_seed=random_seed,
             af3_input_json=kwargs.get("af3_input_json"),
             features_directory=kwargs.get("features_directory"),
+            debug_templates=kwargs.get("debug_templates", False),
         )
 
         # Run predictions

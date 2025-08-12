@@ -1,0 +1,61 @@
+From fbf38ba081aee56f12999290677c8cb5d2ad2da1 Mon Sep 17 00:00:00 2001
+From: Isuru Fernando <isuruf@gmail.com>
+Date: Mon, 6 Sep 2021 07:37:45 -0700
+Subject: [PATCH 2/2] Add support for ffi_find_closure_for_code_np on Apple
+
+Apple name in libffi is slightly different.
+
+Co-authored-by: Kai Tietz <ktietz@anaconda.com>
+---
+ include/ffi.h.in  | 3 +++
+ src/aarch64/ffi.c | 4 ++++
+ src/x86/ffi64.c   | 4 ++++
+ 3 files changed, 11 insertions(+)
+
+diff --git a/include/ffi.h.in b/include/ffi.h.in
+index 72c69d2..ca524bc 100644
+--- a/include/ffi.h.in
++++ b/include/ffi.h.in
+@@ -365,6 +365,9 @@ ffi_prep_closure_loc (ffi_closure*,
+ #if defined(__x86_64__) || defined(__arm64__)
+ FFI_API ffi_closure *
+ ffi_find_closure_for_code(void *code);
++#ifdef __APPLE__
++FFI_API ffi_closure *ffi_find_closure_for_code_np(void *code);
++#endif
+ #endif
+ 
+ #ifdef __sgi
+diff --git a/src/aarch64/ffi.c b/src/aarch64/ffi.c
+index 376e447..a13b8e3 100644
+--- a/src/aarch64/ffi.c
++++ b/src/aarch64/ffi.c
+@@ -883,6 +883,10 @@ ffi_find_closure_for_code(void *codeloc)
+ #endif
+ }
+ 
++#ifdef __APPLE__
++ffi_closure *ffi_find_closure_for_code_np(void *codeloc) { return ffi_find_closure_for_code(codeloc); }  /* Apple renamed this entry ... */
++#endif
++
+ 
+ #ifdef FFI_GO_CLOSURES
+ extern void ffi_go_closure_SYSV (void) FFI_HIDDEN;
+diff --git a/src/x86/ffi64.c b/src/x86/ffi64.c
+index 8b4572f..857535e 100644
+--- a/src/x86/ffi64.c
++++ b/src/x86/ffi64.c
+@@ -794,6 +794,10 @@ ffi_find_closure_for_code(void *code)
+     return (ffi_closure *) code;
+ }
+ 
++#ifdef __APPLE__
++ffi_closure *ffi_find_closure_for_code_np(void *code) { return ffi_find_closure_for_code(code); }  /* Apple renamed ... */
++#endif
++
+ int FFI_HIDDEN
+ ffi_closure_unix64_inner(ffi_cif *cif,
+ 			 void (*fun)(ffi_cif*, void*, void**, void*),
+-- 
+2.30.2
+

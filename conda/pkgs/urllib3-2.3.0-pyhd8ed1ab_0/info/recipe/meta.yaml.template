@@ -1,0 +1,62 @@
+{% set name = "urllib3" %}
+{% set version = "2.3.0" %}
+
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  url: https://pypi.org/packages/source/{{ name[0] }}/{{ name }}/urllib3-{{ version }}.tar.gz
+  sha256: f8c5449b3cf0861679ce7e0503c7b44b5ec981bec0d1d3795a07f1ba96f0204d
+
+build:
+  number: 0
+  noarch: python
+  script: {{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation
+
+requirements:
+  host:
+    - python {{ python_min }}
+    - hatchling >=1.6.0,<2
+    - hatch-vcs ==0.4.0
+    - pip
+  run:
+    - python >={{ python_min }}
+    # optional deps [socks]
+    - pysocks >=1.5.6,<2.0,!=1.5.7
+    # optional deps [brotli]
+    - brotli-python >=1.0.9
+    # optional deps [zstandard]
+    - zstandard >=0.18.0
+    # optional deps [h2]
+    - h2 >=4,<5
+
+
+test:
+  imports:
+    - urllib3
+    - urllib3.contrib
+    - urllib3.util
+  commands:
+    - pip check
+  requires:
+    - pip
+    - python {{ python_min }}
+
+about:
+  home: https://urllib3.readthedocs.io/
+  license: MIT
+  license_family: MIT
+  license_file: LICENSE.txt
+  summary: HTTP library with thread-safe connection pooling, file post, and more.
+  doc_url: https://urllib3.readthedocs.io/
+  dev_url: https://github.com/shazow/urllib3
+
+extra:
+  recipe-maintainers:
+    - shazow
+    - sethmlarson
+    - ocefpaf
+    - pquentin
+    - illia-v

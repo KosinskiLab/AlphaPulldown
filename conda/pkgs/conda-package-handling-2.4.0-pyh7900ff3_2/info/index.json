@@ -1,0 +1,19 @@
+{
+  "arch": null,
+  "build": "pyh7900ff3_2",
+  "build_number": 2,
+  "depends": [
+    "conda-package-streaming >=0.9.0",
+    "python >=3.9",
+    "requests",
+    "zstandard >=0.15"
+  ],
+  "license": "BSD-3-Clause",
+  "license_family": "BSD",
+  "name": "conda-package-handling",
+  "noarch": "python",
+  "platform": null,
+  "subdir": "noarch",
+  "timestamp": 1736345601691,
+  "version": "2.4.0"
+}

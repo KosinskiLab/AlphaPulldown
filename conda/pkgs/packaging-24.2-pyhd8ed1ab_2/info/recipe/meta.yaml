@@ -1,0 +1,71 @@
+# This file created by conda-build 24.11.2
+# meta.yaml template originally from:
+# /home/conda/recipe_root, last modified Tue Dec  3 05:19:16 2024
+# ------------------------------------------------
+
+package:
+  name: packaging
+  version: '24.2'
+source:
+  sha256: c228a6dc5e932d346bc5739379109d49e8853dd8223571c7c5b55260edc0b97f
+  url: https://pypi.org/packages/source/p/packaging/packaging-24.2.tar.gz
+build:
+  noarch: python
+  number: '2'
+  script: /home/conda/feedstock_root/build_artifacts/packaging_1733203243479/_h_env_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_p/bin/python
+    -m pip install . -vv
+  string: pyhd8ed1ab_2
+requirements:
+  host:
+    - _libgcc_mutex 0.1 conda_forge
+    - _openmp_mutex 4.5 2_gnu
+    - bzip2 1.0.8 h4bc722e_7
+    - ca-certificates 2024.8.30 hbcca054_0
+    - flit-core 3.10.1 pyhd8ed1ab_0
+    - ld_impl_linux-64 2.43 h712a8e2_2
+    - libffi 3.4.2 h7f98852_5
+    - libgcc 14.2.0 h77fa898_1
+    - libgcc-ng 14.2.0 h69a702a_1
+    - libgomp 14.2.0 h77fa898_1
+    - libnsl 2.0.1 hd590300_0
+    - libsqlite 3.47.0 hadc24fc_1
+    - libuuid 2.38.1 h0b41bf4_0
+    - libxcrypt 4.4.36 hd590300_1
+    - libzlib 1.3.1 hb9d3cd8_2
+    - ncurses 6.5 he02047a_1
+    - openssl 3.4.0 hb9d3cd8_0
+    - pip 24.3.1 pyh8b19718_0
+    - python 3.8.20 h4a871b0_2_cpython
+    - readline 8.2 h8228510_1
+    - setuptools 75.3.0 pyhd8ed1ab_0
+    - tk 8.6.13 noxft_h4845f30_101
+    - wheel 0.45.1 pyhd8ed1ab_0
+    - xz 5.2.6 h166bdaf_0
+  run:
+    - python >=3.8
+test:
+  commands:
+    - pip check
+  imports:
+    - packaging
+  requires:
+    - pip
+    - python 3.8.*
+about:
+  dev_url: https://github.com/pypa/packaging
+  doc_url: https://packaging.pypa.io/
+  home: https://github.com/pypa/packaging
+  license: Apache-2.0
+  license_file: LICENSE
+  summary: Core utilities for Python packages
+extra:
+  copy_test_source_files: true
+  final: true
+  flow_run_id: azure_20241203.2.1
+  recipe-maintainers:
+    - jakirkham
+    - matthewfeickert
+    - nicoddemus
+    - ofek
+  remote_url: https://github.com/conda-forge/packaging-feedstock
+  sha: 66adb9e7bbb15e5f29e63ab892fba48265fbbb54

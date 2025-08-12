@@ -1,0 +1,111 @@
+# This file created by conda-build 24.11.2
+# meta.yaml template originally from:
+# /home/conda/recipe_root, last modified Fri Dec  6 00:03:47 2024
+# ------------------------------------------------
+
+package:
+  name: libxml2
+  version: 2.13.5
+source:
+  patches:
+    - 0002-Make-and-install-a-pkg-config-file-on-Windows.patch
+  sha256: 37cdec8cd20af8ab0decfa2419b09b4337c2dbe9da5615d2a26f547449fecf2a
+  url: https://gitlab.gnome.org/GNOME/libxml2/-/archive/v2.13.5/libxml2-v2.13.5.tar.gz
+build:
+  number: '1'
+  run_exports:
+    - libxml2 >=2.13.5,<3.0a0
+  string: h0d44e9d_1
+requirements:
+  build:
+    - _libgcc_mutex 0.1 conda_forge
+    - _openmp_mutex 4.5 2_gnu
+    - autoconf 2.71 pl5321h2b4cb7a_1
+    - automake 1.17 pl5321ha770c72_0
+    - binutils_impl_linux-64 2.43 h4bf12b8_2
+    - binutils_linux-64 2.43 h4852527_2
+    - gcc_impl_linux-64 13.3.0 hfea6d02_1
+    - gcc_linux-64 13.3.0 hc28eda2_7
+    - kernel-headers_linux-64 3.10.0 he073ed8_18
+    - ld_impl_linux-64 2.43 h712a8e2_2
+    - libgcc 14.2.0 h77fa898_1
+    - libgcc-devel_linux-64 13.3.0 h84ea5a7_101
+    - libgcc-ng 14.2.0 h69a702a_1
+    - libgomp 14.2.0 h77fa898_1
+    - libiconv 1.17 hd590300_2
+    - libsanitizer 13.3.0 heb74ff8_1
+    - libstdcxx 14.2.0 hc0a3c3a_1
+    - libtool 2.4.7 he02047a_1
+    - libxcrypt 4.4.36 hd590300_1
+    - m4 1.4.18 h516909a_1001
+    - make 4.4.1 hb9d3cd8_2
+    - perl 5.32.1 7_hd590300_perl5
+    - pkg-config 0.29.2 h4bc722e_1009
+    - sysroot_linux-64 2.17 h4a8ded7_18
+    - tzdata 2024b hc8b5060_0
+  host:
+    - _libgcc_mutex 0.1 conda_forge
+    - _openmp_mutex 4.5 2_gnu
+    - libgcc 14.2.0 h77fa898_1
+    - libgcc-ng 14.2.0 h69a702a_1
+    - libgomp 14.2.0 h77fa898_1
+    - libiconv 1.17 hd590300_2
+    - liblzma 5.6.3 hb9d3cd8_1
+    - liblzma-devel 5.6.3 hb9d3cd8_1
+    - libzlib 1.3.1 hb9d3cd8_2
+    - zlib 1.3.1 hb9d3cd8_2
+  run:
+    - __glibc >=2.17,<3.0.a0
+    - libgcc >=13
+    - libiconv >=1.17,<2.0a0
+    - liblzma >=5.6.3,<6.0a0
+    - libzlib >=1.3.1,<2.0a0
+  run_constrained:
+    - icu <0.0a0
+test:
+  commands:
+    - echo on
+    - xmllint test.xml
+    - mkdir -p "${PREFIX}/etc/xml"
+    - cp   test_catalog.xml "${PREFIX}/etc/xml/catalog"
+    - xmlcatalog "" "http://www.w3.org/2001/xml.xsd" | grep -x -F -e "file://test-uri-override"
+    - rm  "${PREFIX}/etc/xml/catalog"
+    - xmlcatalog "" "test-id" | grep -x -F -e "No entry for URI test-id"
+    - xmlcatalog "test_catalog.xml" "test-id" | grep -x -F -e "file://test-uri"
+    - export XML_CATALOG_FILES="file://$(pwd)/test_catalog.xml"
+    - xmlcatalog "" "test-id" | grep -x -F -e "file://test-uri"
+    - xmlcatalog "" "http://www.w3.org/2009/01/xml.xsd" | grep -x -F -e "No entry
+      for URI http://www.w3.org/2009/01/xml.xsd"
+  files:
+    - test.xml
+    - test_catalog.xml
+  requires:
+    - ripgrep
+about:
+  description: 'Though libxml2 is written in C a variety of language
+
+    bindings make it available in other environments.
+
+    '
+  dev_url: https://git.gnome.org/browse/libxml2/
+  doc_source_url: https://github.com/GNOME/libxml2/blob/master/doc/devhelp/index.html
+  doc_url: http://xmlsoft.org/html/index.html
+  home: http://xmlsoft.org/
+  license: MIT
+  license_family: MIT
+  license_file: Copyright
+  summary: The XML C parser and toolkit of Gnome
+extra:
+  copy_test_source_files: true
+  final: true
+  flow_run_id: azure_20241205.5.1
+  recipe-maintainers:
+    - gillins
+    - isuruf
+    - jakirkham
+    - jschueller
+    - msarahan
+    - ocefpaf
+    - scopatz
+  remote_url: https://github.com/conda-forge/libxml2-feedstock
+  sha: 3172b384091b12933ff3cebef2dd856ba208d612

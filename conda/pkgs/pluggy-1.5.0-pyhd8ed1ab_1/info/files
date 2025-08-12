@@ -1,0 +1,17 @@
+site-packages/pluggy-1.5.0.dist-info/INSTALLER
+site-packages/pluggy-1.5.0.dist-info/LICENSE
+site-packages/pluggy-1.5.0.dist-info/METADATA
+site-packages/pluggy-1.5.0.dist-info/RECORD
+site-packages/pluggy-1.5.0.dist-info/REQUESTED
+site-packages/pluggy-1.5.0.dist-info/WHEEL
+site-packages/pluggy-1.5.0.dist-info/direct_url.json
+site-packages/pluggy-1.5.0.dist-info/top_level.txt
+site-packages/pluggy/__init__.py
+site-packages/pluggy/_callers.py
+site-packages/pluggy/_hooks.py
+site-packages/pluggy/_manager.py
+site-packages/pluggy/_result.py
+site-packages/pluggy/_tracing.py
+site-packages/pluggy/_version.py
+site-packages/pluggy/_warnings.py
+site-packages/pluggy/py.typed

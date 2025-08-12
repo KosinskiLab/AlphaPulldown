@@ -1,0 +1,25 @@
+{
+    "arch": "x86_64",
+    "build": "h5888daf_0",
+    "build_number": 0,
+    "channel": "conda-forge",
+    "constrains": [
+        "expat 2.6.4.*"
+    ],
+    "depends": [
+        "__glibc >=2.17,<3.0.a0",
+        "libgcc >=13"
+    ],
+    "fn": "libexpat-2.6.4-h5888daf_0.conda",
+    "license": "MIT",
+    "license_family": "MIT",
+    "md5": "db833e03127376d461e1e13e76f09b6c",
+    "name": "libexpat",
+    "platform": "linux",
+    "sha256": "56541b98447b58e52d824bd59d6382d609e11de1f8adf20b23143e353d2b8d26",
+    "size": 73304,
+    "subdir": "linux-64",
+    "timestamp": 1730967041968,
+    "url": "https://conda.anaconda.org/conda-forge/linux-64/libexpat-2.6.4-h5888daf_0.conda",
+    "version": "2.6.4"
+}

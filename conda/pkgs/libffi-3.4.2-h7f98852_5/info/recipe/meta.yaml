@@ -1,0 +1,79 @@
+# This file created by conda-build 3.21.6
+# meta.yaml template originally from:
+# /home/conda/recipe_root, last modified Tue Nov  9 20:00:33 2021
+# ------------------------------------------------
+
+package:
+  name: libffi
+  version: 3.4.2
+source:
+  patches:
+    - 0001-arm64-use-a-dedicated-dylib-for-trampolines-so-it-ca.patch
+    - 0002-Add-support-for-ffi_find_closure_for_code_np-on-Appl.patch
+  sha256: 540fb721619a6aba3bdeef7d940d8e9e0e6d2c193595bc243241b77ff9e93620
+  url: https://github.com/libffi/libffi/releases/download/v3.4.2/libffi-3.4.2.tar.gz
+build:
+  number: '5'
+  run_exports:
+    - libffi >=3.4,<4.0a0
+  string: h7f98852_5
+requirements:
+  build:
+    - _libgcc_mutex 0.1 conda_forge
+    - _openmp_mutex 4.5 1_gnu
+    - autoconf 2.69 pl5321hd708f79_11
+    - automake 1.16.5 pl5321ha770c72_0
+    - binutils_impl_linux-64 2.36.1 h193b22a_2
+    - binutils_linux-64 2.36 hf3e587d_1
+    - gcc_impl_linux-64 9.4.0 h03d3576_11
+    - gcc_linux-64 9.4.0 h391b98a_1
+    - kernel-headers_linux-64 2.6.32 he073ed8_15
+    - ld_impl_linux-64 2.36.1 hea4e1c9_2
+    - libgcc-devel_linux-64 9.4.0 hd854feb_11
+    - libgcc-ng 11.2.0 h1d223b6_11
+    - libgomp 11.2.0 h1d223b6_11
+    - libsanitizer 9.4.0 h79bfe98_11
+    - libstdcxx-ng 11.2.0 he4da1e4_11
+    - libtool 2.4.6 h9c3ff4c_1008
+    - m4 1.4.18 h516909a_1001
+    - make 4.3 hd18ef5c_1
+    - ncurses 6.2 h58526e2_4
+    - patch 2.7.6 h7f98852_1002
+    - perl 5.32.1 1_h7f98852_perl5
+    - sysroot_linux-64 2.12 he073ed8_15
+    - texinfo 6.8 pl5321h46c0cb4_1
+  host:
+    - _libgcc_mutex 0.1 conda_forge
+    - _openmp_mutex 4.5 1_gnu
+    - libgcc-ng 11.2.0 h1d223b6_11
+    - libgomp 11.2.0 h1d223b6_11
+  run:
+    - libgcc-ng >=9.4.0
+test:
+  commands:
+    - test -e $PREFIX/lib/libffi${SHLIB_EXT}
+    - test -e $PREFIX/lib/libffi.a
+    - test -e $PREFIX/include/ffi.h
+    - test -e $PREFIX/include/ffitarget.h
+  requires: null
+about:
+  description: 'The libffi library provides a portable, high level programming interface
+
+    to various calling conventions. This allows a programmer to call any
+
+    function specified by a call interface description at run-time.
+
+    '
+  dev_url: https://github.com/libffi/libffi
+  doc_url: https://sourceware.org/libffi/
+  home: https://sourceware.org/libffi/
+  license: MIT
+  license_file: LICENSE
+  summary: A Portable Foreign Function Interface Library.
+extra:
+  copy_test_source_files: true
+  final: true
+  recipe-maintainers:
+    - isuruf
+    - scopatz
+    - stefan-balke

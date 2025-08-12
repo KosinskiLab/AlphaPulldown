@@ -1,0 +1,12 @@
+python-scripts/jsondiff
+python-scripts/jsonpatch
+site-packages/jsonpatch-1.33.dist-info/AUTHORS
+site-packages/jsonpatch-1.33.dist-info/INSTALLER
+site-packages/jsonpatch-1.33.dist-info/LICENSE
+site-packages/jsonpatch-1.33.dist-info/METADATA
+site-packages/jsonpatch-1.33.dist-info/RECORD
+site-packages/jsonpatch-1.33.dist-info/REQUESTED
+site-packages/jsonpatch-1.33.dist-info/WHEEL
+site-packages/jsonpatch-1.33.dist-info/direct_url.json
+site-packages/jsonpatch-1.33.dist-info/top_level.txt
+site-packages/jsonpatch.py

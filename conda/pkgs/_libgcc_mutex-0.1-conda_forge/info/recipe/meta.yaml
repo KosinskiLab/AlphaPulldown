@@ -1,0 +1,24 @@
+# This file created by conda-build 3.18.11
+# meta.yaml template originally from:
+# /home/conda/recipe_root, last modified Mon Jan  6 15:27:17 2020
+# ------------------------------------------------
+
+package:
+    name: _libgcc_mutex
+    version: '0.1'
+build:
+    number: '0'
+    string: conda_forge
+test:
+    commands:
+        - echo "Hello World!"
+about:
+    home: https://github.com/AnacondaRecipes/_libgcc_mutex-feedstock
+    license: None
+    summary: Mutex for libgcc and libgcc-ng
+extra:
+    copy_test_source_files: true
+    final: true
+    recipe-maintainers:
+        - beckermr
+        - isuruf

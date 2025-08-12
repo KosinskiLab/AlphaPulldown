@@ -1,0 +1,111 @@
+{% set version = "3.7.7" %}
+
+package:
+  name: libarchive-split
+  version: {{ version }}
+
+source:
+  url: https://github.com/libarchive/libarchive/archive/v{{ version }}.tar.gz
+  sha256: fa62384995e8aa4f5a901c184fb5c91e56a29e24c05b6881a7f8fd5bbea694d2
+  patches:
+    - patches/0001-Add-lib-to-CMAKE_FIND_LIBRARY_PREFIXES-for-lzma.patch
+
+build:
+  number: 3
+
+outputs:
+  - name: libarchive
+    script: build_libarchive.sh  # [unix]
+    script: build_libarchive.bat  # [win]
+
+    build:
+      run_exports:
+        # https://abi-laboratory.pro/index.php?view=timeline&l=libarchive
+        - {{ pin_subpackage('libarchive', max_pin='x.x') }}
+
+    requirements:
+      build:
+        - {{ compiler('c') }}
+        - {{ stdlib("c") }}
+        - autoconf    # [unix]
+        - automake    # [unix]
+        - libtool     # [unix]
+        - pkg-config  # [unix]
+        - cmake       # [win]
+        - make        # [unix]
+        - ninja       # [win]
+        - m2-patch    # [win]
+      host:
+        - bzip2
+        - libiconv    # [osx]
+        - lz4-c
+        - liblzma-devel
+        - lzo
+        - openssl
+        - libxml2
+        - zlib
+        - zstd
+    test:
+      files:
+        - test/hello_world.xar
+      commands:
+        # Verify pkg-config file is in place.
+        - test -f "${PREFIX}/lib/pkgconfig/libarchive.pc"  # [unix]
+
+        # Verify headers are in place.
+        - test -f "${PREFIX}/include/archive.h"            # [unix]
+        - test -f "${PREFIX}/include/archive_entry.h"      # [unix]
+
+        # Verify libraries are in place.
+        - test -f "${PREFIX}/lib/libarchive.a"             # [unix]
+        - test -f "${PREFIX}/lib/libarchive${SHLIB_EXT}"   # [unix]
+
+        # Check for commands
+        - bsdcat --version
+        - bsdcpio --version
+        - bsdtar --version
+        - bsdtar -tf test/hello_world.xar
+
+
+  - name: libarchive-minimal-static
+    script: build_minimal.sh
+    build:
+      skip: true  # [win]
+    requirements:
+      build:
+        - {{ compiler('c') }}
+        - {{ stdlib("c") }}
+        - autoconf    # [unix]
+        - automake    # [unix]
+        - libtool     # [unix]
+        - pkg-config  # [unix]
+        - make        # [unix]
+      host:
+        - libiconv    # [osx]
+        - bzip2
+        - zlib
+        - zstd
+
+    test:
+      commands:
+        # Verify pkg-config file is in place.
+        - test -f "${PREFIX}/lib/pkgconfig/libarchive.pc"  # [unix]
+
+        # Verify headers are in place.
+        - test -f "${PREFIX}/include/archive.h"            # [unix]
+        - test -f "${PREFIX}/include/archive_entry.h"      # [unix]
+
+        # Verify libraries are in place.
+        - test -f "${PREFIX}/lib/libarchive.a"             # [unix]
+
+about:
+  home: http://www.libarchive.org/
+  summary: Multi-format archive and compression library
+  license: BSD-2-Clause
+  license_file: COPYING
+  license_family: BSD
+
+extra:
+  recipe-maintainers:
+    - jakirkham
+    - ocefpaf

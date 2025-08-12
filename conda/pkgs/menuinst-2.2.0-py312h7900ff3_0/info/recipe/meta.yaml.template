@@ -1,0 +1,74 @@
+{% set version = "2.2.0" %}
+
+package:
+  name: menuinst
+  version: {{ version }}
+
+source:
+  url: https://github.com/conda/menuinst/archive/{{ version }}.tar.gz
+  sha256: c225bacefa9ee216e678d929d375e34f10856d87c1aba70a57c3d7974fda0cb7
+
+build:
+  number: 0
+  script_env:
+    - SETUPTOOLS_SCM_PRETEND_VERSION={{ version }}
+  script:
+    # Apparently these files make the post-build linkage analysis crash
+    # and we should not need them on Windows
+    - del /q "{{ SRC_DIR }}\\menuinst\\data\\osx_launcher_*"     # [win]
+    - del /q "{{ SRC_DIR }}\\menuinst\\data\\appkit_launcher_*"  # [win]
+    # Delete in Linux too because we don't need them there
+    - rm -f "{{ SRC_DIR }}/menuinst/data/osx_launcher_*"     # [linux]
+    - rm -f "{{ SRC_DIR }}/menuinst/data/appkit_launcher_*"  # [linux]
+    - {{ PYTHON }} -m pip install . -vv
+    # menuinst v1 expects cwp.py in PREFIX; backwards compat fix
+    - copy "%SP_DIR%\\menuinst\\_legacy\cwp.py" "%PREFIX%\\"  # [win]
+  skip_compile_pyc:   # [win]
+    - cwp.py  # [win]
+  # entry_points:
+  #   - menuinst = menuinst.main:main
+
+requirements:
+  build:
+    - python                                 # [build_platform != target_platform]
+    - cross-python_{{ target_platform }}     # [build_platform != target_platform]
+    - {{ compiler('c') }}  # [win]
+    - {{ stdlib("c") }}    # [win]
+    - {{ compiler('cxx') }}  # [win]
+  host:
+    - python
+    - pip
+    - setuptools
+    - setuptools_scm
+  run:
+    - python
+
+test:
+  imports:
+    - menuinst
+    - menuinst.api
+    - menuinst._legacy  # [win]
+    - menuinst.platforms.win_utils.winshortcut  # [win]
+  commands:
+    - SP_DIR="$(python -c 'import site; print(site.getsitepackages()[0])')"  # [osx]
+    - test -f "${SP_DIR}/menuinst/data/appkit_launcher_arm64"    # [osx]
+    - test -f "${SP_DIR}/menuinst/data/appkit_launcher_x86_64"   # [osx]
+    - test -f "${SP_DIR}/menuinst/data/osx_launcher_arm64"       # [osx]
+    - test -f "${SP_DIR}/menuinst/data/osx_launcher_x86_64"      # [osx]
+
+about:
+  home: https://github.com/conda/menuinst/
+  license: BSD-3-Clause AND MIT
+  license_file:
+    - LICENSE.txt
+    - menuinst/_vendor/apipkg/LICENSE
+  summary: cross platform install of menu items
+  doc_url: https://conda.github.io/menuinst/
+
+extra:
+  recipe-maintainers:
+    - goanpeca
+    - jakirkham
+    - carlodri
+    - isuruf
+    - jaimergp

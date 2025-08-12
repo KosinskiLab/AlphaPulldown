@@ -1,0 +1,49 @@
+{% set version = "2.10" %}
+{% set version_major = "2" %}
+
+package:
+  name: lzo
+  version: {{ version }}
+
+source:
+  url: http://www.oberhumer.com/opensource/lzo/download/lzo-{{ version }}.tar.gz
+  sha256: c0f892943208266f9b6543b3ae308fab6284c5c90e627931446fb49b4221a072
+
+build:
+  number: 1001
+  run_exports:
+    # excellent compat: https://abi-laboratory.pro/tracker/timeline/lzo/
+    - {{ pin_subpackage('lzo') }}
+
+requirements:
+  build:
+    - cmake 3.*
+    - {{ compiler('c') }}
+    - cmake
+    - make
+
+test:
+  commands:
+    - test -f ${PREFIX}/include/lzo/lzoconf.h                                 # [unix]
+    - test -f ${PREFIX}/lib/liblzo{{ version_major }}.a                       # [unix]
+    - test -f ${PREFIX}/lib/liblzo{{ version_major }}${SHLIB_EXT}             # [not win]
+
+    - if not exist %PREFIX%\\Library\\include\\lzo\\lzoconf.h exit 1          # [win]
+    - if not exist %PREFIX%\\Library\\lib\\lzo{{ version_major }}.lib exit 1  # [win]
+    - if not exist %PREFIX%\\Library\\lib\\lzo{{ version_major }}_dllimport.lib exit 1  # [win]
+    - if not exist %PREFIX%\\Library\\bin\\lzo{{ version_major }}.dll exit 1  # [win]
+
+about:
+  home: http://www.oberhumer.com/opensource/lzo/
+  license: GPL-2.0-or-later
+  license_family: GPL2
+  license_file: COPYING
+  summary: LZO is a portable lossless data compression library written in ANSI C.
+  description: |
+    LZO offers pretty fast compression and extremely fast decompression.
+    MiniLZO is a very lightweight subset of the LZO library.
+
+extra:
+  recipe-maintainers:
+    - rmax
+    - ocefpaf

@@ -1,0 +1,6 @@
+include/ev++.h
+include/ev.h
+lib/libev.so
+lib/libev.so.4
+lib/libev.so.4.0.0
+share/man/man3/ev.3

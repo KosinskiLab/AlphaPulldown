@@ -1,0 +1,22 @@
+{
+    "arch": "x86_64",
+    "build": "noxft_h4845f30_101",
+    "build_number": 101,
+    "channel": "conda-forge",
+    "depends": [
+        "libgcc-ng >=12",
+        "libzlib >=1.2.13,<2.0.0a0"
+    ],
+    "fn": "tk-8.6.13-noxft_h4845f30_101.conda",
+    "license": "TCL",
+    "license_family": "BSD",
+    "md5": "d453b98d9c83e71da0741bb0ff4d76bc",
+    "name": "tk",
+    "platform": "linux",
+    "sha256": "e0569c9caa68bf476bead1bed3d79650bb080b532c64a4af7d8ca286c08dea4e",
+    "size": 3318875,
+    "subdir": "linux-64",
+    "timestamp": 1699202167581,
+    "url": "https://conda.anaconda.org/conda-forge/linux-64/tk-8.6.13-noxft_h4845f30_101.conda",
+    "version": "8.6.13"
+}

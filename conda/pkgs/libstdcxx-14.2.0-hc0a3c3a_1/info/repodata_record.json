@@ -1,0 +1,21 @@
+{
+    "arch": "x86_64",
+    "build": "hc0a3c3a_1",
+    "build_number": 1,
+    "channel": "conda-forge",
+    "depends": [
+        "libgcc 14.2.0 h77fa898_1"
+    ],
+    "fn": "libstdcxx-14.2.0-hc0a3c3a_1.conda",
+    "license": "GPL-3.0-only WITH GCC-exception-3.1",
+    "license_family": "GPL",
+    "md5": "234a5554c53625688d51062645337328",
+    "name": "libstdcxx",
+    "platform": "linux",
+    "sha256": "4661af0eb9bdcbb5fb33e5d0023b001ad4be828fccdcc56500059d56f9869462",
+    "size": 3893695,
+    "subdir": "linux-64",
+    "timestamp": 1729027746910,
+    "url": "https://conda.anaconda.org/conda-forge/linux-64/libstdcxx-14.2.0-hc0a3c3a_1.conda",
+    "version": "14.2.0"
+}

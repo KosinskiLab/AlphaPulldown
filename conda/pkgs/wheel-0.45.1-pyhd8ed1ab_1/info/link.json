@@ -1,0 +1,9 @@
+{
+  "noarch": {
+    "entry_points": [
+      "wheel = wheel.cli:main"
+    ],
+    "type": "python"
+  },
+  "package_metadata_version": 1
+}

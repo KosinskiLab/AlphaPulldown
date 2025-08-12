@@ -1,0 +1,21 @@
+--- ld/ldmain.c    2021-07-05 23:36:21.880908712 -0500
++++ ld/ldmain.c    2021-07-05 23:35:42.096442970 -0500
+@@ -645,6 +645,7 @@
+ {
+   int i;
+   const char *path = NULL;
++  struct stat s;
+ 
+   for (i = 1; i < argc; i++)
+     if (CONST_STRNEQ (argv[i], "--sysroot="))
+@@ -659,6 +660,9 @@
+   if (!path)
+     path = TARGET_SYSTEM_ROOT;
+ 
++  if (!(stat (path, &s) == 0 && S_ISDIR (s.st_mode)))
++       return "";
++
+   if (IS_DIR_SEPARATOR (*path) && path[1] == 0)
+     path = "";
+ 
+

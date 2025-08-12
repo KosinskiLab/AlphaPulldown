@@ -1,0 +1,14 @@
+{
+  "arch": "x86_64",
+  "build": "hd590300_2",
+  "build_number": 2,
+  "depends": [
+    "libgcc-ng >=12"
+  ],
+  "license": "LGPL-2.1-only",
+  "name": "libiconv",
+  "platform": "linux",
+  "subdir": "linux-64",
+  "timestamp": 1702682170569,
+  "version": "1.17"
+}

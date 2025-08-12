@@ -1,0 +1,24 @@
+{
+    "arch": "x86_64",
+    "build": "h712a8e2_2",
+    "build_number": 2,
+    "channel": "conda-forge",
+    "constrains": [
+        "binutils_impl_linux-64 2.43"
+    ],
+    "depends": [
+        "__glibc >=2.17,<3.0.a0"
+    ],
+    "fn": "ld_impl_linux-64-2.43-h712a8e2_2.conda",
+    "license": "GPL-3.0-only",
+    "license_family": "GPL",
+    "md5": "048b02e3962f066da18efe3a21b77672",
+    "name": "ld_impl_linux-64",
+    "platform": "linux",
+    "sha256": "7c91cea91b13f4314d125d1bedb9d03a29ebbd5080ccdea70260363424646dbe",
+    "size": 669211,
+    "subdir": "linux-64",
+    "timestamp": 1729655358674,
+    "url": "https://conda.anaconda.org/conda-forge/linux-64/ld_impl_linux-64-2.43-h712a8e2_2.conda",
+    "version": "2.43"
+}

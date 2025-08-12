@@ -1,0 +1,1 @@
+["pytest", "pytest-mock", "bottle", "mock", "python 3.9.*", "pytest-cov", "requests"]

@@ -1,0 +1,31 @@
+CI: azure
+c_compiler: gcc
+channel_sources: conda-forge,defaults
+channel_targets: conda-forge main
+cpu_optimization_target: nocona
+cran_mirror: https://cran.r-project.org
+cxx_compiler: gxx
+docker_image: condaforge/linux-anvil-comp7
+extend_keys:
+- extend_keys
+- pin_run_as_build
+- ignore_build_only_deps
+- ignore_version
+fortran_compiler: gfortran
+ignore_build_only_deps:
+- python
+- numpy
+libgcc_mutex_build_string: conda_forge
+lua: '5'
+numpy: '1.11'
+perl: 5.26.0
+pin_run_as_build:
+  python:
+    min_pin: x.x
+    max_pin: x.x
+  r-base:
+    min_pin: x.x
+    max_pin: x.x
+python: '3.7'
+r_base: '3.5'
+target_platform: linux-64

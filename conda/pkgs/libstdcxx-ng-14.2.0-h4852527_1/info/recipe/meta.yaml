@@ -1,0 +1,45 @@
+# This file created by conda-build 24.9.0
+# ------------------------------------------------
+
+package:
+  name: libstdcxx-ng
+  version: 14.2.0
+source:
+  - patches:
+      - patches/0002-allow-commands-in-main-specfile.patch
+      - patches/0003-patch-zoneinfo_dir_override-to-point-to-our-tzdata.patch
+      - patches/0004-add-ldl-to-libstdc___la_LDFLAGS.patch
+      - patches/0005-Hardcode-HAVE_ALIGNED_ALLOC-1-in-libstdc-v3-configur.patch
+      - patches/0006-fix-tzdb-for-newer-format.patch
+    sha256: 7d376d445f93126dc545e2c0086d0f647c3094aae081cdb78f42ce2bc25e7293
+    url: https://ftp.gnu.org/gnu/gcc/gcc-14.2.0/gcc-14.2.0.tar.gz
+build:
+  number: 1
+  run_exports:
+    strong:
+      - libstdcxx
+  string: h4852527_1
+requirements:
+  host:
+    - libstdcxx 14.2.0 hc0a3c3a_1
+  run:
+    - libstdcxx 14.2.0 hc0a3c3a_1
+test:
+  commands:
+    - echo "empty wrapper for compatibility with previous naming"
+about:
+  home: https://gcc.gnu.org/
+  license: GPL-3.0-only WITH GCC-exception-3.1
+  summary: The GNU C++ Runtime Library
+extra:
+  copy_test_source_files: true
+  feedstock-name: ctng-compilers-feedstock
+  final: true
+  flow_run_id: azure_20241015.1.1
+  recipe-maintainers:
+    - beckermr
+    - isuruf
+    - timsnyder
+    - xhochy
+  remote_url: https://github.com/conda-forge/ctng-compilers-feedstock
+  sha: 55c5af125402e8a59e38fdeb72d47dafdc7e67f5

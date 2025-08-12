@@ -1,0 +1,69 @@
+# This file created by conda-build 24.11.2
+# meta.yaml template originally from:
+# /home/conda/recipe_root, last modified Tue Dec  3 09:12:57 2024
+# ------------------------------------------------
+
+package:
+  name: pysocks
+  version: 1.7.1
+source:
+  sha256: 3f8804571ebe159c380ac6de37643bb4685970655d3bba243530d6558b799aa0
+  url: https://pypi.org/packages/source/P/PySocks/PySocks-1.7.1.tar.gz
+build:
+  noarch: python
+  number: '7'
+  script: /home/conda/feedstock_root/build_artifacts/pysocks_1733217236728/_h_env_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_pla/bin/python
+    -m pip install . -vv --no-deps --no-build-isolation
+  string: pyha55dd90_7
+requirements:
+  host:
+    - _libgcc_mutex 0.1 conda_forge
+    - _openmp_mutex 4.5 2_gnu
+    - bzip2 1.0.8 h4bc722e_7
+    - ca-certificates 2024.8.30 hbcca054_0
+    - ld_impl_linux-64 2.43 h712a8e2_2
+    - libffi 3.4.2 h7f98852_5
+    - libgcc 14.2.0 h77fa898_1
+    - libgcc-ng 14.2.0 h69a702a_1
+    - libgomp 14.2.0 h77fa898_1
+    - libnsl 2.0.1 hd590300_0
+    - libsqlite 3.47.0 hadc24fc_1
+    - libuuid 2.38.1 h0b41bf4_0
+    - libxcrypt 4.4.36 hd590300_1
+    - libzlib 1.3.1 hb9d3cd8_2
+    - ncurses 6.5 he02047a_1
+    - openssl 3.4.0 hb9d3cd8_0
+    - pip 24.3.1 pyh8b19718_0
+    - python 3.9.20 h13acc7a_1_cpython
+    - readline 8.2 h8228510_1
+    - setuptools 75.6.0 pyhff2d567_1
+    - tk 8.6.13 noxft_h4845f30_101
+    - tzdata 2024b hc8b5060_0
+    - wheel 0.45.1 pyhd8ed1ab_1
+    - xz 5.2.6 h166bdaf_0
+  run:
+    - __unix
+    - python >=3.9
+test:
+  imports:
+    - socks
+  requires:
+    - python 3.9.*
+about:
+  dev_url: https://github.com/Anorov/PySocks
+  doc_url: https://github.com/Anorov/PySocks/blob/master/README.md
+  home: https://github.com/Anorov/PySocks
+  license: BSD-3-Clause
+  license_family: BSD
+  license_file: LICENSE
+  summary: A Python SOCKS client module. See https://github.com/Anorov/PySocks for
+    more information.
+extra:
+  copy_test_source_files: true
+  final: true
+  flow_run_id: azure_20241203.2.1
+  recipe-maintainers:
+    - ocefpaf
+    - pmlandwehr
+  remote_url: https://github.com/conda-forge/pysocks-feedstock
+  sha: fd6a51b950188ecf552835f561c5de5f77b0ef53

@@ -1,0 +1,16 @@
+{
+  "arch": "x86_64",
+  "build": "ha6fb4c9_0",
+  "build_number": 0,
+  "depends": [
+    "libgcc-ng >=12",
+    "libstdcxx-ng >=12",
+    "libzlib >=1.2.13,<1.3.0a0"
+  ],
+  "license": "BSD-3-Clause",
+  "name": "zstd",
+  "platform": "linux",
+  "subdir": "linux-64",
+  "timestamp": 1714722996770,
+  "version": "1.5.6"
+}

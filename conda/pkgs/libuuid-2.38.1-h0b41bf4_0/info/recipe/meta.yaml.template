@@ -1,0 +1,39 @@
+{% set major_minor = "2.38" %}
+{% set version = major_minor + ".1" %}
+
+package:
+    name: libuuid
+    version: {{ version }}
+
+source:
+    fn: libuuid-{{ version }}.tar.gz
+    url: https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/v{{ major_minor }}/util-linux-{{ version }}.tar.gz
+    sha256: 0820eb8eea90408047e3715424bc6be771417047f683950fecb4bdd2e2cbbc6e
+
+build:
+    number: 0
+    skip: True  # [win]
+    run_exports:
+        # https://abi-laboratory.pro/index.php?view=timeline&l=util-linux
+        - {{ pin_subpackage('libuuid') }}
+
+requirements:
+    build:
+        - gnuconfig  # [unix]
+        - {{ compiler('c') }}
+        - make  # [unix]
+
+test:
+    commands:
+        - test -f ${PREFIX}/lib/libuuid.a  # [not win]
+        - test -f ${PREFIX}/lib/libuuid${SHLIB_EXT}  # [not win]
+
+about:
+    home: http://sourceforge.net/projects/libuuid/
+    license: BSD-3-Clause
+    license_file: COPYING
+    summary: 'Portable uuid C library.'
+
+extra:
+    recipe-maintainers:
+        - ocefpaf

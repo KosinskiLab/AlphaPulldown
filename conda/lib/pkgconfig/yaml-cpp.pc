@@ -1,0 +1,11 @@
+prefix=/home/dmolodenskiy/AlphaPulldown/conda
+exec_prefix=${prefix}
+includedir=/home/dmolodenskiy/AlphaPulldown/conda/include
+libdir=/home/dmolodenskiy/AlphaPulldown/conda/lib
+
+Name: Yaml-cpp
+Description: A YAML parser and emitter for C++
+Version: 0.8.0
+Requires:
+Libs: -L${libdir} -lyaml-cpp
+Cflags: -I${includedir}

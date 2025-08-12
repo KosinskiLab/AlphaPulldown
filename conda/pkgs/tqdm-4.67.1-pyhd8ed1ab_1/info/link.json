@@ -1,0 +1,9 @@
+{
+  "noarch": {
+    "entry_points": [
+      "tqdm = tqdm.cli:main"
+    ],
+    "type": "python"
+  },
+  "package_metadata_version": 1
+}

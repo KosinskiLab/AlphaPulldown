@@ -1,0 +1,33 @@
+{
+    "arch": "x86_64",
+    "build": "h4852527_1",
+    "build_number": 1,
+    "channel": "conda-forge",
+    "depends": [
+        "libstdcxx 14.2.0 hc0a3c3a_1"
+    ],
+    "extracted_package_dir": "/home/dmolodenskiy/AlphaPulldown/conda/pkgs/libstdcxx-ng-14.2.0-h4852527_1",
+    "files": [],
+    "fn": "libstdcxx-ng-14.2.0-h4852527_1.conda",
+    "license": "GPL-3.0-only WITH GCC-exception-3.1",
+    "license_family": "GPL",
+    "link": {
+        "source": "/home/dmolodenskiy/AlphaPulldown/conda/pkgs/libstdcxx-ng-14.2.0-h4852527_1",
+        "type": 1
+    },
+    "md5": "8371ac6457591af2cf6159439c1fd051",
+    "name": "libstdcxx-ng",
+    "package_tarball_full_path": "/home/dmolodenskiy/AlphaPulldown/conda/pkgs/libstdcxx-ng-14.2.0-h4852527_1.tar.bz2",
+    "paths_data": {
+        "paths": [],
+        "paths_version": 1
+    },
+    "platform": "linux",
+    "requested_spec": "conda-forge/linux-64::libstdcxx-ng==14.2.0=h4852527_1[md5=8371ac6457591af2cf6159439c1fd051]",
+    "sha256": "25bb30b827d4f6d6f0522cc0579e431695503822f144043b93c50237017fffd8",
+    "size": 54105,
+    "subdir": "linux-64",
+    "timestamp": 1729027780628,
+    "url": "https://conda.anaconda.org/conda-forge/linux-64/libstdcxx-ng-14.2.0-h4852527_1.conda",
+    "version": "14.2.0"
+}

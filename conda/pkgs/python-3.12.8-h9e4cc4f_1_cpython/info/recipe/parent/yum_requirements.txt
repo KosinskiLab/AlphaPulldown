@@ -1,0 +1,5 @@
+#tk_needs_libx11_but_avoids_a_runtime_requirement_of_libx11_to_reduce_the_dependencies_of_python
+libX11
+#libxcb_is_a_dependency_of_libx11_but_deps_are_wrong_on_our_cdt
+libxcb
+libXau

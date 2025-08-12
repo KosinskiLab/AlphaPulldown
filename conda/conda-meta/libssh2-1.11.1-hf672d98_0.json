@@ -1,0 +1,1692 @@
+{
+    "arch": "x86_64",
+    "build": "hf672d98_0",
+    "build_number": 0,
+    "channel": "conda-forge",
+    "depends": [
+        "__glibc >=2.17,<3.0.a0",
+        "libgcc >=13",
+        "libzlib >=1.3.1,<2.0a0",
+        "openssl >=3.4.0,<4.0a0"
+    ],
+    "extracted_package_dir": "/home/dmolodenskiy/AlphaPulldown/conda/pkgs/libssh2-1.11.1-hf672d98_0",
+    "files": [
+        "include/libssh2.h",
+        "include/libssh2_publickey.h",
+        "include/libssh2_sftp.h",
+        "lib/cmake/libssh2/FindLibgcrypt.cmake",
+        "lib/cmake/libssh2/FindMbedTLS.cmake",
+        "lib/cmake/libssh2/FindWolfSSL.cmake",
+        "lib/cmake/libssh2/libssh2-config-version.cmake",
+        "lib/cmake/libssh2/libssh2-config.cmake",
+        "lib/cmake/libssh2/libssh2-targets-release.cmake",
+        "lib/cmake/libssh2/libssh2-targets.cmake",
+        "lib/libssh2.so",
+        "lib/libssh2.so.1",
+        "lib/libssh2.so.1.0.1",
+        "lib/pkgconfig/libssh2.pc",
+        "share/doc/libssh2/AUTHORS",
+        "share/doc/libssh2/BINDINGS.md",
+        "share/doc/libssh2/COPYING",
+        "share/doc/libssh2/HACKING.md",
+        "share/doc/libssh2/NEWS",
+        "share/doc/libssh2/README",
+        "share/doc/libssh2/RELEASE-NOTES",
+        "share/man/man3/libssh2_agent_connect.3",
+        "share/man/man3/libssh2_agent_disconnect.3",
+        "share/man/man3/libssh2_agent_free.3",
+        "share/man/man3/libssh2_agent_get_identity.3",
+        "share/man/man3/libssh2_agent_get_identity_path.3",
+        "share/man/man3/libssh2_agent_init.3",
+        "share/man/man3/libssh2_agent_list_identities.3",
+        "share/man/man3/libssh2_agent_set_identity_path.3",
+        "share/man/man3/libssh2_agent_sign.3",
+        "share/man/man3/libssh2_agent_userauth.3",
+        "share/man/man3/libssh2_banner_set.3",
+        "share/man/man3/libssh2_base64_decode.3",
+        "share/man/man3/libssh2_channel_close.3",
+        "share/man/man3/libssh2_channel_direct_streamlocal_ex.3",
+        "share/man/man3/libssh2_channel_direct_tcpip.3",
+        "share/man/man3/libssh2_channel_direct_tcpip_ex.3",
+        "share/man/man3/libssh2_channel_eof.3",
+        "share/man/man3/libssh2_channel_exec.3",
+        "share/man/man3/libssh2_channel_flush.3",
+        "share/man/man3/libssh2_channel_flush_ex.3",
+        "share/man/man3/libssh2_channel_flush_stderr.3",
+        "share/man/man3/libssh2_channel_forward_accept.3",
+        "share/man/man3/libssh2_channel_forward_cancel.3",
+        "share/man/man3/libssh2_channel_forward_listen.3",
+        "share/man/man3/libssh2_channel_forward_listen_ex.3",
+        "share/man/man3/libssh2_channel_free.3",
+        "share/man/man3/libssh2_channel_get_exit_signal.3",
+        "share/man/man3/libssh2_channel_get_exit_status.3",
+        "share/man/man3/libssh2_channel_handle_extended_data.3",
+        "share/man/man3/libssh2_channel_handle_extended_data2.3",
+        "share/man/man3/libssh2_channel_ignore_extended_data.3",
+        "share/man/man3/libssh2_channel_open_ex.3",
+        "share/man/man3/libssh2_channel_open_session.3",
+        "share/man/man3/libssh2_channel_process_startup.3",
+        "share/man/man3/libssh2_channel_read.3",
+        "share/man/man3/libssh2_channel_read_ex.3",
+        "share/man/man3/libssh2_channel_read_stderr.3",
+        "share/man/man3/libssh2_channel_receive_window_adjust.3",
+        "share/man/man3/libssh2_channel_receive_window_adjust2.3",
+        "share/man/man3/libssh2_channel_request_auth_agent.3",
+        "share/man/man3/libssh2_channel_request_pty.3",
+        "share/man/man3/libssh2_channel_request_pty_ex.3",
+        "share/man/man3/libssh2_channel_request_pty_size.3",
+        "share/man/man3/libssh2_channel_request_pty_size_ex.3",
+        "share/man/man3/libssh2_channel_send_eof.3",
+        "share/man/man3/libssh2_channel_set_blocking.3",
+        "share/man/man3/libssh2_channel_setenv.3",
+        "share/man/man3/libssh2_channel_setenv_ex.3",
+        "share/man/man3/libssh2_channel_shell.3",
+        "share/man/man3/libssh2_channel_signal_ex.3",
+        "share/man/man3/libssh2_channel_subsystem.3",
+        "share/man/man3/libssh2_channel_wait_closed.3",
+        "share/man/man3/libssh2_channel_wait_eof.3",
+        "share/man/man3/libssh2_channel_window_read.3",
+        "share/man/man3/libssh2_channel_window_read_ex.3",
+        "share/man/man3/libssh2_channel_window_write.3",
+        "share/man/man3/libssh2_channel_window_write_ex.3",
+        "share/man/man3/libssh2_channel_write.3",
+        "share/man/man3/libssh2_channel_write_ex.3",
+        "share/man/man3/libssh2_channel_write_stderr.3",
+        "share/man/man3/libssh2_channel_x11_req.3",
+        "share/man/man3/libssh2_channel_x11_req_ex.3",
+        "share/man/man3/libssh2_crypto_engine.3",
+        "share/man/man3/libssh2_exit.3",
+        "share/man/man3/libssh2_free.3",
+        "share/man/man3/libssh2_hostkey_hash.3",
+        "share/man/man3/libssh2_init.3",
+        "share/man/man3/libssh2_keepalive_config.3",
+        "share/man/man3/libssh2_keepalive_send.3",
+        "share/man/man3/libssh2_knownhost_add.3",
+        "share/man/man3/libssh2_knownhost_addc.3",
+        "share/man/man3/libssh2_knownhost_check.3",
+        "share/man/man3/libssh2_knownhost_checkp.3",
+        "share/man/man3/libssh2_knownhost_del.3",
+        "share/man/man3/libssh2_knownhost_free.3",
+        "share/man/man3/libssh2_knownhost_get.3",
+        "share/man/man3/libssh2_knownhost_init.3",
+        "share/man/man3/libssh2_knownhost_readfile.3",
+        "share/man/man3/libssh2_knownhost_readline.3",
+        "share/man/man3/libssh2_knownhost_writefile.3",
+        "share/man/man3/libssh2_knownhost_writeline.3",
+        "share/man/man3/libssh2_poll.3",
+        "share/man/man3/libssh2_poll_channel_read.3",
+        "share/man/man3/libssh2_publickey_add.3",
+        "share/man/man3/libssh2_publickey_add_ex.3",
+        "share/man/man3/libssh2_publickey_init.3",
+        "share/man/man3/libssh2_publickey_list_fetch.3",
+        "share/man/man3/libssh2_publickey_list_free.3",
+        "share/man/man3/libssh2_publickey_remove.3",
+        "share/man/man3/libssh2_publickey_remove_ex.3",
+        "share/man/man3/libssh2_publickey_shutdown.3",
+        "share/man/man3/libssh2_scp_recv.3",
+        "share/man/man3/libssh2_scp_recv2.3",
+        "share/man/man3/libssh2_scp_send.3",
+        "share/man/man3/libssh2_scp_send64.3",
+        "share/man/man3/libssh2_scp_send_ex.3",
+        "share/man/man3/libssh2_session_abstract.3",
+        "share/man/man3/libssh2_session_banner_get.3",
+        "share/man/man3/libssh2_session_banner_set.3",
+        "share/man/man3/libssh2_session_block_directions.3",
+        "share/man/man3/libssh2_session_callback_set.3",
+        "share/man/man3/libssh2_session_callback_set2.3",
+        "share/man/man3/libssh2_session_disconnect.3",
+        "share/man/man3/libssh2_session_disconnect_ex.3",
+        "share/man/man3/libssh2_session_flag.3",
+        "share/man/man3/libssh2_session_free.3",
+        "share/man/man3/libssh2_session_get_blocking.3",
+        "share/man/man3/libssh2_session_get_read_timeout.3",
+        "share/man/man3/libssh2_session_get_timeout.3",
+        "share/man/man3/libssh2_session_handshake.3",
+        "share/man/man3/libssh2_session_hostkey.3",
+        "share/man/man3/libssh2_session_init.3",
+        "share/man/man3/libssh2_session_init_ex.3",
+        "share/man/man3/libssh2_session_last_errno.3",
+        "share/man/man3/libssh2_session_last_error.3",
+        "share/man/man3/libssh2_session_method_pref.3",
+        "share/man/man3/libssh2_session_methods.3",
+        "share/man/man3/libssh2_session_set_blocking.3",
+        "share/man/man3/libssh2_session_set_last_error.3",
+        "share/man/man3/libssh2_session_set_read_timeout.3",
+        "share/man/man3/libssh2_session_set_timeout.3",
+        "share/man/man3/libssh2_session_startup.3",
+        "share/man/man3/libssh2_session_supported_algs.3",
+        "share/man/man3/libssh2_sftp_close.3",
+        "share/man/man3/libssh2_sftp_close_handle.3",
+        "share/man/man3/libssh2_sftp_closedir.3",
+        "share/man/man3/libssh2_sftp_fsetstat.3",
+        "share/man/man3/libssh2_sftp_fstat.3",
+        "share/man/man3/libssh2_sftp_fstat_ex.3",
+        "share/man/man3/libssh2_sftp_fstatvfs.3",
+        "share/man/man3/libssh2_sftp_fsync.3",
+        "share/man/man3/libssh2_sftp_get_channel.3",
+        "share/man/man3/libssh2_sftp_init.3",
+        "share/man/man3/libssh2_sftp_last_error.3",
+        "share/man/man3/libssh2_sftp_lstat.3",
+        "share/man/man3/libssh2_sftp_mkdir.3",
+        "share/man/man3/libssh2_sftp_mkdir_ex.3",
+        "share/man/man3/libssh2_sftp_open.3",
+        "share/man/man3/libssh2_sftp_open_ex.3",
+        "share/man/man3/libssh2_sftp_open_ex_r.3",
+        "share/man/man3/libssh2_sftp_open_r.3",
+        "share/man/man3/libssh2_sftp_opendir.3",
+        "share/man/man3/libssh2_sftp_posix_rename.3",
+        "share/man/man3/libssh2_sftp_posix_rename_ex.3",
+        "share/man/man3/libssh2_sftp_read.3",
+        "share/man/man3/libssh2_sftp_readdir.3",
+        "share/man/man3/libssh2_sftp_readdir_ex.3",
+        "share/man/man3/libssh2_sftp_readlink.3",
+        "share/man/man3/libssh2_sftp_realpath.3",
+        "share/man/man3/libssh2_sftp_rename.3",
+        "share/man/man3/libssh2_sftp_rename_ex.3",
+        "share/man/man3/libssh2_sftp_rewind.3",
+        "share/man/man3/libssh2_sftp_rmdir.3",
+        "share/man/man3/libssh2_sftp_rmdir_ex.3",
+        "share/man/man3/libssh2_sftp_seek.3",
+        "share/man/man3/libssh2_sftp_seek64.3",
+        "share/man/man3/libssh2_sftp_setstat.3",
+        "share/man/man3/libssh2_sftp_shutdown.3",
+        "share/man/man3/libssh2_sftp_stat.3",
+        "share/man/man3/libssh2_sftp_stat_ex.3",
+        "share/man/man3/libssh2_sftp_statvfs.3",
+        "share/man/man3/libssh2_sftp_symlink.3",
+        "share/man/man3/libssh2_sftp_symlink_ex.3",
+        "share/man/man3/libssh2_sftp_tell.3",
+        "share/man/man3/libssh2_sftp_tell64.3",
+        "share/man/man3/libssh2_sftp_unlink.3",
+        "share/man/man3/libssh2_sftp_unlink_ex.3",
+        "share/man/man3/libssh2_sftp_write.3",
+        "share/man/man3/libssh2_sign_sk.3",
+        "share/man/man3/libssh2_trace.3",
+        "share/man/man3/libssh2_trace_sethandler.3",
+        "share/man/man3/libssh2_userauth_authenticated.3",
+        "share/man/man3/libssh2_userauth_banner.3",
+        "share/man/man3/libssh2_userauth_hostbased_fromfile.3",
+        "share/man/man3/libssh2_userauth_hostbased_fromfile_ex.3",
+        "share/man/man3/libssh2_userauth_keyboard_interactive.3",
+        "share/man/man3/libssh2_userauth_keyboard_interactive_ex.3",
+        "share/man/man3/libssh2_userauth_list.3",
+        "share/man/man3/libssh2_userauth_password.3",
+        "share/man/man3/libssh2_userauth_password_ex.3",
+        "share/man/man3/libssh2_userauth_publickey.3",
+        "share/man/man3/libssh2_userauth_publickey_fromfile.3",
+        "share/man/man3/libssh2_userauth_publickey_fromfile_ex.3",
+        "share/man/man3/libssh2_userauth_publickey_frommemory.3",
+        "share/man/man3/libssh2_userauth_publickey_sk.3",
+        "share/man/man3/libssh2_version.3"
+    ],
+    "fn": "libssh2-1.11.1-hf672d98_0.conda",
+    "license": "BSD-3-Clause",
+    "license_family": "BSD",
+    "link": {
+        "source": "/home/dmolodenskiy/AlphaPulldown/conda/pkgs/libssh2-1.11.1-hf672d98_0",
+        "type": 1
+    },
+    "md5": "be2de152d8073ef1c01b7728475f2fe7",
+    "name": "libssh2",
+    "package_tarball_full_path": "/home/dmolodenskiy/AlphaPulldown/conda/pkgs/libssh2-1.11.1-hf672d98_0.tar.bz2",
+    "paths_data": {
+        "paths": [
+            {
+                "_path": "include/libssh2.h",
+                "path_type": "hardlink",
+                "sha256": "86cc9fcfd0daa10ba25442e5ecea23db618027362bc85fdc591ec7f5d9d39a91",
+                "sha256_in_prefix": "86cc9fcfd0daa10ba25442e5ecea23db618027362bc85fdc591ec7f5d9d39a91",
+                "size_in_bytes": 60665
+            },
+            {
+                "_path": "include/libssh2_publickey.h",
+                "path_type": "hardlink",
+                "sha256": "f1cd086f3950e65635827ee3332c1c6ca62887c0f84369ec58e31974debb36e9",
+                "sha256_in_prefix": "f1cd086f3950e65635827ee3332c1c6ca62887c0f84369ec58e31974debb36e9",
+                "size_in_bytes": 4942
+            },
+            {
+                "_path": "include/libssh2_sftp.h",
+                "path_type": "hardlink",
+                "sha256": "b5d864f19af69521278ed953b20b76a32cfdc08014da81d38f59964e7e2e2575",
+                "sha256_in_prefix": "b5d864f19af69521278ed953b20b76a32cfdc08014da81d38f59964e7e2e2575",
+                "size_in_bytes": 17369
+            },
+            {
+                "_path": "lib/cmake/libssh2/FindLibgcrypt.cmake",
+                "path_type": "hardlink",
+                "sha256": "a4641a39678e9aeebeee6fa05541511c6f97abfc14be8b79790c09f8cff3bdec",
+                "sha256_in_prefix": "a4641a39678e9aeebeee6fa05541511c6f97abfc14be8b79790c09f8cff3bdec",
+                "size_in_bytes": 2088
+            },
+            {
+                "_path": "lib/cmake/libssh2/FindMbedTLS.cmake",
+                "path_type": "hardlink",
+                "sha256": "09ea2a361669f33f1e430a84f30cfdb7c0729bba1265d86967592cc1e17c775c",
+                "sha256_in_prefix": "09ea2a361669f33f1e430a84f30cfdb7c0729bba1265d86967592cc1e17c775c",
+                "size_in_bytes": 2400
+            },
+            {
+                "_path": "lib/cmake/libssh2/FindWolfSSL.cmake",
+                "path_type": "hardlink",
+                "sha256": "6bbf71ce848edbdc5c6f95144994d1cb3ca041f06e18f485e2e391876ff0d022",
+                "sha256_in_prefix": "6bbf71ce848edbdc5c6f95144994d1cb3ca041f06e18f485e2e391876ff0d022",
+                "size_in_bytes": 2029
+            },
+            {
+                "_path": "lib/cmake/libssh2/libssh2-config-version.cmake",
+                "path_type": "hardlink",
+                "sha256": "7b28faf542ccf6165588f8e9a2f846e98cee32aa8aac8f6b671bbab616f305cb",
+                "sha256_in_prefix": "7b28faf542ccf6165588f8e9a2f846e98cee32aa8aac8f6b671bbab616f305cb",
+                "size_in_bytes": 2765
+            },
+            {
+                "_path": "lib/cmake/libssh2/libssh2-config.cmake",
+                "path_type": "hardlink",
+                "sha256": "ade41cd19daf6952cf76d90cbb685ff68d434fd47ea083dfe2b3e66caff045db",
+                "sha256_in_prefix": "ade41cd19daf6952cf76d90cbb685ff68d434fd47ea083dfe2b3e66caff045db",
+                "size_in_bytes": 830
+            },
+            {
+                "_path": "lib/cmake/libssh2/libssh2-targets-release.cmake",
+                "path_type": "hardlink",
+                "sha256": "4945fe8566edb518ac9d0e42117855696a0d0e3c105951298b62e94ba7bd4411",
+                "sha256_in_prefix": "4945fe8566edb518ac9d0e42117855696a0d0e3c105951298b62e94ba7bd4411",
+                "size_in_bytes": 889
+            },
+            {
+                "_path": "lib/cmake/libssh2/libssh2-targets.cmake",
+                "path_type": "hardlink",
+                "sha256": "3bafb11e828a88ec2a708444c75b55fca5eb3a8aa9b3f75bd480e1e47b896a47",
+                "sha256_in_prefix": "3bafb11e828a88ec2a708444c75b55fca5eb3a8aa9b3f75bd480e1e47b896a47",
+                "size_in_bytes": 4154
+            },
+            {
+                "_path": "lib/libssh2.so",
+                "path_type": "softlink",
+                "sha256_in_prefix": "0eccdc0dcda6599917b7cb6c62e02139d0ca709bf7dfed99ae59c81206e0cb30",
+                "size_in_bytes": 346776
+            },
+            {
+                "_path": "lib/libssh2.so.1",
+                "path_type": "softlink",
+                "sha256_in_prefix": "0eccdc0dcda6599917b7cb6c62e02139d0ca709bf7dfed99ae59c81206e0cb30",
+                "size_in_bytes": 346776
+            },
+            {
+                "_path": "lib/libssh2.so.1.0.1",
+                "path_type": "hardlink",
+                "sha256": "0eccdc0dcda6599917b7cb6c62e02139d0ca709bf7dfed99ae59c81206e0cb30",
+                "sha256_in_prefix": "0eccdc0dcda6599917b7cb6c62e02139d0ca709bf7dfed99ae59c81206e0cb30",
+                "size_in_bytes": 346776
+            },
+            {
+                "_path": "lib/pkgconfig/libssh2.pc",
+                "path_type": "hardlink",
+                "sha256": "f6c2fc33b05bc5d7e2114b15744db2688c428815e9b3794c95731c0b7e1f1f18",
+                "sha256_in_prefix": "a3751ac64f1b759bf61c92ee1e09fbb7f7261025013aaaf869be1449fea824af",
+                "size_in_bytes": 851
+            },
+            {
+                "_path": "share/doc/libssh2/AUTHORS",
+                "path_type": "hardlink",
+                "sha256": "e161024bacda626cc77bc905db2fcfb0870e83f53b98f9b8b736f22cb48ab862",
+                "sha256_in_prefix": "e161024bacda626cc77bc905db2fcfb0870e83f53b98f9b8b736f22cb48ab862",
+                "size_in_bytes": 1219
+            },
+            {
+                "_path": "share/doc/libssh2/BINDINGS.md",
+                "path_type": "hardlink",
+                "sha256": "6f5d5dfe5bb5959b3af90df4cd22bcfeec353245c2903a40461305d5739b86f3",
+                "sha256_in_prefix": "6f5d5dfe5bb5959b3af90df4cd22bcfeec353245c2903a40461305d5739b86f3",
+                "size_in_bytes": 847
+            },
+            {
+                "_path": "share/doc/libssh2/COPYING",
+                "path_type": "hardlink",
+                "sha256": "f7f9633cf9ff2f1333f3d7ce46973a8716a4d2a2815ad56f30d437d5fea7bafe",
+                "sha256_in_prefix": "f7f9633cf9ff2f1333f3d7ce46973a8716a4d2a2815ad56f30d437d5fea7bafe",
+                "size_in_bytes": 1959
+            },
+            {
+                "_path": "share/doc/libssh2/HACKING.md",
+                "path_type": "hardlink",
+                "sha256": "cda7b055bd392dc9f3456185496803851c0df5fa910a65c2e7811b29c3dbc361",
+                "sha256_in_prefix": "cda7b055bd392dc9f3456185496803851c0df5fa910a65c2e7811b29c3dbc361",
+                "size_in_bytes": 267
+            },
+            {
+                "_path": "share/doc/libssh2/NEWS",
+                "path_type": "hardlink",
+                "sha256": "334d5208024793131fb980a2c0bff33d3cbd3b3a9bf46b24f81df4751a3e00c6",
+                "sha256_in_prefix": "334d5208024793131fb980a2c0bff33d3cbd3b3a9bf46b24f81df4751a3e00c6",
+                "size_in_bytes": 345188
+            },
+            {
+                "_path": "share/doc/libssh2/README",
+                "path_type": "hardlink",
+                "sha256": "1fc0694bbd85f7411852c56d5d922da629f55d61a9129dbe0e71c8eb5d1d619d",
+                "sha256_in_prefix": "1fc0694bbd85f7411852c56d5d922da629f55d61a9129dbe0e71c8eb5d1d619d",
+                "size_in_bytes": 465
+            },
+            {
+                "_path": "share/doc/libssh2/RELEASE-NOTES",
+                "path_type": "hardlink",
+                "sha256": "a7cf482e7dbaa852e8ff8b961f3b9a56b02b0592800718c78886fc9bd65aebd8",
+                "sha256_in_prefix": "a7cf482e7dbaa852e8ff8b961f3b9a56b02b0592800718c78886fc9bd65aebd8",
+                "size_in_bytes": 21060
+            },
+            {
+                "_path": "share/man/man3/libssh2_agent_connect.3",
+                "path_type": "hardlink",
+                "sha256": "93827b7162acf620ad800e371056ab4cb17454adcc92e8cd191e6ecaca6e2ec2",
+                "sha256_in_prefix": "93827b7162acf620ad800e371056ab4cb17454adcc92e8cd191e6ecaca6e2ec2",
+                "size_in_bytes": 620
+            },
+            {
+                "_path": "share/man/man3/libssh2_agent_disconnect.3",
+                "path_type": "hardlink",
+                "sha256": "7028321d0bb037abc36039420505876a2ce32b81aea12e1cbcb89ed5ab4d747e",
+                "sha256_in_prefix": "7028321d0bb037abc36039420505876a2ce32b81aea12e1cbcb89ed5ab4d747e",
+                "size_in_bytes": 533
+            },
+            {
+                "_path": "share/man/man3/libssh2_agent_free.3",
+                "path_type": "hardlink",
+                "sha256": "241b81cd1418d72201e43780851046d34ec578e3fe1bd9a0667513fd0f3e7de5",
+                "sha256_in_prefix": "241b81cd1418d72201e43780851046d34ec578e3fe1bd9a0667513fd0f3e7de5",
+                "size_in_bytes": 514
+            },
+            {
+                "_path": "share/man/man3/libssh2_agent_get_identity.3",
+                "path_type": "hardlink",
+                "sha256": "b97ca25673cabcd45769ab2ff18dd70f2f8226c354c27c8b94136400102768d4",
+                "sha256_in_prefix": "b97ca25673cabcd45769ab2ff18dd70f2f8226c354c27c8b94136400102768d4",
+                "size_in_bytes": 1215
+            },
+            {
+                "_path": "share/man/man3/libssh2_agent_get_identity_path.3",
+                "path_type": "hardlink",
+                "sha256": "f8b8e3cbe18dd8345550e3709e29b4e573df04c0af360451394ba8f0146aad70",
+                "sha256_in_prefix": "f8b8e3cbe18dd8345550e3709e29b4e573df04c0af360451394ba8f0146aad70",
+                "size_in_bytes": 613
+            },
+            {
+                "_path": "share/man/man3/libssh2_agent_init.3",
+                "path_type": "hardlink",
+                "sha256": "e8cf378d2303b292b73fbfe26d174531f6eb34331c12f5e366cfeb0a506cd7a5",
+                "sha256_in_prefix": "e8cf378d2303b292b73fbfe26d174531f6eb34331c12f5e366cfeb0a506cd7a5",
+                "size_in_bytes": 902
+            },
+            {
+                "_path": "share/man/man3/libssh2_agent_list_identities.3",
+                "path_type": "hardlink",
+                "sha256": "79ff942a7adc94c4c86647d2436c116286baf9008d314e1abdaecec1186a9330",
+                "sha256_in_prefix": "79ff942a7adc94c4c86647d2436c116286baf9008d314e1abdaecec1186a9330",
+                "size_in_bytes": 714
+            },
+            {
+                "_path": "share/man/man3/libssh2_agent_set_identity_path.3",
+                "path_type": "hardlink",
+                "sha256": "e241293b8c89244089a824905822c20b1ea89ad8cd237a786941df8ec7a01a95",
+                "sha256_in_prefix": "e241293b8c89244089a824905822c20b1ea89ad8cd237a786941df8ec7a01a95",
+                "size_in_bytes": 599
+            },
+            {
+                "_path": "share/man/man3/libssh2_agent_sign.3",
+                "path_type": "hardlink",
+                "sha256": "3f4e2813629fb4aa9a3603abd160dd0854116148feaf992a65b3fbb93ffd6d78",
+                "sha256_in_prefix": "3f4e2813629fb4aa9a3603abd160dd0854116148feaf992a65b3fbb93ffd6d78",
+                "size_in_bytes": 1855
+            },
+            {
+                "_path": "share/man/man3/libssh2_agent_userauth.3",
+                "path_type": "hardlink",
+                "sha256": "6783589ea41ff4a361b1472621cdbe2c8868ac8cefb2163d2f93af9615a099a8",
+                "sha256_in_prefix": "6783589ea41ff4a361b1472621cdbe2c8868ac8cefb2163d2f93af9615a099a8",
+                "size_in_bytes": 955
+            },
+            {
+                "_path": "share/man/man3/libssh2_banner_set.3",
+                "path_type": "hardlink",
+                "sha256": "c6c3f293a3dd2b398b44e7c2416476a57d026be5bae4f9bf8893cdc2a76fd255",
+                "sha256_in_prefix": "c6c3f293a3dd2b398b44e7c2416476a57d026be5bae4f9bf8893cdc2a76fd255",
+                "size_in_bytes": 1221
+            },
+            {
+                "_path": "share/man/man3/libssh2_base64_decode.3",
+                "path_type": "hardlink",
+                "sha256": "c80f58e6bdec085c9b8e3cd28d9c99d3e904b5f11df0d33c11a3a51937c15a22",
+                "sha256_in_prefix": "c80f58e6bdec085c9b8e3cd28d9c99d3e904b5f11df0d33c11a3a51937c15a22",
+                "size_in_bytes": 1062
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_close.3",
+                "path_type": "hardlink",
+                "sha256": "45b59eaed23c9562deb277b17af369b846b975b855a19e86528ba968bd954392",
+                "sha256_in_prefix": "45b59eaed23c9562deb277b17af369b846b975b855a19e86528ba968bd954392",
+                "size_in_bytes": 1105
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_direct_streamlocal_ex.3",
+                "path_type": "hardlink",
+                "sha256": "de469186cbc24ce959dde046cc7cf6d4cc1b3f3d7f76301a03b0ba88c51de524",
+                "sha256_in_prefix": "de469186cbc24ce959dde046cc7cf6d4cc1b3f3d7f76301a03b0ba88c51de524",
+                "size_in_bytes": 1324
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_direct_tcpip.3",
+                "path_type": "hardlink",
+                "sha256": "cad3486819b2ffbd7af4d6f3fc887e66fdb53604124e1835802e050fe75e861e",
+                "sha256_in_prefix": "cad3486819b2ffbd7af4d6f3fc887e66fdb53604124e1835802e050fe75e861e",
+                "size_in_bytes": 782
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_direct_tcpip_ex.3",
+                "path_type": "hardlink",
+                "sha256": "b08869117adea9a2cfc5a3afaa3d1bbf674791e9405e43b703b94fcbfe8fcdcb",
+                "sha256_in_prefix": "b08869117adea9a2cfc5a3afaa3d1bbf674791e9405e43b703b94fcbfe8fcdcb",
+                "size_in_bytes": 1465
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_eof.3",
+                "path_type": "hardlink",
+                "sha256": "9131535247fa0077e678281bb567325f528d719ab621631bfc0c097b878ce8d5",
+                "sha256_in_prefix": "9131535247fa0077e678281bb567325f528d719ab621631bfc0c097b878ce8d5",
+                "size_in_bytes": 609
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_exec.3",
+                "path_type": "hardlink",
+                "sha256": "6ff96d543eb614ab2d32e4cf5cc344a08daf0a3c540b92c3edd78e6c3fb21c8f",
+                "sha256_in_prefix": "6ff96d543eb614ab2d32e4cf5cc344a08daf0a3c540b92c3edd78e6c3fb21c8f",
+                "size_in_bytes": 708
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_flush.3",
+                "path_type": "hardlink",
+                "sha256": "3ebec0573f4fc88eb8e31b470c8de6fb2a3e846312f49ae0397c2065dea2b595",
+                "sha256_in_prefix": "3ebec0573f4fc88eb8e31b470c8de6fb2a3e846312f49ae0397c2065dea2b595",
+                "size_in_bytes": 655
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_flush_ex.3",
+                "path_type": "hardlink",
+                "sha256": "0c8804c128f2429e64ab5879277750ea232f66af846e9b10df76570a37ccd327",
+                "sha256_in_prefix": "0c8804c128f2429e64ab5879277750ea232f66af846e9b10df76570a37ccd327",
+                "size_in_bytes": 1147
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_flush_stderr.3",
+                "path_type": "hardlink",
+                "sha256": "ef92cda4fbf06ddf6cc0e053dad1b2dbaf7ec2d2ef13123365098aa28e736763",
+                "sha256_in_prefix": "ef92cda4fbf06ddf6cc0e053dad1b2dbaf7ec2d2ef13123365098aa28e736763",
+                "size_in_bytes": 676
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_forward_accept.3",
+                "path_type": "hardlink",
+                "sha256": "cf9bf54321891b7cbab4c661e7f6499f5abdcf1b8e8a0c53d913edf4775568cf",
+                "sha256_in_prefix": "cf9bf54321891b7cbab4c661e7f6499f5abdcf1b8e8a0c53d913edf4775568cf",
+                "size_in_bytes": 839
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_forward_cancel.3",
+                "path_type": "hardlink",
+                "sha256": "f5569b644400cd29afc4d5937e9adc515b607fb33c50e981afc15196ac7836db",
+                "sha256_in_prefix": "f5569b644400cd29afc4d5937e9adc515b607fb33c50e981afc15196ac7836db",
+                "size_in_bytes": 983
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_forward_listen.3",
+                "path_type": "hardlink",
+                "sha256": "3ea7b9b6b10dfbda16e92f922b186c89157f8cbdecfc49b1ed8da5dd2a3aca07",
+                "sha256_in_prefix": "3ea7b9b6b10dfbda16e92f922b186c89157f8cbdecfc49b1ed8da5dd2a3aca07",
+                "size_in_bytes": 737
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_forward_listen_ex.3",
+                "path_type": "hardlink",
+                "sha256": "522d2ae9c54c670ac7055ff4a5c10c1d6fe4bdeb2c838d8535e92fd32c0e3961",
+                "sha256_in_prefix": "522d2ae9c54c670ac7055ff4a5c10c1d6fe4bdeb2c838d8535e92fd32c0e3961",
+                "size_in_bytes": 1950
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_free.3",
+                "path_type": "hardlink",
+                "sha256": "39cef9c879895b449f67efd2e92a2aa8f35b0930bc3ee1bc64253bf8716ddd81",
+                "sha256_in_prefix": "39cef9c879895b449f67efd2e92a2aa8f35b0930bc3ee1bc64253bf8716ddd81",
+                "size_in_bytes": 884
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_get_exit_signal.3",
+                "path_type": "hardlink",
+                "sha256": "524b77c54892022e6211cac5cc2a7df844a8416fa11b65d2b9dcfdf72b4310cc",
+                "sha256_in_prefix": "524b77c54892022e6211cac5cc2a7df844a8416fa11b65d2b9dcfdf72b4310cc",
+                "size_in_bytes": 1657
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_get_exit_status.3",
+                "path_type": "hardlink",
+                "sha256": "a7cd643bef8d656bf17a02132201fd150bc9e45830f7a455211e004d28c7d992",
+                "sha256_in_prefix": "a7cd643bef8d656bf17a02132201fd150bc9e45830f7a455211e004d28c7d992",
+                "size_in_bytes": 744
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_handle_extended_data.3",
+                "path_type": "hardlink",
+                "sha256": "c251b94d551613f04fe0699c96d44a93c5147101aaeb864380ac3adff9e00d19",
+                "sha256_in_prefix": "c251b94d551613f04fe0699c96d44a93c5147101aaeb864380ac3adff9e00d19",
+                "size_in_bytes": 1377
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_handle_extended_data2.3",
+                "path_type": "hardlink",
+                "sha256": "bf629df753b284399874b0623e0f1877e9c3e4c6bfa6309ea17d72d02ab4d482",
+                "sha256_in_prefix": "bf629df753b284399874b0623e0f1877e9c3e4c6bfa6309ea17d72d02ab4d482",
+                "size_in_bytes": 1326
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_ignore_extended_data.3",
+                "path_type": "hardlink",
+                "sha256": "8b19e077449a9fddf72868b65c5b3a27ec1a9735fe10f2a20132004366c234c4",
+                "sha256_in_prefix": "8b19e077449a9fddf72868b65c5b3a27ec1a9735fe10f2a20132004366c234c4",
+                "size_in_bytes": 933
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_open_ex.3",
+                "path_type": "hardlink",
+                "sha256": "9fdb17360f2ef469ce9a578b5467985161e935ef4e995874390520a1122d130f",
+                "sha256_in_prefix": "9fdb17360f2ef469ce9a578b5467985161e935ef4e995874390520a1122d130f",
+                "size_in_bytes": 2056
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_open_session.3",
+                "path_type": "hardlink",
+                "sha256": "b3b5b64d5714cc0703e2ca808843193395b0eae7ec191f4b72d966d9c7ca83ca",
+                "sha256_in_prefix": "b3b5b64d5714cc0703e2ca808843193395b0eae7ec191f4b72d966d9c7ca83ca",
+                "size_in_bytes": 685
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_process_startup.3",
+                "path_type": "hardlink",
+                "sha256": "95a310714f0e202f875bc97b4bdbbb6216aa89765e6a27c79ac2b2ae5eb267ab",
+                "sha256_in_prefix": "95a310714f0e202f875bc97b4bdbbb6216aa89765e6a27c79ac2b2ae5eb267ab",
+                "size_in_bytes": 1483
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_read.3",
+                "path_type": "hardlink",
+                "sha256": "b52bc537e8bec5566aa706f01292914fa790c37e045636ab283ffc2feb899c48",
+                "sha256_in_prefix": "b52bc537e8bec5566aa706f01292914fa790c37e045636ab283ffc2feb899c48",
+                "size_in_bytes": 698
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_read_ex.3",
+                "path_type": "hardlink",
+                "sha256": "700615851d254e330390d42ebc97ab29f1c3c8903db743680667cca36df785f5",
+                "sha256_in_prefix": "700615851d254e330390d42ebc97ab29f1c3c8903db743680667cca36df785f5",
+                "size_in_bytes": 1793
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_read_stderr.3",
+                "path_type": "hardlink",
+                "sha256": "fce9ea31abd23989c2063ad3b694dd2d54b211f61daaa82ca2e0e5664e3cce5d",
+                "sha256_in_prefix": "fce9ea31abd23989c2063ad3b694dd2d54b211f61daaa82ca2e0e5664e3cce5d",
+                "size_in_bytes": 726
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_receive_window_adjust.3",
+                "path_type": "hardlink",
+                "sha256": "4fc34c2faf70f591b30d96588608d519ad667c45e854f20d7a24bcc6f1b2957f",
+                "sha256_in_prefix": "4fc34c2faf70f591b30d96588608d519ad667c45e854f20d7a24bcc6f1b2957f",
+                "size_in_bytes": 1407
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_receive_window_adjust2.3",
+                "path_type": "hardlink",
+                "sha256": "f1dfc59194c428bf1948f2c126fb9ad15ded5a5f896e4ac239cd7273d6b7d0f2",
+                "sha256_in_prefix": "f1dfc59194c428bf1948f2c126fb9ad15ded5a5f896e4ac239cd7273d6b7d0f2",
+                "size_in_bytes": 1206
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_request_auth_agent.3",
+                "path_type": "hardlink",
+                "sha256": "3062be3a71e1c21267201908b0395470dccf304576bc5fde44fc938de99b370f",
+                "sha256_in_prefix": "3062be3a71e1c21267201908b0395470dccf304576bc5fde44fc938de99b370f",
+                "size_in_bytes": 966
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_request_pty.3",
+                "path_type": "hardlink",
+                "sha256": "fd3c13f1ab9cffa56087d252e3017caa4809e0ac6d8e01dd7269e4393bc2f8e3",
+                "sha256_in_prefix": "fd3c13f1ab9cffa56087d252e3017caa4809e0ac6d8e01dd7269e4393bc2f8e3",
+                "size_in_bytes": 721
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_request_pty_ex.3",
+                "path_type": "hardlink",
+                "sha256": "bcaf00ddd6f5929e2131cb78562e141ea93dd4bf69695a3c3730ddce4c90e2b1",
+                "sha256_in_prefix": "bcaf00ddd6f5929e2131cb78562e141ea93dd4bf69695a3c3730ddce4c90e2b1",
+                "size_in_bytes": 1776
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_request_pty_size.3",
+                "path_type": "hardlink",
+                "sha256": "dd9b7e546fd19286d3bf54c32e2a7bed51daf22fd9b379ddecced0107ed8cb40",
+                "sha256_in_prefix": "dd9b7e546fd19286d3bf54c32e2a7bed51daf22fd9b379ddecced0107ed8cb40",
+                "size_in_bytes": 799
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_request_pty_size_ex.3",
+                "path_type": "hardlink",
+                "sha256": "5340603fdaa4e9a865a6f48820a257f32893c2343469489f67fd11a01dd19e78",
+                "sha256_in_prefix": "5340603fdaa4e9a865a6f48820a257f32893c2343469489f67fd11a01dd19e78",
+                "size_in_bytes": 307
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_send_eof.3",
+                "path_type": "hardlink",
+                "sha256": "2083e91a3dc0d52a3054ca772a1a0e62152eacac4bb10d116e3b310ff0a9ef27",
+                "sha256_in_prefix": "2083e91a3dc0d52a3054ca772a1a0e62152eacac4bb10d116e3b310ff0a9ef27",
+                "size_in_bytes": 850
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_set_blocking.3",
+                "path_type": "hardlink",
+                "sha256": "3a9a03ec5619963174cd14dd6a6601a5a5644a0d217e4980a5543a04e697b58b",
+                "sha256_in_prefix": "3a9a03ec5619963174cd14dd6a6601a5a5644a0d217e4980a5543a04e697b58b",
+                "size_in_bytes": 821
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_setenv.3",
+                "path_type": "hardlink",
+                "sha256": "0af379f819b71ab4e6b92831579ba3e79626acb844e4c04a64e29e2c76da2959",
+                "sha256_in_prefix": "0af379f819b71ab4e6b92831579ba3e79626acb844e4c04a64e29e2c76da2959",
+                "size_in_bytes": 726
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_setenv_ex.3",
+                "path_type": "hardlink",
+                "sha256": "78c6e4d474b844e69618a2c3933dc636a5249006f3325cfd7d696f3cc423d962",
+                "sha256_in_prefix": "78c6e4d474b844e69618a2c3933dc636a5249006f3325cfd7d696f3cc423d962",
+                "size_in_bytes": 1578
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_shell.3",
+                "path_type": "hardlink",
+                "sha256": "97c2bea5f05e2effd3e55b7bad3c063100e9cc43c801c2288682c56ada7e96b6",
+                "sha256_in_prefix": "97c2bea5f05e2effd3e55b7bad3c063100e9cc43c801c2288682c56ada7e96b6",
+                "size_in_bytes": 690
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_signal_ex.3",
+                "path_type": "hardlink",
+                "sha256": "96c69093e70e4f605cb80142729f17ce6a5569adf877e86de6d5871cff5a4126",
+                "sha256_in_prefix": "96c69093e70e4f605cb80142729f17ce6a5569adf877e86de6d5871cff5a4126",
+                "size_in_bytes": 1153
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_subsystem.3",
+                "path_type": "hardlink",
+                "sha256": "9cca5a0d01f6edd429fbe05c9fd9680f61317440136c538428e6d7f7f3f921ea",
+                "sha256_in_prefix": "9cca5a0d01f6edd429fbe05c9fd9680f61317440136c538428e6d7f7f3f921ea",
+                "size_in_bytes": 725
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_wait_closed.3",
+                "path_type": "hardlink",
+                "sha256": "43439c25c43c80f041b194f30167b7db9b13d43709d8be880f9c7afc917ad6ac",
+                "sha256_in_prefix": "43439c25c43c80f041b194f30167b7db9b13d43709d8be880f9c7afc917ad6ac",
+                "size_in_bytes": 856
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_wait_eof.3",
+                "path_type": "hardlink",
+                "sha256": "e37d262ac8d104cd138c4b44ee04bc68a95ef4a483b96e22c7f41d89a6374409",
+                "sha256_in_prefix": "e37d262ac8d104cd138c4b44ee04bc68a95ef4a483b96e22c7f41d89a6374409",
+                "size_in_bytes": 687
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_window_read.3",
+                "path_type": "hardlink",
+                "sha256": "be884015a9faef4f26628fb1e2ec2730675e8d25f0e925d992a84bc017b2f3ca",
+                "sha256_in_prefix": "be884015a9faef4f26628fb1e2ec2730675e8d25f0e925d992a84bc017b2f3ca",
+                "size_in_bytes": 713
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_window_read_ex.3",
+                "path_type": "hardlink",
+                "sha256": "865415960ee08b0c8e9e1c2ffa29e7c4a39df87e8eac888e10c09c971555f96a",
+                "sha256_in_prefix": "865415960ee08b0c8e9e1c2ffa29e7c4a39df87e8eac888e10c09c971555f96a",
+                "size_in_bytes": 1069
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_window_write.3",
+                "path_type": "hardlink",
+                "sha256": "8c51bee7d07b75cb07c22335aa925368b4c9a2f35b1f66e4d1ca9372a7a99608",
+                "sha256_in_prefix": "8c51bee7d07b75cb07c22335aa925368b4c9a2f35b1f66e4d1ca9372a7a99608",
+                "size_in_bytes": 721
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_window_write_ex.3",
+                "path_type": "hardlink",
+                "sha256": "dafddb8638409f4adec136c82bd9647fe00d5e7094f028ed75471a59a6cfff31",
+                "sha256_in_prefix": "dafddb8638409f4adec136c82bd9647fe00d5e7094f028ed75471a59a6cfff31",
+                "size_in_bytes": 912
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_write.3",
+                "path_type": "hardlink",
+                "sha256": "29ce3458a50de3e5b73e57acaefc7f0e902f685db942c6e4726e9752951cb16e",
+                "sha256_in_prefix": "29ce3458a50de3e5b73e57acaefc7f0e902f685db942c6e4726e9752951cb16e",
+                "size_in_bytes": 707
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_write_ex.3",
+                "path_type": "hardlink",
+                "sha256": "97e64829d9bd098fb1ac6ed3f1d12ed63c1d93fc910505b45ce9f186f8205cdf",
+                "sha256_in_prefix": "97e64829d9bd098fb1ac6ed3f1d12ed63c1d93fc910505b45ce9f186f8205cdf",
+                "size_in_bytes": 2132
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_write_stderr.3",
+                "path_type": "hardlink",
+                "sha256": "6dcb91efa84c3dbe59fb7ed06a2cf433f713a99f8e45f9e8d21fbc5818199048",
+                "sha256_in_prefix": "6dcb91efa84c3dbe59fb7ed06a2cf433f713a99f8e45f9e8d21fbc5818199048",
+                "size_in_bytes": 735
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_x11_req.3",
+                "path_type": "hardlink",
+                "sha256": "2667bda07c882236c6ec4eae4709c71b959e71cd0fb93fa50ff7bcecda9910a5",
+                "sha256_in_prefix": "2667bda07c882236c6ec4eae4709c71b959e71cd0fb93fa50ff7bcecda9910a5",
+                "size_in_bytes": 690
+            },
+            {
+                "_path": "share/man/man3/libssh2_channel_x11_req_ex.3",
+                "path_type": "hardlink",
+                "sha256": "9a02fa5e8a38713fa583cc9fa5cf91d5546f90448eff67a30cf365e946d589e1",
+                "sha256_in_prefix": "9a02fa5e8a38713fa583cc9fa5cf91d5546f90448eff67a30cf365e946d589e1",
+                "size_in_bytes": 1663
+            },
+            {
+                "_path": "share/man/man3/libssh2_crypto_engine.3",
+                "path_type": "hardlink",
+                "sha256": "8db24bb99f7bce69a94f8c85ce76e64ad1cd174ae44793e286b3043043f86931",
+                "sha256_in_prefix": "8db24bb99f7bce69a94f8c85ce76e64ad1cd174ae44793e286b3043043f86931",
+                "size_in_bytes": 432
+            },
+            {
+                "_path": "share/man/man3/libssh2_exit.3",
+                "path_type": "hardlink",
+                "sha256": "b931d250f2c41ad4a2894fed09b339b052e65a20e56a6310d80a105719b17a8d",
+                "sha256_in_prefix": "b931d250f2c41ad4a2894fed09b339b052e65a20e56a6310d80a105719b17a8d",
+                "size_in_bytes": 431
+            },
+            {
+                "_path": "share/man/man3/libssh2_free.3",
+                "path_type": "hardlink",
+                "sha256": "aa87afcc3571e9b6121220c68937bf168d52f944b999106b1fd11fdd4fbb17b5",
+                "sha256_in_prefix": "aa87afcc3571e9b6121220c68937bf168d52f944b999106b1fd11fdd4fbb17b5",
+                "size_in_bytes": 706
+            },
+            {
+                "_path": "share/man/man3/libssh2_hostkey_hash.3",
+                "path_type": "hardlink",
+                "sha256": "2c56b05777ad6387814c3a4177ad1e945610cf9bd084b7314ad7ff65302830cd",
+                "sha256_in_prefix": "2c56b05777ad6387814c3a4177ad1e945610cf9bd084b7314ad7ff65302830cd",
+                "size_in_bytes": 1086
+            },
+            {
+                "_path": "share/man/man3/libssh2_init.3",
+                "path_type": "hardlink",
+                "sha256": "c8cc5bbdf16c243e7a02fe044c18f788df1319f8e7d43e8014e2d63d9c8e7a6a",
+                "sha256_in_prefix": "c8cc5bbdf16c243e7a02fe044c18f788df1319f8e7d43e8014e2d63d9c8e7a6a",
+                "size_in_bytes": 672
+            },
+            {
+                "_path": "share/man/man3/libssh2_keepalive_config.3",
+                "path_type": "hardlink",
+                "sha256": "5c5513a4a288a8cb95b38b9c62a18895c0550ec67ec1e84adda4b10a6a1bf6d4",
+                "sha256_in_prefix": "5c5513a4a288a8cb95b38b9c62a18895c0550ec67ec1e84adda4b10a6a1bf6d4",
+                "size_in_bytes": 1025
+            },
+            {
+                "_path": "share/man/man3/libssh2_keepalive_send.3",
+                "path_type": "hardlink",
+                "sha256": "9f07814934ad8f9cddc443e9cebeed4e4d75121133a252b0ededa79a030a6afb",
+                "sha256_in_prefix": "9f07814934ad8f9cddc443e9cebeed4e4d75121133a252b0ededa79a030a6afb",
+                "size_in_bytes": 701
+            },
+            {
+                "_path": "share/man/man3/libssh2_knownhost_add.3",
+                "path_type": "hardlink",
+                "sha256": "e898eab196bfddf086761b4bcd142fb017bf9cb8fb3b6034481b4d1ae92a7cf8",
+                "sha256_in_prefix": "e898eab196bfddf086761b4bcd142fb017bf9cb8fb3b6034481b4d1ae92a7cf8",
+                "size_in_bytes": 2525
+            },
+            {
+                "_path": "share/man/man3/libssh2_knownhost_addc.3",
+                "path_type": "hardlink",
+                "sha256": "b9bcaa30e01f10368e63b9ff7f19330693dcfbaab261279b1791a2789c39cb43",
+                "sha256_in_prefix": "b9bcaa30e01f10368e63b9ff7f19330693dcfbaab261279b1791a2789c39cb43",
+                "size_in_bytes": 2694
+            },
+            {
+                "_path": "share/man/man3/libssh2_knownhost_check.3",
+                "path_type": "hardlink",
+                "sha256": "c431ac72025bab6b6ae3cd6c4fb28677e9d9c33cad09852adae300a896901007",
+                "sha256_in_prefix": "c431ac72025bab6b6ae3cd6c4fb28677e9d9c33cad09852adae300a896901007",
+                "size_in_bytes": 2220
+            },
+            {
+                "_path": "share/man/man3/libssh2_knownhost_checkp.3",
+                "path_type": "hardlink",
+                "sha256": "2dea57c285e9a9a5841be67fa0ab2da7f66cf942bb9541d32c5f402c3a2fd3aa",
+                "sha256_in_prefix": "2dea57c285e9a9a5841be67fa0ab2da7f66cf942bb9541d32c5f402c3a2fd3aa",
+                "size_in_bytes": 2487
+            },
+            {
+                "_path": "share/man/man3/libssh2_knownhost_del.3",
+                "path_type": "hardlink",
+                "sha256": "fde5313aa61c12e4aaf3552f22a9268a1d19dbaab88a71caf1e0c9487dd8dd61",
+                "sha256_in_prefix": "fde5313aa61c12e4aaf3552f22a9268a1d19dbaab88a71caf1e0c9487dd8dd61",
+                "size_in_bytes": 848
+            },
+            {
+                "_path": "share/man/man3/libssh2_knownhost_free.3",
+                "path_type": "hardlink",
+                "sha256": "3d3caf0b0da87bad1df2fe4d20a2a984be292ec4d6de6aa2dd1f7b45eba77432",
+                "sha256_in_prefix": "3d3caf0b0da87bad1df2fe4d20a2a984be292ec4d6de6aa2dd1f7b45eba77432",
+                "size_in_bytes": 519
+            },
+            {
+                "_path": "share/man/man3/libssh2_knownhost_get.3",
+                "path_type": "hardlink",
+                "sha256": "50564dc7885ec5df4b7cee2e74b5ddaf155dd2e70b32ffd16cd5316539449f29",
+                "sha256_in_prefix": "50564dc7885ec5df4b7cee2e74b5ddaf155dd2e70b32ffd16cd5316539449f29",
+                "size_in_bytes": 1160
+            },
+            {
+                "_path": "share/man/man3/libssh2_knownhost_init.3",
+                "path_type": "hardlink",
+                "sha256": "7dbdb1018502111d9bfd0d4560067a2ec36fd98a3f66c474d613db40d750d442",
+                "sha256_in_prefix": "7dbdb1018502111d9bfd0d4560067a2ec36fd98a3f66c474d613db40d750d442",
+                "size_in_bytes": 874
+            },
+            {
+                "_path": "share/man/man3/libssh2_knownhost_readfile.3",
+                "path_type": "hardlink",
+                "sha256": "cf9c4812973f5de4e67fad368d77c98b6e048baf48773cb698f392bbb881a716",
+                "sha256_in_prefix": "cf9c4812973f5de4e67fad368d77c98b6e048baf48773cb698f392bbb881a716",
+                "size_in_bytes": 1005
+            },
+            {
+                "_path": "share/man/man3/libssh2_knownhost_readline.3",
+                "path_type": "hardlink",
+                "sha256": "2da45696dbc997372e5b77899d46a3c39c4072b6a989f41b1bcad6af43918b47",
+                "sha256_in_prefix": "2da45696dbc997372e5b77899d46a3c39c4072b6a989f41b1bcad6af43918b47",
+                "size_in_bytes": 998
+            },
+            {
+                "_path": "share/man/man3/libssh2_knownhost_writefile.3",
+                "path_type": "hardlink",
+                "sha256": "1524691730cfe60d088ba458307220446c4d802cab6ccc92a46b452e6d16aeca",
+                "sha256_in_prefix": "1524691730cfe60d088ba458307220446c4d802cab6ccc92a46b452e6d16aeca",
+                "size_in_bytes": 895
+            },
+            {
+                "_path": "share/man/man3/libssh2_knownhost_writeline.3",
+                "path_type": "hardlink",
+                "sha256": "6d3dddd11fc676ebe402c49495f6032918b29ca2d62591e703c056a2fd500e30",
+                "sha256_in_prefix": "6d3dddd11fc676ebe402c49495f6032918b29ca2d62591e703c056a2fd500e30",
+                "size_in_bytes": 1650
+            },
+            {
+                "_path": "share/man/man3/libssh2_poll.3",
+                "path_type": "hardlink",
+                "sha256": "5160ef5ebac05380d91772bd689b33847d4aa6d0b746ff987c1110ea0af62304",
+                "sha256_in_prefix": "5160ef5ebac05380d91772bd689b33847d4aa6d0b746ff987c1110ea0af62304",
+                "size_in_bytes": 1069
+            },
+            {
+                "_path": "share/man/man3/libssh2_poll_channel_read.3",
+                "path_type": "hardlink",
+                "sha256": "2097a4ea857e90f877ccd9ea35aeb29aee4fa8e7963a96d5a95e38020c308280",
+                "sha256_in_prefix": "2097a4ea857e90f877ccd9ea35aeb29aee4fa8e7963a96d5a95e38020c308280",
+                "size_in_bytes": 754
+            },
+            {
+                "_path": "share/man/man3/libssh2_publickey_add.3",
+                "path_type": "hardlink",
+                "sha256": "212ba84ec3cd37e4b5ff3c7d19782aab169432a2cab7874afdcea2f0cb5cf100",
+                "sha256_in_prefix": "212ba84ec3cd37e4b5ff3c7d19782aab169432a2cab7874afdcea2f0cb5cf100",
+                "size_in_bytes": 904
+            },
+            {
+                "_path": "share/man/man3/libssh2_publickey_add_ex.3",
+                "path_type": "hardlink",
+                "sha256": "7234d3f36a4bd6d1a27418eab82ade7b0b6a69be805cee0752a5f41c360b339c",
+                "sha256_in_prefix": "7234d3f36a4bd6d1a27418eab82ade7b0b6a69be805cee0752a5f41c360b339c",
+                "size_in_bytes": 867
+            },
+            {
+                "_path": "share/man/man3/libssh2_publickey_init.3",
+                "path_type": "hardlink",
+                "sha256": "299dfff668d2a62a9215973547283bbcbf1b2448512fa526290359fcb3f326ba",
+                "sha256_in_prefix": "299dfff668d2a62a9215973547283bbcbf1b2448512fa526290359fcb3f326ba",
+                "size_in_bytes": 321
+            },
+            {
+                "_path": "share/man/man3/libssh2_publickey_list_fetch.3",
+                "path_type": "hardlink",
+                "sha256": "cbe5bb557f335a10ff9ea672728c63f4abce53fff14cabe87c3c2f5ee3047750",
+                "sha256_in_prefix": "cbe5bb557f335a10ff9ea672728c63f4abce53fff14cabe87c3c2f5ee3047750",
+                "size_in_bytes": 333
+            },
+            {
+                "_path": "share/man/man3/libssh2_publickey_list_free.3",
+                "path_type": "hardlink",
+                "sha256": "f7d0dc0d31fd988870c9e864c309002bb3b0b3218ffb0422fccf23c325ee4564",
+                "sha256_in_prefix": "f7d0dc0d31fd988870c9e864c309002bb3b0b3218ffb0422fccf23c325ee4564",
+                "size_in_bytes": 331
+            },
+            {
+                "_path": "share/man/man3/libssh2_publickey_remove.3",
+                "path_type": "hardlink",
+                "sha256": "3f2fda646a360833b2625429d7d3fba7a6d8ad79f398fb721db354e531c01c1c",
+                "sha256_in_prefix": "3f2fda646a360833b2625429d7d3fba7a6d8ad79f398fb721db354e531c01c1c",
+                "size_in_bytes": 830
+            },
+            {
+                "_path": "share/man/man3/libssh2_publickey_remove_ex.3",
+                "path_type": "hardlink",
+                "sha256": "dd9ac968662346fc162815f2f537b689e2050eea3a7529208ec636675a947a3d",
+                "sha256_in_prefix": "dd9ac968662346fc162815f2f537b689e2050eea3a7529208ec636675a947a3d",
+                "size_in_bytes": 346
+            },
+            {
+                "_path": "share/man/man3/libssh2_publickey_shutdown.3",
+                "path_type": "hardlink",
+                "sha256": "5194f43e8e6c6c01cb5a351cc941b38aed1d6e2cb251eee5d25b775c2a29ce7e",
+                "sha256_in_prefix": "5194f43e8e6c6c01cb5a351cc941b38aed1d6e2cb251eee5d25b775c2a29ce7e",
+                "size_in_bytes": 334
+            },
+            {
+                "_path": "share/man/man3/libssh2_scp_recv.3",
+                "path_type": "hardlink",
+                "sha256": "370b13f05104f981b5efdabfa0e8d431767d9a8d06845f5ef36b3eadfc44906f",
+                "sha256_in_prefix": "370b13f05104f981b5efdabfa0e8d431767d9a8d06845f5ef36b3eadfc44906f",
+                "size_in_bytes": 1126
+            },
+            {
+                "_path": "share/man/man3/libssh2_scp_recv2.3",
+                "path_type": "hardlink",
+                "sha256": "3156aa814da8eb0e0f6fa22c01a206e9a077812eeed5ec76e2cfbefe0ae1b1c2",
+                "sha256_in_prefix": "3156aa814da8eb0e0f6fa22c01a206e9a077812eeed5ec76e2cfbefe0ae1b1c2",
+                "size_in_bytes": 1033
+            },
+            {
+                "_path": "share/man/man3/libssh2_scp_send.3",
+                "path_type": "hardlink",
+                "sha256": "c5beb0633903ecbd93edecc515b610ae737d9fbf4da11caad90b2e2726c265e1",
+                "sha256_in_prefix": "c5beb0633903ecbd93edecc515b610ae737d9fbf4da11caad90b2e2726c265e1",
+                "size_in_bytes": 687
+            },
+            {
+                "_path": "share/man/man3/libssh2_scp_send64.3",
+                "path_type": "hardlink",
+                "sha256": "da4bc3e826a1a038d5b291af53596d644b7ef65bd16c1731fe9bcc5ecc518e50",
+                "sha256_in_prefix": "da4bc3e826a1a038d5b291af53596d644b7ef65bd16c1731fe9bcc5ecc518e50",
+                "size_in_bytes": 1627
+            },
+            {
+                "_path": "share/man/man3/libssh2_scp_send_ex.3",
+                "path_type": "hardlink",
+                "sha256": "b4cb7b4f00d1b7ada3865a23cd7064f17c6119683829896b501d7a4ddafbb36b",
+                "sha256_in_prefix": "b4cb7b4f00d1b7ada3865a23cd7064f17c6119683829896b501d7a4ddafbb36b",
+                "size_in_bytes": 1601
+            },
+            {
+                "_path": "share/man/man3/libssh2_session_abstract.3",
+                "path_type": "hardlink",
+                "sha256": "5d5233b403c34aa09f8cc65f811962ec59f4e7c08a6536258795c6887994f1df",
+                "sha256_in_prefix": "5d5233b403c34aa09f8cc65f811962ec59f4e7c08a6536258795c6887994f1df",
+                "size_in_bytes": 832
+            },
+            {
+                "_path": "share/man/man3/libssh2_session_banner_get.3",
+                "path_type": "hardlink",
+                "sha256": "4b79daf9b7fbf5aa17244ea299174ad0866f713086943af468fba3d7e08ea771",
+                "sha256_in_prefix": "4b79daf9b7fbf5aa17244ea299174ad0866f713086943af468fba3d7e08ea771",
+                "size_in_bytes": 897
+            },
+            {
+                "_path": "share/man/man3/libssh2_session_banner_set.3",
+                "path_type": "hardlink",
+                "sha256": "fd93549e5eff89d85f5730e7453a62e454e86d14c70af7f0acb368e9fffb3311",
+                "sha256_in_prefix": "fd93549e5eff89d85f5730e7453a62e454e86d14c70af7f0acb368e9fffb3311",
+                "size_in_bytes": 1252
+            },
+            {
+                "_path": "share/man/man3/libssh2_session_block_directions.3",
+                "path_type": "hardlink",
+                "sha256": "f91f9140e2410276dcdaac2aed1e0188cbba8b9bfcc1776fc38cccd22d938300",
+                "sha256_in_prefix": "f91f9140e2410276dcdaac2aed1e0188cbba8b9bfcc1776fc38cccd22d938300",
+                "size_in_bytes": 1281
+            },
+            {
+                "_path": "share/man/man3/libssh2_session_callback_set.3",
+                "path_type": "hardlink",
+                "sha256": "c3bc97d958cfd74b89165773db7ae40890627244dc25ccad123182b04ce3fcfe",
+                "sha256_in_prefix": "c3bc97d958cfd74b89165773db7ae40890627244dc25ccad123182b04ce3fcfe",
+                "size_in_bytes": 1005
+            },
+            {
+                "_path": "share/man/man3/libssh2_session_callback_set2.3",
+                "path_type": "hardlink",
+                "sha256": "dc6d9afea574a0ae1f4a723d8d5cf20b9d363ac6a9ad32dcacce7c8d6d92cb2f",
+                "sha256_in_prefix": "dc6d9afea574a0ae1f4a723d8d5cf20b9d363ac6a9ad32dcacce7c8d6d92cb2f",
+                "size_in_bytes": 5167
+            },
+            {
+                "_path": "share/man/man3/libssh2_session_disconnect.3",
+                "path_type": "hardlink",
+                "sha256": "cb8aa74719f83be841d766ef7c4437e37d405beed26d39685ed8a1392b634c6e",
+                "sha256_in_prefix": "cb8aa74719f83be841d766ef7c4437e37d405beed26d39685ed8a1392b634c6e",
+                "size_in_bytes": 720
+            },
+            {
+                "_path": "share/man/man3/libssh2_session_disconnect_ex.3",
+                "path_type": "hardlink",
+                "sha256": "637f34bf4c9a0d078a5becf2544b541fc6ceddec8acc61b61f9359d7da699231",
+                "sha256_in_prefix": "637f34bf4c9a0d078a5becf2544b541fc6ceddec8acc61b61f9359d7da699231",
+                "size_in_bytes": 1493
+            },
+            {
+                "_path": "share/man/man3/libssh2_session_flag.3",
+                "path_type": "hardlink",
+                "sha256": "74dc8b50e12ca91fcf44b891783c540907a99f293c236f392f80fa7bc4c0f92f",
+                "sha256_in_prefix": "74dc8b50e12ca91fcf44b891783c540907a99f293c236f392f80fa7bc4c0f92f",
+                "size_in_bytes": 1024
+            },
+            {
+                "_path": "share/man/man3/libssh2_session_free.3",
+                "path_type": "hardlink",
+                "sha256": "8777fc5b7b86992585184fe3ee5615dd28afd596753aca62c5aff964e627e0f5",
+                "sha256_in_prefix": "8777fc5b7b86992585184fe3ee5615dd28afd596753aca62c5aff964e627e0f5",
+                "size_in_bytes": 766
+            },
+            {
+                "_path": "share/man/man3/libssh2_session_get_blocking.3",
+                "path_type": "hardlink",
+                "sha256": "4255ecd0ca8f643932178ef3b48a6d33118e8a9eff0af3480fd3577d3eb94042",
+                "sha256_in_prefix": "4255ecd0ca8f643932178ef3b48a6d33118e8a9eff0af3480fd3577d3eb94042",
+                "size_in_bytes": 578
+            },
+            {
+                "_path": "share/man/man3/libssh2_session_get_read_timeout.3",
+                "path_type": "hardlink",
+                "sha256": "77acd1cc9eaf0735d964f4e5cf05965e7d036a437aae0d1e255dc325ddc81b5d",
+                "sha256_in_prefix": "77acd1cc9eaf0735d964f4e5cf05965e7d036a437aae0d1e255dc325ddc81b5d",
+                "size_in_bytes": 738
+            },
+            {
+                "_path": "share/man/man3/libssh2_session_get_timeout.3",
+                "path_type": "hardlink",
+                "sha256": "323b635352abe27e70e88b596151b280a5659b72e9c41c8e6f24984923768258",
+                "sha256_in_prefix": "323b635352abe27e70e88b596151b280a5659b72e9c41c8e6f24984923768258",
+                "size_in_bytes": 744
+            },
+            {
+                "_path": "share/man/man3/libssh2_session_handshake.3",
+                "path_type": "hardlink",
+                "sha256": "add4bebbb400a8cef8e71e08a1f2eb87b69218ccc893783f546f0afb56e85143",
+                "sha256_in_prefix": "add4bebbb400a8cef8e71e08a1f2eb87b69218ccc893783f546f0afb56e85143",
+                "size_in_bytes": 1405
+            },
+            {
+                "_path": "share/man/man3/libssh2_session_hostkey.3",
+                "path_type": "hardlink",
+                "sha256": "5074d9024f23b2d7f1f2c6d99d1a8c5ebd37f765ca5f5fd41ec6f1642b7864c9",
+                "sha256_in_prefix": "5074d9024f23b2d7f1f2c6d99d1a8c5ebd37f765ca5f5fd41ec6f1642b7864c9",
+                "size_in_bytes": 802
+            },
+            {
+                "_path": "share/man/man3/libssh2_session_init.3",
+                "path_type": "hardlink",
+                "sha256": "bdc2dd76cbad53c198905343ef6336270ed8a79a6dee7abc226cd7803a5201cd",
+                "sha256_in_prefix": "bdc2dd76cbad53c198905343ef6336270ed8a79a6dee7abc226cd7803a5201cd",
+                "size_in_bytes": 641
+            },
+            {
+                "_path": "share/man/man3/libssh2_session_init_ex.3",
+                "path_type": "hardlink",
+                "sha256": "bfae417a7d7592787c473ad1262037951399cc35a05b0f8c1dded4ecd7738c3b",
+                "sha256_in_prefix": "bfae417a7d7592787c473ad1262037951399cc35a05b0f8c1dded4ecd7738c3b",
+                "size_in_bytes": 1914
+            },
+            {
+                "_path": "share/man/man3/libssh2_session_last_errno.3",
+                "path_type": "hardlink",
+                "sha256": "f6cfe1343ae78277bb50faa9d934e946497b361940bf549454947f4eb5519405",
+                "sha256_in_prefix": "f6cfe1343ae78277bb50faa9d934e946497b361940bf549454947f4eb5519405",
+                "size_in_bytes": 652
+            },
+            {
+                "_path": "share/man/man3/libssh2_session_last_error.3",
+                "path_type": "hardlink",
+                "sha256": "3e4997a53e16bc8033076fd23320fddd0f4da5ae3e985dc84b812ccf80fc13d4",
+                "sha256_in_prefix": "3e4997a53e16bc8033076fd23320fddd0f4da5ae3e985dc84b812ccf80fc13d4",
+                "size_in_bytes": 1209
+            },
+            {
+                "_path": "share/man/man3/libssh2_session_method_pref.3",
+                "path_type": "hardlink",
+                "sha256": "42a8339eda08ad1c32835daeb91d1474bbc5351728bc2a87efc6447e9a338a31",
+                "sha256_in_prefix": "42a8339eda08ad1c32835daeb91d1474bbc5351728bc2a87efc6447e9a338a31",
+                "size_in_bytes": 1530
+            },
+            {
+                "_path": "share/man/man3/libssh2_session_methods.3",
+                "path_type": "hardlink",
+                "sha256": "0928a7f07f2aee734bba1d965af2986bdeafeebe83a611d53e11756b4820589e",
+                "sha256_in_prefix": "0928a7f07f2aee734bba1d965af2986bdeafeebe83a611d53e11756b4820589e",
+                "size_in_bytes": 1120
+            },
+            {
+                "_path": "share/man/man3/libssh2_session_set_blocking.3",
+                "path_type": "hardlink",
+                "sha256": "f4784231a26bfcf6e60c73b691ae2a8af2d59275aa5449e1feb484597ed1d26b",
+                "sha256_in_prefix": "f4784231a26bfcf6e60c73b691ae2a8af2d59275aa5449e1feb484597ed1d26b",
+                "size_in_bytes": 1157
+            },
+            {
+                "_path": "share/man/man3/libssh2_session_set_last_error.3",
+                "path_type": "hardlink",
+                "sha256": "f6705fe44254f554648806eda9c8597cc6bbfa4a60065b1afc63fe0fd020b238",
+                "sha256_in_prefix": "f6705fe44254f554648806eda9c8597cc6bbfa4a60065b1afc63fe0fd020b238",
+                "size_in_bytes": 1109
+            },
+            {
+                "_path": "share/man/man3/libssh2_session_set_read_timeout.3",
+                "path_type": "hardlink",
+                "sha256": "ebff1cbf648090f9924eaf43b6996c4afe2ad84607d09a756e60e6fec3589ebb",
+                "sha256_in_prefix": "ebff1cbf648090f9924eaf43b6996c4afe2ad84607d09a756e60e6fec3589ebb",
+                "size_in_bytes": 759
+            },
+            {
+                "_path": "share/man/man3/libssh2_session_set_timeout.3",
+                "path_type": "hardlink",
+                "sha256": "17d1bdbc6d8991708d7daf8b057e568fd514058b005ee1ba7f1e0ebf1699f3b4",
+                "sha256_in_prefix": "17d1bdbc6d8991708d7daf8b057e568fd514058b005ee1ba7f1e0ebf1699f3b4",
+                "size_in_bytes": 750
+            },
+            {
+                "_path": "share/man/man3/libssh2_session_startup.3",
+                "path_type": "hardlink",
+                "sha256": "426b4349acc1243528d8239d8d48c6de45d9be4a068a7837528f1dd7ff215ec3",
+                "sha256_in_prefix": "426b4349acc1243528d8239d8d48c6de45d9be4a068a7837528f1dd7ff215ec3",
+                "size_in_bytes": 1478
+            },
+            {
+                "_path": "share/man/man3/libssh2_session_supported_algs.3",
+                "path_type": "hardlink",
+                "sha256": "661400b9ca027be9e227499b56fa79731a4f9d3fdc87a8b6edd42e8af028c07c",
+                "sha256_in_prefix": "661400b9ca027be9e227499b56fa79731a4f9d3fdc87a8b6edd42e8af028c07c",
+                "size_in_bytes": 2818
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_close.3",
+                "path_type": "hardlink",
+                "sha256": "30aefd27e163afa34bdbd2633b618d6ade18d29aa95998700c7c65032d08f777",
+                "sha256_in_prefix": "30aefd27e163afa34bdbd2633b618d6ade18d29aa95998700c7c65032d08f777",
+                "size_in_bytes": 680
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_close_handle.3",
+                "path_type": "hardlink",
+                "sha256": "e6a199552547975799b04a8801f413717ae68bd24cf0034fd0e92d6e55f6df02",
+                "sha256_in_prefix": "e6a199552547975799b04a8801f413717ae68bd24cf0034fd0e92d6e55f6df02",
+                "size_in_bytes": 1486
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_closedir.3",
+                "path_type": "hardlink",
+                "sha256": "57f072d8173d88278887203b1adb2f05f5c75a5abb33acb906bd7444385a4d8e",
+                "sha256_in_prefix": "57f072d8173d88278887203b1adb2f05f5c75a5abb33acb906bd7444385a4d8e",
+                "size_in_bytes": 688
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_fsetstat.3",
+                "path_type": "hardlink",
+                "sha256": "7dd3fc191da3e7eed4cdf5f988d8a5236253551c7b926d5654b8f1edea8cff1c",
+                "sha256_in_prefix": "7dd3fc191da3e7eed4cdf5f988d8a5236253551c7b926d5654b8f1edea8cff1c",
+                "size_in_bytes": 723
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_fstat.3",
+                "path_type": "hardlink",
+                "sha256": "fbb4b3f44da6190ba908d5fa707e15de9a5e1fb64cc33ed64b6bf92caa4fba95",
+                "sha256_in_prefix": "fbb4b3f44da6190ba908d5fa707e15de9a5e1fb64cc33ed64b6bf92caa4fba95",
+                "size_in_bytes": 711
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_fstat_ex.3",
+                "path_type": "hardlink",
+                "sha256": "9af9a671cee0e1ffc02d62e98cde6a08ea460b75439ce9a12c36a812febe00c8",
+                "sha256_in_prefix": "9af9a671cee0e1ffc02d62e98cde6a08ea460b75439ce9a12c36a812febe00c8",
+                "size_in_bytes": 3653
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_fstatvfs.3",
+                "path_type": "hardlink",
+                "sha256": "19d6350659e80542d169bc4aacde4280a212f06fe5cc3be747e02669c6f6ecc3",
+                "sha256_in_prefix": "19d6350659e80542d169bc4aacde4280a212f06fe5cc3be747e02669c6f6ecc3",
+                "size_in_bytes": 134
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_fsync.3",
+                "path_type": "hardlink",
+                "sha256": "f82380b11e162cbf944761439be62605d1b35462ee37d13a3fdea0d3598dc3df",
+                "sha256_in_prefix": "f82380b11e162cbf944761439be62605d1b35462ee37d13a3fdea0d3598dc3df",
+                "size_in_bytes": 1414
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_get_channel.3",
+                "path_type": "hardlink",
+                "sha256": "991acd8157f64be22e795eb8451c1d7e0557599362d07cd47b8845426b8a2ac4",
+                "sha256_in_prefix": "991acd8157f64be22e795eb8451c1d7e0557599362d07cd47b8845426b8a2ac4",
+                "size_in_bytes": 649
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_init.3",
+                "path_type": "hardlink",
+                "sha256": "a4b9dbee2b1bca53149b9df9da4acace640a2efffefcabed34aa7b6afbb217f4",
+                "sha256_in_prefix": "a4b9dbee2b1bca53149b9df9da4acace640a2efffefcabed34aa7b6afbb217f4",
+                "size_in_bytes": 1454
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_last_error.3",
+                "path_type": "hardlink",
+                "sha256": "cc531f8c4e631ee87c0c6919bc23aa9b798b2fde5319f9f6336f0aefe28d800a",
+                "sha256_in_prefix": "cc531f8c4e631ee87c0c6919bc23aa9b798b2fde5319f9f6336f0aefe28d800a",
+                "size_in_bytes": 851
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_lstat.3",
+                "path_type": "hardlink",
+                "sha256": "5bd4a798b13fe424f40a63c1a7b92e20c2b7cad4b39ac552ca1e729bca44e48a",
+                "sha256_in_prefix": "5bd4a798b13fe424f40a63c1a7b92e20c2b7cad4b39ac552ca1e729bca44e48a",
+                "size_in_bytes": 715
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_mkdir.3",
+                "path_type": "hardlink",
+                "sha256": "3b13853d28b91b3526fd2788bc41bf869774042a7421775b4f8d5de2da773932",
+                "sha256_in_prefix": "3b13853d28b91b3526fd2788bc41bf869774042a7421775b4f8d5de2da773932",
+                "size_in_bytes": 699
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_mkdir_ex.3",
+                "path_type": "hardlink",
+                "sha256": "12db10abe8a010a23c158baec03eb873ef27b18de0a5b725c6e2c1a492f58fc0",
+                "sha256_in_prefix": "12db10abe8a010a23c158baec03eb873ef27b18de0a5b725c6e2c1a492f58fc0",
+                "size_in_bytes": 1555
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_open.3",
+                "path_type": "hardlink",
+                "sha256": "4d3c35cc6eeb58cf7c1b943e1a8bbac7cfd3e705f6b6f2bc2cbd2c5472d36e86",
+                "sha256_in_prefix": "4d3c35cc6eeb58cf7c1b943e1a8bbac7cfd3e705f6b6f2bc2cbd2c5472d36e86",
+                "size_in_bytes": 751
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_open_ex.3",
+                "path_type": "hardlink",
+                "sha256": "0ffb026f78bd57ba71ef10e51644c0f49f9fa3271eb5be100c979abb43379b7a",
+                "sha256_in_prefix": "0ffb026f78bd57ba71ef10e51644c0f49f9fa3271eb5be100c979abb43379b7a",
+                "size_in_bytes": 2508
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_open_ex_r.3",
+                "path_type": "hardlink",
+                "sha256": "642b805e54883c8aa90674e616aeff9e9f0fe255baeb4a71268432df8b6342b9",
+                "sha256_in_prefix": "642b805e54883c8aa90674e616aeff9e9f0fe255baeb4a71268432df8b6342b9",
+                "size_in_bytes": 2742
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_open_r.3",
+                "path_type": "hardlink",
+                "sha256": "d58ebd2914c12f005e7e884860edb9d564609464a62ef7981f68bb20ce0de25b",
+                "sha256_in_prefix": "d58ebd2914c12f005e7e884860edb9d564609464a62ef7981f68bb20ce0de25b",
+                "size_in_bytes": 824
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_opendir.3",
+                "path_type": "hardlink",
+                "sha256": "86c3cb7f8bd19010588fb928095e81ab9b736ba6f6f562eb2d010e7d334fef9c",
+                "sha256_in_prefix": "86c3cb7f8bd19010588fb928095e81ab9b736ba6f6f562eb2d010e7d334fef9c",
+                "size_in_bytes": 688
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_posix_rename.3",
+                "path_type": "hardlink",
+                "sha256": "af5d09b04b92169edf9f973834632844859fb4c491608e172d5163ceb0431991",
+                "sha256_in_prefix": "af5d09b04b92169edf9f973834632844859fb4c491608e172d5163ceb0431991",
+                "size_in_bytes": 816
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_posix_rename_ex.3",
+                "path_type": "hardlink",
+                "sha256": "e76dc9650db7bdde52eb59a8a52c01e6fb0356ccc3af6e43d6da8f2b0e3a074f",
+                "sha256_in_prefix": "e76dc9650db7bdde52eb59a8a52c01e6fb0356ccc3af6e43d6da8f2b0e3a074f",
+                "size_in_bytes": 2141
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_read.3",
+                "path_type": "hardlink",
+                "sha256": "25fd0d134f1874927a88308a046e556a9b5dadf792ab247cdd9cfb4220f81e5b",
+                "sha256_in_prefix": "25fd0d134f1874927a88308a046e556a9b5dadf792ab247cdd9cfb4220f81e5b",
+                "size_in_bytes": 1610
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_readdir.3",
+                "path_type": "hardlink",
+                "sha256": "f53f2850afbe38cf7ccbdca8ad6c2fbad82dca58567c466ce1ae42b42ad231da",
+                "sha256_in_prefix": "f53f2850afbe38cf7ccbdca8ad6c2fbad82dca58567c466ce1ae42b42ad231da",
+                "size_in_bytes": 786
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_readdir_ex.3",
+                "path_type": "hardlink",
+                "sha256": "cef4a5038188aedb0dd7d73e89c80d9615a37501c2914ddabc4b2349832c56df",
+                "sha256_in_prefix": "cef4a5038188aedb0dd7d73e89c80d9615a37501c2914ddabc4b2349832c56df",
+                "size_in_bytes": 2781
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_readlink.3",
+                "path_type": "hardlink",
+                "sha256": "ac85251703acaae076551d72f8b75e239136c30915adefda15dd218e5095113a",
+                "sha256_in_prefix": "ac85251703acaae076551d72f8b75e239136c30915adefda15dd218e5095113a",
+                "size_in_bytes": 841
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_realpath.3",
+                "path_type": "hardlink",
+                "sha256": "991cfa58e620bd327c3453e137632d73b83808226efde411285b593153fe560b",
+                "sha256_in_prefix": "991cfa58e620bd327c3453e137632d73b83808226efde411285b593153fe560b",
+                "size_in_bytes": 841
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_rename.3",
+                "path_type": "hardlink",
+                "sha256": "79b3266bfd7c9e511509a1f57738c271af636ffdd5ac1b2e6bfabc06a217d215",
+                "sha256_in_prefix": "79b3266bfd7c9e511509a1f57738c271af636ffdd5ac1b2e6bfabc06a217d215",
+                "size_in_bytes": 762
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_rename_ex.3",
+                "path_type": "hardlink",
+                "sha256": "6b7f1d47835534b202abf17163cd5af9148e246b11853f3a2a82ee5d4cf7aea2",
+                "sha256_in_prefix": "6b7f1d47835534b202abf17163cd5af9148e246b11853f3a2a82ee5d4cf7aea2",
+                "size_in_bytes": 2273
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_rewind.3",
+                "path_type": "hardlink",
+                "sha256": "5dc88e0e443e013f8dc93135cb2c054ea3a386afd9945dce005a9c4dc15a594e",
+                "sha256_in_prefix": "5dc88e0e443e013f8dc93135cb2c054ea3a386afd9945dce005a9c4dc15a594e",
+                "size_in_bytes": 653
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_rmdir.3",
+                "path_type": "hardlink",
+                "sha256": "b044b93bea87d7f0a1a9bdb417c1b9d51b71af6cc2605fd7e453803937c17807",
+                "sha256_in_prefix": "b044b93bea87d7f0a1a9bdb417c1b9d51b71af6cc2605fd7e453803937c17807",
+                "size_in_bytes": 699
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_rmdir_ex.3",
+                "path_type": "hardlink",
+                "sha256": "347ab2145dc11f5bc2c0606bdffde4d48190a80dfad1ed83e7cc7afa61ad7a86",
+                "sha256_in_prefix": "347ab2145dc11f5bc2c0606bdffde4d48190a80dfad1ed83e7cc7afa61ad7a86",
+                "size_in_bytes": 1291
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_seek.3",
+                "path_type": "hardlink",
+                "sha256": "9cf9e18d5223fe74089de905b5bd5f85c6af8404d2f036d0e8c26e5eb6fb2227",
+                "sha256_in_prefix": "9cf9e18d5223fe74089de905b5bd5f85c6af8404d2f036d0e8c26e5eb6fb2227",
+                "size_in_bytes": 1027
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_seek64.3",
+                "path_type": "hardlink",
+                "sha256": "b2213bd874a4f7dae7d1adc5b6e009fbd855beb0629ba389484ea1e6c24b0e22",
+                "sha256_in_prefix": "b2213bd874a4f7dae7d1adc5b6e009fbd855beb0629ba389484ea1e6c24b0e22",
+                "size_in_bytes": 1136
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_setstat.3",
+                "path_type": "hardlink",
+                "sha256": "68ed4b14c9c7e1469110a697269f5425e486865bb345aedba5193d0350550b95",
+                "sha256_in_prefix": "68ed4b14c9c7e1469110a697269f5425e486865bb345aedba5193d0350550b95",
+                "size_in_bytes": 722
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_shutdown.3",
+                "path_type": "hardlink",
+                "sha256": "db9269bef0cf8083e498126bbb589ef7ab1735daa6c3533f6d71237901955ca3",
+                "sha256_in_prefix": "db9269bef0cf8083e498126bbb589ef7ab1735daa6c3533f6d71237901955ca3",
+                "size_in_bytes": 764
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_stat.3",
+                "path_type": "hardlink",
+                "sha256": "c58253aa8d0130d9828b66c0fc048d0b17cd323f88945343e7a2d468629b9704",
+                "sha256_in_prefix": "c58253aa8d0130d9828b66c0fc048d0b17cd323f88945343e7a2d468629b9704",
+                "size_in_bytes": 716
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_stat_ex.3",
+                "path_type": "hardlink",
+                "sha256": "a75b72b3a630be833ffe0ee520c90de3daf5a0549483e3c67107e6ac13dfbbb0",
+                "sha256_in_prefix": "a75b72b3a630be833ffe0ee520c90de3daf5a0549483e3c67107e6ac13dfbbb0",
+                "size_in_bytes": 2417
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_statvfs.3",
+                "path_type": "hardlink",
+                "sha256": "49bc4561fdfd1a7a967f5361821cc9271d23a422c781f3cfe547bc9e69dd0638",
+                "sha256_in_prefix": "49bc4561fdfd1a7a967f5361821cc9271d23a422c781f3cfe547bc9e69dd0638",
+                "size_in_bytes": 2813
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_symlink.3",
+                "path_type": "hardlink",
+                "sha256": "166a69b8888e716d35f58585b8e5d7c38b25f375f2a6133fa46a7338f24e7d01",
+                "sha256_in_prefix": "166a69b8888e716d35f58585b8e5d7c38b25f375f2a6133fa46a7338f24e7d01",
+                "size_in_bytes": 810
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_symlink_ex.3",
+                "path_type": "hardlink",
+                "sha256": "99688bb027725a7616cfd3864401bfb571dbd6b4c4e64475dce8c6846a21e9d1",
+                "sha256_in_prefix": "99688bb027725a7616cfd3864401bfb571dbd6b4c4e64475dce8c6846a21e9d1",
+                "size_in_bytes": 2895
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_tell.3",
+                "path_type": "hardlink",
+                "sha256": "997093bf15033ba12e0d492e5168b5abc7714c61ad16adb5dd13814824188f46",
+                "sha256_in_prefix": "997093bf15033ba12e0d492e5168b5abc7714c61ad16adb5dd13814824188f46",
+                "size_in_bytes": 755
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_tell64.3",
+                "path_type": "hardlink",
+                "sha256": "a9528d4cfb07191c6e964f7451bd5ea24a1cd21306aaba89a77cbad1cc585fa7",
+                "sha256_in_prefix": "a9528d4cfb07191c6e964f7451bd5ea24a1cd21306aaba89a77cbad1cc585fa7",
+                "size_in_bytes": 721
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_unlink.3",
+                "path_type": "hardlink",
+                "sha256": "47fb4511fc65ae3accd55630db74a47c1343d024e0c79400081eaa97efdee28e",
+                "sha256_in_prefix": "47fb4511fc65ae3accd55630db74a47c1343d024e0c79400081eaa97efdee28e",
+                "size_in_bytes": 681
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_unlink_ex.3",
+                "path_type": "hardlink",
+                "sha256": "44b089c206b2a40c8571244ef6d50b15a840b9e0cb8d96854d839fe3a00c69cc",
+                "sha256_in_prefix": "44b089c206b2a40c8571244ef6d50b15a840b9e0cb8d96854d839fe3a00c69cc",
+                "size_in_bytes": 1342
+            },
+            {
+                "_path": "share/man/man3/libssh2_sftp_write.3",
+                "path_type": "hardlink",
+                "sha256": "e2e53bb3099c438ba12757e0fb2c9b363a7eb579f456f695c5b7b03367ae7a2a",
+                "sha256_in_prefix": "e2e53bb3099c438ba12757e0fb2c9b363a7eb579f456f695c5b7b03367ae7a2a",
+                "size_in_bytes": 3080
+            },
+            {
+                "_path": "share/man/man3/libssh2_sign_sk.3",
+                "path_type": "hardlink",
+                "sha256": "5743fdcbb209cc0e5082e366764229661a4b268f93da05774099475fc1ea54e4",
+                "sha256_in_prefix": "5743fdcbb209cc0e5082e366764229661a4b268f93da05774099475fc1ea54e4",
+                "size_in_bytes": 3171
+            },
+            {
+                "_path": "share/man/man3/libssh2_trace.3",
+                "path_type": "hardlink",
+                "sha256": "95432f298aab883ad52984527059619814d4f6ed2b51ea68242b2f7d85eadb0e",
+                "sha256_in_prefix": "95432f298aab883ad52984527059619814d4f6ed2b51ea68242b2f7d85eadb0e",
+                "size_in_bytes": 1123
+            },
+            {
+                "_path": "share/man/man3/libssh2_trace_sethandler.3",
+                "path_type": "hardlink",
+                "sha256": "1cbc4fb7d2dafb33dd83f43665b041ea567b69ab7bd0840586fbc467dbdf044a",
+                "sha256_in_prefix": "1cbc4fb7d2dafb33dd83f43665b041ea567b69ab7bd0840586fbc467dbdf044a",
+                "size_in_bytes": 1406
+            },
+            {
+                "_path": "share/man/man3/libssh2_userauth_authenticated.3",
+                "path_type": "hardlink",
+                "sha256": "36f943511f320e72ae3e58c8d4c1c34de8d40052a38e360bc892661a696b6f25",
+                "sha256_in_prefix": "36f943511f320e72ae3e58c8d4c1c34de8d40052a38e360bc892661a696b6f25",
+                "size_in_bytes": 631
+            },
+            {
+                "_path": "share/man/man3/libssh2_userauth_banner.3",
+                "path_type": "hardlink",
+                "sha256": "ce53486fa574dc8963823fe45fc6bcd1b0784bfa60eb4c5b4e27294a28a6fc53",
+                "sha256_in_prefix": "ce53486fa574dc8963823fe45fc6bcd1b0784bfa60eb4c5b4e27294a28a6fc53",
+                "size_in_bytes": 1198
+            },
+            {
+                "_path": "share/man/man3/libssh2_userauth_hostbased_fromfile.3",
+                "path_type": "hardlink",
+                "sha256": "a8bc73ec12de2eb9fbdda4a4650d9ec0930973ce344319c4211300e46e48e1ae",
+                "sha256_in_prefix": "a8bc73ec12de2eb9fbdda4a4650d9ec0930973ce344319c4211300e46e48e1ae",
+                "size_in_bytes": 1062
+            },
+            {
+                "_path": "share/man/man3/libssh2_userauth_hostbased_fromfile_ex.3",
+                "path_type": "hardlink",
+                "sha256": "99d9d87ccb9bcd513ce12927066b3bb1ccef1468a51819fa1e0d9f325a492ed4",
+                "sha256_in_prefix": "99d9d87ccb9bcd513ce12927066b3bb1ccef1468a51819fa1e0d9f325a492ed4",
+                "size_in_bytes": 318
+            },
+            {
+                "_path": "share/man/man3/libssh2_userauth_keyboard_interactive.3",
+                "path_type": "hardlink",
+                "sha256": "286256d30eabaddbfea956c71560f693ffdcaf30595cbaeb3cf002c068e3f270",
+                "sha256_in_prefix": "286256d30eabaddbfea956c71560f693ffdcaf30595cbaeb3cf002c068e3f270",
+                "size_in_bytes": 921
+            },
+            {
+                "_path": "share/man/man3/libssh2_userauth_keyboard_interactive_ex.3",
+                "path_type": "hardlink",
+                "sha256": "6f5f59facf7221417ab19d55c3188ef13ab41691799b88a9a680ae13c8e05fc7",
+                "sha256_in_prefix": "6f5f59facf7221417ab19d55c3188ef13ab41691799b88a9a680ae13c8e05fc7",
+                "size_in_bytes": 2444
+            },
+            {
+                "_path": "share/man/man3/libssh2_userauth_list.3",
+                "path_type": "hardlink",
+                "sha256": "d261efe75b56449123f45929ea41d60da39c3c375dcee87d7238eda9a70dc442",
+                "sha256_in_prefix": "d261efe75b56449123f45929ea41d60da39c3c375dcee87d7238eda9a70dc442",
+                "size_in_bytes": 1727
+            },
+            {
+                "_path": "share/man/man3/libssh2_userauth_password.3",
+                "path_type": "hardlink",
+                "sha256": "1f3955b0503ffa39f6cff55a1ddd2283c6b0b183ecd2da2089815f9edd7f9c91",
+                "sha256_in_prefix": "1f3955b0503ffa39f6cff55a1ddd2283c6b0b183ecd2da2089815f9edd7f9c91",
+                "size_in_bytes": 783
+            },
+            {
+                "_path": "share/man/man3/libssh2_userauth_password_ex.3",
+                "path_type": "hardlink",
+                "sha256": "e90b6ad0c2a4bc406e748319849cf147ba3b326fc77eb331fcab6d8e252862e1",
+                "sha256_in_prefix": "e90b6ad0c2a4bc406e748319849cf147ba3b326fc77eb331fcab6d8e252862e1",
+                "size_in_bytes": 2325
+            },
+            {
+                "_path": "share/man/man3/libssh2_userauth_publickey.3",
+                "path_type": "hardlink",
+                "sha256": "f690a31d61110b656610f257fe0609b5b6e59529c247b7fa866f31a07c4a8a45",
+                "sha256_in_prefix": "f690a31d61110b656610f257fe0609b5b6e59529c247b7fa866f31a07c4a8a45",
+                "size_in_bytes": 1007
+            },
+            {
+                "_path": "share/man/man3/libssh2_userauth_publickey_fromfile.3",
+                "path_type": "hardlink",
+                "sha256": "3e2f767ff85f3e69baab1d6a26f38cb6b9e614f9d3c9ea9ea4b281774e0da1d7",
+                "sha256_in_prefix": "3e2f767ff85f3e69baab1d6a26f38cb6b9e614f9d3c9ea9ea4b281774e0da1d7",
+                "size_in_bytes": 1004
+            },
+            {
+                "_path": "share/man/man3/libssh2_userauth_publickey_fromfile_ex.3",
+                "path_type": "hardlink",
+                "sha256": "ec140c49395f21372077ea929740c72259d9ec40c15042fa13d90657489a0516",
+                "sha256_in_prefix": "ec140c49395f21372077ea929740c72259d9ec40c15042fa13d90657489a0516",
+                "size_in_bytes": 2203
+            },
+            {
+                "_path": "share/man/man3/libssh2_userauth_publickey_frommemory.3",
+                "path_type": "hardlink",
+                "sha256": "68c340ccf9a45c38d90fb9099e15d474b3b1df22fcba995f0713c3974586edd5",
+                "sha256_in_prefix": "68c340ccf9a45c38d90fb9099e15d474b3b1df22fcba995f0713c3974586edd5",
+                "size_in_bytes": 2412
+            },
+            {
+                "_path": "share/man/man3/libssh2_userauth_publickey_sk.3",
+                "path_type": "hardlink",
+                "sha256": "3172feca0991e9ea79fdc9dc98f894f53c73bba2347bf3ea9650ad26ec32ce43",
+                "sha256_in_prefix": "3172feca0991e9ea79fdc9dc98f894f53c73bba2347bf3ea9650ad26ec32ce43",
+                "size_in_bytes": 5459
+            },
+            {
+                "_path": "share/man/man3/libssh2_version.3",
+                "path_type": "hardlink",
+                "sha256": "b345a7bb83082bfb168a8372a8a5e05a7dc50a31a1f765b95fb0d35ca7a0f49f",
+                "sha256_in_prefix": "b345a7bb83082bfb168a8372a8a5e05a7dc50a31a1f765b95fb0d35ca7a0f49f",
+                "size_in_bytes": 1334
+            }
+        ],
+        "paths_version": 1
+    },
+    "platform": "linux",
+    "requested_spec": "conda-forge/linux-64::libssh2==1.11.1=hf672d98_0[md5=be2de152d8073ef1c01b7728475f2fe7]",
+    "sha256": "0407ac9fda2bb67e11e357066eff144c845801d00b5f664efbc48813af1e7bb9",
+    "size": 304278,
+    "subdir": "linux-64",
+    "timestamp": 1732349402869,
+    "url": "https://conda.anaconda.org/conda-forge/linux-64/libssh2-1.11.1-hf672d98_0.conda",
+    "version": "1.11.1"
+}

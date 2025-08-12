@@ -1,0 +1,119 @@
+{
+  "paths": [
+    {
+      "_path": "site-packages/h2-4.1.0.dist-info/INSTALLER",
+      "path_type": "hardlink",
+      "sha256": "d0edee15f91b406f3f99726e44eb990be6e34fd0345b52b910c568e0eef6a2a8",
+      "size_in_bytes": 5
+    },
+    {
+      "_path": "site-packages/h2-4.1.0.dist-info/LICENSE",
+      "path_type": "hardlink",
+      "sha256": "7a65a5af0cbabf1c16251c7c6b2b7cb46d16a7222e79975b9b61fcd66a2e3f28",
+      "size_in_bytes": 1102
+    },
+    {
+      "_path": "site-packages/h2-4.1.0.dist-info/METADATA",
+      "path_type": "hardlink",
+      "sha256": "e3678b2a1101e1aa240330e1a560e140c0e81e7dceafc71909f4da6b4b43a4a9",
+      "size_in_bytes": 3557
+    },
+    {
+      "_path": "site-packages/h2-4.1.0.dist-info/RECORD",
+      "path_type": "hardlink",
+      "sha256": "adb23e3b298306e67a5d50f6ac61d11bdb1b68d4485d80ee30f249fc37c357da",
+      "size_in_bytes": 1878
+    },
+    {
+      "_path": "site-packages/h2-4.1.0.dist-info/REQUESTED",
+      "path_type": "hardlink",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size_in_bytes": 0
+    },
+    {
+      "_path": "site-packages/h2-4.1.0.dist-info/WHEEL",
+      "path_type": "hardlink",
+      "sha256": "3d9504c5d7fbd548bfb28ebb417a724ae1ed0a2dfe277c2f1783912ba93f4bc5",
+      "size_in_bytes": 91
+    },
+    {
+      "_path": "site-packages/h2-4.1.0.dist-info/direct_url.json",
+      "path_type": "hardlink",
+      "sha256": "c06d7a98c70dd3d66d87d6903b66a952954bc37e85e353f690d6e21b78cf5a24",
+      "size_in_bytes": 98
+    },
+    {
+      "_path": "site-packages/h2-4.1.0.dist-info/top_level.txt",
+      "path_type": "hardlink",
+      "sha256": "1e2ba5c7c2b12368c550cd5d1bbf8265e4643b78f9d0c07008b1b7e95aeafa42",
+      "size_in_bytes": 3
+    },
+    {
+      "_path": "site-packages/h2/__init__.py",
+      "path_type": "hardlink",
+      "sha256": "8a757e6c2014843fd01a341ee4c93c825ec5f39bf6e945bd5b7047a2ff6f0400",
+      "size_in_bytes": 86
+    },
+    {
+      "_path": "site-packages/h2/config.py",
+      "path_type": "hardlink",
+      "sha256": "90c5dd21b3a6d6f46a2cceda3c91a0e841ee2410e8f724b6dff23977d4ed893c",
+      "size_in_bytes": 7348
+    },
+    {
+      "_path": "site-packages/h2/connection.py",
+      "path_type": "hardlink",
+      "sha256": "22c59c91f3ba26e34358157c8bb472f88ad939c6fed8af951f37d2bfbcd70bed",
+      "size_in_bytes": 82989
+    },
+    {
+      "_path": "site-packages/h2/errors.py",
+      "path_type": "hardlink",
+      "sha256": "e8ace66f261228cf51b8277a9f3ecfd8bb719a54ace4fda69de4bf49af2f4c4a",
+      "size_in_bytes": 1543
+    },
+    {
+      "_path": "site-packages/h2/events.py",
+      "path_type": "hardlink",
+      "sha256": "1a9b444d5c1f7f73a96b14531cfe1bbddde04679f79c33f0aaaa51a0d97e9a97",
+      "size_in_bytes": 21587
+    },
+    {
+      "_path": "site-packages/h2/exceptions.py",
+      "path_type": "hardlink",
+      "sha256": "3a57de347fdf70618cd2b1653a90f62463a45baaf41f10cdee749e1b33be1f3d",
+      "size_in_bytes": 5334
+    },
+    {
+      "_path": "site-packages/h2/frame_buffer.py",
+      "path_type": "hardlink",
+      "sha256": "ee2d79a0f2ea7c03cf7d30c4e40f3b820816e05c41ee5fffbcc5f85def51ed35",
+      "size_in_bytes": 6208
+    },
+    {
+      "_path": "site-packages/h2/settings.py",
+      "path_type": "hardlink",
+      "sha256": "cd1b3f6c0cfdaa0db58eca7a1d063e4d95a77086c20f0109ff5c193b276660d7",
+      "size_in_bytes": 11690
+    },
+    {
+      "_path": "site-packages/h2/stream.py",
+      "path_type": "hardlink",
+      "sha256": "6f7840a51c2fc64e2b9541c3ac1d596f08303e890e6996bc30c65215111c5621",
+      "size_in_bytes": 54533
+    },
+    {
+      "_path": "site-packages/h2/utilities.py",
+      "path_type": "hardlink",
+      "sha256": "470828210442983ad1bf2531d39e13c8e296d47963766fd9373de3c78a3db3f1",
+      "size_in_bytes": 23246
+    },
+    {
+      "_path": "site-packages/h2/windows.py",
+      "path_type": "hardlink",
+      "sha256": "37f3fd9938b4559dbaf9e63642cbd6622e8d2f1ef7c6cc2f5196fb546a1dd739",
+      "size_in_bytes": 5595
+    }
+  ],
+  "paths_version": 1
+}

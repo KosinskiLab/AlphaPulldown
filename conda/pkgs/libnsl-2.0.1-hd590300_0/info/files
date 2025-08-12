@@ -1,0 +1,11 @@
+include/rpcsvc/yp.h
+include/rpcsvc/yp.x
+include/rpcsvc/yp_prot.h
+include/rpcsvc/ypclnt.h
+include/rpcsvc/yppasswd.h
+include/rpcsvc/yppasswd.x
+include/rpcsvc/ypupd.h
+lib/libnsl.so
+lib/libnsl.so.3
+lib/libnsl.so.3.0.0
+lib/pkgconfig/libnsl.pc

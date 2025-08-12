@@ -1,0 +1,20 @@
+{
+    "arch": null,
+    "build": "hd8ed1ab_3",
+    "build_number": 3,
+    "channel": "conda-forge",
+    "depends": [],
+    "fn": "pybind11-abi-4-hd8ed1ab_3.tar.bz2",
+    "license": "BSD-3-Clause",
+    "license_family": "BSD",
+    "md5": "878f923dd6acc8aeb47a75da6c4098be",
+    "name": "pybind11-abi",
+    "noarch": "generic",
+    "platform": null,
+    "sha256": "d4fb485b79b11042a16dc6abfb0c44c4f557707c2653ac47c81e5d32b24a3bb0",
+    "size": 9906,
+    "subdir": "noarch",
+    "timestamp": 1610372835205,
+    "url": "https://conda.anaconda.org/conda-forge/noarch/pybind11-abi-4-hd8ed1ab_3.tar.bz2",
+    "version": "4"
+}

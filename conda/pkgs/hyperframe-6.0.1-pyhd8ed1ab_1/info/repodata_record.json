@@ -1,0 +1,22 @@
+{
+    "arch": null,
+    "build": "pyhd8ed1ab_1",
+    "build_number": 1,
+    "channel": "conda-forge",
+    "depends": [
+        "python >=3.9"
+    ],
+    "fn": "hyperframe-6.0.1-pyhd8ed1ab_1.conda",
+    "license": "MIT",
+    "license_family": "MIT",
+    "md5": "566e75c90c1d0c8c459eb0ad9833dc7a",
+    "name": "hyperframe",
+    "noarch": "python",
+    "platform": null,
+    "sha256": "e91c6ef09d076e1d9a02819cd00fa7ee18ecf30cdd667605c853980216584d1b",
+    "size": 17239,
+    "subdir": "noarch",
+    "timestamp": 1733298862681,
+    "url": "https://conda.anaconda.org/conda-forge/noarch/hyperframe-6.0.1-pyhd8ed1ab_1.conda",
+    "version": "6.0.1"
+}

@@ -1,0 +1,75 @@
+{% set version = "1.0.8" %}
+
+package:
+  name: bzip2
+  version: {{ version }}
+
+source:
+  url: https://sourceware.org/pub/bzip2/bzip2-{{ version }}.tar.gz
+  sha256: ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269
+  patches:
+    - 0001-cross.patch
+    - 0002-Windows-Make-library-name-lowercase.patch
+    - 0003-Windows-Add-dyn-lib-build-rename-libbz2_static.patch
+
+build:
+  number: 7
+  run_exports:
+    - {{ pin_subpackage('bzip2') }}
+
+requirements:
+  build:
+    - {{ stdlib('c') }}
+    - {{ compiler('c') }}
+    - make  # [unix]
+
+test:
+  commands:
+    - bzip2 --help  # [unix]
+    {% set bzip2_executables = [
+      "bunzip2",
+      "bzcat",
+      "bzcmp",
+      "bzdiff",
+      "bzegrep",
+      "bzfgrep",
+      "bzgrep",
+      "bzip2recover",
+      "bzip2",
+      "bzless",
+      "bzmore"
+    ] %}
+    {% for executable in bzip2_executables %}
+    - test -f ${PREFIX}/bin/{{ executable }}  # [unix]
+    {% endfor %}
+    - test -f ${PREFIX}/include/bzlib.h  # [unix]
+    - test -f ${PREFIX}/lib/libbz2.a  # [unix]
+    - test -f ${PREFIX}/lib/libbz2.so  # [linux]
+    - test -f ${PREFIX}/lib/libbz2.dylib  # [osx]
+    - if not exist %LIBRARY_INC%\\bzlib.h exit 1  # [win]
+    - if not exist %LIBRARY_LIB%\\bzip2.lib exit 1  # [win]
+    - if not exist %LIBRARY_LIB%\\libbz2.lib exit 1  # [win]
+    - if not exist %LIBRARY_BIN%\\libbz2.dll exit 1  # [win]
+    - if not exist %LIBRARY_LIB%\\bzip2_static.lib exit 1  # [win]
+    - if not exist %LIBRARY_LIB%\\libbz2_static.lib exit 1  # [win]
+
+about:
+  home: http://www.bzip.org/
+  license_family: BSD
+  license_file: LICENSE
+  license: bzip2-1.0.6
+  summary: high-quality data compressor
+  description: |
+    Bzip2 is a freely available high-quality data compressor. It typically
+    compresses files to within 10% to 15% of the best available techniques,
+    whilst being around twice as fast at compression and six times faster
+    at decompression.
+  doc_url: http://www.bzip.org/docs.html
+
+extra:
+  recipe-maintainers:
+    - jakirkham
+    - pelson
+    - msarahan
+    - isuruf
+    - mbargull

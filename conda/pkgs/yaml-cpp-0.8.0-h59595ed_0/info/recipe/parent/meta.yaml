@@ -1,0 +1,103 @@
+{% set version = "0.8.0" %}
+
+package:
+  name: yaml-cpp-split
+  version: {{ version }}
+
+source:
+  url: https://github.com/jbeder/yaml-cpp/archive/refs/tags/{{ version }}.tar.gz
+  sha256: fbe74bbdcee21d656715688706da3c8becfd946d92cd44705cc6098bb23b3a16
+
+build:
+  number: 0
+
+requirements:
+  build:
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+    - cmake
+    - ninja
+
+outputs:
+  - name: yaml-cpp
+    script: build-dyn.sh   # [unix]
+    script: build-dyn.bat  # [win]
+    build:
+      run_exports:
+        - {{ pin_subpackage('yaml-cpp', max_pin='x.x') }}
+    requirements:
+      build:
+        - {{ compiler('c') }}
+        - {{ compiler('cxx') }}
+        - cmake
+        - ninja
+    test:
+      files:
+        - test/
+      requires:
+        - {{ compiler('c') }}
+        - {{ compiler('cxx') }}
+        - cmake
+        - ninja
+      commands:
+        - test -f "${PREFIX}/lib/libyaml-cpp${SHLIB_EXT}"   # [unix]
+        - if not exist %LIBRARY_BIN%\yaml-cpp.dll (exit 1)  # [win]
+        - if not exist %LIBRARY_LIB%\yaml-cpp.lib (exit 1)  # [win]
+        - test ! -f "${PREFIX}/lib/libyaml-cpp.a"  # [unix]
+        - test -f "${PREFIX}/lib/cmake/yaml-cpp/yaml-cpp-config.cmake"              # [unix]
+        - if not exist %LIBRARY_LIB%\cmake\yaml-cpp\yaml-cpp-config.cmake (exit 1)  # [win]
+        # Running a test trying to link to the library
+        - cmake -G Ninja -S test/ -B build-test/ ${CMAKE_ARGS}  # [unix]
+        - cmake -G Ninja -S test/ -B build-test/ %CMAKE_ARGS%   # [win]
+        - cmake --build build-test/
+        - cmake --build build-test/ --target test
+
+  - name: yaml-cpp-static
+    script: build-static.sh   # [unix]
+    script: build-static.bat  # [win]
+    requirements:
+      build:
+        - {{ compiler('c') }}
+        - {{ compiler('cxx') }}
+        - cmake
+        - ninja
+      run_constrained:
+        - yaml-cpp < 0
+    test:
+      files:
+        - test/
+      requires:
+        - {{ compiler('c') }}
+        - {{ compiler('cxx') }}
+        - cmake
+        - ninja
+      commands:
+        - test ! -f "${PREFIX}/lib/libyaml-cpp${SHLIB_EXT}"   # [unix]
+        - if exist %LIBRARY_BIN%\yaml-cpp.dll (exit 1)        # [win]
+        - if not exist %LIBRARY_LIB%\yaml-cpp.lib (exit 1)  # [win]
+        - test -f "${PREFIX}/lib/libyaml-cpp.a"             # [unix]
+        - test -f "${PREFIX}/lib/cmake/yaml-cpp/yaml-cpp-config.cmake"              # [unix]
+        - if not exist %LIBRARY_LIB%\cmake\yaml-cpp\yaml-cpp-config.cmake (exit 1)  # [win]
+        # Running a test trying to link to the library
+        - cmake -G Ninja -S test/ -B build-test/ ${CMAKE_ARGS}  # [unix]
+        - cmake -G Ninja -S test/ -B build-test/ %CMAKE_ARGS%   # [win]
+        - cmake --build build-test/
+        - cmake --build build-test/ --target test
+
+about:
+  home: https://github.com/jbeder/yaml-cpp
+  license: MIT
+  license_family: MIT
+  license_file: LICENSE
+  summary: yaml-cpp is a YAML parser and emitter in C++ matching the YAML 1.2 spec.
+  doc_url: https://github.com/jbeder/yaml-cpp/wiki/Tutorial
+  dev_url: https://github.com/jbeder/yaml-cpp
+
+extra:
+  recipe-maintainers:
+    - AntoinePrv
+    - allanleal
+    - marcelotrevisani
+    - tadeu
+    - seanyen
+    - wolfv

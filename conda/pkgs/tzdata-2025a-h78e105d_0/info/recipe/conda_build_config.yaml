@@ -1,0 +1,36 @@
+CI: azure
+CONDA_BUILD_SYSROOT: /Applications/Xcode_15.2.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk
+MACOSX_DEPLOYMENT_TARGET: '10.13'
+MACOSX_SDK_VERSION: '10.13'
+c_compiler: clang
+c_compiler_version: '18'
+c_stdlib: macosx_deployment_target
+c_stdlib_version: '10.13'
+channel_sources: conda-forge
+channel_targets: conda-forge main
+cpu_optimization_target: nocona
+cran_mirror: https://cran.r-project.org
+cxx_compiler: clangxx
+extend_keys:
+- ignore_version
+- ignore_build_only_deps
+- pin_run_as_build
+- extend_keys
+fortran_compiler: gfortran
+ignore_build_only_deps:
+- python
+- numpy
+lua: '5'
+macos_machine: x86_64-apple-darwin13.4.0
+numpy: '1.26'
+perl: 5.26.2
+pin_run_as_build:
+  python:
+    max_pin: x.x
+    min_pin: x.x
+  r-base:
+    max_pin: x.x
+    min_pin: x.x
+python: '3.12'
+r_base: '3.5'
+target_platform: osx-64

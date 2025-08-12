@@ -1,0 +1,125 @@
+{
+  "paths": [
+    {
+      "_path": "site-packages/colorama-0.4.6.dist-info/INSTALLER",
+      "path_type": "hardlink",
+      "sha256": "d0edee15f91b406f3f99726e44eb990be6e34fd0345b52b910c568e0eef6a2a8",
+      "size_in_bytes": 5
+    },
+    {
+      "_path": "site-packages/colorama-0.4.6.dist-info/METADATA",
+      "path_type": "hardlink",
+      "sha256": "8de7aefdf3063ea1c12428222e85c951eb15991a4e079dcaaee157b0c02c98e7",
+      "size_in_bytes": 17154
+    },
+    {
+      "_path": "site-packages/colorama-0.4.6.dist-info/RECORD",
+      "path_type": "hardlink",
+      "sha256": "7aba3d195014aae5fd9a74d07f788aa0622ac0b086f374d4387d8056bd4b1504",
+      "size_in_bytes": 2347
+    },
+    {
+      "_path": "site-packages/colorama-0.4.6.dist-info/REQUESTED",
+      "path_type": "hardlink",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size_in_bytes": 0
+    },
+    {
+      "_path": "site-packages/colorama-0.4.6.dist-info/WHEEL",
+      "path_type": "hardlink",
+      "sha256": "68edd126eba215722d5529c0504990d32441beff5ed6c6c987af0fb6e424c801",
+      "size_in_bytes": 105
+    },
+    {
+      "_path": "site-packages/colorama-0.4.6.dist-info/direct_url.json",
+      "path_type": "hardlink",
+      "sha256": "465487a815aca6ad439524de018d485bbe6243e1a67cffd1526e9b9acb6bb606",
+      "size_in_bytes": 104
+    },
+    {
+      "_path": "site-packages/colorama-0.4.6.dist-info/licenses/LICENSE.txt",
+      "path_type": "hardlink",
+      "sha256": "cac35c02686e5d04a5a7140bfb3b36e73aed496656e891102e428886d7930318",
+      "size_in_bytes": 1491
+    },
+    {
+      "_path": "site-packages/colorama/__init__.py",
+      "path_type": "hardlink",
+      "sha256": "c1e3d0038536d2d2a060047248b102d38eee70d5fe83ca512e9601ba21e52dbf",
+      "size_in_bytes": 266
+    },
+    {
+      "_path": "site-packages/colorama/ansi.py",
+      "path_type": "hardlink",
+      "sha256": "4e8a7811e12e69074159db5e28c11c18e4de29e175f50f96a3febf0a3e643b34",
+      "size_in_bytes": 2522
+    },
+    {
+      "_path": "site-packages/colorama/ansitowin32.py",
+      "path_type": "hardlink",
+      "sha256": "bcf3586b73996f18dbb85c9a568d139a19b2d4567594a3160a74fba1d5e922d9",
+      "size_in_bytes": 11128
+    },
+    {
+      "_path": "site-packages/colorama/initialise.py",
+      "path_type": "hardlink",
+      "sha256": "fa1227cbce82957a37f62c61e624827d421ad9ffe1fdb80a4435bb82ab3e28b5",
+      "size_in_bytes": 3325
+    },
+    {
+      "_path": "site-packages/colorama/tests/__init__.py",
+      "path_type": "hardlink",
+      "sha256": "32480f004cc641df91ab4c343d95d25f62da7515a150409c8ac258f254ab9b84",
+      "size_in_bytes": 75
+    },
+    {
+      "_path": "site-packages/colorama/tests/ansi_test.py",
+      "path_type": "hardlink",
+      "sha256": "15e5620eb50834865caf9d393c0c6f5380235f3d5ab048802ecf465cc87045a1",
+      "size_in_bytes": 2839
+    },
+    {
+      "_path": "site-packages/colorama/tests/ansitowin32_test.py",
+      "path_type": "hardlink",
+      "sha256": "44dec0221309e44a83b186828d5a3ea38bbc2730c3e2e9096e67af58a4bbd2b6",
+      "size_in_bytes": 10678
+    },
+    {
+      "_path": "site-packages/colorama/tests/initialise_test.py",
+      "path_type": "hardlink",
+      "sha256": "05b3f2f977f21f027accaa33b903af36f419cecc7dbdd6ffd1b6179fb86c0537",
+      "size_in_bytes": 6741
+    },
+    {
+      "_path": "site-packages/colorama/tests/isatty_test.py",
+      "path_type": "hardlink",
+      "sha256": "3e0dba2d1a6fd3240307901cfacc605571bb86c035358bdaa45800a597d8cd98",
+      "size_in_bytes": 1866
+    },
+    {
+      "_path": "site-packages/colorama/tests/utils.py",
+      "path_type": "hardlink",
+      "sha256": "d48211ca51b7f73e7e773ab4f51fe782e7f1c8f67182574d6ebc4ac541b018a1",
+      "size_in_bytes": 1079
+    },
+    {
+      "_path": "site-packages/colorama/tests/winterm_test.py",
+      "path_type": "hardlink",
+      "sha256": "aa85853c48f29b9826d91b8cc297f7a4e8acddae6bfcf259142ccadb9e092fc0",
+      "size_in_bytes": 3709
+    },
+    {
+      "_path": "site-packages/colorama/win32.py",
+      "path_type": "hardlink",
+      "sha256": "61038ac0c4f0b4605bb18e1d2f91d84efc1378ff70210adae4cbcf35d769c59b",
+      "size_in_bytes": 6181
+    },
+    {
+      "_path": "site-packages/colorama/winterm.py",
+      "path_type": "hardlink",
+      "sha256": "5c24050c78cf8ba00760d759c32d2d034d87f89878f09a7e1ef0a378b78ba775",
+      "size_in_bytes": 7134
+    }
+  ],
+  "paths_version": 1
+}

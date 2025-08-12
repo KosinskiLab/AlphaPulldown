@@ -1,0 +1,14 @@
+{
+  "arch": "x86_64",
+  "build": "h69a702a_1",
+  "build_number": 1,
+  "depends": [
+    "libgcc 14.2.0 h77fa898_1"
+  ],
+  "license": "GPL-3.0-only WITH GCC-exception-3.1",
+  "name": "libgcc-ng",
+  "platform": "linux",
+  "subdir": "linux-64",
+  "timestamp": 1729027726517,
+  "version": "14.2.0"
+}

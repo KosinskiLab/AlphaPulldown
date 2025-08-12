@@ -1,0 +1,46 @@
+{% set version = "1.7.1" %}
+
+package:
+  name: pysocks
+  version: {{ version }}
+
+source:
+  url: https://pypi.org/packages/source/P/PySocks/PySocks-{{ version }}.tar.gz
+  sha256: 3f8804571ebe159c380ac6de37643bb4685970655d3bba243530d6558b799aa0
+
+build:
+  number: 7
+  script: {{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation 
+  noarch: python
+
+requirements:
+  host:
+    - python {{ python_min }}
+    - setuptools
+    - pip
+  run:
+    - python >={{ python_min }}
+    - {{ virtual_pkg|default("__unix") }}
+  {% if virtual_pkg == "__win" %}
+    - win_inet_pton
+  {% endif %}
+
+test:
+  requires:
+    - python {{ python_min }}
+  imports:
+    - socks
+
+about:
+  home: https://github.com/Anorov/PySocks
+  license_file: LICENSE
+  license: BSD-3-Clause
+  summary: 'A Python SOCKS client module. See https://github.com/Anorov/PySocks for more information.'
+  license_family: BSD
+  doc_url: https://github.com/Anorov/PySocks/blob/master/README.md
+  dev_url: https://github.com/Anorov/PySocks
+
+extra:
+  recipe-maintainers:
+    - pmlandwehr
+    - ocefpaf

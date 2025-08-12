@@ -1,0 +1,22 @@
+{
+    "arch": null,
+    "build": "pyhd8ed1ab_1",
+    "build_number": 1,
+    "channel": "conda-forge",
+    "depends": [
+        "python >=3.9"
+    ],
+    "fn": "distro-1.9.0-pyhd8ed1ab_1.conda",
+    "license": "Apache-2.0",
+    "license_family": "APACHE",
+    "md5": "0a2014fd9860f8b1eaa0b1f3d3771a08",
+    "name": "distro",
+    "noarch": "python",
+    "platform": null,
+    "sha256": "5603c7d0321963bb9b4030eadabc3fd7ca6103a38475b4e0ed13ed6d97c86f4e",
+    "size": 41773,
+    "subdir": "noarch",
+    "timestamp": 1734729953882,
+    "url": "https://conda.anaconda.org/conda-forge/noarch/distro-1.9.0-pyhd8ed1ab_1.conda",
+    "version": "1.9.0"
+}

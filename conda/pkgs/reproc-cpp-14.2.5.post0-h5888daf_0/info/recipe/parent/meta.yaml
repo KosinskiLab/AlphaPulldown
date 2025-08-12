@@ -1,0 +1,227 @@
+# WRANING remove .post from package.version
+{% set version = "14.2.5" %}
+
+package:
+  name: reproc-split
+  version: '{{ version }}.post0'
+
+source:
+  - url: https://github.com/DaanDeMeyer/reproc/archive/v{{ version }}.tar.gz
+    sha256: 69467be0cfc80734b821c54ada263c8f1439f964314063f76b7cf256c3dc7ee8
+    patches:
+      - apple_gettime.patch  # [osx]
+      # When the open file descriptor limit > 1048576, reproc
+      # (and therefore micromamba) aborts when starting a new process
+      # As upstream is inactive, pick up the patch in the feedstock instead
+      # https://github.com/DaanDeMeyer/reproc/pull/103
+      - 103-remove-fd-limit.patch
+
+build:
+  number: 0
+
+requirements:
+  build:
+    - {{ compiler("c") }}
+    - {{ stdlib("c") }}
+    - {{ compiler("cxx") }}
+    - cmake
+    - ninja
+
+outputs:
+  - name: reproc
+    script: install.sh  # [unix]
+    script: install.bat  # [win]
+    build:
+      run_exports:
+        - {{ pin_subpackage('reproc', 'x.x') }}
+    requirements:
+      build:
+        - {{ compiler("c") }}
+        - {{ stdlib("c") }}
+        - cmake
+        - ninja
+    test:
+      files:
+        - test-c/
+      requires:
+        - {{ compiler("c") }}
+        - cmake
+        - ninja
+      commands:
+        - '@echo on'  # [win]
+        # Positive file tests
+        - test -f ${PREFIX}/include/reproc/run.h                       # [unix]
+        - if not exist %LIBRARY_PREFIX%\include\reproc\run.h (exit 1)  # [win]
+        - test -f ${PREFIX}/lib/libreproc${SHLIB_EXT}            # [unix]
+        - if not exist %LIBRARY_PREFIX%\lib\reproc.lib (exit 1)  # [win]
+        - if not exist %LIBRARY_PREFIX%\bin\reproc.dll (exit 1)  # [win]
+        - test -f ${PREFIX}/lib/cmake/reproc/reproc-config.cmake                       # [unix]
+        - if not exist %LIBRARY_PREFIX%\lib\cmake\reproc\reproc-config.cmake (exit 1)  # [win]
+        # Negative file tests
+        - test ! -f ${PREFIX}/include/reproc++/run.hpp                 # [unix]
+        - if exist %LIBRARY_PREFIX%\include\reproc++\run.hpp (exit 1)  # [win]
+        - test ! -f ${PREFIX}/lib/libreproc++${SHLIB_EXT}      # [unix]
+        - if exist %LIBRARY_PREFIX%\lib\reproc++.lib (exit 1)  # [win]
+        - if exist %LIBRARY_PREFIX%\bin\reproc++.dll (exit 1)  # [win]
+        - test ! -f ${PREFIX}/lib/libreproc.a                       # [unix]
+        - if exist %LIBRARY_PREFIX%\lib\reproc_static.lib (exit 1)  # [win]
+        - test ! -f ${PREFIX}/lib/libreproc++.a                       # [unix]
+        - if exist %LIBRARY_PREFIX%\lib\reproc++_static.lib (exit 1)  # [win]
+        - test ! -f ${PREFIX}/lib/cmake/reproc++/reproc++-config.cmake                 # [unix]
+        - if exist %LIBRARY_PREFIX%\lib\cmake\reproc++\reproc++-config.cmake (exit 1)  # [win]
+        # Running a test trying to link to the library
+        - cmake -G Ninja -S test-c/ -B build-test-c/ ${CMAKE_ARGS}  # [unix]
+        - cmake -G Ninja -S test-c/ -B build-test-c/ %CMAKE_ARGS%   # [win]
+        - cmake --build build-test-c/
+        - cmake --build build-test-c/ --target test
+
+  - name: reproc-cpp
+    script: install.sh  # [unix]
+    script: install.bat  # [win]
+    build:
+      run_exports:
+        - {{ pin_subpackage('reproc-cpp', 'x.x') }}
+    requirements:
+      build:
+        - {{ compiler("c") }}
+        - {{ stdlib("c") }}
+        - {{ compiler("cxx") }}
+        - cmake
+        - ninja
+      host:
+        - {{ pin_subpackage('reproc', exact=True ) }}
+      run:
+        - {{ pin_subpackage('reproc', exact=True ) }}
+    test:
+      files:
+        - test-cpp/
+      requires:
+        - {{ compiler("c") }}
+        - {{ compiler("cxx") }}
+        - cmake
+        - ninja
+      commands:
+        - '@echo on'  # [win]
+        # Positive file tests
+        - test -f ${PREFIX}/include/reproc++/run.hpp                       # [unix]
+        - if not exist %LIBRARY_PREFIX%\include\reproc++\run.hpp (exit 1)  # [win]
+        - test -f ${PREFIX}/lib/libreproc++${SHLIB_EXT}            # [unix]
+        - if not exist %LIBRARY_PREFIX%\lib\reproc++.lib (exit 1)  # [win]
+        - if not exist %LIBRARY_PREFIX%\bin\reproc++.dll (exit 1)  # [win]
+        - test -f ${PREFIX}/lib/cmake/reproc++/reproc++-config.cmake                       # [unix]
+        - if not exist %LIBRARY_PREFIX%\lib\cmake\reproc++\reproc++-config.cmake (exit 1)  # [win]
+        # Negative file tests
+        - test ! -f ${PREFIX}/lib/libreproc.a                       # [unix]
+        - if exist %LIBRARY_PREFIX%\lib\reproc_static.lib (exit 1)  # [win]
+        - test ! -f ${PREFIX}/lib/libreproc++.a                       # [unix]
+        - if exist %LIBRARY_PREFIX%\lib\reproc++_static.lib (exit 1)  # [win]
+        # Running a test trying to link to the library
+        - cmake -G Ninja -S test-cpp/ -B build-test-cpp/ ${CMAKE_ARGS}  # [unix]
+        - cmake -G Ninja -S test-cpp/ -B build-test-cpp/ %CMAKE_ARGS%   # [win]
+        - cmake --build build-test-cpp/
+        - cmake --build build-test-cpp/ --target test
+
+  - name: reproc-static
+    script: install.sh  # [unix]
+    script: install.bat  # [win]
+    requirements:
+      build:
+        - {{ compiler("c") }}
+        - {{ stdlib("c") }}
+        - cmake
+        - ninja
+      run_constrained:
+        - reproc < 0
+    test:
+      files:
+        - test-c/
+      requires:
+        - {{ compiler("c") }}
+        - cmake
+        - ninja
+      commands:
+        - '@echo on'  # [win]
+        # Positive file tests
+        - test -f ${PREFIX}/include/reproc/run.h                       # [unix]
+        - if not exist %LIBRARY_PREFIX%\include\reproc\run.h (exit 1)  # [win]
+        - test -f ${PREFIX}/lib/libreproc.a                             # [unix]
+        - if not exist %LIBRARY_PREFIX%\lib\reproc_static.lib (exit 1)  # [win]
+        - test -f ${PREFIX}/lib/cmake/reproc/reproc-config.cmake                       # [unix]
+        - if not exist %LIBRARY_PREFIX%\lib\cmake\reproc\reproc-config.cmake (exit 1)  # [win]
+        # Negative file tests
+        - test ! -f ${PREFIX}/include/reproc++/reproc.hpp                 # [unix]
+        - if exist %LIBRARY_PREFIX%\include\reproc++\reproc.hpp (exit 1)  # [win]
+        - test ! -f ${PREFIX}/lib/libreproc++.a                       # [unix]
+        - if exist %LIBRARY_PREFIX%\lib\reproc++_static.lib (exit 1)  # [win]
+        - test ! -f ${PREFIX}/lib/libreproc${SHLIB_EXT}      # [unix]
+        - if exist %LIBRARY_PREFIX%\lib\reproc.lib (exit 1)  # [win]
+        - if exist %LIBRARY_PREFIX%\bin\reproc.dll (exit 1)  # [win]
+        - test ! -f ${PREFIX}/lib/libreproc++${SHLIB_EXT}      # [unix]
+        - if exist %LIBRARY_PREFIX%\lib\reproc++.lib (exit 1)  # [win]
+        - if exist %LIBRARY_PREFIX%\bin\reproc++.dll (exit 1)  # [win]
+        - test ! -f ${PREFIX}/lib/cmake/reproc++/reproc++-config.cmake                 # [unix]
+        - if exist %LIBRARY_PREFIX%\lib\cmake\reproc++\reproc++-config.cmake (exit 1)  # [win]
+        # Running a test trying to link to the library
+        - cmake -G Ninja -S test-c/ -B build-test-c/ ${CMAKE_ARGS}  # [unix]
+        - cmake -G Ninja -S test-c/ -B build-test-c/ %CMAKE_ARGS%   # [win]
+        - cmake --build build-test-c/
+        - cmake --build build-test-c/ --target test
+
+  - name: reproc-cpp-static
+    script: install.sh  # [unix]
+    script: install.bat  # [win]
+    requirements:
+      build:
+        - {{ compiler("c") }}
+        - {{ stdlib("c") }}
+        - {{ compiler("cxx") }}
+        - cmake
+        - ninja
+      host:
+        - {{ pin_subpackage('reproc-static', exact=True ) }}
+      run:
+        - {{ pin_subpackage('reproc-static', exact=True ) }}
+      run_constrained:
+        - reproc-cpp < 0
+    test:
+      files:
+        - test-cpp/
+      requires:
+        - {{ compiler("c") }}
+        - {{ compiler("cxx") }}
+        - cmake
+        - ninja
+      commands:
+        - '@echo on'  # [win]
+        # Positive file tests
+        - test -f ${PREFIX}/include/reproc++/reproc.hpp                       # [unix]
+        - if not exist %LIBRARY_PREFIX%\include\reproc++\reproc.hpp (exit 1)  # [win]
+        - test -f ${PREFIX}/lib/libreproc++.a                             # [unix]
+        - if not exist %LIBRARY_PREFIX%\lib\reproc++_static.lib (exit 1)  # [win]
+        - test -f ${PREFIX}/lib/cmake/reproc++/reproc++-config.cmake                      # [unix]
+        - if not exist %LIBRARY_PREFIX%\lib\cmake\reproc++\reproc++-config.cmake (exit 1)  # [win]
+        # Negative file tests
+        - test ! -f ${PREFIX}/lib/libreproc${SHLIB_EXT}      # [unix]
+        - if exist %LIBRARY_PREFIX%\lib\reproc.lib (exit 1)  # [win]
+        - if exist %LIBRARY_PREFIX%\bin\reproc.dll (exit 1)  # [win]
+        - test ! -f ${PREFIX}/lib/libreproc++${SHLIB_EXT}      # [unix]
+        - if exist %LIBRARY_PREFIX%\lib\reproc++.lib (exit 1)  # [win]
+        - if exist %LIBRARY_PREFIX%\bin\reproc++.dll (exit 1)  # [win]
+        # Running a test trying to link to the library
+        - cmake -G Ninja -S test-cpp/ -B build-test-cpp/ ${CMAKE_ARGS}  # [unix]
+        - cmake -G Ninja -S test-cpp/ -B build-test-cpp/ %CMAKE_ARGS%   # [win]
+        - cmake --build build-test-cpp/
+        - cmake --build build-test-cpp/ --target test
+
+about:
+  home: https://github.com/DaanDeMeyer/reproc
+  license_file: LICENSE
+  license: MIT
+  summary: reproc (Redirected Process) is a cross-platform C/C++ library that simplifies starting, stopping and communicating with external programs.
+  dev_url: https://github.com/DaanDeMeyer/reproc
+
+extra:
+  recipe-maintainers:
+    - AntoinePrv
+    - wolfv
+    - DaanDeMeyer

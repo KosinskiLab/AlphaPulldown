@@ -1,0 +1,84 @@
+# This file created by conda-build 24.3.0
+# meta.yaml template originally from:
+# /home/conda/recipe_root, last modified Fri Apr 19 08:31:08 2024
+# ------------------------------------------------
+
+package:
+  name: lzo
+  version: '2.10'
+source:
+  sha256: c0f892943208266f9b6543b3ae308fab6284c5c90e627931446fb49b4221a072
+  url: http://www.oberhumer.com/opensource/lzo/download/lzo-2.10.tar.gz
+build:
+  number: '1001'
+  run_exports:
+    - lzo >=2.10,<3.0a0
+  string: hd590300_1001
+requirements:
+  build:
+    - _libgcc_mutex 0.1 conda_forge
+    - _openmp_mutex 4.5 2_gnu
+    - binutils_impl_linux-64 2.40 hf600244_0
+    - binutils_linux-64 2.40 hdade7a5_3
+    - bzip2 1.0.8 hd590300_5
+    - c-ares 1.28.1 hd590300_0
+    - ca-certificates 2024.2.2 hbcca054_0
+    - cmake 3.29.2 hcfe8598_0
+    - gcc_impl_linux-64 12.3.0 he2b93b0_5
+    - gcc_linux-64 12.3.0 h6477408_3
+    - kernel-headers_linux-64 2.6.32 he073ed8_17
+    - keyutils 1.6.1 h166bdaf_0
+    - krb5 1.21.2 h659d440_0
+    - ld_impl_linux-64 2.40 h41732ed_0
+    - libcurl 8.7.1 hca28451_0
+    - libedit 3.1.20191231 he28a2e2_2
+    - libev 4.33 hd590300_2
+    - libexpat 2.6.2 h59595ed_0
+    - libgcc-devel_linux-64 12.3.0 h8bca6fd_105
+    - libgcc-ng 13.2.0 h807b86a_5
+    - libgomp 13.2.0 h807b86a_5
+    - libnghttp2 1.58.0 h47da74e_1
+    - libsanitizer 12.3.0 h0f45ef3_5
+    - libssh2 1.11.0 h0841786_0
+    - libstdcxx-ng 13.2.0 h7e041cc_5
+    - libuv 1.48.0 hd590300_0
+    - libzlib 1.2.13 hd590300_5
+    - make 4.3 hd18ef5c_1
+    - ncurses 6.4.20240210 h59595ed_0
+    - openssl 3.2.1 hd590300_1
+    - rhash 1.4.4 hd590300_0
+    - sysroot_linux-64 2.12 he073ed8_17
+    - xz 5.2.6 h166bdaf_0
+    - zstd 1.5.5 hfc55251_0
+  host:
+    - _libgcc_mutex 0.1 conda_forge
+    - _openmp_mutex 4.5 2_gnu
+    - libgcc-ng 13.2.0 h807b86a_5
+    - libgomp 13.2.0 h807b86a_5
+  run:
+    - libgcc-ng >=12
+test:
+  commands:
+    - test -f ${PREFIX}/include/lzo/lzoconf.h
+    - test -f ${PREFIX}/lib/liblzo2.a
+    - test -f ${PREFIX}/lib/liblzo2${SHLIB_EXT}
+about:
+  description: 'LZO offers pretty fast compression and extremely fast decompression.
+
+    MiniLZO is a very lightweight subset of the LZO library.
+
+    '
+  home: http://www.oberhumer.com/opensource/lzo/
+  license: GPL-2.0-or-later
+  license_family: GPL2
+  license_file: COPYING
+  summary: LZO is a portable lossless data compression library written in ANSI C.
+extra:
+  copy_test_source_files: true
+  final: true
+  flow_run_id: azure_20240419.1.1
+  recipe-maintainers:
+    - ocefpaf
+    - rmax
+  remote_url: https://github.com/conda-forge/lzo-feedstock
+  sha: d209d63d9c6a0269f2ee2b2def1a6c2e697e6607

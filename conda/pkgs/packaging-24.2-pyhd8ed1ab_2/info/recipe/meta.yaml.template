@@ -1,0 +1,47 @@
+{% set version = "24.2" %}
+{% set python_min = "3.8" %}
+
+package:
+  name: packaging
+  version: {{ version }}
+
+source:
+  url: https://pypi.org/packages/source/p/packaging/packaging-{{ version }}.tar.gz
+  sha256: c228a6dc5e932d346bc5739379109d49e8853dd8223571c7c5b55260edc0b97f
+
+build:
+  number: 2
+  noarch: python
+  script: {{ PYTHON }} -m pip install . -vv
+
+requirements:
+  host:
+    - python {{ python_min }}
+    - flit-core >=3.3
+    - pip
+  run:
+    - python >={{ python_min }}
+
+test:
+  requires:
+    - python {{ python_min }}
+    - pip
+  imports:
+    - packaging
+  commands:
+    - pip check
+
+about:
+  home: https://github.com/pypa/packaging
+  license: Apache-2.0
+  license_file: LICENSE
+  summary: Core utilities for Python packages
+  doc_url: https://packaging.pypa.io/
+  dev_url: https://github.com/pypa/packaging
+
+extra:
+  recipe-maintainers:
+    - jakirkham
+    - nicoddemus
+    - matthewfeickert
+    - ofek

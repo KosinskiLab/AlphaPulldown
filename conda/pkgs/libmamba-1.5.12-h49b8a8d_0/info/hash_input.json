@@ -1,0 +1,14 @@
+{
+  "libarchive": "3.7",
+  "target_platform": "linux-64",
+  "cxx_compiler_version": "13",
+  "channel_targets": "conda-forge main",
+  "openssl": "3",
+  "c_stdlib": "sysroot",
+  "spdlog": "1.15",
+  "zstd": "1.5",
+  "c_stdlib_version": "2.17",
+  "fmt": "11",
+  "cxx_compiler": "gxx",
+  "__glibc": "__glibc >=2.17,<3.0.a0"
+}

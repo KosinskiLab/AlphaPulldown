@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AF3x JSON Input Generator</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"; margin: 20px; background-color: #f4f7f9; color: #333; }
+        .container { max-width: 900px; margin: auto; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 15px rgba(0,0,0,0.1); }
+        h1, h2, h3, h4, h5 { color: #2c3e50; }
+        .section { border: 1px solid #e0e0e0; padding: 15px; margin-bottom: 20px; border-radius: 5px; background-color: #fdfdfd; }
+        .section h3 { margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        label { display: block; margin-top: 12px; font-weight: 600; font-size: 0.95em; margin-bottom: 3px; }
+        input[type="text"], input[type="number"], textarea, select { width: calc(100% - 18px); padding: 9px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 0.95em; }
+        textarea { min-height: 70px; resize: vertical; }
+        button, .button-link { padding: 9px 18px; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 10px; font-size: 0.95em; transition: background-color 0.2s ease; text-decoration: none; display: inline-block; text-align: center;}
+        button:hover, .button-link:hover { background-color: #2980b9; }
+        .remove-btn { background-color: #e74c3c; margin-left: 10px; }
+        .remove-btn:hover { background-color: #c0392b; }
+        .add-btn { background-color: #2ecc71; }
+        .add-btn:hover { background-color: #27ae60; }
+        .toggle-btn { background-color: #95a5a6; font-size: 0.85em; padding: 6px 12px; margin-bottom:10px; }
+        .toggle-btn:hover { background-color: #7f8c8d; }
+        .subsection { border: 1px dashed #d0d0d0; padding: 12px; margin-top: 12px; border-radius: 4px; background-color: #f9f9f9; }
+        .optional-parameters { display: none; border-top: 1px solid #eee; margin-top: 10px; padding-top:10px;}
+        .info { font-size: 0.85em; color: #555; margin-bottom: 10px; padding: 8px; background-color: #ecf0f1; border-radius: 3px; border-left: 3px solid #3498db;}
+        #jsonOutput { background-color: #2c3e50; color: #f8f8f2; border: 1px solid #444; padding: 15px; white-space: pre-wrap; word-break: break-all; border-radius: 4px; max-height: 500px; overflow-y: auto; font-family: "Courier New", Courier, monospace; }
+        #generateJsonBtn { background-color: #16a085; padding: 12px 25px; font-size: 1.05em; }
+        #generateJsonBtn:hover { background-color: #117a65; }
+        .action-buttons button, .action-buttons a.button-link { margin-right: 10px; }
+        .crosslink-residue-pair-entry > div { margin-bottom: 5px;}
+        .crosslink-residue-pair-entry label {font-size: 0.9em; margin-top: 5px;}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AF3x JSON Input Generator</h1>
+
+        <div class="section" id="general-info">
+            <h3>General Information</h3>
+            <label for="jobName">Job Name:</label>
+            <input type="text" id="jobName" name="jobName" placeholder="e.g., MyProteinLigandComplex", value="test_name">
+
+            <label for="modelSeeds">Model Seeds (comma-separated):</label>
+            <input type="text" id="modelSeeds" name="modelSeeds" value="1" required>
+            <div class="info">At least one seed required. E.g., 1,2,3</div>
+
+            <input type="hidden" id="dialect" name="dialect" value="alphafold3">
+            <label for="version">Input Version:</label>
+            <input type="number" id="version" name="version" value="3">
+             <div class="info">Version 3 supports all current features (including userCCDPath). Crosslinks are assumed compatible.</div>
+        </div>
+
+        <div class="section" id="sequences-section">
+            <h3>Sequences</h3>
+            <div id="sequences-container">
+                </div>
+            <button type="button" id="addSequenceBtn" class="add-btn">Add Sequence Entity</button>
+        </div>
+        
+        <div class="section" id="crosslinks-section">
+            <h3>Crosslinks (Optional, AF3x Syntax)</h3>
+            <div class="info">Define crosslinks between residues. Each crosslink group has a name and one or more residue pairs.</div>
+            <div id="crosslinks-container">
+                </div>
+            <button type="button" id="addCrosslinkGroupBtn" class="add-btn">Add Crosslink Group</button>
+        </div>
+
+        <div class="section" id="bonds-section">
+            <h3>Bonded Atom Pairs (Optional)</h3>
+            <div class="info">Define covalent bonds (e.g., for covalent ligands or glycans). Not for SMILES-defined ligands. Each atom is addressed by Entity ID, 1-based Residue ID, and Atom Name.</div>
+            <div id="bondedAtomPairs-container">
+                </div>
+            <button type="button" id="addBondBtn" class="add-btn">Add Bond</button>
+        </div>
+
+        <div class="section" id="user-ccd-section">
+            <h3>User-Provided CCD (Optional, Expert)</h3>
+            <div class="info">For custom ligands not in standard CCD, especially if they need to be bonded or require specific conformers. Provide either inline CCD content OR a path to a CCD file (mutually exclusive).</div>
+            <label for="userCCD">User CCD (mmCIF format, inline string):</label>
+            <textarea id="userCCD" name="userCCD" placeholder="Paste mmCIF content here. Remember to use '\n' for newlines within the JSON string if manually editing."></textarea>
+            <div class="info">If pasting directly, ensure newlines are actual newlines. The JSON generator will handle escaping if this textarea has literal newlines. For mmCIF syntax: use single quotes for strings like chemical formulas if issues arise.</div>
+
+            <label for="userCCDPath">User CCD Path (path to .cif, .cif.gz, .cif.xz, .cif.zst):</label>
+            <input type="text" id="userCCDPath" name="userCCDPath" placeholder="/path/to/your/custom_ccd.cif">
+        </div>
+
+        <button type="button" id="generateJsonBtn">Generate JSON</button>
+
+        <div class="section" id="output-section" style="margin-top: 30px;">
+            <h3>Generated JSON Output</h3>
+            <div class="action-buttons">
+                <button type="button" id="copyJsonBtn" style="display:none;">Copy JSON</button>
+                <a id="downloadJsonLink" class="button-link" style="display:none;" download="alphafold3_input.json">Download JSON</a>
+            </div>
+            <pre id="jsonOutput"></pre>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const sequencesContainer = document.getElementById('sequences-container');
+        const addSequenceBtn = document.getElementById('addSequenceBtn');
+        const bondedAtomPairsContainer = document.getElementById('bondedAtomPairs-container');
+        const addBondBtn = document.getElementById('addBondBtn');
+        const crosslinksContainer = document.getElementById('crosslinks-container');
+        const addCrosslinkGroupBtn = document.getElementById('addCrosslinkGroupBtn');
+        const generateJsonBtn = document.getElementById('generateJsonBtn');
+        const jsonOutputEl = document.getElementById('jsonOutput');
+        const copyJsonBtn = document.getElementById('copyJsonBtn');
+        const downloadJsonLink = document.getElementById('downloadJsonLink');
+
+        let entityCounter = 0;
+        let crosslinkGroupCounter = 0;
+
+        function createInputGroup(labelText, inputType, inputName, inputPlaceholder, defaultValue = '', isTextarea = false, options = null, required = false, customClass = '', infoText = null) {
+            const groupDiv = document.createElement('div');
+            groupDiv.className = 'input-group';
+
+            const label = document.createElement('label');
+            label.textContent = labelText + (required ? '*' : '');
+            label.htmlFor = inputName;
+            groupDiv.appendChild(label);
+
+            let input;
+            if (isTextarea) {
+                input = document.createElement('textarea');
+            } else if (options) {
+                input = document.createElement('select');
+                options.forEach(opt => {
+                    const option = document.createElement('option');
+                    option.value = opt.value;
+                    option.textContent = opt.label;
+                    input.appendChild(option);
+                });
+            } else {
+                input = document.createElement('input');
+                input.type = inputType;
+            }
+            input.name = inputName;
+            input.id = inputName;
+            input.placeholder = inputPlaceholder;
+            input.value = defaultValue;
+            if (required) input.required = true;
+            if (customClass) input.className = customClass;
+            groupDiv.appendChild(input);
+
+            if (infoText) {
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'info';
+                infoDiv.innerHTML = infoText; // Use innerHTML for potential HTML in infoText
+                groupDiv.appendChild(infoDiv);
+            }
+            return { groupDiv, inputEl: input };
+        }
+
+        function createRemoveButton(targetDiv, text = 'Remove') {
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.textContent = text;
+            removeBtn.className = 'remove-btn';
+            removeBtn.onclick = () => targetDiv.remove();
+            return removeBtn;
+        }
+        
+        function createToggleButton(targetDiv, showText = 'Show Optional Parameters', hideText = 'Hide Optional Parameters') {
+            const toggleBtn = document.createElement('button');
+            toggleBtn.type = 'button';
+            toggleBtn.textContent = showText;
+            toggleBtn.className = 'toggle-btn';
+            toggleBtn.onclick = () => {
+                const isHidden = targetDiv.style.display === 'none';
+                targetDiv.style.display = isHidden ? 'block' : 'none';
+                toggleBtn.textContent = isHidden ? hideText : showText;
+            };
+            return toggleBtn;
+        }
+
+        addSequenceBtn.addEventListener('click', () => {
+            entityCounter++;
+            const uniqueId = `entity_${entityCounter}`;
+            const sequenceDiv = document.createElement('div');
+            sequenceDiv.className = 'subsection sequence-entry';
+            sequenceDiv.dataset.entityId = uniqueId;
+
+            const header = document.createElement('h4');
+            header.textContent = `Sequence Entity ${sequencesContainer.children.length + 1}`;
+            sequenceDiv.appendChild(header);
+
+            const typeSelectorGroup = createInputGroup(
+                'Sequence Type:', 'select', `seq_type_${uniqueId}`, '', 'protein', false,
+                [
+                    { value: 'protein', label: 'Protein' }, { value: 'rna', label: 'RNA' },
+                    { value: 'dna', label: 'DNA' }, { value: 'ligand', label: 'Ligand' }
+                ], true, 'seq-type-selector'
+            );
+            sequenceDiv.appendChild(typeSelectorGroup.groupDiv);
+            
+            // --- Required fields container ---
+            const requiredFieldsContainer = document.createElement('div');
+            requiredFieldsContainer.className = 'sequence-required-fields';
+            sequenceDiv.appendChild(requiredFieldsContainer);
+
+            // --- Optional fields container (collapsible) ---
+            const optionalFieldsDiv = document.createElement('div');
+            optionalFieldsDiv.className = 'optional-parameters'; // Initially hidden by CSS if desired
+            optionalFieldsDiv.id = `optional_params_${uniqueId}`;
+            
+            const toggleBtn = createToggleButton(optionalFieldsDiv);
+            sequenceDiv.appendChild(toggleBtn);
+            sequenceDiv.appendChild(optionalFieldsDiv);
+            
+            typeSelectorGroup.inputEl.onchange = () => renderSequenceFields(requiredFieldsContainer, optionalFieldsDiv, typeSelectorGroup.inputEl.value, uniqueId);
+            renderSequenceFields(requiredFieldsContainer, optionalFieldsDiv, 'protein', uniqueId); // Initial render
+
+            sequenceDiv.appendChild(createRemoveButton(sequenceDiv, 'Remove Entity'));
+            sequencesContainer.appendChild(sequenceDiv);
+        });
+
+        function renderSequenceFields(reqContainer, optContainer, type, uniqueId) {
+            reqContainer.innerHTML = ''; // Clear previous required fields
+            optContainer.innerHTML = ''; // Clear previous optional fields
+
+            reqContainer.appendChild(createInputGroup('Entity ID(s):', 'text', `seq_id_${uniqueId}`, 'A or A,B,C (for homomers)', '', false, null, true, '', 'Unique ID for this entity. Use comma-separation for multiple copies of a homomer (e.g., A,B).').groupDiv);
+
+            if (type === 'protein' || type === 'rna' || type === 'dna') {
+                reqContainer.appendChild(createInputGroup('Sequence:', 'text', `seq_sequence_${uniqueId}`, `Enter ${type.toUpperCase()} sequence`, '', true, null, true).groupDiv);
+                
+                const modificationsContainer = document.createElement('div');
+                modificationsContainer.className = 'modifications-sub-container';
+                modificationsContainer.innerHTML = '<h5>Modifications (Optional)</h5>';
+                optContainer.appendChild(modificationsContainer);
+                const addModBtn = document.createElement('button');
+                addModBtn.type = 'button';
+                addModBtn.textContent = 'Add Modification';
+                addModBtn.className = 'add-btn';
+                addModBtn.onclick = () => addModificationField(modificationsContainer, type, uniqueId);
+                optContainer.appendChild(addModBtn);
+            }
+
+            if (type === 'protein' || type === 'rna') {
+                const msaHeader = document.createElement('h5');
+                msaHeader.textContent = 'Multiple Sequence Alignment (MSA, Optional)';
+                optContainer.appendChild(msaHeader);
+                optContainer.appendChild(createInputGroup('Unpaired MSA (A3M content):', 'text', `seq_unpairedMsa_${uniqueId}`, 'Paste A3M string or leave blank', '', true, null, false, '', 'Mutually exclusive with Unpaired MSA Path. If all MSA fields for a protein are blank, MSAs will be omitted (AF3 builds them).').groupDiv);
+                optContainer.appendChild(createInputGroup('Unpaired MSA Path:', 'text', `seq_unpairedMsaPath_${uniqueId}`, '/path/to/unpaired.a3m', '', false, null, false, '', 'Mutually exclusive with Unpaired MSA content.').groupDiv);
+            }
+
+            if (type === 'protein') {
+                optContainer.appendChild(createInputGroup('Paired MSA (A3M content):', 'text', `seq_pairedMsa_${uniqueId}`, 'Paste A3M string or leave blank/set to ""', '', true, null, false, '', 'Mutually exclusive with Paired MSA Path. For proteins, if unpaired MSA is set and this is blank, it defaults to "".').groupDiv);
+                optContainer.appendChild(createInputGroup('Paired MSA Path:', 'text', `seq_pairedMsaPath_${uniqueId}`, '/path/to/paired.a3m', '', false, null, false, '', 'Mutually exclusive with Paired MSA content.').groupDiv);
+
+                const templatesHeader = document.createElement('h5');
+                templatesHeader.textContent = 'Structural Templates (Optional)';
+                optContainer.appendChild(templatesHeader);
+                const templatesInfo = document.createElement('div');
+                templatesInfo.className = 'info';
+                templatesInfo.innerHTML = 'Provide mmCIF (content or path) and 0-based query/template residue indices. If this section is present and no valid templates are defined, it implies `templates: []` (template-free). If this whole "Structural Templates" section is empty for a protein (no template items added), the `templates` field will be omitted, and AF3 will search for templates.';
+                optContainer.appendChild(templatesInfo);
+
+                const templatesContainer = document.createElement('div');
+                templatesContainer.className = 'templates-sub-container';
+                optContainer.appendChild(templatesContainer);
+                const addTemplateBtn = document.createElement('button');
+                addTemplateBtn.type = 'button';
+                addTemplateBtn.className = 'add-btn';
+                addTemplateBtn.textContent = 'Add Template';
+                addTemplateBtn.onclick = () => addTemplateField(templatesContainer, uniqueId);
+                optContainer.appendChild(addTemplateBtn);
+            }
+
+            if (type === 'ligand') {
+                reqContainer.appendChild(createInputGroup('CCD Codes (comma-separated):', 'text', `seq_ccdCodes_${uniqueId}`, 'e.g., ATP,ADP', '', false, null, false, '', 'Mutually exclusive with SMILES. At least one of CCD/SMILES is required for a ligand.').groupDiv);
+                reqContainer.appendChild(createInputGroup('SMILES String:', 'text', `seq_smiles_${uniqueId}`, 'e.g., CC(=O)OC1C[NH+]2CCC1CC2', '', false, null, false, '', 'Mutually exclusive with CCD Codes. Ensure backslashes are JSON-escaped if needed (e.g., \\\\ becomes \\\\\\\\ in the final JSON). Cannot specify covalent bonds with SMILES.').groupDiv);
+            }
+        }
+
+        function addModificationField(container, seqType, parentId) {
+            const modCount = container.querySelectorAll('.modification-entry').length;
+            const modDiv = document.createElement('div');
+            modDiv.className = 'subsection modification-entry';
+            modDiv.innerHTML = `<h6>Modification ${modCount + 1}</h6>`;
+
+            const typeLabel = seqType === 'protein' ? 'PTM Type (CCD Code)' : 'Modification Type (CCD Code)';
+            const posLabel = seqType === 'protein' ? 'PTM Position (1-based)' : 'Base Position (1-based)';
+            
+            modDiv.appendChild(createInputGroup(typeLabel + ':', 'text', `mod_type_${parentId}_${modCount}`, 'e.g., HY3 or 2MG', '', false, null, true).groupDiv);
+            const posGroup = createInputGroup(posLabel + ':', 'number', `mod_pos_${parentId}_${modCount}`, 'e.g., 1', '', false, null, true);
+            posGroup.inputEl.min = "1";
+            modDiv.appendChild(posGroup.groupDiv);
+            
+            modDiv.appendChild(createRemoveButton(modDiv));
+            container.appendChild(modDiv);
+        }
+
+        function addTemplateField(container, parentId) {
+            const tplCount = container.querySelectorAll('.template-entry').length;
+            const templateDiv = document.createElement('div');
+            templateDiv.className = 'subsection template-entry';
+            templateDiv.innerHTML = `<h6>Template ${tplCount + 1}</h6>`;
+
+            templateDiv.appendChild(createInputGroup('mmCIF Content (string):', 'text', `tpl_mmcif_${parentId}_${tplCount}`, 'Paste mmCIF string', '', true, null, false, '', 'Mutually exclusive with mmCIF Path.').groupDiv);
+            templateDiv.appendChild(createInputGroup('mmCIF Path:', 'text', `tpl_mmcifPath_${parentId}_${tplCount}`, '/path/to/template.cif', '', false, null, false, '', 'Mutually exclusive with mmCIF Content.').groupDiv);
+            templateDiv.appendChild(createInputGroup('Query Indices (0-based, comma-separated):', 'text', `tpl_queryIndices_${parentId}_${tplCount}`, 'e.g., 0,1,2,5', '', false, null, true).groupDiv);
+            templateDiv.appendChild(createInputGroup('Template Indices (0-based, comma-separated):', 'text', `tpl_templateIndices_${parentId}_${tplCount}`, 'e.g., 0,1,2,8', '', false, null, true).groupDiv);
+            
+            templateDiv.appendChild(createRemoveButton(templateDiv));
+            container.appendChild(templateDiv);
+        }
+        
+        addBondBtn.addEventListener('click', () => {
+            entityCounter++; // Use a general counter for unique element IDs
+            const bondIdSuffix = `bond_${entityCounter}`;
+            const bondDiv = document.createElement('div');
+            bondDiv.className = 'subsection bond-entry';
+            bondDiv.dataset.bondIdSuffix = bondIdSuffix;
+
+            bondDiv.innerHTML = `<h6>Bond ${bondedAtomPairsContainer.querySelectorAll('.bond-entry').length + 1}</h6>`;
+            
+            const sourceAtomDiv = document.createElement('div');
+            sourceAtomDiv.innerHTML = '<strong>Source Atom:</strong>';
+            sourceAtomDiv.appendChild(createInputGroup('Entity ID:', 'text', `bond_src_entity_${bondIdSuffix}`, 'e.g., A', '', false, null, true).groupDiv);
+            const srcResGroup = createInputGroup('Residue ID (1-based):', 'number', `bond_src_res_${bondIdSuffix}`, 'e.g., 145', '', false, null, true);
+            srcResGroup.inputEl.min = "1";
+            sourceAtomDiv.appendChild(srcResGroup.groupDiv);
+            sourceAtomDiv.appendChild(createInputGroup('Atom Name:', 'text', `bond_src_atom_${bondIdSuffix}`, 'e.g., SG', '', false, null, true).groupDiv);
+            bondDiv.appendChild(sourceAtomDiv);
+
+            const destAtomDiv = document.createElement('div');
+            destAtomDiv.innerHTML = '<strong>Destination Atom:</strong>';
+            destAtomDiv.appendChild(createInputGroup('Entity ID:', 'text', `bond_dest_entity_${bondIdSuffix}`, 'e.g., L', '', false, null, true).groupDiv);
+            const destResGroup = createInputGroup('Residue ID (1-based):', 'number', `bond_dest_res_${bondIdSuffix}`, 'e.g., 1', '', false, null, true);
+            destResGroup.inputEl.min = "1";
+            destAtomDiv.appendChild(destResGroup.groupDiv);
+            destAtomDiv.appendChild(createInputGroup('Atom Name:', 'text', `bond_dest_atom_${bondIdSuffix}`, 'e.g., C04', '', false, null, true).groupDiv);
+            bondDiv.appendChild(destAtomDiv);
+
+            bondDiv.appendChild(createRemoveButton(bondDiv));
+            bondedAtomPairsContainer.appendChild(bondDiv);
+        });
+
+        addCrosslinkGroupBtn.addEventListener('click', () => {
+            crosslinkGroupCounter++;
+            const groupIdSuffix = `cl_group_${crosslinkGroupCounter}`;
+            const groupDiv = document.createElement('div');
+            groupDiv.className = 'subsection crosslink-group-entry';
+            groupDiv.dataset.groupIdSuffix = groupIdSuffix;
+            
+            groupDiv.innerHTML = `<h4>Crosslink Group ${crosslinksContainer.querySelectorAll('.crosslink-group-entry').length + 1}</h4>`;
+            groupDiv.appendChild(createInputGroup('Group Name:', 'text', `cl_group_name_${groupIdSuffix}`, 'e.g., azide-A-DSBSO', '', false, null, true).groupDiv);
+
+            const residuePairsContainer = document.createElement('div');
+            residuePairsContainer.className = 'crosslink-residue-pairs-container';
+            residuePairsContainer.id = `cl_pairs_container_${groupIdSuffix}`;
+            groupDiv.appendChild(residuePairsContainer);
+
+            const addPairBtn = document.createElement('button');
+            addPairBtn.type = 'button';
+            addPairBtn.textContent = 'Add Residue Pair';
+            addPairBtn.className = 'add-btn';
+            addPairBtn.onclick = () => addCrosslinkResiduePairField(residuePairsContainer, groupIdSuffix);
+            groupDiv.appendChild(addPairBtn);
+            groupDiv.appendChild(createRemoveButton(groupDiv, 'Remove Crosslink Group'));
+            crosslinksContainer.appendChild(groupDiv);
+            addCrosslinkResiduePairField(residuePairsContainer, groupIdSuffix); // Add one pair by default
+        });
+
+        function addCrosslinkResiduePairField(pairsContainer, groupIdSuffix) {
+            const pairCount = pairsContainer.querySelectorAll('.crosslink-residue-pair-entry').length;
+            const pairIdSuffix = `${groupIdSuffix}_pair_${pairCount}`;
+            const pairDiv = document.createElement('div');
+            pairDiv.className = 'subsection crosslink-residue-pair-entry';
+            pairDiv.innerHTML = `<h5>Residue Pair ${pairCount + 1}</h5>`;
+
+            pairDiv.appendChild(createInputGroup('Chain A ID:', 'text', `cl_${pairIdSuffix}_chainA_id`, 'A', '', false, null, true).groupDiv);
+            pairDiv.appendChild(createInputGroup('Residue A Index:', 'number', `cl_${pairIdSuffix}_resA_idx`, '104', '', false, null, true).groupDiv);
+            pairDiv.appendChild(createInputGroup('Chain B ID:', 'text', `cl_${pairIdSuffix}_chainB_id`, 'B', '', false, null, true).groupDiv);
+            pairDiv.appendChild(createInputGroup('Residue B Index:', 'number', `cl_${pairIdSuffix}_resB_idx`, '43', '', false, null, true).groupDiv);
+            
+            pairDiv.appendChild(createRemoveButton(pairDiv, 'Remove Pair'));
+            pairsContainer.appendChild(pairDiv);
+        }
+
+
+        generateJsonBtn.addEventListener('click', () => {
+            try {
+                const output = {
+                    dialect: "alphafold3",
+                    version: parseInt(document.getElementById('version').value) || 3
+                };
+
+                const jobName = document.getElementById('jobName').value;
+                if (jobName) output.name = jobName;
+
+                const modelSeedsRaw = document.getElementById('modelSeeds').value;
+                if (!modelSeedsRaw) {
+                    alert("Model Seeds are required."); return;
+                }
+                const modelSeeds = modelSeedsRaw.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+                if (modelSeeds.length === 0) {
+                    alert("Valid Model Seeds are required (e.g., 1 or 1,2)."); return;
+                }
+                output.modelSeeds = modelSeeds;
+                
+                output.sequences = [];
+                const sequenceEntries = document.querySelectorAll('.sequence-entry');
+                if (sequenceEntries.length === 0) {
+                    alert("At least one sequence entity is required."); return;
+                }
+
+                sequenceEntries.forEach((seqDiv, idx) => {
+                    const entityId = seqDiv.dataset.entityId;
+                    const type = seqDiv.querySelector(`select[name="seq_type_${entityId}"]`).value;
+                    const currentEntity = {};
+                    currentEntity[type] = {};
+
+                    const idInputValue = seqDiv.querySelector(`input[name="seq_id_${entityId}"]`).value.trim();
+                    if (!idInputValue) throw new Error(`Entity ID is required for sequence entity ${idx + 1}.`);
+                    if (idInputValue.includes(',')) {
+                        currentEntity[type].id = idInputValue.split(',').map(s => s.trim()).filter(Boolean);
+                        if(currentEntity[type].id.length === 0) throw new Error(`Valid Entity ID(s) are required for sequence entity ${idx + 1}.`);
+                    } else {
+                        currentEntity[type].id = idInputValue;
+                    }
+
+                    if (type === 'protein' || type === 'rna' || type === 'dna') {
+                        const sequenceStr = seqDiv.querySelector(`textarea[name="seq_sequence_${entityId}"]`).value.trim();
+                        if (!sequenceStr) throw new Error(`Sequence string is required for ${type} entity "${currentEntity[type].id}".`);
+                        currentEntity[type].sequence = sequenceStr;
+
+                        const modifications = [];
+                        seqDiv.querySelectorAll('.modification-entry').forEach(modDiv => {
+                            const modType = modDiv.querySelector(`input[name^="mod_type_${entityId}"]`).value.trim();
+                            const modPos = modDiv.querySelector(`input[name^="mod_pos_${entityId}"]`).value.trim();
+                            if (modType && modPos) {
+                                const mod = {};
+                                if (type === 'protein') {
+                                    mod.ptmType = modType;
+                                    mod.ptmPosition = parseInt(modPos);
+                                } else { // RNA or DNA
+                                    mod.modificationType = modType;
+                                    mod.basePosition = parseInt(modPos);
+                                }
+                                modifications.push(mod);
+                            } else if (modType || modPos) { // If one is filled but not the other
+                                throw new Error(`Incomplete modification for ${type} entity "${currentEntity[type].id}". Both type and position are required.`);
+                            }
+                        });
+                        if (modifications.length > 0) currentEntity[type].modifications = modifications;
+                    }
+
+                    if (type === 'protein') {
+                        // Clear previous MSA fields to handle re-generation correctly
+                        delete currentEntity[type].unpairedMsa; delete currentEntity[type].unpairedMsaPath;
+                        delete currentEntity[type].pairedMsa; delete currentEntity[type].pairedMsaPath;
+
+                        let up_path_val = seqDiv.querySelector(`input[name="seq_unpairedMsaPath_${entityId}"]`).value.trim();
+                        let up_content_val = seqDiv.querySelector(`textarea[name="seq_unpairedMsa_${entityId}"]`).value; // Raw value
+                        let p_path_val = seqDiv.querySelector(`input[name="seq_pairedMsaPath_${entityId}"]`).value.trim();
+                        let p_content_val = seqDiv.querySelector(`textarea[name="seq_pairedMsa_${entityId}"]`).value; // Raw value
+                        
+                        // If all four MSA inputs are empty strings (after trim for paths), then no MSA fields are set.
+                        if (!up_path_val && up_content_val === "" && !p_path_val && p_content_val === "") {
+                            // All MSA inputs are effectively blank, so omit all MSA fields for AF3 to build.
+                        } else {
+                            // At least one MSA input has a value or path.
+                            let unpairedIsSet = false;
+                            if (up_path_val) {
+                                if (up_content_val !== "") throw new Error(`Protein "${currentEntity[type].id}": Unpaired MSA content and path are mutually exclusive.`);
+                                currentEntity[type].unpairedMsaPath = up_path_val;
+                                unpairedIsSet = true;
+                            } else { // Path is empty, consider content (which can be "")
+                                currentEntity[type].unpairedMsa = up_content_val;
+                                unpairedIsSet = true; // "Set" even if it's to ""
+                            }
+
+                            let pairedIsSet = false;
+                            if (p_path_val) {
+                                if (p_content_val !== "") throw new Error(`Protein "${currentEntity[type].id}": Paired MSA content and path are mutually exclusive.`);
+                                currentEntity[type].pairedMsaPath = p_path_val;
+                                pairedIsSet = true;
+                            } else { // Path is empty
+                                currentEntity[type].pairedMsa = p_content_val;
+                                pairedIsSet = true; // "Set" even if it's to ""
+                            }
+                            
+                            // Apply pairing rules: if one is effectively set (could be to ""), the other must also be set (defaulting to "" if not already).
+                            if (unpairedIsSet && !pairedIsSet) { // This case implies pairedMsaPath was empty and pairedMsaContent was empty
+                                 currentEntity[type].pairedMsa = ""; // This line is technically redundant if pairedMsaContent was already ""
+                            } else if (pairedIsSet && !unpairedIsSet) { // unpairedMsaPath was empty and unpairedMsaContent was empty
+                                 currentEntity[type].unpairedMsa = ""; // Redundant if unpairedMsaContent was ""
+                            }
+                            // Correction: if one side (e.g. unpaired) is set (to path or content including ""),
+                            // and the other side (e.g. paired) has NO input (no path, content is empty string from blank field),
+                            // then the "no input" side should become "".
+                            if ( (currentEntity[type].hasOwnProperty('unpairedMsa') || currentEntity[type].hasOwnProperty('unpairedMsaPath')) &&
+                                 !(currentEntity[type].hasOwnProperty('pairedMsa') || currentEntity[type].hasOwnProperty('pairedMsaPath')) ) {
+                                currentEntity[type].pairedMsa = "";
+                            }
+                            if ( (currentEntity[type].hasOwnProperty('pairedMsa') || currentEntity[type].hasOwnProperty('pairedMsaPath')) &&
+                                 !(currentEntity[type].hasOwnProperty('unpairedMsa') || currentEntity[type].hasOwnProperty('unpairedMsaPath')) ) {
+                                currentEntity[type].unpairedMsa = "";
+                            }
+                        }
+                    } else if (type === 'rna') {
+                        delete currentEntity[type].unpairedMsa; delete currentEntity[type].unpairedMsaPath;
+                        const rnaUnpairedMsaPathVal = seqDiv.querySelector(`input[name="seq_unpairedMsaPath_${entityId}"]`).value.trim();
+                        const rnaUnpairedMsaContentVal = seqDiv.querySelector(`textarea[name="seq_unpairedMsa_${entityId}"]`).value; // Raw
+
+                        if (rnaUnpairedMsaPathVal && rnaUnpairedMsaContentVal !== "") {
+                             throw new Error(`RNA "${currentEntity[type].id}": Unpaired MSA content and path are mutually exclusive.`);
+                        }
+
+                        if (rnaUnpairedMsaPathVal) {
+                            currentEntity[type].unpairedMsaPath = rnaUnpairedMsaPathVal;
+                        } else if (rnaUnpairedMsaContentVal !== "") { // User typed content
+                            currentEntity[type].unpairedMsa = rnaUnpairedMsaContentVal;
+                        } else if (rnaUnpairedMsaContentVal === "") { // User explicitly wants "" (MSA-free) or left blank
+                            currentEntity[type].unpairedMsa = ""; // Per doc: "" means MSA-free. If unset (omitted), AF3 won't build. Blank field implies "" here.
+                        }
+                         // If both path and content are blank strings, then the field is omitted (AF3 won't build).
+                        if (!rnaUnpairedMsaPathVal && rnaUnpairedMsaContentVal === "") {
+                           // If it was truly blank and not set to "" by above, ensure it's omitted
+                           // However, the current path sets it to "" if content is "".
+                           // For RNA: unset = no MSA. "" = MSA-free.
+                           // If user leaves both blank, it should be unset.
+                           if (currentEntity[type].unpairedMsa === "" && !rnaUnpairedMsaPathVal && seqDiv.querySelector(`textarea[name="seq_unpairedMsa_${entityId}"]`).value === "") {
+                                // If the source was a truly blank textarea and no path, omit.
+                                delete currentEntity[type].unpairedMsa;
+                           }
+                        }
+                    }
+                    
+                    if (type === 'protein') {
+                        const templateEntries = seqDiv.querySelectorAll('.template-entry');
+                        if (templateEntries.length > 0) { 
+                            const templates = [];
+                            templateEntries.forEach(tplDiv => {
+                                const mmcifContent = tplDiv.querySelector(`textarea[name^="tpl_mmcif_${entityId}"]`).value.trim();
+                                const mmcifPath = tplDiv.querySelector(`input[name^="tpl_mmcifPath_${entityId}"]`).value.trim();
+                                const queryIndicesRaw = tplDiv.querySelector(`input[name^="tpl_queryIndices_${entityId}"]`).value.trim();
+                                const templateIndicesRaw = tplDiv.querySelector(`input[name^="tpl_templateIndices_${entityId}"]`).value.trim();
+
+                                if (!queryIndicesRaw || !templateIndicesRaw) throw new Error(`Query and Template Indices are required for any template in protein "${currentEntity[type].id}".`);
+                                if (!mmcifContent && !mmcifPath) throw new Error(`mmCIF content or path is required for any template in protein "${currentEntity[type].id}".`);
+                                if (mmcifContent && mmcifPath) throw new Error(`For template in protein "${currentEntity[type].id}", provide mmCIF content OR path, not both.`);
+
+                                const tpl = {};
+                                if (mmcifPath) tpl.mmcifPath = mmcifPath;
+                                else if (mmcifContent) tpl.mmcif = mmcifContent;
+                                
+                                tpl.queryIndices = queryIndicesRaw.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+                                tpl.templateIndices = templateIndicesRaw.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+
+                                if (tpl.queryIndices.length === 0 || tpl.queryIndices.length !== tpl.templateIndices.length) {
+                                    throw new Error(`Mismatch or empty indices for template in protein "${currentEntity[type].id}".`);
+                                }
+                                templates.push(tpl);
+                            });
+                            currentEntity[type].templates = templates; 
+                        }
+                    }
+
+                    if (type === 'ligand') {
+                        const ccdCodesRaw = seqDiv.querySelector(`input[name="seq_ccdCodes_${entityId}"]`).value.trim();
+                        const smilesRaw = seqDiv.querySelector(`input[name="seq_smiles_${entityId}"]`).value.trim();
+                        if (ccdCodesRaw && smilesRaw) throw new Error(`For ligand "${currentEntity[type].id}", specify CCD codes OR SMILES, not both.`);
+                        if (!ccdCodesRaw && !smilesRaw) throw new Error(`For ligand "${currentEntity[type].id}", specify CCD codes or SMILES.`);
+                        if (ccdCodesRaw) currentEntity[type].ccdCodes = ccdCodesRaw.split(',').map(s => s.trim()).filter(Boolean);
+                        if (smilesRaw) currentEntity[type].smiles = smilesRaw;
+                    }
+                    output.sequences.push(currentEntity);
+                });
+
+                output.crosslinks = [];
+                document.querySelectorAll('.crosslink-group-entry').forEach(groupDiv => {
+                    const groupIdSuffix = groupDiv.dataset.groupIdSuffix;
+                    const groupName = groupDiv.querySelector(`input[name="cl_group_name_${groupIdSuffix}"]`).value.trim();
+                    if (!groupName) throw new Error("Crosslink group name is required.");
+                    const currentGroup = { name: groupName, residue_pairs: [] };
+
+                    groupDiv.querySelectorAll('.crosslink-residue-pair-entry').forEach(pairDiv => {
+                        const chainA_id = pairDiv.querySelector(`input[name^="cl_${groupIdSuffix}_pair_"][name$="_chainA_id"]`).value.trim();
+                        const resA_idx_raw = pairDiv.querySelector(`input[name^="cl_${groupIdSuffix}_pair_"][name$="_resA_idx"]`).value.trim();
+                        const chainB_id = pairDiv.querySelector(`input[name^="cl_${groupIdSuffix}_pair_"][name$="_chainB_id"]`).value.trim();
+                        const resB_idx_raw = pairDiv.querySelector(`input[name^="cl_${groupIdSuffix}_pair_"][name$="_resB_idx"]`).value.trim();
+                        
+                        if (!chainA_id || resA_idx_raw === "" || !chainB_id || resB_idx_raw === "") {
+                            throw new Error(`Incomplete residue pair in crosslink group "${groupName}". All fields required.`);
+                        }
+                        const resA_idx = parseInt(resA_idx_raw);
+                        const resB_idx = parseInt(resB_idx_raw);
+                        if (isNaN(resA_idx) || isNaN(resB_idx)) {
+                            throw new Error(`Residue indices must be numbers in crosslink group "${groupName}".`);
+                        }
+                        currentGroup.residue_pairs.push([ [chainA_id, resA_idx], [chainB_id, resB_idx] ]);
+                    });
+                    if (currentGroup.residue_pairs.length === 0) {
+                        throw new Error(`Crosslink group "${groupName}" must have at least one residue pair.`);
+                    }
+                    output.crosslinks.push(currentGroup);
+                });
+                if (output.crosslinks.length === 0) {
+                    delete output.crosslinks;
+                }
+
+
+                const bonds = [];
+                document.querySelectorAll('.bond-entry').forEach(bondDiv => {
+                    const bondIdSuffix = bondDiv.dataset.bondIdSuffix;
+                    const srcEntity = bondDiv.querySelector(`input[name="bond_src_entity_${bondIdSuffix}"]`).value.trim();
+                    const srcRes = bondDiv.querySelector(`input[name="bond_src_res_${bondIdSuffix}"]`).value.trim();
+                    const srcAtom = bondDiv.querySelector(`input[name="bond_src_atom_${bondIdSuffix}"]`).value.trim();
+                    const destEntity = bondDiv.querySelector(`input[name="bond_dest_entity_${bondIdSuffix}"]`).value.trim();
+                    const destRes = bondDiv.querySelector(`input[name="bond_dest_res_${bondIdSuffix}"]`).value.trim();
+                    const destAtom = bondDiv.querySelector(`input[name="bond_dest_atom_${bondIdSuffix}"]`).value.trim();
+
+                    if (!srcEntity || !srcRes || !srcAtom || !destEntity || !destRes || !destAtom) {
+                        throw new Error("All fields are required for a bonded atom pair.");
+                    }
+                    bonds.push([
+                        [srcEntity, parseInt(srcRes), srcAtom],
+                        [destEntity, parseInt(destRes), destAtom]
+                    ]);
+                });
+                if (bonds.length > 0) output.bondedAtomPairs = bonds;
+
+                const userCCDContent = document.getElementById('userCCD').value; 
+                const userCCDPath = document.getElementById('userCCDPath').value.trim();
+                if (userCCDContent && userCCDPath) throw new Error("User CCD: Provide either inline content OR a path, not both.");
+                if (userCCDContent) output.userCCD = userCCDContent;
+                if (userCCDPath) output.userCCDPath = userCCDPath;
+                
+                const jsonString = JSON.stringify(output, null, 2);
+                jsonOutputEl.textContent = jsonString;
+                copyJsonBtn.style.display = 'inline-block';
+                downloadJsonLink.href = 'data:text/json;charset=utf-8,' + encodeURIComponent(jsonString);
+                downloadJsonLink.style.display = 'inline-block';
+                alert("JSON generated successfully!");
+
+            } catch (error) {
+                alert("Error generating JSON: " + error.message);
+                console.error(error);
+                jsonOutputEl.textContent = "Error: " + error.message;
+                copyJsonBtn.style.display = 'none';
+                downloadJsonLink.style.display = 'none';
+            }
+        });
+
+        copyJsonBtn.addEventListener('click', () => {
+            if (jsonOutputEl.textContent) {
+                navigator.clipboard.writeText(jsonOutputEl.textContent)
+                    .then(() => alert('JSON copied to clipboard!'))
+                    .catch(err => alert('Failed to copy JSON: ' + err));
+            }
+        });
+        
+        addSequenceBtn.click();
+
+    });
+    </script>
+</body>
+</html>

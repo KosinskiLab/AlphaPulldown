@@ -1,0 +1,58 @@
+{% set name = "fmt" %}
+{% set version = "11.0.2" %}
+{% set sha256 = "6cb1e6d37bdcb756dbbe59be438790db409cdb4868c66e888d5df9f13f7c027f" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  url: https://github.com/fmtlib/fmt/archive/{{ version }}.tar.gz
+  sha256: {{ sha256 }}
+
+build:
+  number: 0
+  skip: true  # [win and vc<14]
+  run_exports:
+    - {{ pin_subpackage('fmt', max_pin='x') }}
+
+requirements:
+  build:
+    - {{ compiler('cxx') }}
+    - {{ stdlib("c") }}
+    - cmake
+    - make  # [unix]
+
+test:
+  commands:
+    - test -d ${PREFIX}/include/fmt  # [unix]
+    - test -f ${PREFIX}/include/fmt/core.h  # [unix]
+    - test -f ${PREFIX}/include/fmt/format.h  # [unix]
+    - test -f ${PREFIX}/lib/cmake/fmt/fmt-config.cmake  # [unix]
+    - test -f ${PREFIX}/lib/libfmt.so  # [linux]
+    - test -f ${PREFIX}/lib/libfmt.dylib  # [osx]
+    - if not exist %LIBRARY_PREFIX%\include\fmt\core.h (exit 1)  # [win]
+    - if not exist %LIBRARY_PREFIX%\include\fmt\format.h (exit 1)  # [win]
+    - if not exist %LIBRARY_PREFIX%\lib\cmake\fmt\fmt-config.cmake (exit 1)  # [win]
+    - if not exist %LIBRARY_PREFIX%\bin\fmt.dll (exit 1)  # [win]
+  downstreams:
+    - libmambapy
+
+about:
+  home: https://fmt.dev/latest/
+  license: MIT
+  license_family: MIT
+  license_file: LICENSE
+  summary: '{fmt} is an open-source formatting library for C++'
+  description: |
+    {fmt} is an open-source formatting library for C++.
+    It can be used as a safe and fast alternative to (s)printf and iostreams.
+  doc_url: https://fmt.dev/latest/
+  dev_url: https://github.com/fmtlib/fmt
+
+extra:
+  recipe-maintainers:
+    - tdegeus
+    - vitaut
+    - saraedum
+    - bdice

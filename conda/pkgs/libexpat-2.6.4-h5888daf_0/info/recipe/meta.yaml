@@ -1,0 +1,68 @@
+# This file created by conda-build 24.9.0
+# ------------------------------------------------
+
+package:
+  name: libexpat
+  version: 2.6.4
+source:
+  sha256: 8dc480b796163d4436e6f1352e71800a774f73dbae213f1860b60607d2a83ada
+  url: https://github.com/libexpat/libexpat/releases/download/R_2_6_4/expat-2.6.4.tar.bz2
+build:
+  ignore_run_exports_from:
+    - gxx_linux-64 13.*
+  number: 0
+  string: h5888daf_0
+requirements:
+  build:
+    - _libgcc_mutex 0.1 conda_forge
+    - _openmp_mutex 4.5 2_gnu
+    - binutils_impl_linux-64 2.43 h4bf12b8_2
+    - binutils_linux-64 2.43 h4852527_2
+    - gcc_impl_linux-64 13.3.0 hfea6d02_1
+    - gcc_linux-64 13.3.0 hc28eda2_5
+    - gnuconfig 2020.11.07 hd8ed1ab_0
+    - gxx_impl_linux-64 13.3.0 hdbfa832_1
+    - gxx_linux-64 13.3.0 h6834431_5
+    - kernel-headers_linux-64 3.10.0 he073ed8_18
+    - ld_impl_linux-64 2.43 h712a8e2_2
+    - libgcc 14.2.0 h77fa898_1
+    - libgcc-devel_linux-64 13.3.0 h84ea5a7_101
+    - libgomp 14.2.0 h77fa898_1
+    - libsanitizer 13.3.0 heb74ff8_1
+    - libstdcxx 14.2.0 hc0a3c3a_1
+    - libstdcxx-devel_linux-64 13.3.0 h84ea5a7_101
+    - make 4.4.1 hb9d3cd8_2
+    - sysroot_linux-64 2.17 h4a8ded7_18
+    - tzdata 2024b hc8b5060_0
+  host:
+    - _libgcc_mutex 0.1 conda_forge
+    - _openmp_mutex 4.5 2_gnu
+    - libgcc 14.2.0 h77fa898_1
+    - libgomp 14.2.0 h77fa898_1
+  run:
+    - __glibc >=2.17,<3.0.a0
+    - libgcc >=13
+  run_constrained:
+    - expat 2.6.4.*
+test: {}
+about:
+  home: http://expat.sourceforge.net/
+  license: MIT
+  license_family: MIT
+  license_file: COPYING
+  summary: Expat XML parser library in C
+extra:
+  copy_test_source_files: true
+  feedstock-name: expat
+  final: true
+  flow_run_id: azure_20241107.2.1
+  recipe-maintainers:
+    - isuruf
+    - kwilcox
+    - mingwandroid
+    - msarahan
+    - ocefpaf
+    - pelson
+    - scopatz
+  remote_url: https://github.com/conda-forge/expat-feedstock
+  sha: 35492554e4b34921d9124289d61fa4de7db42321

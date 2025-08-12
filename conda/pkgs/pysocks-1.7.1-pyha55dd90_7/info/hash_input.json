@@ -1,0 +1,5 @@
+{
+  "channel_targets": "conda-forge main",
+  "virtual_pkg": "__unix",
+  "__unix": "__unix"
+}

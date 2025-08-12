@@ -1,0 +1,19 @@
+{
+  "arch": "x86_64",
+  "build": "h659f571_0",
+  "build_number": 0,
+  "depends": [
+    "keyutils >=1.6.1,<2.0a0",
+    "libedit >=3.1.20191231,<3.2.0a0",
+    "libedit >=3.1.20191231,<4.0a0",
+    "libgcc-ng >=12",
+    "libstdcxx-ng >=12",
+    "openssl >=3.3.1,<4.0a0"
+  ],
+  "license": "MIT",
+  "name": "krb5",
+  "platform": "linux",
+  "subdir": "linux-64",
+  "timestamp": 1719463201255,
+  "version": "1.21.3"
+}

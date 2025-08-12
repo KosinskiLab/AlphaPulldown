@@ -1,0 +1,63 @@
+# This file created by conda-build 24.11.2
+# ------------------------------------------------
+
+package:
+  name: liblzma
+  version: 5.6.3
+source:
+  sha256: b1d45295d3f71f25a4c9101bd7c8d16cb56348bbef3bbc738da0351e17c73317
+  url: https://github.com/tukaani-project/xz/releases/download/v5.6.3/xz-5.6.3.tar.gz
+build:
+  number: 1
+  run_exports:
+    - liblzma >=5.6.3,<6.0a0
+  string: hb9d3cd8_1
+requirements:
+  build:
+    - _libgcc_mutex 0.1 conda_forge
+    - _openmp_mutex 4.5 2_gnu
+    - binutils_impl_linux-64 2.43 h4bf12b8_2
+    - binutils_linux-64 2.43 h4852527_2
+    - gcc_impl_linux-64 13.3.0 hfea6d02_1
+    - gcc_linux-64 13.3.0 hc28eda2_7
+    - kernel-headers_linux-64 3.10.0 he073ed8_18
+    - ld_impl_linux-64 2.43 h712a8e2_2
+    - libgcc 14.2.0 h77fa898_1
+    - libgcc-devel_linux-64 13.3.0 h84ea5a7_101
+    - libgomp 14.2.0 h77fa898_1
+    - libsanitizer 13.3.0 heb74ff8_1
+    - libstdcxx 14.2.0 hc0a3c3a_1
+    - make 4.4.1 hb9d3cd8_2
+    - sysroot_linux-64 2.17 h4a8ded7_18
+    - tzdata 2024b hc8b5060_0
+  host:
+    - _libgcc_mutex 0.1 conda_forge
+    - _openmp_mutex 4.5 2_gnu
+    - libgcc 14.2.0 h77fa898_1
+    - libgomp 14.2.0 h77fa898_1
+  run:
+    - __glibc >=2.17,<3.0.a0
+    - libgcc >=13
+test:
+  commands:
+    - test ! -f ${PREFIX}/lib/liblzma.a
+    - test ! -f ${PREFIX}/lib/liblzma${SHLIB_EXT}
+    - test -f ${PREFIX}/lib/liblzma.so.*.*
+about:
+  license: 0BSD
+  license_file:
+    - COPYING
+    - COPYING.0BSD
+extra:
+  copy_test_source_files: true
+  final: true
+  flow_run_id: azure_20241205.3.1
+  recipe-maintainers:
+    - mingwandroid
+    - msarahan
+    - nehaljwani
+    - ocefpaf
+    - scopatz
+    - xhochy
+  remote_url: https://github.com/conda-forge/xz-feedstock
+  sha: ac52d61fface9ce6cd6f9c5c410ca22ff64621b1

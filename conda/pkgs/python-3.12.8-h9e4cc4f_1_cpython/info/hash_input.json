@@ -1,0 +1,23 @@
+{
+  "expat": "2",
+  "CI": "azure",
+  "liblzma_devel": "5",
+  "target_platform": "linux-64",
+  "bzip2": "1",
+  "channel_targets": "conda-forge main",
+  "cxx_compiler_version": "13",
+  "tk": "8.6",
+  "libffi": "3.4",
+  "c_stdlib_version": "2.17",
+  "c_compiler": "gcc",
+  "openssl": "3",
+  "c_stdlib": "sysroot",
+  "readline": "8",
+  "c_compiler_version": "13",
+  "zlib": "1",
+  "cxx_compiler": "gxx",
+  "libuuid": "2",
+  "ncurses": "6",
+  "sqlite": "3",
+  "__glibc": "__glibc >=2.17,<3.0.a0"
+}

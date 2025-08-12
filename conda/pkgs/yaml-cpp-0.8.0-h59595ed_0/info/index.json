@@ -1,0 +1,16 @@
+{
+  "arch": "x86_64",
+  "build": "h59595ed_0",
+  "build_number": 0,
+  "depends": [
+    "libgcc-ng >=12",
+    "libstdcxx-ng >=12"
+  ],
+  "license": "MIT",
+  "license_family": "MIT",
+  "name": "yaml-cpp",
+  "platform": "linux",
+  "subdir": "linux-64",
+  "timestamp": 1695710312002,
+  "version": "0.8.0"
+}

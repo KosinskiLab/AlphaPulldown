@@ -170,6 +170,10 @@ flags.DEFINE_boolean('use_gpu_relax', True,
 flags.DEFINE_string('protein_delimiter', '+', 'Delimiter for proteins of a single fold.')
 flags.DEFINE_string('fold_backend', 'alphafold',
                     'Folding backend that should be used for structure prediction.')
+flags.DEFINE_boolean(
+    'debug_templates', False,
+    'If set, save generated template mmCIFs to templates_debug/ during AF3 input prep.'
+)
 
 FLAGS = flags.FLAGS
 
@@ -350,6 +354,7 @@ def main(argv):
         "jax_compilation_cache_dir": FLAGS.jax_compilation_cache_dir,
         "features_directory": FLAGS.features_directory,
         "num_seeds": FLAGS.num_seeds,
+        "debug_templates": FLAGS.debug_templates,
     }
     
     # Override model name for AlphaLink backend

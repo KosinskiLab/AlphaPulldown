@@ -1,0 +1,18 @@
+{
+  "arch": "x86_64",
+  "build": "py312h66e93f0_0",
+  "build_number": 0,
+  "depends": [
+    "__glibc >=2.17,<3.0.a0",
+    "libgcc >=13",
+    "python >=3.12,<3.13.0a0",
+    "python_abi 3.12.* *_cp312",
+    "ruamel.yaml.clib >=0.1.2"
+  ],
+  "license": "MIT",
+  "name": "ruamel.yaml",
+  "platform": "linux",
+  "subdir": "linux-64",
+  "timestamp": 1736248154294,
+  "version": "0.18.10"
+}

@@ -1,0 +1,55 @@
+Source: https://src.fedoraproject.org/rpms/python-ruamel-yaml-clib/raw/57b88ff82b4446c5d759b703481fee976cabe123/f/fix-typecasts-s390x.patch
+
+From 57b88ff82b4446c5d759b703481fee976cabe123 Mon Sep 17 00:00:00 2001
+From: Florian Weimer <fweimer@redhat.com>
+Date: Feb 01 2024 09:08:00 +0000
+Subject: Update fix-typecasts-s390x.patch for GCC 14 compatibility (#2042422)
+
+
+Related to:
+
+  <https://fedoraproject.org/wiki/Changes/PortingToModernC>
+  <https://fedoraproject.org/wiki/Toolchain/PortingToModernC>
+
+---
+
+From 6d0cc7080f825c1c283fb0704442222d1afc8dce Mon Sep 17 00:00:00 2001
+From: Jakub Čajka <jcajka@redhat.com>
+Date: May 12 2022 11:44:30 +0000
+Subject: Update to 0.2.6
+
+Fix for type demotion issues on s390x
+Resolves: BZ#2042422
+
+---
+
+diff --git a/_ruamel_yaml.pyx b/_ruamel_yaml.pyx
+index 4fd50e207b8d5100..20a796a30662c890 100644
+--- a/_ruamel_yaml.pyx
++++ b/_ruamel_yaml.pyx
+@@ -904,7 +904,7 @@ cdef class CParser:
+                 raise error
+         return 1
+ 
+-cdef int input_handler(void *data, char *buffer, int size, int *read) except 0:
++cdef int input_handler(void *data, unsigned char *buffer, size_t size, size_t *read) except 0:
+     cdef CParser parser
+     parser = <CParser>data
+     if parser.stream_cache is None:
+@@ -1514,13 +1514,13 @@ cdef class CEmitter:
+             self.ascend_resolver()
+         return 1
+ 
+-cdef int output_handler(void *data, char *buffer, int size) except 0:
++cdef int output_handler(void *data, unsigned char *buffer, size_t size) except 0:
+     cdef CEmitter emitter
+     emitter = <CEmitter>data
+     if emitter.dump_unicode == 0:
+-        value = PyString_FromStringAndSize(buffer, size)
++        value = PyString_FromStringAndSize(<char *>buffer, size)
+     else:
+-        value = PyUnicode_DecodeUTF8(buffer, size, 'strict')
++        value = PyUnicode_DecodeUTF8(<char *>buffer, size, 'strict')
+     emitter.stream.write(value)
+     return 1
+ 

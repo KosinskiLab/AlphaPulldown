@@ -1,0 +1,17 @@
+{
+  "arch": "x86_64",
+  "build": "h5888daf_0",
+  "build_number": 0,
+  "depends": [
+    "__glibc >=2.17,<3.0.a0",
+    "libgcc >=13",
+    "libstdcxx >=13",
+    "reproc 14.2.5.post0 hb9d3cd8_0"
+  ],
+  "license": "MIT",
+  "name": "reproc-cpp",
+  "platform": "linux",
+  "subdir": "linux-64",
+  "timestamp": 1731925852714,
+  "version": "14.2.5.post0"
+}

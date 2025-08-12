@@ -1,0 +1,22 @@
+{
+    "arch": null,
+    "build": "pyhd8ed1ab_1",
+    "build_number": 1,
+    "channel": "conda-forge",
+    "depends": [
+        "python >=3.9"
+    ],
+    "fn": "idna-3.10-pyhd8ed1ab_1.conda",
+    "license": "BSD-3-Clause",
+    "license_family": "BSD",
+    "md5": "39a4f67be3286c86d696df570b1201b7",
+    "name": "idna",
+    "noarch": "python",
+    "platform": null,
+    "sha256": "d7a472c9fd479e2e8dcb83fb8d433fce971ea369d704ece380e876f9c3494e87",
+    "size": 49765,
+    "subdir": "noarch",
+    "timestamp": 1733211921194,
+    "url": "https://conda.anaconda.org/conda-forge/noarch/idna-3.10-pyhd8ed1ab_1.conda",
+    "version": "3.10"
+}

@@ -1,0 +1,13 @@
+# See: man pkg-config
+prefix=/home/conda/feedstock_root/build_artifacts/python-split_1733407224341/_h_env_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehol
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: Python
+Description: Build a C extension for Python
+Requires:
+Version: 3.12
+Libs.private: -lpthread -ldl  -lutil
+Libs: -L${libdir} 
+Cflags: -I${includedir}/python3.12

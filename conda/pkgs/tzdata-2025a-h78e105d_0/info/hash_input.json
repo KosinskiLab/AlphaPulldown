@@ -1,0 +1,8 @@
+{
+  "CONDA_BUILD_SYSROOT": "/Applications/Xcode_15.2.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk",
+  "c_stdlib_version": "10.13",
+  "c_compiler_version": "18",
+  "c_stdlib": "macosx_deployment_target",
+  "c_compiler": "clang",
+  "channel_targets": "conda-forge main"
+}

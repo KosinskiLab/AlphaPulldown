@@ -1,0 +1,40 @@
+{% set name = "libnsl" %}
+{% set version = "2.0.1" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  url: https://github.com/thkukuk/{{ name }}/archive/v{{ version }}.tar.gz
+  sha256: 59048b53be8d3904bf939313debf13956a881b0de79da40f7719a77bcd1e9c53
+
+build:
+  number: 0
+  skip: true  # [not linux]
+  run_exports:
+    - {{ pin_subpackage('libnsl', max_pin='x.x') }}
+requirements:
+  build:
+    - gnuconfig  # [unix]
+    - {{ compiler('c') }}
+    - make
+    - pkg-config
+    - libtool
+
+test:
+  commands:
+    - test -f ${PREFIX}/lib/libnsl.so
+
+
+about:
+  home: https://github.com/thkukuk/libnsl
+  license: LGPL-2.1-only
+  license_family: GPL
+  license_file: COPYING
+  summary: 'Public client interface library for NIS(YP)'
+extra:
+  recipe-maintainers:
+    - izahn
+    - isuruf
+    - xhochy

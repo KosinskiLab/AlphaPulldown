@@ -1,0 +1,4 @@
+#PDB,chains,predicted_class,pi_score
+ranked_0,D_B,1,0.83
+ranked_0,D_C,1,0.84
+ranked_0,C_B,1,0.84

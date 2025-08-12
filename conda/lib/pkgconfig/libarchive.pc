@@ -1,0 +1,13 @@
+prefix=/home/dmolodenskiy/AlphaPulldown/conda
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: libarchive
+Description: library that can create and read several streaming archive formats
+Version: 3.7.7
+Cflags: -I${includedir}
+Cflags.private: -DLIBARCHIVE_STATIC
+Libs: -L${libdir} -larchive
+Libs.private: -lcrypto -llzo2 -llzma -lzstd -llz4 -lbz2  -lz -L/home/dmolodenskiy/AlphaPulldown/conda/lib -lxml2
+Requires.private: libcrypto

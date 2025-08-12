@@ -1,0 +1,22 @@
+{
+    "arch": "x86_64",
+    "build": "5_cp312",
+    "build_number": 5,
+    "channel": "conda-forge",
+    "constrains": [
+        "python 3.12.* *_cpython"
+    ],
+    "depends": [],
+    "fn": "python_abi-3.12-5_cp312.conda",
+    "license": "BSD-3-Clause",
+    "license_family": "BSD",
+    "md5": "0424ae29b104430108f5218a66db7260",
+    "name": "python_abi",
+    "platform": "linux",
+    "sha256": "d10e93d759931ffb6372b45d65ff34d95c6000c61a07e298d162a3bc2accebb0",
+    "size": 6238,
+    "subdir": "linux-64",
+    "timestamp": 1723823388266,
+    "url": "https://conda.anaconda.org/conda-forge/linux-64/python_abi-3.12-5_cp312.conda",
+    "version": "3.12"
+}

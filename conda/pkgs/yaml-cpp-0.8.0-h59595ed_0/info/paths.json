@@ -1,0 +1,277 @@
+{
+  "paths": [
+    {
+      "_path": "include/yaml-cpp/anchor.h",
+      "path_type": "hardlink",
+      "sha256": "e1674864314ce7a1d78c71d37b60ec6c130fc352ed178bd9b8467928774b1be8",
+      "size_in_bytes": 501
+    },
+    {
+      "_path": "include/yaml-cpp/binary.h",
+      "path_type": "hardlink",
+      "sha256": "1be5b37a45f0e1eb0c2dbd6aa3093363171d5149e89e0830c5a56e0eea0eac4a",
+      "size_in_bytes": 2113
+    },
+    {
+      "_path": "include/yaml-cpp/contrib/anchordict.h",
+      "path_type": "hardlink",
+      "sha256": "42ad62a385771109ff84ef3faefd44b753b5f265f0909946202ea3139b3ab071",
+      "size_in_bytes": 1057
+    },
+    {
+      "_path": "include/yaml-cpp/contrib/graphbuilder.h",
+      "path_type": "hardlink",
+      "sha256": "17d4206096c9b4f8ccaeddd485f53241c66da8b8e8ce8b2cc0e7b8f424635a8a",
+      "size_in_bytes": 5311
+    },
+    {
+      "_path": "include/yaml-cpp/depthguard.h",
+      "path_type": "hardlink",
+      "sha256": "1471521778b70c549e057a38c56b11a42a4aa4d666e3fbb5f80e9ac90b9f610c",
+      "size_in_bytes": 2254
+    },
+    {
+      "_path": "include/yaml-cpp/dll.h",
+      "path_type": "hardlink",
+      "sha256": "6fae37b773bdd8d4b33153c63b530a016cc46f0a74feda5b8aa70638d0c59af2",
+      "size_in_bytes": 2013
+    },
+    {
+      "_path": "include/yaml-cpp/emitfromevents.h",
+      "path_type": "hardlink",
+      "sha256": "3eb5e3c9dd75d3dd12f19b8e42d49bf3cfcf4c41ee65eb0e4fec5217fcfc22b4",
+      "size_in_bytes": 1679
+    },
+    {
+      "_path": "include/yaml-cpp/emitter.h",
+      "path_type": "hardlink",
+      "sha256": "db41147539d4483995ebbea2481b1c42892df83679fd7e2aee0b5aeb0e403c25",
+      "size_in_bytes": 7861
+    },
+    {
+      "_path": "include/yaml-cpp/emitterdef.h",
+      "path_type": "hardlink",
+      "sha256": "58d709085b46f31eef29fd8074d1c6d1657d3ebd4fb393b1c06a73cef69e6e48",
+      "size_in_bytes": 541
+    },
+    {
+      "_path": "include/yaml-cpp/emittermanip.h",
+      "path_type": "hardlink",
+      "sha256": "a40e08ab89d74171ec259e0dea7470ff29eacf9e5de90dd8b89042d0e47eb1d4",
+      "size_in_bytes": 3245
+    },
+    {
+      "_path": "include/yaml-cpp/emitterstyle.h",
+      "path_type": "hardlink",
+      "sha256": "ff854b2abd44bbb7c3a0f0e557068d2613e6a9dbcbf38ccd563942a7bb0ff1c2",
+      "size_in_bytes": 502
+    },
+    {
+      "_path": "include/yaml-cpp/eventhandler.h",
+      "path_type": "hardlink",
+      "sha256": "0a91628a17a18d58b71154c595cb7d31c3cd6208cccae670b245fd730f0f8d66",
+      "size_in_bytes": 1512
+    },
+    {
+      "_path": "include/yaml-cpp/exceptions.h",
+      "path_type": "hardlink",
+      "sha256": "968b33a9fd4b75ffbecf5c7209ed8fc4ebf59ef0f825e279fb8baa9c689b53fe",
+      "size_in_bytes": 10957
+    },
+    {
+      "_path": "include/yaml-cpp/mark.h",
+      "path_type": "hardlink",
+      "sha256": "069033be17c7a5875817102f3f77538431afdb7d1834a4673bad6a7267f0cab5",
+      "size_in_bytes": 785
+    },
+    {
+      "_path": "include/yaml-cpp/node/convert.h",
+      "path_type": "hardlink",
+      "sha256": "3148802dd4635d932d4ada4633f2ef409fda76ab8f639947570a52f393ffa369",
+      "size_in_bytes": 13967
+    },
+    {
+      "_path": "include/yaml-cpp/node/detail/impl.h",
+      "path_type": "hardlink",
+      "sha256": "7ead18bfc864986262a4e9000aec9b4acdceaa9162e7741723ccba18e4e4177e",
+      "size_in_bytes": 6736
+    },
+    {
+      "_path": "include/yaml-cpp/node/detail/iterator.h",
+      "path_type": "hardlink",
+      "sha256": "ca5e2af6fea3d1b17408d395528e00374bdf4fdcb63b12f303e09fe459eda461",
+      "size_in_bytes": 2576
+    },
+    {
+      "_path": "include/yaml-cpp/node/detail/iterator_fwd.h",
+      "path_type": "hardlink",
+      "sha256": "ce9bf893f38351d5e3e95f5b55a67765c721ba0e4c9f01e38ecba89d64722a6b",
+      "size_in_bytes": 786
+    },
+    {
+      "_path": "include/yaml-cpp/node/detail/memory.h",
+      "path_type": "hardlink",
+      "sha256": "41203dbe13e74200dd6d9f93d3a07a99f7870db9b1af864d2acdcb0f68e031b8",
+      "size_in_bytes": 1101
+    },
+    {
+      "_path": "include/yaml-cpp/node/detail/node.h",
+      "path_type": "hardlink",
+      "sha256": "b9e55e166b8d3168b88ebdc06506c4c2dc3a5f0bc046435ee4b04795dba34275",
+      "size_in_bytes": 5145
+    },
+    {
+      "_path": "include/yaml-cpp/node/detail/node_data.h",
+      "path_type": "hardlink",
+      "sha256": "53419f8984bce1e2d1d5aa15cba420e04918f8c665489dd5b4071793654f30f8",
+      "size_in_bytes": 3484
+    },
+    {
+      "_path": "include/yaml-cpp/node/detail/node_iterator.h",
+      "path_type": "hardlink",
+      "sha256": "6b58c8a26de6af125291979d34fa525f5f2e049f47cf72ab1c100feb9ea1e246",
+      "size_in_bytes": 4884
+    },
+    {
+      "_path": "include/yaml-cpp/node/detail/node_ref.h",
+      "path_type": "hardlink",
+      "sha256": "26fbb939e32d5f4237ab1712eedb3d695820de004cee2a0b2bb2d394b8dbd70b",
+      "size_in_bytes": 3298
+    },
+    {
+      "_path": "include/yaml-cpp/node/emit.h",
+      "path_type": "hardlink",
+      "sha256": "39f35d344ba0502e05449a935c5c9fa3a0179d72b9aa2b75ee964ddd1c4a26af",
+      "size_in_bytes": 958
+    },
+    {
+      "_path": "include/yaml-cpp/node/impl.h",
+      "path_type": "hardlink",
+      "sha256": "4dc95d496e7396c93e88c50e28fed5f4193f60d1083aae290672378476c94731",
+      "size_in_bytes": 9451
+    },
+    {
+      "_path": "include/yaml-cpp/node/iterator.h",
+      "path_type": "hardlink",
+      "sha256": "c09465516b6d854f476f08392aa730d08df63688b80f04cf49e1562eab3e0cfe",
+      "size_in_bytes": 1210
+    },
+    {
+      "_path": "include/yaml-cpp/node/node.h",
+      "path_type": "hardlink",
+      "sha256": "a320b6461c1731e6e2b0f31ae22c71087fc39ff9109bffe5c50707df8f0dbfaa",
+      "size_in_bytes": 3868
+    },
+    {
+      "_path": "include/yaml-cpp/node/parse.h",
+      "path_type": "hardlink",
+      "sha256": "eafa4476872ab20c176cf9f93341e57e7e24190a2c3864242c211bc536b97de2",
+      "size_in_bytes": 2084
+    },
+    {
+      "_path": "include/yaml-cpp/node/ptr.h",
+      "path_type": "hardlink",
+      "sha256": "d56a5edbfeeaa03d374afd970a39e3603ee72be98564382e0ab2aef29367d4b7",
+      "size_in_bytes": 805
+    },
+    {
+      "_path": "include/yaml-cpp/node/type.h",
+      "path_type": "hardlink",
+      "sha256": "dd19cd477379648c56f5640f58ac9ab2d89e8374bdd96d023dbd484492fbd480",
+      "size_in_bytes": 510
+    },
+    {
+      "_path": "include/yaml-cpp/noexcept.h",
+      "path_type": "hardlink",
+      "sha256": "67280724ff2528ac4cc9863db5770216a6bd467a35a2e8b067f43b92d7c278d7",
+      "size_in_bytes": 592
+    },
+    {
+      "_path": "include/yaml-cpp/null.h",
+      "path_type": "hardlink",
+      "sha256": "b81505857f24e1e5940fe8c98a0ebc5aeb6a88ec8ab735dd800692d869904511",
+      "size_in_bytes": 790
+    },
+    {
+      "_path": "include/yaml-cpp/ostream_wrapper.h",
+      "path_type": "hardlink",
+      "sha256": "43bd5094bdf5fb1bd64a3081e372336b2ea410effd86fd910fd5d96b91f586c6",
+      "size_in_bytes": 2012
+    },
+    {
+      "_path": "include/yaml-cpp/parser.h",
+      "path_type": "hardlink",
+      "sha256": "a954930f86e865fcea885e1b65d35feb25f6d5fceb27cccb406425c354cda1af",
+      "size_in_bytes": 2301
+    },
+    {
+      "_path": "include/yaml-cpp/stlemitter.h",
+      "path_type": "hardlink",
+      "sha256": "0757d307e863f57cee50b3bfc8d657b5fb49e9431918b4e38a433827a57ef68d",
+      "size_in_bytes": 1316
+    },
+    {
+      "_path": "include/yaml-cpp/traits.h",
+      "path_type": "hardlink",
+      "sha256": "6548f3725275c1659652164a161ab70d96cf8cc0ee544053ef2a15e0314db826",
+      "size_in_bytes": 2835
+    },
+    {
+      "_path": "include/yaml-cpp/yaml.h",
+      "path_type": "hardlink",
+      "sha256": "946643e99e2f865887852f838a66130c54ed770645a73f2c5f8b71b9bb2b1488",
+      "size_in_bytes": 795
+    },
+    {
+      "_path": "lib/cmake/yaml-cpp/yaml-cpp-config-version.cmake",
+      "path_type": "hardlink",
+      "sha256": "2a98a1063086829fe02050c4b6c81bc7f3a853cf4b1f12b002e2d646d569b228",
+      "size_in_bytes": 1861
+    },
+    {
+      "_path": "lib/cmake/yaml-cpp/yaml-cpp-config.cmake",
+      "path_type": "hardlink",
+      "sha256": "e16126617b7756868cbc02e0298b05d6d0bc62562985209f223c58db62917faa",
+      "size_in_bytes": 1720
+    },
+    {
+      "_path": "lib/cmake/yaml-cpp/yaml-cpp-targets-release.cmake",
+      "path_type": "hardlink",
+      "sha256": "1178d196a5963c24b89266ecfbfef853ab81ab41bb6cef6961a2662066a87a94",
+      "size_in_bytes": 878
+    },
+    {
+      "_path": "lib/cmake/yaml-cpp/yaml-cpp-targets.cmake",
+      "path_type": "hardlink",
+      "sha256": "2692ea180827833d0e86ecd12e1d9e623132e2c763340c8ea8c8cca484f70769",
+      "size_in_bytes": 3998
+    },
+    {
+      "_path": "lib/libyaml-cpp.so",
+      "path_type": "softlink",
+      "sha256": "1b901b048fad84676d3f9656a04c7180d5de505ac74c2b37952f4560a9327ed6",
+      "size_in_bytes": 566976
+    },
+    {
+      "_path": "lib/libyaml-cpp.so.0.8",
+      "path_type": "softlink",
+      "sha256": "1b901b048fad84676d3f9656a04c7180d5de505ac74c2b37952f4560a9327ed6",
+      "size_in_bytes": 566976
+    },
+    {
+      "_path": "lib/libyaml-cpp.so.0.8.0",
+      "path_type": "hardlink",
+      "sha256": "1b901b048fad84676d3f9656a04c7180d5de505ac74c2b37952f4560a9327ed6",
+      "size_in_bytes": 566976
+    },
+    {
+      "_path": "lib/pkgconfig/yaml-cpp.pc",
+      "file_mode": "text",
+      "path_type": "hardlink",
+      "prefix_placeholder": "/home/conda/feedstock_root/build_artifacts/yaml-cpp-split_1695710119868/_h_env_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placeh",
+      "sha256": "1a0417d53847210659faef05750ce434f1f87e0050efad581bbe0618634dd30a",
+      "size_in_bytes": 968
+    }
+  ],
+  "paths_version": 1
+}

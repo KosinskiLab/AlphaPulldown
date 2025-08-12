@@ -1,0 +1,88 @@
+{% set version = "1.21.3" %}
+
+package:
+  name: krb5
+  version: {{ version }}
+
+source:
+  url: https://github.com/krb5/krb5/archive/krb5-{{ version }}-final.tar.gz
+  sha256: 2157d92020d408ed63ebcd886a92d1346a1383b0f91123a0473b4f69b4a24861
+
+build:
+  number: 0
+  run_exports:
+    # stable within minor revisions: https://abi-laboratory.pro/tracker/timeline/krb5/
+    - {{ pin_subpackage('krb5', max_pin='x.x') }}
+  missing_dso_whitelist:   # [osx]
+    - /usr/lib/libresolv.9.dylib  # [osx]
+
+requirements:
+  build:
+    - libtool  # [unix]
+    - {{ compiler('c') }}
+    - {{ stdlib("c") }}
+    - {{ compiler('cxx') }}
+    - bison       # [not win]
+    - autoconf    # [not win]
+    - posix       # [win]
+    - perl        # [win]
+    - pkg-config  # [unix]
+    - make        # [unix]
+    - python *    # [not win]
+    - gettext
+  host:
+    - libedit     # [unix]
+    - openssl
+    - keyutils    # [linux]
+  run:
+    - {{ pin_compatible('libedit') }}  # [unix]
+
+test:
+  commands:
+    - test -f ${PREFIX}/lib/libkrb5${SHLIB_EXT}         # [unix]
+    - if not exist %LIBRARY_BIN%\krb5_64.dll exit 1     # [win]
+
+outputs:
+  - name: krb5
+
+  - name: krb5-static
+    build:
+      skip: true  # [win]
+    script: build_static.sh
+    requirements:
+      build:
+        - {{ compiler('c') }}
+        - {{ stdlib("c") }}
+        - {{ compiler('cxx') }}
+        - bison       # [not win]
+        - autoconf    # [not win]
+        - posix       # [win]
+        - perl        # [win]
+        - pkg-config  # [unix]
+        - make        # [unix]
+        - python 3.7  # [not win]
+        - python      # [win]
+        - gettext
+      host:
+        - libedit     # [unix]
+        - openssl
+      run:
+        - {{ pin_subpackage('krb5', exact=True) }}
+        - {{ pin_compatible('libedit') }}  # [unix]
+    test:
+      commands:
+        - test -f ${PREFIX}/lib/libk5crypto.a  # [unix]
+
+about:
+  home: http://web.mit.edu/kerberos/
+  license: MIT
+  license_file: doc/notice.rst
+  summary: A network authentication protocol.
+
+extra:
+  recipe-maintainers:
+    - pelson
+    - ocefpaf
+    - mingwandroid
+    - mariusvniekerk
+    - wolfv

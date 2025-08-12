@@ -1,0 +1,58 @@
+{
+  "dialect": "alphafold3",
+  "version": 1,
+  "name": "test_complex",
+  "modelSeeds": [42],
+  "sequences": [
+    {
+      "protein": {
+        "id": "A",
+        "sequence": "MESAIAEGGASRFSASSGGGGSRGAPQHYPKTAGNSEFLGKTPGQNAQKWIPARSTRRDDNSAA",
+        "modifications": [
+          {"ptmType": "HY3", "ptmPosition": 1},
+          {"ptmType": "P1L", "ptmPosition": 5}
+        ],
+        "unpairedMsa": null,
+        "pairedMsa": null,
+        "templates": []
+      }
+    },
+    {
+      "dna": {
+        "id": "B",
+        "sequence": "GATTACA",
+        "modifications": [
+          {"modificationType": "6OG", "basePosition": 1},
+          {"modificationType": "6MA", "basePosition": 2}
+        ]
+      }
+    },
+    {
+      "rna": {
+        "id": "C",
+        "sequence": "AGCU",
+        "modifications": [
+          {"modificationType": "2MG", "basePosition": 1},
+          {"modificationType": "5MC", "basePosition": 4}
+        ]
+      }
+    },
+    {
+      "ligand": {
+        "id": "D",
+        "ccdCodes": ["ATP"]
+      }
+    },
+    {
+      "ligand": {
+        "id": "E",
+        "ccdCodes": ["HEM"]
+      }
+    }
+  ],
+  "bondedAtomPairs": [
+    [["A", 1, "CA"], ["D", 1, "CHA"]],
+    [["A", 5, "SG"], ["E", 1, "C04"]]
+  ],
+  "userCCD": null
+} 

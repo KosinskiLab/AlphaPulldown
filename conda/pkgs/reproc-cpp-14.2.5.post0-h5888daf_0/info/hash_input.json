@@ -1,0 +1,11 @@
+{
+  "c_compiler": "gcc",
+  "cxx_compiler_version": "13",
+  "c_compiler_version": "13",
+  "cxx_compiler": "gxx",
+  "target_platform": "linux-64",
+  "channel_targets": "conda-forge main",
+  "c_stdlib": "sysroot",
+  "c_stdlib_version": "2.17",
+  "__glibc": "__glibc >=2.17,<3.0.a0"
+}

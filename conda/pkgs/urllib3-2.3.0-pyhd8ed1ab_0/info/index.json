@@ -1,0 +1,20 @@
+{
+  "arch": null,
+  "build": "pyhd8ed1ab_0",
+  "build_number": 0,
+  "depends": [
+    "brotli-python >=1.0.9",
+    "h2 >=4,<5",
+    "pysocks >=1.5.6,<2.0,!=1.5.7",
+    "python >=3.9",
+    "zstandard >=0.18.0"
+  ],
+  "license": "MIT",
+  "license_family": "MIT",
+  "name": "urllib3",
+  "noarch": "python",
+  "platform": null,
+  "subdir": "noarch",
+  "timestamp": 1734859520452,
+  "version": "2.3.0"
+}

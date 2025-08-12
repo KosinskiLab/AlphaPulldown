@@ -1,0 +1,14 @@
+{
+  "arch": "x86_64",
+  "build": "hc0a3c3a_1",
+  "build_number": 1,
+  "depends": [
+    "libgcc 14.2.0 h77fa898_1"
+  ],
+  "license": "GPL-3.0-only WITH GCC-exception-3.1",
+  "name": "libstdcxx",
+  "platform": "linux",
+  "subdir": "linux-64",
+  "timestamp": 1729027746910,
+  "version": "14.2.0"
+}

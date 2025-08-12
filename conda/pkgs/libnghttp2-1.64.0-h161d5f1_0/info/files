@@ -1,0 +1,9 @@
+bin/nghttp
+bin/nghttpd
+bin/nghttpx
+include/nghttp2/nghttp2.h
+include/nghttp2/nghttp2ver.h
+lib/libnghttp2.so
+lib/libnghttp2.so.14
+lib/libnghttp2.so.14.28.3
+lib/pkgconfig/libnghttp2.pc

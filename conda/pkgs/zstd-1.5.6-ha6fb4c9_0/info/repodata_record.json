@@ -1,0 +1,23 @@
+{
+    "arch": "x86_64",
+    "build": "ha6fb4c9_0",
+    "build_number": 0,
+    "channel": "conda-forge",
+    "depends": [
+        "libgcc-ng >=12",
+        "libstdcxx-ng >=12",
+        "libzlib >=1.2.13,<2.0.0a0"
+    ],
+    "fn": "zstd-1.5.6-ha6fb4c9_0.conda",
+    "license": "BSD-3-Clause",
+    "license_family": "BSD",
+    "md5": "4d056880988120e29d75bfff282e0f45",
+    "name": "zstd",
+    "platform": "linux",
+    "sha256": "c558b9cc01d9c1444031bd1ce4b9cff86f9085765f17627a6cd85fc623c8a02b",
+    "size": 554846,
+    "subdir": "linux-64",
+    "timestamp": 1714722996770,
+    "url": "https://conda.anaconda.org/conda-forge/linux-64/zstd-1.5.6-ha6fb4c9_0.conda",
+    "version": "1.5.6"
+}

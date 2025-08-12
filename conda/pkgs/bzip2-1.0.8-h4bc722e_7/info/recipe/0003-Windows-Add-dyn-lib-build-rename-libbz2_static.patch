@@ -1,0 +1,27 @@
+From d59396afd72e9e4ce730c162e1cfeefd2bd435ab Mon Sep 17 00:00:00 2001
+From: Marcel Bargull <marcel.bargull@udo.edu>
+Date: Sun, 14 Jul 2024 00:35:59 +0200
+Subject: [PATCH 2/2] Windows: Add dyn lib build; rename libbz2_static
+
+This allows us to just call "nmake lib" without a manual cl invocation
+that spells out the input files again.
+
+Signed-off-by: Marcel Bargull <marcel.bargull@udo.edu>
+---
+ makefile.msc | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/makefile.msc b/makefile.msc
+index 799a18a..1bc4742 100644
+--- a/makefile.msc
++++ b/makefile.msc
+@@ -21,7 +21,8 @@ bzip2: lib
+ 	$(CC) $(CFLAGS) -o bzip2recover bzip2recover.c
+ 
+ lib: $(OBJS)
+-	lib /out:libbz2.lib $(OBJS)
++	lib /out:libbz2_static.lib $(OBJS)
++	link /dll /out:libbz2.dll /def:libbz2.def $(OBJS)
+ 
+ test: bzip2
+ 	type words1

@@ -1,0 +1,14 @@
+{
+  "python": "3.12.* *_cpython",
+  "target_platform": "linux-64",
+  "cxx_compiler_version": "13",
+  "channel_targets": "conda-forge main",
+  "openssl": "3",
+  "c_stdlib": "sysroot",
+  "spdlog": "1.15",
+  "cxx_compiler": "gxx",
+  "pybind11_abi": "4",
+  "fmt": "11",
+  "c_stdlib_version": "2.17",
+  "__glibc": "__glibc >=2.17,<3.0.a0"
+}

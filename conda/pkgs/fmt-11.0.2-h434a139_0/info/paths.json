@@ -1,0 +1,139 @@
+{
+  "paths": [
+    {
+      "_path": "include/fmt/args.h",
+      "path_type": "hardlink",
+      "sha256": "45ed7137c9170e7efeae7c78bd69a05c2b25feb79e9db0ea8c9eedbca283dddb",
+      "size_in_bytes": 7437
+    },
+    {
+      "_path": "include/fmt/base.h",
+      "path_type": "hardlink",
+      "sha256": "895fd797b2c203e3661cdbeb7ee4f60a637c927be1b4a4728b9aa6400e238d90",
+      "size_in_bytes": 104877
+    },
+    {
+      "_path": "include/fmt/chrono.h",
+      "path_type": "hardlink",
+      "sha256": "3f5ac1cc711652b6f19c6c765a95e82b79b7d5bdcc2f96697c2b5bfe366ac91c",
+      "size_in_bytes": 80448
+    },
+    {
+      "_path": "include/fmt/color.h",
+      "path_type": "hardlink",
+      "sha256": "949ab64c24d0bca26e936c7939477dba0906652b6386691b4c2f7a7054150213",
+      "size_in_bytes": 23430
+    },
+    {
+      "_path": "include/fmt/compile.h",
+      "path_type": "hardlink",
+      "sha256": "b377419913ea34296fedca99ebd65835908925c36df5373432755e3ebc4395de",
+      "size_in_bytes": 18651
+    },
+    {
+      "_path": "include/fmt/core.h",
+      "path_type": "hardlink",
+      "sha256": "b2b6692145b11c7c2774db106078c97575a47d18e80c7783c68566475325ebb4",
+      "size_in_bytes": 187
+    },
+    {
+      "_path": "include/fmt/format-inl.h",
+      "path_type": "hardlink",
+      "sha256": "cb9ddc93e2daa1fecddd43b43a924dac8fa7300672285f36671d9457f0ffc3a8",
+      "size_in_bytes": 80577
+    },
+    {
+      "_path": "include/fmt/format.h",
+      "path_type": "hardlink",
+      "sha256": "b2119dab01c5f640651f92f5e37cc0e8bb7ddcca50b2f6a7a67b662ffbebee00",
+      "size_in_bytes": 163131
+    },
+    {
+      "_path": "include/fmt/os.h",
+      "path_type": "hardlink",
+      "sha256": "d78fbed2326220b5d33f5a20040b4802a90815583a568cf26e406f3689d744ab",
+      "size_in_bytes": 13041
+    },
+    {
+      "_path": "include/fmt/ostream.h",
+      "path_type": "hardlink",
+      "sha256": "b4f5e56ba47df860a28f3ca6948fc24d1c396db55239264442428757e957d875",
+      "size_in_bytes": 6156
+    },
+    {
+      "_path": "include/fmt/printf.h",
+      "path_type": "hardlink",
+      "sha256": "76aa2c5c59d34d9f9985e0bf30f3c86dc416ddfc5fbaff252ec346d13fbd30b6",
+      "size_in_bytes": 20183
+    },
+    {
+      "_path": "include/fmt/ranges.h",
+      "path_type": "hardlink",
+      "sha256": "c66af3fee29e25c953fdbde449a88fbd50028203186ba990cce1f18134a40d27",
+      "size_in_bytes": 29395
+    },
+    {
+      "_path": "include/fmt/std.h",
+      "path_type": "hardlink",
+      "sha256": "ac3f3726e2d326b358095f3900ec6145f8639fe334df92bf3c53ee6fdc416dbb",
+      "size_in_bytes": 21124
+    },
+    {
+      "_path": "include/fmt/xchar.h",
+      "path_type": "hardlink",
+      "sha256": "93ef925a6fa09731860c4277db303f13ac5aec3c18bac7df921b52b15fae53e2",
+      "size_in_bytes": 12035
+    },
+    {
+      "_path": "lib/cmake/fmt/fmt-config-version.cmake",
+      "path_type": "hardlink",
+      "sha256": "7359d496c0976b70a701de801afc76ad4a364ce2887ae26d454f409c54216e9c",
+      "size_in_bytes": 1862
+    },
+    {
+      "_path": "lib/cmake/fmt/fmt-config.cmake",
+      "path_type": "hardlink",
+      "sha256": "09df979ff1d267e2e4e590435fcab8f4e40a4af9d2d3f938af4fad6fa1bc2d6e",
+      "size_in_bytes": 999
+    },
+    {
+      "_path": "lib/cmake/fmt/fmt-targets-release.cmake",
+      "path_type": "hardlink",
+      "sha256": "e122a193796b3fa0d5d5b548907df23f4af15b9ced5621a7f83aefdfe4759671",
+      "size_in_bytes": 814
+    },
+    {
+      "_path": "lib/cmake/fmt/fmt-targets.cmake",
+      "path_type": "hardlink",
+      "sha256": "fd61c7a796541023b140a1a8c78425bb3adaf2ab59b557f5f5c96589e368af35",
+      "size_in_bytes": 4509
+    },
+    {
+      "_path": "lib/libfmt.so",
+      "path_type": "softlink",
+      "sha256": "8f6bde87b6daec0bbd8acd7fe5e3ea687c53180fa1f683d54b36072f44530d2c",
+      "size_in_bytes": 172880
+    },
+    {
+      "_path": "lib/libfmt.so.11",
+      "path_type": "softlink",
+      "sha256": "8f6bde87b6daec0bbd8acd7fe5e3ea687c53180fa1f683d54b36072f44530d2c",
+      "size_in_bytes": 172880
+    },
+    {
+      "_path": "lib/libfmt.so.11.0.2",
+      "path_type": "hardlink",
+      "sha256": "8f6bde87b6daec0bbd8acd7fe5e3ea687c53180fa1f683d54b36072f44530d2c",
+      "size_in_bytes": 172880
+    },
+    {
+      "_path": "lib/pkgconfig/fmt.pc",
+      "file_mode": "text",
+      "path_type": "hardlink",
+      "prefix_placeholder": "/home/conda/feedstock_root/build_artifacts/fmt_1723046583318/_h_env_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placeho",
+      "sha256": "704c4d646112c750567cc444ae2aa62e748a032ef33edfd6849031e947f19938",
+      "size_in_bytes": 703
+    }
+  ],
+  "paths_version": 1
+}

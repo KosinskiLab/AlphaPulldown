@@ -1,0 +1,69 @@
+Source: https://src.fedoraproject.org/rpms/python-ruamel-yaml-clib/raw/57b88ff82b4446c5d759b703481fee976cabe123/f/fix-typecasts-s390x.patch
+
+From 57b88ff82b4446c5d759b703481fee976cabe123 Mon Sep 17 00:00:00 2001
+From: Florian Weimer <fweimer@redhat.com>
+Date: Feb 01 2024 09:08:00 +0000
+Subject: Update fix-typecasts-s390x.patch for GCC 14 compatibility (#2042422)
+
+
+Related to:
+
+  <https://fedoraproject.org/wiki/Changes/PortingToModernC>
+  <https://fedoraproject.org/wiki/Toolchain/PortingToModernC>
+
+---
+
+From 6d0cc7080f825c1c283fb0704442222d1afc8dce Mon Sep 17 00:00:00 2001
+From: Jakub Čajka <jcajka@redhat.com>
+Date: May 12 2022 11:44:30 +0000
+Subject: Update to 0.2.6
+
+Fix for type demotion issues on s390x
+Resolves: BZ#2042422
+
+---
+
+diff --git a/_ruamel_yaml.pxd b/_ruamel_yaml.pxd
+index d8dc3c6bdaa27055..9e63ba7e4be3e4af 100644
+--- a/_ruamel_yaml.pxd
++++ b/_ruamel_yaml.pxd
+@@ -1,16 +1,16 @@
+ 
+ cdef extern from "_ruamel_yaml.h":
+ 
+-    void malloc(int l)
+-    void memcpy(char *d, char *s, int l)
+-    int strlen(char *s)
++    void malloc(size_t l)
++    void memcpy(void *d, const void *s, size_t l)
++    size_t strlen(const char *s)
+     int PyString_CheckExact(object o)
+     int PyUnicode_CheckExact(object o)
+     char *PyString_AS_STRING(object o)
+-    int PyString_GET_SIZE(object o)
+-    object PyString_FromStringAndSize(char *v, int l)
+-    object PyUnicode_FromString(char *u)
+-    object PyUnicode_DecodeUTF8(char *u, int s, char *e)
++    Py_ssize_t PyString_GET_SIZE(object o)
++    object PyString_FromStringAndSize(char *v, Py_ssize_t l)
++    object PyUnicode_FromString(const char *u)
++    object PyUnicode_DecodeUTF8(const char *u, size_t s, const char *e)
+     object PyUnicode_AsUTF8String(object o)
+     int PY_MAJOR_VERSION
+ 
+@@ -85,11 +85,11 @@ cdef extern from "_ruamel_yaml.h":
+         YAML_MAPPING_START_EVENT
+         YAML_MAPPING_END_EVENT
+ 
+-    ctypedef int yaml_read_handler_t(void *data, char *buffer,
+-            int size, int *size_read) except 0
++    ctypedef int yaml_read_handler_t(void *data, unsigned char *buffer,
++            size_t size, size_t *size_read) except 0
+ 
+-    ctypedef int yaml_write_handler_t(void *data, char *buffer,
+-            int size) except 0
++    ctypedef int yaml_write_handler_t(void *data, unsigned char *buffer,
++            size_t size) except 0
+ 
+     ctypedef struct yaml_mark_t:
+         int index

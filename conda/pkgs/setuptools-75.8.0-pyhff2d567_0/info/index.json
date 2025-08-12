@@ -1,0 +1,16 @@
+{
+  "arch": null,
+  "build": "pyhff2d567_0",
+  "build_number": 0,
+  "depends": [
+    "python >=3.9"
+  ],
+  "license": "MIT",
+  "license_family": "MIT",
+  "name": "setuptools",
+  "noarch": "python",
+  "platform": null,
+  "subdir": "noarch",
+  "timestamp": 1736512753595,
+  "version": "75.8.0"
+}

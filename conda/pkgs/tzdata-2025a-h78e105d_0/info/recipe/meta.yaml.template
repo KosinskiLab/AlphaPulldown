@@ -1,0 +1,76 @@
+{% set version = "2025a" %}
+
+package:
+  name: tzdata
+  version: {{ version }}
+
+source:
+  - url: https://data.iana.org/time-zones/releases/tzdata{{ version }}.tar.gz
+    sha256: 4d5fcbc72c7c450ebfe0b659bd0f1c02fbf52fd7f517a9ea13fe71c21eb5f0d0
+  - url: https://data.iana.org/time-zones/releases/tzcode{{ version }}.tar.gz
+    sha256: 119679d59f76481eb5e03d3d2a47d7870d592f3999549af189dbd31f2ebf5061
+
+build:
+  number: 0
+  noarch: generic
+  # We build on osx (see conda-forge.yml) because sysroot_linux-<arch> depends on
+  # tzdata; since this package is data-only, we don't want any of the run-exports
+  ignore_run_exports_from:
+    - {{ stdlib('c') }}
+    - {{ compiler('c') }}
+
+requirements:
+  build:
+    - {{ stdlib('c') }}
+    - {{ compiler('c') }}
+    - make
+  host:
+  run:
+
+test:
+  commands:
+    - test -f "${PREFIX}/share/zoneinfo/leapseconds"
+    - test -f "${PREFIX}/share/zoneinfo/leap-seconds.list"
+    - test -f "${PREFIX}/share/zoneinfo/iso3166.tab"
+    - test -f "${PREFIX}/share/zoneinfo/zone1970.tab"
+    - test -f "${PREFIX}/share/zoneinfo/zone.tab"
+    - test -f "${PREFIX}/share/zoneinfo/tzdata.zi"
+    # Make sure we only package zoneinfo and nothing else.
+    - |
+      dirs="$(
+        find "${PREFIX}" -mindepth 1 -maxdepth 2 \
+        \! -path "${PREFIX}/share" \! -path "${PREFIX}/conda-meta*"
+      )"
+      test "${dirs}" = "${PREFIX}/share/zoneinfo"
+    # Make sure we only package timezone information files.
+    - |
+      heads="$(
+        find "${PREFIX}/share/zoneinfo" -type f \
+          \! -name \*.zi \! -name \*.tab \! -name leapseconds \! -name leap-seconds.list \
+          -exec sh -c 'head -c4 $1 && echo' sh {} \; \
+          | uniq
+      )"
+      test "${heads}" = TZif
+
+about:
+  home: https://www.iana.org/time-zones
+  dev_url: https://github.com/eggert/tz
+  doc_url: https://data.iana.org/time-zones/tz-link.html
+  license: LicenseRef-Public-Domain
+  license_file: LICENSE
+  summary: The Time Zone Database (called tz, tzdb or zoneinfo) data
+
+  description: |
+    The Time Zone Database (called tz, tzdb or zoneinfo) contains code 
+    (the tzcode package) and data (this package) that represent the
+    history of local time for many representative
+    locations around the globe.  It is updated periodically to reflect
+    changes made by political bodies to time zone boundaries, UTC offsets,
+    and daylight-saving rules.
+
+extra:
+  recipe-maintainers:
+    - ocefpaf
+    - mbargull
+    - pganssle
+    - h-vetinari

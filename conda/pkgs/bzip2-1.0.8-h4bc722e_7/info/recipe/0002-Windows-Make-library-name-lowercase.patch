@@ -1,0 +1,23 @@
+From 72468cc36996eb3e5116859cbb7574aa7620438c Mon Sep 17 00:00:00 2001
+From: Marcel Bargull <marcel.bargull@udo.edu>
+Date: Sun, 14 Jul 2024 00:33:47 +0200
+Subject: [PATCH 1/2] Windows: Make library name lowercase
+
+We (conda-forge) build a libbz2.dll not a LIBBZ2.dll.
+This is mostly just to get cleaner linking check outputs.
+
+Signed-off-by: Marcel Bargull <marcel.bargull@udo.edu>
+---
+ libbz2.def | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/libbz2.def b/libbz2.def
+index 2dc0dd8..8aadfcd 100644
+--- a/libbz2.def
++++ b/libbz2.def
+@@ -1,4 +1,4 @@
+-LIBRARY			LIBBZ2
++LIBRARY			libbz2
+ DESCRIPTION		"libbzip2: library for data compression"
+ EXPORTS
+ 	BZ2_bzCompressInit

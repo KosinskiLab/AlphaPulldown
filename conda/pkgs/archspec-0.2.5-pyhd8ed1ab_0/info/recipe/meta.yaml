@@ -1,0 +1,143 @@
+# This file created by conda-build 25.1.1
+# meta.yaml template originally from:
+# /home/conda/recipe_root, last modified Mon Jan 20 05:55:34 2025
+# ------------------------------------------------
+
+package:
+  name: archspec
+  version: 0.2.5
+source:
+  sha256: 5bec8dfc5366ff299071200466dc9572d56db4e43abca3c66bdd62bc2b731a2a
+  url: https://pypi.org/packages/source/a/archspec/archspec-0.2.5.tar.gz
+build:
+  entry_points:
+    - archspec = archspec.cli:main
+  noarch: python
+  number: '0'
+  script: /home/conda/feedstock_root/build_artifacts/archspec_1737352602016/_h_env_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_pl/bin/python
+    -m pip install . -vv
+  string: pyhd8ed1ab_0
+requirements:
+  host:
+    - _libgcc_mutex 0.1 conda_forge
+    - _openmp_mutex 4.5 2_gnu
+    - backports 1.0 pyhd8ed1ab_5
+    - backports.tarfile 1.2.0 pyhd8ed1ab_1
+    - brotli-python 1.1.0 py39hf88036b_2
+    - bzip2 1.0.8 h4bc722e_7
+    - ca-certificates 2024.12.14 hbcca054_0
+    - cachecontrol 0.14.2 pyha770c72_0
+    - cachecontrol-with-filecache 0.14.2 pyhd8ed1ab_0
+    - certifi 2024.12.14 pyhd8ed1ab_0
+    - cffi 1.17.1 py39h15c3d72_0
+    - charset-normalizer 3.4.1 pyhd8ed1ab_0
+    - cleo 2.1.0 pyhd8ed1ab_1
+    - colorama 0.4.6 pyhd8ed1ab_1
+    - crashtest 0.4.1 pyhd8ed1ab_1
+    - cryptography 44.0.0 py39h7170ec2_0
+    - dbus 1.13.6 h5008d03_3
+    - distlib 0.3.9 pyhd8ed1ab_1
+    - dulwich 0.22.7 py39he612d8f_0
+    - expat 2.6.4 h5888daf_0
+    - filelock 3.16.1 pyhd8ed1ab_1
+    - h2 4.1.0 pyhd8ed1ab_1
+    - hpack 4.0.0 pyhd8ed1ab_1
+    - hyperframe 6.0.1 pyhd8ed1ab_1
+    - idna 3.10 pyhd8ed1ab_1
+    - importlib-metadata 8.5.0 pyha770c72_1
+    - importlib_resources 6.5.2 pyhd8ed1ab_0
+    - jaraco.classes 3.4.0 pyhd8ed1ab_2
+    - jaraco.context 6.0.1 pyhd8ed1ab_0
+    - jaraco.functools 4.1.0 pyhd8ed1ab_0
+    - jeepney 0.8.0 pyhd8ed1ab_0
+    - keyring 25.6.0 pyha804496_0
+    - ld_impl_linux-64 2.43 h712a8e2_2
+    - libblas 3.9.0 26_linux64_openblas
+    - libcblas 3.9.0 26_linux64_openblas
+    - libexpat 2.6.4 h5888daf_0
+    - libffi 3.4.2 h7f98852_5
+    - libgcc 14.2.0 h77fa898_1
+    - libgcc-ng 14.2.0 h69a702a_1
+    - libgfortran 14.2.0 h69a702a_1
+    - libgfortran5 14.2.0 hd5240d6_1
+    - libglib 2.82.2 h2ff4ddf_1
+    - libgomp 14.2.0 h77fa898_1
+    - libiconv 1.17 hd590300_2
+    - liblapack 3.9.0 26_linux64_openblas
+    - liblzma 5.6.3 hb9d3cd8_1
+    - libnsl 2.0.1 hd590300_0
+    - libopenblas 0.3.28 pthreads_h94d23a6_1
+    - libsqlite 3.48.0 hee588c1_0
+    - libstdcxx 14.2.0 hc0a3c3a_1
+    - libstdcxx-ng 14.2.0 h4852527_1
+    - libuuid 2.38.1 h0b41bf4_0
+    - libxcrypt 4.4.36 hd590300_1
+    - libzlib 1.3.1 hb9d3cd8_2
+    - more-itertools 10.6.0 pyhd8ed1ab_0
+    - msgpack-python 1.1.0 py39h74842e3_0
+    - ncurses 6.5 h2d0b736_2
+    - numpy 2.0.2 py39h9cb892a_1
+    - openssl 3.4.0 h7b32b05_1
+    - packaging 24.2 pyhd8ed1ab_2
+    - pcre2 10.44 hba22ea6_2
+    - pip 24.3.1 pyh8b19718_2
+    - pkginfo 1.12.0 pyhd8ed1ab_1
+    - platformdirs 4.3.6 pyhd8ed1ab_1
+    - poetry 2.0.1 pyha804496_0
+    - poetry-core 2.0.1 pyhd8ed1ab_0
+    - pycparser 2.22 pyh29332c3_1
+    - pyproject_hooks 1.2.0 pyhd8ed1ab_1
+    - pysocks 1.7.1 pyha55dd90_7
+    - python 3.9.21 h9c0c6dc_1_cpython
+    - python-build 1.2.2.post1 pyhff2d567_1
+    - python-fastjsonschema 2.21.1 pyhd8ed1ab_0
+    - python-installer 0.7.0 pyhff2d567_1
+    - python_abi 3.9 5_cp39
+    - rapidfuzz 3.11.0 py39hf88036b_0
+    - readline 8.2 h8228510_1
+    - requests 2.32.3 pyhd8ed1ab_1
+    - requests-toolbelt 1.0.0 pyhd8ed1ab_1
+    - secretstorage 3.3.3 py39hf3d152e_3
+    - setuptools 75.8.0 pyhff2d567_0
+    - shellingham 1.5.4 pyhd8ed1ab_1
+    - tk 8.6.13 noxft_h4845f30_101
+    - tomli 2.2.1 pyhd8ed1ab_1
+    - tomlkit 0.13.2 pyha770c72_1
+    - trove-classifiers 2025.1.15.22 pyhd8ed1ab_0
+    - tzdata 2025a h78e105d_0
+    - urllib3 2.3.0 pyhd8ed1ab_0
+    - virtualenv 20.29.1 pyhd8ed1ab_0
+    - wheel 0.45.1 pyhd8ed1ab_1
+    - zipp 3.21.0 pyhd8ed1ab_1
+    - zstandard 0.23.0 py39h08a7858_1
+    - zstd 1.5.6 ha6fb4c9_0
+  run:
+    - python >=3.9
+test:
+  commands:
+    - pip check
+    - archspec --help
+  imports:
+    - archspec
+    - archspec.cpu
+  requires:
+    - pip
+    - python 3.9.*
+about:
+  dev_url: https://github.com/archspec/archspec/
+  doc_url: https://archspec.readthedocs.io/
+  home: https://pypi.org/project/archspec/
+  license: MIT OR Apache-2.0
+  license_file:
+    - LICENSE-APACHE
+    - LICENSE-MIT
+  summary: A library to query system architecture
+extra:
+  copy_test_source_files: true
+  final: true
+  flow_run_id: azure_20250120.3.1
+  recipe-maintainers:
+    - anthchirp
+    - isuruf
+  remote_url: https://github.com/conda-forge/archspec-feedstock
+  sha: 5cd6aef28e04ea117d187768bbd396bcf41f54d3

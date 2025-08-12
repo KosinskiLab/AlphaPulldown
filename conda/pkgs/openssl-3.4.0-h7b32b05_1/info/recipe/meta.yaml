@@ -1,0 +1,74 @@
+# This file created by conda-build 24.11.2
+# ------------------------------------------------
+
+package:
+  name: openssl
+  version: 3.4.0
+source:
+  sha256: e15dda82fe2fe8139dc2ac21a36d4ca01d5313c75f99f46c4e8a27709b7294bf
+  url: https://github.com/openssl/openssl/releases/download/openssl-3.4.0/openssl-3.4.0.tar.gz
+build:
+  number: 1
+  run_exports:
+    - openssl >=3.4.0,<4.0a0
+  string: h7b32b05_1
+requirements:
+  build:
+    - _libgcc_mutex 0.1 conda_forge
+    - _openmp_mutex 4.5 2_gnu
+    - binutils_impl_linux-64 2.43 h4bf12b8_2
+    - binutils_linux-64 2.43 h4852527_2
+    - gcc_impl_linux-64 13.3.0 hfea6d02_1
+    - gcc_linux-64 13.3.0 hc28eda2_7
+    - kernel-headers_linux-64 3.10.0 he073ed8_18
+    - ld_impl_linux-64 2.43 h712a8e2_2
+    - libgcc 14.2.0 h77fa898_1
+    - libgcc-devel_linux-64 13.3.0 h84ea5a7_101
+    - libgcc-ng 14.2.0 h69a702a_1
+    - libgomp 14.2.0 h77fa898_1
+    - libsanitizer 13.3.0 heb74ff8_1
+    - libstdcxx 14.2.0 hc0a3c3a_1
+    - libxcrypt 4.4.36 hd590300_1
+    - make 4.4.1 hb9d3cd8_2
+    - perl 5.32.1 7_hd590300_perl5
+    - sysroot_linux-64 2.17 h0157908_18
+    - tzdata 2024b hc8b5060_0
+  host:
+    - _libgcc_mutex 0.1 conda_forge
+    - _openmp_mutex 4.5 2_gnu
+    - libgcc 14.2.0 h77fa898_1
+    - libgomp 14.2.0 h77fa898_1
+  run:
+    - __glibc >=2.17,<3.0.a0
+    - ca-certificates
+    - libgcc >=13
+test:
+  commands:
+    - touch checksum.txt
+    - $PREFIX/bin/openssl sha256 checksum.txt
+    - pkg-config --print-errors --exact-version "3.4.0" openssl
+    - if [[ "$(pkg-config --variable=prefix openssl)" == "" ]]; then exit 1; fi
+  requires:
+    - pkg-config
+    - ripgrep
+about:
+  dev_url: https://github.com/openssl/openssl
+  doc_url: https://docs.openssl.org/master/
+  home: https://www.openssl.org/
+  license: Apache-2.0
+  license_family: Apache
+  license_file: LICENSE.txt
+  summary: OpenSSL is an open-source implementation of the SSL and TLS protocols
+extra:
+  copy_test_source_files: true
+  feedstock-name: openssl
+  final: true
+  flow_run_id: azure_20250105.3.1
+  recipe-maintainers:
+    - h-vetinari
+    - jakirkham
+    - msarahan
+    - ocefpaf
+    - pelson
+  remote_url: https://github.com/conda-forge/openssl-feedstock
+  sha: c72e778003012b78d36682cae9a3ff5e5eb9a5aa

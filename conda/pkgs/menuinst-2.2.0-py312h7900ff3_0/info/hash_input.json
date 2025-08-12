@@ -1,0 +1,5 @@
+{
+  "channel_targets": "conda-forge main",
+  "python": "3.12.* *_cpython",
+  "target_platform": "linux-64"
+}

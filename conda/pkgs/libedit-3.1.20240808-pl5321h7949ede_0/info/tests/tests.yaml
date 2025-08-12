@@ -1,0 +1,4 @@
+- script:
+    content: |-
+      test -f $PREFIX/lib/libedit${SHLIB_EXT}
+      test ! -f $PREFIX/lib/libedit.a

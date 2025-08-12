@@ -1,0 +1,3 @@
+# explicitly set LF line endings for these files even on windows
+# because we need to support (de)activation from bash
+*-win.sh text eol=lf

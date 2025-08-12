@@ -1,0 +1,16 @@
+site-packages/idna-3.10.dist-info/INSTALLER
+site-packages/idna-3.10.dist-info/LICENSE.md
+site-packages/idna-3.10.dist-info/METADATA
+site-packages/idna-3.10.dist-info/RECORD
+site-packages/idna-3.10.dist-info/REQUESTED
+site-packages/idna-3.10.dist-info/WHEEL
+site-packages/idna-3.10.dist-info/direct_url.json
+site-packages/idna/__init__.py
+site-packages/idna/codec.py
+site-packages/idna/compat.py
+site-packages/idna/core.py
+site-packages/idna/idnadata.py
+site-packages/idna/intranges.py
+site-packages/idna/package_data.py
+site-packages/idna/py.typed
+site-packages/idna/uts46data.py

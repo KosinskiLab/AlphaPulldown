@@ -1,0 +1,14 @@
+{
+  "gcc_machine": "x86_64",
+  "use_system_gcc": "False",
+  "channel_targets": "conda-forge main",
+  "target_platform": "linux-64",
+  "cross_target_platform": "linux-64",
+  "gcc_version": "8.5.0",
+  "glib": "2",
+  "openmp_ver": "4.5",
+  "binutils_version": "2.36.1",
+  "_libgcc_mutex": "0.1 conda_forge",
+  "glibc_version": "2.12",
+  "libgomp_ver": "1.0.0"
+}

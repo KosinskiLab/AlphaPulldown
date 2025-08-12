@@ -1,0 +1,13 @@
+lib/python3.12/site-packages/zstandard-0.23.0-py3.12.egg-info/PKG-INFO
+lib/python3.12/site-packages/zstandard-0.23.0-py3.12.egg-info/SOURCES.txt
+lib/python3.12/site-packages/zstandard-0.23.0-py3.12.egg-info/dependency_links.txt
+lib/python3.12/site-packages/zstandard-0.23.0-py3.12.egg-info/requires.txt
+lib/python3.12/site-packages/zstandard-0.23.0-py3.12.egg-info/top_level.txt
+lib/python3.12/site-packages/zstandard/__init__.py
+lib/python3.12/site-packages/zstandard/__init__.pyi
+lib/python3.12/site-packages/zstandard/__pycache__/__init__.cpython-312.pyc
+lib/python3.12/site-packages/zstandard/__pycache__/backend_cffi.cpython-312.pyc
+lib/python3.12/site-packages/zstandard/_cffi.cpython-312-x86_64-linux-gnu.so
+lib/python3.12/site-packages/zstandard/backend_c.cpython-312-x86_64-linux-gnu.so
+lib/python3.12/site-packages/zstandard/backend_cffi.py
+lib/python3.12/site-packages/zstandard/py.typed

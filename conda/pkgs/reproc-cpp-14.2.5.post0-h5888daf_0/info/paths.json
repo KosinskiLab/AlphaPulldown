@@ -1,0 +1,109 @@
+{
+  "paths": [
+    {
+      "_path": "include/reproc++/arguments.hpp",
+      "path_type": "hardlink",
+      "sha256": "2258221b8c29155dc01816c95b277a39e5730cbd434a6401856b8257246ed371",
+      "size_in_bytes": 1469
+    },
+    {
+      "_path": "include/reproc++/detail/array.hpp",
+      "path_type": "hardlink",
+      "sha256": "ea6f115ec67278e9bc84e5f764a0ccfdf926f14b1b246999e3e7bf080fdf7032",
+      "size_in_bytes": 828
+    },
+    {
+      "_path": "include/reproc++/detail/type_traits.hpp",
+      "path_type": "hardlink",
+      "sha256": "1ada1fa9050053f6f043ca28042c77531176df7c78edd927bd6b27dde2989263",
+      "size_in_bytes": 357
+    },
+    {
+      "_path": "include/reproc++/drain.hpp",
+      "path_type": "hardlink",
+      "sha256": "55b00931226455ce70d8bc6cdf483e432c62fea732125ce67abdf26d466b7be0",
+      "size_in_bytes": 3445
+    },
+    {
+      "_path": "include/reproc++/env.hpp",
+      "path_type": "hardlink",
+      "sha256": "2ad95ca0ac4c51a072482b3daf46c02baf979dc7b7a1f163ab1a9dede3bd0f8b",
+      "size_in_bytes": 1896
+    },
+    {
+      "_path": "include/reproc++/export.hpp",
+      "path_type": "hardlink",
+      "sha256": "e1957b14ee1f7546861782ca0e65f748bfffa0fcd36f69132d9749ad271748d3",
+      "size_in_bytes": 469
+    },
+    {
+      "_path": "include/reproc++/input.hpp",
+      "path_type": "hardlink",
+      "sha256": "25939274a6dee625b0c884f061accbe4aed99124e9a87454f03e1e9044e3859c",
+      "size_in_bytes": 643
+    },
+    {
+      "_path": "include/reproc++/reproc.hpp",
+      "path_type": "hardlink",
+      "sha256": "27ed4669de91de8b2539c60e218f75dd32377057fe27d842d05c9493a20c18ca",
+      "size_in_bytes": 5912
+    },
+    {
+      "_path": "include/reproc++/run.hpp",
+      "path_type": "hardlink",
+      "sha256": "378fb5a69153877daf6758003ae56496a861488b0d543012eb7a3926e2fdb60d",
+      "size_in_bytes": 939
+    },
+    {
+      "_path": "lib/cmake/reproc++/reproc++-config-version.cmake",
+      "path_type": "hardlink",
+      "sha256": "fab43caadfc17993d460fab21d2f7ccae918001e41e61db7eb6386c3544c625e",
+      "size_in_bytes": 2765
+    },
+    {
+      "_path": "lib/cmake/reproc++/reproc++-config.cmake",
+      "path_type": "hardlink",
+      "sha256": "8d7eff6972e414a10ef0b95a8b2bffbe5415445c51ec0f4d6d4e21d299142b51",
+      "size_in_bytes": 1136
+    },
+    {
+      "_path": "lib/cmake/reproc++/reproc++-targets-release.cmake",
+      "path_type": "hardlink",
+      "sha256": "389de6bf4dc6b25807986d006483aa124dc78db6969733da5be195b9217c1152",
+      "size_in_bytes": 882
+    },
+    {
+      "_path": "lib/cmake/reproc++/reproc++-targets.cmake",
+      "path_type": "hardlink",
+      "sha256": "74dc17670a544545825e5fd55e218ce222a421ea337a26ad3d4fe7dc78956b38",
+      "size_in_bytes": 4202
+    },
+    {
+      "_path": "lib/libreproc++.so",
+      "path_type": "softlink",
+      "sha256": "994f929a3a94604c79286c6dc8f3a0efd1152ad617c92c59c17e3ab28251e938",
+      "size_in_bytes": 22000
+    },
+    {
+      "_path": "lib/libreproc++.so.14",
+      "path_type": "softlink",
+      "sha256": "994f929a3a94604c79286c6dc8f3a0efd1152ad617c92c59c17e3ab28251e938",
+      "size_in_bytes": 22000
+    },
+    {
+      "_path": "lib/libreproc++.so.14.2.4",
+      "path_type": "hardlink",
+      "sha256": "994f929a3a94604c79286c6dc8f3a0efd1152ad617c92c59c17e3ab28251e938",
+      "size_in_bytes": 22000
+    },
+    {
+      "_path": "lib/pkgconfig/reproc++.pc",
+      "file_mode": "text",
+      "path_type": "hardlink",
+      "prefix_placeholder": "/home/conda/feedstock_root/build_artifacts/reproc-split_1731925716394/_h_env_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehol",
+      "sha256": "bd7ace3105f393c56095a57901d8823bbde62373a2862a4b062b7c186ba4a57f",
+      "size_in_bytes": 579
+    }
+  ],
+  "paths_version": 1
+}

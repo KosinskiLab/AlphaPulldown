@@ -1,0 +1,14 @@
+{
+  "arch": null,
+  "build": "hd8ed1ab_3",
+  "build_number": 3,
+  "depends": [],
+  "license": "BSD-3-Clause",
+  "license_family": "BSD",
+  "name": "pybind11-abi",
+  "noarch": "generic",
+  "platform": null,
+  "subdir": "noarch",
+  "timestamp": 1610372835205,
+  "version": "4"
+}

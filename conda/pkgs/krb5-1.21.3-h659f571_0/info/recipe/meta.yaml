@@ -1,0 +1,103 @@
+# This file created by conda-build 24.5.1
+# meta.yaml template originally from:
+# /home/conda/recipe_root, last modified Thu Jun 27 04:34:44 2024
+# ------------------------------------------------
+
+package:
+  name: krb5
+  version: 1.21.3
+source:
+  sha256: 2157d92020d408ed63ebcd886a92d1346a1383b0f91123a0473b4f69b4a24861
+  url: https://github.com/krb5/krb5/archive/krb5-1.21.3-final.tar.gz
+build:
+  number: '0'
+  run_exports:
+    - krb5 >=1.21.3,<1.22.0a0
+  string: h659f571_0
+requirements:
+  build:
+    - _libgcc_mutex 0.1 conda_forge
+    - _openmp_mutex 4.5 2_gnu
+    - autoconf 2.71 pl5321h2b4cb7a_1
+    - binutils_impl_linux-64 2.40 ha1999f0_7
+    - binutils_linux-64 2.40 hb3c18ed_9
+    - bison 3.8.2 h59595ed_0
+    - bzip2 1.0.8 hd590300_5
+    - ca-certificates 2024.6.2 hbcca054_0
+    - flex 2.6.4 h58526e2_1004
+    - gcc_impl_linux-64 12.3.0 h58ffeeb_13
+    - gcc_linux-64 12.3.0 h9528a6a_9
+    - gettext 0.22.5 h59595ed_2
+    - gettext-tools 0.22.5 h59595ed_2
+    - gxx_impl_linux-64 12.3.0 h2a574ab_13
+    - gxx_linux-64 12.3.0 ha28b414_9
+    - kernel-headers_linux-64 2.6.32 he073ed8_17
+    - ld_impl_linux-64 2.40 hf3520f5_7
+    - libasprintf 0.22.5 h661eb56_2
+    - libasprintf-devel 0.22.5 h661eb56_2
+    - libexpat 2.6.2 h59595ed_0
+    - libffi 3.4.2 h7f98852_5
+    - libgcc-devel_linux-64 12.3.0 h6b66f73_113
+    - libgcc-ng 13.2.0 h77fa898_13
+    - libgettextpo 0.22.5 h59595ed_2
+    - libgettextpo-devel 0.22.5 h59595ed_2
+    - libgomp 13.2.0 h77fa898_13
+    - libnsl 2.0.1 hd590300_0
+    - libsanitizer 12.3.0 hb8811af_13
+    - libsqlite 3.46.0 hde9e2c9_0
+    - libstdcxx-devel_linux-64 12.3.0 h6b66f73_113
+    - libstdcxx-ng 13.2.0 hc0a3c3a_13
+    - libtool 2.4.7 h27087fc_0
+    - libuuid 2.38.1 h0b41bf4_0
+    - libxcrypt 4.4.36 hd590300_1
+    - libzlib 1.3.1 h4ab18f5_1
+    - m4 1.4.18 h516909a_1001
+    - make 4.3 hd18ef5c_1
+    - ncurses 6.5 h59595ed_0
+    - openssl 3.3.1 h4ab18f5_1
+    - perl 5.32.1 7_hd590300_perl5
+    - pkg-config 0.29.2 h36c2ea0_1008
+    - python 3.12.4 h194c7f8_0_cpython
+    - readline 8.2 h8228510_1
+    - sysroot_linux-64 2.12 he073ed8_17
+    - tk 8.6.13 noxft_h4845f30_101
+    - tzdata 2024a h0c530f3_0
+    - xz 5.2.6 h166bdaf_0
+  host:
+    - _libgcc_mutex 0.1 conda_forge
+    - _openmp_mutex 4.5 2_gnu
+    - ca-certificates 2024.6.2 hbcca054_0
+    - keyutils 1.6.1 h166bdaf_0
+    - libedit 3.1.20191231 he28a2e2_2
+    - libgcc-ng 13.2.0 h77fa898_13
+    - libgomp 13.2.0 h77fa898_13
+    - libstdcxx-ng 13.2.0 hc0a3c3a_13
+    - ncurses 6.5 h59595ed_0
+    - openssl 3.3.1 h4ab18f5_1
+  run:
+    - keyutils >=1.6.1,<2.0a0
+    - libedit >=3.1.20191231,<3.2.0a0
+    - libedit >=3.1.20191231,<4.0a0
+    - libgcc-ng >=12
+    - libstdcxx-ng >=12
+    - openssl >=3.3.1,<4.0a0
+test:
+  commands:
+    - test -f ${PREFIX}/lib/libkrb5${SHLIB_EXT}
+about:
+  home: http://web.mit.edu/kerberos/
+  license: MIT
+  license_file: doc/notice.rst
+  summary: A network authentication protocol.
+extra:
+  copy_test_source_files: true
+  final: true
+  flow_run_id: azure_20240627.1.1
+  recipe-maintainers:
+    - mariusvniekerk
+    - mingwandroid
+    - ocefpaf
+    - pelson
+    - wolfv
+  remote_url: https://github.com/conda-forge/krb5-feedstock
+  sha: 23ac81ca671fccb138f6ae25cfab72c15b29f6b0

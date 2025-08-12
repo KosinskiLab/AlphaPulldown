@@ -1,0 +1,40 @@
+# This file created by conda-build 3.20.5
+# ------------------------------------------------
+
+package:
+    name: pybind11-abi
+    version: 4
+source:
+    fn: pybind11-2.6.1.tar.gz
+    sha256: cdbe326d357f18b83d10322ba202d69f11b2f49e2d87ade0dc2be0c5c34f8e2a
+    url: https://github.com/pybind/pybind11/archive/v2.6.1.tar.gz
+build:
+    noarch: generic
+    number: 3
+    run_exports:
+        - pybind11-abi ==4
+    string: hd8ed1ab_3
+requirements:
+    build: []
+    run: []
+test:
+    commands:
+        - if [ $(grep "#define PYBIND11_INTERNALS_VERSION" include/pybind11/detail/internals.h
+            | cut -d' ' -f3) != "4" ]; then exit 1; fi
+    source_files:
+        - include/pybind11/detail/internals.h
+about:
+    doc_url: https://pybind11.readthedocs.io/
+    home: https://github.com/pybind/pybind11/
+    license: BSD-3-Clause
+    license_family: BSD
+    license_file: LICENSE
+    summary: Seamless operability between C++11 and Python
+extra:
+    copy_test_source_files: true
+    final: true
+    recipe-maintainers:
+        - SylvainCorlay
+        - ax3l
+        - henryiii
+        - wjakob

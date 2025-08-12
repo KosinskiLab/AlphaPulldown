@@ -1,0 +1,14 @@
+site-packages/truststore-0.10.0.dist-info/INSTALLER
+site-packages/truststore-0.10.0.dist-info/LICENSE
+site-packages/truststore-0.10.0.dist-info/METADATA
+site-packages/truststore-0.10.0.dist-info/RECORD
+site-packages/truststore-0.10.0.dist-info/REQUESTED
+site-packages/truststore-0.10.0.dist-info/WHEEL
+site-packages/truststore-0.10.0.dist-info/direct_url.json
+site-packages/truststore/__init__.py
+site-packages/truststore/_api.py
+site-packages/truststore/_macos.py
+site-packages/truststore/_openssl.py
+site-packages/truststore/_ssl_constants.py
+site-packages/truststore/_windows.py
+site-packages/truststore/py.typed

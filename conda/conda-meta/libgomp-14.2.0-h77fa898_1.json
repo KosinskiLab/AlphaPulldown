@@ -1,0 +1,58 @@
+{
+    "arch": "x86_64",
+    "build": "h77fa898_1",
+    "build_number": 1,
+    "channel": "conda-forge",
+    "depends": [
+        "_libgcc_mutex 0.1 conda_forge"
+    ],
+    "extracted_package_dir": "/home/dmolodenskiy/AlphaPulldown/conda/pkgs/libgomp-14.2.0-h77fa898_1",
+    "files": [
+        "lib/libgomp.so",
+        "lib/libgomp.so.1.0.0",
+        "share/licenses/gcc-libs/RUNTIME.LIBRARY.EXCEPTION.gomp_copy"
+    ],
+    "fn": "libgomp-14.2.0-h77fa898_1.conda",
+    "license": "GPL-3.0-only WITH GCC-exception-3.1",
+    "license_family": "GPL",
+    "link": {
+        "source": "/home/dmolodenskiy/AlphaPulldown/conda/pkgs/libgomp-14.2.0-h77fa898_1",
+        "type": 1
+    },
+    "md5": "cc3573974587f12dda90d96e3e55a702",
+    "name": "libgomp",
+    "package_tarball_full_path": "/home/dmolodenskiy/AlphaPulldown/conda/pkgs/libgomp-14.2.0-h77fa898_1.tar.bz2",
+    "paths_data": {
+        "paths": [
+            {
+                "_path": "lib/libgomp.so",
+                "path_type": "softlink",
+                "sha256_in_prefix": "83e84f24e18cae4674bf14f37636d77668a559cc93acf4fabe98b26c5e9035b5",
+                "size_in_bytes": 1120880
+            },
+            {
+                "_path": "lib/libgomp.so.1.0.0",
+                "path_type": "hardlink",
+                "sha256": "83e84f24e18cae4674bf14f37636d77668a559cc93acf4fabe98b26c5e9035b5",
+                "sha256_in_prefix": "83e84f24e18cae4674bf14f37636d77668a559cc93acf4fabe98b26c5e9035b5",
+                "size_in_bytes": 1120880
+            },
+            {
+                "_path": "share/licenses/gcc-libs/RUNTIME.LIBRARY.EXCEPTION.gomp_copy",
+                "path_type": "hardlink",
+                "sha256": "9d6b43ce4d8de0c878bf16b54d8e7a10d9bd42b75178153e3af6a815bdc90f74",
+                "sha256_in_prefix": "9d6b43ce4d8de0c878bf16b54d8e7a10d9bd42b75178153e3af6a815bdc90f74",
+                "size_in_bytes": 3324
+            }
+        ],
+        "paths_version": 1
+    },
+    "platform": "linux",
+    "requested_spec": "conda-forge/linux-64::libgomp==14.2.0=h77fa898_1[md5=cc3573974587f12dda90d96e3e55a702]",
+    "sha256": "1911c29975ec99b6b906904040c855772ccb265a1c79d5d75c8ceec4ed89cd63",
+    "size": 460992,
+    "subdir": "linux-64",
+    "timestamp": 1729027639220,
+    "url": "https://conda.anaconda.org/conda-forge/linux-64/libgomp-14.2.0-h77fa898_1.conda",
+    "version": "14.2.0"
+}

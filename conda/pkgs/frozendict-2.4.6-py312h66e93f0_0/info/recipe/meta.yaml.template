@@ -1,0 +1,47 @@
+{% set name = "frozendict" %}
+{% set version = "2.4.6" %}
+{% set sha256 = "df7cd16470fbd26fc4969a208efadc46319334eb97def1ddf48919b351192b8e" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  fn: {{ name }}-{{ version }}.tar.gz
+  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
+  sha256: {{ sha256 }}
+
+build:
+  script: python -m pip install . --no-deps -vv
+  number: 0
+
+requirements:
+  build:
+    - python                                 # [build_platform != target_platform]
+    - cross-python_{{ target_platform }}     # [build_platform != target_platform]
+    - {{ compiler('c') }}
+    - {{ stdlib("c") }}
+  host:
+    - pip
+    - python
+    - setuptools
+    - wheel
+  run:
+    - python
+
+test:
+  imports:
+    - frozendict
+
+about:
+  home: https://github.com/Marco-Sulla/python-frozendict
+  license: LGPL-3.0-only
+  license_family: LGPL
+  license_file: LICENSE.txt
+  summary: An immutable dictionary
+  dev_url: https://github.com/Marco-Sulla/python-frozendict
+
+extra:
+  recipe-maintainers:
+    - ltalirz
+    - Marco-Sulla

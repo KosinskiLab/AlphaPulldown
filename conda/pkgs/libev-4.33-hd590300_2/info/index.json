@@ -1,0 +1,15 @@
+{
+  "arch": "x86_64",
+  "build": "hd590300_2",
+  "build_number": 2,
+  "depends": [
+    "libgcc-ng >=12"
+  ],
+  "license": "BSD-2-Clause",
+  "license_family": "BSD",
+  "name": "libev",
+  "platform": "linux",
+  "subdir": "linux-64",
+  "timestamp": 1702146165126,
+  "version": "4.33"
+}

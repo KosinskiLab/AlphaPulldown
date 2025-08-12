@@ -1,0 +1,3 @@
+# Break circular dependency openssl -> clang -> ld64 -> sigtool -> openssl
+c_compiler:          # [osx]
+  - clang_bootstrap  # [osx]

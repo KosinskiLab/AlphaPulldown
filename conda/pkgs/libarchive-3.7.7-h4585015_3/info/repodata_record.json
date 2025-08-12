@@ -1,0 +1,30 @@
+{
+    "arch": "x86_64",
+    "build": "h4585015_3",
+    "build_number": 3,
+    "channel": "conda-forge",
+    "depends": [
+        "__glibc >=2.17,<3.0.a0",
+        "bzip2 >=1.0.8,<2.0a0",
+        "libgcc >=13",
+        "liblzma >=5.6.3,<6.0a0",
+        "libxml2 >=2.13.5,<3.0a0",
+        "libzlib >=1.3.1,<2.0a0",
+        "lz4-c >=1.10.0,<1.11.0a0",
+        "lzo >=2.10,<3.0a0",
+        "openssl >=3.4.0,<4.0a0",
+        "zstd >=1.5.6,<1.6.0a0"
+    ],
+    "fn": "libarchive-3.7.7-h4585015_3.conda",
+    "license": "BSD-2-Clause",
+    "license_family": "BSD",
+    "md5": "a28808eae584c7f519943719b2a2b386",
+    "name": "libarchive",
+    "platform": "linux",
+    "sha256": "2466803e26ae9dbd2263de3a102b572b741c056549875c04b6ec10830bd5d338",
+    "size": 878021,
+    "subdir": "linux-64",
+    "timestamp": 1734020918345,
+    "url": "https://conda.anaconda.org/conda-forge/linux-64/libarchive-3.7.7-h4585015_3.conda",
+    "version": "3.7.7"
+}

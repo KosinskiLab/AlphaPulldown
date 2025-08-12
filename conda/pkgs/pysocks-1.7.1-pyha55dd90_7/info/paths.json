@@ -1,0 +1,65 @@
+{
+  "paths": [
+    {
+      "_path": "site-packages/PySocks-1.7.1.dist-info/INSTALLER",
+      "path_type": "hardlink",
+      "sha256": "d0edee15f91b406f3f99726e44eb990be6e34fd0345b52b910c568e0eef6a2a8",
+      "size_in_bytes": 5
+    },
+    {
+      "_path": "site-packages/PySocks-1.7.1.dist-info/LICENSE",
+      "path_type": "hardlink",
+      "sha256": "7027e214e014eb78b7adcc1ceda5aca713a79fc4f6a0c52c9da5b3e707e6ffe9",
+      "size_in_bytes": 1401
+    },
+    {
+      "_path": "site-packages/PySocks-1.7.1.dist-info/METADATA",
+      "path_type": "hardlink",
+      "sha256": "4538555a792bc26e1faf5213c069afaaa0d7018c47646fd6228c917504c19388",
+      "size_in_bytes": 13237
+    },
+    {
+      "_path": "site-packages/PySocks-1.7.1.dist-info/RECORD",
+      "path_type": "hardlink",
+      "sha256": "75f4c8b185eac6f2af0ef06703333414f4966e94e7fca3480fed521d8b002904",
+      "size_in_bytes": 883
+    },
+    {
+      "_path": "site-packages/PySocks-1.7.1.dist-info/REQUESTED",
+      "path_type": "hardlink",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size_in_bytes": 0
+    },
+    {
+      "_path": "site-packages/PySocks-1.7.1.dist-info/WHEEL",
+      "path_type": "hardlink",
+      "sha256": "3d9504c5d7fbd548bfb28ebb417a724ae1ed0a2dfe277c2f1783912ba93f4bc5",
+      "size_in_bytes": 91
+    },
+    {
+      "_path": "site-packages/PySocks-1.7.1.dist-info/direct_url.json",
+      "path_type": "hardlink",
+      "sha256": "6516eb6851fc1439d4c59444a6a7c64d4df96c325dfbb5a328f4d755482246d8",
+      "size_in_bytes": 103
+    },
+    {
+      "_path": "site-packages/PySocks-1.7.1.dist-info/top_level.txt",
+      "path_type": "hardlink",
+      "sha256": "4ca48e21f0850682bd118f050586d8a82dcf59ddfef86d79a61f67f3e4073c39",
+      "size_in_bytes": 19
+    },
+    {
+      "_path": "site-packages/socks.py",
+      "path_type": "hardlink",
+      "sha256": "c4e627dbbb7d206adb4c1cd6b1452e3dad1806ea6582253293390e0795798856",
+      "size_in_bytes": 31086
+    },
+    {
+      "_path": "site-packages/sockshandler.py",
+      "path_type": "hardlink",
+      "sha256": "d926068fea70b7592380ba19026c9e6845c27990d64667d54bf406ea412b1ad6",
+      "size_in_bytes": 3966
+    }
+  ],
+  "paths_version": 1
+}

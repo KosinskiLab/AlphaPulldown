@@ -1,0 +1,24 @@
+{
+    "arch": "x86_64",
+    "build": "pl5321h7949ede_0",
+    "build_number": 0,
+    "channel": "conda-forge",
+    "depends": [
+        "ncurses",
+        "__glibc >=2.17,<3.0.a0",
+        "libgcc >=13",
+        "ncurses >=6.5,<7.0a0"
+    ],
+    "fn": "libedit-3.1.20240808-pl5321h7949ede_0.conda",
+    "license": "BSD-2-Clause",
+    "license_family": "BSD",
+    "md5": "8247f80f3dc464d9322e85007e307fe8",
+    "name": "libedit",
+    "platform": "linux",
+    "sha256": "4d0d69ddf9cc7d724a1ccf3a9852e44c8aea9825692582bac2c4e8d21ec95ccd",
+    "size": 134657,
+    "subdir": "linux-64",
+    "timestamp": 1736191912705,
+    "url": "https://conda.anaconda.org/conda-forge/linux-64/libedit-3.1.20240808-pl5321h7949ede_0.conda",
+    "version": "3.1.20240808"
+}

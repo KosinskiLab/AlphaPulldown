@@ -1,0 +1,14 @@
+{
+  "arch": "x86_64",
+  "build": "h7f98852_5",
+  "build_number": 5,
+  "depends": [
+    "libgcc-ng >=9.4.0"
+  ],
+  "license": "MIT",
+  "name": "libffi",
+  "platform": "linux",
+  "subdir": "linux-64",
+  "timestamp": 1636488182923,
+  "version": "3.4.2"
+}

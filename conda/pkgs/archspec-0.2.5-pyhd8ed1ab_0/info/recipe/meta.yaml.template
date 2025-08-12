@@ -1,0 +1,51 @@
+{% set name = "archspec" %}
+{% set version = "0.2.5" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  url: https://pypi.org/packages/source/{{ name[0] }}/{{ name }}/archspec-{{ version }}.tar.gz
+  sha256: 5bec8dfc5366ff299071200466dc9572d56db4e43abca3c66bdd62bc2b731a2a
+
+build:
+  number: 0
+  noarch: python
+  entry_points:
+    - archspec = archspec.cli:main
+  script: {{ PYTHON }} -m pip install . -vv
+
+requirements:
+  host:
+    - pip
+    - python {{ python_min }}
+    - poetry
+  run:
+    - python >={{ python_min }}
+
+test:
+  imports:
+    - archspec
+    - archspec.cpu
+  commands:
+    - pip check
+    - archspec --help
+  requires:
+    - pip
+    - python {{ python_min }}
+
+about:
+  home: https://pypi.org/project/archspec/
+  summary: A library to query system architecture
+  license: MIT OR Apache-2.0
+  license_file:
+    - LICENSE-MIT
+    - LICENSE-APACHE
+  dev_url: https://github.com/archspec/archspec/
+  doc_url: https://archspec.readthedocs.io/
+
+extra:
+  recipe-maintainers:
+    - anthchirp
+    - isuruf

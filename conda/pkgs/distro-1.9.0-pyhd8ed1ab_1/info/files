@@ -1,0 +1,13 @@
+site-packages/distro-1.9.0.dist-info/INSTALLER
+site-packages/distro-1.9.0.dist-info/LICENSE
+site-packages/distro-1.9.0.dist-info/METADATA
+site-packages/distro-1.9.0.dist-info/RECORD
+site-packages/distro-1.9.0.dist-info/REQUESTED
+site-packages/distro-1.9.0.dist-info/WHEEL
+site-packages/distro-1.9.0.dist-info/direct_url.json
+site-packages/distro-1.9.0.dist-info/entry_points.txt
+site-packages/distro-1.9.0.dist-info/top_level.txt
+site-packages/distro/__init__.py
+site-packages/distro/__main__.py
+site-packages/distro/distro.py
+site-packages/distro/py.typed

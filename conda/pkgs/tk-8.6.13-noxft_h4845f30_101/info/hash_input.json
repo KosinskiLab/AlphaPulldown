@@ -1,0 +1,9 @@
+{
+  "target_platform": "linux-64",
+  "c_compiler": "gcc",
+  "c_compiler_version": "12",
+  "channel_targets": "conda-forge main",
+  "tk_variant": "noxft",
+  "tk": "8.6",
+  "zlib": "1.2"
+}

@@ -1,0 +1,16 @@
+{
+  "arch": "x86_64",
+  "build": "h5888daf_1",
+  "build_number": 1,
+  "depends": [
+    "__glibc >=2.17,<3.0.a0",
+    "libgcc >=13",
+    "libstdcxx >=13"
+  ],
+  "license": "BSD-2-Clause",
+  "name": "lz4-c",
+  "platform": "linux",
+  "subdir": "linux-64",
+  "timestamp": 1733741040117,
+  "version": "1.10.0"
+}

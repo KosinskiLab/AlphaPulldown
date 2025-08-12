@@ -1,0 +1,59 @@
+From a1b3484a8e6c53c8084723e3f1738d402374198e Mon Sep 17 00:00:00 2001
+From: Jason Merrill <jason@redhat.com>
+Date: Mon, 31 May 2021 12:56:34 -0400
+Subject: [PATCH] c++: alias member template [PR100102]
+
+Patrick already fixed the primary cause of this bug.  But while I was
+looking at this testcase I noticed that with the qualified name k::o we
+ended up with a plain FUNCTION_DECL, whereas without the k:: we got a
+BASELINK.  There seems to be no good reason not to return the BASELINK
+in this case as well.
+
+	PR c++/100102
+
+gcc/cp/ChangeLog:
+
+	* init.c (build_offset_ref): Return the BASELINK for a static
+	member function.
+
+gcc/testsuite/ChangeLog:
+
+	* g++.dg/cpp0x/alias-decl-73.C: New test.
+---
+ gcc/cp/init.c                              | 2 +-
+ gcc/testsuite/g++.dg/cpp0x/alias-decl-73.C | 9 +++++++++
+ 2 files changed, 10 insertions(+), 1 deletion(-)
+ create mode 100644 gcc/testsuite/g++.dg/cpp0x/alias-decl-73.C
+
+diff --git a/gcc/cp/init.c b/gcc/cp/init.c
+index b1123287300..1b161d526f6 100644
+--- a/gcc/cp/init.c
++++ b/gcc/cp/init.c
+@@ -2214,7 +2214,7 @@ build_offset_ref (tree type, tree member, bool address_p,
+ 	  if (!ok)
+ 	    return error_mark_node;
+ 	  if (DECL_STATIC_FUNCTION_P (t))
+-	    return t;
++	    return member;
+ 	  member = t;
+ 	}
+       else
+diff --git a/gcc/testsuite/g++.dg/cpp0x/alias-decl-73.C b/gcc/testsuite/g++.dg/cpp0x/alias-decl-73.C
+new file mode 100644
+index 00000000000..aae778646dc
+--- /dev/null
++++ b/gcc/testsuite/g++.dg/cpp0x/alias-decl-73.C
+@@ -0,0 +1,9 @@
++// PR c++/100102
++// { dg-do compile { target c++11 } }
++
++template <bool B1> using a = int;
++template <class T3, class T4> struct k {
++  static long o();
++  template <class T5> using n = a<bool(k::o)>;
++  n<int> q;
++};
+-- 
+2.27.0
+
+

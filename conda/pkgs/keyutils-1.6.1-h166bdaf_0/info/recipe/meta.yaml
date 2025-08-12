@@ -1,0 +1,71 @@
+# This file created by conda-build 3.21.8
+# meta.yaml template originally from:
+# /home/conda/recipe_root, last modified Tue Mar  1 16:18:44 2022
+# ------------------------------------------------
+
+package:
+  name: keyutils
+  version: 1.6.1
+source:
+  patches:
+    - 0001-Make-endian-detection-in-work-on-non-RHEL-distributi.patch
+    - 0002-Fix-installing-shared-library-symlinks-with-DESTDIR.patch
+  sha256: c8b15722ae51d95b9ad76cc6d49a4c2cc19b0c60f72f61fb9bf43eea7cbd64ce
+  url: https://people.redhat.com/~dhowells/keyutils/keyutils-1.6.1.tar.bz2
+build:
+  number: '0'
+  run_exports:
+    - keyutils >=1.6.1,<2.0a0
+  string: h166bdaf_0
+requirements:
+  build:
+    - _libgcc_mutex 0.1 conda_forge
+    - _openmp_mutex 4.5 1_gnu
+    - binutils_impl_linux-64 2.36.1 h193b22a_2
+    - binutils_linux-64 2.36 hf3e587d_6
+    - file 5.39 h27826a3_0
+    - gcc_impl_linux-64 10.3.0 hf2f2afa_12
+    - gcc_linux-64 10.3.0 hc39de41_6
+    - kernel-headers_linux-64 2.6.32 he073ed8_15
+    - ld_impl_linux-64 2.36.1 hea4e1c9_2
+    - libgcc-devel_linux-64 10.3.0 he6cfe16_12
+    - libgcc-ng 11.2.0 h1d223b6_12
+    - libgomp 11.2.0 h1d223b6_12
+    - libmagic 5.39 h27826a3_0
+    - libsanitizer 10.3.0 h26c7422_12
+    - libstdcxx-ng 11.2.0 he4da1e4_12
+    - libzlib 1.2.11 h36c2ea0_1013
+    - make 4.3 hd18ef5c_1
+    - sysroot_linux-64 2.12 he073ed8_15
+    - zlib 1.2.11 h36c2ea0_1013
+  host:
+    - _libgcc_mutex 0.1 conda_forge
+    - _openmp_mutex 4.5 1_gnu
+    - libgcc-ng 11.2.0 h1d223b6_12
+    - libgomp 11.2.0 h1d223b6_12
+  run:
+    - libgcc-ng >=10.3.0
+test:
+  commands:
+    - test -f ${PREFIX}/lib/libkeyutils.so
+    - keyctl --version | grep '1.6.1'
+about:
+  description: 'Keyutils is a set of utilities for managing the key retention facility
+    in
+
+    the kernel, which can be used by filesystems, block devices and more to
+
+    gain and retain the authorization and encryption keys required to perform
+
+    secure operations.
+
+    '
+  home: https://people.redhat.com/~dhowells/keyutils/
+  license: LGPL-2.1-or-later
+  license_file: LICENCE.LGPL
+  summary: Linux Key Management Utilities
+extra:
+  copy_test_source_files: true
+  final: true
+  recipe-maintainers:
+    - chrisburr

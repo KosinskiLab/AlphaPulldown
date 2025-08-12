@@ -1,0 +1,27 @@
+triplet:
+  - x86_64-conda-linux-gnu
+  - powerpc64le-conda-linux-gnu
+  - aarch64-conda-linux-gnu
+  - s390x-conda-linux-gnu
+  - x86_64-w64-mingw32
+ctng_vendor:
+  - conda_cos6
+  - conda_cos7
+  - conda_cos7
+  - conda_cos7
+  - none
+cross_target_platform:
+  - linux-64
+  - linux-ppc64le
+  - linux-aarch64
+  - linux-s390x
+  - win-64
+cxx_compiler:       # [linux or win]
+  - gcc_bootstrap   # [linux or win]
+c_stdlib:           # [win]
+  - m2w64-sysroot   # [win]
+zip_keys:
+  -
+    - triplet
+    - ctng_vendor
+    - cross_target_platform

@@ -1,0 +1,22 @@
+{
+    "arch": null,
+    "build": "pyhd8ed1ab_2",
+    "build_number": 2,
+    "channel": "conda-forge",
+    "depends": [
+        "python >=3.8"
+    ],
+    "fn": "packaging-24.2-pyhd8ed1ab_2.conda",
+    "license": "Apache-2.0",
+    "license_family": "APACHE",
+    "md5": "3bfed7e6228ebf2f7b9eaa47f1b4e2aa",
+    "name": "packaging",
+    "noarch": "python",
+    "platform": null,
+    "sha256": "da157b19bcd398b9804c5c52fc000fcb8ab0525bdb9c70f95beaa0bb42f85af1",
+    "size": 60164,
+    "subdir": "noarch",
+    "timestamp": 1733203368787,
+    "url": "https://conda.anaconda.org/conda-forge/noarch/packaging-24.2-pyhd8ed1ab_2.conda",
+    "version": "24.2"
+}

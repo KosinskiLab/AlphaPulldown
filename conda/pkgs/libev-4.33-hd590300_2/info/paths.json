@@ -1,0 +1,41 @@
+{
+  "paths": [
+    {
+      "_path": "include/ev++.h",
+      "path_type": "hardlink",
+      "sha256": "918c757dc7f2ccf58012326b9aa6e5060d3b951b5e2c0542111204762df936e7",
+      "size_in_bytes": 20549
+    },
+    {
+      "_path": "include/ev.h",
+      "path_type": "hardlink",
+      "sha256": "6622bd23ae922f066cecbba48b3290a6c9325c879db158484cf0899ca95687d2",
+      "size_in_bytes": 30257
+    },
+    {
+      "_path": "lib/libev.so",
+      "path_type": "softlink",
+      "sha256": "e328f7dff8d59a0c83916f9bb75ec25132d75a6f9b01e88bd316b865af0baecf",
+      "size_in_bytes": 69144
+    },
+    {
+      "_path": "lib/libev.so.4",
+      "path_type": "softlink",
+      "sha256": "e328f7dff8d59a0c83916f9bb75ec25132d75a6f9b01e88bd316b865af0baecf",
+      "size_in_bytes": 69144
+    },
+    {
+      "_path": "lib/libev.so.4.0.0",
+      "path_type": "hardlink",
+      "sha256": "e328f7dff8d59a0c83916f9bb75ec25132d75a6f9b01e88bd316b865af0baecf",
+      "size_in_bytes": 69144
+    },
+    {
+      "_path": "share/man/man3/ev.3",
+      "path_type": "hardlink",
+      "sha256": "178fb4d367b9626165733a0927f0b597686ee24675424b9ab6dc2f9cd9a86952",
+      "size_in_bytes": 273163
+    }
+  ],
+  "paths_version": 1
+}

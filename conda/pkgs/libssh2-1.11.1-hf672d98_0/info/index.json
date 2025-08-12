@@ -1,0 +1,18 @@
+{
+  "arch": "x86_64",
+  "build": "hf672d98_0",
+  "build_number": 0,
+  "depends": [
+    "__glibc >=2.17,<3.0.a0",
+    "libgcc >=13",
+    "libzlib >=1.3.1,<2.0a0",
+    "openssl >=3.4.0,<4.0a0"
+  ],
+  "license": "BSD-3-Clause",
+  "license_family": "BSD",
+  "name": "libssh2",
+  "platform": "linux",
+  "subdir": "linux-64",
+  "timestamp": 1732349402869,
+  "version": "1.11.1"
+}

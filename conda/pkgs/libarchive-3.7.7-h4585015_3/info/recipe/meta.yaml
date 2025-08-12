@@ -1,0 +1,101 @@
+# This file created by conda-build 24.11.2
+# ------------------------------------------------
+
+package:
+  name: libarchive
+  version: 3.7.7
+source:
+  patches:
+    - patches/0001-Add-lib-to-CMAKE_FIND_LIBRARY_PREFIXES-for-lzma.patch
+  sha256: fa62384995e8aa4f5a901c184fb5c91e56a29e24c05b6881a7f8fd5bbea694d2
+  url: https://github.com/libarchive/libarchive/archive/v3.7.7.tar.gz
+build:
+  number: 3
+  run_exports:
+    - libarchive >=3.7.7,<3.8.0a0
+  string: h4585015_3
+requirements:
+  build:
+    - _libgcc_mutex 0.1 conda_forge
+    - _openmp_mutex 4.5 2_gnu
+    - autoconf 2.71 pl5321h2b4cb7a_1
+    - automake 1.17 pl5321ha770c72_0
+    - binutils_impl_linux-64 2.43 h4bf12b8_2
+    - binutils_linux-64 2.43 h4852527_2
+    - gcc_impl_linux-64 13.3.0 hfea6d02_1
+    - gcc_linux-64 13.3.0 hc28eda2_7
+    - kernel-headers_linux-64 3.10.0 he073ed8_18
+    - ld_impl_linux-64 2.43 h712a8e2_2
+    - libgcc 14.2.0 h77fa898_1
+    - libgcc-devel_linux-64 13.3.0 h84ea5a7_101
+    - libgcc-ng 14.2.0 h69a702a_1
+    - libgomp 14.2.0 h77fa898_1
+    - libsanitizer 13.3.0 heb74ff8_1
+    - libstdcxx 14.2.0 hc0a3c3a_1
+    - libtool 2.4.7 he02047a_1
+    - libxcrypt 4.4.36 hd590300_1
+    - m4 1.4.18 h516909a_1001
+    - make 4.4.1 hb9d3cd8_2
+    - perl 5.32.1 7_hd590300_perl5
+    - pkg-config 0.29.2 h4bc722e_1009
+    - sysroot_linux-64 2.17 h4a8ded7_18
+    - tzdata 2024b hc8b5060_0
+  host:
+    - _libgcc_mutex 0.1 conda_forge
+    - _openmp_mutex 4.5 2_gnu
+    - bzip2 1.0.8 h4bc722e_7
+    - ca-certificates 2024.8.30 hbcca054_0
+    - libgcc 14.2.0 h77fa898_1
+    - libgcc-ng 14.2.0 h69a702a_1
+    - libgomp 14.2.0 h77fa898_1
+    - libiconv 1.17 hd590300_2
+    - liblzma 5.6.3 hb9d3cd8_1
+    - liblzma-devel 5.6.3 hb9d3cd8_1
+    - libstdcxx 14.2.0 hc0a3c3a_1
+    - libstdcxx-ng 14.2.0 h4852527_1
+    - libxml2 2.13.5 h0d44e9d_1
+    - libzlib 1.3.1 hb9d3cd8_2
+    - lz4-c 1.10.0 h5888daf_1
+    - lzo 2.10 hd590300_1001
+    - openssl 3.4.0 hb9d3cd8_0
+    - zlib 1.3.1 hb9d3cd8_2
+    - zstd 1.5.6 ha6fb4c9_0
+  run:
+    - __glibc >=2.17,<3.0.a0
+    - bzip2 >=1.0.8,<2.0a0
+    - libgcc >=13
+    - liblzma >=5.6.3,<6.0a0
+    - libxml2 >=2.13.5,<3.0a0
+    - libzlib >=1.3.1,<2.0a0
+    - lz4-c >=1.10.0,<1.11.0a0
+    - lzo >=2.10,<3.0a0
+    - openssl >=3.4.0,<4.0a0
+    - zstd >=1.5.6,<1.6.0a0
+test:
+  commands:
+    - test -f "${PREFIX}/lib/pkgconfig/libarchive.pc"
+    - test -f "${PREFIX}/include/archive.h"
+    - test -f "${PREFIX}/include/archive_entry.h"
+    - test -f "${PREFIX}/lib/libarchive.a"
+    - test -f "${PREFIX}/lib/libarchive${SHLIB_EXT}"
+    - bsdcat --version
+    - bsdcpio --version
+    - bsdtar --version
+    - bsdtar -tf test/hello_world.xar
+  files:
+    - test/hello_world.xar
+about:
+  home: http://www.libarchive.org/
+  license: BSD-2-Clause
+  license_family: BSD
+  license_file: COPYING
+  summary: Multi-format archive and compression library
+extra:
+  copy_test_source_files: true
+  final: true
+  flow_run_id: azure_20241212.2.1
+  recipe-maintainers:
+    - jakirkham
+    - ocefpaf
+  remote_url: https://github.com/conda-forge/libarchive-feedstock
+  sha: bdbe7cea9304c9418f5e0442e98ce43321491aa7

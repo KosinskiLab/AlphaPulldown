@@ -1,0 +1,54 @@
+CI: azure
+_libgcc_mutex: 0.1 conda_forge
+binutils_version: 2.36.1
+c_compiler: gcc
+cdt_name: cos6
+channel_sources: conda-forge
+channel_targets: conda-forge main
+cpu_optimization_target: nocona
+cran_mirror: https://cran.r-project.org
+cross_target_platform: linux-64
+cxx_compiler: gxx
+docker_image: quay.io/condaforge/linux-anvil-cos7-x86_64
+extend_keys:
+- extend_keys
+- pin_run_as_build
+- ignore_build_only_deps
+- ignore_version
+fortran_compiler: gfortran
+gcc_build_number: '0'
+gcc_machine: x86_64
+gcc_maj_ver: '8'
+gcc_vendor: conda
+gcc_version: 8.5.0
+glib: '2'
+glibc_version: '2.12'
+ignore_build_only_deps:
+- numpy
+- python
+libgfortran_soname: '5'
+libgomp_ver: 1.0.0
+lua: '5'
+numpy: '1.16'
+old_gcc_vendor: conda_cos6
+openmp_ver: '4.5'
+perl: 5.26.2
+pin_run_as_build:
+  python:
+    min_pin: x.x
+    max_pin: x.x
+  r-base:
+    min_pin: x.x
+    max_pin: x.x
+python: '3.9'
+r_base: '3.5'
+target_platform: linux-64
+use_system_gcc: 'False'
+zip_keys:
+- - gcc_version
+  - gcc_maj_ver
+  - libgfortran_soname
+- - glibc_version
+  - old_gcc_vendor
+  - gcc_machine
+  - cross_target_platform
