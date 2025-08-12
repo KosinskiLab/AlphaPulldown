@@ -1,5 +1,0 @@
-#!/home/conda/feedstock_root/build_artifacts/python-split_1733407224341/_h_env_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehol/bin/python3.12
-
-from idlelib.pyshell import main
-if __name__ == '__main__':
-    main()

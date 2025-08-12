@@ -1,8 +1,0 @@
-libdir=/home/conda/feedstock_root/build_artifacts/libsolv-split_1720789969157/_h_env_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placeho/lib
-includedir=/home/conda/feedstock_root/build_artifacts/libsolv-split_1720789969157/_h_env_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placeho/include
-
-Name: libsolv
-Description: Library for solving packages
-Version: 0.7.30
-Libs: -L${libdir} -lsolv
-Cflags: -I${includedir}

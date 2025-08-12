@@ -1,1 +1,0 @@
-INPUT(libncursesw.so.6 -ltinfow)

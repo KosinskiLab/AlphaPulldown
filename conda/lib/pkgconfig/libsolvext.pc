@@ -1,9 +1,0 @@
-libdir=/home/dmolodenskiy/AlphaPulldown/conda/lib
-includedir=/home/dmolodenskiy/AlphaPulldown/conda/include
-
-Name: libsolvext
-Description: Library for reading repositories
-Version: 0.7.30
-Requires: libsolv
-Libs: -L${libdir} -lsolvext
-Cflags: -I${includedir}

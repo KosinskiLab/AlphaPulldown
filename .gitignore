@@ -5,3 +5,4 @@ __pycache__*
 test/test_data/predictions/af*
 build/
 *.egg-info/
+tmp/
