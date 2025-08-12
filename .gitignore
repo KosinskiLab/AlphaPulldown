@@ -2,6 +2,9 @@ __pycache__*
 *__pycache__*
 .DS_Store*
 .idea*
+.ipynb_checkpoints*
+.vscode*
+.coverage*
 test/test_data/predictions/af*
 build/
 *.egg-info/
