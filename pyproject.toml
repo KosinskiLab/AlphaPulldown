@@ -34,16 +34,13 @@
    "pytest>=6.0",
    "parameterized",
    "ipython==8.16.1",
-   "tqdm>=4.66.1",
-   "appdirs>=1.4.4",
-   "jupyterlab>=3.0",
-   "ipywidgets",
-   "ml-dtypes",
-   "chex>=0.1.86",
-   "immutabledict>=2.0.0",
-    "hhsuite",
-    "hmmer",
-    "kalign2",
+    "tqdm>=4.66.1",
+    "appdirs>=1.4.4",
+    "jupyterlab>=3.0",
+    "ipywidgets",
+    "ml-dtypes",
+    "chex>=0.1.86",
+    "immutabledict>=2.0.0",
     "modelcif",
  ]
 
@@ -59,6 +56,10 @@
    "openmm>=8.0",
    "pdbfixer>=1.9",
  ]
+  alignment_tools = [
+    # These tools are typically installed via conda, not PyPI.
+    # Kept as an empty extra to document the group without attempting pip install.
+  ]
  alphafold3 = [
    # AF3 stack (install in a separate env; versions mirror upstream)
    "dm-haiku==0.0.13",
