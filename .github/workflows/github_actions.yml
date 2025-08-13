@@ -38,22 +38,18 @@ jobs:
       - if: matrix.install-type == 'user'
         run: |
           pip install alphapulldown
-          pip install -U "jax[cuda12]"==0.5.3
+          # Install CPU JAX for tests (no CUDA on GitHub runners)
+          pip install "jax==0.5.3"
 
       - if: matrix.install-type == 'developer'
         run: |
-          pip install .
-          pip install -U "jax[cuda12]"==0.5.3
-          # export PYTHONPATH=$PWD/AlphaLink2:$PYTHONPATH
-          # install dependencies for AlphaLink backend
-          # pip install torch==1.13.0+cu117 --extra-index-url https://download.pytorch.org/whl/cu117
-          # pip install setuptools==69.5.1 # Downgrade setuptools to avoid crashes when installing unicore
-          # git clone https://github.com/dptech-corp/Uni-Core.git
-          # cd Uni-Core
-          # python setup.py install --disable-cuda-ext
-          # cd ..
+          pip install -e .
+          # Install CPU JAX for tests (no CUDA on GitHub runners)
+          pip install "jax==0.5.3"
+          # AlphaLink2 and AF3 backends are optional; GPU-only tests are skipped on CI by guards
       - run: |
           pytest test/
+  # gpu-tests removed to avoid requiring paid GPU runners; run GPU tests manually on self-hosted or paid GPU runners
           #export PYTHONPATH=$PWD/alphapulldown/analysis_pipeline:$PYTHONPATH
           ## Test analysis pipeline
           #conda install -c bioconda biopandas

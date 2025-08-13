@@ -52,26 +52,33 @@
    "ipywidgets",
  ]
  alphafold2 = [
-   # AF2 uses JAX in this project; install JAX separately per your CUDA setup
-   "openmm>=8.0",
-   "pdbfixer>=1.9",
+    # AF2 uses JAX in this project; install JAX separately per your CUDA setup
+    # OpenMM/PDBFixer should be installed via conda in the environment, not via pip
  ]
   alignment_tools = [
     # These tools are typically installed via conda, not PyPI.
     # Kept as an empty extra to document the group without attempting pip install.
   ]
  alphafold3 = [
-   # AF3 stack (install in a separate env; versions mirror upstream)
-   "dm-haiku==0.0.13",
-   "dm-tree",
-   "jax==0.4.34",
-   "jax[cuda12]==0.4.34",
-   "jax-triton==0.2.0",
-   "triton==3.1.0",
-   "jaxtyping==0.2.34",
-   "numpy",
-   "typeguard==2.13.3",
-   "zstandard",
+    # AF3 stack (install in a separate env; versions mirror docker/alphafold3.dockerfile)
+    "dm-haiku==0.0.13",
+    "dm-tree==0.1.8",
+    "chex==0.1.87",
+    "jmp==0.0.4",
+    "ml-dtypes==0.5.0",
+    "jax==0.5.3",
+    "jax[cuda12]==0.5.3",
+    "triton==3.1.0",
+    "jax-triton==0.2.0",
+    "jaxtyping==0.2.34",
+    "numpy>=1.26,<2",
+    "typeguard==2.13.3",
+    "zstandard",
+    # build dependencies for the AF3 cpp extension
+    "scikit-build-core",
+    "pybind11",
+    "cmake>=3.28",
+    "ninja",
  ]
  alphalink2 = [
    # Install matching CUDA wheels as needed

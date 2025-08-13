@@ -542,10 +542,11 @@ AlphaPulldown can be used as a set of scripts for every particular step.
 Install [Anaconda](https://www.anaconda.com/) (or Mamba) and create a minimal Python environment. Install alignment tools via conda (recommended) and Python packages via pip.
 
 ```bash
-conda create -n AlphaPulldown -c conda-forge python==3.11
-conda activate AlphaPulldown
+# Create a separate environment for your backend (recommended)
+conda create -n ap_<backend> -c conda-forge python==3.11
 
-# Install sequence alignment tools (needed for features/MSA generation)
+# In each env where you will run features/MSA, install alignment tools
+conda activate ap_<backend>
 conda install -c bioconda -c conda-forge hmmer hhsuite kalign2
 ```
 
@@ -571,6 +572,19 @@ Backends can be installed via extras (use separate environments if mixing versio
   pip install "alphapulldown[alphafold3]"
   ```
 
+  To build and initialize the local AlphaFold3 backend from this repository (mirrors steps in `docker/alphafold3.dockerfile`):
+  ```bash
+  # Ensure build tooling is available
+  pip install --upgrade pip scikit_build_core pybind11 "cmake>=3.28" ninja
+
+  # Build the AF3 Python extension and its bundled data
+  cd alphafold3
+  pip install --no-build-isolation --no-deps .
+  build_data
+  cd ..
+  ```
+  If build issues occur, compare environment/tooling versions to `docker/alphafold3.dockerfile` which shows a known-good configuration.
+
 - AlphaLink2 (PyTorch-based; separate env recommended):
   ```bash
   pip install "alphapulldown[alphalink2]"
@@ -578,6 +592,9 @@ Backends can be installed via extras (use separate environments if mixing versio
 
 > [!IMPORTANT]
 > AF2 and AF3 rely on different JAX versions; AlphaLink2 relies on PyTorch. For stability, use separate conda environments for each backend.
+
+> [!TIP]
+> Backend reference environments are captured in `docker/pulldown.dockerfile` (AlphaFold2) and `docker/alphalink.dockerfile` (AlphaLink2).
    
 > [!NOTE] 
 > **For older versions of AlphaFold**:
