@@ -539,62 +539,71 @@ AlphaPulldown can be used as a set of scripts for every particular step.
 
 ### 0.1. Create Anaconda environment
 
-Install [Anaconda](https://www.anaconda.com/) (or Mamba) and create a minimal Python environment. Install alignment tools via conda (recommended) and Python packages via pip.
+Install [Anaconda](https://www.anaconda.com/) (or Mamba) and create a minimal Python environment.
 
 ```bash
 # Create a separate environment for your backend (recommended)
 conda create -n ap_<backend> -c conda-forge python==3.11
-
-# In each env where you will run features/MSA, install alignment tools
-conda activate ap_<backend>
-conda install -c bioconda -c conda-forge hmmer hhsuite kalign2
 ```
 
 
 ### 0.2. Installation using pip
 
-Activate the environment and install from PyPI:
+The base package includes essential Python tools and ColabFold for MSA generation. **Alignment tools (HH-suite, HMMER, Kalign, ModelCIF) must be installed separately via conda/mamba** as they are not available on PyPI.
 
+#### Quick Setup
 ```bash
-pip install alphapulldown
+# Create environment for your chosen backend
+mamba create -n ap_<backend> -c conda-forge python==3.11 -y
+mamba activate ap_<backend>
+
+# Install alignment tools and ModelCIF (required for all backends)
+mamba install -c bioconda -c conda-forge hmmer hhsuite kalign2 modelcif -y
+
+# Install AlphaPulldown with backend-specific extras
+pip install -e .[<backend>]
 ```
 
-Backends can be installed via extras (use separate environments if mixing versions):
+#### Available Backends
+- **`alphafold2`** - AlphaFold2 (JAX-based) + OpenMM/PDBFixer
+- **`alphafold3`** - AlphaFold3 (JAX/Triton/CUDA) + build tools *(requires `build_data` command after installation)*
+- **`alphalink2`** - AlphaLink2 (PyTorch-based)
+- **`dev`** - Development tools (pytest, jupyter, etc.)
 
-- AlphaFold2 helpers (OpenMM/PDBFixer):
-  ```bash
-  pip install "alphapulldown[alphafold2]"
-  ```
-  Install JAX for AF2 separately per your CUDA setup; avoid mixing AF2 and AF3 JAX in the same env.
+> [!NOTE]
+> **Base Package**: All backends include ColabFold for MSA generation and essential Python tools. **Alignment tools (HH-suite, HMMER, Kalign, ModelCIF) must be installed separately via conda/mamba**.
 
-- AlphaFold3 stack (JAX-based; separate env recommended):
-  ```bash
-  pip install "alphapulldown[alphafold3]"
-  ```
+#### Example Installations
+```bash
+# AlphaFold2 environment
+mamba create -n ap_alphafold2 -c conda-forge python==3.11 -y
+mamba activate ap_alphafold2
+mamba install -c bioconda -c conda-forge hmmer hhsuite kalign2 modelcif -y
+pip install -e .[alphafold2]
 
-  To build and initialize the local AlphaFold3 backend from this repository (mirrors steps in `docker/alphafold3.dockerfile`):
-  ```bash
-  # Ensure build tooling is available
-  pip install --upgrade pip scikit_build_core pybind11 "cmake>=3.28" ninja
+# AlphaFold3 environment  
+mamba create -n ap_alphafold3 -c conda-forge python==3.11 -y
+mamba activate ap_alphafold3
+mamba install -c bioconda -c conda-forge hmmer hhsuite kalign2 modelcif -y
+pip install -e .[alphafold3]
+# IMPORTANT: After installation, run 'build_data' to build chemical components dictionary
+cd alphafold3 && build_data
 
-  # Build the AF3 Python extension and its bundled data
-  cd alphafold3
-  pip install --no-build-isolation --no-deps .
-  build_data
-  cd ..
-  ```
-  If build issues occur, compare environment/tooling versions to `docker/alphafold3.dockerfile` which shows a known-good configuration.
-
-- AlphaLink2 (PyTorch-based; separate env recommended):
-  ```bash
-  pip install "alphapulldown[alphalink2]"
-  ```
+# AlphaLink2 environment
+mamba create -n ap_alphalink2 -c conda-forge python==3.11 -y
+mamba activate ap_alphalink2
+mamba install -c bioconda -c conda-forge hmmer hhsuite kalign2 modelcif -y
+pip install -e .[alphalink2]
+```
 
 > [!IMPORTANT]
-> AF2 and AF3 rely on different JAX versions; AlphaLink2 relies on PyTorch. For stability, use separate conda environments for each backend.
+> Each backend requires a separate conda environment to avoid dependency conflicts. The base package provides Python tools and ColabFold for MSA generation.
 
 > [!TIP]
 > Backend reference environments are captured in `docker/pulldown.dockerfile` (AlphaFold2) and `docker/alphalink.dockerfile` (AlphaLink2).
+
+> [!NOTE]
+> **ColabFold Installation**: ColabFold is included in the base package **without dependencies** to avoid conflicts. If you encounter issues, the package is designed to work with minimal dependencies.
    
 > [!NOTE] 
 > **For older versions of AlphaFold**:
@@ -618,16 +627,7 @@ singularity build <new_image.sif> <writable_image_dir>
 
 ### 0.4. Installation for cross-link input data by [AlphaLink2](https://github.com/Rappsilber-Laboratory/AlphaLink2/tree/main) (optional!)
 
-Install AlphaLink2 dependencies via PyPI extras in a separate environment:
-
-```bash
-pip install "alphapulldown[alphalink2]"
-```
-
-> [!WARNING]
-> AlphaLink2 uses PyTorch, while AlphaFold backends use JAX. Use a separate conda environment for AlphaLink2.
-
-Then, install [UniCore](https://github.com/dptech-corp/Uni-Core) and verify:
+AlphaLink2 is included in the `[alphalink2]` extras. After installing in the AlphaLink2 environment (see section 0.2), you'll need to install [UniCore](https://github.com/dptech-corp/Uni-Core) separately:
 
 ```bash
 git clone https://github.com/dptech-corp/Uni-Core.git
@@ -651,7 +651,7 @@ For contributors who modify the code. Add your SSH key to GitHub if needed.
    cd AlphaPulldown
    ```
 
-2. Create a conda environment as in [0.1](#01-create-anaconda-environment) and install alignment tools via conda.
+2. Create a conda environment as in [0.1](#01-create-anaconda-environment) and install alignment tools via conda/mamba.
 
 3. Editable install of the core package (PyPI deps) from local sources:
    ```bash

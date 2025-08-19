@@ -19,7 +19,7 @@
  ]
  dependencies = [
    "absl-py>=0.13.0",
-   "dm-haiku",
+   "dm-haiku>=0.0.10,<0.0.14",
    "dm-tree>=0.1.6",
    "h5py>=3.1.0",
    "matplotlib>=3.3.3",
@@ -41,33 +41,40 @@
     "ml-dtypes",
     "chex>=0.1.86",
     "immutabledict>=2.0.0",
-    "modelcif",
+   "colabfold",
  ]
 
  [project.optional-dependencies]
  dev = [
    "pytest>=6",
-   "ipython",
-   "jupyterlab",
-   "ipywidgets",
+   "parameterized",
  ]
  alphafold2 = [
     # AF2 uses JAX in this project; install JAX separately per your CUDA setup
     # OpenMM/PDBFixer should be installed via conda in the environment, not via pip
+    "jax==0.4.34",
+    "jaxlib==0.4.34",
  ]
-  alignment_tools = [
-    # These tools are typically installed via conda, not PyPI.
-    # Kept as an empty extra to document the group without attempting pip install.
-  ]
+  conda_deps = [
+    # These tools must be installed via conda/mamba, not PyPI
+    # Alignment tools
+    "hmmer",
+    "hhsuite", 
+    "kalign2",
+    # ModelCIF (conda channel only)
+    "modelcif",
+ ]
  alphafold3 = [
     # AF3 stack (install in a separate env; versions mirror docker/alphafold3.dockerfile)
-    "dm-haiku==0.0.13",
+    # Note: dm-haiku version must be compatible with colabfold and AF3
+    # IMPORTANT: After installation, run 'build_data' command to build chemical components dictionary
+    "dm-haiku>=0.0.10,<0.0.14",
     "dm-tree==0.1.8",
     "chex==0.1.87",
     "jmp==0.0.4",
     "ml-dtypes==0.5.0",
     "jax==0.5.3",
-    "jax[cuda12]==0.5.3",
+    "jaxlib==0.5.2",
     "triton==3.1.0",
     "jax-triton==0.2.0",
     "jaxtyping==0.2.34",
@@ -87,10 +94,10 @@
  ]
 
  [project.scripts]
- create-individual-features = "alphapulldown.scripts.create_individual_features:main"
- run-structure-prediction = "alphapulldown.scripts.run_structure_prediction:main"
- run-multimer-jobs = "alphapulldown.scripts.run_multimer_jobs:main"
- run-alphafold = "alphafold.run_alphafold:main"
+ create-individual-features = "alphapulldown.scripts.create_individual_features:cli"
+ run-structure-prediction = "alphapulldown.scripts.run_structure_prediction:cli"
+ run-multimer-jobs = "alphapulldown.scripts.run_multimer_jobs:cli"
+ run-alphafold = "alphafold.run_alphafold:cli"
 
 [tool.setuptools]
 include-package-data = true
