@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import logging
-from Bio.PDB import PDBParser, Superimposer, PDBIO
+from Bio.PDB import PDBParser, MMCIFParser, Superimposer, PDBIO
 from Bio.Align import PairwiseAligner
 from Bio.PDB.Polypeptide import three_to_one
 from absl import app, flags
@@ -69,11 +69,22 @@ def process_chain(chain_id, ref_structure, target_structure, alignment):
     return ref_atoms, target_atoms
 
 
+def _load_structure(path: str, tag: str):
+    """Load a structure from PDB or CIF depending on file extension."""
+    if path.lower().endswith(('.cif', '.mmcif')):
+        parser = MMCIFParser(QUIET=True)
+    else:
+        parser = PDBParser(QUIET=True)
+    return parser.get_structure(tag, path)
+
+
 def calculate_rmsd_and_superpose(reference_pdb, target_pdb, temp_dir=None):
-    """Calculates RMSD and superposes the target structure onto the reference."""
-    parser = PDBParser(QUIET=True)
-    ref_structure = parser.get_structure('reference', reference_pdb)
-    target_structure = parser.get_structure('target', target_pdb)
+    """Calculates RMSD and superposes the target structure onto the reference.
+
+    Accepts either PDB or CIF files.
+    """
+    ref_structure = _load_structure(reference_pdb, 'reference')
+    target_structure = _load_structure(target_pdb, 'target')
 
     ref_sequence = extract_ca_sequence(ref_structure)
     target_sequence = extract_ca_sequence(target_structure)
@@ -99,14 +110,15 @@ def calculate_rmsd_and_superpose(reference_pdb, target_pdb, temp_dir=None):
     ref_structure_id = Path(reference_pdb).stem
     target_structure_id = Path(target_pdb).stem
 
-    io.set_structure(ref_structure)
-    io.set_structure(target_structure)
-
     if temp_dir:
+        io.set_structure(ref_structure)
         io.save(f"{temp_dir}/superposed_{ref_structure_id}.pdb")
+        io.set_structure(target_structure)
         io.save(f"{temp_dir}/superposed_{target_structure_id}.pdb")
     else:
+        io.set_structure(ref_structure)
         io.save(f"superposed_{ref_structure_id}.pdb")
+        io.set_structure(target_structure)
         io.save(f"superposed_{target_structure_id}.pdb")
 
     logging.info(f"RMSD between {reference_pdb} and {target_pdb}: {superimposer.rms:.4f}")

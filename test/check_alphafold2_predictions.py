@@ -20,6 +20,7 @@ from absl.testing import absltest, parameterized
 
 import alphapulldown
 from alphapulldown.utils.create_combinations import process_files
+from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
 
 # --------------------------------------------------------------------------- #
 #                         configuration / logging                             #
@@ -199,6 +200,72 @@ class TestRunModes(_TestBase):
             capture_output=True, text=True
         )
         self._runCommonTests(res, multimer)
+
+    def test_dropout_diversity_small_protein(self):
+        """Run AF2 prediction twice with and without dropout and compare RMSDs."""
+        # Use a tiny test monomer list
+        plist = "test_monomer.txt"
+
+        # Base args for single-run CLI
+        buffer = io.StringIO()
+        _ = process_files(
+            input_files=[str(self.test_protein_lists_dir / plist)],
+            output_path=buffer,
+            exclude_permutations=True
+        )
+        buffer.seek(0)
+        lines = [x.strip().replace(",", ":").replace(";", "+") for x in buffer.readlines() if x.strip()]
+        formatted_input = lines[0] if lines else ""
+
+        def run_one(output_subdir: str, seed: int, use_dropout: bool):
+            out_dir = self.output_dir / output_subdir
+            out_dir.mkdir(parents=True, exist_ok=True)
+            args = [
+                sys.executable,
+                str(self.script_single),
+                f"--input={formatted_input}",
+                f"--output_directory={out_dir}",
+                "--num_cycle=1",
+                "--num_predictions_per_model=1",
+                f"--data_directory={DATA_DIR}",
+                f"--features_directory={self.test_features_dir}",
+                f"--random_seed={seed}",
+            ]
+            if use_dropout:
+                args.append("--dropout=True")
+            res = subprocess.run(args, capture_output=True, text=True)
+            self.assertEqual(res.returncode, 0, f"AF2 run failed: {res.stderr}")
+            # Return ranked_0.pdb path
+            pdb_path = next((p for p in (out_dir).iterdir() if p.name == "ranked_0.pdb"), None)
+            if pdb_path is None:
+                # Some runs nest result in a subdir named after description
+                subdirs = [d for d in out_dir.iterdir() if d.is_dir()]
+                for d in subdirs:
+                    cand = d / "ranked_0.pdb"
+                    if cand.exists():
+                        pdb_path = cand
+                        break
+            self.assertIsNotNone(pdb_path, "ranked_0.pdb not found")
+            return str(pdb_path)
+
+        # Two runs without dropout (different seeds)
+        pdb_nodrop_1 = run_one("nodrop_1", seed=1, use_dropout=False)
+        pdb_nodrop_2 = run_one("nodrop_2", seed=2, use_dropout=False)
+
+        # Two runs with dropout (different seeds)
+        pdb_drop_1 = run_one("drop_1", seed=3, use_dropout=True)
+        pdb_drop_2 = run_one("drop_2", seed=4, use_dropout=True)
+
+        # Compute RMSDs
+        rmsd_nodrop = calculate_rmsd_and_superpose(pdb_nodrop_1, pdb_nodrop_2)
+        rmsd_drop = calculate_rmsd_and_superpose(pdb_drop_1, pdb_drop_2)
+
+        # Sanity
+        self.assertIsNotNone(rmsd_nodrop)
+        self.assertIsNotNone(rmsd_drop)
+
+        # Expect more diversity with dropout: RMSD with dropout > without
+        self.assertGreater(rmsd_drop, rmsd_nodrop, f"Expected dropout RMSD {rmsd_drop} > no-dropout RMSD {rmsd_nodrop}")
 
 
 # --------------------------------------------------------------------------- #

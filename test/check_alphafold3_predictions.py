@@ -22,6 +22,7 @@ from absl.testing import absltest, parameterized
 
 import alphapulldown
 from alphapulldown.utils.create_combinations import process_files
+from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
 
 
 # --------------------------------------------------------------------------- #
@@ -1262,6 +1263,61 @@ class TestAlphaFold3RunModes(_TestBase):
         
         # Check chain counts and sequences
         self._check_chain_counts_and_sequences(protein_list)
+
+    def test_dropout_diversity_small_protein(self):
+        """Run AF3 prediction twice with and without dropout and compare RMSDs."""
+        plist = "test_monomer.txt"
+
+        buffer = io.StringIO()
+        _ = process_files(
+            input_files=[str(self.test_protein_lists_dir / plist)],
+            output_path=buffer,
+            exclude_permutations=True
+        )
+        buffer.seek(0)
+        lines = [x.strip().replace(",", ":").replace(";", "+") for x in buffer.readlines() if x.strip()]
+        formatted_input = lines[0] if lines else ""
+
+        def run_one(output_subdir: str, seed: int, use_dropout: bool):
+            out_dir = self.output_dir / output_subdir
+            out_dir.mkdir(parents=True, exist_ok=True)
+            args = [
+                sys.executable,
+                str(self.script_single),
+                f"--input={formatted_input}",
+                f"--output_directory={out_dir}",
+                "--num_cycle=1",
+                "--num_predictions_per_model=1",
+                f"--data_directory={DATA_DIR}",
+                f"--features_directory={self.test_features_dir}",
+                "--fold_backend=alphafold3",
+                "--flash_attention_implementation=xla",
+                f"--random_seed={seed}",
+            ]
+            if use_dropout:
+                args.append("--dropout=True")
+            res = subprocess.run(args, capture_output=True, text=True)
+            self.assertEqual(res.returncode, 0, f"AF3 run failed: {res.stderr}")
+            # AF3 writes combined model.cif at top-level ranked job dir
+            cif_path = next((p for p in (out_dir).iterdir() if p.name.endswith("_model.cif")), None)
+            self.assertIsNotNone(cif_path, "*_model.cif not found")
+            return str(cif_path)
+
+        # Two runs without dropout (different seeds)
+        cif_nodrop_1 = run_one("nodrop_1", seed=1, use_dropout=False)
+        cif_nodrop_2 = run_one("nodrop_2", seed=2, use_dropout=False)
+
+        # Two runs with dropout (different seeds)
+        cif_drop_1 = run_one("drop_1", seed=3, use_dropout=True)
+        cif_drop_2 = run_one("drop_2", seed=4, use_dropout=True)
+
+        # Compute RMSDs (CIF supported by calculate_rmsd)
+        rmsd_nodrop = calculate_rmsd_and_superpose(cif_nodrop_1, cif_nodrop_2)
+        rmsd_drop = calculate_rmsd_and_superpose(cif_drop_1, cif_drop_2)
+
+        self.assertIsNotNone(rmsd_nodrop)
+        self.assertIsNotNone(rmsd_drop)
+        self.assertGreater(rmsd_drop, rmsd_nodrop, f"Expected dropout RMSD {rmsd_drop} > no-dropout RMSD {rmsd_nodrop}")
 
 
 # --------------------------------------------------------------------------- #

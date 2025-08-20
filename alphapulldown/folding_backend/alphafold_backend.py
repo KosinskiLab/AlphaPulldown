@@ -131,7 +131,7 @@ class AlphaFoldBackend(FoldingBackend):
         msa_depth_scan=False,
         model_names_custom: List[str] = None,
         msa_depth=None,
-        dropout_during_inference=False,
+        dropout: bool = False,
         **kwargs,
     ) -> Dict:
         """
@@ -153,8 +153,8 @@ class AlphaFoldBackend(FoldingBackend):
             A list of strings that specify which models to run, default is None, meaning all 5 models will be used
         msa_depth : int or None, optional
             A specific MSA depth to use, default is None.
-        dropout_during_inference : bool, optional
-            If set to True, enables dropout during inference for improved uncertainty estimation, default is False.
+        dropout : bool, optional
+            Enable dropout during inference for more diverse predictions (use with different random seeds). Default False.
         allow_resume : bool, optional
             If set to True, resumes prediction from partially completed runs, default is True.
         **kwargs : dict
@@ -205,7 +205,7 @@ class AlphaFoldBackend(FoldingBackend):
             model_config["model"].update({"num_recycle": num_cycle})
             
             # Set eval_dropout if requested
-            if dropout_during_inference:
+            if dropout:
                 if hasattr(model_config.model, 'global_config'):
                     model_config.model.global_config.eval_dropout = True
                 else:

@@ -22,7 +22,7 @@ class UnifoldBackend(FoldingBackend):
         model_dir: str,
         output_dir: str,
         multimeric_object: MultimericObject,
-        dropout_during_inference: bool = False,
+        dropout: bool = False,
         **kwargs,
     ) -> Dict:
         """
@@ -39,8 +39,8 @@ class UnifoldBackend(FoldingBackend):
         multimeric_object : MultimericObject
             An object containing the description and features of the
             multimeric protein to predict.
-        dropout_during_inference : bool, optional
-            If set to True, enables dropout during inference for improved uncertainty estimation, default is False.
+        dropout : bool, optional
+            Enable dropout during inference for more diverse predictions (use with different random seeds). Default False.
         **kwargs : dict
             Additional keyword arguments for model configuration.
 
@@ -55,7 +55,7 @@ class UnifoldBackend(FoldingBackend):
         configs = model_config(model_name)
         
         # Set eval_dropout if requested
-        if dropout_during_inference:
+        if dropout:
             if hasattr(configs, 'model') and hasattr(configs.model, 'global_config'):
                 configs.model.global_config.eval_dropout = True
             elif hasattr(configs, 'global_config'):
