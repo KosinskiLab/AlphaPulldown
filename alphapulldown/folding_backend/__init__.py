@@ -118,9 +118,9 @@ def change_backend(backend_name: str) -> None:
     Args:
         backend_name: Name of the backend to use.
     """
-    if backend_name not in ["alphafold", "unifold", "alphafold3"]:
+    if backend_name not in ["alphafold", "unifold", "alphafold3", "alphalink"]:
         raise NotImplementedError(
-            f"Available backends are alphafold, unifold, alphafold3 - not {backend_name}."
+            f"Available backends are alphafold, unifold, alphafold3, alphalink - not {backend_name}."
         )
     global backend
     backend.change_backend(backend_name)

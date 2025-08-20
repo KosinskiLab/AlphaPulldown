@@ -5,6 +5,7 @@
     Author: Valentin Maurer <valentin.maurer@embl-hamburg.de>
 """
 from typing import Dict
+from absl import logging
 
 from alphapulldown.objects import MultimericObject
 
@@ -21,6 +22,7 @@ class UnifoldBackend(FoldingBackend):
         model_dir: str,
         output_dir: str,
         multimeric_object: MultimericObject,
+        dropout_during_inference: bool = False,
         **kwargs,
     ) -> Dict:
         """
@@ -37,6 +39,8 @@ class UnifoldBackend(FoldingBackend):
         multimeric_object : MultimericObject
             An object containing the description and features of the
             multimeric protein to predict.
+        dropout_during_inference : bool, optional
+            If set to True, enables dropout during inference for improved uncertainty estimation, default is False.
         **kwargs : dict
             Additional keyword arguments for model configuration.
 
@@ -49,6 +53,16 @@ class UnifoldBackend(FoldingBackend):
         from unifold.inference import config_args, unifold_config_model
 
         configs = model_config(model_name)
+        
+        # Set eval_dropout if requested
+        if dropout_during_inference:
+            if hasattr(configs, 'model') and hasattr(configs.model, 'global_config'):
+                configs.model.global_config.eval_dropout = True
+            elif hasattr(configs, 'global_config'):
+                configs.global_config.eval_dropout = True
+            else:
+                logging.warning(f"UniFold model {model_name} does not have global_config, cannot set eval_dropout")
+        
         general_args = config_args(
             model_dir, target_name=multimeric_object.description, output_dir=output_dir
         )

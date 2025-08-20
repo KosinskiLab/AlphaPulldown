@@ -131,6 +131,7 @@ class AlphaFoldBackend(FoldingBackend):
         msa_depth_scan=False,
         model_names_custom: List[str] = None,
         msa_depth=None,
+        dropout_during_inference=False,
         **kwargs,
     ) -> Dict:
         """
@@ -152,6 +153,8 @@ class AlphaFoldBackend(FoldingBackend):
             A list of strings that specify which models to run, default is None, meaning all 5 models will be used
         msa_depth : int or None, optional
             A specific MSA depth to use, default is None.
+        dropout_during_inference : bool, optional
+            If set to True, enables dropout during inference for improved uncertainty estimation, default is False.
         allow_resume : bool, optional
             If set to True, resumes prediction from partially completed runs, default is True.
         **kwargs : dict
@@ -200,6 +203,13 @@ class AlphaFoldBackend(FoldingBackend):
             model_config = config.model_config(model_name)
             model_config.model.num_ensemble_eval = num_ensemble
             model_config["model"].update({"num_recycle": num_cycle})
+            
+            # Set eval_dropout if requested
+            if dropout_during_inference:
+                if hasattr(model_config.model, 'global_config'):
+                    model_config.model.global_config.eval_dropout = True
+                else:
+                    logging.warning(f"Model {model_name} does not have global_config, cannot set eval_dropout")
 
             model_params = data.get_model_haiku_params(
                 model_name=model_name, data_dir=model_dir

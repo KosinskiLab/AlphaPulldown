@@ -49,6 +49,7 @@ class AlphaLinkBackend(FoldingBackend):
     def setup(
         model_dir: str,
         model_name: str = "multimer_af2_crop",
+        dropout_during_inference: bool = False,
         **kwargs,
     ) -> Dict:
         """
@@ -63,6 +64,8 @@ class AlphaLinkBackend(FoldingBackend):
             1. A directory containing AlphaLink weights files (e.g., AlphaLink-Multimer_SDA_v3.pt)
             2. A specific AlphaLink weights file (e.g., /path/to/AlphaLink-Multimer_SDA_v3.pt)
             Expected file names: AlphaLink-Multimer_SDA_v2.pt or AlphaLink-Multimer_SDA_v3.pt
+        dropout_during_inference : bool, optional
+            If set to True, enables dropout during inference for improved uncertainty estimation, default is False.
         crosslinks : str
             The path to the file containing crosslinking data.
         **kwargs : dict
@@ -134,6 +137,15 @@ class AlphaLinkBackend(FoldingBackend):
             )
 
         configs = model_config(model_name)
+        
+        # Set eval_dropout if requested
+        if dropout_during_inference:
+            if hasattr(configs.model, 'global_config'):
+                configs.model.global_config.eval_dropout = True
+            elif hasattr(configs, 'global_config'):
+                configs.global_config.eval_dropout = True
+            else:
+                logging.warning(f"AlphaLink model {model_name} does not have global_config, cannot set eval_dropout")
 
         return {
             "param_path": weights_file,

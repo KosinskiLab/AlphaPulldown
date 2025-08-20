@@ -174,6 +174,11 @@ flags.DEFINE_boolean(
     'debug_templates', False,
     'If set, save generated template mmCIFs to templates_debug/ during AF3 input prep.'
 )
+flags.DEFINE_boolean(
+    'dropout_during_inference', False,
+    'If set, enables dropout during inference for improved uncertainty estimation. '
+    'Sets eval_dropout=True in model configurations.'
+)
 
 FLAGS = flags.FLAGS
 
@@ -355,6 +360,7 @@ def main(argv):
         "features_directory": FLAGS.features_directory,
         "num_seeds": FLAGS.num_seeds,
         "debug_templates": FLAGS.debug_templates,
+        "dropout_during_inference": FLAGS.dropout_during_inference,
     }
     
     # Override model name for AlphaLink backend

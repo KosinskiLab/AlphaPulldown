@@ -319,6 +319,7 @@ class AlphaFold3Backend(FoldingBackend):
         buckets: list,
         jax_compilation_cache_dir: str,
         model_dir: str,
+        dropout_during_inference: bool = False,
         **kwargs,
     ) -> Dict:
         """Sets up the ModelRunner with the given configurations."""
@@ -336,6 +337,9 @@ class AlphaFold3Backend(FoldingBackend):
             config = model_class.Config()
             if hasattr(config, 'global_config'):
                 config.global_config.flash_attention_implementation = flash_attention_implementation
+                # Set eval_dropout if requested
+                if dropout_during_inference:
+                    config.global_config.eval_dropout = True
             if hasattr(config, 'heads') and hasattr(config.heads, 'diffusion'):
                 config.heads.diffusion.eval.num_samples = num_diffusion_samples
             return config
