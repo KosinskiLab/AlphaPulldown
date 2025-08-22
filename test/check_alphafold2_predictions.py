@@ -309,7 +309,7 @@ class TestDropoutDiversity(_TestBase):
     def setUp(self):
         super().setUp()
         # Use dimer because for monomer we can't use num_predictions_per_model
-        self.protein_lists = self.test_protein_lists_dir / "test_trimer.txt"
+        self.protein_lists = self.test_protein_lists_dir / "test_dropout.txt"
 
     def test_dropout_increases_diversity(self):
         """Test that using --dropout flag increases diversity between predictions."""
@@ -358,6 +358,7 @@ class TestDropoutDiversity(_TestBase):
 
         # Execute both predictions
         logger.info("Running prediction without dropout...")
+        #logger.info("".join(args_no_dropout))
         res_no_dropout = subprocess.run(args_no_dropout, capture_output=True, text=True)
         self.assertEqual(res_no_dropout.returncode, 0, 
                         f"No dropout prediction failed: {res_no_dropout.stderr}")
