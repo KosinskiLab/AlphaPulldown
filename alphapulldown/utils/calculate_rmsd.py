@@ -3,7 +3,8 @@
 import logging
 from Bio.PDB import PDBParser, Superimposer, PDBIO
 from Bio.Align import PairwiseAligner
-from Bio.PDB.Polypeptide import three_to_one
+from Bio.PDB.Polypeptide import protein_letters_3to1
+
 from absl import app, flags
 from pathlib import Path
 
@@ -24,7 +25,7 @@ def extract_ca_sequence(structure):
     for res in structure.get_residues():
         if 'CA' in res:
             try:
-                sequence += three_to_one(res.get_resname())
+                sequence += protein_letters_3to1[res.get_resname()]
             except KeyError:
                 sequence += '-'
     return sequence

@@ -103,6 +103,8 @@ flags.DEFINE_boolean('convert_to_modelcif', True,
                      'Whether to convert predicted pdb files to modelcif format. Default True.')
 flags.DEFINE_boolean('allow_resume', True,
                      'Whether to allow resuming predictions from previous runs or start anew. Default True.')
+flags.DEFINE_boolean('dropout', False,
+                     'Whether to use dropout when inferring for more diverse predictions. Default False.')
 # AlphaLink2 settings
 flags.DEFINE_string('crosslinks', None, 'Path to crosslink information pickle for AlphaLink.')
 
@@ -343,6 +345,9 @@ def main(argv):
         "num_cycle": FLAGS.num_cycle,
         "model_dir": FLAGS.data_directory,
         "num_predictions_per_model": FLAGS.num_predictions_per_model,
+        # Compatibility: some backends expect this legacy arg name
+        "num_multimer_predictions_per_model": FLAGS.num_predictions_per_model,
+        "model_names_custom": FLAGS.model_names,
         "crosslinks": FLAGS.crosslinks,
         "desired_num_res": FLAGS.desired_num_res,
         "desired_num_msa": FLAGS.desired_num_msa,
@@ -355,6 +360,7 @@ def main(argv):
         "features_directory": FLAGS.features_directory,
         "num_seeds": FLAGS.num_seeds,
         "debug_templates": FLAGS.debug_templates,
+        "dropout": FLAGS.dropout,
     }
     
     # Override model name for AlphaLink backend
