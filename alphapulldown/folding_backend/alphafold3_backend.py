@@ -35,7 +35,7 @@ from alphafold.common import residue_constants
 from alphafold.common.protein import Protein, to_mmcif
 from alphapulldown.folding_backend.folding_backend import FoldingBackend
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
-from alphapulldown.utils.msa_encoding import ids_to_a3m, a3m_to_ids
+from alphapulldown.utils.msa_encoding import ids_to_a3m, a3m_to_ids, ids_to_a3m_af3
 
 
 
@@ -229,7 +229,8 @@ def predict_structure(
             os.makedirs(output_dir, exist_ok=True)
 
             def write_from_array(rows: np.ndarray, suffix: str):
-                a3m_text = ids_to_a3m(rows)
+                # AF3 uses a different integer alphabet for MSA arrays.
+                a3m_text = ids_to_a3m_af3(rows)
                 a3m_path = os.path.join(output_dir, f"{fold_input.sanitised_name()}_seed-{seed_value}_{suffix}.a3m")
                 with open(a3m_path, 'wt') as f:
                     f.write(a3m_text)
@@ -721,11 +722,7 @@ class AlphaFold3Backend(FoldingBackend):
             elif isinstance(obj, MultimericObject):
                 chains = []
                 # Use the already-paired complex MSA from the MultimericObject to slice per chain
-                combined_msa = None
-                try:
-                    combined_msa = obj.feature_dict.get('msa', None)
-                except Exception:
-                    combined_msa = None
+                combined_msa = obj.feature_dict.get('msa', None)
                 col_offset = 0
                 for interactor in obj.interactors:
                     chain_id = get_next_available_chain_id(used_chain_ids, chain_id_counter_ref)
