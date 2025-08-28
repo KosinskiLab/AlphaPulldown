@@ -35,6 +35,7 @@ from alphafold.common import residue_constants
 from alphafold.common.protein import Protein, to_mmcif
 from alphapulldown.folding_backend.folding_backend import FoldingBackend
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
+from alphapulldown.utils.msa_encoding import ids_to_a3m, a3m_to_ids
 
 
 
@@ -199,13 +200,20 @@ def predict_structure(
     fold_input: folding_input.Input,
     model_runner: ModelRunner,
     buckets: Sequence[int] | None = None,
+    output_dir: os.PathLike[str] | str | None = None,
+    resolve_msa_overlaps: bool = True,
+    debug_msas: bool = False,
 ) -> Sequence[ResultsForSeed]:
     """Run inference (featurisation + model) to predict structures for each seed."""
     logging.info(f'Featurising data for seeds {fold_input.rng_seeds}...')
     featurisation_start_time = time.time()
     ccd = chemical_components.cached_ccd(user_ccd=fold_input.user_ccd)
     featurised_examples = featurisation.featurise_input(
-        fold_input=fold_input, buckets=buckets, ccd=ccd, verbose=True
+        fold_input=fold_input,
+        buckets=buckets,
+        ccd=ccd,
+        resolve_msa_overlaps=resolve_msa_overlaps,
+        verbose=True,
     )
     logging.info(
         f'Featurising took {time.time() - featurisation_start_time:.2f} seconds.'
@@ -213,9 +221,53 @@ def predict_structure(
 
     all_inference_start_time = time.time()
     all_inference_results = []
+    # Utility: write final complex MSA (after pairing/dedup/merge) to A3M
+    def _write_final_msa_a3m(example_batch, seed_value: int):
+        try:
+            if output_dir is None:
+                return
+            os.makedirs(output_dir, exist_ok=True)
+
+            def write_from_array(rows: np.ndarray, suffix: str):
+                a3m_text = ids_to_a3m(rows)
+                a3m_path = os.path.join(output_dir, f"{fold_input.sanitised_name()}_seed-{seed_value}_{suffix}.a3m")
+                with open(a3m_path, 'wt') as f:
+                    f.write(a3m_text)
+                logging.info(f"Wrote {suffix} A3M to {a3m_path}")
+
+            # Write merged msa
+            msa_rows = example_batch.get('msa', None)
+            if msa_rows is not None:
+                num_alignments = int(example_batch.get('num_alignments', 0)) if 'num_alignments' in example_batch else msa_rows.shape[0]
+                if num_alignments > 0:
+                    write_from_array(np.asarray(msa_rows)[:num_alignments], 'final_complex_msa')
+
+        except Exception as e:
+            logging.error(f"Failed to write final complex MSA A3M: {e}")
+
+    # Utility: dump featurised MSA-related arrays to NPZ for inspection
+    def _dump_featurised_msa_npz(example_batch, seed_value: int):
+        try:
+            if output_dir is None:
+                return
+            os.makedirs(output_dir, exist_ok=True)
+            out_path = os.path.join(
+                output_dir, f"{fold_input.sanitised_name()}_seed-{seed_value}_featurised_msa.npz"
+            )
+
+            np.savez_compressed(out_path, **example_batch)
+            logging.info(f"Wrote featurised MSA arrays to {out_path}")
+        except Exception as e:
+            logging.error(f"Failed to dump featurised MSA arrays: {e}")
+
     for seed, example in zip(fold_input.rng_seeds, featurised_examples):
         logging.info(f'Running model inference for seed {seed}...')
         inference_start_time = time.time()
+        # If requested, dump featurised MSA arrays and final complex A3M for inspection
+        if debug_msas:
+            _dump_featurised_msa_npz(example, seed)
+            _write_final_msa_a3m(example, seed)
+
         rng_key = jax.random.PRNGKey(seed)
         result = model_runner.run_inference(example, rng_key)
         logging.info(
@@ -249,6 +301,8 @@ def process_fold_input(
     model_runner: ModelRunner | None,
     output_dir: os.PathLike[str] | str,
     buckets: Sequence[int] | None = None,
+    resolve_msa_overlaps: bool = True,
+    debug_msas: bool = False,
 ) -> folding_input.Input | Sequence[ResultsForSeed]:
     """Runs data pipeline and/or inference on a single fold input, then writes outputs."""
     logging.info(f'Processing fold input {fold_input.name}')
@@ -292,6 +346,9 @@ def process_fold_input(
         fold_input=fold_input,
         model_runner=model_runner,
         buckets=buckets,
+        output_dir=output_dir,
+        resolve_msa_overlaps=resolve_msa_overlaps,
+        debug_msas=debug_msas,
     )
 
     # Write outputs
@@ -466,12 +523,16 @@ class AlphaFold3Backend(FoldingBackend):
                 i += 1
             return '\n'.join(out_lines)
 
-        def msa_array_to_a3m(msa_array):
-            msa_sequences = []
+        def msa_array_to_a3m(msa_array, query_sequence: str | None = None):
+            msa_lines = []
+            if query_sequence is not None and len(query_sequence) > 0:
+                msa_lines.append('>query')
+                msa_lines.append(query_sequence)
             for i, msa_seq in enumerate(msa_array):
                 seq_str = ''.join([residue_constants.ID_TO_HHBLITS_AA.get(int(aa), 'X') for aa in msa_seq])
-                msa_sequences.append(f'>sequence_{i}\n{seq_str}')
-            return '\n'.join(msa_sequences)
+                msa_lines.append(f'>sequence_{i}')
+                msa_lines.append(seq_str)
+            return '\n'.join(msa_lines)
 
         def _monomeric_to_chain(
             mono_obj: Union[MonomericObject, ChoppedObject],
@@ -480,8 +541,9 @@ class AlphaFold3Backend(FoldingBackend):
             sequence = mono_obj.sequence
             feature_dict = mono_obj.feature_dict
             msa_array = feature_dict.get('msa')
-            paired_msa = msa_array_to_a3m(msa_array) if msa_array is not None else ""
-            unpaired_msa = ""
+            # MSAs from AlphaPulldown objects are paired when MultimericObject is created.
+            unpaired_msa = msa_array_to_a3m(msa_array, query_sequence=sequence) if msa_array is not None else ""
+            paired_msa = ""
             templates = []
             if 'template_aatype' in feature_dict:
                 num_templates = feature_dict['template_aatype'].shape[0]
@@ -658,12 +720,36 @@ class AlphaFold3Backend(FoldingBackend):
                 all_chains.extend(chains)
             elif isinstance(obj, MultimericObject):
                 chains = []
+                # Use the already-paired complex MSA from the MultimericObject to slice per chain
+                combined_msa = None
+                try:
+                    combined_msa = obj.feature_dict.get('msa', None)
+                except Exception:
+                    combined_msa = None
+                col_offset = 0
                 for interactor in obj.interactors:
                     chain_id = get_next_available_chain_id(used_chain_ids, chain_id_counter_ref)
                     used_chain_ids.add(chain_id)
                     logging.info(f"Added chain ID '{chain_id}' for multimeric interactor")
-                    chain = _monomeric_to_chain(interactor, chain_id)
-                    chains.append(chain)
+                    base_chain = _monomeric_to_chain(interactor, chain_id)
+                    if combined_msa is not None:
+                        try:
+                            chain_len = len(interactor.sequence)
+                            chain_msa_slice = np.asarray(combined_msa)[:, col_offset:col_offset + chain_len]
+                            col_offset += chain_len
+                            a3m_sliced = msa_array_to_a3m(chain_msa_slice, query_sequence=base_chain.sequence)
+                            base_chain = folding_input.ProteinChain(
+                                id=base_chain.id,
+                                sequence=base_chain.sequence,
+                                ptms=base_chain.ptms,
+                                unpaired_msa=a3m_sliced,
+                                paired_msa='',
+                                templates=base_chain.templates,
+                            )
+                            custom_unpaired_chain_ids.add(base_chain.id)
+                        except Exception as e:
+                            logging.error(f"Failed to slice combined MSA for chain {chain_id}: {e}")
+                    chains.append(base_chain)
                 all_chains.extend(chains)
             else:
                 raise TypeError(f"Unsupported object type for folding input conversion: {type(obj)}")
@@ -673,6 +759,8 @@ class AlphaFold3Backend(FoldingBackend):
         used_chain_ids = set()  # Track used chain IDs
         all_chains = []
         job_name = "ranked_0"
+        # Track chains constructed from a MultimericObject with custom unpaired MSAs
+        custom_unpaired_chain_ids: set[str] = set()
 
         for entry in objects_to_model:
             object_to_model = entry['object']
@@ -693,17 +781,17 @@ class AlphaFold3Backend(FoldingBackend):
 
         # Create a single combined input with all chains
         if all_chains:
-            # If chains arrived from monomer JSONs with only unpaired MSAs, promote them to paired MSAs
-            # so AlphaFold3 can perform cross-chain pairing during featurisation.
+            # Promote unpaired->paired only for chains not constructed via MultimericObject slicing
             promoted_chains: list[folding_input.ProteinChain | folding_input.RnaChain | folding_input.DnaChain | folding_input.Ligand] = []
             for ch in all_chains:
-                # Only protein chains have paired/unpaired MSA fields
-                if isinstance(ch, folding_input.ProteinChain):
+                if (
+                    isinstance(ch, folding_input.ProteinChain)
+                    and ch.id not in custom_unpaired_chain_ids
+                ):
                     try:
                         has_empty_paired = (getattr(ch, 'paired_msa', None) in (None, ''))
                         has_unpaired = bool(getattr(ch, 'unpaired_msa', ''))
                         if has_empty_paired and has_unpaired:
-                            # Construct a new ProteinChain with unpaired -> paired, and clear unpaired
                             new_chain = folding_input.ProteinChain(
                                 id=ch.id,
                                 sequence=ch.sequence,
@@ -715,7 +803,6 @@ class AlphaFold3Backend(FoldingBackend):
                             promoted_chains.append(new_chain)
                             continue
                     except Exception:
-                        # If any attribute missing/unexpected, fall back to original chain
                         pass
                 promoted_chains.append(ch)
 
@@ -727,7 +814,9 @@ class AlphaFold3Backend(FoldingBackend):
             )
             # Use the output directory from the first object
             first_output_dir = objects_to_model[0]['output_dir']
-            prepared_inputs.append({combined_input: first_output_dir})
+            # Disable resolve_msa_overlaps when we provided custom per-chain unpaired MSAs
+            disable_overlaps = len(custom_unpaired_chain_ids) > 0
+            prepared_inputs.append({combined_input: (first_output_dir, not disable_overlaps)})
 
         return prepared_inputs
 
@@ -759,13 +848,17 @@ class AlphaFold3Backend(FoldingBackend):
             features_directory=kwargs.get("features_directory"),
             debug_templates=kwargs.get("debug_templates", False),
         )
-
         # Run predictions
         for mapping in prepared_inputs:
             logging.info(f"Processing mapping: {mapping}")
             if len(mapping) != 1:
                 raise ValueError(f"Expected exactly one item in mapping, got {len(mapping)}: {mapping}")
-            fold_input_obj, output_dir = next(iter(mapping.items()))
+            fold_input_obj, mapping_value = next(iter(mapping.items()))
+            if isinstance(mapping_value, tuple):
+                output_dir, resolve_overlaps_flag = mapping_value
+            else:
+                output_dir = mapping_value
+                resolve_overlaps_flag = True
             
             # Expand to multiple seeds if num_seeds is specified
             num_seeds = kwargs.get('num_seeds')
@@ -773,10 +866,18 @@ class AlphaFold3Backend(FoldingBackend):
                 logging.info(f'Expanding fold job {fold_input_obj.name} to {num_seeds} seeds')
                 fold_input_obj = fold_input_obj.with_multiple_seeds(num_seeds)
             
+            # Write the prepared input JSON so the MSAs can be inspected before prediction
             try:
                 os.makedirs(output_dir, exist_ok=True)
+                prepared_json_path = os.path.join(output_dir, f"{fold_input_obj.sanitised_name()}_data.json")
+                logging.info(f"Writing model input JSON to {prepared_json_path}")
+                with open(prepared_json_path, "wt") as f:
+                    f.write(fold_input_obj.to_json())
             except OSError as e:
                 logging.error(f'Failed to create output directory {output_dir}: {e}')
+                raise
+            except Exception as e:
+                logging.error(f"Failed to write prepared input JSON to {output_dir}: {e}")
                 raise
 
             logging.info(f'Processing fold input {fold_input_obj.name}')
@@ -786,6 +887,8 @@ class AlphaFold3Backend(FoldingBackend):
                 model_runner=model_runner,
                 output_dir=output_dir,
                 buckets=buckets,
+                resolve_msa_overlaps=resolve_overlaps_flag,
+                debug_msas=kwargs.get('debug_msas', False),
             )
 
             yield {

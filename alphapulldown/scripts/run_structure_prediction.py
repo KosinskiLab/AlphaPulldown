@@ -176,6 +176,10 @@ flags.DEFINE_boolean(
     'debug_templates', False,
     'If set, save generated template mmCIFs to templates_debug/ during AF3 input prep.'
 )
+flags.DEFINE_boolean(
+    'debug_msas', False,
+    'If set, dump featurised MSA arrays and final complex A3M before inference.'
+)
 
 FLAGS = flags.FLAGS
 
@@ -345,9 +349,6 @@ def main(argv):
         "num_cycle": FLAGS.num_cycle,
         "model_dir": FLAGS.data_directory,
         "num_predictions_per_model": FLAGS.num_predictions_per_model,
-        # Compatibility: some backends expect this legacy arg name
-        "num_multimer_predictions_per_model": FLAGS.num_predictions_per_model,
-        "model_names_custom": FLAGS.model_names,
         "crosslinks": FLAGS.crosslinks,
         "desired_num_res": FLAGS.desired_num_res,
         "desired_num_msa": FLAGS.desired_num_msa,
@@ -360,6 +361,7 @@ def main(argv):
         "features_directory": FLAGS.features_directory,
         "num_seeds": FLAGS.num_seeds,
         "debug_templates": FLAGS.debug_templates,
+        "debug_msas": FLAGS.debug_msas,
         "dropout": FLAGS.dropout,
     }
     
