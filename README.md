@@ -283,7 +283,7 @@ This will download the version specified by '--tag' of the snakemake pipeline an
 snakedeploy deploy-workflow \
   https://github.com/KosinskiLab/AlphaPulldownSnakemake \
   AlphaPulldownSnakemake \
-  --tag 1.4.0
+  --tag 2.1.2
 cd AlphaPulldownSnakemake
 ```
 >[!NOTE]
@@ -294,8 +294,8 @@ To install the software needed for [the analysis step](https://github.com/Kosins
 
 Download so-called Singularity image with our analysis software package
 ```bash
-singularity pull docker://kosinskilab/fold_analysis:latest
-singularity build --sandbox <writable_image_dir> fold_analysis_latest.sif
+singularity pull docker://kosinskilab/fold_analysis:2.1.2
+singularity build --sandbox <writable_image_dir> fold_analysis_2.1.2.sif
 ```
 <writable_image_dir> can be any temporary directory and can be deleted later.
 
@@ -310,9 +310,9 @@ cp -rn lib/* <writable_image_dir>/software/lib64/
 Create a new Singularity with CCP4 included
 ```bash
 cd <directory where you want to keep your local software>
-singularity build fold_analysis_latest_withCCP4.sif <writable_image_dir>
+singularity build fold_analysis_2.1.2_withCCP4.sif <writable_image_dir>
 ```
-It should create `fold_analysis_latest_withCCP4.sif` file.
+It should create `fold_analysis_2.1.2_withCCP4.sif` file.
 
 You can delete the <writable_image_dir> now.
 
@@ -330,7 +330,7 @@ feature_directory :
 If you want to use CCP4 for analysis, open `config/config.yaml` in a text editor and change the path to the analysis container to:
 
 ```yaml
-analysis_container : "/path/to/fold_analysis_latest_withCCP4.sif"
+analysis_container : "/path/to/fold_analysis_2.1.2_withCCP4.sif"
 ```
 If you want to change folding backend, simply add `folding-backend` flag to the `structure_inference_arguments`, e.g. for using AlphaFold3 backend:
 ```yaml
