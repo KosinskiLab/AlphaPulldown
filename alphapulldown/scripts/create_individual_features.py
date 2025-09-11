@@ -150,16 +150,16 @@ def create_arguments(local_custom_template_db=None):
         FLAGS.template_mmcif_dir = None
         FLAGS.obsolete_pdbs_path = None
     else:
-        FLAGS.uniref90_database_path = get_database_path("uniref90")
-        FLAGS.uniref30_database_path = get_database_path("uniref30")
-        FLAGS.mgnify_database_path = get_database_path("mgnify")
-        FLAGS.bfd_database_path = get_database_path("bfd")
-        FLAGS.small_bfd_database_path = get_database_path("small_bfd")
-        FLAGS.pdb70_database_path = get_database_path("pdb70")
-        FLAGS.uniprot_database_path = get_database_path("uniprot")
-        FLAGS.pdb_seqres_database_path = get_database_path("pdb_seqres")
-        FLAGS.template_mmcif_dir = get_database_path("template_mmcif_dir")
-        FLAGS.obsolete_pdbs_path = get_database_path("obsolete_pdbs")
+        FLAGS.uniref90_database_path = FLAGS.uniref90_database_path or get_database_path("uniref90")
+        FLAGS.uniref30_database_path = FLAGS.uniref30_database_path or get_database_path("uniref30")
+        FLAGS.mgnify_database_path = FLAGS.mgnify_database_path or get_database_path("mgnify")
+        FLAGS.bfd_database_path = FLAGS.bfd_database_path or get_database_path("bfd")
+        FLAGS.small_bfd_database_path = FLAGS.small_bfd_database_path or get_database_path("small_bfd")
+        FLAGS.pdb70_database_path = FLAGS.pdb70_database_path or get_database_path("pdb70")
+        FLAGS.uniprot_database_path = FLAGS.uniprot_database_path or get_database_path("uniprot")
+        FLAGS.pdb_seqres_database_path = FLAGS.pdb_seqres_database_path or get_database_path("pdb_seqres")
+        FLAGS.template_mmcif_dir = FLAGS.template_mmcif_dir or get_database_path("template_mmcif_dir")
+        FLAGS.obsolete_pdbs_path = FLAGS.obsolete_pdbs_path or get_database_path("obsolete_pdbs")
     
     if local_custom_template_db:
         FLAGS.pdb_seqres_database_path = os.path.join(local_custom_template_db, "pdb_seqres.txt")
@@ -325,6 +325,9 @@ def create_pipeline_af3():
     # Convert max_template_date string to datetime.date object
     import datetime
     max_template_date = datetime.date.fromisoformat(FLAGS.max_template_date)
+    def _ovr(attr, key):
+        v = getattr(FLAGS, attr, None)
+        return v or get_database_path(key)
     
     config = AF3DataPipelineConfig(
         jackhmmer_binary_path=FLAGS.jackhmmer_binary_path,
@@ -332,15 +335,15 @@ def create_pipeline_af3():
         hmmalign_binary_path=FLAGS.hmmalign_binary_path,
         hmmsearch_binary_path=FLAGS.hmmsearch_binary_path,
         hmmbuild_binary_path=FLAGS.hmmbuild_binary_path,
-        small_bfd_database_path=get_database_path("small_bfd"),
-        mgnify_database_path=get_database_path("mgnify"),
-        uniprot_cluster_annot_database_path=get_database_path("uniprot"),
-        uniref90_database_path=get_database_path("uniref90"),
-        ntrna_database_path=get_database_path("ntrna"),
-        rfam_database_path=get_database_path("rfam"),
-        rna_central_database_path=get_database_path("rna_central"),
-        pdb_database_path=get_database_path("template_mmcif_dir"),
-        seqres_database_path=get_database_path("pdb_seqres"),
+        small_bfd_database_path=_ovr("small_bfd_database_path", "small_bfd"),
+        mgnify_database_path=_ovr("mgnify_database_path", "mgnify"),
+        uniprot_cluster_annot_database_path=_ovr("uniprot_database_path", "uniprot"),
+        uniref90_database_path=_ovr("uniref90_database_path", "uniref90"),
+        ntrna_database_path=_ovr("ntrna_database_path", "ntrna"),
+        rfam_database_path=_ovr("rfam_database_path", "rfam"),
+        rna_central_database_path=_ovr("rna_central_database_path", "rna_central"),
+        pdb_database_path=_ovr("template_mmcif_dir", "template_mmcif_dir"),
+        seqres_database_path=_ovr("pdb_seqres_database_path", "pdb_seqres"),
         jackhmmer_n_cpu=8,
         nhmmer_n_cpu=8,
         max_template_date=max_template_date
