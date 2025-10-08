@@ -80,7 +80,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./docker/pulldown.dockerfile
+          file: ./docker/alphafold2.dockerfile
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/fold:latest
           ssh: default
@@ -89,7 +89,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./docker/pulldown.dockerfile
+          file: ./docker/alphafold2.dockerfile
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/fold:${{ github.event.release.tag_name }}
           ssh: default
