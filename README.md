@@ -222,306 +222,198 @@ alphafold_database/                             # Total: ~ 2.2 TB (download: 438
 
 # Snakemake AlphaPulldown 
 
-AlphaPulldown is available as a Snakemake pipeline, allowing you to sequentially execute **(1)** Generation of MSAs and template features, **(2)** Structure prediction, and **(3)** Results analysis without manual intervention between steps. For more details, please refer to the [**AlphaPulldownSnakemake**](https://github.com/KosinskiLab/AlphaPulldownSnakemake) repository.
+AlphaPulldownSnakemake provides a convenient way to run AlphaPulldown using a Snakemake pipeline. This lets you focus entirely on **what** you want to compute, rather than **how** to manage dependencies, versioning, and cluster execution. For more details, please refer to the [**AlphaPulldownSnakemake**](https://github.com/KosinskiLab/AlphaPulldownSnakemake) repository.
 
 > [!Warning]
 > The Snakemake version of AlphaPulldown differs slightly from the conventional scripts-based AlphaPulldown in terms of input file specifications.
 
 ## 1. Installation
 
-Before installation, make sure your python version is at least 3.10.
+Install required dependencies:
 
 ```bash
-python3 --version
+mamba create -n snake -c conda-forge -c bioconda python=3.12 \
+  snakemake snakemake-executor-plugin-slurm snakedeploy pulp click coincbc
+mamba activate snake
 ```
 
-**Install Dependencies**
+That's it, you're done!
+## 2. Configuration
 
-```bash
-pip install snakemake==7.32.4 snakedeploy==0.10.0 pulp==2.7 click==8.1 cookiecutter==2.6
-```
+### Create a working directory
 
-**Snakemake Cluster Setup**
-
-In order to allow snakemake to interface with a compute cluster, we are going to use the [Snakemake-Profile for SLURM](https://github.com/Snakemake-Profiles/slurm). If you are not working on a SLURM cluster you can find profiles for different architectures [here](https://github.com/Snakemake-Profiles/slurm). The following will create a profile that can be used with snakemake and prompt you for some additional information.
-
-```bash
-git clone https://github.com/Snakemake-Profiles/slurm.git
-profile_dir="${HOME}/.config/snakemake"
-mkdir -p "$profile_dir"
-template="gh:Snakemake-Profiles/slurm"
-cookiecutter --output-dir "$profile_dir" "$template"
-```
-
-During the setup process, you will be prompted to answer several configuration questions. Below are the questions and the recommended responses:
-
-- `profile_name [slurm]:` **slurm_noSidecar**
-- `Select use_singularity:` **1 (False)**
-- `Select use_conda:` **1 (False)**
-- `jobs [500]:` *(Press Enter to accept default)*
-- `restart_times [0]:` *(Press Enter to accept default)*
-- `max_status_checks_per_second [10]:` *(Press Enter to accept default)*
-- `max_jobs_per_second [10]:` *(Press Enter to accept default)*
-- `latency_wait [5]:` **30**
-- `Select print_shell_commands:` **1 (False)**
-- `sbatch_defaults []:` **qos=low nodes=1**
-- `Select cluster_sidecar:` **2 (no)**
-- `cluster_name []:` *(Press Enter to leave blank)*
-- `cluster_jobname [%r_%w]:` *(Press Enter to accept default)*
-- `cluster_logpath [logs/slurm/%r/%j]:` *(Press Enter to accept default)*
-- `cluster_config []:` *(Press Enter to leave blank)*
-
-After responding to these prompts, your Slurm profile named *slurm_noSidecar* for Snakemake will be configured as specified.
-
-**Singularity (Probably Installed Already)**: This pipeline makes use of containers for reproducibility. If you are working on the EMBL cluster singularity is already installed and you can skip this step. Otherwise, please install Singularity using the [official Singularity guide](https://sylabs.io/guides/latest/user-guide/quick_start.html#quick-installation-steps).
-
-
-**Download The Pipeline**:
-This will download the version specified by '--tag' of the snakemake pipeline and create the repository AlphaPulldownSnakemake or any other name you choose.
+Create a new processing directory for your project:
 
 ```bash
 snakedeploy deploy-workflow \
   https://github.com/KosinskiLab/AlphaPulldownSnakemake \
   AlphaPulldownSnakemake \
-  --tag 2.1.2
+  --tag 2.1.3
 cd AlphaPulldownSnakemake
 ```
->[!NOTE]
->If you want to use the latest version from GitHub replace `--tag X.X.X` to `--branch main`
 
-**Install CCP4 package**:
-To install the software needed for [the analysis step](https://github.com/KosinskiLab/AlphaPulldown?tab=readme-ov-file#3-analysis-and-visualization), please follow these instructions:
+### Setup protein folding jobs
 
-Download so-called Singularity image with our analysis software package
-```bash
-singularity pull docker://kosinskilab/fold_analysis:2.1.2
-singularity build --sandbox <writable_image_dir> fold_analysis_2.1.2.sif
+Create a sample sheet `folds.txt` listing the proteins you want to fold. The simplest format uses UniProt IDs:
+
 ```
-<writable_image_dir> can be any temporary directory and can be deleted later.
-
-Download CCP4 from https://www.ccp4.ac.uk/download/#os=linux and copy to your server
-```bash
-tar xvzf ccp4-9.0.003-linux64.tar.gz
-cd ccp4-9
-cp bin/pisa bin/sc <writable_image_dir>/software/
-cp -rn lib/* <writable_image_dir>/software/lib64/
+P01258+P01579
+P01258
+P01579
 ```
 
-Create a new Singularity with CCP4 included
-```bash
-cd <directory where you want to keep your local software>
-singularity build fold_analysis_2.1.2_withCCP4.sif <writable_image_dir>
-```
-It should create `fold_analysis_2.1.2_withCCP4.sif` file.
+Each line represents one folding job:
+- `P01258+P01579` - fold these two proteins together as a complex
+- `P01258` - fold this protein as a monomer
+- `P01579` - fold this protein as a monomer
 
-You can delete the <writable_image_dir> now.
+<details>
+<summary>Advanced protein specification options</summary>
 
-## 2. Configuration
+You can also specify:
+- **FASTA file paths** instead of UniProt IDs: `/path/to/protein.fasta`
+- **Specific residue regions**: `Q8I2G6:1-100` (residues 1-100 only)
+- **Multiple copies**: `Q8I2G6:2` (dimer of the same protein)
+- **Combinations**: `Q8I2G6:2:1-100+Q8I5K4` (dimer of residues 1-100 plus another protein)
 
-Adjust [`config/config.yaml`](https://github.com/KosinskiLab/AlphaPulldownSnakemake/blob/main/config/config.yaml) for your particular use case. It is possible to use pre-calculated features (e.g. [downloaded from our features database](https://github.com/KosinskiLab/AlphaPulldown?tab=readme-ov-file#installation)) by adding paths to the features to your config/config.yaml
+</details>
+
+### Configure input files
+
+Edit `config/config.yaml` and set the path to your sample sheet:
 
 ```yaml
-feature_directory :
+input_files:
+  - "folds.txt"
+```
+
+### Setup pulldown experiments
+
+If you want to test which proteins from one group interact with proteins from another group, create a second file `baits.txt`:
+
+```
+Q8I2G6
+```
+
+And update your config:
+
+```yaml
+input_files:
+  - "folds.txt"
+  - "baits.txt"
+```
+
+This will test all combinations: every protein in `folds.txt` paired with every protein in `baits.txt`.
+
+<details>
+<summary>Multi-file pulldown experiments</summary>
+
+You can extend this logic to create complex multi-partner interaction screens by adding more input files. For example, with three files:
+
+```yaml
+input_files:
+  - "proteins_A.txt"  # 5 proteins
+  - "proteins_B.txt"  # 3 proteins
+  - "proteins_C.txt"  # 2 proteins
+```
+
+This will generate all possible combinations across the three groups, creating 5×3×2 = 30 different folding jobs. Each job will contain one protein from each file, allowing you to systematically explore higher-order protein complex formation.
+
+**Note**: The number of combinations grows multiplicatively, so be mindful of computational costs with many files.
+
+</details>
+
+## 3. Execution
+
+Run the pipeline locally:
+
+```bash
+snakemake --profile config/profiles/desktop --cores 8
+```
+
+<details>
+<summary>Cluster execution</summary>
+
+For running on a SLURM cluster, use the executor plugin:
+
+```bash
+screen -S snakemake_session
+snakemake \
+  --executor slurm \
+  --profile config/profiles/slurm \
+  --jobs 200 \
+  --restart-times 5
+```
+
+Detach with `Ctrl + A` then `D`. Reattach later with `screen -r snakemake_session`.
+
+</details>
+
+## 4. Results
+
+After completion, you'll find:
+- **Predicted structures** in PDB/CIF format in the output directory
+- **Interactive Jupyter notebook** with 3D visualizations and quality plots
+- **Results table** with confidence scores and interaction metrics
+
+Open the Jupyter notebook with:
+```bash
+jupyter-lab output/reports/output.ipynb
+```
+
+---
+
+## Advanced Configuration
+
+### Using precomputed features
+
+If you have precomputed protein features, specify the directory:
+
+```yaml
+feature_directory:
   - "/path/to/directory/with/features/"
 ```
-> [!NOTE]
-> If your folders contain compressed features, you have to set `--compress-features` flag to True, otherwise AlphaPulldown will not recognize these features and start calculations from scratch!
 
-If you want to use CCP4 for analysis, open `config/config.yaml` in a text editor and change the path to the analysis container to:
+> **Note**: If your features are compressed, set `compress-features: True` in the config.
+
+### Using CCP4 for analysis
+
+Download and install CCP4, then update your config:
 
 ```yaml
-analysis_container : "/path/to/fold_analysis_2.1.2_withCCP4.sif"
+analysis_container: "/path/to/fold_analysis_2.1.2_withCCP4.sif"
 ```
-If you want to change folding backend, simply add `folding-backend` flag to the `structure_inference_arguments`, e.g. for using AlphaFold3 backend:
+
+### Changing folding backends
+
+To use AlphaFold3 or other backends:
+
 ```yaml
 structure_inference_arguments:
   --fold_backend: alphafold3
   --<other-flags>
 ```
-Please do not forget to change `alphafold-data-directory` (renamed to databases_directory in 2.0.4) and add backend specific flags.
-> [!NOTE]
-> At the moment AlphaPulldown supports the following backends: alphafold, alphafold3, alphalink and unifold.
-**input_files**
-This variable holds the path to your sample sheet, where each line corresponds to a folding job. For this pipeline we use the following format specification:
 
-```
-protein:N:start-stop[_protein:N:start-stop]*
-```
+> **Note**: AlphaPulldown supports: alphafold, alphafold3, alphalink, and unifold backends.
 
-where protein is a path to a file with '.fasta' extension or uniprot ID, N is the number of monomers for this particular protein and start and stop are the residues that should be predicted. However, only protein is required, N, start and stop can be omitted. Hence the following folding jobs for the protein example containing residues 1-50 are equivalent:
+### Database configuration
 
-```
-example:2
-example_example
-example:2:1-50
-example:1-50_example:1-50
-example:1:1-50_example:1:1-50
-```
-One can also specify several amino acid ranges in one line to be modeled together:
+Set the path to your AlphaFold databases:
 
-```
-example:1-50:70-100
-example:2:1-50:70-100
+```yaml
+databases_directory: "/path/to/alphafold/databases"
 ```
 
-This format similarly extends for the folding of heteromers:
+### Performance tuning
 
+Adjust computational parameters:
+
+```yaml
+save_msa: False
+use_precomputed_msa: False
+predictions_per_model: 1
+number_of_recycles: 3
 ```
-example1_example2
-```
-
-Assuming you have two sample sheets config/sample_sheet1.csv and config/sample_sheet2.csv. The following would be equivalent to computing all versus all in sample_sheet1.csv:
-
-```
-input_files :
-  - config/sample_sheet1.csv
-  - config/sample_sheet1.csv
-```
-
-while the snippet below would be equivalent to computing the pulldown between sample_sheet1.csv and sample_sheet2.csv
-
-```
-input_files :
-  - config/sample_sheet1.csv
-  - config/sample_sheet2.csv
-```
-
-This format can be extended to as many files as you would like, but keep in mind the number of folds will increase dramatically.
-
-```
-input_files :
-  - config/sample_sheet1.csv
-  - config/sample_sheet2.csv
-  - ...
-```
-
-**alphafold_data_directory**
-This is the path to your alphafold database.
-
-**output_directory**
-Snakemake will write the pipeline output to this directory. If it does not exist, it will be created.
-
-**save_msa, use_precomputed_msa, predictions_per_model, number_of_recycles, report_cutoff**
-Command line arguments that were previously pasesed to AlphaPulldown's run_multimer_jobs.py and create_notebook.py (report_cutoff).
-
-**alphafold_inference_threads, alphafold_inference**
-Slurm specific parameters that do not need to be modified by non-expert users.
-
-**only_generate_features**
-If set to True, stops after generating features and does not perform structure prediction and reporting.
-
-
-## 3. Execution
-
-After following the Installation and Configuration steps, you are now ready to run the Snakemake pipeline. To do so, navigate into the cloned pipeline directory and run:
-
-```bash
-snakemake \
-  --use-singularity \
-  --singularity-args "-B /scratch:/scratch \
-    -B /g/kosinski:/g/kosinski \
-    --nv " \
-  --jobs 200 \
-  --restart-times 5 \
-  --profile slurm_noSidecar \
-  --rerun-incomplete \
-  --rerun-triggers mtime \
-  --latency-wait 30
-```
-
-> [!Warning]
-> Running Snakemake in the foreground on a remote server can cause the process to terminate if the session is disconnected. To avoid this, you can run Snakemake in the background and redirect the output to log files. Here are two approaches depending on your environment:
-
-- **For SLURM clusters:** Use `srun` to submit the job in the background:
-
-  ```bash
-  srun --job-name=snakemake_job \
-    snakemake \
-    --use-singularity \
-    --singularity-args "-B /scratch:/scratch \
-      -B /g/kosinski:/g/kosinski \
-      --nv " \
-    --jobs 200 \
-    --restart-times 5 \
-    --profile slurm_noSidecar \
-    --rerun-incomplete \
-    --rerun-triggers mtime \
-    --latency-wait 30 \
-    &> log.txt &
-  ```
-
-- **For non-SLURM systems:** You can use `screen` to run the process in a persistent session:
-
-  1. Start a `screen` session:
-     ```bash
-     screen -S snakemake_session
-     ```
-  2. Run Snakemake as usual:
-     ```bash
-     snakemake \
-       --use-singularity \
-       --singularity-args "-B /scratch:/scratch \
-         -B /g/kosinski:/g/kosinski \
-         --nv " \
-       --jobs 200 \
-       --restart-times 5 \
-       --profile slurm_noSidecar \
-       --rerun-incomplete \
-       --rerun-triggers mtime \
-       --latency-wait 30 \
-       &> log.txt &
-     ```
-  3. Detach from the `screen` session by pressing `Ctrl + A` then `D`. You can later reattach with:
-     ```bash
-     screen -r snakemake_session
-     ```
-
-By following these methods, you ensure that Snakemake continues running even if the remote session disconnects.
-
---- 
-
-This should guide users in handling both SLURM and non-SLURM environments when running the pipeline.
-
-```bash
-snakemake \
-  --use-singularity \
-  --singularity-args "-B /scratch:/scratch \
-    -B /g/kosinski:/g/kosinski \
-    --nv " \
-  --jobs 200 \
-  --restart-times 5 \
-  --profile slurm_noSidecar \
-  --rerun-incomplete \
-  --rerun-triggers mtime \
-  --latency-wait 30 \
-  -n
-
-```
-
-Here's a breakdown of what each argument does:
-
-- `--use-singularity`: Enables the use of Singularity containers. This allows for reproducibility and isolation of the pipeline environment.
-
-- `--singularity-args`: Specifies arguments passed directly to Singularity. In the provided example:
-  - `-B /scratch:/scratch` and `-B /g/kosinski:/g/kosinski`: These are bind mount points. They make directories from your host system accessible within the Singularity container. `--nv` ensures the container can make use of the hosts GPUs.
-
-- `--profile name_of_your_profile`: Specifies the Snakemake profile to use (e.g., the SLURM profile you set up for cluster execution).
-
-- `--rerun-triggers mtime`: Reruns a job if a specific file (trigger) has been modified more recently than the job's output. Here, `mtime` checks for file modification time.
-
-- `--jobs 500`: Allows up to 500 jobs to be submitted to the cluster simultaneously.
-
-- `--restart-times 10`: Specifies that jobs can be automatically restarted up to 10 times if they fail.
-
-- `--rerun-incomplete`: Forces the rerun of any jobs that were left incomplete in previous Snakemake runs.
-
-- `--latency-wait 30`: Waits for 30 seconds after a step finishes to check for the existence of expected output files. This can be useful in file-systems with high latencies.
-
-- `-n`: Dry-run flag. This makes Snakemake display the commands it would run without actually executing them. It's useful for testing. To run the pipeline for real, simply remove this flag.
-
-Executing the command above will perform submit the following jobs to the cluster:
-
-![Snakemake rulegraph](manuals/dag.png)
 
 <br>
 <br>
