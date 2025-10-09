@@ -62,7 +62,7 @@ jobs:
           #pytest -s test/test_pdb_analyser.py
           #pytest -s test/test_get_good_inter_pae.py
 
-  build-fold-container:
+  build-alphafold2-container:
     runs-on: ubuntu-latest
     steps:
       - uses: webfactory/ssh-agent@v0.9.0
@@ -75,23 +75,23 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
       - uses: docker/setup-buildx-action@v3
-      - name: Build and push fold container
+      - name: Build and push alphafold2 container
         if: github.event_name == 'push'
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./docker/alphafold2.dockerfile
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/fold:latest
+          tags: ${{ secrets.DOCKER_USERNAME }}/alphafold2:latest
           ssh: default
-      - name: Build and push fold container with version
+      - name: Build and push alphafold2 container with version
         if: github.event_name == 'release' && github.event.action == 'published'
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./docker/alphafold2.dockerfile
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/fold:${{ github.event.release.tag_name }}
+          tags: ${{ secrets.DOCKER_USERNAME }}/alphafold2:${{ github.event.release.tag_name }}
           ssh: default
 
   build-alphalink-container:
