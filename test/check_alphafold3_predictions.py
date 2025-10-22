@@ -1223,6 +1223,12 @@ class TestAlphaFold3RunModes(_TestBase):
             protein_list="test_multi_seeds_samples.txt", 
             script="run_structure_prediction.py"
         ),
+        # Test homodimer from af3 features
+        dict(
+            testcase_name="homodimer_from_json_features",
+            protein_list="test_homodimer_from_json_features.txt",
+            script="run_structure_prediction.py",
+        ),
     )
     def test_(self, protein_list, script):
         # Create environment with GPU settings
