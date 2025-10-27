@@ -80,6 +80,9 @@ class ResultsForSeed:
     # OLD: Sequence[base_model.InferenceResult]
     inference_results: Sequence[model.InferenceResult]
     full_fold_input: folding_input.Input
+    # Optional extras when enabled via config
+    embeddings: dict[str, np.ndarray] | None = None
+    distogram: np.ndarray | None = None
 
 
 # -----------------------------------------------------------------------------
@@ -159,7 +162,7 @@ def write_outputs(
     output_dir: os.PathLike[str] | str,
     job_name: str,
 ) -> None:
-    """Writes outputs to the specified output directory."""
+    """Writes outputs (CIF, confidences, embeddings, distograms, ranking CSV)."""
     ranking_scores = []
     max_ranking_score = None
     max_ranking_result = None
@@ -182,6 +185,22 @@ def write_outputs(
             if max_ranking_score is None or ranking_score > max_ranking_score:
                 max_ranking_score = ranking_score
                 max_ranking_result = result
+
+        # Optionally write embeddings/distogram per-seed if present
+        if results_for_seed.embeddings:
+            embeddings_dir = os.path.join(output_dir, f'seed-{seed}_embeddings')
+            os.makedirs(embeddings_dir, exist_ok=True)
+            post_processing.write_embeddings(
+                embeddings=results_for_seed.embeddings,
+                output_dir=embeddings_dir,
+                name=f'{job_name}_seed-{seed}',
+            )
+        if results_for_seed.distogram is not None:
+            dist_dir = os.path.join(output_dir, f'seed-{seed}_distogram')
+            os.makedirs(dist_dir, exist_ok=True)
+            dist_path = os.path.join(dist_dir, f'{job_name}_seed-{seed}_distogram.npz')
+            with open(dist_path, 'wb') as f:
+                np.savez_compressed(f, distogram=results_for_seed.distogram.astype(np.float16))
 
     if max_ranking_result is not None:  # True iff ranking_scores non-empty.
         post_processing.write_output(
@@ -284,13 +303,35 @@ def predict_structure(
             f'Extracting structures for seed {seed} took {time.time() - extract_start:.2f} seconds.'
         )
 
-        all_inference_results.append(
-            ResultsForSeed(
-                seed=seed,
-                inference_results=inference_results,
-                full_fold_input=fold_input,
-            )
-        )
+        # Optional: gather embeddings and distogram
+        embeddings_out = None
+        try:
+            # Use token_chain_ids length as number of tokens
+            num_tokens = len(inference_results[0].metadata['token_chain_ids']) if inference_results else 0
+        except Exception:
+            num_tokens = 0
+        try:
+            if 'single_embeddings' in result and 'pair_embeddings' in result and num_tokens > 0:
+                single = np.asarray(result['single_embeddings'])[:num_tokens]
+                pair = np.asarray(result['pair_embeddings'])[:num_tokens, :num_tokens]
+                embeddings_out = {'single_embeddings': single, 'pair_embeddings': pair}
+        except Exception:
+            embeddings_out = None
+        dist_out = None
+        try:
+            dist = result.get('distogram', {}).get('distogram', None)  # type: ignore[union-attr]
+            if dist is not None and num_tokens > 0:
+                dist_out = np.asarray(dist)[:num_tokens, :num_tokens]
+        except Exception:
+            dist_out = None
+
+        all_inference_results.append(ResultsForSeed(
+            seed=seed,
+            inference_results=inference_results,
+            full_fold_input=fold_input,
+            embeddings=embeddings_out,
+            distogram=dist_out,
+        ))
     logging.info(
         f'Inference + extraction for seeds {fold_input.rng_seeds} took {time.time() - all_inference_start_time:.2f} seconds.'
     )
@@ -328,18 +369,18 @@ def process_fold_input(
     # There's no data pipeline here, so skip it:
     logging.info('Skipping data pipeline...')
 
-    # Write input JSON
-    logging.info(f'Writing model input JSON to {output_dir}')
-    with open(
-        os.path.join(output_dir, f'{fold_input.sanitised_name()}_data.json'), 'wt'
-    ) as f:
+    # Write input JSON (ensure directory exists)
+    os.makedirs(output_dir, exist_ok=True)
+    prepared_path = os.path.join(output_dir, f'{fold_input.sanitised_name()}_data.json')
+    logging.info(f'Writing model input JSON to {prepared_path}')
+    with open(prepared_path, 'wt') as f:
         f.write(fold_input.to_json())
 
     if model_runner is None:
         logging.info('Skipping inference...')
         return fold_input
 
-    # Run inference
+    # Run inference (writing of outputs is deferred to postprocess)
     logging.info(
         f'Predicting 3D structure for {fold_input.name} with seed(s) {fold_input.rng_seeds}...'
     )
@@ -351,17 +392,6 @@ def process_fold_input(
         resolve_msa_overlaps=resolve_msa_overlaps,
         debug_msas=debug_msas,
     )
-
-    # Write outputs
-    logging.info(
-        f'Writing outputs for {fold_input.name} for seed(s) {fold_input.rng_seeds}...'
-    )
-    write_outputs(
-        all_inference_results=all_inference_results,
-        output_dir=output_dir,
-        job_name=fold_input.sanitised_name(),
-    )
-
     logging.info(f'Done processing fold input {fold_input.name}.')
     return all_inference_results
 
@@ -377,6 +407,9 @@ class AlphaFold3Backend(FoldingBackend):
         buckets: list,
         jax_compilation_cache_dir: str,
         model_dir: str,
+        num_recycles: int = 10,
+        return_embeddings: bool = False,
+        return_distogram: bool = False,
         **kwargs,
     ) -> Dict:
         """Sets up the ModelRunner with the given configurations."""
@@ -389,6 +422,9 @@ class AlphaFold3Backend(FoldingBackend):
             model_class: type[ModelT] = MyNewModel,
             flash_attention_implementation: attention.Implementation,
             num_diffusion_samples: int = 5,
+            num_recycles: int = 10,
+            return_embeddings: bool = False,
+            return_distogram: bool = False,
         ):
             # The new code approach:
             config = model_class.Config()
@@ -396,6 +432,13 @@ class AlphaFold3Backend(FoldingBackend):
                 config.global_config.flash_attention_implementation = flash_attention_implementation
             if hasattr(config, 'heads') and hasattr(config.heads, 'diffusion'):
                 config.heads.diffusion.eval.num_samples = num_diffusion_samples
+            # Optional overrides present in upstream AF3 runner
+            if hasattr(config, 'num_recycles'):
+                config.num_recycles = num_recycles
+            if hasattr(config, 'return_embeddings'):
+                config.return_embeddings = return_embeddings
+            if hasattr(config, 'return_distogram'):
+                config.return_distogram = return_distogram
             return config
 
         if jax_compilation_cache_dir is not None:
@@ -425,6 +468,9 @@ class AlphaFold3Backend(FoldingBackend):
                     attention.Implementation, flash_attention_implementation
                 ),
                 num_diffusion_samples=num_diffusion_samples,
+                num_recycles=num_recycles,
+                return_embeddings=return_embeddings,
+                return_distogram=return_distogram,
             ),
             device=gpu_devices[0],
             model_dir=pathlib.Path(model_dir),
@@ -863,19 +909,7 @@ class AlphaFold3Backend(FoldingBackend):
                 logging.info(f'Expanding fold job {fold_input_obj.name} to {num_seeds} seeds')
                 fold_input_obj = fold_input_obj.with_multiple_seeds(num_seeds)
             
-            # Write the prepared input JSON so the MSAs can be inspected before prediction
-            try:
-                os.makedirs(output_dir, exist_ok=True)
-                prepared_json_path = os.path.join(output_dir, f"{fold_input_obj.sanitised_name()}_data.json")
-                logging.info(f"Writing model input JSON to {prepared_json_path}")
-                with open(prepared_json_path, "wt") as f:
-                    f.write(fold_input_obj.to_json())
-            except OSError as e:
-                logging.error(f'Failed to create output directory {output_dir}: {e}')
-                raise
-            except Exception as e:
-                logging.error(f"Failed to write prepared input JSON to {output_dir}: {e}")
-                raise
+            # Do not write input JSON here; defer to process_fold_input for a single source of truth.
 
             logging.info(f'Processing fold input {fold_input_obj.name}')
 
@@ -896,5 +930,25 @@ class AlphaFold3Backend(FoldingBackend):
 
     @staticmethod
     def postprocess(**kwargs) -> None:
-        pass
+        prediction_results = kwargs.get('prediction_results')
+        output_dir = kwargs.get('output_dir')
+        fold_input_obj = kwargs.get('multimeric_object')
+
+        if prediction_results is None or output_dir is None or fold_input_obj is None:
+            logging.warning('AF3 postprocess called with missing arguments; skipping.')
+            return
+
+        try:
+            job_name = fold_input_obj.sanitised_name()
+        except Exception:
+            job_name = 'ranked_0'
+
+        logging.info(
+            f"Writing outputs for {job_name} with {len(prediction_results) if hasattr(prediction_results, '__len__') else 'unknown'} result(s)..."
+        )
+        write_outputs(
+            all_inference_results=prediction_results,
+            output_dir=output_dir,
+            job_name=job_name,
+        )
 

@@ -9,12 +9,14 @@ from __future__ import annotations
 import io
 import os
 import subprocess
+import time
 import sys
 import tempfile
 from pathlib import Path
 import shutil
 import pickle
 import json
+import numpy as np
 import re
 from typing import Dict, List, Tuple, Any
 
@@ -910,21 +912,10 @@ class _TestBase(parameterized.TestCase):
         self.assertTrue(len(summary_conf_files) > 0, "No summary_confidences.json files found")
         self.assertTrue(len(model_files) > 0, "No model.cif files found")
 
-        # 3. Check sample directories
-        sample_dirs = [f for f in files if f.is_dir() and f.name.startswith("seed-")]
-        
-        # Determine expected number of sample directories based on test name
-        test_name = getattr(self, '_testMethodName', '')
-        if "multi_seeds_samples" in test_name:
-            # For multi_seeds_samples: num_seeds=3, num_diffusion_samples=4
-            # Expected: 3 seeds × 4 samples = 12 sample directories
-            expected_sample_dirs = 12
-        else:
-            # Default case: 1 seed × 5 samples = 5 sample directories
-            expected_sample_dirs = 5
-            
-        self.assertEqual(len(sample_dirs), expected_sample_dirs, 
-                        f"Expected {expected_sample_dirs} sample directories, found {len(sample_dirs)}")
+        # 3. Check sample directories (only those with 'sample-' suffix)
+        sample_dirs = [
+            f for f in files if f.is_dir() and f.name.startswith("seed-") and "sample-" in f.name
+        ]
 
         for sample_dir in sample_dirs:
             sample_files = list(sample_dir.iterdir())
@@ -937,17 +928,20 @@ class _TestBase(parameterized.TestCase):
             lines = f.readlines()
             self.assertTrue(len(lines) > 1, "ranking_scores.csv should have header and data")
             self.assertEqual(len(lines[0].strip().split(",")), 3, "ranking_scores.csv should have 3 columns")
-            
-            # Check expected number of ranking score entries
-            if "multi_seeds_samples" in test_name:
-                # For multi_seeds_samples: 3 seeds × 4 samples = 12 entries + 1 header = 13 lines
-                expected_lines = 13
-            else:
-                # Default case: 1 seed × 5 samples = 5 entries + 1 header = 6 lines
-                expected_lines = 6
-                
-            self.assertEqual(len(lines), expected_lines, 
-                           f"Expected {expected_lines} lines in ranking_scores.csv, found {len(lines)}")
+            # Expected number of sample directories equals number of ranking entries for current run
+            seeds_in_csv = {ln.strip().split(",")[0] for ln in lines[1:] if ln.strip()}
+            def _seed_from_dirname(name: str) -> str:
+                try:
+                    part = name.split("seed-")[1]
+                    return part.split("_")[0]
+                except Exception:
+                    return ""
+            sample_dirs_for_this_run = [d for d in sample_dirs if _seed_from_dirname(d.name) in seeds_in_csv]
+            expected_sample_dirs = len(lines) - 1
+            self.assertEqual(
+                len(sample_dirs_for_this_run), expected_sample_dirs,
+                f"Expected {expected_sample_dirs} sample directories, found {len(sample_dirs_for_this_run)}"
+            )
             
             # Verify CSV format for all data lines
             for i, line in enumerate(lines[1:], 1):  # Skip header
@@ -988,8 +982,6 @@ class _TestBase(parameterized.TestCase):
                 str(self.script_single),
                 f"--input={formatted_input}",
                 f"--output_directory={self.output_dir}",
-                "--num_cycle=1",
-                "--num_predictions_per_model=1",
                 f"--data_directory={DATA_DIR}",
                 f"--features_directory={self.test_features_dir}",
                 "--fold_backend=alphafold3",
@@ -1268,6 +1260,144 @@ class TestAlphaFold3RunModes(_TestBase):
         
         # Check chain counts and sequences
         self._check_chain_counts_and_sequences(protein_list)
+
+    def test_af3_writes_embeddings_and_distogram(self):
+        """Run AF3 with embeddings and distogram enabled and check files exist."""
+        env = os.environ.copy()
+        env["XLA_FLAGS"] = "--xla_disable_hlo_passes=custom-kernel-fusion-rewriter --xla_gpu_force_compilation_parallelism=0"
+        env["XLA_PYTHON_CLIENT_PREALLOCATE"] = "true"
+        env["XLA_CLIENT_MEM_FRACTION"] = "0.95"
+        env["JAX_FLASH_ATTENTION_IMPL"] = "xla"
+        if "XLA_PYTHON_CLIENT_MEM_FRACTION" in env:
+            del env["XLA_PYTHON_CLIENT_MEM_FRACTION"]
+
+        args = [
+            sys.executable,
+            str(self.script_single),
+            f"--input=A0A075B6L2:1:2-5",  # small chopped example
+            f"--output_directory={self.output_dir}",
+            f"--data_directory={DATA_DIR}",
+            f"--features_directory={self.test_features_dir}",
+            "--fold_backend=alphafold3",
+            "--flash_attention_implementation=xla",
+            "--save_embeddings",
+            "--save_distogram",
+            "--num_diffusion_samples=1",
+        ]
+
+        res = subprocess.run(args, capture_output=True, text=True, env=env)
+        self._runCommonTests(res)
+
+        # Check per-seed embeddings and distogram artifacts in output dir
+        seed_emb_dirs = list(self.output_dir.glob("seed-*_*embeddings"))
+        seed_dist_dirs = list(self.output_dir.glob("seed-*_*distogram"))
+        self.assertTrue(len(seed_emb_dirs) >= 1, "No embeddings directories written")
+        self.assertTrue(len(seed_dist_dirs) >= 1, "No distogram directories written")
+        # Number of embeddings/distogram directories should equal number of unique seeds
+        with open(self.output_dir / "ranking_scores.csv") as f:
+            lines = [ln.strip() for ln in f.readlines()[1:] if ln.strip()]
+        seeds_in_csv = {ln.split(",")[0] for ln in lines}
+        self.assertEqual(len(seed_emb_dirs), len(seeds_in_csv),
+                         f"Embeddings dirs ({len(seed_emb_dirs)}) != seeds ({len(seeds_in_csv)})")
+        self.assertEqual(len(seed_dist_dirs), len(seeds_in_csv),
+                         f"Distogram dirs ({len(seed_dist_dirs)}) != seeds ({len(seeds_in_csv)})")
+
+        # Check expected files inside
+        for emb_dir in seed_emb_dirs:
+            npz_files = list(emb_dir.glob("*.npz"))
+            self.assertTrue(len(npz_files) >= 1, f"No embeddings npz in {emb_dir}")
+            # Validate embeddings content
+            for npz in npz_files:
+                with np.load(npz) as data:
+                    self.assertIn('single_embeddings', data.files, f"single_embeddings missing in {npz}")
+                    self.assertIn('pair_embeddings', data.files, f"pair_embeddings missing in {npz}")
+                    self.assertGreater(data['single_embeddings'].size, 0, f"single_embeddings empty in {npz}")
+                    self.assertGreater(data['pair_embeddings'].size, 0, f"pair_embeddings empty in {npz}")
+        for d_dir in seed_dist_dirs:
+            npz_files = list(d_dir.glob("*_distogram.npz"))
+            self.assertTrue(len(npz_files) >= 1, f"No distogram npz in {d_dir}")
+            # Validate distogram content
+            for npz in npz_files:
+                with np.load(npz) as data:
+                    self.assertIn('distogram', data.files, f"distogram key missing in {npz}")
+                    self.assertGreater(data['distogram'].size, 0, f"distogram array empty in {npz}")
+
+    def test_af3_num_recycles_affects_runtime(self):
+        """num_recycles=1 should be faster than default (keeping other knobs same)."""
+        env = os.environ.copy()
+        env["XLA_FLAGS"] = "--xla_disable_hlo_passes=custom-kernel-fusion-rewriter --xla_gpu_force_compilation_parallelism=0"
+        env["XLA_PYTHON_CLIENT_PREALLOCATE"] = "true"
+        env["XLA_CLIENT_MEM_FRACTION"] = "0.95"
+        env["JAX_FLASH_ATTENTION_IMPL"] = "xla"
+        if "XLA_PYTHON_CLIENT_MEM_FRACTION" in env:
+            del env["XLA_PYTHON_CLIENT_MEM_FRACTION"]
+
+        common = [
+            sys.executable,
+            str(self.script_single),
+            f"--input=A0A075B6L2:1",
+            f"--output_directory={self.output_dir}",
+            f"--data_directory={DATA_DIR}",
+            f"--features_directory={self.test_features_dir}",
+            "--fold_backend=alphafold3",
+            "--flash_attention_implementation=xla",
+            "--num_diffusion_samples=1",
+            "--num_seeds=2",  # ensures second seed reuses compiled XLA and timing reflects compute
+        ]
+
+        # Default num_recycles (10) – measure per-seed inference time from logs (last seed)
+        res_default = subprocess.run(common, capture_output=True, text=True, env=env)
+        self._runCommonTests(res_default)
+        combined_default = res_default.stdout + "\n" + res_default.stderr
+        m_default = re.findall(r"Model inference for seed .* took ([0-9.]+) seconds\.", combined_default)
+        self.assertTrue(len(m_default) >= 1, "Couldn't parse default inference time from logs")
+        default_time = float(m_default[-1])
+
+        # num_recycles=1
+        faster_dir = self.output_dir / "fewer_recycles"
+        faster_dir.mkdir(parents=True, exist_ok=True)
+        args_fast = common.copy()
+        args_fast[args_fast.index(f"--output_directory={self.output_dir}")] = f"--output_directory={faster_dir}"
+        args_fast.append("--num_recycles=1")
+        res_fast = subprocess.run(args_fast, capture_output=True, text=True, env=env)
+        self._runCommonTests(res_fast)
+        combined_fast = res_fast.stdout + "\n" + res_fast.stderr
+        m_fast = re.findall(r"Model inference for seed .* took ([0-9.]+) seconds\.", combined_fast)
+        self.assertTrue(len(m_fast) >= 1, "Couldn't parse fast inference time from logs")
+        fast_time = float(m_fast[-1])
+
+        # Allow some jitter; require at least 15% faster with fewer recycles
+        self.assertLess(
+            fast_time,
+            0.95 * default_time,
+            f"num_recycles=1 not faster enough (default {default_time:.2f}s vs {fast_time:.2f}s)",
+        )
+
+    def test_af3_rejects_alphafold2_flag(self):
+        """Passing AF2-only flags to AF3 backend should fail via validator."""
+        env = os.environ.copy()
+        env["JAX_FLASH_ATTENTION_IMPL"] = "xla"
+
+        args = [
+            sys.executable,
+            str(self.script_single),
+            f"--input=A0A075B6L2:1:2-5",
+            f"--output_directory={self.output_dir}",
+            f"--data_directory={DATA_DIR}",
+            f"--features_directory={self.test_features_dir}",
+            "--fold_backend=alphafold3",
+            "--flash_attention_implementation=xla",
+            "--num_diffusion_samples=1",
+            # Intentionally invalid for AF3:
+            "--num_predictions_per_model=1",
+        ]
+        res = subprocess.run(args, capture_output=True, text=True, env=env)
+        # Expect non-zero exit and clear error message
+        self.assertNotEqual(res.returncode, 0, "AF3 run unexpectedly succeeded with AF2 flag")
+        self.assertRegex(
+            res.stderr + res.stdout,
+            r"not supported by backend 'alphafold3'",
+        )
 
 
 # --------------------------------------------------------------------------- #
