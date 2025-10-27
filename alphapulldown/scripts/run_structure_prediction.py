@@ -26,6 +26,7 @@ from alphapulldown.folding_backend import backend
 from alphapulldown.folding_backend.alphafold_backend import ModelsToRelax
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
 from alphapulldown.utils.modelling_setup import create_interactors, create_custom_info, parse_fold
+import sys as _sys
 
 logging.set_verbosity(logging.INFO)
 
@@ -144,6 +145,11 @@ flags.DEFINE_integer(
     'Number of diffusion samples to generate.',
 )
 flags.DEFINE_integer(
+    'num_recycles',
+    10,
+    'Number of recycles to use during AF3 inference.',
+)
+flags.DEFINE_integer(
     'num_seeds',
     None,
     'Number of seeds to use for inference. If set, only a single seed must be'
@@ -153,6 +159,14 @@ flags.DEFINE_integer(
     ' random seeds. If not set, AlphaFold 3 will use the seeds as provided in'
     ' the input JSON.',
     lower_bound=1,
+)
+flags.DEFINE_boolean(
+    'save_embeddings', False,
+    'Whether to save final trunk single/pair embeddings in AF3 output.'
+)
+flags.DEFINE_boolean(
+    'save_distogram', False,
+    'Whether to save final distogram in AF3 output.'
 )
 
 # Post-processing settings
@@ -182,6 +196,63 @@ flags.DEFINE_boolean(
 )
 
 FLAGS = flags.FLAGS
+
+def _validate_flags_for_backend(backend_name: str) -> None:
+    """
+    Fail fast if user passed flags not supported by the selected backend.
+    """
+    # Flags common to all backends
+    common_flags = {
+        'input', 'output_directory', 'data_directory', 'features_directory',
+        'protein_delimiter', 'fold_backend', 'random_seed',
+    }
+
+    # Backend-specific flags
+    af2_like_flags = {
+        'compress_result_pickles', 'remove_result_pickles',
+        'remove_keys_from_pickles', 'convert_to_modelcif', 'allow_resume',
+        'num_cycle', 'num_predictions_per_model', 'pair_msa',
+        'save_features_for_multimeric_object', 'skip_templates',
+        'msa_depth_scan', 'multimeric_template', 'model_names', 'msa_depth',
+        'description_file', 'path_to_mmt', 'desired_num_res', 'desired_num_msa',
+        'benchmark', 'model_preset', 'use_ap_style', 'use_gpu_relax', 'dropout',
+    }
+    alphalink_extra = {'crosslinks'}
+    af3_flags = {
+        'jax_compilation_cache_dir', 'buckets', 'flash_attention_implementation',
+        'num_diffusion_samples', 'num_seeds', 'debug_templates', 'debug_msas',
+        'num_recycles', 'save_embeddings', 'save_distogram',
+    }
+
+    allowed_by_backend = {
+        'alphafold': common_flags | af2_like_flags,
+        'alphalink': common_flags | af2_like_flags | alphalink_extra,
+        'alphafold3': common_flags | af3_flags,
+    }
+
+    allowed = allowed_by_backend.get(backend_name)
+    if allowed is None:
+        return
+
+    # Consider only flags defined in this module
+    try:
+        key_flags = FLAGS.get_key_flags_for_module(_sys.modules[__name__])
+        module_flag_names = {kf.name for kf in key_flags}
+    except Exception:
+        # Fallback: include all flags; still safe, but may include ABSL built-ins
+        module_flag_names = set(FLAGS)
+
+    explicitly_set = {
+        name for name in module_flag_names
+        if name in FLAGS and FLAGS[name].present
+    }
+
+    disallowed = explicitly_set - allowed
+    if disallowed:
+        raise ValueError(
+            f"The following flags are not supported by backend '{backend_name}': "
+            f"{sorted(disallowed)}"
+        )
 
 def predict_structure(
     objects_to_model: List[Dict[str, Union[MultimericObject, MonomericObject, ChoppedObject, str]]],
@@ -328,6 +399,7 @@ def pre_modelling_setup(
     return object_to_model, output_dir
 
 def main(argv):
+    _validate_flags_for_backend(FLAGS.fold_backend)
     # Parse inputs and build interactor objects
     parsed = parse_fold(FLAGS.input, FLAGS.features_directory, FLAGS.protein_delimiter)
     data = create_custom_info(parsed)
@@ -355,6 +427,9 @@ def main(argv):
         "skip_templates": FLAGS.skip_templates,
         "allow_resume": FLAGS.allow_resume,
         "num_diffusion_samples": FLAGS.num_diffusion_samples,
+        "num_recycles": FLAGS.num_recycles,
+        "return_embeddings": FLAGS.save_embeddings,
+        "return_distogram": FLAGS.save_distogram,
         "flash_attention_implementation": FLAGS.flash_attention_implementation,
         "buckets": FLAGS.buckets,
         "jax_compilation_cache_dir": FLAGS.jax_compilation_cache_dir,
