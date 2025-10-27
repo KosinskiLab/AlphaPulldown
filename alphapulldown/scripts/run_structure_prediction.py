@@ -209,7 +209,7 @@ def _validate_flags_for_backend(backend_name: str) -> None:
 
     # Backend-specific flags
     af2_like_flags = {
-        'compress_result_pickles', 'remove_result_pickles',
+        'compress_result_pickles', 'remove_result_pickles', 'models_to_relax',
         'remove_keys_from_pickles', 'convert_to_modelcif', 'allow_resume',
         'num_cycle', 'num_predictions_per_model', 'pair_msa',
         'save_features_for_multimeric_object', 'skip_templates',
