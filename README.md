@@ -181,25 +181,10 @@ structure_inference_arguments:
 
 `compress_result_pickles = {[False], True}` — Whether the result pickles are going to be gzipped.
 `remove_result_pickles = {[False], True}` — Whether the result pickles are going to be removed.
-`` — 
 `remove_keys_from_pickles = {[True], False}` — Whether to remove aligned_confidence_probs, distogram and masked_msa from pickles
-`` — 
-`` — 
-`` — 
-`` — 
-`` — 
-`` — 
-`` — 
-`` — 
-`` — 
-`` — 
-`` — 
 `num_cycle = [3]` — Number of recycles
 `num_predictions_per_model = [1]` — Number of predictions per model
-`` — 
 `use_ap_style = {False], True}` — Change output directory to include a description of the fold as seen in previous alphapulldown versions.
-`` — 
-`` — 
 
 </details>
 
