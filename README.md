@@ -300,14 +300,3 @@ Set the path to your AlphaFold databases:
 ```yaml
 databases_directory: "/path/to/alphafold/databases"
 ```
-
-### Performance tuning
-
-Adjust computational parameters:
-
-```yaml
-save_msa: False
-use_precomputed_msa: False
-predictions_per_model: 1
-number_of_recycles: 3
-```
