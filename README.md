@@ -1,6 +1,6 @@
 # AlphaPulldown v2.x
 
-**[Documentation](https://github.com/KosinskiLab/AlphaPulldown/wiki)** | **[Features Database](https://github.com/KosinskiLab/AlphaPulldown/wiki/Features-Database)** | **[Downstream Analysis](https://github.com/KosinskiLab/AlphaPulldown/wiki/Downstream-Analysis)**
+**[Documentation](https://github.com/KosinskiLab/AlphaPulldown/wiki)** | **[Precalculated Input Database](https://github.com/KosinskiLab/AlphaPulldown/wiki/Features-Database)** | **[Downstream Analysis](https://github.com/KosinskiLab/AlphaPulldown/wiki/Downstream-Analysis)**
 
 AlphaPulldownSnakemake provides a convenient way to run AlphaPulldown using a Snakemake pipeline. This lets you focus entirely on **what** you want to compute, rather than **how** to manage dependencies, versioning, and cluster execution.
 
