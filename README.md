@@ -154,9 +154,9 @@ feature_directory:
 
 > **Note**: If your features are compressed, set `compress-features: True` in the config.
 
-### Using CCP4 for Analysis
+### Using CCP4 for Additional Analysis
 
-Download and install CCP4, then update your config:
+If you install **CCP4**, you will get additional quality scores. To enable them, [install CCP4 following these instructions](https://github.com/KosinskiLab/AlphaPulldown/wiki/Run-AlphaPulldown-Python-Command-Line-Interface#03-installation-for-the-downstream-analysis-tools), then update your configuration:
 
 ```yaml
 analysis_container: "/path/to/fold_analysis_2.1.2_withCCP4.sif"
