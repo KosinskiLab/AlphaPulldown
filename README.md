@@ -301,9 +301,11 @@ Set the path to your AlphaFold databases:
 databases_directory: "/path/to/alphafold/databases"
 ```
 
+***
+
 ## How to Cite
 
-If AlphaPulldown contributed significantly to your research, please cite the corresponding publication in *Bioinformatics*:
+If AlphaPulldown contributed significantly to your research, please cite [the corresponding publication](https://doi.org/10.1093/bioinformatics/btaf115) in *Bioinformatics*:
 
 ```bibtex
 @article{Molodenskiy2025AlphaPulldown2,
