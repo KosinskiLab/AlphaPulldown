@@ -221,7 +221,7 @@ def _validate_flags_for_backend(backend_name: str) -> None:
     af3_flags = {
         'jax_compilation_cache_dir', 'buckets', 'flash_attention_implementation',
         'num_diffusion_samples', 'num_seeds', 'debug_templates', 'debug_msas',
-        'num_recycles', 'save_embeddings', 'save_distogram',
+        'num_recycles', 'save_embeddings', 'save_distogram', 'use_ap_style',
     }
 
     allowed_by_backend = {
