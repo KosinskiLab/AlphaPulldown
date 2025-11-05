@@ -105,6 +105,10 @@ def main(argv):
         "--desired_num_msa": FLAGS.desired_num_msa,
         "--models_to_relax": FLAGS.models_to_relax
     }
+    if FLAGS.fold_backend == "alphafold3" : #remove unnecessary args
+        unnecessary_keys = ["--num_cycle","--num_predictions_per_model","--pair_msa","--msa_depth_scan","--multimeric_template","--msa_depth","--compress_result_pickles","--remove_result_pickles","--remove_keys_from_pickles","--use_gpu_relax","--models_to_relax"]
+        for key in unnecessary_keys :
+           constant_args.pop(key, None)
 
     command_args = {}
     for k, v in constant_args.items():
