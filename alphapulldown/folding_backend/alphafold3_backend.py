@@ -226,7 +226,7 @@ def predict_structure(
     """Run inference (featurisation + model) to predict structures for each seed."""
     logging.info(f'Featurising data for seeds {fold_input.rng_seeds}...')
     featurisation_start_time = time.time()
-    ccd = chemical_components.cached_ccd(user_ccd=fold_input.user_ccd)
+    ccd = chemical_components.Ccd(user_ccd=fold_input.user_ccd)
     featurised_examples = featurisation.featurise_input(
         fold_input=fold_input,
         buckets=buckets,
