@@ -15,7 +15,7 @@ import pathlib
 import time
 import typing
 from collections.abc import Sequence
-from typing import List, Dict, Union
+from typing import List, Dict, Union, overload
 
 import alphafold3.cpp
 import haiku as hk
@@ -581,6 +581,15 @@ class AlphaFold3Backend(FoldingBackend):
                 msa_lines.append(seq_str)
             return '\n'.join(msa_lines)
 
+        def msa_array_to_sequences(msa_array, query_sequence: str | None = None) -> List[str]:
+            sequences = []
+            if query_sequence is not None and len(query_sequence) > 0:
+                sequences.append(query_sequence)
+            for msa_seq in (msa_array):
+                sequences.append(''.join([residue_constants.ID_TO_HHBLITS_AA.get(int(aa), 'X') for aa in msa_seq]))
+            return sequences
+
+
         def _monomeric_to_chain(
             mono_obj: Union[MonomericObject, ChoppedObject],
             chain_id: str
@@ -779,8 +788,18 @@ class AlphaFold3Backend(FoldingBackend):
                         try:
                             chain_len = len(interactor.sequence)
                             chain_msa_slice = np.asarray(combined_msa)[:, col_offset:col_offset + chain_len]
+                            # If the chain_msa_slice is all gaps ('-'), skip it
                             col_offset += chain_len
-                            a3m_sliced = msa_array_to_a3m(chain_msa_slice, query_sequence=base_chain.sequence)
+                            a3m_sliced = ""
+                            sequences = msa_array_to_sequences(chain_msa_slice, query_sequence=base_chain.sequence)
+                            for i, sequence in enumerate(sequences):
+                                header = f"sequence_{i}"
+                                # Skip sequences that are entirely gaps ('-')
+                                if set(sequence) == {'-'}:
+                                    #logging.debug(f"Skipping {header} - all gaps")
+                                    continue
+                                a3m_sliced += f">{header}\n{sequence}\n"
+
                             base_chain = folding_input.ProteinChain(
                                 id=base_chain.id,
                                 sequence=base_chain.sequence,
