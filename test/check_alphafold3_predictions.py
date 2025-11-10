@@ -1011,6 +1011,10 @@ class _TestBase(parameterized.TestCase):
                 if mode == "homo-oligomer"
                 else "--protein_lists"
                 + f"={self.test_protein_lists_dir / plist}",
+                # Ensure AF3 backend and keep runtime small
+                "--fold_backend=alphafold3",
+                "--flash_attention_implementation=xla",
+                "--num_diffusion_samples=1",
             ]
             return args
 
@@ -1187,6 +1191,9 @@ class TestAlphaFold3RunModes(_TestBase):
         dict(testcase_name="homo_oligomer", protein_list="test_homooligomer.txt", script="run_structure_prediction.py"),
         dict(testcase_name="chopped_dimer", protein_list="test_dimer_chopped.txt", script="run_structure_prediction.py"),
         dict(testcase_name="long_name", protein_list="test_long_name.txt", script="run_structure_prediction.py"),
+        # Ensure AF3 also works when launched via the multimer wrapper script
+        dict(testcase_name="monomer_via_multimer_wrapper", protein_list="test_monomer.txt", script="run_multimer_jobs.py"),
+        dict(testcase_name="chopped_dimer_via_multimer_wrapper", protein_list="test_dimer_chopped.txt", script="run_multimer_jobs.py"),
         # Test cases for combining AlphaPulldown monomer with different JSON inputs
         dict(
             testcase_name="monomer_with_rna", 
