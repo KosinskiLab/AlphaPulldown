@@ -69,7 +69,8 @@ def main(argv):
         logging.info(f"Dry run: the total number of jobs to be run: {len(all_folds)}")
         sys.exit(0)
     parent_dir = os.path.dirname(os.path.abspath(__file__))
-    base_command = [f"{sys.executable} {parent_dir}/run_structure_prediction.py"]
+    script_path = os.path.join(parent_dir, "run_structure_prediction.py")
+    base_command = [sys.executable, script_path]
 
     # Use the specified fold_backend, only override for alphalink/unifold
     fold_backend = FLAGS.fold_backend
