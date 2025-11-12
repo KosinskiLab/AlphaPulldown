@@ -19,7 +19,6 @@ Usage:
     SAVE_PREDICTIONS=1 python check_alphalink_predictions.py
 """
 from __future__ import annotations
-import io
 import os
 import subprocess
 import sys
@@ -34,7 +33,7 @@ from typing import Dict, List, Tuple, Any
 from absl.testing import absltest, parameterized
 
 import alphapulldown
-from alphapulldown.utils.create_combinations import process_files
+from alphapulldown_input_parser import generate_fold_specifications
 
 
 # --------------------------------------------------------------------------- #
@@ -519,14 +518,15 @@ class _TestBase(parameterized.TestCase):
             
         if script == "run_structure_prediction.py":
             # Format from run_multimer_jobs.py input to run_structure_prediction.py input
-            buffer = io.StringIO()
-            _ = process_files(
+            specifications = generate_fold_specifications(
                 input_files=[str(self.test_protein_lists_dir / plist)],
-                output_path=buffer,
-                exclude_permutations = True
+                delimiter="+",
+                exclude_permutations=True,
             )
-            buffer.seek(0)
-            formatted_input_lines = [x.strip().replace(",", ":").replace(";", "+") for x in buffer.readlines() if x.strip()]
+            formatted_input_lines = [
+                spec.replace(",", ":").replace(";", "+")
+                for spec in specifications if spec.strip()
+            ]
             # Use the first non-empty line as the input string
             formatted_input = formatted_input_lines[0] if formatted_input_lines else ""
             args = [
@@ -756,14 +756,15 @@ class TestAlphaLinkRunModesNoCrosslinks(_TestBase):
             
         if script == "run_structure_prediction.py":
             # Format from run_multimer_jobs.py input to run_structure_prediction.py input
-            buffer = io.StringIO()
-            _ = process_files(
+            specifications = generate_fold_specifications(
                 input_files=[str(self.test_protein_lists_dir / plist)],
-                output_path=buffer,
-                exclude_permutations = True
+                delimiter="+",
+                exclude_permutations=True,
             )
-            buffer.seek(0)
-            formatted_input_lines = [x.strip().replace(",", ":").replace(";", "+") for x in buffer.readlines() if x.strip()]
+            formatted_input_lines = [
+                spec.replace(",", ":").replace(";", "+")
+                for spec in specifications if spec.strip()
+            ]
             # Use the first non-empty line as the input string
             formatted_input = formatted_input_lines[0] if formatted_input_lines else ""
             args = [

@@ -5,7 +5,6 @@
 
     Authors: Dingquan Yu, Valentin Maurer <name.surname@embl-hamburg.de>
 """
-import io
 import warnings
 import subprocess
 from absl import app, logging, flags
@@ -14,7 +13,7 @@ import sys
 import jax
 gpus = jax.local_devices(backend='gpu')
 from alphapulldown.scripts.run_structure_prediction import FLAGS
-from alphapulldown.utils.create_combinations import process_files
+from alphapulldown_input_parser import generate_fold_specifications
 
 logging.set_verbosity(logging.INFO)
 
@@ -55,16 +54,12 @@ def main(argv):
             DeprecationWarning,
         )
 
-    buffer = io.StringIO()
-    _ = process_files(
+    specifications = generate_fold_specifications(
         input_files=protein_lists,
-        output_path=buffer,
-        exclude_permutations = True
+        delimiter="+",
+        exclude_permutations=True,
     )
-    buffer.seek(0)
-    all_folds = buffer.readlines()
-    all_folds = [x.strip().replace(",", ":") for x in all_folds]
-    all_folds = [x.strip().replace(";", "+") for x in all_folds]
+    all_folds = [spec.replace(",", ":").replace(";", "+") for spec in specifications]
     if FLAGS.dry_run:
         logging.info(f"Dry run: the total number of jobs to be run: {len(all_folds)}")
         sys.exit(0)

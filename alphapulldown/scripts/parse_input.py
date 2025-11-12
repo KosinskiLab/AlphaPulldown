@@ -2,8 +2,7 @@
 from absl import flags, app, logging
 import json
 from alphapulldown.utils.modelling_setup import parse_fold, create_custom_info
-from alphapulldown.utils.create_combinations import process_files
-import io
+from alphapulldown_input_parser import generate_fold_specifications
 
 logging.set_verbosity(logging.INFO)
 
@@ -23,16 +22,12 @@ flags.DEFINE_string(
 FLAGS = flags.FLAGS
 
 def main(argv):
-    buffer = io.StringIO()
-    _ = process_files(
+    specifications = generate_fold_specifications(
         input_files=FLAGS.input_list,
-        output_path=buffer,
-        exclude_permutations = True
+        delimiter=FLAGS.protein_delimiter,
+        exclude_permutations=True,
     )
-    buffer.seek(0)
-    all_folds = buffer.readlines()
-    all_folds = [x.strip() for x in all_folds]
-    parsed = parse_fold(all_folds, FLAGS.features_directory, FLAGS.protein_delimiter)
+    parsed = parse_fold(specifications, FLAGS.features_directory, FLAGS.protein_delimiter)
     data = create_custom_info(parsed)
 
     with open(FLAGS.output_prefix + "data.json", 'w') as out_f:

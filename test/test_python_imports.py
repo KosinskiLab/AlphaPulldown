@@ -1,10 +1,8 @@
 from alphapulldown.utils import *
-import io
 import warnings
 import subprocess
 from absl import app
 import os
-from alphapulldown.utils.create_combinations import process_files
 
 import argparse
 from os import makedirs
