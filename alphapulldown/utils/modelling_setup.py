@@ -4,15 +4,15 @@
 # 
 
 import os
-import sys
 import pickle
 import lzma
-from typing import List,Dict,Union
+from typing import Dict, List, Tuple, Union
 import numpy as np
 from alphafold.data.tools import jackhmmer
 from alphafold.data import templates
+from alphapulldown_input_parser import RegionSelection
+from alphapulldown_input_parser import parse_fold as _external_parse_fold
 from alphapulldown.objects import MonomericObject
-from os.path import exists,join
 from alphapulldown.objects import ChoppedObject
 from alphapulldown.utils.file_handling import make_dir_monomer_dictionary
 from absl import logging
@@ -20,107 +20,37 @@ logging.set_verbosity(logging.INFO)
 
 
 
+def _normalise_fold_entry(entry: Dict[str, Union[str, RegionSelection]]) -> Dict[str, Union[str, List[Tuple[int, int]]]]:
+    """Convert entries from alphapulldown-input-parser into legacy AlphaPulldown format."""
+    if "json_input" in entry:
+        return {"json_input": entry["json_input"]}
+
+    if len(entry) != 1:
+        return entry
+
+    name, selection = next(iter(entry.items()))
+    if isinstance(selection, RegionSelection):
+        if selection.is_all:
+            value: Union[str, List[Tuple[int, int]]] = "all"
+        else:
+            value = [(region.start, region.end) for region in selection.regions]
+        return {name: value}
+
+    return {name: selection}
+
+
 def parse_fold(input_list, features_directory, protein_delimiter):
-    """
-    Parses a list of protein fold specifications and returns structured folding jobs.
+    """Parse fold specifications using alphapulldown-input-parser and normalise the output."""
+    parsed_jobs = _external_parse_fold(
+        input_list=input_list,
+        features_directory=features_directory,
+        protein_delimiter=protein_delimiter,
+    )
 
-    Args:
-        input_list (list): List of protein fold specifications as strings.
-        features_directory (list): List of directories to search for protein feature files.
-        protein_delimiter (str): Delimiter used to separate different protein folds.
-
-    Returns:
-        list: A list of folding jobs, each represented by a list of dictionaries.
-
-    Raises:
-        FileNotFoundError: If any required protein features are missing.
-        ValueError: If the format of the input specifications is incorrect.
-    """
-    def format_error(spec):
-        print(f"Your format: {spec} is wrong. The program will terminate.")
-        sys.exit(1)
-
-    def extract_copy_and_regions(tokens, spec):
-        # try head copy then tail copy, default to 1
-        if len(tokens) > 1:
-            try:
-                return int(tokens[1]), tokens[2:]
-            except ValueError:
-                pass
-            try:
-                return int(tokens[-1]), tokens[1:-1]
-            except ValueError:
-                pass
-        return 1, tokens[1:]
-
-    def parse_regions(region_tokens, spec):
-        if not region_tokens:
-            return "all"
-        regions = []
-        for tok in region_tokens:
-            parts = tok.split("-")
-            if len(parts) != 2:
-                format_error(spec)
-            try:
-                regions.append(tuple(map(int, parts)))
-            except ValueError:
-                format_error(spec)
-        return regions
-
-    def feature_exists(name):
-        return any(
-            exists(join(dirpath, f"{name}{ext}"))
-            for dirpath in features_directory
-            for ext in (".pkl", ".pkl.xz")
-        )
-
-    def json_exists(name):
-        return any(
-            exists(join(dirpath, name))
-            for dirpath in features_directory
-        )
-
-    all_folding_jobs = []
-    missing_features = set()
-
-    for spec in input_list:
-        formatted_folds = []
-        for pf in spec.split(protein_delimiter):
-            # Handle JSON input
-            if pf.endswith('.json'):
-                json_name = pf
-                if json_exists(json_name):
-                    for d in features_directory:
-                        path = join(d, json_name)
-                        if exists(path):
-                            formatted_folds.append({'json_input': path})
-                            break
-                else:
-                    missing_features.add(json_name)
-                continue
-
-            # Handle protein input
-            tokens = pf.split(":")
-            if not tokens or not tokens[0]:
-                format_error(spec)
-
-            name = tokens[0]
-            number, region_tokens = extract_copy_and_regions(tokens, spec)
-            regions = parse_regions(region_tokens, spec)
-
-            if not feature_exists(name):
-                missing_features.add(name)
-                continue
-
-            formatted_folds += [{name: regions} for _ in range(number)]
-
-        if formatted_folds:
-            all_folding_jobs.append(formatted_folds)
-
-    if missing_features:
-        raise FileNotFoundError(f"{sorted(missing_features)} not found in {features_directory}")
-
-    return all_folding_jobs
+    normalised_jobs: List[List[Dict[str, Union[str, List[Tuple[int, int]]]]]] = []
+    for job in parsed_jobs:
+        normalised_jobs.append([_normalise_fold_entry(entry) for entry in job])
+    return normalised_jobs
 
 def pad_input_features(feature_dict: dict, 
                        desired_num_res : int, desired_num_msa : int) -> None:

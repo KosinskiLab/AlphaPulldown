@@ -1,6 +1,5 @@
 import argparse
-import io
-from alphapulldown.utils.create_combinations import process_files
+from alphapulldown_input_parser import generate_fold_specifications
 from alphapulldown.utils.modelling_setup import parse_fold, create_custom_info, create_interactors
 from alphapulldown.objects import MultimericObject
 import pandas as pd
@@ -132,20 +131,21 @@ def main():
     protein_lists = args.protein_lists
     if args.mode == "all_vs_all":
         protein_lists = [args.protein_lists[0], args.protein_lists[0]]
-    # buffer = io.StringIO()
     import time
     start = time.time()
-    all_combinations = process_files(input_files=protein_lists)
+    specifications = generate_fold_specifications(
+        input_files=protein_lists,
+        delimiter=args.protein_delimiter,
+        exclude_permutations=True,
+    )
 
-    all_folds = ["+".join(combo) for combo in all_combinations]
-    all_folds = [x.strip().replace(",", ":") for x in all_folds]
-    all_folds = [x.strip().replace(";", "+") for x in all_folds]
+    all_folds = [spec.replace(",", ":").replace(";", "+") for spec in specifications]
     end = time.time()
     diff1 = end - start 
     cluster_jobs(all_folds, args)
     end = time.time()
     diff2 = end - start 
-    logger.info(f"process_files steps takes {diff1}s and total time is: {diff2}")
+    logger.info(f"generate_fold_specifications step takes {diff1}s and total time is: {diff2}")
 
 
 if __name__ == "__main__":

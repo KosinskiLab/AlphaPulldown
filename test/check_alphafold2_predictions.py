@@ -5,7 +5,6 @@ Needs GPU(s) to run.
 """
 from __future__ import annotations
 
-import io
 import os
 import json
 import pickle
@@ -19,7 +18,7 @@ from pathlib import Path
 from absl.testing import absltest, parameterized
 
 import alphapulldown
-from alphapulldown.utils.create_combinations import process_files
+from alphapulldown_input_parser import generate_fold_specifications
 
 # --------------------------------------------------------------------------- #
 #                         configuration / logging                             #
@@ -161,16 +160,14 @@ class _TestBase(parameterized.TestCase):
                 ) + f"={self.test_protein_lists_dir / plist}",
             ]
         else:
-            buffer = io.StringIO()
-            _ = process_files(
+            specifications = generate_fold_specifications(
                 input_files=[str(self.test_protein_lists_dir / plist)],
-                output_path=buffer,
-                exclude_permutations=True
+                delimiter="+",
+                exclude_permutations=True,
             )
-            buffer.seek(0)
             lines = [
-                x.strip().replace(",", ":").replace(";", "+")
-                for x in buffer.readlines() if x.strip()
+                spec.replace(",", ":").replace(";", "+")
+                for spec in specifications if spec.strip()
             ]
             formatted_input = lines[0] if lines else ""
             return [
@@ -321,16 +318,14 @@ class TestDropoutDiversity(_TestBase):
         no_dropout_output_dir.mkdir(parents=True, exist_ok=True)
 
         # Use simple test input 
-        buffer = io.StringIO()
-        _ = process_files(
+        specifications = generate_fold_specifications(
             input_files=[str(self.protein_lists)],
-            output_path=buffer,
-            exclude_permutations=True
+            delimiter="+",
+            exclude_permutations=True,
         )
-        buffer.seek(0)
         lines = [
-            x.strip().replace(",", ":").replace(";", "+")
-            for x in buffer.readlines() if x.strip()
+            spec.replace(",", ":").replace(";", "+")
+            for spec in specifications if spec.strip()
         ]
         formatted_input = lines[0] if lines else ""
 
