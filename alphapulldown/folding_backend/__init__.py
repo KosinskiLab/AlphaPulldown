@@ -8,7 +8,7 @@
 
 from typing import Dict, List
 from absl import logging
-from .alphafold_backend import AlphaFoldBackend
+from .alphafold2_backend import AlphaFold2Backend
 logging.set_verbosity(logging.INFO)
 
 class FoldingBackendManager:
@@ -30,10 +30,10 @@ class FoldingBackendManager:
 
     def __init__(self):
         self._BACKEND_REGISTRY = {
-            "alphafold": AlphaFoldBackend
+            "alphafold2": AlphaFold2Backend
         }
         self.import_backends()
-        self._backend_name = "alphafold"
+        self._backend_name = "alphafold2"
         self._backend = self._BACKEND_REGISTRY[self._backend_name]()
         self._backend_args = {}
 
@@ -118,9 +118,9 @@ def change_backend(backend_name: str) -> None:
     Args:
         backend_name: Name of the backend to use.
     """
-    if backend_name not in ["alphafold", "unifold", "alphafold3"]:
+    if backend_name not in ["alphafold2", "unifold", "alphafold3"]:
         raise NotImplementedError(
-            f"Available backends are alphafold, unifold, alphafold3 - not {backend_name}."
+            f"Available backends are alphafold2, unifold, alphafold3 - not {backend_name}."
         )
     global backend
     backend.change_backend(backend_name)

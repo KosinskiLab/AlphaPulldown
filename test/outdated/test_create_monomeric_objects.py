@@ -8,7 +8,7 @@ import shutil
 from alphafold.data.pipeline import DataPipeline
 from alphafold.data.tools import hmmsearch
 from alphapulldown.utils.file_handling import parse_fasta
-from alphapulldown.folding_backend.alphafold_backend import AlphaFoldBackend
+from alphapulldown.folding_backend.alphafold2_backend import AlphaFold2Backend
 from alphapulldown.utils.modelling_setup import create_uniprot_runner, templates
 import os
 from colabfold.utils import DEFAULT_API_SERVER
@@ -84,7 +84,7 @@ class TestCreateObjects(absltest.TestCase):
     def test_3_create_model_runner_gradient_msa_depth(self):
         msa_range = [16,19,23,28,33,40,48,57,69,82,99,118,142,170,204,245,294,353,423,508]
         extra_msa_ranges = [i*4 for i in msa_range]
-        model_runners, random_seed = AlphaFoldBackend.setup(
+        model_runners, random_seed = AlphaFold2Backend.setup(
             "multimer",
             self.num_cycle,
             self.random_seed,

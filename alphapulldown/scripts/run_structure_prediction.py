@@ -23,7 +23,7 @@ import lzma
 import random
 import sys
 from alphapulldown.folding_backend import backend
-from alphapulldown.folding_backend.alphafold_backend import ModelsToRelax
+from alphapulldown.folding_backend.alphafold2_backend import ModelsToRelax
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
 from alphapulldown.utils.modelling_setup import create_interactors, create_custom_info, parse_fold
 import sys as _sys
@@ -184,7 +184,7 @@ flags.DEFINE_boolean('use_gpu_relax', True,
 
 # Global settings
 flags.DEFINE_string('protein_delimiter', '+', 'Delimiter for proteins of a single fold.')
-flags.DEFINE_string('fold_backend', 'alphafold',
+flags.DEFINE_string('fold_backend', 'alphafold2',
                     'Folding backend that should be used for structure prediction.')
 flags.DEFINE_boolean(
     'debug_templates', False,
@@ -225,7 +225,7 @@ def _validate_flags_for_backend(backend_name: str) -> None:
     }
 
     allowed_by_backend = {
-        'alphafold': common_flags | af2_like_flags,
+        'alphafold2': common_flags | af2_like_flags,
         'alphalink': common_flags | af2_like_flags | alphalink_extra,
         'alphafold3': common_flags | af3_flags,
     }
@@ -258,7 +258,7 @@ def predict_structure(
     objects_to_model: List[Dict[str, Union[MultimericObject, MonomericObject, ChoppedObject, str]]],
     model_flags: Dict,
     postprocess_flags: Dict,
-    fold_backend: str = "alphafold"
+    fold_backend: str = "alphafold2"
 ) -> None:
     """
     Predict structural features of multimers using specified models and configurations.
@@ -274,20 +274,22 @@ def predict_structure(
     postprocess_flags : Dict
         Dictionary of flags passed to the respective backend's postprocess function.
     fold_backend : str, optional
-        Backend used for folding, defaults to alphafold.
+        Backend used for folding, defaults to alphafold2.
     """
     backend.change_backend(backend_name=fold_backend)
     model_runners_and_configs = backend.setup(**model_flags)
     if FLAGS.random_seed is not None:
         random_seed = FLAGS.random_seed
     else:
-        if fold_backend == 'alphafold':
+        if fold_backend == 'alphafold2':
             random_seed = random.randrange(sys.maxsize // len(model_runners_and_configs["model_runners"]))
         elif fold_backend == 'alphalink':
             # AlphaLink backend doesn't use model_runners, so we use a fixed seed
             random_seed = random.randrange(sys.maxsize)
         elif fold_backend=='alphafold3':
             random_seed = random.randrange(2**32 - 1)
+        else:
+            random_seed = random.randrange(sys.maxsize)
     predicted_jobs = backend.predict(
         **model_runners_and_configs,
         objects_to_model=objects_to_model,

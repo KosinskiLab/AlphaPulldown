@@ -117,7 +117,7 @@ def _reset_template_features(feature_dict: Dict) -> None:
             feature_dict[key] = np.ones_like(value)
 
 
-class AlphaFoldBackend(FoldingBackend):
+class AlphaFold2Backend(FoldingBackend):
     """
     A backend to perform structure prediction using AlphaFold.
     """
@@ -446,7 +446,7 @@ class AlphaFoldBackend(FoldingBackend):
             object_to_model = entry['object']
             output_dir = entry['output_dir']
             
-            prediction_results = AlphaFoldBackend.predict_individual_job(
+            prediction_results = AlphaFold2Backend.predict_individual_job(
                 model_runners=model_runners,
                 multimeric_object=object_to_model,
                 allow_resume=allow_resume,
@@ -571,7 +571,7 @@ class AlphaFoldBackend(FoldingBackend):
         total_num_res = sum([len(s) for s in multimeric_object.input_seqs]) if multimer_mode else len(multimeric_object.sequence)
         # Save plddt json files.
         for model_name, prediction_result in prediction_results.items():
-            prediction_result.update(AlphaFoldBackend.recalculate_confidence(prediction_result,multimer_mode,
+            prediction_result.update(AlphaFold2Backend.recalculate_confidence(prediction_result,multimer_mode,
                                                                          total_num_res))
             if 'unrelaxed_protein' in prediction_result.keys():
                 unrelaxed_protein = prediction_result.pop("unrelaxed_protein")

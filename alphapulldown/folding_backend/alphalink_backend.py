@@ -13,7 +13,7 @@ import os
 from os.path import join, exists, splitext
 from shutil import copyfile
 import re, json
-from alphapulldown.folding_backend.alphafold_backend import _save_pae_json_file
+from alphapulldown.folding_backend.alphafold2_backend import _save_pae_json_file
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
 from alphapulldown.utils.plotting import plot_pae_from_matrix
 from .folding_backend import FoldingBackend
