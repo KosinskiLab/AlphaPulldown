@@ -84,7 +84,7 @@ RUN conda run -n af3 pip install --upgrade pip && \
       "jax[cuda12]"==0.5.3 \
       triton==3.1.0 \
       jax-triton==0.2.0 \
-      alphapulldown_input_parser==0.2.0 \ 
+      alphapulldown_input_parser==0.2.0 && \
     conda run -n af3 pip cache purge
 
 # -----------------------------------------------------------------------------
