@@ -12,6 +12,7 @@ Install required dependencies:
 mamba create -n snake -c conda-forge -c bioconda python=3.12 \
   snakemake snakemake-executor-plugin-slurm snakedeploy pulp click coincbc
 mamba activate snake
+pip install alphapulldown-input-parser
 ```
 
 That's it, you're done!
@@ -26,7 +27,7 @@ Create a new processing directory for your project:
 snakedeploy deploy-workflow \
   https://github.com/KosinskiLab/AlphaPulldownSnakemake \
   AlphaPulldownSnakemake \
-  --tag 2.1.4
+  --tag 2.1.5
 cd AlphaPulldownSnakemake
 ```
 
