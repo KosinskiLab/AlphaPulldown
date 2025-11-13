@@ -173,7 +173,7 @@ structure_inference_arguments:
   --<other-flags>
 ```
 
-> **Note**: AlphaPulldown supports: `alphafold`, `alphafold3`, `alphalink`, and `unifold` backends.
+> **Note**: AlphaPulldown supports: `alphafold2`, `alphafold3` and `alphalink` backends.
 
 ### Backend Specific Flags
 
