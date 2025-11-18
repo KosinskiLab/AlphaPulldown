@@ -189,6 +189,7 @@ class MonomericObject:
             output_dir=None,
             compress_msa_files=False,
             use_precomputed_msa=False,
+            use_templates = True,
     ):
         """
         A method to use mmseq_remote to calculate MSA.
@@ -200,7 +201,6 @@ class MonomericObject:
         msa_mode = "mmseqs2_uniref_env"
         keep_existing_results = True
         result_dir = output_dir
-        use_templates = True
         result_zip = os.path.join(result_dir, self.description, ".result.zip")
         if keep_existing_results and plPath(result_zip).is_file():
             logging.info(f"Skipping {self.description} (result.zip)")
@@ -211,6 +211,21 @@ class MonomericObject:
             a3m_lines = [plPath(a3m_path).read_text()]
             (unpaired_msa, paired_msa, query_seqs_unique, query_seqs_cardinality,
              template_features) = unserialize_msa(a3m_lines, self.sequence)
+            
+            if use_templates == True : #Search templates for precomputed msa
+                (_, _, _, _, template_features)  = get_msa_and_templates(
+                jobname=self.description,
+                query_sequences=self.sequence,
+                a3m_lines=False,
+                result_dir=plPath(result_dir),
+                msa_mode='single_sequence',
+                use_templates=True,
+                custom_template_path=None,
+                pair_mode="none",
+                host_url=DEFAULT_API_SERVER,
+                user_agent='alphapulldown')
+
+
         else:
             logging.info("You chose to calculate MSA with mmseqs2.\nPlease also cite: "
                          "Mirdita M, Schütze K, Moriwaki Y, Heo L, Ovchinnikov S and Steinegger M. "
