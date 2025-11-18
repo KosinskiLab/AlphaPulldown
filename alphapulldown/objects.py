@@ -189,7 +189,7 @@ class MonomericObject:
             output_dir=None,
             compress_msa_files=False,
             use_precomputed_msa=False,
-            use_templates = True,
+            use_templates=False,
     ):
         """
         A method to use mmseq_remote to calculate MSA.
