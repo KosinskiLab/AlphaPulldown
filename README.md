@@ -2,18 +2,19 @@
 
 **[Documentation](https://github.com/KosinskiLab/AlphaPulldown/wiki)** | **[Precalculated Input Database](https://github.com/KosinskiLab/AlphaPulldown/wiki/Features-Database)** | **[Downstream Analysis](https://github.com/KosinskiLab/AlphaPulldown/wiki/Downstream-Analysis)**
 
-AlphaPulldownSnakemake provides a convenient way to run AlphaPulldown using a Snakemake pipeline. This lets you focus entirely on **what** you want to compute, rather than **how** to manage dependencies, versioning, and cluster execution.
+[AlphaPulldownSnakemake](https://github.com/KosinskiLab/AlphaPulldownSnakemake/tree/main) provides a convenient way to run AlphaPulldown using a [Snakemake pipeline](https://snakemake.readthedocs.io/en/stable/). This lets you focus entirely on **what** you want to compute, rather than **how** to manage dependencies, versioning, and cluster execution.
 
 ## 1. Installation
-
-Install required dependencies:
+Create and activate the conda environment:
 
 ```bash
-mamba create -n snake -c conda-forge -c bioconda python=3.12 \
-  snakemake snakemake-executor-plugin-slurm snakedeploy pulp click coincbc
-mamba activate snake
-pip install alphapulldown-input-parser
+conda env create \
+  -n snake \
+  -f https://raw.githubusercontent.com/KosinskiLab/AlphaPulldownSnakemake/2.1.5/workflow/envs/alphapulldown.yaml
+conda activate snake
 ```
+
+This environment file installs Snakemake and all required plugins via conda and pulls in `alphapulldown-input-parser` from PyPI in a single step.
 
 That's it, you're done!
 
@@ -132,13 +133,45 @@ Detach with `Ctrl + A` then `D`. Reattach later with `screen -r snakemake_sessio
 
 After completion, you'll find:
 - **Predicted structures** in PDB/CIF format in the output directory
-- **Interactive Jupyter notebook** with 3D visualizations and quality plots
+- **Per-fold interface scores** in `output/predictions/<fold>/interfaces.csv`
+- **Aggregated interface summary** in `output/reports/all_interfaces.csv` when `generate_recursive_report: true`
+- **Interactive APLit web viewer (recommended)** for browsing all jobs, PAE plots and AlphaJudge scores
+- **Optional Jupyter notebook** with 3D visualizations and quality plots
 - **Results table** with confidence scores and interaction metrics
 
-Open the Jupyter notebook with:
+# New: explore results with APLit
+
+[APLit](https://github.com/KosinskiLab/aplit)
+ is a Streamlit-based UI for browsing AlphaPulldown runs (AF2 and AF3) and AlphaJudge metrics.
+
+Install APLit (once):
 ```bash
-jupyter-lab output/reports/output.ipynb
+pip install git+https://github.com/KosinskiLab/aplit.git
 ```
+
+Then launch it from your project directory, pointing it to the predictions folder:
+```bash
+aplit --directory output/predictions
+```
+
+This starts a local web server (by default at `http://localhost:8501`) where you can:
+
+- Filter and sort jobs by ipTM, PAE or AlphaJudge scores
+
+- Inspect individual models in 3D (3Dmol.js)
+
+- View PAE heatmaps and download structures / JSON files
+
+On a cluster, run aplit on the login node and forward the port via SSH:
+```bash
+# on cluster
+aplit --directory /path/to/project/output/predictions --no-browser
+```
+```bash
+# on your laptop
+ssh -N -L 8501:localhost:8501 user@cluster.example.org
+```
+Then open `http://localhost:8501` in your browser.
 
 ---
 
@@ -154,14 +187,6 @@ feature_directory:
 ```
 
 > **Note**: If your features are compressed, set `compress-features: True` in the config.
-
-### Using CCP4 for Additional Analysis
-
-If you install **CCP4**, you will get additional quality scores. To enable them, [install CCP4 following these instructions](https://github.com/KosinskiLab/AlphaPulldown/wiki/Run-AlphaPulldown-Python-Command-Line-Interface#03-installation-for-the-downstream-analysis-tools), then update your configuration:
-
-```yaml
-analysis_container: "/path/to/fold_analysis_2.1.2_withCCP4.sif"
-```
 
 ### Changing Folding Backends
 
@@ -296,10 +321,11 @@ structure_inference_arguments:
 
 ### Database configuration
 
-Set the path to your AlphaFold databases:
+Set the path to your AlphaFold databases and weights:
 
 ```yaml
 databases_directory: "/path/to/alphafold/databases"
+backend_weights_directory : "/path/to/alphafold/weights"
 ```
 
 ***
