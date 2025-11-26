@@ -180,6 +180,26 @@ Then open `http://localhost:8501` in your browser.
 
 ## Advanced Configuration
 
+### SLURM defaults for structure inference
+Override default values to match your cluster:
+
+```yaml
+slurm_partition: "gpu"                      # which partition/queue to submit to
+slurm_qos: "normal"                         # optional QoS if your site uses it
+structure_inference_gpus_per_task: 1        # number of GPUs each inference job needs
+structure_inference_gpu_model: "3090"       # optional GPU model constraint (remove to allow any)
+structure_inference_tasks_per_gpu: 0        # <=0 keeps --ntasks-per-gpu unset in the plugin
+```
+
+`structure_inference_gpus_per_task` and `structure_inference_gpu_model` are read by the
+Snakemake Slurm executor plugin and translated into `--gpus=<model>:<count>` (or `--gpus=<count>` if
+no model is specified). We no longer use `slurm_gres`; requesting GPUs exclusively through these
+fields keeps the job submission consistent across clusters.
+
+`structure_inference_tasks_per_gpu` toggles whether the plugin also emits `--ntasks-per-gpu`. Leaving
+the default `0` prevents that flag, which avoids conflicting with the Tres-per-task request on many
+systems. Set it to a positive integer only if your site explicitly requires `--ntasks-per-gpu`.
+
 ### Using Precomputed Features
 
 If you have precomputed protein features, specify the directory:
@@ -217,23 +237,8 @@ enable_structure_analysis: true             # skip alphaJudge if set to false
 generate_recursive_report: true             # disable if you do not need all_interfaces.csv
 recursive_report_arguments:                 # optional extra CLI flags for alphajudge
   --models_to_analyse: best
-
-# SLURM defaults (override to match your cluster)
-slurm_partition: "gpu"                      # which partition/queue to submit to
-slurm_qos: "normal"                         # optional QoS if your site uses it
-structure_inference_gpus_per_task: 1        # number of GPUs each inference job needs
-structure_inference_gpu_model: "3090"       # optional GPU model constraint (remove to allow any)
-structure_inference_tasks_per_gpu: 0        # <=0 keeps --ntasks-per-gpu unset in the plugin
 ```
 
-`structure_inference_gpus_per_task` and `structure_inference_gpu_model` are read by the
-Snakemake Slurm executor plugin and translated into `--gpus=<model>:<count>` (or `--gpus=<count>` if
-no model is specified). We no longer use `slurm_gres`; requesting GPUs exclusively through these
-fields keeps the job submission consistent across clusters.
-
-`structure_inference_tasks_per_gpu` toggles whether the plugin also emits `--ntasks-per-gpu`. Leaving
-the default `0` prevents that flag, which avoids conflicting with the Tres-per-task request on many
-systems. Set it to a positive integer only if your site explicitly requires `--ntasks-per-gpu`.
 
 ### Changing Folding Backends
 
