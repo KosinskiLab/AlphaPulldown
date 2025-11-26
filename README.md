@@ -2,19 +2,19 @@
 
 **[Documentation](https://github.com/KosinskiLab/AlphaPulldown/wiki)** | **[Precalculated Input Database](https://github.com/KosinskiLab/AlphaPulldown/wiki/Features-Database)** | **[Downstream Analysis](https://github.com/KosinskiLab/AlphaPulldown/wiki/Downstream-Analysis)**
 
-[AlphaPulldownSnakemake](https://github.com/KosinskiLab/AlphaPulldownSnakemake/tree/main) provides a convenient way to run AlphaPulldown using a [Snakemake pipeline](https://snakemake.readthedocs.io/en/stable/). This lets you focus entirely on **what** you want to compute, rather than **how** to manage dependencies, versioning, and cluster execution.
+AlphaPulldownSnakemake provides a convenient way to run AlphaPulldown using a Snakemake pipeline. This lets you focus entirely on **what** you want to compute, rather than **how** to manage dependencies, versioning, and cluster execution. When you deploy the workflow with `snakedeploy`, the configuration file will be copied after deployment to your local project directory as [config/config.yaml](https://github.com/KosinskiLab/AlphaPulldownSnakemake/blob/main/config/config.yaml).
+
+For running without Snakemake, see this [link](https://github.com/KosinskiLab/AlphaPulldown/wiki).
 
 ## 1. Installation
-Create and activate the conda environment:
+
+Install required dependencies:
 
 ```bash
-conda env create \
-  -n snake \
-  -f https://raw.githubusercontent.com/KosinskiLab/AlphaPulldownSnakemake/2.1.5/workflow/envs/alphapulldown.yaml
-conda activate snake
+mamba create -n snake -c conda-forge -c bioconda python=3.12 \
+  snakemake snakemake-executor-plugin-slurm snakedeploy pulp click coincbc
+mamba activate snake
 ```
-
-This environment file installs Snakemake and all required plugins via conda and pulls in `alphapulldown-input-parser` from PyPI in a single step.
 
 That's it, you're done!
 
@@ -28,7 +28,7 @@ Create a new processing directory for your project:
 snakedeploy deploy-workflow \
   https://github.com/KosinskiLab/AlphaPulldownSnakemake \
   AlphaPulldownSnakemake \
-  --tag 2.1.5
+  --tag 2.1.6
 cd AlphaPulldownSnakemake
 ```
 
@@ -139,7 +139,7 @@ After completion, you'll find:
 - **Optional Jupyter notebook** with 3D visualizations and quality plots
 - **Results table** with confidence scores and interaction metrics
 
-# New: explore results with APLit
+# Recommended: explore results with APLit
 
 [APLit](https://github.com/KosinskiLab/aplit)
  is a Streamlit-based UI for browsing AlphaPulldown runs (AF2 and AF3) and AlphaJudge metrics.
@@ -171,7 +171,10 @@ aplit --directory /path/to/project/output/predictions --no-browser
 # on your laptop
 ssh -N -L 8501:localhost:8501 user@cluster.example.org
 ```
+
 Then open `http://localhost:8501` in your browser.
+
+
 
 ---
 
@@ -188,6 +191,50 @@ feature_directory:
 
 > **Note**: If your features are compressed, set `compress-features: True` in the config.
 
+### Feature generation flags (`create_individual_features.py`)
+
+You can tweak the feature-generation step by editing `create_feature_arguments` (or by running the
+script manually). Commonly used flags:
+
+- `--data_pipeline {alphafold2,alphafold3}` – choose the feature format to emit.
+- `--db_preset {full_dbs,reduced_dbs}` – switch between the full BFD stack or the reduced databases.
+- `--use_mmseqs2` – rely on the remote MMseqs2 API; skips local jackhmmer/HHsearch database lookups.
+- `--use_precomputed_msas` / `--save_msa_files` – reuse stored MSAs or keep new ones for later runs.
+- `--compress_features` – zip the generated `*.pkl` files (`.xz` extension) to save space.
+- `--skip_existing` – leave existing feature files untouched (safe for reruns).
+- `--seq_index N` – only process the N‑th sequence from the FASTA list.
+- `--use_hhsearch`, `--re_search_templates_mmseqs2` – toggle template search implementations.
+- `--path_to_mmt`, `--description_file`, `--multiple_mmts` – enable TrueMultimer CSV-driven feature sets.
+- `--max_template_date YYYY-MM-DD` – required cutoff for template structures; keeps runs reproducible.
+
+
+### Structure analysis & reporting
+
+Post-inference analysis is enabled by default. You can disable it or add a project-wide summary in `config/config.yaml`:
+
+```yaml
+enable_structure_analysis: true             # skip alphaJudge if set to false
+generate_recursive_report: true             # disable if you do not need all_interfaces.csv
+recursive_report_arguments:                 # optional extra CLI flags for alphajudge
+  --models_to_analyse: best
+
+# SLURM defaults (override to match your cluster)
+slurm_partition: "gpu"                      # which partition/queue to submit to
+slurm_qos: "normal"                         # optional QoS if your site uses it
+structure_inference_gpus_per_task: 1        # number of GPUs each inference job needs
+structure_inference_gpu_model: "3090"       # optional GPU model constraint (remove to allow any)
+structure_inference_tasks_per_gpu: 0        # <=0 keeps --ntasks-per-gpu unset in the plugin
+```
+
+`structure_inference_gpus_per_task` and `structure_inference_gpu_model` are read by the
+Snakemake Slurm executor plugin and translated into `--gpus=<model>:<count>` (or `--gpus=<count>` if
+no model is specified). We no longer use `slurm_gres`; requesting GPUs exclusively through these
+fields keeps the job submission consistent across clusters.
+
+`structure_inference_tasks_per_gpu` toggles whether the plugin also emits `--ntasks-per-gpu`. Leaving
+the default `0` prevents that flag, which avoids conflicting with the Tres-per-task request on many
+systems. Set it to a positive integer only if your site explicitly requires `--ntasks-per-gpu`.
+
 ### Changing Folding Backends
 
 To use AlphaFold3 or other backends:
@@ -198,7 +245,7 @@ structure_inference_arguments:
   --<other-flags>
 ```
 
-> **Note**: AlphaPulldown supports: `alphafold2`, `alphafold3` and `alphalink` backends.
+> **Note**: AlphaPulldown supports: `alphafold`, `alphafold3`, `alphalink`, and `unifold` backends.
 
 ### Backend Specific Flags
 
@@ -206,7 +253,7 @@ structure_inference_arguments:
 <summary>AlphaFold2 Flags</summary>
 
 ```yaml
-# Whether the result pickles are going to be gzipped.
+# Whether the result pickles are going to be zipped (.xz).
   --compress_result_pickles: False
 
 # Whether the result pickles are going to be removed.
@@ -321,11 +368,10 @@ structure_inference_arguments:
 
 ### Database configuration
 
-Set the path to your AlphaFold databases and weights:
+Set the path to your AlphaFold databases:
 
 ```yaml
 databases_directory: "/path/to/alphafold/databases"
-backend_weights_directory : "/path/to/alphafold/weights"
 ```
 
 ***
