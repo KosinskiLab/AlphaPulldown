@@ -9,11 +9,11 @@ For running without Snakemake, see this [link](https://github.com/KosinskiLab/Al
 ## 1. Installation
 
 Install required dependencies:
-
 ```bash
-mamba create -n snake -c conda-forge -c bioconda python=3.12 \
-  snakemake snakemake-executor-plugin-slurm snakedeploy pulp click coincbc
-mamba activate snake
+conda env create \
+  -n snake \
+  -f https://raw.githubusercontent.com/KosinskiLab/AlphaPulldownSnakemake/2.1.5/workflow/envs/alphapulldown.yaml
+conda activate snake
 ```
 
 That's it, you're done!
@@ -28,7 +28,7 @@ Create a new processing directory for your project:
 snakedeploy deploy-workflow \
   https://github.com/KosinskiLab/AlphaPulldownSnakemake \
   AlphaPulldownSnakemake \
-  --tag 2.1.6
+  --tag 2.1.7
 cd AlphaPulldownSnakemake
 ```
 
