@@ -108,3 +108,50 @@ def test_from_af_output_pdb():
 def test_from_minimal_pdb():
     """Test custom DB creation from minimal PDB file"""
     run_test(["./test/test_data/templates/RANdom_name1_.7-1_0.pdb"], ["B"])
+
+def test_long_filename_generates_valid_code():
+    """Test that generate_code produces only lowercase alphanumeric characters that can be parsed by AlphaFold"""
+    from alphapulldown.utils.create_custom_template_db import generate_code, parse_code
+    from alphafold.data.parsers import _parse_hmmsearch_description
+    import tempfile
+    from pathlib import Path
+    
+    # Test with a long filename that will trigger hash generation
+    long_filename = "ranbp5_pb1_181_216_noxl_af3_dertemp_model.cif"
+    template_path = Path("./test/test_data/templates") / long_filename
+    
+    if not template_path.exists():
+        pytest.skip(f"Template file {template_path} not found")
+    
+    # Generate code from the long filename
+    code = parse_code(template_path)
+    logger.info(f"Generated code for long filename: {code}")
+    
+    # Verify code is 4 characters
+    assert len(code) == 4, f"Code should be 4 characters, got {len(code)}"
+    
+    # Verify code contains only lowercase alphanumeric characters
+    assert code.isalnum() and code.islower(), f"Code '{code}' should be lowercase alphanumeric"
+    
+    # Test that the code can be used in a pdb_seqres entry that AlphaFold can parse
+    # The format is: >{code}_{chain} mol:protein length:{len}
+    # But AlphaFold parser expects: >{code}_{chain}/{start}-{end} [subseq from] mol:protein length:{len}
+    # However, we can at least verify the code part matches the regex pattern
+    import re
+    pdb_id_pattern = r'^[a-z0-9]+$'
+    assert re.match(pdb_id_pattern, code), f"Code '{code}' does not match AlphaFold PDB ID pattern {pdb_id_pattern}"
+    
+    # Create a test entry and verify it can be parsed (with minimal required format)
+    # We'll create a minimal valid entry that matches the parser's expectations
+    test_chain = "A"
+    test_length = 100
+    test_start = 1
+    test_end = 100
+    test_entry = f">{code}_{test_chain}/{test_start}-{test_end} [subseq from] mol:protein length:{test_length}"
+    
+    try:
+        metadata = _parse_hmmsearch_description(test_entry)
+        logger.info(f"Successfully parsed entry: {test_entry}")
+        assert metadata.pdb_id == code, f"Parsed PDB ID {metadata.pdb_id} does not match generated code {code}"
+    except ValueError as e:
+        pytest.fail(f"Generated code '{code}' cannot be parsed by AlphaFold parser: {e}")

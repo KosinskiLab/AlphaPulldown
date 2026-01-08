@@ -1,176 +1,113 @@
-###############################################################################
-# Dockerfile for AlphaFold 3 + AlphaPulldown
-# w/ fix for UnicodeDecodeError in build_data
-###############################################################################
-FROM nvidia/cuda:12.6.0-base-ubuntu22.04
+FROM nvidia/cuda:12.6.3-base-ubuntu24.04
 
-# -----------------------------------------------------------------------------
-# 1) Basic Setup & System Packages
-# -----------------------------------------------------------------------------
 ENV DEBIAN_FRONTEND=noninteractive
+ENV VIRTUAL_ENV=/opt/venv
+ENV PATH="/hmmer/bin:${VIRTUAL_ENV}/bin:${PATH}"
 
-RUN apt-get update --quiet && \
-    apt-get upgrade --yes --quiet && \
-    apt-get install --yes --quiet --no-install-recommends \
-      software-properties-common \
-      git \
-      wget \
-      gcc \
-      g++ \
-      gfortran \
-      make \
-      zlib1g-dev \
-      zstd \
-      libblas-dev \
-      liblapack-dev \
-      cmake \
-      ninja-build \
-      libeigen3-dev \
-      locales && \
-    rm -rf /var/lib/apt/lists/*
+# ---------------------------------------------------------------------
+# System deps
+# ---------------------------------------------------------------------
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        python3 \
+        python3-venv \
+        python3-dev \
+        python3-pip \
+        gcc-12 g++-12 \
+        build-essential \
+        libc6-dev \
+        wget \
+        ca-certificates \
+        git \
+        patch \
+        xz-utils \
+        bzip2 \
+        make \
+        pkg-config \
+        zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN locale-gen en_US.UTF-8 && \
-    update-locale LANG=en_US.UTF-8
-ENV LANG=en_US.UTF-8
-ENV LANGUAGE=en_US:en
-ENV LC_ALL=en_US.UTF-8
+# Force gcc-12 (avoid gcc-13 ICE on 24.04)
+ENV CC=gcc-12
+ENV CXX=g++-12
 
-# -----------------------------------------------------------------------------
-# 2) Install Miniforge & Mamba
-# -----------------------------------------------------------------------------
-RUN wget -q -P /tmp \
-  https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh && \
-    bash /tmp/Miniforge3-Linux-x86_64.sh -b -p /opt/conda && \
-    rm /tmp/Miniforge3-Linux-x86_64.sh
+# ---------------------------------------------------------------------
+# Python venv
+# ---------------------------------------------------------------------
+RUN python3 -m venv ${VIRTUAL_ENV} && \
+    pip install --no-cache-dir --upgrade pip setuptools wheel
 
-ENV PATH="/opt/conda/bin:$PATH"
-ENV LD_LIBRARY_PATH="/opt/conda/lib:$LD_LIBRARY_PATH"
+# ---------------------------------------------------------------------
+# HMMER (with seq_limit patch)
+# ---------------------------------------------------------------------
+RUN mkdir /hmmer_build /hmmer && \
+    wget http://eddylab.org/software/hmmer/hmmer-3.4.tar.gz -O /hmmer_build/hmmer-3.4.tar.gz && \
+    echo "ca70d94fd0cf271bd7063423aabb116d42de533117343a9b27a65c17ff06fbf3  /hmmer_build/hmmer-3.4.tar.gz" | sha256sum -c - && \
+    tar -xzf /hmmer_build/hmmer-3.4.tar.gz -C /hmmer_build
 
-RUN conda install -y -c conda-forge mamba
+RUN wget -O /hmmer_build/jackhmmer_seq_limit.patch \
+    https://raw.githubusercontent.com/google-deepmind/alphafold3/main/docker/jackhmmer_seq_limit.patch
 
-# -----------------------------------------------------------------------------
-# 3) Create "af3" Environment (Core Packages)
-# -----------------------------------------------------------------------------
-RUN mamba create -n af3 -y \
-    -c conda-forge -c bioconda -c omnia \
-    python=3.11 \
-    tqdm \
-    openmm=8.0 \
-    pdbfixer=1.9 \
-    kalign2 \
-    modelcif \
-    hmmer \
-    hhsuite \
-    rdkit=2024.3.5 \
-    tensorflow-cpu=2.13.* \
-    scipy=1.10.* \
-    biopython=1.* \
-    appdirs=1.4.* \
-    numpy=1.26.* \
-    ml-collections \
-    && conda clean --all -f -y
+RUN cd /hmmer_build && \
+    patch -p0 < jackhmmer_seq_limit.patch && \
+    cd /hmmer_build/hmmer-3.4 && \
+    ./configure --prefix=/hmmer && \
+    make -j$(nproc) && \
+    make install && \
+    cd easel && make install && \
+    rm -rf /hmmer_build
 
-# -----------------------------------------------------------------------------
-# 4) Extra Python Packages
-# -----------------------------------------------------------------------------
-RUN conda run -n af3 pip install --upgrade pip && \
-    conda run -n af3 pip install --force-reinstall --no-cache-dir \
-      dm-haiku==0.0.13 \
-      chex==0.1.87 \
-      dm-tree==0.1.8 \
-      jaxtyping==0.2.34 \
-      jmp==0.0.4 \
-      ml-dtypes==0.5.0 \
-      "jax[cuda12]"==0.5.3 \
-      triton==3.1.0 \
-      jax-triton==0.2.0 \
-      alphapulldown_input_parser==0.2.0 && \
-    conda run -n af3 pip cache purge
+# ---------------------------------------------------------------------
+# Clone AlphaPulldown with submodules
+# ---------------------------------------------------------------------
+#COPY . /app/alphafold
+RUN git clone --recurse-submodules https://github.com/KosinskiLab/AlphaPulldown.git /app/AlphaPulldown
+# ---------------------------------------------------------------------
+# Install AlphaFold3 (regenerate dev-requirements inside image)
+# ---------------------------------------------------------------------
+WORKDIR /app/AlphaPulldown//alphafold3
 
-# -----------------------------------------------------------------------------
-# 5) Clone + Install AlphaPulldown (No Deps)
-# -----------------------------------------------------------------------------
-RUN git clone --recurse-submodules https://github.com/KosinskiLab/AlphaPulldown.git /AlphaPulldown
-# COPY . /AlphaPulldown
-WORKDIR /AlphaPulldown
-RUN conda run -n af3 pip install . --no-deps && ls
+RUN pip install --no-cache-dir pip-tools  && \
+    pip-compile \
+        --extra=dev \
+        --generate-hashes \
+        --resolver=backtracking \
+        --output-file=dev-requirements.txt \
+        pyproject.toml && \
+    pip install --no-cache-dir -r dev-requirements.txt && \
+    pip install git+https://github.com/openmm/pdbfixer.git && \
+    pip install --no-cache-dir --no-deps .
 
-# -----------------------------------------------------------------------------
-# 6) ENV Vars to Force Build AlphaFold 3
-# -----------------------------------------------------------------------------
-WORKDIR /AlphaPulldown/alphafold3
-ENV CMAKE_CXX_STANDARD=17
-ENV CXXFLAGS="-O2 -fno-lto -std=gnu++20 -fno-inline"
-ENV PYTHONUTF8=1
-ENV PYTHONIOENCODING=utf-8
-ENV CMAKE_CXX_STANDARD=17
-ENV SKBUILD_CONFIGURE_OPTIONS="-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF"
-ENV SKBUILD_BUILD_OPTIONS="-j1"
+# ---------------------------------------------------------------------
+# Build CCD database
+# ---------------------------------------------------------------------
+RUN build_data
 
-RUN conda run -n af3 pip install --upgrade pip scikit_build_core pybind11 "cmake>=3.28" ninja && \
-    conda run -n af3 pip install --no-build-isolation --no-deps . && \
-    conda run -n af3 build_data
+# ---------------------------------------------------------------------
+# Install AlphaPulldown
+# ---------------------------------------------------------------------
+WORKDIR /app/AlphaPulldown
+RUN pip install --no-cache-dir .
 
-# -----------------------------------------------------------------------------
-# 7) Optional XLA Vars
-# -----------------------------------------------------------------------------
-# To work around a known XLA issue causing the compilation time to greatly
-# increase, the following environment variable setting XLA flags must be enabled
-# when running AlphaFold 3. Note that if using CUDA capability 7 GPUs, it is
-# necessary to set the following XLA_FLAGS value instead:
-# ENV XLA_FLAGS="--xla_disable_hlo_passes=custom-kernel-fusion-rewriter"
-# (no need to disable gemm in that case as it is not supported for such GPU).
+# ---------------------------------------------------------------------
+# Runtime env
+# ---------------------------------------------------------------------
 ENV XLA_FLAGS="--xla_gpu_enable_triton_gemm=false"
-# Memory settings used for folding up to 5,120 tokens on A100 80 GB.
 ENV XLA_PYTHON_CLIENT_PREALLOCATE=true
 ENV XLA_CLIENT_MEM_FRACTION=0.95
 ENV TF_FORCE_UNIFIED_MEMORY='1'
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
-ENV NVIDIA_VISIBLE_DEVICES=all \
-    NVIDIA_DRIVER_CAPABILITIES=compute,utility \
-    CONDA_DEFAULT_ENV=af3 \
-    PATH="/opt/conda/envs/af3/bin:$PATH" \
-    LD_LIBRARY_PATH="/opt/conda/lib:/usr/local/nvidia/lib:/usr/local/nvidia/lib64:$LD_LIBRARY_PATH"
+#SHELL ["/bin/bash", "-l", "-c"]
+#ENTRYPOINT ["bash", "-l"]
 
-# -----------------------------------------------------------------------------
-# 8) Link run_structure_prediction.py
-# -----------------------------------------------------------------------------
-RUN ls -la /AlphaPulldown && \
-    ls -la /AlphaPulldown/alphapulldown/scripts && \
-    ls -la /AlphaPulldown/alphafold3/ && \
-    if [ -f /AlphaPulldown/alphapulldown/scripts/run_structure_prediction.py ]; then \
-        ln -s /AlphaPulldown/alphapulldown/scripts/run_structure_prediction.py /usr/local/bin/run_structure_prediction.py && \
-        chmod +x /usr/local/bin/run_structure_prediction.py; \
-    else \
-        echo "Error: run_structure_prediction.py not found in expected locations." && exit 1; \
-    fi
-
-# -----------------------------------------------------------------------------
-# 9) Provide Shell Inside "af3" by default
-# -----------------------------------------------------------------------------
-SHELL ["/bin/bash", "-l", "-c"]
-RUN conda init bash && echo "conda activate af3" >> ~/.bashrc
-ENTRYPOINT ["bash", "-l"]
-
-# -----------------------------------------------------------------------------
-# 10) Validate imports automatically (Optional)
-# -----------------------------------------------------------------------------
-RUN conda run -n af3 python -c "\
-import csv; import dataclasses; import datetime; import functools; import logging; import os; \
-import pathlib; import string; import textwrap; import time; import typing; \
-from collections.abc import Sequence; from typing import List, Dict, Union; \
-import haiku as hk; import jax; import numpy as np; from jax import numpy as jnp; \
-from alphafold.common import residue_constants; \
-from alphafold.common.protein import Protein, to_mmcif; \
-from alphafold3.common import base_config, folding_input; \
-from alphafold3.constants import chemical_components; \
-import alphafold3.cpp; \
-from alphafold3.data import featurisation, pipeline; \
-from alphafold3.jax.attention import attention; \
-from alphafold3.model import features, params, post_processing; \
-from alphafold3.model.components import utils; \
-from alphafold3.model import model; \
-from alphapulldown.folding_backend.folding_backend import FoldingBackend; \
-from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject; \
-print('All imports succeeded!')"
+# ---------------------------------------------------------------------
+# Sanity check
+# ---------------------------------------------------------------------
+RUN python - << 'EOF'
+from alphafold3.constants import chemical_components
+from alphapulldown.folding_backend.folding_backend import FoldingBackend
+print("AF3 + AlphaPulldown import OK, CCD present")
+EOF
 

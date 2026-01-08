@@ -11,7 +11,6 @@ Can be used as a standalone script.
 
 import os
 import hashlib
-import base64
 from pathlib import Path
 from absl import logging, flags, app
 from alphapulldown.utils.remove_clashes_low_plddt import MmcifChainFiltered
@@ -52,10 +51,11 @@ def save_seqres(code, chain, s, seqres_path, duplicate):
 def generate_code(filename):
     # Create a hash of the filename
     hash_object = hashlib.sha256(filename.encode())
-    # Convert the hash to a base64 encoded string
-    base64_hash = base64.urlsafe_b64encode(hash_object.digest())
-    # Take the first 4 characters of the base64 encoded hash
-    code = base64_hash[:4].decode('utf-8')
+    # Convert the hash to a hex string (only contains 0-9, a-f)
+    hex_hash = hash_object.hexdigest()
+    # Take the first 4 characters and convert to lowercase
+    # Hex only contains 0-9 and a-f, so this is guaranteed to be lowercase alphanumeric
+    code = hex_hash[:4].lower()
     return code
 
 
