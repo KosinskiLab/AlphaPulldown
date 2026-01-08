@@ -76,5 +76,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get clean; \
     rm -rf /var/lib/apt/lists/* /root/.cache
 
-ENTRYPOINT ["bash"]
+#ENTRYPOINT ["bash"]
+RUN pip install --no-cache-dir "numpy<2"
 
