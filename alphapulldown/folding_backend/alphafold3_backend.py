@@ -804,8 +804,8 @@ class AlphaFold3Backend(FoldingBackend):
                                 id=base_chain.id,
                                 sequence=base_chain.sequence,
                                 ptms=base_chain.ptms,
-                                unpaired_msa=a3m_sliced,
-                                paired_msa='',
+                                unpaired_msa='',
+                                paired_msa=a3m_sliced,
                                 templates=base_chain.templates,
                             )
                             custom_unpaired_chain_ids.add(base_chain.id)
