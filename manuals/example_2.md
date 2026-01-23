@@ -6,7 +6,7 @@
 
 ## 1st step: compute multiple sequence alignment (MSA) and template features (run on CPUs)
 
-Firstly, download sequences of L (Uniprot: [O09705](https://www.uniprot.org/uniprotkb/O09705/entry)) and Z(uniprot:[O73557](https://www.uniprot.org/uniprotkb/O73557/entry)) proteins. The result is [`example_2_sequences.fasta`](../example_data/example_2_sequences.fasta)
+Firstly, download sequences of L (Uniprot: [O09705](https://www.uniprot.org/uniprotkb/O09705/entry)) and Z(uniprot:[O73557](https://www.uniprot.org/uniprotkb/O73557/entry)) proteins. The result is [`example_2_sequences.fasta`](./example_data/example_2_sequences.fasta)
 
 Now run:
 
@@ -29,15 +29,15 @@ taken as the description of the protein and  **please be aware** that any specia
 
 ## 1.1 Explanation about the parameters
 
-See [Example 1](https://github.com/KosinskiLab/AlphaPulldown/blob/main/example_1.md#11-explanation-about-the-parameters)
+See [Example 1](./example_1.md#explanation-about-the-parameters)
 
 ## 2nd step: Predict structures (run on GPU)
 
 #### **Task 1**
-We want to predict the structure of full-length L protein together with Z protein. However, as the L protein is very long, many users would not have a GPU card with sufficient memory. Moreover, when attempting modeling the full L-Z, the resulting model does not match the known cryo-EM structure. In [Example 1](https://github.com/KosinskiLab/AlphaPulldown/blob/main/example_1.md), we showed how to use AlphaPulldown to find the interaction site by screening fragments using the ```pullldown``` mode. Here, to demonstrate the ```custom``` mode, we will assume the we know the interaction site and model the fragment using this mode, as demonstrated in the figure below ![custom_demo_2.png](./custom_demo_2.png):
+We want to predict the structure of full-length L protein together with Z protein. However, as the L protein is very long, many users would not have a GPU card with sufficient memory. Moreover, when attempting modeling the full L-Z, the resulting model does not match the known cryo-EM structure. In [Example 1](./example_1.md), we showed how to use AlphaPulldown to find the interaction site by screening fragments using the ```pullldown``` mode. Here, to demonstrate the ```custom``` mode, we will assume the we know the interaction site and model the fragment using this mode, as demonstrated in the figure below ![custom_demo_2.png](./custom_demo_2.png):
 
 
-Different proteins are seperated by ```;```. If a particular region is wanted from one protein, simply add ```,``` after that protein and followed by the region. Region comes in the format of ```number1-number2```. An example input file is: [`custom_mode.txt`](../example_data/custom_mode.txt)
+Different proteins are seperated by ```;```. If a particular region is wanted from one protein, simply add ```,``` after that protein and followed by the region. Region comes in the format of ```number1-number2```. An example input file is: [`custom_mode.txt`](./example_data/custom_mode.txt)
 
 The command line interface for using custom mode will then become:
 
@@ -125,7 +125,7 @@ or
 ```
 
 #### **Task 2**
-This taks is to determine the oligomer state of SSB protein [(Uniprot:P0AGE0)](https://www.uniprot.org/uniprotkb/P0AGE0/entry#function) by modelling its monomeric, homodimeric, homotrimeric, and homoquatrameric structures. Thus, homo-oligomer mode is needed. An oligomer state file will tell the programme the number of units. An example is: [`example_oligomer_state_file.txt`](../example_data/example_oligomer_state_file.txt)
+This taks is to determine the oligomer state of SSB protein [(Uniprot:P0AGE0)](https://www.uniprot.org/uniprotkb/P0AGE0/entry#function) by modelling its monomeric, homodimeric, homotrimeric, and homoquatrameric structures. Thus, homo-oligomer mode is needed. An oligomer state file will tell the programme the number of units. An example is: [`example_oligomer_state_file.txt`](./example_data/example_oligomer_state_file.txt)
 
 In the file, oligomeric states of the corresponding proteins should be separated by ```,``` e.g. ```protein_A,3```means a homotrimer for protein_A  
 ![homo-oligomer_demo](./homooligomer_demo.png)
@@ -268,6 +268,9 @@ jupyter-lab output.ipynb
 We have also provided a singularity image called ```alpha-analysis.sif```to generate a CSV table with structural properties and scores.
 Firstly, download the singularity image:
 
+> [!CAUTION]
+> The signluarity images linked below are currently down.
+
 ⚠️ If your results are from AlphaPulldown prior version 1.0.0: [alpha-analysis_jax_0.3.sif](https://www.embl-hamburg.de/AlphaPulldown/downloads/alpha-analysis_jax_0.3.sif). 
 
 ⚠️ If your results are from AlphaPulldown with version >=1.0.0: [alpha-analysis_jax_0.4.sif](https://www.embl-hamburg.de/AlphaPulldown/downloads/alpha-analysis_jax_0.4.sif). 
@@ -293,7 +296,7 @@ By default, you will have a csv file named ```predictions_with_good_interpae.csv
 
 ## Appendix: Instructions on running in `all_vs_all` mode
 
-As the name suggest, all_vs_all means predict all possible combinations within a single input file. The input can be either full-length proteins or regions of a protein, as illustrated in the [`example_all_vs_all_list.txt`](../example_data/example_all_vs_all_list.txt) and the figure below:
+As the name suggest, all_vs_all means predict all possible combinations within a single input file. The input can be either full-length proteins or regions of a protein, as illustrated in the [`example_all_vs_all_list.txt`](./example_data/example_all_vs_all_list.txt) and the figure below:
 ![plot](./all_vs_all_demo.png)
 
  The corresponding command is: 
