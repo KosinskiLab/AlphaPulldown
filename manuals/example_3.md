@@ -1,6 +1,6 @@
 # AlphaPulldown manual:
 
-# Example3
+# Example 3
 
 # Aims: Model activation of phosphoinositide 3-kinase by the influenza A virus NS1 protein (PDB: 3L4Q)
 ## 1st step: compute multiple sequence alignment (MSA) and template features using provided pbd templates (run on CPU)
