@@ -27,7 +27,7 @@ taken as the description of the protein and  **please be aware** that any specia
  
  ------------------------
 
-## 1.1 Explanation about the parameters
+## Explanation about the parameters
 
 See [Example 1](./example_1.md#explanation-about-the-parameters)
 
