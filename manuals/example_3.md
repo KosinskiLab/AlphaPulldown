@@ -43,14 +43,14 @@ It is also possible to combine all your fasta files into a single fasta file.
  
  ------------------------
 
-## 1.1 Explanation about the parameters
+## Explanation about the parameters
 
-See [Example 1](https://github.com/KosinskiLab/AlphaPulldown/blob/main/manuals/example_1.md#11-explanation-about-the-parameters)
+See [Example 1](./example_1.md#explanation-about-the-parameters)
 
 ## 2nd step: Predict structures (run on GPU)
 
 #### **Task 1**
-To predict structure we can use the usual ```run_multimer_jobs.py``` in custom mode (See [Example 2](https://github.com/KosinskiLab/AlphaPulldown/blob/main/manuals/example_2.md#2nd-step-predict-structures-run-on-gpu)) with an extra ```--multimeric_mode=True``` flag, that deactivates per-chain multimeric binary mask.
+To predict structure we can use the usual ```run_multimer_jobs.py``` in custom mode (See [Example 2](./example_2.md#2nd-step-predict-structures-run-on-gpu)) with an extra ```--multimeric_mode=True``` flag, that deactivates per-chain multimeric binary mask.
 The user can also specify the depth of the MSA that is taken for modelling to increase the influence of the template on the predicted model. This can be done by using the flag ```--msa_depth```. It's always recommended running with all 5 AlphaFold Multimer settings but if you want to save time, you could specify the model name(s) you want to run, use the following flag: ```--model_names=model_1_multimer_v3,model_2_multimer_v3``` (for models 1 and 2).
 If you do not know the exact MSA depth, there is another flag ```--gradient_msa_depth=True``` for exploring the desired MSA depth. This flag generates a set of logarithmically distributed points (denser at lower end) with the number of points equal to the number of predictions. The MSA depth (```num_msa```) starts from 16 and ends with the maximum value taken from the model config file. The ```extra_num_msa``` is always calculated as ```4*num_msa```.
 The command line interface for using custom mode will then become:
@@ -187,4 +187,4 @@ or
 --models_to_relax=all
 ```
 
-After the successful run one can evaluate and visualise the results in a usual manner (see e.g. [Example 2](https://github.com/KosinskiLab/AlphaPulldown/blob/main/manuals/example_2.md#2nd-step-predict-structures-run-on-gpu))
+After the successful run one can evaluate and visualise the results in a usual manner (see e.g. [Example 2](./example_2.md#2nd-step-predict-structures-run-on-gpu))
