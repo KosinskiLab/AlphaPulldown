@@ -1,6 +1,6 @@
 # AlphaPulldown manual:
 
-# Example2
+# Example 2
 
 # Aims: Model interactions between Lassa virus L protein and Z matrix protein; Determine the oligomer state of _E.coli_ Single-stranded DNA-binding protein (SSB)
 
