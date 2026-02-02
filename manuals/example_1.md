@@ -1,4 +1,4 @@
-# Example1
+# Example 1
 
 # Aim: Find proteins involving human translation pathway that might interact with eIF4G2 
 
