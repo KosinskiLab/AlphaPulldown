@@ -1,0 +1,114 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "alphapulldown"
+description = "Pipeline allows massive screening using alphafold"
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = ">=3.8"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+  { name = "EMBL Hamburg", email = "alphapulldown@embl-hamburg.de" }
+]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent",
+]
+dynamic = ["version"]
+dependencies = [
+  "absl-py>=0.13.0",
+  "alphapulldown-input-parser>=0.2.0",
+  "dm-haiku",
+  "dm-tree>=0.1.6",
+  "h5py>=3.1.0",
+  "matplotlib>=3.3.3",
+  "ml-collections>=0.1.0",
+  "pandas>=1.5.3",
+  "tensorflow-cpu>=2.16.1",
+  "importlib-resources>=6.1.0",
+  "importlib-metadata>=4.8.2,<5.0.0",
+  "biopython>=1.82",
+  "nbformat>=5.9.2",
+  "py3Dmol==2.0.4",
+  "pytest>=6.0",
+  "parameterized",
+  "ipython==8.16.1",
+  "tqdm>=4.66.1",
+  "appdirs>=1.4.4",
+  "jupyterlab>=3.0",
+  "ipywidgets",
+  "ml-dtypes",
+  "setuptools==70.0.0",
+  "chex>=0.1.86",
+  "immutabledict>=2.0.0",
+  "typing-extensions==4.14.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/KosinskiLab/AlphaPulldown"
+
+[tool.setuptools]
+include-package-data = true
+packages = [
+  "alphapulldown",
+  "alphapulldown.utils",
+  "alphapulldown.folding_backend",
+  "alphapulldown.analysis_pipeline",
+  "alphapulldown.scripts",
+  "alphafold",
+  "alphafold.data",
+  "alphafold.data.tools",
+  "alphafold.common",
+  "alphafold.relax",
+  "alphafold.model",
+  "alphafold.model.geometry",
+  "alphafold.model.tf",
+  "alphafold.notebooks",
+  "alphafold3",
+  "alphafold3.structure",
+  "colabfold",
+  "analysis_pipeline",
+  "af2plots",
+  "unifold",
+  "unifold.data",
+  "unifold.modules",
+  "unifold.msa",
+  "unifold.losses",
+  "unifold.symmetry",
+]
+script-files = [
+  "./alphapulldown/scripts/create_individual_features.py",
+  "./alphapulldown/scripts/run_multimer_jobs.py",
+  "./alphapulldown/analysis_pipeline/create_notebook.py",
+  "./alphapulldown/analysis_pipeline/get_good_inter_pae.py",
+  "./alphapulldown/scripts/rename_colab_search_a3m.py",
+  "./alphapulldown/scripts/prepare_seq_names.py",
+  "./alphapulldown/scripts/generate_crosslink_pickle.py",
+  "./alphapulldown/scripts/convert_to_modelcif.py",
+  "./alphapulldown/scripts/run_structure_prediction.py",
+  "./alphapulldown/scripts/truncate_pickles.py",
+  "./alphafold/run_alphafold.py",
+]
+
+[tool.setuptools.package-dir]
+"" = "."
+"alphapulldown" = "./alphapulldown"
+"alphapulldown.folding_backend" = "./alphapulldown/folding_backend"
+"alphafold" = "./alphafold/alphafold"
+"alphafold3" = "./alphafold3/src/alphafold3"
+"alphafold3.structure" = "./alphafold3/src/alphafold3/structure"
+"colabfold" = "./ColabFold/colabfold"
+"analysis_pipeline" = "./alphapulldown/analysis_pipeline"
+"af2plots" = "./alphapulldown/analysis_pipeline/af2plots/af2plots"
+"unifold" = "./AlphaLink2/unifold/"
+"unifold.data" = "./AlphaLink2/unifold/data"
+"unifold.losses" = "./AlphaLink2/unifold/losses"
+"unifold.symmetry" = "./AlphaLink2/unifold/symmetry"
+
+[tool.setuptools.package-data]
+"alphafold.common" = ["stereo_chemical_props.txt"]
+
+[tool.setuptools.dynamic]
+version = { attr = "alphapulldown.__version__" }
