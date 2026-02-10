@@ -6,6 +6,8 @@ import shutil
 import tempfile
 from os.path import join, dirname, abspath
 import zipfile
+import json
+import glob
 
 """
 Test conversion of PDB to CIF for monomers and multimers
@@ -119,3 +121,34 @@ class TestConvertPDB2CIF(parameterized.TestCase):
             command.extend(["--model_selected", str(model_selected)])
 
         return command
+
+    def test_missing_fasta_falls_back_to_structure_sequence(self):
+        """If FASTA path in feature metadata is missing, parse sequence from structure."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            test_output_dir = join(temp_dir, "output")
+            shutil.copytree(join(self.input_dir, "TEST"), test_output_dir)
+
+            # Break the FASTA reference in feature metadata.
+            md_files = glob.glob(join(test_output_dir, "*_feature_metadata_*.json"))
+            self.assertTrue(md_files, "No feature metadata JSON found in test output dir")
+            for md_file in md_files:
+                with open(md_file, "r", encoding="ascii") as fh:
+                    data = json.load(fh)
+                data["other"]["fasta_paths"] = "['/this/path/does/not/exist.fasta']"
+                with open(md_file, "w", encoding="ascii") as fh:
+                    json.dump(data, fh, indent=2)
+
+            command = self.build_command(
+                test_output_dir, add_associated=False, compress=False, model_selected=0
+            )
+            subprocess.run(command, check=True, capture_output=True, text=True)
+
+            out_cif = join(test_output_dir, "ranked_0.cif")
+            self.assertTrue(os.path.exists(out_cif), "ModelCIF output was not created")
+
+            # Sequence should still be present in the output even without FASTA.
+            # The TEST sequence starts with "MESAIA..." in test FASTA and in the
+            # structure-derived sequence.
+            with open(out_cif, "r", encoding="ascii") as fh:
+                cif_txt = fh.read()
+            self.assertIn("MESAIA", cif_txt)
