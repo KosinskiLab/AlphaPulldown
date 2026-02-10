@@ -19,7 +19,7 @@ classifiers = [
 dynamic = ["version"]
 dependencies = [
   "absl-py>=0.13.0",
-  "alphapulldown-input-parser>=0.2.0",
+  "alphapulldown-input-parser>=0.3.0",
   "dm-haiku",
   "dm-tree>=0.1.6",
   "h5py>=3.1.0",
