@@ -12,7 +12,7 @@ Install required dependencies:
 ```bash
 conda env create \
   -n snake \
-  -f https://raw.githubusercontent.com/KosinskiLab/AlphaPulldownSnakemake/2.1.5/workflow/envs/alphapulldown.yaml
+  -f https://raw.githubusercontent.com/KosinskiLab/AlphaPulldownSnakemake/2.1.8/workflow/envs/alphapulldown.yaml
 conda activate snake
 ```
 
@@ -28,7 +28,7 @@ Create a new processing directory for your project:
 snakedeploy deploy-workflow \
   https://github.com/KosinskiLab/AlphaPulldownSnakemake \
   AlphaPulldownSnakemake \
-  --tag 2.1.7
+  --tag 2.1.8
 cd AlphaPulldownSnakemake
 ```
 
@@ -114,10 +114,17 @@ snakemake --profile config/profiles/desktop --cores 8
 <details>
 <summary>Cluster execution</summary>
 
-For running on a SLURM cluster, use the executor plugin:
+For running on a SLURM cluster, furst create a virtual terminal e.g. using `screen`:
 
 ```bash
 screen -S snakemake_session
+```
+Then activate your conda/mamba environment:
+```bash
+mamba activate snake
+```
+Finally, use the slurm executor plugin:
+```bash
 snakemake \
   --executor slurm \
   --profile config/profiles/slurm \
@@ -126,6 +133,8 @@ snakemake \
 ```
 
 Detach with `Ctrl + A` then `D`. Reattach later with `screen -r snakemake_session`.
+
+Job specific logs are created automatically and stored in your `AlphaPulldownSnakemake/slurm_logs` directory.
 
 </details>
 
