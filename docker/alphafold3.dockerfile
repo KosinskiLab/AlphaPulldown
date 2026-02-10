@@ -3,6 +3,7 @@ FROM nvidia/cuda:12.6.3-base-ubuntu24.04
 ENV DEBIAN_FRONTEND=noninteractive
 ENV VIRTUAL_ENV=/opt/venv
 ENV PATH="/hmmer/bin:${VIRTUAL_ENV}/bin:${PATH}"
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 
 # ---------------------------------------------------------------------
 # System deps
@@ -12,7 +13,6 @@ RUN apt-get update && \
         python3 \
         python3-venv \
         python3-dev \
-        python3-pip \
         gcc-12 g++-12 \
         build-essential \
         libc6-dev \
@@ -32,10 +32,11 @@ ENV CC=gcc-12
 ENV CXX=g++-12
 
 # ---------------------------------------------------------------------
-# Python venv
+# Python venv  (PIN pip so pip-tools works)
 # ---------------------------------------------------------------------
 RUN python3 -m venv ${VIRTUAL_ENV} && \
-    pip install --no-cache-dir --upgrade pip setuptools wheel
+    pip install --no-cache-dir --upgrade "pip<25.3" setuptools wheel && \
+    pip install --no-cache-dir "pip-tools==7.5.2"
 
 # ---------------------------------------------------------------------
 # HMMER (with seq_limit patch)
@@ -60,23 +61,43 @@ RUN cd /hmmer_build && \
 # ---------------------------------------------------------------------
 # Clone AlphaPulldown with submodules
 # ---------------------------------------------------------------------
-#COPY . /app/alphafold
 RUN git clone --recurse-submodules https://github.com/KosinskiLab/AlphaPulldown.git /app/AlphaPulldown
+
 # ---------------------------------------------------------------------
 # Install AlphaFold3 (regenerate dev-requirements inside image)
 # ---------------------------------------------------------------------
-WORKDIR /app/AlphaPulldown//alphafold3
+WORKDIR /app/AlphaPulldown/alphafold3
 
-RUN pip install --no-cache-dir pip-tools  && \
+# force real PyPI, not a mirror
+ARG PIP_INDEX_URL=https://pypi.org/simple
+ENV PIP_INDEX_URL=${PIP_INDEX_URL} \
+    PIP_DEFAULT_TIMEOUT=600 \
+    PIP_RETRIES=10 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+ENV PIP_CACHE_DIR=/tmp/pip-cache
+ENV CMAKE_BUILD_PARALLEL_LEVEL=1
+ENV CFLAGS="-O2 -pipe"
+ENV CXXFLAGS="-O2 -pipe"
+RUN apt-get update && apt-get install -y clang lld
+ENV CC=clang
+ENV CXX=clang++
+ENV CMAKE_BUILD_PARALLEL_LEVEL=2
+
+
+RUN rm -rf "$PIP_CACHE_DIR" && mkdir -p "$PIP_CACHE_DIR" && \
     pip-compile \
+        --no-reuse-hashes \
         --extra=dev \
         --generate-hashes \
         --resolver=backtracking \
         --output-file=dev-requirements.txt \
         pyproject.toml && \
-    pip install --no-cache-dir -r dev-requirements.txt && \
+    pip install --require-hashes -r dev-requirements.txt && \
     pip install git+https://github.com/openmm/pdbfixer.git && \
-    pip install --no-cache-dir --no-deps .
+    pip install --no-deps . && \
+    rm -rf "$PIP_CACHE_DIR"
 
 # ---------------------------------------------------------------------
 # Build CCD database
@@ -98,9 +119,6 @@ ENV XLA_CLIENT_MEM_FRACTION=0.95
 ENV TF_FORCE_UNIFIED_MEMORY='1'
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
-
-#SHELL ["/bin/bash", "-l", "-c"]
-#ENTRYPOINT ["bash", "-l"]
 
 # ---------------------------------------------------------------------
 # Sanity check
