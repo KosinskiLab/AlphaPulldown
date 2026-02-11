@@ -67,6 +67,14 @@ input_files:
   - "folds.txt"
 ```
 
+### Database configuration
+
+Set the path to your AlphaFold databases:
+
+```yaml
+databases_directory: "/path/to/alphafold/databases"
+```
+
 ### Setup Pulldown Experiments
 
 If you want to test which proteins from one group interact with proteins from another group, create a second file `baits.txt`:
@@ -379,14 +387,6 @@ structure_inference_arguments:
 ```
 
 </details>
-
-### Database configuration
-
-Set the path to your AlphaFold databases:
-
-```yaml
-databases_directory: "/path/to/alphafold/databases"
-```
 
 ***
 
