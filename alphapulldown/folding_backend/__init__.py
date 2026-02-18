@@ -1,87 +1,94 @@
-""" Implements class to represent electron density maps.
+from __future__ import annotations
 
-    Copyright (c) 2023 European Molecular Biology Laboratory
+from typing import Dict, List, Optional, Type, Any
+from importlib import import_module
 
-    Author: Valentin Maurer <valentin.maurer@embl-hamburg.de>
-            Dingquan Yu <dingquan.yu@embl-hamburg.de>
-"""
-
-from typing import Dict, List
 from absl import logging
+
 logging.set_verbosity(logging.INFO)
+
+
+def _try_import(path: str, attr: str) -> Optional[type]:
+    """Best-effort import helper. Returns None if import fails."""
+    try:
+        mod = import_module(path)
+        return getattr(mod, attr)
+    except Exception as e:
+        logging.warning(f"Failed to import {path}:{attr}: {e}. Perhaps dependencies are missing.")
+        return None
+
 
 class FoldingBackendManager:
     """
     Manager for structure prediction backends.
-
-    Attributes
-    ----------
-    _BACKEND_REGISTRY : dict
-        A dictionary mapping backend names to their respective classes or instances.
-    _backend : instance of MatchingBackend
-        An instance of the currently active backend. Defaults to AlphaFold.
-    _backend_name : str
-        Name of the current backend.
-    _backend_args : Dict
-        Arguments passed to create current backend.
-
     """
 
     def __init__(self):
-        self._BACKEND_REGISTRY = {
-            "alphafold2": AlphaFold2Backend
-        }
-        self.import_backends()
-        self._backend_name = "alphafold2"
-        self._backend = self._BACKEND_REGISTRY[self._backend_name]()
-        self._backend_args = {}
+        # Registry is lazy: map name -> "module.path:ClassName"
+        self._BACKEND_REGISTRY: Dict[str, str] = {}
 
-    def import_backends(self) -> None:
-        """Import all available backends"""
-        try:
-            from .alphalink_backend import AlphaLinkBackend
-            self._BACKEND_REGISTRY.update({"alphalink": AlphaLinkBackend})
-        except Exception as e:
-            logging.warning(
-                f"Failed to import AlphaLinkBackend: {e}. Perhaps you haven't installed all the required dependencies.")
+        self._BACKEND_REGISTRY.update(
+            {
+                "alphafold2": "alphapulldown.folding_backend.alphafold2_backend:AlphaFold2Backend",
+                "alphafold3": "alphapulldown.folding_backend.alphafold3_backend:AlphaFold3Backend",
+                "unifold": "alphapulldown.folding_backend.unifold_backend:UnifoldBackend",
+                "alphalink": "alphapulldown.folding_backend.alphalink_backend:AlphaLinkBackend",
+            }
+        )
 
-        try:
-            from .unifold_backend import UnifoldBackend
-            self._BACKEND_REGISTRY.update({"unifold": UnifoldBackend})
-        except Exception as e:
-            logging.warning(
-                f"Failed to import UnifoldBackend: {e}. Perhaps you haven't installed all the required dependencies.")
+        self._backend_name: Optional[str] = None
+        self._backend: Any = None
+        self._backend_args: Dict[str, Any] = {}
 
-        try:
-            from .alphafold3_backend import AlphaFold3Backend
-            self._BACKEND_REGISTRY.update({"alphafold3": AlphaFold3Backend})
-        except Exception as e:
-            logging.warning(
-                f"Failed to import AlphaFold3Backend: {e}. Perhaps you haven't installed all the required dependencies.")
+        # Back-compat: previous code implicitly selected alphafold2 on init.
+        self._default_backend_name: str = "alphafold2"
 
     def __repr__(self):
+        if self._backend_name is None:
+            return "<BackendManager: no backend selected>"
         return f"<BackendManager: using {self._backend_name}>"
 
     def __getattr__(self, name):
+        if self._backend is None:
+            raise AttributeError(
+                f"No backend selected yet. Call change_backend(...) first. Missing attribute: {name}"
+            )
         return getattr(self._backend, name)
 
-    def __dir__(self) -> List:
-        """
-        Return a list of attributes available in this object,
-        including those from the backend.
-
-        Returns
-        -------
-        list
-            Sorted list of attributes.
-        """
-        base_attributes = []
+    def __dir__(self) -> List[str]:
+        base_attributes: List[str] = []
         base_attributes.extend(dir(self.__class__))
         base_attributes.extend(self.__dict__.keys())
-        base_attributes.extend(dir(self._backend))
-        return sorted(base_attributes)
+        if self._backend is not None:
+            base_attributes.extend(dir(self._backend))
+        return sorted(set(base_attributes))
 
-    def change_backend(self, backend_name: str, **backend_kwargs: Dict) -> None:
+    def available_backends(self) -> List[str]:
+        """Return backend names that can actually be imported in this environment."""
+        ok: List[str] = []
+        for name, spec in self._BACKEND_REGISTRY.items():
+            mod, cls = spec.split(":")
+            if _try_import(mod, cls) is not None:
+                ok.append(name)
+        return sorted(ok)
+
+    def _load_backend_class(self, backend_name: str) -> Type:
+        if backend_name not in self._BACKEND_REGISTRY:
+            available = ", ".join(sorted(self._BACKEND_REGISTRY.keys()))
+            raise NotImplementedError(
+                f"Available backends are {available} - not {backend_name}."
+            )
+        spec = self._BACKEND_REGISTRY[backend_name]
+        mod, cls = spec.split(":")
+        backend_cls = _try_import(mod, cls)
+        if backend_cls is None:
+            raise ImportError(
+                f"Backend '{backend_name}' is registered but could not be imported. "
+                f"Missing dependencies? ({spec})"
+            )
+        return backend_cls
+
+    def change_backend(self, backend_name: Optional[str] = None, **backend_kwargs: Dict) -> None:
         """
         Change the backend.
 
@@ -89,6 +96,7 @@ class FoldingBackendManager:
         ----------
         backend_name : str
             Name of the new backend that should be used.
+            If None, uses the default backend preference (alphafold2).
         **backend_kwargs : Dict, optional
             Parameters passed to __init__ method of backend.
 
@@ -96,30 +104,31 @@ class FoldingBackendManager:
         ------
         NotImplementedError
             If no backend is found with the provided name.
+        ImportError
+            If the backend exists but can't be imported due to missing deps.
         """
-        if backend_name not in self._BACKEND_REGISTRY:
-            available_backends = ", ".join(
-                [str(x) for x in self._BACKEND_REGISTRY.keys()]
-            )
-            raise NotImplementedError(
-                f"Available backends are {available_backends} - not {backend_name}."
-            )
-        self._backend = self._BACKEND_REGISTRY[backend_name](**backend_kwargs)
+        if backend_name is None:
+            backend_name = self._default_backend_name
+
+        backend_cls = self._load_backend_class(backend_name)
+        self._backend = backend_cls(**backend_kwargs)
         self._backend_name = backend_name
         self._backend_args = backend_kwargs
 
 
-backend = FoldingBackendManager()
+# Keep a module-level backend object, but make it lazy (no import-time side effects)
+backend: Optional[FoldingBackendManager] = None
 
-def change_backend(backend_name: str) -> None:
-    """Change the backend for structure prediction.
 
-    Args:
-        backend_name: Name of the backend to use.
-    """
-    if backend_name not in ["alphafold2", "unifold", "alphafold3"]:
-        raise NotImplementedError(
-            f"Available backends are alphafold2, unifold, alphafold3 - not {backend_name}."
-        )
+def _get_manager() -> FoldingBackendManager:
     global backend
-    backend.change_backend(backend_name)
+    if backend is None:
+        backend = FoldingBackendManager()
+    return backend
+
+
+def change_backend(backend_name: str, **backend_kwargs) -> None:
+    """Change the backend for structure prediction."""
+    mgr = _get_manager()
+    mgr.change_backend(backend_name, **backend_kwargs)
+
