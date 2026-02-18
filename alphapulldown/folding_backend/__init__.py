@@ -8,7 +8,6 @@
 
 from typing import Dict, List
 from absl import logging
-from .alphafold2_backend import AlphaFold2Backend
 logging.set_verbosity(logging.INFO)
 
 class FoldingBackendManager:
