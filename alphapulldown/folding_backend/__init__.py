@@ -125,7 +125,8 @@ def _get_manager() -> FoldingBackendManager:
     if backend is None:
         backend = FoldingBackendManager()
     return backend
-
+    
+backend = _get_manager()
 
 def change_backend(backend_name: str, **backend_kwargs) -> None:
     """Change the backend for structure prediction."""
