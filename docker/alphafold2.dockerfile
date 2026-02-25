@@ -46,6 +46,7 @@ RUN set -eux; \
     && micromamba clean -a -y
 
 #RUN micromamba run -n base python -m pip install --no-cache-dir "openmm==8.1.1"
+RUN python -m pip install --no-cache-dir "setuptools<82" # setuptools>82 breaks pdbfixer at relaxation
 
 # Clone from repo
 RUN mkdir -p /root/.ssh && chmod 700 /root/.ssh
