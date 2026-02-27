@@ -117,6 +117,38 @@ def _reset_template_features(feature_dict: Dict) -> None:
             feature_dict[key] = np.ones_like(value)
 
 
+def _normalize_asym_id(feature_dict: Dict, fallback_feature_dict: Dict = None) -> Dict:
+    """Returns a feature dictionary with deterministic 0-based chain indices.
+
+    AlphaFold multimer features may use arbitrary positive ``asym_id`` values, and
+    these values can change across model seeds. ``protein.to_pdb`` interprets those
+    integers directly as chain indices, so we remap unique IDs to ``0..N-1`` in
+    first-appearance order to keep chain IDs stable (A, B, C, ...).
+    """
+    asym_id = feature_dict.get("asym_id")
+    if asym_id is None and fallback_feature_dict is not None:
+        asym_id = fallback_feature_dict.get("asym_id")
+    if asym_id is None:
+        return feature_dict
+
+    asym_id = np.asarray(asym_id).reshape(-1)
+
+    # Handle both 1-based and 0-based encodings safely.
+    if asym_id.size and asym_id.min() == 1:
+        asym_id = asym_id - 1
+
+    # Deterministic contiguous remapping in first-appearance order.
+    _, first_indices, inverse_indices = np.unique(
+        asym_id, return_index=True, return_inverse=True
+    )
+    appearance_order = np.argsort(first_indices)
+    remapped_indices = appearance_order[inverse_indices].astype(np.int32)
+
+    normalized_feature_dict = dict(feature_dict)
+    normalized_feature_dict["asym_id"] = remapped_indices
+    return normalized_feature_dict
+
+
 class AlphaFold2Backend(FoldingBackend):
     """
     A backend to perform structure prediction using AlphaFold.
@@ -330,8 +362,11 @@ class AlphaFold2Backend(FoldingBackend):
                             processed_feature_dict = model_runner.process_features(
                                 original_feature_dict, random_seed=model_random_seed
                             )
+                            normalized_feature_dict = _normalize_asym_id(
+                                processed_feature_dict, fallback_feature_dict=original_feature_dict
+                            )
                             unrelaxed_protein = protein.from_prediction(
-                                features=processed_feature_dict,
+                                features=normalized_feature_dict,
                                 result=prediction_result,
                                 b_factors=plddt_b_factors,
                                 remove_leading_feature_dimension=not model_runner.multimer_mode,
@@ -402,13 +437,12 @@ class AlphaFold2Backend(FoldingBackend):
                                            None], residue_constants.atom_type_num, axis=-1
             )
             
-            # Fix chain indexing: asym_id should be 0-based for proper chain assignment
-            # AlphaFold assigns asym_id starting from 1, but PDB chain IDs expect 0-based indexing
-            if 'asym_id' in processed_feature_dict:
-                processed_feature_dict['asym_id'] = processed_feature_dict['asym_id'] - 1
-            
+            normalized_feature_dict = _normalize_asym_id(
+                processed_feature_dict, fallback_feature_dict=original_feature_dict
+            )
+
             unrelaxed_protein = protein.from_prediction(
-                features=processed_feature_dict,
+                features=normalized_feature_dict,
                 result=prediction_result,
                 b_factors=plddt_b_factors,
                 remove_leading_feature_dimension=not model_runner.multimer_mode,
