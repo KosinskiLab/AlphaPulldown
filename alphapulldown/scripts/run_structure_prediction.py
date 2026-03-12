@@ -8,7 +8,6 @@
             Dmitry Molodenskiy <dmitry.molodenskiy@embl-hamburg.de>
 """
 import pickle
-
 import jax
 gpus = jax.local_devices(backend='gpu')
 from absl import flags, app
@@ -496,7 +495,17 @@ def main(argv):
                 })
         # Then handle any number of JSON inputs
         for json_dict in json_dicts:
-            objects_to_model.append({'object': json_dict, 'output_dir': out_dir})
+            names = [
+                os.path.basename(x["json_input"]).replace("_af3_input.json", "")
+                for x in all_interactors[0]
+            ]
+            int_name = "_and_".join(names)
+            int_dir = os.path.join(out_dir, int_name)
+
+            objects_to_model.append({
+            "object": json_dict,
+            "output_dir": int_dir
+            })
 
     if objects_to_model:
         predict_structure(
