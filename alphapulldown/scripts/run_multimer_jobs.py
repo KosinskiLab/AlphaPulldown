@@ -118,7 +118,7 @@ def main(argv):
             "--compress_result_pickles": FLAGS.compress_result_pickles,
             "--remove_result_pickles": FLAGS.remove_result_pickles,
             "--remove_keys_from_pickles": FLAGS.remove_keys_from_pickles,
-            "--use_ap_style": True,
+            "--use_ap_style": FLAGS.use_ap_style,
             "--use_gpu_relax": FLAGS.use_gpu_relax,
             "--protein_delimiter": FLAGS.protein_delimiter,
             "--desired_num_res": FLAGS.desired_num_res,
