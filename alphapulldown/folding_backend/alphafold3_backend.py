@@ -39,6 +39,7 @@ from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObje
 from alphapulldown.utils.af2_to_af3_msa import (
     Af2ToAf3TranslationResult,
     msa_rows_and_deletions_to_a3m,
+    translate_af2_individual_chain_features_to_af3_msas_with_stats,
     translate_af2_complex_msa_to_af3_unpaired_chain_msas_with_stats,
 )
 from alphapulldown.utils.msa_encoding import ids_to_a3m_af3
@@ -506,6 +507,9 @@ class AlphaFold3Backend(FoldingBackend):
             unpaired_msa: str
             paired_msa_row_count: int
             unpaired_msa_row_count: int
+            paired_species_identifier_count: int
+            paired_rows_without_species_identifier_count: int
+            paired_rows_with_generated_accession_count: int
         
         def get_chain_id(index: int) -> str:
             if index < 26:
@@ -544,9 +548,15 @@ class AlphaFold3Backend(FoldingBackend):
                     sum(result.total_rows_considered for result in translation_results)
                 ),
                 "occupancy_histogram": {
-                    "0": int(sum(result.occupancy_histogram["0"] for result in translation_results)),
-                    "1": int(sum(result.occupancy_histogram["1"] for result in translation_results)),
-                    "ge_2": int(sum(result.occupancy_histogram["ge_2"] for result in translation_results)),
+                    "0": int(
+                        sum(result.occupancy_histogram.get("0", 0) for result in translation_results)
+                    ),
+                    "1": int(
+                        sum(result.occupancy_histogram.get("1", 0) for result in translation_results)
+                    ),
+                    "ge_2": int(
+                        sum(result.occupancy_histogram.get("ge_2", 0) for result in translation_results)
+                    ),
                 },
                 "paired_row_count": int(sum(result.paired_row_count for result in translation_results)),
                 "invalid_paired_rows": int(
@@ -584,6 +594,15 @@ class AlphaFold3Backend(FoldingBackend):
                         "chain_length": int(record.chain_length),
                         "paired_msa_row_count": int(record.paired_msa_row_count),
                         "unpaired_msa_row_count": int(record.unpaired_msa_row_count),
+                        "paired_species_identifier_count": int(
+                            record.paired_species_identifier_count
+                        ),
+                        "paired_rows_without_species_identifier_count": int(
+                            record.paired_rows_without_species_identifier_count
+                        ),
+                        "paired_rows_with_generated_accession_count": int(
+                            record.paired_rows_with_generated_accession_count
+                        ),
                     }
                 )
 
@@ -663,7 +682,9 @@ class AlphaFold3Backend(FoldingBackend):
             sequence = mono_obj.sequence
             feature_dict = mono_obj.feature_dict
             msa_array = feature_dict.get('msa')
-            deletion_matrix = feature_dict.get('deletion_matrix')
+            deletion_matrix = feature_dict.get('deletion_matrix_int')
+            if deletion_matrix is None:
+                deletion_matrix = feature_dict.get('deletion_matrix')
             # Standalone AlphaPulldown monomer objects carry only a single custom MSA.
             # MultimericObject instances override this with an AF2->AF3 translation.
             unpaired_msa = (
@@ -853,16 +874,33 @@ class AlphaFold3Backend(FoldingBackend):
                 chains = []
                 translated_result = None
                 combined_msa = obj.feature_dict.get('msa')
-                if combined_msa is not None:
-                    # Preserve the exact AF2 multimer merged complex MSA as a manual
-                    # AF3 input. AF2 pickles do not retain the header metadata needed
-                    # for AF3's native pairedMsa heuristics.
-                    translated_result = translate_af2_complex_msa_to_af3_unpaired_chain_msas_with_stats(
-                        merged_msa=np.asarray(combined_msa),
+                translated_result = (
+                    translate_af2_individual_chain_features_to_af3_msas_with_stats(
+                        chain_feature_dicts=[
+                            interactor.feature_dict for interactor in obj.interactors
+                        ],
                         chain_sequences=[interactor.sequence for interactor in obj.interactors],
-                        num_alignments=obj.feature_dict.get('num_alignments'),
-                        deletion_matrix=obj.feature_dict.get('deletion_matrix'),
-                        asym_id=obj.feature_dict.get('asym_id'),
+                    )
+                )
+                num_pairable_chains = sum(
+                    chain_stats.paired_species_identifier_count > 0
+                    for chain_stats in translated_result.chain_stats
+                )
+                if num_pairable_chains < 2 and combined_msa is not None:
+                    # Fall back to the merged AF2 multimer MSA transport path when the
+                    # individual `_all_seq` features do not carry usable species IDs.
+                    translated_result = (
+                        translate_af2_complex_msa_to_af3_unpaired_chain_msas_with_stats(
+                            merged_msa=np.asarray(combined_msa),
+                            chain_sequences=[interactor.sequence for interactor in obj.interactors],
+                            num_alignments=obj.feature_dict.get('num_alignments'),
+                            deletion_matrix=(
+                                obj.feature_dict.get('deletion_matrix_int')
+                                if obj.feature_dict.get('deletion_matrix_int') is not None
+                                else obj.feature_dict.get('deletion_matrix')
+                            ),
+                            asym_id=obj.feature_dict.get('asym_id'),
+                        )
                     )
 
                 for chain_index, interactor in enumerate(obj.interactors):
@@ -881,7 +919,7 @@ class AlphaFold3Backend(FoldingBackend):
                             paired_msa=chain_msas.paired_msa,
                             templates=base_chain.templates,
                         )
-                        af2_manual_msa_chain_ids.add(base_chain.id)
+                        af2_translated_msa_chain_ids.add(base_chain.id)
                         if debug_msas:
                             translation_debug_chain_records.append(
                                 _TranslatedMsaDebugRecord(
@@ -892,6 +930,15 @@ class AlphaFold3Backend(FoldingBackend):
                                     unpaired_msa=chain_msas.unpaired_msa,
                                     paired_msa_row_count=chain_stats.paired_msa_row_count,
                                     unpaired_msa_row_count=chain_stats.unpaired_msa_row_count,
+                                    paired_species_identifier_count=(
+                                        chain_stats.paired_species_identifier_count
+                                    ),
+                                    paired_rows_without_species_identifier_count=(
+                                        chain_stats.paired_rows_without_species_identifier_count
+                                    ),
+                                    paired_rows_with_generated_accession_count=(
+                                        chain_stats.paired_rows_with_generated_accession_count
+                                    ),
                                 )
                             )
                     chains.append(base_chain)
@@ -906,9 +953,9 @@ class AlphaFold3Backend(FoldingBackend):
         used_chain_ids = set()  # Track used chain IDs
         all_chains = []
         job_name = "ranked_0"
-        # Track chains whose AF2 multimer MSA is supplied manually through AF3's
-        # custom MSA path; they must not be promoted into AF3's pairedMsa mode.
-        af2_manual_msa_chain_ids: set[str] = set()
+        # Track chains whose MSAs were translated from AF2 features; they must
+        # not be rewritten by the promotion heuristic below.
+        af2_translated_msa_chain_ids: set[str] = set()
         translation_debug_chain_records: list[_TranslatedMsaDebugRecord] = []
         translation_debug_results: list[Af2ToAf3TranslationResult] = []
 
@@ -936,7 +983,7 @@ class AlphaFold3Backend(FoldingBackend):
             for ch in all_chains:
                 if (
                     isinstance(ch, folding_input.ProteinChain)
-                    and ch.id not in af2_manual_msa_chain_ids
+                    and ch.id not in af2_translated_msa_chain_ids
                 ):
                     try:
                         has_empty_paired = (getattr(ch, 'paired_msa', None) in (None, ''))
@@ -972,7 +1019,7 @@ class AlphaFold3Backend(FoldingBackend):
                     translation_results=translation_debug_results,
                 )
             # Disable overlap resolution when we provide translated AF2 multimer MSAs.
-            disable_overlaps = len(af2_manual_msa_chain_ids) > 0
+            disable_overlaps = len(af2_translated_msa_chain_ids) > 0
             prepared_inputs.append({combined_input: (first_output_dir, not disable_overlaps)})
 
         return prepared_inputs

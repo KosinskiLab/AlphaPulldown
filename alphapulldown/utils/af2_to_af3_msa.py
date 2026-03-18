@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 import numpy as np
 
@@ -49,6 +49,9 @@ class Af2ToAf3ChainTranslationStats:
 
     paired_msa_row_count: int
     unpaired_msa_row_count: int
+    paired_species_identifier_count: int = 0
+    paired_rows_without_species_identifier_count: int = 0
+    paired_rows_with_generated_accession_count: int = 0
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -191,32 +194,49 @@ def msa_rows_and_deletions_to_a3m(
     msa_rows: np.ndarray,
     deletion_rows: np.ndarray | None,
     query_sequence: str,
+    row_descriptions: Sequence[str] | None = None,
 ) -> str:
     """Converts AF2 aligned rows plus deletion counts to an AF3-compatible A3M string."""
     if msa_rows.shape[0] == 0:
         return ""
 
     deletion_rows = normalise_deletion_rows(deletion_rows, msa_rows.shape)
+    if row_descriptions is None:
+        row_descriptions = tuple(f"sequence_{index}" for index in range(msa_rows.shape[0]))
+    elif len(row_descriptions) != msa_rows.shape[0]:
+        raise ValueError(
+            "Number of row descriptions must match the number of MSA rows: "
+            f"{len(row_descriptions)} != {msa_rows.shape[0]}."
+        )
     msa_lines = [">query", query_sequence]
-    for index, (row, deletions) in enumerate(
-        zip(msa_rows, deletion_rows, strict=True)
+    for description, row, deletions in zip(
+        row_descriptions, msa_rows, deletion_rows, strict=True
     ):
         sequence = aligned_row_and_deletions_to_a3m(row, deletions)
-        msa_lines.extend((f">sequence_{index}", sequence))
+        msa_lines.extend((f">{description}", sequence))
     return "\n".join(msa_lines)
 
 
-def _drop_leading_query_row(rows: Af2MsaRows, query_sequence: str) -> Af2MsaRows:
-    if rows.msa.shape[0] == 0:
-        return rows
+def _aligned_row_to_sequence(msa_row: np.ndarray) -> str:
+    return "".join(AF2_ID_TO_A3M[int(token)] for token in msa_row)
 
-    first_row = "".join(AF2_ID_TO_A3M[int(token)] for token in rows.msa[0])
+
+def _drop_leading_query_row(
+    rows: Af2MsaRows, query_sequence: str
+) -> tuple[Af2MsaRows, bool]:
+    if rows.msa.shape[0] == 0:
+        return rows, False
+
+    first_row = _aligned_row_to_sequence(rows.msa[0])
     if first_row == query_sequence:
-        return Af2MsaRows(
-            msa=rows.msa[1:],
-            deletion_matrix=rows.deletion_matrix[1:],
+        return (
+            Af2MsaRows(
+                msa=rows.msa[1:],
+                deletion_matrix=rows.deletion_matrix[1:],
+            ),
+            True,
         )
-    return rows
+    return rows, False
 
 
 def _stack_rows(
@@ -292,10 +312,34 @@ def _trim_chain_rows(
     msa_rows: np.ndarray,
     deletion_rows: np.ndarray,
 ) -> Af2MsaRows:
-    return _drop_leading_query_row(
+    trimmed_rows, _ = _drop_leading_query_row(
         Af2MsaRows(msa=msa_rows, deletion_matrix=deletion_rows),
         sequence,
     )
+    return trimmed_rows
+
+
+def _trim_chain_rows_and_metadata(
+    *,
+    sequence: str,
+    msa_rows: np.ndarray,
+    deletion_rows: np.ndarray,
+    row_metadata: Sequence[str] | None,
+) -> tuple[Af2MsaRows, tuple[str, ...]]:
+    trimmed_rows, dropped_query = _drop_leading_query_row(
+        Af2MsaRows(msa=msa_rows, deletion_matrix=deletion_rows),
+        sequence,
+    )
+    if row_metadata is None:
+        return trimmed_rows, tuple()
+    if len(row_metadata) != msa_rows.shape[0]:
+        raise ValueError(
+            "Row metadata length must match the number of MSA rows: "
+            f"{len(row_metadata)} != {msa_rows.shape[0]}."
+        )
+    if dropped_query:
+        row_metadata = row_metadata[1:]
+    return trimmed_rows, tuple(row_metadata)
 
 
 def _chain_rows_to_a3m(
@@ -303,16 +347,274 @@ def _chain_rows_to_a3m(
     sequence: str,
     msa_rows: np.ndarray,
     deletion_rows: np.ndarray,
+    row_descriptions: Sequence[str] | None = None,
 ) -> str:
-    trimmed_rows = _trim_chain_rows(
+    trimmed_rows, trimmed_descriptions = _trim_chain_rows_and_metadata(
         sequence=sequence,
         msa_rows=msa_rows,
         deletion_rows=deletion_rows,
+        row_metadata=row_descriptions,
     )
     return msa_rows_and_deletions_to_a3m(
         msa_rows=trimmed_rows.msa,
         deletion_rows=trimmed_rows.deletion_matrix,
         query_sequence=sequence,
+        row_descriptions=None if not trimmed_descriptions else trimmed_descriptions,
+    )
+
+
+def _normalise_identifier_value(value: object) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", "ignore").strip()
+    return str(value).strip()
+
+
+def _normalise_identifier_array(
+    values: object,
+    expected_rows: int,
+) -> tuple[str, ...]:
+    if values is None:
+        return ("",) * expected_rows
+
+    array = np.asarray(values, dtype=object).reshape(-1)
+    if array.shape[0] != expected_rows:
+        raise ValueError(
+            "Identifier array length must match the number of MSA rows: "
+            f"{array.shape[0]} != {expected_rows}."
+        )
+    return tuple(_normalise_identifier_value(value) for value in array)
+
+
+def _base36(value: int) -> str:
+    digits = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    if value < 0:
+        raise ValueError(f"Base36 encoding expects a non-negative value, got {value}.")
+    if value == 0:
+        return "0"
+
+    encoded: list[str] = []
+    while value:
+        value, remainder = divmod(value, 36)
+        encoded.append(digits[remainder])
+    return "".join(reversed(encoded))
+
+
+def _generated_accession(chain_index: int, row_index: int) -> str:
+    chain_code = chr(ord("A") + (chain_index % 26))
+    return f"AP{chain_code}{_base36(row_index).zfill(7)}"
+
+
+def _sanitise_species_identifier(value: str) -> str:
+    sanitised = "".join(ch for ch in value.upper() if ch.isalnum())
+    return sanitised[:5]
+
+
+def _sanitise_accession_identifier(value: str) -> str:
+    sanitised = "".join(ch for ch in value.upper() if ch.isalnum())
+    if len(sanitised) >= 6:
+        return sanitised[:10]
+    return ""
+
+
+def _build_paired_row_descriptions(
+    *,
+    species_identifiers: Sequence[str],
+    chain_index: int,
+    accession_identifiers: Sequence[str] | None = None,
+) -> tuple[tuple[str, ...], int, int, int]:
+    descriptions: list[str] = []
+    generated_accession_count = 0
+    missing_species_count = 0
+    nonempty_species_count = 0
+
+    if accession_identifiers is None:
+        accession_identifiers = ("",) * len(species_identifiers)
+    elif len(accession_identifiers) != len(species_identifiers):
+        raise ValueError(
+            "Accession identifier count must match the species identifier count: "
+            f"{len(accession_identifiers)} != {len(species_identifiers)}."
+        )
+
+    for row_index, (species_id, accession_id) in enumerate(
+        zip(species_identifiers, accession_identifiers, strict=True),
+        start=1,
+    ):
+        species_token = _sanitise_species_identifier(species_id)
+        if not species_token:
+            descriptions.append(f"sequence_{row_index}")
+            missing_species_count += 1
+            continue
+
+        accession_token = _sanitise_accession_identifier(accession_id)
+        if not accession_token:
+            accession_token = _generated_accession(chain_index, row_index)
+            generated_accession_count += 1
+
+        descriptions.append(f"tr|{accession_token}|{accession_token}_{species_token}")
+        nonempty_species_count += 1
+
+    return (
+        tuple(descriptions),
+        nonempty_species_count,
+        missing_species_count,
+        generated_accession_count,
+    )
+
+
+def _feature_deletion_rows(
+    feature_dict: Mapping[str, object],
+    *,
+    preferred_keys: Sequence[str],
+    msa_rows: np.ndarray,
+) -> np.ndarray:
+    for key in preferred_keys:
+        if key in feature_dict:
+            return normalise_deletion_rows(np.asarray(feature_dict[key]), msa_rows.shape)
+    return np.zeros(msa_rows.shape, dtype=np.int32)
+
+
+def translate_af2_individual_chain_features_to_af3_msas_with_stats(
+    chain_feature_dicts: Sequence[Mapping[str, object]],
+    chain_sequences: Sequence[str],
+) -> Af2ToAf3TranslationResult:
+    """Builds AF3 paired/unpaired MSAs from AF2 monomer feature dictionaries.
+
+    AF2 monomer pickles retain the original per-chain `msa` and `msa_all_seq`
+    features. The `_all_seq` features carry the species identifiers used by the
+    AF2 multimer pairing logic, which lets AF3 recreate its own paired-all-seq
+    features through the native `pairedMsa` pathway.
+    """
+    if len(chain_feature_dicts) != len(chain_sequences):
+        raise ValueError(
+            "The number of chain feature dictionaries must match the number of sequences: "
+            f"{len(chain_feature_dicts)} != {len(chain_sequences)}."
+        )
+
+    translated_msas: list[Af3ChainMsas] = []
+    translated_chain_stats: list[Af2ToAf3ChainTranslationStats] = []
+
+    for chain_index, (feature_dict, sequence) in enumerate(
+        zip(chain_feature_dicts, chain_sequences, strict=True)
+    ):
+        msa_all_seq = np.asarray(
+            feature_dict.get(
+                "msa_all_seq",
+                np.empty((0, len(sequence)), dtype=np.int32),
+            )
+        )
+        if msa_all_seq.ndim != 2:
+            raise ValueError(
+                f"`msa_all_seq` must be rank-2, got shape {msa_all_seq.shape}."
+            )
+        deletion_all_seq = _feature_deletion_rows(
+            feature_dict,
+            preferred_keys=("deletion_matrix_int_all_seq", "deletion_matrix_all_seq"),
+            msa_rows=msa_all_seq,
+        )
+        species_all_seq = _normalise_identifier_array(
+            feature_dict.get("msa_species_identifiers_all_seq"),
+            msa_all_seq.shape[0],
+        )
+        accession_all_seq = _normalise_identifier_array(
+            feature_dict.get("msa_uniprot_accession_identifiers_all_seq"),
+            msa_all_seq.shape[0],
+        )
+        trimmed_paired_rows, trimmed_species_ids = _trim_chain_rows_and_metadata(
+            sequence=sequence,
+            msa_rows=msa_all_seq,
+            deletion_rows=deletion_all_seq,
+            row_metadata=species_all_seq,
+        )
+        _, trimmed_accessions = _trim_chain_rows_and_metadata(
+            sequence=sequence,
+            msa_rows=msa_all_seq,
+            deletion_rows=deletion_all_seq,
+            row_metadata=accession_all_seq,
+        )
+        (
+            paired_descriptions,
+            paired_species_identifier_count,
+            paired_rows_without_species_identifier_count,
+            paired_rows_with_generated_accession_count,
+        ) = _build_paired_row_descriptions(
+            species_identifiers=trimmed_species_ids,
+            chain_index=chain_index,
+            accession_identifiers=trimmed_accessions,
+        )
+
+        unpaired_msa_rows = np.asarray(
+            feature_dict.get(
+                "msa",
+                np.empty((0, len(sequence)), dtype=np.int32),
+            )
+        )
+        if unpaired_msa_rows.ndim != 2:
+            raise ValueError(
+                f"`msa` must be rank-2, got shape {unpaired_msa_rows.shape}."
+            )
+        unpaired_deletions = _feature_deletion_rows(
+            feature_dict,
+            preferred_keys=("deletion_matrix_int", "deletion_matrix"),
+            msa_rows=unpaired_msa_rows,
+        )
+        trimmed_unpaired_rows = _trim_chain_rows(
+            sequence=sequence,
+            msa_rows=unpaired_msa_rows,
+            deletion_rows=unpaired_deletions,
+        )
+
+        translated_msas.append(
+            Af3ChainMsas(
+                paired_msa=msa_rows_and_deletions_to_a3m(
+                    msa_rows=trimmed_paired_rows.msa,
+                    deletion_rows=trimmed_paired_rows.deletion_matrix,
+                    query_sequence=sequence,
+                    row_descriptions=paired_descriptions,
+                ),
+                unpaired_msa=_chain_rows_to_a3m(
+                    sequence=sequence,
+                    msa_rows=unpaired_msa_rows,
+                    deletion_rows=unpaired_deletions,
+                ),
+            )
+        )
+        translated_chain_stats.append(
+            Af2ToAf3ChainTranslationStats(
+                paired_msa_row_count=int(trimmed_paired_rows.msa.shape[0]),
+                unpaired_msa_row_count=int(trimmed_unpaired_rows.msa.shape[0]),
+                paired_species_identifier_count=int(paired_species_identifier_count),
+                paired_rows_without_species_identifier_count=int(
+                    paired_rows_without_species_identifier_count
+                ),
+                paired_rows_with_generated_accession_count=int(
+                    paired_rows_with_generated_accession_count
+                ),
+            )
+        )
+
+    max_chain_rows = 0
+    max_paired_rows = 0
+    for chain_stats in translated_chain_stats:
+        max_chain_rows = max(
+            max_chain_rows,
+            chain_stats.paired_msa_row_count + chain_stats.unpaired_msa_row_count,
+        )
+        max_paired_rows = max(max_paired_rows, chain_stats.paired_msa_row_count)
+
+    return Af2ToAf3TranslationResult(
+        chain_msas=tuple(translated_msas),
+        chain_stats=tuple(translated_chain_stats),
+        translation_mode="af3_species_pairing_from_af2_individual_msas",
+        total_rows_considered=int(max_chain_rows),
+        occupancy_histogram={},
+        paired_row_count=int(max_paired_rows),
+        per_chain_unpaired_row_counts=tuple(
+            chain_stats.unpaired_msa_row_count for chain_stats in translated_chain_stats
+        ),
+        invalid_paired_rows=0,
+        invalid_unpaired_rows=0,
     )
 
 
