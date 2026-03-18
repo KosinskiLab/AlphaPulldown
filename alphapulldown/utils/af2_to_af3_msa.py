@@ -44,11 +44,44 @@ class Af3ChainMsas:
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
+class Af2ToAf3ChainTranslationStats:
+    """Per-chain stats for AF2->AF3 MSA translation."""
+
+    paired_msa_row_count: int
+    unpaired_msa_row_count: int
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class Af2ToAf3TranslationResult:
+    """Translated AF3 chain MSAs plus row-classification diagnostics."""
+
+    chain_msas: tuple[Af3ChainMsas, ...]
+    chain_stats: tuple[Af2ToAf3ChainTranslationStats, ...]
+    translation_mode: str
+    total_rows_considered: int
+    occupancy_histogram: dict[str, int]
+    paired_row_count: int
+    per_chain_unpaired_row_counts: tuple[int, ...]
+    invalid_paired_rows: int
+    invalid_unpaired_rows: int
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
 class Af2MsaRows:
     """AF2 aligned rows plus deletion counts for A3M reconstruction."""
 
     msa: np.ndarray
     deletion_matrix: np.ndarray
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class PreparedAf2ComplexMsa:
+    """Normalised AF2 complex MSA inputs split into per-chain column blocks."""
+
+    merged_msa: np.ndarray
+    deletion_matrix: np.ndarray
+    chain_blocks: tuple[np.ndarray, ...]
+    deletion_blocks: tuple[np.ndarray, ...]
 
 
 def _normalise_num_alignments(
@@ -194,6 +227,168 @@ def _stack_rows(
     return np.stack(rows).astype(dtype, copy=False)
 
 
+def _row_occupancy_histogram(
+    chain_blocks: Sequence[np.ndarray],
+) -> tuple[dict[str, int], int]:
+    occupancy_histogram = {"0": 0, "1": 0, "ge_2": 0}
+    paired_row_count = 0
+
+    if not chain_blocks:
+        return occupancy_histogram, paired_row_count
+
+    num_rows = chain_blocks[0].shape[0]
+    for row_index in range(num_rows):
+        occupancy = sum(
+            not np.all(chain_block[row_index] == AF2_GAP_ID)
+            for chain_block in chain_blocks
+        )
+        if occupancy >= 2:
+            occupancy_histogram["ge_2"] += 1
+            paired_row_count += 1
+        else:
+            occupancy_histogram[str(occupancy)] += 1
+
+    return occupancy_histogram, paired_row_count
+
+
+def _prepare_complex_msa(
+    merged_msa: np.ndarray,
+    chain_sequences: Sequence[str],
+    *,
+    num_alignments: int | np.ndarray | None = None,
+    deletion_matrix: np.ndarray | None = None,
+    asym_id: np.ndarray | None = None,
+) -> PreparedAf2ComplexMsa:
+    merged_msa = np.asarray(merged_msa)
+    if merged_msa.ndim != 2:
+        raise ValueError(f"Merged MSA must be rank-2, got shape {merged_msa.shape}.")
+
+    chain_lengths = [len(sequence) for sequence in chain_sequences]
+    real_num_alignments = _normalise_num_alignments(num_alignments, merged_msa.shape[0])
+    trimmed_msa = merged_msa[:real_num_alignments]
+    trimmed_deletion_matrix = normalise_deletion_rows(
+        None if deletion_matrix is None else np.asarray(deletion_matrix)[:real_num_alignments],
+        trimmed_msa.shape,
+    )
+    chain_slices = resolve_chain_column_slices(
+        total_columns=trimmed_msa.shape[1],
+        chain_lengths=chain_lengths,
+        asym_id=asym_id,
+    )
+
+    return PreparedAf2ComplexMsa(
+        merged_msa=trimmed_msa,
+        deletion_matrix=trimmed_deletion_matrix,
+        chain_blocks=tuple(trimmed_msa[:, chain_slice] for chain_slice in chain_slices),
+        deletion_blocks=tuple(
+            trimmed_deletion_matrix[:, chain_slice] for chain_slice in chain_slices
+        ),
+    )
+
+
+def _trim_chain_rows(
+    *,
+    sequence: str,
+    msa_rows: np.ndarray,
+    deletion_rows: np.ndarray,
+) -> Af2MsaRows:
+    return _drop_leading_query_row(
+        Af2MsaRows(msa=msa_rows, deletion_matrix=deletion_rows),
+        sequence,
+    )
+
+
+def _chain_rows_to_a3m(
+    *,
+    sequence: str,
+    msa_rows: np.ndarray,
+    deletion_rows: np.ndarray,
+) -> str:
+    trimmed_rows = _trim_chain_rows(
+        sequence=sequence,
+        msa_rows=msa_rows,
+        deletion_rows=deletion_rows,
+    )
+    return msa_rows_and_deletions_to_a3m(
+        msa_rows=trimmed_rows.msa,
+        deletion_rows=trimmed_rows.deletion_matrix,
+        query_sequence=sequence,
+    )
+
+
+def translate_af2_complex_msa_to_af3_unpaired_chain_msas_with_stats(
+    merged_msa: np.ndarray,
+    chain_sequences: Sequence[str],
+    *,
+    num_alignments: int | np.ndarray | None = None,
+    deletion_matrix: np.ndarray | None = None,
+    asym_id: np.ndarray | None = None,
+) -> Af2ToAf3TranslationResult:
+    """Converts an AF2 multimer complex MSA into manual AF3 per-chain MSAs.
+
+    The AF2 multimer feature dict already contains the post-pairing, post-dedup,
+    post-crop merged complex MSA in final row order. AF3's `pairedMsa` path relies
+    on header metadata to do its own pairing, but that metadata is not retained in
+    AlphaFold2 pickles. The faithful transport format is therefore the exact AF2
+    merged complex MSA carried through AF3's manual `unpairedMsa` input path.
+    """
+    prepared_msa = _prepare_complex_msa(
+        merged_msa=merged_msa,
+        chain_sequences=chain_sequences,
+        num_alignments=num_alignments,
+        deletion_matrix=deletion_matrix,
+        asym_id=asym_id,
+    )
+    occupancy_histogram, paired_row_count = _row_occupancy_histogram(
+        prepared_msa.chain_blocks
+    )
+
+    translated_msas: list[Af3ChainMsas] = []
+    translated_chain_stats: list[Af2ToAf3ChainTranslationStats] = []
+    for sequence, chain_block, deletion_block in zip(
+        chain_sequences,
+        prepared_msa.chain_blocks,
+        prepared_msa.deletion_blocks,
+        strict=True,
+    ):
+        trimmed_rows = _trim_chain_rows(
+            sequence=sequence,
+            msa_rows=chain_block,
+            deletion_rows=deletion_block,
+        )
+        unpaired_msa = _chain_rows_to_a3m(
+            sequence=sequence,
+            msa_rows=chain_block,
+            deletion_rows=deletion_block,
+        )
+        translated_msas.append(
+            Af3ChainMsas(
+                paired_msa="",
+                unpaired_msa=unpaired_msa,
+            )
+        )
+        translated_chain_stats.append(
+            Af2ToAf3ChainTranslationStats(
+                paired_msa_row_count=0,
+                unpaired_msa_row_count=int(trimmed_rows.msa.shape[0]),
+            )
+        )
+
+    return Af2ToAf3TranslationResult(
+        chain_msas=tuple(translated_msas),
+        chain_stats=tuple(translated_chain_stats),
+        translation_mode="manual_unpaired_from_af2_multimer",
+        total_rows_considered=int(prepared_msa.merged_msa.shape[0]),
+        occupancy_histogram=occupancy_histogram,
+        paired_row_count=paired_row_count,
+        per_chain_unpaired_row_counts=tuple(
+            chain_stats.unpaired_msa_row_count for chain_stats in translated_chain_stats
+        ),
+        invalid_paired_rows=0,
+        invalid_unpaired_rows=0,
+    )
+
+
 def translate_af2_complex_msa_to_af3_chain_msas(
     merged_msa: np.ndarray,
     chain_sequences: Sequence[str],
@@ -203,50 +398,71 @@ def translate_af2_complex_msa_to_af3_chain_msas(
     asym_id: np.ndarray | None = None,
 ) -> list[Af3ChainMsas]:
     """Splits an AF2 multimer complex MSA into AF3 paired and unpaired chain MSAs."""
-    merged_msa = np.asarray(merged_msa)
-    if merged_msa.ndim != 2:
-        raise ValueError(f"Merged MSA must be rank-2, got shape {merged_msa.shape}.")
+    return list(
+        translate_af2_complex_msa_to_af3_chain_msas_with_stats(
+            merged_msa=merged_msa,
+            chain_sequences=chain_sequences,
+            num_alignments=num_alignments,
+            deletion_matrix=deletion_matrix,
+            asym_id=asym_id,
+        ).chain_msas
+    )
 
-    chain_lengths = [len(sequence) for sequence in chain_sequences]
-    real_num_alignments = _normalise_num_alignments(num_alignments, merged_msa.shape[0])
-    merged_msa = merged_msa[:real_num_alignments]
-    if deletion_matrix is not None:
-        deletion_matrix = np.asarray(deletion_matrix)[:real_num_alignments]
-    deletion_matrix = normalise_deletion_rows(deletion_matrix, merged_msa.shape)
-    chain_slices = resolve_chain_column_slices(
-        total_columns=merged_msa.shape[1],
-        chain_lengths=chain_lengths,
+
+def translate_af2_complex_msa_to_af3_chain_msas_with_stats(
+    merged_msa: np.ndarray,
+    chain_sequences: Sequence[str],
+    *,
+    num_alignments: int | np.ndarray | None = None,
+    deletion_matrix: np.ndarray | None = None,
+    asym_id: np.ndarray | None = None,
+) -> Af2ToAf3TranslationResult:
+    """Splits an AF2 multimer complex MSA and returns translation diagnostics."""
+    prepared_msa = _prepare_complex_msa(
+        merged_msa=merged_msa,
+        chain_sequences=chain_sequences,
+        num_alignments=num_alignments,
+        deletion_matrix=deletion_matrix,
         asym_id=asym_id,
     )
 
-    chain_blocks = [merged_msa[:, chain_slice] for chain_slice in chain_slices]
-    deletion_blocks = [deletion_matrix[:, chain_slice] for chain_slice in chain_slices]
     paired_rows_by_chain = [[] for _ in chain_sequences]
     paired_deletions_by_chain = [[] for _ in chain_sequences]
     unpaired_rows_by_chain = [[] for _ in chain_sequences]
     unpaired_deletions_by_chain = [[] for _ in chain_sequences]
+    occupancy_histogram = {"0": 0, "1": 0, "ge_2": 0}
+    paired_row_count = 0
 
-    for row_index in range(merged_msa.shape[0]):
+    for row_index in range(prepared_msa.merged_msa.shape[0]):
         occupied_chain_indices = [
             chain_index
-            for chain_index, chain_block in enumerate(chain_blocks)
+            for chain_index, chain_block in enumerate(prepared_msa.chain_blocks)
             if not np.all(chain_block[row_index] == AF2_GAP_ID)
         ]
+        occupancy = len(occupied_chain_indices)
+        if occupancy >= 2:
+            occupancy_histogram["ge_2"] += 1
+        else:
+            occupancy_histogram[str(occupancy)] += 1
 
-        if len(occupied_chain_indices) >= 2:
+        if occupancy >= 2:
+            paired_row_count += 1
             for chain_index, (chain_block, deletion_block) in enumerate(
-                zip(chain_blocks, deletion_blocks, strict=True)
+                zip(prepared_msa.chain_blocks, prepared_msa.deletion_blocks, strict=True)
             ):
                 paired_rows_by_chain[chain_index].append(chain_block[row_index])
                 paired_deletions_by_chain[chain_index].append(deletion_block[row_index])
-        elif len(occupied_chain_indices) == 1:
+        elif occupancy == 1:
             chain_index = occupied_chain_indices[0]
-            unpaired_rows_by_chain[chain_index].append(chain_blocks[chain_index][row_index])
+            unpaired_rows_by_chain[chain_index].append(
+                prepared_msa.chain_blocks[chain_index][row_index]
+            )
             unpaired_deletions_by_chain[chain_index].append(
-                deletion_blocks[chain_index][row_index]
+                prepared_msa.deletion_blocks[chain_index][row_index]
             )
 
     translated_msas: list[Af3ChainMsas] = []
+    translated_chain_stats: list[Af2ToAf3ChainTranslationStats] = []
     for (
         sequence,
         paired_rows,
@@ -261,40 +477,59 @@ def translate_af2_complex_msa_to_af3_chain_msas(
         unpaired_deletions_by_chain,
         strict=True,
     ):
-        paired_rows_data = _drop_leading_query_row(
-            Af2MsaRows(
-                msa=_stack_rows(paired_rows, len(sequence), merged_msa.dtype),
-                deletion_matrix=_stack_rows(
-                    paired_deletions,
-                    len(sequence),
-                    deletion_matrix.dtype,
-                ),
-            ),
-            sequence,
+        paired_rows_array = _stack_rows(
+            paired_rows, len(sequence), prepared_msa.merged_msa.dtype
         )
-        unpaired_rows_data = _drop_leading_query_row(
-            Af2MsaRows(
-                msa=_stack_rows(unpaired_rows, len(sequence), merged_msa.dtype),
-                deletion_matrix=_stack_rows(
-                    unpaired_deletions,
-                    len(sequence),
-                    deletion_matrix.dtype,
-                ),
-            ),
-            sequence,
+        paired_deletions_array = _stack_rows(
+            paired_deletions, len(sequence), prepared_msa.deletion_matrix.dtype
+        )
+        unpaired_rows_array = _stack_rows(
+            unpaired_rows, len(sequence), prepared_msa.merged_msa.dtype
+        )
+        unpaired_deletions_array = _stack_rows(
+            unpaired_deletions, len(sequence), prepared_msa.deletion_matrix.dtype
+        )
+        paired_rows_data = _trim_chain_rows(
+            sequence=sequence,
+            msa_rows=paired_rows_array,
+            deletion_rows=paired_deletions_array,
+        )
+        unpaired_rows_data = _trim_chain_rows(
+            sequence=sequence,
+            msa_rows=unpaired_rows_array,
+            deletion_rows=unpaired_deletions_array,
         )
         translated_msas.append(
             Af3ChainMsas(
-                paired_msa=msa_rows_and_deletions_to_a3m(
-                    msa_rows=paired_rows_data.msa,
-                    deletion_rows=paired_rows_data.deletion_matrix,
-                    query_sequence=sequence,
+                paired_msa=_chain_rows_to_a3m(
+                    sequence=sequence,
+                    msa_rows=paired_rows_array,
+                    deletion_rows=paired_deletions_array,
                 ),
-                unpaired_msa=msa_rows_and_deletions_to_a3m(
-                    msa_rows=unpaired_rows_data.msa,
-                    deletion_rows=unpaired_rows_data.deletion_matrix,
-                    query_sequence=sequence,
+                unpaired_msa=_chain_rows_to_a3m(
+                    sequence=sequence,
+                    msa_rows=unpaired_rows_array,
+                    deletion_rows=unpaired_deletions_array,
                 ),
             )
         )
-    return translated_msas
+        translated_chain_stats.append(
+            Af2ToAf3ChainTranslationStats(
+                paired_msa_row_count=int(paired_rows_data.msa.shape[0]),
+                unpaired_msa_row_count=int(unpaired_rows_data.msa.shape[0]),
+            )
+        )
+
+    return Af2ToAf3TranslationResult(
+        chain_msas=tuple(translated_msas),
+        chain_stats=tuple(translated_chain_stats),
+        translation_mode="split_paired_and_unpaired",
+        total_rows_considered=int(prepared_msa.merged_msa.shape[0]),
+        occupancy_histogram=occupancy_histogram,
+        paired_row_count=paired_row_count,
+        per_chain_unpaired_row_counts=tuple(
+            chain_stats.unpaired_msa_row_count for chain_stats in translated_chain_stats
+        ),
+        invalid_paired_rows=0,
+        invalid_unpaired_rows=0,
+    )

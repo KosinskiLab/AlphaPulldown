@@ -3,6 +3,8 @@ import numpy as np
 from alphapulldown.utils.af2_to_af3_msa import (
     msa_rows_and_deletions_to_a3m,
     translate_af2_complex_msa_to_af3_chain_msas,
+    translate_af2_complex_msa_to_af3_chain_msas_with_stats,
+    translate_af2_complex_msa_to_af3_unpaired_chain_msas_with_stats,
 )
 
 
@@ -50,6 +52,39 @@ def test_msa_rows_and_deletions_to_a3m_preserves_lowercase_compression():
     assert _a3m_sequences(a3m) == ["AQC", "Aaa-aC"]
     assert _a3m_payload_sequences(a3m) == ["Aaa-aC"]
     assert _aligned_and_deletions(_a3m_payload_sequences(a3m)[0]) == ("A-C", [0, 2, 1])
+
+
+def test_translation_stats_preserve_deletion_aware_rows():
+    result = translate_af2_complex_msa_to_af3_chain_msas_with_stats(
+        merged_msa=np.stack(
+            [
+                _encode("ACGT"),
+                _encode("A-G-"),
+                _encode("AA--"),
+            ]
+        ),
+        chain_sequences=["AC", "GT"],
+        num_alignments=3,
+        deletion_matrix=np.array(
+            [
+                [0, 0, 0, 0],
+                [0, 2, 0, 1],
+                [1, 0, 0, 0],
+            ],
+            dtype=np.int32,
+        ),
+        asym_id=np.array([1, 1, 2, 2], dtype=np.int32),
+    )
+
+    assert result.total_rows_considered == 3
+    assert result.occupancy_histogram == {"0": 0, "1": 1, "ge_2": 2}
+    assert result.paired_row_count == 2
+    assert result.invalid_paired_rows == 0
+    assert result.invalid_unpaired_rows == 0
+    assert result.chain_stats[0].paired_msa_row_count == 1
+    assert result.chain_stats[0].unpaired_msa_row_count == 1
+    assert _a3m_payload_sequences(result.chain_msas[0].paired_msa) == ["Aaa-"]
+    assert _a3m_payload_sequences(result.chain_msas[1].paired_msa) == ["Ga-"]
 
 
 def test_translate_af2_complex_msa_splits_paired_and_unpaired_rows():
@@ -144,3 +179,168 @@ def test_translate_af2_complex_msa_keeps_block_diagonal_rows_unpaired():
         "GG",
         [3, 0],
     )
+
+
+def test_translation_stats_report_mixed_paired_and_unpaired_rows():
+    result = translate_af2_complex_msa_to_af3_chain_msas_with_stats(
+        merged_msa=np.stack(
+            [
+                _encode("ACGT"),
+                _encode("A-G-"),
+                _encode("AA--"),
+                _encode("--GG"),
+                _encode("----"),
+            ]
+        ),
+        chain_sequences=["AC", "GT"],
+        num_alignments=4,
+        deletion_matrix=np.array(
+            [
+                [0, 0, 0, 0],
+                [0, 2, 0, 1],
+                [1, 0, 0, 0],
+                [0, 0, 2, 0],
+                [0, 0, 0, 0],
+            ],
+            dtype=np.int32,
+        ),
+        asym_id=np.array([1, 1, 2, 2], dtype=np.int32),
+    )
+
+    assert result.total_rows_considered == 4
+    assert result.occupancy_histogram == {"0": 0, "1": 2, "ge_2": 2}
+    assert result.paired_row_count == 2
+    assert result.per_chain_unpaired_row_counts == (1, 1)
+    assert result.invalid_paired_rows == 0
+    assert result.invalid_unpaired_rows == 0
+    assert result.chain_stats[0].paired_msa_row_count == 1
+    assert result.chain_stats[1].paired_msa_row_count == 1
+    assert result.chain_stats[0].unpaired_msa_row_count == 1
+    assert result.chain_stats[1].unpaired_msa_row_count == 1
+
+
+def test_translation_stats_report_block_diagonal_rows_as_unpaired():
+    result = translate_af2_complex_msa_to_af3_chain_msas_with_stats(
+        merged_msa=np.stack(
+            [
+                _encode("AC--"),
+                _encode("AA--"),
+                _encode("--GT"),
+                _encode("--GG"),
+                _encode("----"),
+            ]
+        ),
+        chain_sequences=["AC", "GT"],
+        num_alignments=4,
+        deletion_matrix=np.array(
+            [
+                [0, 0, 0, 0],
+                [1, 0, 0, 0],
+                [0, 0, 0, 2],
+                [0, 0, 3, 0],
+                [0, 0, 0, 0],
+            ],
+            dtype=np.int32,
+        ),
+        asym_id=np.array([1, 1, 2, 2], dtype=np.int32),
+    )
+
+    assert result.total_rows_considered == 4
+    assert result.occupancy_histogram == {"0": 0, "1": 4, "ge_2": 0}
+    assert result.paired_row_count == 0
+    assert result.per_chain_unpaired_row_counts == (1, 1)
+    assert result.invalid_paired_rows == 0
+    assert result.invalid_unpaired_rows == 0
+    assert result.chain_stats[0].paired_msa_row_count == 0
+    assert result.chain_stats[1].paired_msa_row_count == 0
+    assert result.chain_stats[0].unpaired_msa_row_count == 1
+    assert result.chain_stats[1].unpaired_msa_row_count == 1
+
+
+def test_manual_unpaired_translation_preserves_full_af2_row_order():
+    result = translate_af2_complex_msa_to_af3_unpaired_chain_msas_with_stats(
+        merged_msa=np.stack(
+            [
+                _encode("ACGT"),
+                _encode("A-G-"),
+                _encode("AA--"),
+                _encode("--GG"),
+            ]
+        ),
+        chain_sequences=["AC", "GT"],
+        num_alignments=4,
+        deletion_matrix=np.array(
+            [
+                [0, 0, 0, 0],
+                [0, 2, 0, 1],
+                [1, 0, 0, 0],
+                [0, 0, 2, 0],
+            ],
+            dtype=np.int32,
+        ),
+        asym_id=np.array([1, 1, 2, 2], dtype=np.int32),
+    )
+
+    assert result.translation_mode == "manual_unpaired_from_af2_multimer"
+    assert result.total_rows_considered == 4
+    assert result.occupancy_histogram == {"0": 0, "1": 2, "ge_2": 2}
+    assert result.paired_row_count == 2
+    assert result.invalid_paired_rows == 0
+    assert result.invalid_unpaired_rows == 0
+    assert result.chain_stats[0].paired_msa_row_count == 0
+    assert result.chain_stats[1].paired_msa_row_count == 0
+    assert result.chain_stats[0].unpaired_msa_row_count == 3
+    assert result.chain_stats[1].unpaired_msa_row_count == 3
+    assert result.chain_msas[0].paired_msa == ""
+    assert result.chain_msas[1].paired_msa == ""
+    assert _a3m_payload_sequences(result.chain_msas[0].unpaired_msa) == [
+        "Aaa-",
+        "aAA",
+        "--",
+    ]
+    assert _a3m_payload_sequences(result.chain_msas[1].unpaired_msa) == [
+        "Ga-",
+        "--",
+        "aaGG",
+    ]
+
+
+def test_manual_unpaired_translation_keeps_block_diagonal_rows_for_alignment():
+    result = translate_af2_complex_msa_to_af3_unpaired_chain_msas_with_stats(
+        merged_msa=np.stack(
+            [
+                _encode("ACGT"),
+                _encode("AA--"),
+                _encode("--GT"),
+                _encode("--GG"),
+            ]
+        ),
+        chain_sequences=["AC", "GT"],
+        num_alignments=4,
+        deletion_matrix=np.array(
+            [
+                [0, 0, 0, 0],
+                [1, 0, 0, 0],
+                [0, 0, 0, 2],
+                [0, 0, 3, 0],
+            ],
+            dtype=np.int32,
+        ),
+        asym_id=np.array([1, 1, 2, 2], dtype=np.int32),
+    )
+
+    assert result.translation_mode == "manual_unpaired_from_af2_multimer"
+    assert result.occupancy_histogram == {"0": 0, "1": 3, "ge_2": 1}
+    assert result.paired_row_count == 1
+    assert result.chain_stats[0].unpaired_msa_row_count == 3
+    assert result.chain_stats[1].unpaired_msa_row_count == 3
+    assert _a3m_payload_sequences(result.chain_msas[0].unpaired_msa) == [
+        "aAA",
+        "--",
+        "--",
+    ]
+    assert _a3m_payload_sequences(result.chain_msas[1].unpaired_msa) == [
+        "--",
+        "GaaT",
+        "aaaGG",
+    ]
