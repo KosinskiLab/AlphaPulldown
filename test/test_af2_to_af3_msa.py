@@ -5,6 +5,7 @@ from alphapulldown.utils.af2_to_af3_msa import (
     translate_af2_complex_msa_to_af3_chain_msas,
     translate_af2_complex_msa_to_af3_chain_msas_with_stats,
     translate_af2_complex_msa_to_af3_unpaired_chain_msas_with_stats,
+    translate_af2_individual_chain_features_to_af3_msas_with_stats,
 )
 
 
@@ -23,9 +24,21 @@ def _a3m_sequences(a3m: str) -> list[str]:
     return [lines[index] for index in range(1, len(lines), 2)]
 
 
+def _a3m_descriptions(a3m: str) -> list[str]:
+    if not a3m:
+        return []
+    lines = [line.strip() for line in a3m.splitlines() if line.strip()]
+    return [lines[index][1:] for index in range(0, len(lines), 2)]
+
+
 def _a3m_payload_sequences(a3m: str) -> list[str]:
     sequences = _a3m_sequences(a3m)
     return sequences[1:]
+
+
+def _a3m_payload_descriptions(a3m: str) -> list[str]:
+    descriptions = _a3m_descriptions(a3m)
+    return descriptions[1:]
 
 
 def _aligned_and_deletions(sequence: str) -> tuple[str, list[int]]:
@@ -344,3 +357,164 @@ def test_manual_unpaired_translation_keeps_block_diagonal_rows_for_alignment():
         "GaaT",
         "aaaGG",
     ]
+
+
+def test_translate_af2_individual_chain_features_builds_species_aware_paired_msas():
+    result = translate_af2_individual_chain_features_to_af3_msas_with_stats(
+        chain_feature_dicts=[
+            {
+                "msa_all_seq": np.stack(
+                    [
+                        _encode("AC"),
+                        _encode("A-"),
+                        _encode("AA"),
+                    ]
+                ),
+                "deletion_matrix_int_all_seq": np.array(
+                    [
+                        [0, 0],
+                        [0, 2],
+                        [1, 0],
+                    ],
+                    dtype=np.int32,
+                ),
+                "msa_species_identifiers_all_seq": np.array(
+                    [b"", b"ECOLX", b"SHIDY"],
+                    dtype=object,
+                ),
+                "msa": np.stack(
+                    [
+                        _encode("AC"),
+                        _encode("AA"),
+                    ]
+                ),
+                "deletion_matrix_int": np.array(
+                    [
+                        [0, 0],
+                        [1, 0],
+                    ],
+                    dtype=np.int32,
+                ),
+            },
+            {
+                "msa_all_seq": np.stack(
+                    [
+                        _encode("GT"),
+                        _encode("G-"),
+                        _encode("GG"),
+                    ]
+                ),
+                "deletion_matrix_int_all_seq": np.array(
+                    [
+                        [0, 0],
+                        [0, 1],
+                        [2, 0],
+                    ],
+                    dtype=np.int32,
+                ),
+                "msa_species_identifiers_all_seq": np.array(
+                    [b"", b"ECOLX", b"SHIDY"],
+                    dtype=object,
+                ),
+                "msa": np.stack(
+                    [
+                        _encode("GT"),
+                        _encode("GG"),
+                    ]
+                ),
+                "deletion_matrix_int": np.array(
+                    [
+                        [0, 0],
+                        [2, 0],
+                    ],
+                    dtype=np.int32,
+                ),
+            },
+        ],
+        chain_sequences=["AC", "GT"],
+    )
+
+    assert result.translation_mode == "af3_species_pairing_from_af2_individual_msas"
+    assert result.paired_row_count == 2
+    assert result.per_chain_unpaired_row_counts == (1, 1)
+    assert result.chain_stats[0].paired_species_identifier_count == 2
+    assert result.chain_stats[1].paired_species_identifier_count == 2
+    assert result.chain_stats[0].paired_rows_without_species_identifier_count == 0
+    assert result.chain_stats[1].paired_rows_without_species_identifier_count == 0
+    assert result.chain_stats[0].paired_rows_with_generated_accession_count == 2
+    assert result.chain_stats[1].paired_rows_with_generated_accession_count == 2
+
+    assert _a3m_payload_sequences(result.chain_msas[0].paired_msa) == ["Aaa-", "aAA"]
+    assert _a3m_payload_sequences(result.chain_msas[1].paired_msa) == ["Ga-", "aaGG"]
+    assert _a3m_payload_descriptions(result.chain_msas[0].paired_msa) == [
+        "tr|APA0000001|APA0000001_ECOLX",
+        "tr|APA0000002|APA0000002_SHIDY",
+    ]
+    assert _a3m_payload_descriptions(result.chain_msas[1].paired_msa) == [
+        "tr|APB0000001|APB0000001_ECOLX",
+        "tr|APB0000002|APB0000002_SHIDY",
+    ]
+    assert _a3m_payload_sequences(result.chain_msas[0].unpaired_msa) == ["aAA"]
+    assert _a3m_payload_sequences(result.chain_msas[1].unpaired_msa) == ["aaGG"]
+
+
+def test_translate_af2_individual_chain_features_tracks_missing_species_ids():
+    result = translate_af2_individual_chain_features_to_af3_msas_with_stats(
+        chain_feature_dicts=[
+            {
+                "msa_all_seq": np.stack(
+                    [
+                        _encode("AC"),
+                        _encode("A-"),
+                        _encode("AA"),
+                    ]
+                ),
+                "deletion_matrix_int_all_seq": np.array(
+                    [
+                        [0, 0],
+                        [0, 1],
+                        [1, 0],
+                    ],
+                    dtype=np.int32,
+                ),
+                "msa_species_identifiers_all_seq": np.array(
+                    [b"", b"", b"ECOLX"],
+                    dtype=object,
+                ),
+                "msa": np.stack([_encode("AC")]),
+                "deletion_matrix_int": np.array([[0, 0]], dtype=np.int32),
+            },
+            {
+                "msa_all_seq": np.stack(
+                    [
+                        _encode("GT"),
+                        _encode("G-"),
+                    ]
+                ),
+                "deletion_matrix_int_all_seq": np.array(
+                    [
+                        [0, 0],
+                        [0, 1],
+                    ],
+                    dtype=np.int32,
+                ),
+                "msa_species_identifiers_all_seq": np.array(
+                    [b"", b""],
+                    dtype=object,
+                ),
+                "msa": np.stack([_encode("GT")]),
+                "deletion_matrix_int": np.array([[0, 0]], dtype=np.int32),
+            },
+        ],
+        chain_sequences=["AC", "GT"],
+    )
+
+    assert result.chain_stats[0].paired_species_identifier_count == 1
+    assert result.chain_stats[0].paired_rows_without_species_identifier_count == 1
+    assert result.chain_stats[1].paired_species_identifier_count == 0
+    assert result.chain_stats[1].paired_rows_without_species_identifier_count == 1
+    assert _a3m_payload_descriptions(result.chain_msas[0].paired_msa) == [
+        "sequence_1",
+        "tr|APA0000002|APA0000002_ECOLX",
+    ]
+    assert _a3m_payload_descriptions(result.chain_msas[1].paired_msa) == ["sequence_1"]
