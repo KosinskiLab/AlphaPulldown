@@ -22,6 +22,7 @@ from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObje
 from alphapulldown.utils.post_modelling import post_prediction_process
 #from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
 from alphapulldown.utils.modelling_setup import pad_input_features
+from alphapulldown.utils.af2_to_af3_msa import msa_rows_and_deletions_to_a3m
 from alphafold.relax import relax
 from alphafold.common import protein, residue_constants, confidence
 from .folding_backend import FoldingBackend
@@ -147,6 +148,183 @@ def _normalize_asym_id(feature_dict: Dict, fallback_feature_dict: Dict = None) -
     normalized_feature_dict = dict(feature_dict)
     normalized_feature_dict["asym_id"] = remapped_indices
     return normalized_feature_dict
+
+
+def _normalise_num_alignments_for_debug(feature_dict: Dict[str, Any]) -> int:
+    msa_rows = feature_dict.get("msa")
+    if msa_rows is None:
+        return 0
+    max_rows = int(np.asarray(msa_rows).shape[0])
+    num_alignments = feature_dict.get("num_alignments")
+    if num_alignments is None:
+        return max_rows
+    return max(0, min(int(np.asarray(num_alignments).reshape(-1)[0]), max_rows))
+
+
+def _query_sequence_for_debug(
+    multimeric_object: Union[MultimericObject, MonomericObject, ChoppedObject]
+) -> str:
+    if isinstance(multimeric_object, MultimericObject):
+        return "".join(multimeric_object.input_seqs)
+    return multimeric_object.sequence
+
+
+def _write_processed_msa_debug_artifact(
+    *,
+    processed_feature_dict: Dict[str, Any],
+    multimeric_object: Union[MultimericObject, MonomericObject, ChoppedObject],
+    output_dir: str,
+    model_name: str,
+) -> None:
+    msa_rows = processed_feature_dict.get("msa")
+    if msa_rows is None:
+        return
+
+    num_alignments = _normalise_num_alignments_for_debug(processed_feature_dict)
+    if num_alignments <= 0:
+        return
+
+    deletion_rows = processed_feature_dict.get("deletion_matrix_int")
+    if deletion_rows is None:
+        deletion_rows = processed_feature_dict.get("deletion_matrix")
+
+    a3m_text = msa_rows_and_deletions_to_a3m(
+        msa_rows=np.asarray(msa_rows)[:num_alignments],
+        deletion_rows=(
+            None if deletion_rows is None else np.asarray(deletion_rows)[:num_alignments]
+        ),
+        query_sequence=_query_sequence_for_debug(multimeric_object),
+    )
+    out_path = os.path.join(output_dir, f"{model_name}_processed_msa.a3m")
+    with open(out_path, "wt") as handle:
+        handle.write(a3m_text)
+    logging.info(f"Wrote processed MSA A3M to {out_path}")
+
+
+def _decode_debug_value(value: Any) -> str:
+    if isinstance(value, bytes):
+        return value.decode("utf-8", "ignore")
+    return str(value)
+
+
+def _sanitize_debug_filename(value: Any, fallback: str) -> str:
+    text = _decode_debug_value(value).strip()
+    if not text:
+        text = fallback
+    text = text.replace(os.sep, "_")
+    return "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in text)
+
+
+def _template_aatype_to_indices(template_aatype: np.ndarray) -> np.ndarray:
+    template_aatype = np.asarray(template_aatype)
+    if template_aatype.ndim == 2:
+        hh_ids = np.argmax(template_aatype, axis=-1)
+        aatype = np.array(
+            [
+                residue_constants.MAP_HHBLITS_AATYPE_TO_OUR_AATYPE[int(index)]
+                for index in hh_ids
+            ],
+            dtype=np.int32,
+        )
+        aatype[aatype == 21] = 20
+        return aatype
+
+    if template_aatype.ndim == 1:
+        aatype = template_aatype.astype(np.int32, copy=False)
+        if np.any(aatype > residue_constants.restype_num):
+            mapped = np.array(
+                [
+                    residue_constants.MAP_HHBLITS_AATYPE_TO_OUR_AATYPE[int(index)]
+                    for index in aatype
+                ],
+                dtype=np.int32,
+            )
+            mapped[mapped == 21] = 20
+            return mapped
+        return np.clip(aatype, 0, residue_constants.restype_num)
+
+    raise ValueError(
+        f"Unsupported template_aatype rank for debug dump: {template_aatype.shape}"
+    )
+
+
+def _write_processed_template_debug_artifacts(
+    *,
+    processed_feature_dict: Dict[str, Any],
+    output_dir: str,
+    model_name: str,
+) -> None:
+    template_positions = processed_feature_dict.get("template_all_atom_positions")
+    if template_positions is None:
+        return
+
+    template_masks = processed_feature_dict.get("template_all_atom_masks")
+    if template_masks is None:
+        template_masks = processed_feature_dict.get("template_all_atom_mask")
+    if template_masks is None:
+        return
+
+    template_aatype = processed_feature_dict.get("template_aatype")
+    if template_aatype is None:
+        return
+
+    residue_index = np.asarray(
+        processed_feature_dict.get(
+            "residue_index",
+            np.arange(np.asarray(template_positions).shape[1], dtype=np.int32),
+        )
+    ).reshape(-1)
+    asym_id = processed_feature_dict.get("asym_id")
+    if asym_id is None:
+        chain_index = np.zeros_like(residue_index, dtype=np.int32)
+    else:
+        chain_index = np.asarray(_normalize_asym_id(processed_feature_dict)["asym_id"]).reshape(-1)
+
+    debug_dir = os.path.join(output_dir, "templates_debug")
+    os.makedirs(debug_dir, exist_ok=True)
+
+    domain_names = processed_feature_dict.get("template_domain_names")
+    if domain_names is None:
+        domain_names = [f"template_{i}"] * np.asarray(template_positions).shape[0]
+
+    for template_index, (positions, mask, aa, domain_name) in enumerate(
+        zip(template_positions, template_masks, template_aatype, domain_names, strict=True)
+    ):
+        if not np.any(mask):
+            continue
+        try:
+            template_protein = protein.Protein(
+                atom_positions=np.asarray(positions),
+                atom_mask=np.asarray(mask),
+                aatype=_template_aatype_to_indices(np.asarray(aa)),
+                residue_index=residue_index,
+                chain_index=chain_index,
+                b_factors=np.zeros_like(np.asarray(mask), dtype=float),
+            )
+            template_name = _sanitize_debug_filename(
+                domain_name, f"template_{template_index}"
+            )
+            debug_path = os.path.join(
+                debug_dir, f"{model_name}_{template_name}_idx{template_index}.pdb"
+            )
+            with open(debug_path, "wt") as handle:
+                handle.write(protein.to_pdb(template_protein))
+            logging.info(f"Wrote processed template PDB to {debug_path}")
+        except Exception as exc:
+            error_path = os.path.join(
+                debug_dir, f"ERROR_{model_name}_template_{template_index}.txt"
+            )
+            with open(error_path, "wt") as handle:
+                handle.write(f"Error: {exc}\n")
+                handle.write(f"Model: {model_name}\n")
+                handle.write(f"Template index: {template_index}\n")
+                handle.write(
+                    f"Domain name: {_decode_debug_value(domain_name) if domain_name is not None else ''}\n"
+                )
+            logging.error(
+                f"Failed to write processed template debug artifact for {model_name} "
+                f"template {template_index}: {exc}"
+            )
 
 
 class AlphaFold2Backend(FoldingBackend):
@@ -421,6 +599,19 @@ class AlphaFold2Backend(FoldingBackend):
                     raise ValueError(
                         "No template_all_atom_positions key found in processed_feature_dict."
                     )
+            if kwargs.get("debug_msas", False):
+                _write_processed_msa_debug_artifact(
+                    processed_feature_dict=processed_feature_dict,
+                    multimeric_object=multimeric_object,
+                    output_dir=output_dir,
+                    model_name=model_name,
+                )
+            if kwargs.get("debug_templates", False):
+                _write_processed_template_debug_artifacts(
+                    processed_feature_dict=processed_feature_dict,
+                    output_dir=output_dir,
+                    model_name=model_name,
+                )
             t_0 = time.time()
             logging.info(
                 f"Now running predictions on {multimeric_object.description} using {model_name}")

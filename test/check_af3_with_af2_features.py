@@ -48,7 +48,7 @@ class TestAF3WithAF2Features(absltest.TestCase):
       def extract_structures(self, batch, result, target_name):
         return []
 
-    # This should dump A3M/NPZ before attempting inference
+    # This should dump the post-featurisation merged complex A3M before inference.
     predict_structure(
       fold_input=fold_input_obj,
       model_runner=_FakeRunner(),
@@ -77,5 +77,4 @@ class TestAF3WithAF2Features(absltest.TestCase):
 
 if __name__ == '__main__':
   absltest.main()
-
 
