@@ -272,27 +272,11 @@ def predict_structure(
         except Exception as e:
             logging.error(f"Failed to write final complex MSA A3M: {e}")
 
-    # Utility: dump featurised MSA-related arrays to NPZ for inspection
-    def _dump_featurised_msa_npz(example_batch, seed_value: int):
-        try:
-            if output_dir is None:
-                return
-            os.makedirs(output_dir, exist_ok=True)
-            out_path = os.path.join(
-                output_dir, f"{fold_input.sanitised_name()}_seed-{seed_value}_featurised_msa.npz"
-            )
-
-            np.savez_compressed(out_path, **example_batch)
-            logging.info(f"Wrote featurised MSA arrays to {out_path}")
-        except Exception as e:
-            logging.error(f"Failed to dump featurised MSA arrays: {e}")
-
     for seed, example in zip(fold_input.rng_seeds, featurised_examples):
         logging.info(f'Running model inference for seed {seed}...')
         inference_start_time = time.time()
-        # If requested, dump featurised MSA arrays and final complex A3M for inspection
+        # If requested, dump the post-featurisation merged complex MSA for inspection.
         if debug_msas:
-            _dump_featurised_msa_npz(example, seed)
             _write_final_msa_a3m(example, seed)
 
         rng_key = jax.random.PRNGKey(seed)

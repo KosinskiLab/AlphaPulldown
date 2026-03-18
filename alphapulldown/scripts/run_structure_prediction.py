@@ -188,11 +188,13 @@ flags.DEFINE_string('fold_backend', 'alphafold2',
                     'Folding backend that should be used for structure prediction.')
 flags.DEFINE_boolean(
     'debug_templates', False,
-    'If set, save generated template mmCIFs to templates_debug/ during AF3 input prep.'
+    'If set, save backend-specific template debug artifacts. AF3 writes generated'
+    ' template mmCIFs and AF2 writes processed template PDBs.'
 )
 flags.DEFINE_boolean(
     'debug_msas', False,
-    'If set, dump featurised MSA arrays and final complex A3M before inference.'
+    'If set, dump backend-specific MSA debug artifacts such as translated or'
+    ' processed input A3Ms and the AF3 final merged complex A3M.'
 )
 
 FLAGS = flags.FLAGS
