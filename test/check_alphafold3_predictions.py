@@ -1309,7 +1309,7 @@ class TestAlphaFold3RunModes(_TestBase):
             "Shared wrapper output root should not contain flattened AF3 outputs.",
         )
 
-        for job_dir in ("TEST", "A0A075B6L2"):
+        for job_dir in ("A0A024R1R8_1-5", "A0A075B6L2_2-5"):
             current_output_dir = self.output_dir / job_dir
             self.assertTrue(
                 current_output_dir.is_dir(),
@@ -1539,4 +1539,4 @@ def _parse_test_args():
 _TestBase.use_temp_dir = _parse_test_args()
 
 if __name__ == "__main__":
-    absltest.main() 
+    absltest.main()
