@@ -790,7 +790,8 @@ class _TestBase(parameterized.TestCase):
         print(f"\nExpected sequences: {expected_sequences}")
         
         # Find the predicted CIF file (should be in the output directory)
-        cif_files = list(self.output_dir.glob("*_model.cif"))
+        result_dir = self._resolve_single_af3_result_dir()
+        cif_files = list(result_dir.glob("*_model.cif"))
         if not cif_files:
             self.fail("No predicted CIF files found")
         
@@ -965,13 +966,29 @@ class _TestBase(parameterized.TestCase):
 
             print(f"✓ Verified ranking_scores.csv has correct format with {len(lines)-1} entries")
 
+    def _resolve_single_af3_result_dir(self) -> Path:
+        """Return the actual AF3 result directory for single-job tests."""
+        if (self.output_dir / "ranking_scores.csv").exists():
+            return self.output_dir
+
+        candidate_dirs = [
+            path
+            for path in self.output_dir.iterdir()
+            if path.is_dir() and (path / "ranking_scores.csv").exists()
+        ]
+        if len(candidate_dirs) == 1:
+            print(f"Resolved nested AF3 result dir: {candidate_dirs[0]}")
+            return candidate_dirs[0]
+
+        return self.output_dir
+
     # ---------------- assertions reused by all subclasses ----------------- #
     def _runCommonTests(self, res: subprocess.CompletedProcess):
         print(res.stdout)
         print(res.stderr)
         self.assertEqual(res.returncode, 0, "sub-process failed")
 
-        self._assert_af3_outputs_present(self.output_dir)
+        self._assert_af3_outputs_present(self._resolve_single_af3_result_dir())
 
     # convenience builder
     def _args(self, *, plist, script):
