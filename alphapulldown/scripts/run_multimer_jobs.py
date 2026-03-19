@@ -75,6 +75,14 @@ def main(argv):
     elif FLAGS.use_unifold:
         fold_backend, model_dir = "unifold", FLAGS.unifold_param
 
+    af3_use_ap_style = FLAGS.use_ap_style
+    if fold_backend == "alphafold3" and FLAGS["use_ap_style"].using_default_value:
+        af3_use_ap_style = True
+        logging.info(
+            "Defaulting --use_ap_style to True for AlphaFold3 multimer jobs to keep "
+            "per-job outputs isolated. Pass --nouse_ap_style to keep a flat layout."
+        )
+
     # Build arguments to forward to run_structure_prediction.py
     # For AF3, only forward AF3-supported flags and map num_cycle -> num_recycles.
     if fold_backend == "alphafold3":
@@ -85,7 +93,7 @@ def main(argv):
             "--features_directory": FLAGS.monomer_objects_dir,
             "--fold_backend": fold_backend,
             "--protein_delimiter": FLAGS.protein_delimiter,
-            "--use_ap_style": FLAGS.use_ap_style,
+            "--use_ap_style": af3_use_ap_style,
             # AF3-specific knobs:
             "--num_recycles": FLAGS.num_cycle,  # map from APD wrapper's num_cycle
             "--num_diffusion_samples": getattr(FLAGS, "num_diffusion_samples", None),
