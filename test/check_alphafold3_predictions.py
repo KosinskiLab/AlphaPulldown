@@ -1239,7 +1239,7 @@ class TestAlphaFold3RunModes(_TestBase):
         flash_impl = self._af3_flash_attention_impl()
         json_inputs = [
             self.test_features_dir / "protein_with_ptms.json",
-            self.test_features_dir / "test_alphafold3_prediction.json",
+            self.test_features_dir / "rna.json",
         ]
 
         res = subprocess.run(
@@ -1267,7 +1267,7 @@ class TestAlphaFold3RunModes(_TestBase):
             "Shared AF3 output root should not contain flattened top-level outputs for multiple JSON jobs.",
         )
 
-        for job_dir in ("protein_ptms", "test_protein_rna"):
+        for job_dir in ("protein_ptms", "rna_chain"):
             current_output_dir = self.output_dir / job_dir
             self.assertTrue(
                 current_output_dir.is_dir(),
