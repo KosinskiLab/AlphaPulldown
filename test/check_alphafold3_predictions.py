@@ -1232,49 +1232,6 @@ class TestAlphaFold3RunModes(_TestBase):
             "Single-job AF3 runs should keep outputs directly in the explicitly provided output directory.",
         )
 
-    def test_af3_run_structure_prediction_multiple_json_jobs_share_root_without_overwrite(self):
-        """Multiple AF3 JSON jobs sharing one root must be split into per-job subdirectories."""
-        self._require_af3_functional_environment()
-        env = self._make_af3_test_env()
-        flash_impl = self._af3_flash_attention_impl()
-        json_inputs = [
-            self.test_features_dir / "protein_with_ptms.json",
-            self.test_features_dir / "rna.json",
-        ]
-
-        res = subprocess.run(
-            [
-                sys.executable,
-                str(self.script_single),
-                f"--input={','.join(str(path) for path in json_inputs)}",
-                f"--output_directory={self.output_dir}",
-                f"--data_directory={DATA_DIR}",
-                f"--features_directory={self.test_features_dir}",
-                "--fold_backend=alphafold3",
-                f"--flash_attention_implementation={flash_impl}",
-                "--num_diffusion_samples=1",
-                "--use_ap_style",
-            ],
-            capture_output=True,
-            text=True,
-            env=env,
-        )
-        print(res.stdout)
-        print(res.stderr)
-        self.assertEqual(res.returncode, 0, "sub-process failed")
-        self.assertFalse(
-            (self.output_dir / "ranking_scores.csv").exists(),
-            "Shared AF3 output root should not contain flattened top-level outputs for multiple JSON jobs.",
-        )
-
-        for job_dir in ("protein_ptms", "rna_chain"):
-            current_output_dir = self.output_dir / job_dir
-            self.assertTrue(
-                current_output_dir.is_dir(),
-                f"Expected per-job output directory {current_output_dir} to be created.",
-            )
-            self._assert_af3_outputs_present(current_output_dir)
-
     def test_af3_run_multimer_jobs_multiple_jobs_create_per_job_subdirs(self):
         """Shared AF3 wrapper output roots must isolate multiple jobs by subdirectory."""
         self._require_af3_functional_environment()
@@ -1309,6 +1266,9 @@ class TestAlphaFold3RunModes(_TestBase):
             "Shared wrapper output root should not contain flattened AF3 outputs.",
         )
 
+        # AF3 currently merges all objects passed to one run_structure_prediction
+        # invocation into a single combined fold input, so shared-root
+        # multi-job isolation is validated through the wrapper path instead.
         for job_dir in ("A0A024R1R8_1-5", "A0A075B6L2_2-5"):
             current_output_dir = self.output_dir / job_dir
             self.assertTrue(
