@@ -26,7 +26,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 ENV MAMBA_ROOT_PREFIX=/opt/conda
 RUN set -eux; \
     mkdir -p "$MAMBA_ROOT_PREFIX"; \
-    curl -L https://micro.mamba.pm/api/micromamba/linux-64/latest \
+    curl -k -L https://micro.mamba.pm/api/micromamba/linux-64/latest \
       | tar -xj -C /usr/local/bin --strip-components=1 bin/micromamba
 
 ENV PATH="/opt/conda/bin:${PATH}"
