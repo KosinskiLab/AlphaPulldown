@@ -887,31 +887,37 @@ class _TestBase(parameterized.TestCase):
             
             print(f"  ✓ Chain {chain_id}: Valid sequence with correct chain ID")
 
-    # ---------------- assertions reused by all subclasses ----------------- #
-    def _runCommonTests(self, res: subprocess.CompletedProcess):
-        print(res.stdout)
-        print(res.stderr)
-        self.assertEqual(res.returncode, 0, "sub-process failed")
+    def _make_af3_test_env(self) -> Dict[str, str]:
+        env = os.environ.copy()
+        env["XLA_FLAGS"] = "--xla_disable_hlo_passes=custom-kernel-fusion-rewriter --xla_gpu_force_compilation_parallelism=0"
+        env["XLA_PYTHON_CLIENT_PREALLOCATE"] = "true"
+        env["XLA_CLIENT_MEM_FRACTION"] = "0.95"
+        env["JAX_FLASH_ATTENTION_IMPL"] = "xla"
+        if "XLA_PYTHON_CLIENT_MEM_FRACTION" in env:
+            del env["XLA_PYTHON_CLIENT_MEM_FRACTION"]
+        return env
 
-        # Look in the parent directory for output files
-        files = list(self.output_dir.iterdir())
-        print(f"contents of {self.output_dir}: {[f.name for f in files]}")
+    def _require_af3_functional_environment(self) -> None:
+        if not os.path.exists(DATA_DIR):
+            self.skipTest(
+                f"AF3 functional tests require ALPHAFOLD_DATA_DIR; missing path: {DATA_DIR}"
+            )
 
-        # Check for AlphaFold3 output files
-        # 1. Main output files
+    def _assert_af3_outputs_present(self, output_dir: Path) -> None:
+        files = list(output_dir.iterdir())
+        print(f"contents of {output_dir}: {[f.name for f in files]}")
+
         self.assertIn("TERMS_OF_USE.md", {f.name for f in files})
         self.assertIn("ranking_scores.csv", {f.name for f in files})
-        
-        # 2. Data and confidence files
+
         conf_files = [f for f in files if f.name.endswith("_confidences.json")]
         summary_conf_files = [f for f in files if f.name.endswith("_summary_confidences.json")]
         model_files = [f for f in files if f.name.endswith("_model.cif")]
-        
-        self.assertTrue(len(conf_files) > 0, "No confidences.json files found")
-        self.assertTrue(len(summary_conf_files) > 0, "No summary_confidences.json files found")
-        self.assertTrue(len(model_files) > 0, "No model.cif files found")
 
-        # 3. Check sample directories (only those with 'sample-' suffix)
+        self.assertTrue(len(conf_files) > 0, f"No confidences.json files found in {output_dir}")
+        self.assertTrue(len(summary_conf_files) > 0, f"No summary_confidences.json files found in {output_dir}")
+        self.assertTrue(len(model_files) > 0, f"No model.cif files found in {output_dir}")
+
         sample_dirs = [
             f for f in files if f.is_dir() and f.name.startswith("seed-") and "sample-" in f.name
         ]
@@ -922,39 +928,46 @@ class _TestBase(parameterized.TestCase):
             self.assertIn("model.cif", {f.name for f in sample_files})
             self.assertIn("summary_confidences.json", {f.name for f in sample_files})
 
-        # 4. Verify ranking scores
-        with open(self.output_dir / "ranking_scores.csv") as f:
+        with open(output_dir / "ranking_scores.csv") as f:
             lines = f.readlines()
             self.assertTrue(len(lines) > 1, "ranking_scores.csv should have header and data")
             self.assertEqual(len(lines[0].strip().split(",")), 3, "ranking_scores.csv should have 3 columns")
-            # Expected number of sample directories equals number of ranking entries for current run
+
             seeds_in_csv = {ln.strip().split(",")[0] for ln in lines[1:] if ln.strip()}
+
             def _seed_from_dirname(name: str) -> str:
                 try:
                     part = name.split("seed-")[1]
                     return part.split("_")[0]
                 except Exception:
                     return ""
+
             sample_dirs_for_this_run = [d for d in sample_dirs if _seed_from_dirname(d.name) in seeds_in_csv]
             expected_sample_dirs = len(lines) - 1
             self.assertEqual(
                 len(sample_dirs_for_this_run), expected_sample_dirs,
                 f"Expected {expected_sample_dirs} sample directories, found {len(sample_dirs_for_this_run)}"
             )
-            
-            # Verify CSV format for all data lines
-            for i, line in enumerate(lines[1:], 1):  # Skip header
+
+            for i, line in enumerate(lines[1:], 1):
                 parts = line.strip().split(",")
                 self.assertEqual(len(parts), 3, f"Line {i+1} should have 3 columns: seed,sample,ranking_score")
-                # Verify that seed, sample are integers and ranking_score is a float
                 try:
-                    int(parts[0])  # seed
-                    int(parts[1])  # sample
-                    float(parts[2])  # ranking_score
+                    int(parts[0])
+                    int(parts[1])
+                    float(parts[2])
                 except ValueError:
                     self.fail(f"Line {i+1} has invalid format: {line.strip()}")
-                    
+
             print(f"✓ Verified ranking_scores.csv has correct format with {len(lines)-1} entries")
+
+    # ---------------- assertions reused by all subclasses ----------------- #
+    def _runCommonTests(self, res: subprocess.CompletedProcess):
+        print(res.stdout)
+        print(res.stderr)
+        self.assertEqual(res.returncode, 0, "sub-process failed")
+
+        self._assert_af3_outputs_present(self.output_dir)
 
     # convenience builder
     def _args(self, *, plist, script):
@@ -1183,6 +1196,118 @@ class TestAlphaFold3RunModes(_TestBase):
         finally:
             # Restore original output directory
             self.output_dir = original_output_dir
+
+    def test_af3_run_structure_prediction_keeps_single_explicit_output_dir_flat_for_json(self):
+        """A single explicit output dir must remain flat even with --use_ap_style."""
+        self._require_af3_functional_environment()
+        env = self._make_af3_test_env()
+        json_input = self.test_features_dir / "protein_with_ptms.json"
+
+        res = subprocess.run(
+            [
+                sys.executable,
+                str(self.script_single),
+                f"--input={json_input}",
+                f"--output_directory={self.output_dir}",
+                f"--data_directory={DATA_DIR}",
+                f"--features_directory={self.test_features_dir}",
+                "--fold_backend=alphafold3",
+                "--flash_attention_implementation=xla",
+                "--num_diffusion_samples=1",
+                "--use_ap_style",
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        self._runCommonTests(res)
+        self.assertFalse(
+            (self.output_dir / "protein_ptms").exists(),
+            "Single-job AF3 runs should keep outputs directly in the explicitly provided output directory.",
+        )
+
+    def test_af3_run_structure_prediction_multiple_json_jobs_share_root_without_overwrite(self):
+        """Multiple AF3 JSON jobs sharing one root must be split into per-job subdirectories."""
+        self._require_af3_functional_environment()
+        env = self._make_af3_test_env()
+        json_inputs = [
+            self.test_features_dir / "protein_with_ptms.json",
+            self.test_features_dir / "test_alphafold3_prediction.json",
+        ]
+
+        res = subprocess.run(
+            [
+                sys.executable,
+                str(self.script_single),
+                f"--input={','.join(str(path) for path in json_inputs)}",
+                f"--output_directory={self.output_dir}",
+                f"--data_directory={DATA_DIR}",
+                f"--features_directory={self.test_features_dir}",
+                "--fold_backend=alphafold3",
+                "--flash_attention_implementation=xla",
+                "--num_diffusion_samples=1",
+                "--use_ap_style",
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        print(res.stdout)
+        print(res.stderr)
+        self.assertEqual(res.returncode, 0, "sub-process failed")
+        self.assertFalse(
+            (self.output_dir / "ranking_scores.csv").exists(),
+            "Shared AF3 output root should not contain flattened top-level outputs for multiple JSON jobs.",
+        )
+
+        for job_dir in ("protein_ptms", "test_protein_rna"):
+            current_output_dir = self.output_dir / job_dir
+            self.assertTrue(
+                current_output_dir.is_dir(),
+                f"Expected per-job output directory {current_output_dir} to be created.",
+            )
+            self._assert_af3_outputs_present(current_output_dir)
+
+    def test_af3_run_multimer_jobs_multiple_jobs_create_per_job_subdirs(self):
+        """Shared AF3 wrapper output roots must isolate multiple jobs by subdirectory."""
+        self._require_af3_functional_environment()
+        env = self._make_af3_test_env()
+        protein_list = self.test_protein_lists_dir / "test_multiple_monomers.txt"
+
+        res = subprocess.run(
+            [
+                sys.executable,
+                str(self.script_multimer),
+                "--num_cycle=1",
+                "--num_predictions_per_model=1",
+                f"--data_dir={DATA_DIR}",
+                f"--monomer_objects_dir={self.test_features_dir}",
+                f"--output_path={self.output_dir}",
+                "--mode=custom",
+                f"--protein_lists={protein_list}",
+                "--fold_backend=alphafold3",
+                "--flash_attention_implementation=xla",
+                "--num_diffusion_samples=1",
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        print(res.stdout)
+        print(res.stderr)
+        self.assertEqual(res.returncode, 0, "sub-process failed")
+        self.assertFalse(
+            (self.output_dir / "ranking_scores.csv").exists(),
+            "Shared wrapper output root should not contain flattened AF3 outputs.",
+        )
+
+        for job_dir in ("TEST", "A0A075B6L2"):
+            current_output_dir = self.output_dir / job_dir
+            self.assertTrue(
+                current_output_dir.is_dir(),
+                f"Expected per-job output directory {current_output_dir} to be created.",
+            )
+            self._assert_af3_outputs_present(current_output_dir)
 
     @parameterized.named_parameters(
         dict(testcase_name="monomer", protein_list="test_monomer.txt", script="run_structure_prediction.py"),

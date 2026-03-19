@@ -26,6 +26,7 @@ from alphapulldown.folding_backend import backend
 from alphapulldown.folding_backend.alphafold2_backend import ModelsToRelax
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
 from alphapulldown.utils.modelling_setup import create_interactors, create_custom_info, parse_fold
+from alphapulldown.utils.output_paths import resolve_af3_json_output_dir
 import sys as _sys
 
 logging.set_verbosity(logging.INFO)
@@ -418,6 +419,7 @@ def main(argv):
         raise ValueError(
             "Either specify one output_directory for all folds or one per fold."
         )
+    shared_output_root = len(FLAGS.output_directory) == 1 and n > 1
 
     # Define default model and postprocess flags
     default_model_flags = {
@@ -498,7 +500,13 @@ def main(argv):
                 })
         # Then handle any number of JSON inputs
         for json_dict in json_dicts:
-            objects_to_model.append({'object': json_dict, 'output_dir': out_dir})
+            json_output_dir = resolve_af3_json_output_dir(
+                json_dict["json_input"],
+                out_dir,
+                use_ap_style=FLAGS.use_ap_style,
+                shared_output_root=shared_output_root,
+            )
+            objects_to_model.append({'object': json_dict, 'output_dir': json_output_dir})
 
     if objects_to_model:
         predict_structure(
