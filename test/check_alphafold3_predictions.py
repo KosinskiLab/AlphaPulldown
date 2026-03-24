@@ -1221,8 +1221,9 @@ class TestAlphaFold3RunModes(_TestBase):
 
         feature_dir = self.test_features_dir / "af3_features" / "protein"
         json_filename = "A0A024R1R8_af3_input.json"
+        regions = [(2, 20), (25, 40)]
         parsed = parse_fold(
-            [f"{json_filename}:2-5:8-10"],
+            [f"{json_filename}:2-20:25-40"],
             [str(feature_dir)],
             "+",
         )
@@ -1231,7 +1232,7 @@ class TestAlphaFold3RunModes(_TestBase):
             [[
                 {
                     "json_input": str(feature_dir / json_filename),
-                    "regions": [(2, 5), (8, 10)],
+                    "regions": regions,
                 }
             ]],
         )
@@ -1256,8 +1257,8 @@ class TestAlphaFold3RunModes(_TestBase):
         self.assertLen(json_sequences, 1)
         full_sequence = json_sequences[0][1]
         expected_sequences = [
-            full_sequence[1:5],
-            full_sequence[7:10],
+            full_sequence[start - 1:end]
+            for start, end in regions
         ]
         self.assertCountEqual(
             [chain.sequence for chain in fold_input_obj.chains],
@@ -1293,12 +1294,13 @@ class TestAlphaFold3RunModes(_TestBase):
         env = self._make_af3_test_env()
         flash_impl = self._af3_flash_attention_impl()
         feature_dir = self.test_features_dir / "af3_features" / "protein"
+        regions = [(2, 20), (25, 40)]
 
         res = subprocess.run(
             [
                 sys.executable,
                 str(self.script_single),
-                "--input=A0A024R1R8_af3_input.json:2-5:8-10",
+                "--input=A0A024R1R8_af3_input.json:2-20:25-40",
                 f"--output_directory={self.output_dir}",
                 f"--data_directory={DATA_DIR}",
                 f"--features_directory={feature_dir}",
@@ -1318,8 +1320,8 @@ class TestAlphaFold3RunModes(_TestBase):
         self.assertLen(json_sequences, 1)
         full_sequence = json_sequences[0][1]
         expected_sequences = [
-            full_sequence[1:5],
-            full_sequence[7:10],
+            full_sequence[start - 1:end]
+            for start, end in regions
         ]
         concatenated_sequence = "".join(expected_sequences)
 
