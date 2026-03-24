@@ -22,6 +22,12 @@ from typing import Dict, List, Tuple, Any
 from absl.testing import absltest, parameterized
 
 import alphapulldown
+from alphapulldown.objects import MultimericObject
+from alphapulldown.utils.modelling_setup import (
+    create_custom_info,
+    create_interactors,
+    parse_fold,
+)
 from alphapulldown_input_parser import generate_fold_specifications
 
 
@@ -226,6 +232,27 @@ class _TestBase(parameterized.TestCase):
         
         return None
 
+    def _chain_id_from_index(self, index: int) -> str:
+        """Mirror AF3's reverse-spreadsheet chain ID progression."""
+        if index < 26:
+            return chr(ord('A') + index)
+        first_char = chr(ord('A') + (index // 26) - 1)
+        second_char = chr(ord('A') + (index % 26))
+        return first_char + second_char
+
+    def _get_region_sequences(self, protein_name: str, regions: list[tuple[int, int]]) -> list[str]:
+        """Return one sequence fragment per requested 1-based closed interval."""
+        full_sequence = self._get_sequence_for_protein(protein_name)
+        if not full_sequence:
+            return []
+
+        region_sequences = []
+        for start, end in regions:
+            start_idx = start - 1
+            end_idx = end
+            region_sequences.append(full_sequence[start_idx:end_idx])
+        return region_sequences
+
     def _process_homo_oligomer_line(self, line: str) -> List[Tuple[str, str]]:
         """Process a homo-oligomer line (format: 'PROTEIN,number')."""
         if "," not in line:
@@ -319,28 +346,17 @@ class _TestBase(parameterized.TestCase):
                 s, e = region_str.split("-")
                 regions.append((int(s), int(e)))
         
-        # Get the chopped sequence
-        def get_chopped_sequence(protein_name: str, regions: list) -> str:
-            full_sequence = self._get_sequence_for_protein(protein_name)
-            if not full_sequence:
-                return None
-            chopped_sequence = ""
-            for start, end in regions:
-                # Convert to 0-based indexing
-                start_idx = start - 1
-                end_idx = end  # end is exclusive
-                chopped_sequence += full_sequence[start_idx:end_idx]
-            return chopped_sequence
-        
-        sequence = get_chopped_sequence(protein_name, regions)
-        if not sequence:
+        region_sequences = self._get_region_sequences(protein_name, regions)
+        if not region_sequences:
             return []
         
-        # Create multiple copies with different chain IDs
+        # AF3 cannot encode polymer chain breaks inside one protein chain, so
+        # discontinuous regions are modeled as separate protein chains.
         sequences = []
-        for i in range(num_copies):
-            chain_id = chr(ord('A') + i)
-            sequences.append((chain_id, sequence))
+        for _ in range(num_copies):
+            for region_sequence in region_sequences:
+                chain_id = self._chain_id_from_index(len(sequences))
+                sequences.append((chain_id, region_sequence))
         
         return sequences
 
@@ -408,18 +424,6 @@ class _TestBase(parameterized.TestCase):
 
     def _process_chopped_protein_line(self, line: str) -> List[Tuple[str, str]]:
         """Process a line with chopped proteins (comma-separated ranges)."""
-        def get_chopped_sequence(protein_name: str, regions: list) -> str:
-            # Get the full sequence from PKL or FASTA
-            full_sequence = self._get_sequence_for_protein(protein_name)
-            if not full_sequence:
-                return None
-            chopped_sequence = ""
-            for start, end in regions:
-                # Convert to 0-based indexing
-                start_idx = start - 1
-                end_idx = end  # end is exclusive
-                chopped_sequence += full_sequence[start_idx:end_idx]
-            return chopped_sequence
 
         def parse_protein_and_regions(part: str):
             # Example: A0A075B6L2,1-10,2-5,3-12
@@ -436,16 +440,20 @@ class _TestBase(parameterized.TestCase):
             # Multiple chopped proteins
             sequences = []
             parts = line.split(";")
-            for i, part in enumerate(parts):
+            for part in parts:
                 part = part.strip()
                 if "," in part:
                     protein_name, regions = parse_protein_and_regions(part)
-                    sequence = get_chopped_sequence(protein_name, regions)
+                    region_sequences = self._get_region_sequences(protein_name, regions)
+                    for region_sequence in region_sequences:
+                        chain_id = self._chain_id_from_index(len(sequences))
+                        sequences.append((chain_id, region_sequence))
                 else:
                     protein_name = part
                     sequence = self._get_sequence_for_protein(protein_name)
-                if sequence:
-                    chain_id = chr(ord('A') + i)
+                    if not sequence:
+                        continue
+                    chain_id = self._chain_id_from_index(len(sequences))
                     sequences.append((chain_id, sequence))
             return sequences
         else:
@@ -453,7 +461,12 @@ class _TestBase(parameterized.TestCase):
             part = line.strip()
             if "," in part:
                 protein_name, regions = parse_protein_and_regions(part)
-                sequence = get_chopped_sequence(protein_name, regions)
+                return [
+                    (self._chain_id_from_index(i), region_sequence)
+                    for i, region_sequence in enumerate(
+                        self._get_region_sequences(protein_name, regions)
+                    )
+                ]
             else:
                 protein_name = part
                 sequence = self._get_sequence_for_protein(protein_name)
@@ -672,7 +685,7 @@ class _TestBase(parameterized.TestCase):
         
         # Extract unique chain IDs from _struct_asym table
         # Format: chain_id entity_id (e.g., "A 1")
-        struct_asym_pattern = r'([A-Z])\s+(\d+)'
+        struct_asym_pattern = r'([A-Z]+)\s+(\d+)'
         struct_asym_matches = re.findall(struct_asym_pattern, cif_content)
         
         # Create mapping of entity_id to chain_ids
@@ -700,7 +713,7 @@ class _TestBase(parameterized.TestCase):
         # Look for single entries (not loops) with format:
         # _pdbx_nonpoly_scheme.asym_id L
         # _pdbx_nonpoly_scheme.mon_id ATP
-        nonpoly_asym_pattern = r'_pdbx_nonpoly_scheme\.asym_id\s+([A-Z])'
+        nonpoly_asym_pattern = r'_pdbx_nonpoly_scheme\.asym_id\s+([A-Z]+)'
         nonpoly_mon_pattern = r'_pdbx_nonpoly_scheme\.mon_id\s+([A-Z0-9]+)'
         
         nonpoly_asym_matches = re.findall(nonpoly_asym_pattern, cif_content)
@@ -1135,6 +1148,93 @@ class TestAlphaFold3RunModes(_TestBase):
         self.assertTrue(_paired_empty(b_data))
 
         print("✓ Combined AF3 input JSON created; per-chain MSAs present for backend pairing")
+
+    def test_af3_splits_discontinuous_chopped_regions_into_separate_chains(self):
+        """AF3 must encode multi-region chopped inputs as separate protein chains."""
+        from alphapulldown.folding_backend.alphafold3_backend import (
+            AlphaFold3Backend,
+            process_fold_input,
+        )
+
+        parsed = parse_fold(
+            ["TEST+A0A075B6L2:1-10:2-5:12-15"],
+            [str(self.test_features_dir)],
+            "+",
+        )
+        data = create_custom_info(parsed)
+        all_interactors = create_interactors(data, [str(self.test_features_dir)])
+        self.assertLen(all_interactors, 1)
+        self.assertLen(all_interactors[0], 2)
+
+        object_to_model = MultimericObject(interactors=all_interactors[0], pair_msa=True)
+        objects_to_model = [{"object": object_to_model, "output_dir": str(self.output_dir)}]
+
+        mappings = AlphaFold3Backend.prepare_input(
+            objects_to_model=objects_to_model,
+            random_seed=42,
+        )
+        self.assertLen(mappings, 1)
+        fold_input_obj, _ = next(iter(mappings[0].items()))
+
+        expected_sequences = [
+            self._get_sequence_for_protein("TEST"),
+            *self._get_region_sequences(
+                "A0A075B6L2",
+                [(1, 10), (2, 5), (12, 15)],
+            ),
+        ]
+        concatenated_chopped_sequence = "".join(expected_sequences[1:])
+        actual_sequences = [chain.sequence for chain in fold_input_obj.chains]
+        self.assertCountEqual(actual_sequences, expected_sequences)
+        self.assertLen(actual_sequences, 4)
+        self.assertNotIn(concatenated_chopped_sequence, actual_sequences)
+
+        process_fold_input(
+            fold_input=fold_input_obj,
+            model_runner=None,
+            output_dir=str(self.output_dir),
+            buckets=(512,),
+        )
+        input_json = self.output_dir / f"{fold_input_obj.sanitised_name()}_data.json"
+        with open(input_json, "rt") as handle:
+            data = json.load(handle)
+
+        protein_entries = [
+            sequence_entry["protein"]
+            for sequence_entry in data.get("sequences", [])
+            if "protein" in sequence_entry
+        ]
+        self.assertLen(protein_entries, 4)
+        self.assertCountEqual(
+            [entry["sequence"] for entry in protein_entries],
+            expected_sequences,
+        )
+        self.assertCountEqual(
+            [entry.get("description") for entry in protein_entries],
+            [
+                "TEST",
+                "A0A075B6L2_1-10",
+                "A0A075B6L2_2-5",
+                "A0A075B6L2_12-15",
+            ],
+        )
+
+        print("✓ AF3 input expands discontinuous chopped regions into separate chains")
+
+    def test_dimer_chopped_expected_sequences_are_split_by_region(self):
+        """Sequence expectations for AF3 chopped inputs must reflect chain splitting."""
+        expected_sequences = self._extract_expected_sequences("test_dimer_chopped.txt")
+        self.assertCountEqual(
+            [sequence for _, sequence in expected_sequences],
+            [
+                self._get_sequence_for_protein("TEST"),
+                *self._get_region_sequences(
+                    "A0A075B6L2",
+                    [(1, 10), (2, 5), (12, 15)],
+                ),
+            ],
+        )
+        self.assertLen(expected_sequences, 4)
 
     def test_multi_seeds_samples_sequence_extraction(self):
         """Test that sequence extraction works correctly for multi_seeds_samples."""
