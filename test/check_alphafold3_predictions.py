@@ -1212,6 +1212,130 @@ class TestAlphaFold3RunModes(_TestBase):
 
         print("✓ AF3 input expands discontinuous chopped regions into separate chains")
 
+    def test_af3_json_feature_ranges_expand_into_separate_chains(self):
+        """AF3 JSON feature files with ranges must expand into separate protein chains."""
+        from alphapulldown.folding_backend.alphafold3_backend import (
+            AlphaFold3Backend,
+            process_fold_input,
+        )
+
+        feature_dir = self.test_features_dir / "af3_features" / "protein"
+        json_filename = "A0A024R1R8_af3_input.json"
+        parsed = parse_fold(
+            [f"{json_filename}:2-5:8-10"],
+            [str(feature_dir)],
+            "+",
+        )
+        self.assertEqual(
+            parsed,
+            [[
+                {
+                    "json_input": str(feature_dir / json_filename),
+                    "regions": [(2, 5), (8, 10)],
+                }
+            ]],
+        )
+
+        data = create_custom_info(parsed)
+        all_interactors = create_interactors(data, [str(feature_dir)])
+        self.assertLen(all_interactors, 1)
+        self.assertLen(all_interactors[0], 1)
+        self.assertIsInstance(all_interactors[0][0], dict)
+
+        objects_to_model = [{"object": all_interactors[0][0], "output_dir": str(self.output_dir)}]
+        mappings = AlphaFold3Backend.prepare_input(
+            objects_to_model=objects_to_model,
+            random_seed=42,
+        )
+        self.assertLen(mappings, 1)
+        fold_input_obj, _ = next(iter(mappings[0].items()))
+
+        json_sequences = self._get_sequence_from_json(
+            "af3_features/protein/A0A024R1R8_af3_input.json"
+        )
+        self.assertLen(json_sequences, 1)
+        full_sequence = json_sequences[0][1]
+        expected_sequences = [
+            full_sequence[1:5],
+            full_sequence[7:10],
+        ]
+        self.assertCountEqual(
+            [chain.sequence for chain in fold_input_obj.chains],
+            expected_sequences,
+        )
+
+        process_fold_input(
+            fold_input=fold_input_obj,
+            model_runner=None,
+            output_dir=str(self.output_dir),
+            buckets=(512,),
+        )
+        input_json = self.output_dir / f"{fold_input_obj.sanitised_name()}_data.json"
+        with open(input_json, "rt") as handle:
+            written = json.load(handle)
+
+        protein_entries = [
+            sequence_entry["protein"]
+            for sequence_entry in written.get("sequences", [])
+            if "protein" in sequence_entry
+        ]
+        self.assertLen(protein_entries, 2)
+        self.assertCountEqual(
+            [entry["sequence"] for entry in protein_entries],
+            expected_sequences,
+        )
+
+        print("✓ AF3 JSON feature ranges expand into separate chains")
+
+    def test_af3_predicts_json_feature_ranges_as_separate_chains(self):
+        """Run AF3 on a Snakefile-style AF3 JSON feature input with explicit ranges."""
+        self._require_af3_functional_environment()
+        env = self._make_af3_test_env()
+        flash_impl = self._af3_flash_attention_impl()
+        feature_dir = self.test_features_dir / "af3_features" / "protein"
+
+        res = subprocess.run(
+            [
+                sys.executable,
+                str(self.script_single),
+                "--input=A0A024R1R8_af3_input.json:2-5:8-10",
+                f"--output_directory={self.output_dir}",
+                f"--data_directory={DATA_DIR}",
+                f"--features_directory={feature_dir}",
+                "--fold_backend=alphafold3",
+                f"--flash_attention_implementation={flash_impl}",
+                "--num_diffusion_samples=1",
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        self._runCommonTests(res)
+
+        json_sequences = self._get_sequence_from_json(
+            "af3_features/protein/A0A024R1R8_af3_input.json"
+        )
+        self.assertLen(json_sequences, 1)
+        full_sequence = json_sequences[0][1]
+        expected_sequences = [
+            full_sequence[1:5],
+            full_sequence[7:10],
+        ]
+        concatenated_sequence = "".join(expected_sequences)
+
+        result_dir = self._resolve_single_af3_result_dir()
+        cif_files = list(result_dir.glob("*_model.cif"))
+        self.assertTrue(cif_files, f"No predicted CIF files found in {result_dir}")
+
+        actual_chains_and_sequences = self._extract_cif_chains_and_sequences(cif_files[0])
+        actual_sequences = [sequence for _, sequence in actual_chains_and_sequences]
+
+        self.assertLen(actual_sequences, 2)
+        self.assertCountEqual(actual_sequences, expected_sequences)
+        self.assertNotIn(concatenated_sequence, actual_sequences)
+
+        print("✓ AF3 prediction keeps AF3 JSON feature ranges as separate chains")
+
     def test_af3_predicts_discontinuous_chopped_regions_as_separate_chains(self):
         """Run AF3 inference and ensure discontinuous chopped regions remain separate chains."""
         self._require_af3_functional_environment()

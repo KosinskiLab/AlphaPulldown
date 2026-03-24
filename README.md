@@ -56,6 +56,14 @@ You can also specify:
 - **Multiple copies**: `Q8I2G6:2` (dimer of the same protein)
 - **Combinations**: `Q8I2G6:2:1-100+Q8I5K4` (dimer of residues 1-100 plus another protein)
 
+The same range syntax also works with AlphaFold 3 JSON features. When a
+workflow or wrapper maps a logical token such as `Q8I2G6:1-100` to
+`Q8I2G6_af3_input.json:1-100`, AlphaPulldown now preserves the region
+selection and expands the AF3 JSON feature input into the corresponding
+cropped chain(s).
+For workflow deployments, make sure the execution environment also carries
+`alphapulldown-input-parser>=0.4.0`.
+
 </details>
 
 ### Configure Input Files

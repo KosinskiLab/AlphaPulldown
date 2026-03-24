@@ -20,10 +20,20 @@ logging.set_verbosity(logging.INFO)
 
 
 
-def _normalise_fold_entry(entry: Dict[str, Union[str, RegionSelection]]) -> Dict[str, Union[str, List[Tuple[int, int]]]]:
+def _normalise_fold_entry(
+    entry: Dict[str, Union[str, RegionSelection]]
+) -> Dict[str, Union[str, List[Tuple[int, int]]]]:
     """Convert entries from alphapulldown-input-parser into legacy AlphaPulldown format."""
     if "json_input" in entry:
-        return {"json_input": entry["json_input"]}
+        normalised_json_entry: Dict[str, Union[str, List[Tuple[int, int]]]] = {
+            "json_input": entry["json_input"]
+        }
+        json_regions = entry.get("regions")
+        if isinstance(json_regions, RegionSelection) and not json_regions.is_all:
+            normalised_json_entry["regions"] = [
+                (region.start, region.end) for region in json_regions.regions
+            ]
+        return normalised_json_entry
 
     if len(entry) != 1:
         return entry
@@ -220,7 +230,7 @@ def load_monomer_objects(monomer_dir_dict, protein_name):
 
 
 def create_interactors(data : List[Dict[str, List[str]]], 
-                       monomer_objects_dir : List[str], i : int = 0) -> List[List[Union[MonomericObject, ChoppedObject, Dict[str, str]]]]:
+                       monomer_objects_dir : List[str], i : int = 0) -> List[List[Union[MonomericObject, ChoppedObject, Dict[str, Union[str, List[Tuple[int, int]]]]]]]:
     """
     A function to create a list of monomer objects
 
@@ -234,7 +244,12 @@ def create_interactors(data : List[Dict[str, List[str]]],
         interactors = []
         monomer_dir_dict = make_dir_monomer_dictionary(monomer_objects_dir)
         for k in data.keys():
-            for curr_interactor_name, curr_interactor_region in data[k][i].items():
+            entry = data[k][i]
+            if isinstance(entry, dict) and 'json_input' in entry:
+                interactors.append(dict(entry))
+                continue
+
+            for curr_interactor_name, curr_interactor_region in entry.items():
                 # Check if this is a JSON input
                 if curr_interactor_name == 'json_input':
                     interactors.append({'json_input': curr_interactor_region})
@@ -264,4 +279,3 @@ def create_interactors(data : List[Dict[str, List[str]]],
     for d in data:
         interactors.append(process_each_dict(d, monomer_objects_dir))
     return interactors
-
