@@ -281,6 +281,10 @@ class ChoppedObject(MonomericObject):
     ) -> None:
         super().__init__(description, sequence)
         self.monomeric_description = description
+        # Preserve the original monomer inputs so backends that cannot represent
+        # intra-chain breaks can re-slice individual regions on demand.
+        self.source_sequence = sequence
+        self.source_feature_dict = feature_dict
         self.feature_dict = feature_dict
         self.regions = regions
         self.new_sequence = ""
@@ -469,6 +473,28 @@ class ChoppedObject(MonomericObject):
         self.sequence = self.new_sequence
         self.feature_dict = final
         self.new_feature_dict = {}
+
+    def split_into_individual_region_objects(self) -> List["ChoppedObject"]:
+        """Return one chopped object per requested region.
+
+        This is used by backends such as AlphaFold 3 that cannot encode
+        discontinuous regions as a single polymer chain without introducing a
+        peptide bond between adjacent modeled residues.
+        """
+        if len(self.regions) <= 1:
+            return [self]
+
+        region_objects: List[ChoppedObject] = []
+        for region in self.regions:
+            region_object = ChoppedObject(
+                self.monomeric_description,
+                self.source_sequence,
+                self.source_feature_dict,
+                [region],
+            )
+            region_object.prepare_final_sliced_feature_dict()
+            region_objects.append(region_object)
+        return region_objects
 
 
 

@@ -774,11 +774,19 @@ class AlphaFold3Backend(FoldingBackend):
                 id=chain_id,
                 sequence=sequence,
                 ptms=[],
+                description=mono_obj.description,
                 unpaired_msa=unpaired_msa,
                 paired_msa=paired_msa,
                 templates=templates,
             )
             return chain
+
+        def _expand_monomeric_object(
+            mono_obj: Union[MonomericObject, ChoppedObject],
+        ) -> list[Union[MonomericObject, ChoppedObject]]:
+            if isinstance(mono_obj, ChoppedObject):
+                return mono_obj.split_into_individual_region_objects()
+            return [mono_obj]
 
         def _process_single_object(obj, chain_id_counter_ref, used_chain_ids: set):
             nonlocal all_chains, job_name
@@ -812,6 +820,7 @@ class AlphaFold3Backend(FoldingBackend):
                                 id=new_id,
                                 sequence=chain.sequence,
                                 ptms=chain.ptms,
+                                description=chain.description,
                                 paired_msa=chain.paired_msa,
                                 unpaired_msa=chain.unpaired_msa,
                                 templates=chain.templates,
@@ -821,12 +830,14 @@ class AlphaFold3Backend(FoldingBackend):
                                 id=new_id,
                                 sequence=chain.sequence,
                                 modifications=chain.modifications,
+                                description=chain.description,
                                 unpaired_msa=chain.unpaired_msa,
                             )
                         elif isinstance(chain, folding_input.DnaChain):
                             modified_chain = folding_input.DnaChain(
                                 id=new_id,
                                 sequence=chain.sequence,
+                                description=chain.description,
                                 modifications=chain.modifications(),
                             )
                         elif isinstance(chain, folding_input.Ligand):
@@ -834,6 +845,7 @@ class AlphaFold3Backend(FoldingBackend):
                                 id=new_id,
                                 ccd_ids=chain.ccd_ids,
                                 smiles=chain.smiles,
+                                description=chain.description,
                             )
                         else:
                             raise TypeError(f"Unsupported chain type: {type(chain)}")
@@ -849,45 +861,69 @@ class AlphaFold3Backend(FoldingBackend):
                     logging.error(f"Failed to parse JSON file {json_path}: {e}")
                     raise
             elif isinstance(obj, (MonomericObject, ChoppedObject)):
-                chain_id = get_next_available_chain_id(used_chain_ids, chain_id_counter_ref)
-                used_chain_ids.add(chain_id)
-                logging.info(f"Added chain ID '{chain_id}' for AlphaPulldown object")
-                chains = [_monomeric_to_chain(obj, chain_id)]
-                all_chains.extend(chains)
+                for expanded_obj in _expand_monomeric_object(obj):
+                    chain_id = get_next_available_chain_id(used_chain_ids, chain_id_counter_ref)
+                    used_chain_ids.add(chain_id)
+                    logging.info(
+                        f"Added chain ID '{chain_id}' for AlphaPulldown object "
+                        f"{expanded_obj.description}"
+                    )
+                    all_chains.append(_monomeric_to_chain(expanded_obj, chain_id))
             elif isinstance(obj, MultimericObject):
                 chains = []
                 translated_result = None
                 combined_msa = obj.feature_dict.get('msa')
+                expanded_interactors = [
+                    expanded_interactor
+                    for interactor in obj.interactors
+                    for expanded_interactor in _expand_monomeric_object(interactor)
+                ]
+                expanded_discontinuous_regions = len(expanded_interactors) != len(obj.interactors)
+
                 translated_result = (
                     translate_af2_individual_chain_features_to_af3_msas_with_stats(
                         chain_feature_dicts=[
-                            interactor.feature_dict for interactor in obj.interactors
+                            interactor.feature_dict for interactor in expanded_interactors
                         ],
-                        chain_sequences=[interactor.sequence for interactor in obj.interactors],
+                        chain_sequences=[
+                            interactor.sequence for interactor in expanded_interactors
+                        ],
                     )
                 )
-                num_pairable_chains = sum(
-                    chain_stats.paired_species_identifier_count > 0
-                    for chain_stats in translated_result.chain_stats
-                )
-                if num_pairable_chains < 2 and combined_msa is not None:
-                    # Fall back to the merged AF2 multimer MSA transport path when the
-                    # individual `_all_seq` features do not carry usable species IDs.
-                    translated_result = (
-                        translate_af2_complex_msa_to_af3_unpaired_chain_msas_with_stats(
-                            merged_msa=np.asarray(combined_msa),
-                            chain_sequences=[interactor.sequence for interactor in obj.interactors],
-                            num_alignments=obj.feature_dict.get('num_alignments'),
-                            deletion_matrix=(
-                                obj.feature_dict.get('deletion_matrix_int')
-                                if obj.feature_dict.get('deletion_matrix_int') is not None
-                                else obj.feature_dict.get('deletion_matrix')
-                            ),
-                            asym_id=obj.feature_dict.get('asym_id'),
+                if not expanded_discontinuous_regions:
+                    num_pairable_chains = sum(
+                        chain_stats.paired_species_identifier_count > 0
+                        for chain_stats in translated_result.chain_stats
+                    )
+                    if num_pairable_chains < 2 and combined_msa is not None:
+                        # Fall back to the merged AF2 multimer MSA transport path when the
+                        # individual `_all_seq` features do not carry usable species IDs.
+                        translated_result = (
+                            translate_af2_complex_msa_to_af3_unpaired_chain_msas_with_stats(
+                                merged_msa=np.asarray(combined_msa),
+                                chain_sequences=[
+                                    interactor.sequence for interactor in obj.interactors
+                                ],
+                                num_alignments=obj.feature_dict.get('num_alignments'),
+                                deletion_matrix=(
+                                    obj.feature_dict.get('deletion_matrix_int')
+                                    if obj.feature_dict.get('deletion_matrix_int') is not None
+                                    else obj.feature_dict.get('deletion_matrix')
+                                ),
+                                asym_id=obj.feature_dict.get('asym_id'),
+                            )
                         )
+                        expanded_interactors = list(obj.interactors)
+                else:
+                    logging.info(
+                        "Expanded discontinuous chopped interactors into %d AF3 chains "
+                        "for job %s; keeping per-chain AF2-derived MSAs because AF3 "
+                        "cannot encode polymer chain breaks within one protein chain.",
+                        len(expanded_interactors),
+                        obj.description,
                     )
 
-                for chain_index, interactor in enumerate(obj.interactors):
+                for chain_index, interactor in enumerate(expanded_interactors):
                     chain_id = get_next_available_chain_id(used_chain_ids, chain_id_counter_ref)
                     used_chain_ids.add(chain_id)
                     logging.info(f"Added chain ID '{chain_id}' for multimeric interactor")
@@ -899,6 +935,7 @@ class AlphaFold3Backend(FoldingBackend):
                             id=base_chain.id,
                             sequence=base_chain.sequence,
                             ptms=base_chain.ptms,
+                            description=base_chain.description,
                             unpaired_msa=chain_msas.unpaired_msa,
                             paired_msa=chain_msas.paired_msa,
                             templates=base_chain.templates,
@@ -977,6 +1014,7 @@ class AlphaFold3Backend(FoldingBackend):
                                 id=ch.id,
                                 sequence=ch.sequence,
                                 ptms=ch.ptms,
+                                description=ch.description,
                                 paired_msa=ch.unpaired_msa,
                                 unpaired_msa='',
                                 templates=ch.templates,
