@@ -270,7 +270,7 @@ def predict_structure(
     ----------
     objects_to_model : A list of dictionaries. Each dictionary has a key of either:
         - MultimericObject, MonomericObject, or ChoppedObject for AlphaPulldown objects
-        - Dict[str, str] with 'json_input' key for JSON inputs
+        - Dict with 'json_input' key and optional 'regions' for AF3 JSON inputs
        The value of each dictionary is the corresponding output_dir to save the modelling results.
     model_flags : Dict
         Dictionary of flags passed to the respective backend's predict function.

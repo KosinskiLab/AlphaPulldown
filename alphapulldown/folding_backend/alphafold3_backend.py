@@ -27,6 +27,7 @@ from alphafold3.common import base_config
 from alphafold3.common import folding_input
 from alphafold3.constants import chemical_components
 from alphafold3.data import featurisation
+from alphafold3.data import parsers as af3_parsers
 from alphafold3.jax.attention import attention
 from alphafold3.model import features, params, post_processing
 from alphafold3.model import model
@@ -508,6 +509,213 @@ class AlphaFold3Backend(FoldingBackend):
                 if key in supported_kwargs
             }
             return chain_cls(**filtered_kwargs)
+
+        def _slice_a3m_row_to_region(a3m_row: str, start: int, end: int) -> str:
+            query_position = 0
+            sliced_chars: list[str] = []
+            for char in a3m_row:
+                if char.islower():
+                    # Lowercase A3M letters are insertions after the current
+                    # query position, so keep only those between retained
+                    # residues and drop insertions before `start` or after `end`.
+                    if start <= query_position < end:
+                        sliced_chars.append(char)
+                    continue
+
+                query_position += 1
+                if query_position < start:
+                    continue
+                if query_position > end:
+                    break
+                sliced_chars.append(char)
+            return "".join(sliced_chars)
+
+        def _slice_a3m_to_region(
+            a3m_text: str | None,
+            start: int,
+            end: int,
+        ) -> str | None:
+            if a3m_text in (None, ""):
+                return a3m_text
+
+            sequences, descriptions = af3_parsers.parse_fasta(a3m_text)
+            sliced_sequences = [
+                _slice_a3m_row_to_region(sequence, start, end)
+                for sequence in sequences
+            ]
+            return (
+                "\n".join(
+                    f">{description}\n{sequence}"
+                    for description, sequence in zip(
+                        descriptions,
+                        sliced_sequences,
+                        strict=True,
+                    )
+                )
+                + "\n"
+            )
+
+        def _slice_templates_to_region(
+            templates: Sequence[folding_input.Template] | None,
+            start: int,
+            end: int,
+        ) -> Sequence[folding_input.Template] | None:
+            if templates is None:
+                return None
+
+            start_index = start - 1
+            sliced_templates = []
+            for template in templates:
+                remapped_indices = {
+                    query_index - start_index: template_index
+                    for query_index, template_index in template.query_to_template_map.items()
+                    if start_index <= query_index < end
+                }
+                if remapped_indices:
+                    sliced_templates.append(
+                        folding_input.Template(
+                            mmcif=template.mmcif,
+                            query_to_template_map=remapped_indices,
+                        )
+                    )
+            return sliced_templates
+
+        def _slice_positioned_modifications_to_region(
+            modifications: Sequence[tuple[str, int]],
+            start: int,
+            end: int,
+        ) -> list[tuple[str, int]]:
+            return [
+                (modification_name, modification_position - start + 1)
+                for modification_name, modification_position in modifications
+                if start <= modification_position <= end
+            ]
+
+        def _slice_af3_chain_to_region(
+            chain: (
+                folding_input.ProteinChain
+                | folding_input.RnaChain
+                | folding_input.DnaChain
+                | folding_input.Ligand
+            ),
+            *,
+            start: int,
+            end: int,
+            json_path: str,
+        ):
+            if isinstance(chain, folding_input.Ligand):
+                raise ValueError(
+                    f"Region ranges are not supported for ligand AF3 JSON inputs: {json_path}"
+                )
+
+            sequence_length = len(chain.sequence)
+            if not 1 <= start <= end <= sequence_length:
+                raise ValueError(
+                    f"Requested region {start}-{end} is outside the sequence "
+                    f"length {sequence_length} for AF3 JSON input {json_path}."
+                )
+
+            sliced_sequence = chain.sequence[start - 1:end]
+            if isinstance(chain, folding_input.ProteinChain):
+                return _construct_chain(
+                    folding_input.ProteinChain,
+                    id=chain.id,
+                    sequence=sliced_sequence,
+                    ptms=_slice_positioned_modifications_to_region(
+                        chain.ptms,
+                        start,
+                        end,
+                    ),
+                    unpaired_msa=_slice_a3m_to_region(
+                        chain.unpaired_msa,
+                        start,
+                        end,
+                    ),
+                    paired_msa=_slice_a3m_to_region(
+                        chain.paired_msa,
+                        start,
+                        end,
+                    ),
+                    templates=_slice_templates_to_region(
+                        chain.templates,
+                        start,
+                        end,
+                    ),
+                )
+
+            if isinstance(chain, folding_input.RnaChain):
+                return _construct_chain(
+                    folding_input.RnaChain,
+                    id=chain.id,
+                    sequence=sliced_sequence,
+                    modifications=_slice_positioned_modifications_to_region(
+                        chain.modifications,
+                        start,
+                        end,
+                    ),
+                    unpaired_msa=_slice_a3m_to_region(
+                        chain.unpaired_msa,
+                        start,
+                        end,
+                    ),
+                )
+
+            if isinstance(chain, folding_input.DnaChain):
+                return _construct_chain(
+                    folding_input.DnaChain,
+                    id=chain.id,
+                    sequence=sliced_sequence,
+                    modifications=_slice_positioned_modifications_to_region(
+                        chain.modifications(),
+                        start,
+                        end,
+                    ),
+                )
+
+            raise TypeError(f"Unsupported chain type for AF3 JSON slicing: {type(chain)}")
+
+        def _expand_json_input_chains(
+            *,
+            chains: Sequence[
+                folding_input.ProteinChain
+                | folding_input.RnaChain
+                | folding_input.DnaChain
+                | folding_input.Ligand
+            ],
+            json_path: str,
+            regions: list[tuple[int, int]] | None,
+        ) -> list[
+            folding_input.ProteinChain
+            | folding_input.RnaChain
+            | folding_input.DnaChain
+            | folding_input.Ligand
+        ]:
+            if not regions:
+                return list(chains)
+
+            if len(chains) != 1:
+                raise ValueError(
+                    "Region ranges for AF3 JSON feature inputs require exactly "
+                    f"one chain per file, but {json_path} contains {len(chains)} chains."
+                )
+
+            base_chain = chains[0]
+            expanded_chains = [
+                _slice_af3_chain_to_region(
+                    base_chain,
+                    start=start,
+                    end=end,
+                    json_path=json_path,
+                )
+                for start, end in regions
+            ]
+            logging.info(
+                "Expanded AF3 JSON input %s into %d chain(s) for regions %s",
+                json_path,
+                len(expanded_chains),
+                regions,
+            )
+            return expanded_chains
         
         def get_chain_id(index: int) -> str:
             if index < 26:
@@ -807,17 +1015,29 @@ class AlphaFold3Backend(FoldingBackend):
             nonlocal all_chains, job_name
             if isinstance(obj, dict) and 'json_input' in obj:
                 json_path = obj['json_input']
+                json_regions = obj.get('regions')
                 logging.info(f"Processing JSON file: {json_path}")
                 try:
                     with open(json_path, 'r') as f:
                         json_str = f.read()
                     input_obj = folding_input.Input.from_json(json_str)
+                    chains_to_add = _expand_json_input_chains(
+                        chains=input_obj.chains,
+                        json_path=json_path,
+                        regions=(
+                            json_regions if isinstance(json_regions, list) and json_regions else None
+                        ),
+                    )
                     # Track the chain IDs from the JSON file
-                    logging.info(f"JSON file {json_path} contains chains with IDs: {[chain.id for chain in input_obj.chains]}")
+                    logging.info(
+                        "JSON file %s contributes chains with IDs: %s",
+                        json_path,
+                        [chain.id for chain in chains_to_add],
+                    )
                     
                     # Check for duplicate chain IDs and modify them if necessary
                     modified_chains = []
-                    for chain in input_obj.chains:
+                    for chain in chains_to_add:
                         original_id = chain.id
                         new_id = original_id
                         
