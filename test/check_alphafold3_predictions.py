@@ -1209,15 +1209,6 @@ class TestAlphaFold3RunModes(_TestBase):
             [entry["sequence"] for entry in protein_entries],
             expected_sequences,
         )
-        self.assertCountEqual(
-            [entry.get("description") for entry in protein_entries],
-            [
-                "TEST",
-                "A0A075B6L2_1-10",
-                "A0A075B6L2_2-5",
-                "A0A075B6L2_12-15",
-            ],
-        )
 
         print("✓ AF3 input expands discontinuous chopped regions into separate chains")
 

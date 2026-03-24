@@ -9,6 +9,7 @@ Author: Dmitry Molodenskiy <dmitry.molodenskiy@embl-hamburg.de>
 import csv
 import dataclasses
 import functools
+import inspect
 import json
 import logging
 import os
@@ -494,6 +495,19 @@ class AlphaFold3Backend(FoldingBackend):
             paired_species_identifier_count: int
             paired_rows_without_species_identifier_count: int
             paired_rows_with_generated_accession_count: int
+
+        @functools.lru_cache(maxsize=None)
+        def _supported_chain_kwargs(chain_cls: type) -> frozenset[str]:
+            return frozenset(inspect.signature(chain_cls).parameters)
+
+        def _construct_chain(chain_cls: type, **kwargs):
+            supported_kwargs = _supported_chain_kwargs(chain_cls)
+            filtered_kwargs = {
+                key: value
+                for key, value in kwargs.items()
+                if key in supported_kwargs
+            }
+            return chain_cls(**filtered_kwargs)
         
         def get_chain_id(index: int) -> str:
             if index < 26:
@@ -770,7 +784,8 @@ class AlphaFold3Backend(FoldingBackend):
                         except Exception as save_error:
                             logging.error(f"Failed to save error info: {save_error}")
                         raise
-            chain = folding_input.ProteinChain(
+            chain = _construct_chain(
+                folding_input.ProteinChain,
                 id=chain_id,
                 sequence=sequence,
                 ptms=[],
@@ -816,36 +831,40 @@ class AlphaFold3Backend(FoldingBackend):
                         
                         # Create a new chain with the modified ID
                         if isinstance(chain, folding_input.ProteinChain):
-                            modified_chain = folding_input.ProteinChain(
+                            modified_chain = _construct_chain(
+                                folding_input.ProteinChain,
                                 id=new_id,
                                 sequence=chain.sequence,
                                 ptms=chain.ptms,
-                                description=chain.description,
+                                description=getattr(chain, "description", None),
                                 paired_msa=chain.paired_msa,
                                 unpaired_msa=chain.unpaired_msa,
                                 templates=chain.templates,
                             )
                         elif isinstance(chain, folding_input.RnaChain):
-                            modified_chain = folding_input.RnaChain(
+                            modified_chain = _construct_chain(
+                                folding_input.RnaChain,
                                 id=new_id,
                                 sequence=chain.sequence,
                                 modifications=chain.modifications,
-                                description=chain.description,
+                                description=getattr(chain, "description", None),
                                 unpaired_msa=chain.unpaired_msa,
                             )
                         elif isinstance(chain, folding_input.DnaChain):
-                            modified_chain = folding_input.DnaChain(
+                            modified_chain = _construct_chain(
+                                folding_input.DnaChain,
                                 id=new_id,
                                 sequence=chain.sequence,
-                                description=chain.description,
+                                description=getattr(chain, "description", None),
                                 modifications=chain.modifications(),
                             )
                         elif isinstance(chain, folding_input.Ligand):
-                            modified_chain = folding_input.Ligand(
+                            modified_chain = _construct_chain(
+                                folding_input.Ligand,
                                 id=new_id,
                                 ccd_ids=chain.ccd_ids,
                                 smiles=chain.smiles,
-                                description=chain.description,
+                                description=getattr(chain, "description", None),
                             )
                         else:
                             raise TypeError(f"Unsupported chain type: {type(chain)}")
@@ -931,11 +950,12 @@ class AlphaFold3Backend(FoldingBackend):
                     if translated_result is not None:
                         chain_msas = translated_result.chain_msas[chain_index]
                         chain_stats = translated_result.chain_stats[chain_index]
-                        base_chain = folding_input.ProteinChain(
+                        base_chain = _construct_chain(
+                            folding_input.ProteinChain,
                             id=base_chain.id,
                             sequence=base_chain.sequence,
                             ptms=base_chain.ptms,
-                            description=base_chain.description,
+                            description=interactor.description,
                             unpaired_msa=chain_msas.unpaired_msa,
                             paired_msa=chain_msas.paired_msa,
                             templates=base_chain.templates,
@@ -1010,11 +1030,12 @@ class AlphaFold3Backend(FoldingBackend):
                         has_empty_paired = (getattr(ch, 'paired_msa', None) in (None, ''))
                         has_unpaired = bool(getattr(ch, 'unpaired_msa', ''))
                         if has_empty_paired and has_unpaired:
-                            new_chain = folding_input.ProteinChain(
+                            new_chain = _construct_chain(
+                                folding_input.ProteinChain,
                                 id=ch.id,
                                 sequence=ch.sequence,
                                 ptms=ch.ptms,
-                                description=ch.description,
+                                description=getattr(ch, "description", None),
                                 paired_msa=ch.unpaired_msa,
                                 unpaired_msa='',
                                 templates=ch.templates,
