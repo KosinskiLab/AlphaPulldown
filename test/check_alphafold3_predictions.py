@@ -1289,18 +1289,18 @@ class TestAlphaFold3RunModes(_TestBase):
         print("✓ AF3 JSON feature ranges expand into separate chains")
 
     def test_af3_predicts_json_feature_ranges_as_separate_chains(self):
-        """Run AF3 on a Snakefile-style AF3 JSON feature input with explicit ranges."""
+        """Run AF3 on a lightweight protein AF3 JSON input with explicit ranges."""
         self._require_af3_functional_environment()
         env = self._make_af3_test_env()
         flash_impl = self._af3_flash_attention_impl()
-        feature_dir = self.test_features_dir / "af3_features" / "protein"
-        regions = [(2, 20), (25, 40)]
+        feature_dir = self.test_features_dir
+        regions = [(20, 35), (40, 55)]
 
         res = subprocess.run(
             [
                 sys.executable,
                 str(self.script_single),
-                "--input=A0A024R1R8_af3_input.json:2-20:25-40",
+                "--input=protein_with_ptms.json:20-35:40-55",
                 f"--output_directory={self.output_dir}",
                 f"--data_directory={DATA_DIR}",
                 f"--features_directory={feature_dir}",
@@ -1315,7 +1315,7 @@ class TestAlphaFold3RunModes(_TestBase):
         self._runCommonTests(res)
 
         json_sequences = self._get_sequence_from_json(
-            "af3_features/protein/A0A024R1R8_af3_input.json"
+            "protein_with_ptms.json"
         )
         self.assertLen(json_sequences, 1)
         full_sequence = json_sequences[0][1]
