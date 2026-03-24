@@ -34,7 +34,7 @@ cd AlphaPulldownSnakemake
 
 ### Setup Protein Folding Jobs
 
-Create a sample sheet `folds.txt` listing the proteins you want to fold. The simplest format uses UniProt IDs:
+Create or edit the sample sheet `config/sample_sheet.csv` listing the proteins you want to fold. The simplest format uses one folding specification per line, for example UniProt IDs:
 
 ```
 P01258+P01579
@@ -53,14 +53,22 @@ Each line represents one folding job:
 You can also specify:
 - **FASTA file paths** instead of UniProt IDs: `/path/to/protein.fasta`
 - **Specific residue regions**: `Q8I2G6:1-100` (residues 1-100 only)
+- **Discontinuous regions**: `Q8I2G6:1-100:150-200` (two separate regions from the same protein)
 - **Multiple copies**: `Q8I2G6:2` (dimer of the same protein)
 - **Combinations**: `Q8I2G6:2:1-100+Q8I5K4` (dimer of residues 1-100 plus another protein)
+- **Copies plus discontinuous regions**: `Q8I2G6:2:1-100:150-200+Q8I5K4`
 
-The same range syntax also works with AlphaFold 3 JSON features. When a
-workflow or wrapper maps a logical token such as `Q8I2G6:1-100` to
-`Q8I2G6_af3_input.json:1-100`, AlphaPulldown now preserves the region
-selection and expands the AF3 JSON feature input into the corresponding
-cropped chain(s).
+The same copy/range syntax also works with AlphaFold 3 JSON features. Examples:
+
+- `Q8I2G6_af3_input.json:1-100`
+- `Q8I2G6_af3_input.json:1-100:150-200`
+- `Q8I2G6_af3_input.json:2:1-100:150-200+Q8I5K4_af3_input.json`
+
+When a workflow or wrapper maps a logical token such as `Q8I2G6:1-100:150-200`
+to `Q8I2G6_af3_input.json:1-100:150-200`, AlphaPulldown preserves the region
+selection and expands the AF3 JSON feature input into separate cropped chain(s).
+For the AlphaFold 3 backend, discontinuous regions are modeled as separate
+chains, so they are not connected by a peptide bond.
 For workflow deployments, make sure the execution environment also carries
 `alphapulldown-input-parser>=0.4.0`.
 
@@ -72,7 +80,7 @@ Edit `config/config.yaml` and set the path to your sample sheet:
 
 ```yaml
 input_files:
-  - "folds.txt"
+  - "config/sample_sheet.csv"
 ```
 
 ### Database configuration
@@ -85,7 +93,7 @@ databases_directory: "/path/to/alphafold/databases"
 
 ### Setup Pulldown Experiments
 
-If you want to test which proteins from one group interact with proteins from another group, create a second file `baits.txt`:
+If you want to test which proteins from one group interact with proteins from another group, create a second file such as `config/baits.txt`:
 
 ```
 Q8I2G6
@@ -95,11 +103,11 @@ And update your config:
 
 ```yaml
 input_files:
-  - "folds.txt"
-  - "baits.txt"
+  - "config/sample_sheet.csv"
+  - "config/baits.txt"
 ```
 
-This will test all combinations: every protein in `folds.txt` paired with every protein in `baits.txt`.
+This will test all combinations: every protein in `config/sample_sheet.csv` paired with every protein in `config/baits.txt`.
 
 <details>
 <summary>Multi-file pulldown experiments</summary>
@@ -393,6 +401,12 @@ structure_inference_arguments:
 # Whether to save final distogram in AF3 output.
   --save_distogram: False
 ```
+
+When you provide multiple residue ranges for one AF3 input, AlphaPulldown slices
+the sequence/MSA/template columns to the requested residues and emits each
+discontinuous region as a separate AF3 chain. This matches the current AF3 input
+model, which cannot represent an internal polymer chain break inside one protein
+chain.
 
 </details>
 
