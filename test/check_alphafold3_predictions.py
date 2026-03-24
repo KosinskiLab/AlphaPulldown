@@ -1212,6 +1212,52 @@ class TestAlphaFold3RunModes(_TestBase):
 
         print("✓ AF3 input expands discontinuous chopped regions into separate chains")
 
+    def test_af3_predicts_discontinuous_chopped_regions_as_separate_chains(self):
+        """Run AF3 inference and ensure discontinuous chopped regions remain separate chains."""
+        self._require_af3_functional_environment()
+        env = self._make_af3_test_env()
+        flash_impl = self._af3_flash_attention_impl()
+
+        res = subprocess.run(
+            [
+                sys.executable,
+                str(self.script_single),
+                "--input=TEST+A0A075B6L2:1-10:2-5:12-15",
+                f"--output_directory={self.output_dir}",
+                f"--data_directory={DATA_DIR}",
+                f"--features_directory={self.test_features_dir}",
+                "--fold_backend=alphafold3",
+                f"--flash_attention_implementation={flash_impl}",
+                "--num_diffusion_samples=1",
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        self._runCommonTests(res)
+
+        expected_sequences = [
+            self._get_sequence_for_protein("TEST"),
+            *self._get_region_sequences(
+                "A0A075B6L2",
+                [(1, 10), (2, 5), (12, 15)],
+            ),
+        ]
+        concatenated_chopped_sequence = "".join(expected_sequences[1:])
+
+        result_dir = self._resolve_single_af3_result_dir()
+        cif_files = list(result_dir.glob("*_model.cif"))
+        self.assertTrue(cif_files, f"No predicted CIF files found in {result_dir}")
+
+        actual_chains_and_sequences = self._extract_cif_chains_and_sequences(cif_files[0])
+        actual_sequences = [sequence for _, sequence in actual_chains_and_sequences]
+
+        self.assertLen(actual_sequences, 4)
+        self.assertCountEqual(actual_sequences, expected_sequences)
+        self.assertNotIn(concatenated_chopped_sequence, actual_sequences)
+
+        print("✓ AF3 prediction keeps discontinuous chopped regions as separate chains")
+
     def test_dimer_chopped_expected_sequences_are_split_by_region(self):
         """Sequence expectations for AF3 chopped inputs must reflect chain splitting."""
         expected_sequences = self._extract_expected_sequences("test_dimer_chopped.txt")
