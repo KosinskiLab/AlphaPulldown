@@ -19,7 +19,7 @@ import re
 import time
 import typing
 from collections.abc import Sequence
-from typing import List, Dict, Union, overload
+from typing import Any, List, Dict, Union, overload
 
 import alphafold3.cpp
 import haiku as hk
@@ -863,6 +863,142 @@ class AlphaFold3Backend(FoldingBackend):
                 )
             raise TypeError(f"Unsupported chain type: {type(chain)}")
 
+        def _adjacent_duplicate_keep_indices(
+            residue_ids: Sequence[int] | None,
+        ) -> np.ndarray | None:
+            if residue_ids is None:
+                return None
+            residue_ids_array = np.asarray(residue_ids, dtype=np.int32).reshape(-1)
+            if residue_ids_array.size <= 1:
+                return None
+            keep_mask = np.ones(residue_ids_array.shape[0], dtype=bool)
+            keep_mask[1:] = residue_ids_array[1:] != residue_ids_array[:-1]
+            if np.all(keep_mask):
+                return None
+            return np.flatnonzero(keep_mask)
+
+        def _slice_sequence_like(
+            value: str | bytes | bytearray,
+            keep_indices: np.ndarray,
+        ) -> str | bytes:
+            as_text = (
+                value.decode("utf-8")
+                if isinstance(value, (bytes, bytearray))
+                else str(value)
+            )
+            sliced = "".join(as_text[int(index)] for index in keep_indices.tolist())
+            if isinstance(value, (bytes, bytearray)):
+                return sliced.encode("utf-8")
+            return sliced
+
+        def _normalise_monomeric_inputs_for_af3(
+            mono_obj: Union[MonomericObject, ChoppedObject],
+        ) -> tuple[str, Dict[str, Any], list[int] | None, bool]:
+            sequence = mono_obj.sequence
+            feature_dict = mono_obj.feature_dict
+            residue_index = feature_dict.get("residue_index")
+            if residue_index is None:
+                return sequence, feature_dict, None, False
+
+            residue_ids = (
+                np.asarray(residue_index, dtype=np.int32).reshape(-1) + 1
+            ).astype(int).tolist()
+            keep_indices = _adjacent_duplicate_keep_indices(residue_ids)
+            if keep_indices is None:
+                return sequence, feature_dict, residue_ids, False
+
+            if len(sequence) != len(residue_ids):
+                logging.warning(
+                    "Skipping adjacent-duplicate AF3 normalization for %s because "
+                    "sequence length %d != residue ID count %d",
+                    mono_obj.description,
+                    len(sequence),
+                    len(residue_ids),
+                )
+                return sequence, feature_dict, residue_ids, False
+
+            normalized_feature_dict = dict(feature_dict)
+            normalized_sequence = _slice_sequence_like(sequence, keep_indices)
+            if not isinstance(normalized_sequence, str):
+                normalized_sequence = normalized_sequence.decode("utf-8")
+            normalized_residue_ids = [residue_ids[int(index)] for index in keep_indices.tolist()]
+
+            for key in ("aatype", "between_segment_residues", "residue_index"):
+                if key in normalized_feature_dict:
+                    normalized_feature_dict[key] = np.asarray(
+                        normalized_feature_dict[key]
+                    )[keep_indices]
+
+            for key in (
+                "msa",
+                "deletion_matrix_int",
+                "deletion_matrix",
+                "msa_all_seq",
+                "deletion_matrix_int_all_seq",
+                "deletion_matrix_all_seq",
+            ):
+                if key in normalized_feature_dict:
+                    normalized_feature_dict[key] = np.asarray(
+                        normalized_feature_dict[key]
+                    )[:, keep_indices]
+
+            for key in (
+                "template_aatype",
+                "template_all_atom_masks",
+                "template_confidence_scores",
+            ):
+                if key in normalized_feature_dict:
+                    normalized_feature_dict[key] = np.asarray(
+                        normalized_feature_dict[key]
+                    )[:, keep_indices]
+
+            if "template_all_atom_positions" in normalized_feature_dict:
+                normalized_feature_dict["template_all_atom_positions"] = np.asarray(
+                    normalized_feature_dict["template_all_atom_positions"]
+                )[:, keep_indices, :, :]
+
+            if "template_sequence" in normalized_feature_dict:
+                normalized_feature_dict["template_sequence"] = np.array(
+                    [
+                        _slice_sequence_like(template_sequence, keep_indices)
+                        for template_sequence in normalized_feature_dict["template_sequence"]
+                    ],
+                    dtype=object,
+                )
+
+            if "sequence" in normalized_feature_dict:
+                normalized_feature_dict["sequence"] = np.array(
+                    [normalized_sequence.encode("utf-8")]
+                )
+            if "seq_length" in normalized_feature_dict:
+                normalized_feature_dict["seq_length"] = np.full(
+                    len(normalized_sequence),
+                    len(normalized_sequence),
+                    dtype=np.int32,
+                )
+            if "num_alignments" in normalized_feature_dict:
+                num_alignments = int(
+                    np.asarray(normalized_feature_dict["num_alignments"]).reshape(-1)[0]
+                )
+                normalized_feature_dict["num_alignments"] = np.full(
+                    len(normalized_sequence),
+                    num_alignments,
+                    dtype=np.int32,
+                )
+
+            logging.info(
+                "Collapsed %d adjacent duplicate residue position(s) for %s to "
+                "satisfy AF3 input constraints",
+                len(residue_ids) - len(normalized_residue_ids),
+                mono_obj.description,
+            )
+            return (
+                normalized_sequence,
+                normalized_feature_dict,
+                normalized_residue_ids,
+                True,
+            )
+
         @functools.lru_cache(maxsize=None)
         def _validate_json_template_mmcif(
             mmcif_string: str,
@@ -1401,14 +1537,9 @@ class AlphaFold3Backend(FoldingBackend):
             mono_obj: Union[MonomericObject, ChoppedObject],
             chain_id: str
         ) -> folding_input.ProteinChain:
-            sequence = mono_obj.sequence
-            feature_dict = mono_obj.feature_dict
-            residue_ids = None
-            residue_index = feature_dict.get("residue_index")
-            if residue_index is not None:
-                residue_ids = (
-                    np.asarray(residue_index, dtype=np.int32).reshape(-1) + 1
-                ).astype(int).tolist()
+            sequence, feature_dict, residue_ids, _ = _normalise_monomeric_inputs_for_af3(
+                mono_obj
+            )
             msa_array = feature_dict.get('msa')
             deletion_matrix = feature_dict.get('deletion_matrix_int')
             if deletion_matrix is None:
@@ -1590,14 +1721,23 @@ class AlphaFold3Backend(FoldingBackend):
                 translated_result = None
                 combined_msa = obj.feature_dict.get('msa')
                 expanded_interactors = list(obj.interactors)
+                normalized_interactor_inputs = [
+                    _normalise_monomeric_inputs_for_af3(interactor)
+                    for interactor in expanded_interactors
+                ]
+                has_adjacent_duplicate_residue_ids = any(
+                    normalized_input[3] for normalized_input in normalized_interactor_inputs
+                )
 
                 translated_result = (
                     translate_af2_individual_chain_features_to_af3_msas_with_stats(
                         chain_feature_dicts=[
-                            interactor.feature_dict for interactor in expanded_interactors
+                            normalized_input[1]
+                            for normalized_input in normalized_interactor_inputs
                         ],
                         chain_sequences=[
-                            interactor.sequence for interactor in expanded_interactors
+                            normalized_input[0]
+                            for normalized_input in normalized_interactor_inputs
                         ],
                     )
                 )
@@ -1605,7 +1745,17 @@ class AlphaFold3Backend(FoldingBackend):
                     chain_stats.paired_species_identifier_count > 0
                     for chain_stats in translated_result.chain_stats
                 )
-                if num_pairable_chains < 2 and combined_msa is not None:
+                if (
+                    has_adjacent_duplicate_residue_ids
+                    and num_pairable_chains < 2
+                    and combined_msa is not None
+                ):
+                    logging.info(
+                        "Skipping AF2 merged-MSA fallback for multimeric object %s "
+                        "because adjacent duplicate residue IDs were collapsed for AF3 input compatibility.",
+                        obj.description,
+                    )
+                elif num_pairable_chains < 2 and combined_msa is not None:
                     # Fall back to the merged AF2 multimer MSA transport path when the
                     # individual `_all_seq` features do not carry usable species IDs.
                     translated_result = (
