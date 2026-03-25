@@ -472,7 +472,7 @@ class _TestBase(parameterized.TestCase):
 
     def _extract_cif_chains_and_sequences(self, cif_path: Path) -> List[Tuple[str, str]]:
         """
-        Extract chain IDs and sequences from a CIF file using Biopython.
+        Extract chain IDs and sequences from a CIF file.
         
         Args:
             cif_path: Path to the CIF file
@@ -482,6 +482,69 @@ class _TestBase(parameterized.TestCase):
         """
         chains_and_sequences = []
         
+        try:
+            from alphafold3.cpp import cif_dict
+
+            with open(cif_path, "rt") as handle:
+                cif = cif_dict.from_string(handle.read())
+
+            sequences_by_chain = {}
+
+            if "_pdbx_poly_seq_scheme.asym_id" in cif:
+                asym_ids = cif.get_array("_pdbx_poly_seq_scheme.asym_id", dtype=object)
+                mon_ids = cif.get_array("_pdbx_poly_seq_scheme.mon_id", dtype=object)
+
+                for chain_id, mon_id in zip(asym_ids, mon_ids, strict=True):
+                    sequence = sequences_by_chain.setdefault(chain_id, "")
+                    if mon_id in self._protein_letters_3to1:
+                        sequence += self._protein_letters_3to1[mon_id]
+                    elif mon_id in self._dna_letters_3to1:
+                        sequence += self._dna_letters_3to1[mon_id]
+                    elif mon_id in self._rna_letters_3to1:
+                        sequence += self._rna_letters_3to1[mon_id]
+                    elif mon_id + "  " in self._rna_letters_3to1:
+                        sequence += self._rna_letters_3to1[mon_id + "  "]
+                    elif mon_id + " " in self._dna_letters_3to1:
+                        sequence += self._dna_letters_3to1[mon_id + " "]
+                    elif mon_id == "HYS":
+                        sequence += "H"
+                    elif mon_id == "2MG":
+                        sequence += "G"
+                    else:
+                        sequence += "X"
+                    sequences_by_chain[chain_id] = sequence
+
+            for scheme_prefix in ("_pdbx_nonpoly_scheme", "_pdbx_branch_scheme"):
+                asym_key = f"{scheme_prefix}.asym_id"
+                mon_key = f"{scheme_prefix}.mon_id"
+                if asym_key not in cif or mon_key not in cif:
+                    continue
+                asym_ids = cif.get_array(asym_key, dtype=object)
+                mon_ids = cif.get_array(mon_key, dtype=object)
+                for chain_id, mon_id in zip(asym_ids, mon_ids, strict=True):
+                    if mon_id in {"HOH", "DOD"}:
+                        continue
+                    sequence = sequences_by_chain.setdefault(chain_id, "")
+                    ligand_codes = [] if not sequence else sequence.split("+")
+                    ligand_codes.append(mon_id if mon_id in self._ligand_ccd_codes else "UNKNOWN")
+                    sequences_by_chain[chain_id] = "+".join(ligand_codes)
+
+            chain_order = (
+                list(cif.get_array("_struct_asym.id", dtype=object))
+                if "_struct_asym.id" in cif
+                else list(sequences_by_chain.keys())
+            )
+            for chain_id in chain_order:
+                sequence = sequences_by_chain.get(chain_id)
+                if sequence:
+                    chains_and_sequences.append((chain_id, sequence))
+            if chains_and_sequences:
+                return chains_and_sequences
+        except ImportError:
+            pass
+        except Exception as e:
+            print(f"Error parsing CIF with AF3 cif_dict: {e}")
+
         try:
             from Bio.PDB import MMCIFParser
             
