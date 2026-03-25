@@ -345,8 +345,18 @@ class _TestBase(parameterized.TestCase):
             if "-" in region_str:
                 s, e = region_str.split("-")
                 regions.append((int(s), int(e)))
-        
-        region_sequences = self._get_region_sequences(protein_name, regions)
+
+        # AF3 cannot represent immediately repeated author residue IDs at a
+        # region boundary (e.g. 6-7 followed by 7-8). Collapse only that shared
+        # boundary residue while keeping the explicit region naming unchanged.
+        normalized_regions = []
+        for start, end in regions:
+            if normalized_regions and start == normalized_regions[-1][1]:
+                start += 1
+            if start <= end:
+                normalized_regions.append((start, end))
+
+        region_sequences = self._get_region_sequences(protein_name, normalized_regions)
         if not region_sequences:
             return []
         
@@ -1403,6 +1413,18 @@ class TestAlphaFold3RunModes(_TestBase):
             "A0A075B6L2_1-3_4-5_6-7_7-8__x10",
         )
         self.assertLessEqual(len(fold_input_obj.sanitised_name()), 200)
+        expected_sequence = "".join(
+            self._get_region_sequences(
+                "A0A075B6L2",
+                [(1, 3), (4, 5), (6, 7), (8, 8)],
+            )
+        )
+        self.assertTrue(
+            all(chain.sequence == expected_sequence for chain in fold_input_obj.chains)
+        )
+        self.assertTrue(
+            all(list(chain.residue_ids) == [1, 2, 3, 4, 5, 6, 7, 8] for chain in fold_input_obj.chains)
+        )
 
     def test_af3_prepare_input_accepts_monomer_plus_ligand_json(self):
         """AF3 mixed protein+ligand JSON inputs must survive prepare_input cloning."""
