@@ -1339,6 +1339,7 @@ class AlphaFold3Backend(FoldingBackend):
                                 id=ch.id,
                                 sequence=ch.sequence,
                                 ptms=ch.ptms,
+                                residue_ids=getattr(ch, "residue_ids", None),
                                 description=getattr(ch, "description", None),
                                 paired_msa=ch.unpaired_msa,
                                 unpaired_msa='',
