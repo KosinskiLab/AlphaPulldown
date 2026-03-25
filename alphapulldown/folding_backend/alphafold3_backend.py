@@ -186,12 +186,9 @@ def write_outputs(
         for sample_idx, result in enumerate(results_for_seed.inference_results):
             sample_dir = os.path.join(output_dir, f'seed-{seed}_sample-{sample_idx}')
             os.makedirs(sample_dir, exist_ok=True)
+            result = _make_viewer_compatible_inference_result(result)
             post_processing.write_output(
                 inference_result=result, output_dir=sample_dir
-            )
-            _write_chimerax_output_if_needed(
-                inference_result=result,
-                output_dir=sample_dir,
             )
             ranking_score = float(result.metadata['ranking_score'])
             ranking_scores.append((seed, sample_idx, ranking_score))
@@ -222,26 +219,23 @@ def write_outputs(
             terms_of_use=output_terms,
             name=job_name,
         )
-        _write_chimerax_output_if_needed(
-            inference_result=max_ranking_result,
-            output_dir=output_dir,
-            name=job_name,
-        )
         with open(os.path.join(output_dir, 'ranking_scores.csv'), 'wt') as f:
             writer = csv.writer(f)
             writer.writerow(['seed', 'sample', 'ranking_score'])
             writer.writerows(ranking_scores)
 
 
-def _sequential_residue_ids_per_chain(chain_ids: Sequence[str]) -> list[int]:
-    """Returns sequential residue IDs that are unique within each chain."""
-    next_residue_id_by_chain: dict[str, int] = {}
-    residue_ids = []
-    for chain_id in chain_ids:
-        next_residue_id = next_residue_id_by_chain.get(chain_id, 0) + 1
-        next_residue_id_by_chain[chain_id] = next_residue_id
-        residue_ids.append(next_residue_id)
-    return residue_ids
+def _duplicate_occurrence_to_insertion_code(occurrence_index: int) -> str:
+    """Maps the Nth occurrence of a residue ID to a mmCIF insertion code."""
+    if occurrence_index <= 1:
+        return '.'
+    offset = occurrence_index - 2
+    if offset >= 26:
+        raise ValueError(
+            'More than 27 repeated residue occurrences in one chain are not '
+            'supported for mmCIF insertion-code output.'
+        )
+    return chr(ord('A') + offset)
 
 
 def _has_duplicate_residue_ids_within_chain(struc) -> bool:
@@ -265,73 +259,37 @@ def _has_duplicate_residue_ids_within_chain(struc) -> bool:
     return False
 
 
-def _make_chimerax_compatible_inference_result(
+def _make_viewer_compatible_inference_result(
     inference_result: model.InferenceResult,
 ) -> model.InferenceResult:
-    """Creates a viewer-safe copy with unique residue IDs per chain."""
-    struc = inference_result.predicted_structure
-    residue_chain_ids = [
-        str(chain_id)
-        for chain_id in struc.chains_table.apply_array_to_column(
-            column_name='id',
-            arr=struc.residues_table.chain_key,
-        )
-    ]
-    chimerax_residue_ids = np.asarray(
-        _sequential_residue_ids_per_chain(residue_chain_ids),
-        dtype=np.int32,
-    )
-    chimerax_structure = struc.copy_and_update_residues(
-        res_id=chimerax_residue_ids,
-        res_auth_seq_id=np.char.mod('%d', chimerax_residue_ids).astype(object),
-    )
-
-    token_chain_ids = [
-        str(chain_id) for chain_id in inference_result.metadata['token_chain_ids']
-    ]
-    metadata = dict(inference_result.metadata)
-    metadata['token_res_ids'] = _sequential_residue_ids_per_chain(token_chain_ids)
-    return dataclasses.replace(
-        inference_result,
-        predicted_structure=chimerax_structure,
-        metadata=metadata,
-    )
-
-
-def _write_chimerax_output_if_needed(
-    inference_result: model.InferenceResult,
-    output_dir: os.PathLike[str] | str,
-    name: str | None = None,
-) -> None:
-    """Writes viewer-safe output files when duplicate residue IDs are present."""
+    """Creates a viewer-safe copy using insertion codes for duplicates."""
     if not _has_duplicate_residue_ids_within_chain(
         inference_result.predicted_structure
     ):
-        return
+        return inference_result
 
-    processed_result = post_processing.post_process_inference_result(
-        _make_chimerax_compatible_inference_result(inference_result)
+    struc = inference_result.predicted_structure
+    residue_chain_ids = struc.chains_table.apply_array_to_column(
+        column_name='id',
+        arr=struc.residues_table.chain_key,
     )
-    prefix = f'{name}_' if name is not None else ''
-
-    with open(os.path.join(output_dir, f'{prefix}model_chimerax.cif'), 'wb') as f:
-        f.write(processed_result.cif)
-
-    with open(
-        os.path.join(output_dir, f'{prefix}summary_confidences_chimerax.json'),
-        'wb',
-    ) as f:
-        f.write(processed_result.structure_confidence_summary_json)
-
-    with open(
-        os.path.join(output_dir, f'{prefix}confidences_chimerax.json'),
-        'wb',
-    ) as f:
-        f.write(processed_result.structure_full_data_json)
-
-    logging.info(
-        'Wrote ChimeraX-compatible outputs with unique residue numbering for %s',
-        name or os.fspath(output_dir),
+    occurrence_count_by_residue: dict[tuple[str, int], int] = {}
+    insertion_codes = []
+    for chain_id, residue_id in zip(
+        residue_chain_ids,
+        struc.residues_table.id,
+        strict=True,
+    ):
+        key = (str(chain_id), int(residue_id))
+        occurrence = occurrence_count_by_residue.get(key, 0) + 1
+        occurrence_count_by_residue[key] = occurrence
+        insertion_codes.append(_duplicate_occurrence_to_insertion_code(occurrence))
+    viewer_structure = struc.copy_and_update_residues(
+        res_insertion_code=np.asarray(insertion_codes, dtype=object),
+    )
+    return dataclasses.replace(
+        inference_result,
+        predicted_structure=viewer_structure,
     )
 
 

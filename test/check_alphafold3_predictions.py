@@ -1361,13 +1361,13 @@ class TestAlphaFold3RunModes(_TestBase):
 
         self.assertEqual(rebuilt.present_residues.id.tolist(), expected_residue_ids)
 
-    def test_af3_chimerax_export_renumbers_duplicate_residue_ids(self):
-        """ChimeraX export must assign unique sequential residue IDs per chain."""
+    def test_af3_viewer_output_uses_insertion_codes_for_duplicate_residue_ids(self):
+        """Viewer-safe AF3 output must preserve IDs and disambiguate with insertions."""
         from alphafold3.common import folding_input
         from alphafold3.constants import chemical_components
         from alphafold3.model import model as af3_model
         from alphapulldown.folding_backend.alphafold3_backend import (
-            _make_chimerax_compatible_inference_result,
+            _make_viewer_compatible_inference_result,
         )
 
         original_residue_ids = (
@@ -1396,17 +1396,21 @@ class TestAlphaFold3RunModes(_TestBase):
             },
         )
 
-        chimerax_result = _make_chimerax_compatible_inference_result(
+        viewer_result = _make_viewer_compatible_inference_result(
             inference_result
         )
 
         self.assertEqual(
-            chimerax_result.predicted_structure.present_residues.id.tolist(),
-            list(range(1, len(original_residue_ids) + 1)),
+            viewer_result.predicted_structure.present_residues.id.tolist(),
+            original_residue_ids,
         )
         self.assertEqual(
-            chimerax_result.metadata["token_res_ids"],
-            list(range(1, len(original_residue_ids) + 1)),
+            viewer_result.metadata["token_res_ids"],
+            original_residue_ids,
+        )
+        self.assertEqual(
+            viewer_result.predicted_structure.residues_table.insertion_code.tolist(),
+            ['.'] * 10 + ['A'] * 4 + ['.'] * 4,
         )
 
     def test_af3_keeps_discontinuous_chopped_regions_in_one_gapped_chain(self):
