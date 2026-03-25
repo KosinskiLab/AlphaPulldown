@@ -1361,6 +1361,54 @@ class TestAlphaFold3RunModes(_TestBase):
 
         self.assertEqual(rebuilt.present_residues.id.tolist(), expected_residue_ids)
 
+    def test_af3_chimerax_export_renumbers_duplicate_residue_ids(self):
+        """ChimeraX export must assign unique sequential residue IDs per chain."""
+        from alphafold3.common import folding_input
+        from alphafold3.constants import chemical_components
+        from alphafold3.model import model as af3_model
+        from alphapulldown.folding_backend.alphafold3_backend import (
+            _make_chimerax_compatible_inference_result,
+        )
+
+        original_residue_ids = (
+            list(range(1, 11)) + list(range(2, 6)) + list(range(12, 16))
+        )
+        chain = folding_input.ProteinChain(
+            id="A",
+            sequence="ACDEFGHIKLCDEFMNPQ",
+            ptms=[],
+            residue_ids=original_residue_ids,
+            unpaired_msa="",
+            paired_msa="",
+            templates=[],
+        )
+        fold_input = folding_input.Input(
+            name="duplicate_residue_ids_for_chimerax",
+            chains=[chain],
+            rng_seeds=[1],
+        )
+        struc = fold_input.to_structure(ccd=chemical_components.Ccd())
+        inference_result = af3_model.InferenceResult(
+            predicted_structure=struc,
+            metadata={
+                "token_chain_ids": ["A"] * len(original_residue_ids),
+                "token_res_ids": original_residue_ids,
+            },
+        )
+
+        chimerax_result = _make_chimerax_compatible_inference_result(
+            inference_result
+        )
+
+        self.assertEqual(
+            chimerax_result.predicted_structure.present_residues.id.tolist(),
+            list(range(1, len(original_residue_ids) + 1)),
+        )
+        self.assertEqual(
+            chimerax_result.metadata["token_res_ids"],
+            list(range(1, len(original_residue_ids) + 1)),
+        )
+
     def test_af3_keeps_discontinuous_chopped_regions_in_one_gapped_chain(self):
         """AF3 must keep multi-region chopped inputs as one gapped protein chain."""
         from alphapulldown.folding_backend.alphafold3_backend import (
