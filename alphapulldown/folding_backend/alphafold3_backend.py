@@ -9,6 +9,7 @@ Author: Dmitry Molodenskiy <dmitry.molodenskiy@embl-hamburg.de>
 import csv
 import dataclasses
 import functools
+import hashlib
 import inspect
 import json
 import logging
@@ -255,6 +256,65 @@ def _normalise_output_name_fragment(raw_name: str) -> str:
     return cleaned or "ranked_0"
 
 
+def _collapse_repeated_name_fragments(
+    fragments: Sequence[str],
+) -> list[str]:
+    """Collapses consecutive identical fragments into a readable count suffix."""
+    if not fragments:
+        return []
+
+    collapsed: list[str] = []
+    current_fragment = fragments[0]
+    current_count = 1
+
+    for fragment in fragments[1:]:
+        if fragment == current_fragment:
+            current_count += 1
+            continue
+
+        collapsed.append(
+            current_fragment
+            if current_count == 1
+            else f"{current_fragment}__x{current_count}"
+        )
+        current_fragment = fragment
+        current_count = 1
+
+    collapsed.append(
+        current_fragment
+        if current_count == 1
+        else f"{current_fragment}__x{current_count}"
+    )
+    return collapsed
+
+
+def _compact_output_job_name(job_name: str, *, max_chars: int = 200) -> str:
+    """Keeps job names readable while staying below common filename limits."""
+    if len(job_name) <= max_chars:
+        return job_name
+
+    digest = hashlib.sha1(job_name.encode("utf-8")).hexdigest()[:12]
+    suffix = f"__{digest}"
+    prefix = job_name[: max_chars - len(suffix)].rstrip("_.-")
+    if not prefix:
+        return f"job{suffix}"
+    return f"{prefix}{suffix}"
+
+
+def _compact_existing_compound_name(raw_name: str) -> str:
+    """Compacts already-joined `_and_` names such as multimer descriptions."""
+    parts = [
+        _normalise_output_name_fragment(part)
+        for part in raw_name.split("_and_")
+        if part.strip("_.-")
+    ]
+    if not parts:
+        return "ranked_0"
+    return _compact_output_job_name(
+        "_and_".join(_collapse_repeated_name_fragments(parts))
+    )
+
+
 def _regions_to_name_fragment(regions: Sequence[tuple[int, int]]) -> str:
     """Returns a readable name fragment for a set of closed residue intervals."""
     return "_".join(f"{start}-{end}" for start, end in regions)
@@ -280,13 +340,13 @@ def _object_name_fragment(obj: typing.Any) -> str:
         return _normalise_output_name_fragment(fragment)
 
     if isinstance(obj, MultimericObject):
-        return _normalise_output_name_fragment(obj.description or "multimer")
+        return _compact_existing_compound_name(obj.description or "multimer")
 
     if isinstance(obj, (MonomericObject, ChoppedObject)):
         return _normalise_output_name_fragment(obj.description or "monomer")
 
     if isinstance(obj, folding_input.Input):
-        return _normalise_output_name_fragment(obj.name)
+        return _compact_existing_compound_name(obj.name)
 
     return _normalise_output_name_fragment(type(obj).__name__)
 
@@ -303,7 +363,8 @@ def _build_output_job_name(objects_to_model: Sequence[dict]) -> str:
     fragments = [fragment for fragment in fragments if fragment]
     if not fragments:
         return "ranked_0"
-    return "_and_".join(fragments)
+    readable_name = "_and_".join(_collapse_repeated_name_fragments(fragments))
+    return _compact_output_job_name(readable_name)
 
 
 def _residue_author_ids(struc) -> list[str]:
@@ -759,16 +820,14 @@ class AlphaFold3Backend(FoldingBackend):
             return chain_cls(**filtered_kwargs)
 
         def _clone_chain_with_id(chain, new_id: str):
-            common_kwargs = {
-                "id": new_id,
-                "sequence": chain.sequence,
-                "description": getattr(chain, "description", None),
-                "residue_ids": getattr(chain, "residue_ids", None),
-            }
+            description = getattr(chain, "description", None)
             if isinstance(chain, folding_input.ProteinChain):
                 return _construct_chain(
                     folding_input.ProteinChain,
-                    **common_kwargs,
+                    id=new_id,
+                    sequence=chain.sequence,
+                    description=description,
+                    residue_ids=getattr(chain, "residue_ids", None),
                     ptms=chain.ptms,
                     paired_msa=chain.paired_msa,
                     unpaired_msa=chain.unpaired_msa,
@@ -777,14 +836,20 @@ class AlphaFold3Backend(FoldingBackend):
             if isinstance(chain, folding_input.RnaChain):
                 return _construct_chain(
                     folding_input.RnaChain,
-                    **common_kwargs,
+                    id=new_id,
+                    sequence=chain.sequence,
+                    description=description,
+                    residue_ids=getattr(chain, "residue_ids", None),
                     modifications=chain.modifications,
                     unpaired_msa=chain.unpaired_msa,
                 )
             if isinstance(chain, folding_input.DnaChain):
                 return _construct_chain(
                     folding_input.DnaChain,
-                    **common_kwargs,
+                    id=new_id,
+                    sequence=chain.sequence,
+                    description=description,
+                    residue_ids=getattr(chain, "residue_ids", None),
                     modifications=chain.modifications(),
                 )
             if isinstance(chain, folding_input.Ligand):
@@ -793,7 +858,7 @@ class AlphaFold3Backend(FoldingBackend):
                     id=new_id,
                     ccd_ids=chain.ccd_ids,
                     smiles=chain.smiles,
-                    description=getattr(chain, "description", None),
+                    description=description,
                 )
             raise TypeError(f"Unsupported chain type: {type(chain)}")
 
