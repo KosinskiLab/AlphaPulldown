@@ -1820,7 +1820,7 @@ class TestAlphaFold3RunModes(_TestBase):
         ]
         expected_chopped_residue_ids = (
             list(range(1, 11))
-            + ["2A", "3A", "4A", "5A"]
+            + [2, 3, 4, 5]
             + list(range(12, 16))
         )
         actual_sequences = [chain.sequence for chain in fold_input_obj.chains]
@@ -1867,7 +1867,7 @@ class TestAlphaFold3RunModes(_TestBase):
             expected_chopped_residue_ids,
         )
 
-        print("✓ AF3 input keeps discontinuous chopped regions in one gapped chain")
+        print("✓ AF3 input keeps discontinuous chopped regions as one gapped chain")
 
     def test_af3_keeps_two_out_of_order_gapped_copies_as_two_chains(self):
         """AF3 must keep two copied out-of-order gapped regions as two chains."""
