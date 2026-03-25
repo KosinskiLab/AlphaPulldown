@@ -16,5 +16,5 @@
 	branch = main
 [submodule "alphafold3"]
 	path = alphafold3
-	url = git@github.com:KosinskiLab/alphafold3.git
-	branch = ap-gapped-discontinuous-chains-pre-tokamax
+	url = https://github.com/KosinskiLab/alphafold3.git
+	branch = main
