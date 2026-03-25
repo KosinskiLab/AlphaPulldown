@@ -262,35 +262,73 @@ def _has_duplicate_residue_ids_within_chain(struc) -> bool:
 def _make_viewer_compatible_inference_result(
     inference_result: model.InferenceResult,
 ) -> model.InferenceResult:
-    """Creates a viewer-safe copy using insertion codes for duplicates."""
+    """Creates a viewer-safe copy with unique label IDs and original auth IDs."""
     if not _has_duplicate_residue_ids_within_chain(
         inference_result.predicted_structure
     ):
         return inference_result
 
     struc = inference_result.predicted_structure
-    residue_chain_ids = struc.chains_table.apply_array_to_column(
-        column_name='id',
-        arr=struc.residues_table.chain_key,
+    residue_chain_ids = [
+        str(chain_id)
+        for chain_id in struc.chains_table.apply_array_to_column(
+            column_name='id',
+            arr=struc.residues_table.chain_key,
+        )
+    ]
+    author_residue_ids = [
+        str(residue_id)
+        for residue_id in struc.residues_table.auth_seq_id
+    ]
+    if all(residue_id == '.' for residue_id in author_residue_ids):
+        author_residue_ids = [
+            str(int(residue_id)) for residue_id in struc.residues_table.id
+        ]
+
+    sequential_label_ids = np.asarray(
+        _sequential_residue_ids_per_chain(residue_chain_ids),
+        dtype=np.int32,
     )
-    occurrence_count_by_residue: dict[tuple[str, int], int] = {}
+    occurrence_count_by_residue: dict[tuple[str, str], int] = {}
     insertion_codes = []
     for chain_id, residue_id in zip(
         residue_chain_ids,
-        struc.residues_table.id,
+        author_residue_ids,
         strict=True,
     ):
-        key = (str(chain_id), int(residue_id))
+        key = (chain_id, residue_id)
         occurrence = occurrence_count_by_residue.get(key, 0) + 1
         occurrence_count_by_residue[key] = occurrence
         insertion_codes.append(_duplicate_occurrence_to_insertion_code(occurrence))
+
     viewer_structure = struc.copy_and_update_residues(
+        res_id=sequential_label_ids,
+        res_auth_seq_id=np.asarray(author_residue_ids, dtype=object),
         res_insertion_code=np.asarray(insertion_codes, dtype=object),
     )
+
+    token_chain_ids = [
+        str(chain_id) for chain_id in inference_result.metadata['token_chain_ids']
+    ]
+    sequential_token_ids = _sequential_residue_ids_per_chain(token_chain_ids)
+    metadata = dict(inference_result.metadata)
+    metadata['token_res_ids'] = sequential_token_ids
     return dataclasses.replace(
         inference_result,
         predicted_structure=viewer_structure,
+        metadata=metadata,
     )
+
+
+def _sequential_residue_ids_per_chain(chain_ids: Sequence[str]) -> list[int]:
+    """Returns sequential residue IDs that are unique within each chain."""
+    next_residue_id_by_chain: dict[str, int] = {}
+    residue_ids = []
+    for chain_id in chain_ids:
+        next_residue_id = next_residue_id_by_chain.get(chain_id, 0) + 1
+        next_residue_id_by_chain[chain_id] = next_residue_id
+        residue_ids.append(next_residue_id)
+    return residue_ids
 
 
 def predict_structure(

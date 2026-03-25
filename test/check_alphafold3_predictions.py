@@ -642,8 +642,8 @@ class _TestBase(parameterized.TestCase):
         
         return chains_and_sequences
 
-    def _extract_cif_chain_residue_numbers(self, cif_path: Path) -> List[Tuple[str, List[int]]]:
-        """Extract residue numbers for each polymer chain from a CIF file."""
+    def _extract_cif_chain_residue_numbers(self, cif_path: Path) -> List[Tuple[str, List[Union[int, str]]]]:
+        """Extract author-facing residue numbers for each polymer chain from a CIF file."""
         try:
             from alphafold3.cpp import cif_dict
 
@@ -651,13 +651,28 @@ class _TestBase(parameterized.TestCase):
                 cif = cif_dict.from_string(handle.read())
 
             asym_ids = cif.get_array("_pdbx_poly_seq_scheme.asym_id", dtype=object)
-            seq_ids = cif.get_array("_pdbx_poly_seq_scheme.seq_id", dtype=object)
+            auth_seq_nums = cif.get_array(
+                "_pdbx_poly_seq_scheme.auth_seq_num", dtype=object
+            )
+            ins_codes = cif.get_array(
+                "_pdbx_poly_seq_scheme.pdb_ins_code", dtype=object
+            )
 
             chain_residue_numbers = []
             chain_to_numbers = {}
-            for chain_id, seq_id in zip(asym_ids, seq_ids, strict=True):
+            for chain_id, auth_seq_num, ins_code in zip(
+                asym_ids,
+                auth_seq_nums,
+                ins_codes,
+                strict=True,
+            ):
                 residue_numbers = chain_to_numbers.setdefault(chain_id, [])
-                residue_numbers.append(int(seq_id))
+                ins_code = str(ins_code)
+                auth_seq_num = int(auth_seq_num)
+                if ins_code in {".", "?"}:
+                    residue_numbers.append(auth_seq_num)
+                else:
+                    residue_numbers.append(f"{auth_seq_num}{ins_code}")
 
             for chain_id, residue_numbers in chain_to_numbers.items():
                 if residue_numbers:
@@ -1402,11 +1417,15 @@ class TestAlphaFold3RunModes(_TestBase):
 
         self.assertEqual(
             viewer_result.predicted_structure.present_residues.id.tolist(),
-            original_residue_ids,
+            list(range(1, len(original_residue_ids) + 1)),
         )
         self.assertEqual(
             viewer_result.metadata["token_res_ids"],
-            original_residue_ids,
+            list(range(1, len(original_residue_ids) + 1)),
+        )
+        self.assertEqual(
+            viewer_result.predicted_structure.residues_table.auth_seq_id.tolist(),
+            [str(residue_id) for residue_id in original_residue_ids],
         )
         self.assertEqual(
             viewer_result.predicted_structure.residues_table.insertion_code.tolist(),
@@ -1449,7 +1468,11 @@ class TestAlphaFold3RunModes(_TestBase):
             self._get_sequence_for_protein("TEST"),
             concatenated_chopped_sequence,
         ]
-        expected_chopped_residue_ids = list(range(1, 11)) + list(range(2, 6)) + list(range(12, 16))
+        expected_chopped_residue_ids = (
+            list(range(1, 11))
+            + ["2A", "3A", "4A", "5A"]
+            + list(range(12, 16))
+        )
         actual_sequences = [chain.sequence for chain in fold_input_obj.chains]
         self.assertCountEqual(actual_sequences, expected_sequences)
         self.assertLen(actual_sequences, 2)
@@ -1650,7 +1673,11 @@ class TestAlphaFold3RunModes(_TestBase):
             self._get_sequence_for_protein("TEST"),
             concatenated_chopped_sequence,
         ]
-        expected_chopped_residue_ids = list(range(1, 11)) + list(range(2, 6)) + list(range(12, 16))
+        expected_chopped_residue_ids = (
+            list(range(1, 11))
+            + ["2A", "3A", "4A", "5A"]
+            + list(range(12, 16))
+        )
 
         result_dir = self._resolve_single_af3_result_dir()
         cif_files = list(result_dir.glob("*_model.cif"))
