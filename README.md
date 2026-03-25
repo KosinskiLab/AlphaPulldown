@@ -66,9 +66,10 @@ The same copy/range syntax also works with AlphaFold 3 JSON features. Examples:
 
 When a workflow or wrapper maps a logical token such as `Q8I2G6:1-100:150-200`
 to `Q8I2G6_af3_input.json:1-100:150-200`, AlphaPulldown preserves the region
-selection and expands the AF3 JSON feature input into separate cropped chain(s).
-For the AlphaFold 3 backend, discontinuous regions are modeled as separate
-chains, so they are not connected by a peptide bond.
+selection and keeps the AF3 JSON feature input as one discontinuous polymer
+chain with preserved residue-number gaps. For the AlphaFold 3 backend this
+means chopped regions stay intra-chain, so template contacts between retained
+fragments are not masked as inter-chain interactions.
 For workflow deployments, make sure the execution environment also carries
 `alphapulldown-input-parser>=0.4.0`.
 

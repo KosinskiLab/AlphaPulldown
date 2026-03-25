@@ -350,13 +350,11 @@ class _TestBase(parameterized.TestCase):
         if not region_sequences:
             return []
         
-        # AF3 cannot encode polymer chain breaks inside one protein chain, so
-        # discontinuous regions are modeled as separate protein chains.
+        concatenated_sequence = "".join(region_sequences)
         sequences = []
-        for _ in range(num_copies):
-            for region_sequence in region_sequences:
-                chain_id = self._chain_id_from_index(len(sequences))
-                sequences.append((chain_id, region_sequence))
+        for copy_index in range(num_copies):
+            chain_id = self._chain_id_from_index(copy_index)
+            sequences.append((chain_id, concatenated_sequence))
         
         return sequences
 
@@ -445,9 +443,10 @@ class _TestBase(parameterized.TestCase):
                 if "," in part:
                     protein_name, regions = parse_protein_and_regions(part)
                     region_sequences = self._get_region_sequences(protein_name, regions)
-                    for region_sequence in region_sequences:
-                        chain_id = self._chain_id_from_index(len(sequences))
-                        sequences.append((chain_id, region_sequence))
+                    if not region_sequences:
+                        continue
+                    chain_id = self._chain_id_from_index(len(sequences))
+                    sequences.append((chain_id, "".join(region_sequences)))
                 else:
                     protein_name = part
                     sequence = self._get_sequence_for_protein(protein_name)
@@ -461,12 +460,9 @@ class _TestBase(parameterized.TestCase):
             part = line.strip()
             if "," in part:
                 protein_name, regions = parse_protein_and_regions(part)
-                return [
-                    (self._chain_id_from_index(i), region_sequence)
-                    for i, region_sequence in enumerate(
-                        self._get_region_sequences(protein_name, regions)
-                    )
-                ]
+                region_sequences = self._get_region_sequences(protein_name, regions)
+                if region_sequences:
+                    return [('A', "".join(region_sequences))]
             else:
                 protein_name = part
                 sequence = self._get_sequence_for_protein(protein_name)
@@ -500,9 +496,9 @@ class _TestBase(parameterized.TestCase):
             for chain in model:
                 chain_id = chain.id
                 
-                # Get residues in order
+                # Keep the residue order from the file instead of sorting by
+                # residue number so discontinuous numbering remains testable.
                 residues = list(chain.get_residues())
-                residues.sort(key=lambda r: r.id[1])  # Sort by residue number
                 
                 # Separate standard residues from HETATM records
                 standard_residues = []
@@ -582,6 +578,28 @@ class _TestBase(parameterized.TestCase):
             chains_and_sequences = self._extract_cif_chains_and_sequences_regex(cif_path)
         
         return chains_and_sequences
+
+    def _extract_cif_chain_residue_numbers(self, cif_path: Path) -> List[Tuple[str, List[int]]]:
+        """Extract residue numbers for each polymer chain from a CIF file."""
+        try:
+            from Bio.PDB import MMCIFParser
+
+            parser = MMCIFParser(QUIET=True)
+            structure = parser.get_structure("model", str(cif_path))
+            model = structure[0]
+
+            chain_residue_numbers = []
+            for chain in model:
+                residue_numbers = [
+                    residue.id[1]
+                    for residue in chain.get_residues()
+                    if residue.id[0] == " "
+                ]
+                if residue_numbers:
+                    chain_residue_numbers.append((chain.id, residue_numbers))
+            return chain_residue_numbers
+        except Exception as exc:
+            self.fail(f"Failed to extract CIF residue numbers from {cif_path}: {exc}")
 
     def _apply_ptms_from_hetatm(self, sequence: str, hetatm_residues: List[Tuple[int, str]]) -> str:
         """
@@ -1149,8 +1167,103 @@ class TestAlphaFold3RunModes(_TestBase):
 
         print("✓ Combined AF3 input JSON created; per-chain MSAs present for backend pairing")
 
-    def test_af3_splits_discontinuous_chopped_regions_into_separate_chains(self):
-        """AF3 must encode multi-region chopped inputs as separate protein chains."""
+    def test_af3_custom_residue_ids_round_trip_through_json_and_structure(self):
+        """Custom AF3 residue IDs must survive JSON and structure conversion."""
+        from alphafold3.common import folding_input
+        from alphafold3.constants import chemical_components
+
+        expected_residue_ids = [2, 3, 4, 5, 8, 9, 10]
+        chain = folding_input.ProteinChain(
+            id="A",
+            sequence="SSHEKKK",
+            ptms=[],
+            residue_ids=expected_residue_ids,
+            unpaired_msa="",
+            paired_msa="",
+            templates=[],
+        )
+        fold_input = folding_input.Input(
+            name="gap_test",
+            chains=[chain],
+            rng_seeds=[1],
+        )
+
+        round_tripped = folding_input.Input.from_json(fold_input.to_json())
+        self.assertEqual(
+            list(round_tripped.protein_chains[0].residue_ids),
+            expected_residue_ids,
+        )
+
+        struc = round_tripped.to_structure(ccd=chemical_components.Ccd())
+        self.assertEqual(struc.present_residues.id.tolist(), expected_residue_ids)
+
+    def test_af3_custom_residue_ids_propagate_to_token_features(self):
+        """AF3 token features must retain custom gapped residue numbering."""
+        from alphafold3.common import folding_input
+        from alphafold3.constants import chemical_components
+        from alphafold3.model import features as af3_features
+        from alphafold3.model.atom_layout import atom_layout
+        from alphafold3.model.network import featurization as af3_featurization
+
+        expected_residue_ids = [1, 2, 3, 4, 8, 9, 10]
+        chain = folding_input.ProteinChain(
+            id="A",
+            sequence="ACDEFGH",
+            ptms=[],
+            residue_ids=expected_residue_ids,
+            unpaired_msa="",
+            paired_msa="",
+            templates=[],
+        )
+        fold_input = folding_input.Input(
+            name="gap_token_test",
+            chains=[chain],
+            rng_seeds=[1],
+        )
+        ccd = chemical_components.Ccd()
+        struc = fold_input.to_structure(ccd=ccd)
+        flat_layout = atom_layout.atom_layout_from_structure(struc)
+        all_tokens, _, _ = af3_features.tokenizer(
+            flat_layout,
+            ccd=ccd,
+            max_atoms_per_token=24,
+            flatten_non_standard_residues=False,
+            logging_name="gap_token_test",
+        )
+        padding_shapes = af3_features.PaddingShapes(
+            num_tokens=len(all_tokens.atom_name),
+            msa_size=1,
+            num_chains=1,
+            num_templates=0,
+            num_atoms=24 * len(all_tokens.atom_name),
+        )
+        token_features = af3_features.TokenFeatures.compute_features(
+            all_tokens=all_tokens,
+            padding_shapes=padding_shapes,
+        )
+
+        self.assertEqual(
+            token_features.residue_index[:len(expected_residue_ids)].tolist(),
+            expected_residue_ids,
+        )
+        self.assertEqual(
+            sorted(set(token_features.asym_id[:len(expected_residue_ids)].tolist())),
+            [1],
+        )
+
+        relative_encoding = np.asarray(
+            af3_featurization.create_relative_encoding(
+                token_features,
+                max_relative_idx=4,
+                max_relative_chain=2,
+            )
+        )
+        inter_chain_bin = 2 * 4 + 1
+        self.assertEqual(relative_encoding[3, 4, inter_chain_bin], 0)
+        self.assertEqual(np.argmax(relative_encoding[3, 4, : 2 * 4 + 2]), 0)
+
+    def test_af3_keeps_discontinuous_chopped_regions_in_one_gapped_chain(self):
+        """AF3 must keep multi-region chopped inputs as one gapped protein chain."""
         from alphapulldown.folding_backend.alphafold3_backend import (
             AlphaFold3Backend,
             process_fold_input,
@@ -1176,18 +1289,29 @@ class TestAlphaFold3RunModes(_TestBase):
         self.assertLen(mappings, 1)
         fold_input_obj, _ = next(iter(mappings[0].items()))
 
+        chopped_region_sequences = self._get_region_sequences(
+            "A0A075B6L2",
+            [(1, 10), (2, 5), (12, 15)],
+        )
+        concatenated_chopped_sequence = "".join(chopped_region_sequences)
         expected_sequences = [
             self._get_sequence_for_protein("TEST"),
-            *self._get_region_sequences(
-                "A0A075B6L2",
-                [(1, 10), (2, 5), (12, 15)],
-            ),
+            concatenated_chopped_sequence,
         ]
-        concatenated_chopped_sequence = "".join(expected_sequences[1:])
+        expected_chopped_residue_ids = list(range(1, 11)) + list(range(2, 6)) + list(range(12, 16))
         actual_sequences = [chain.sequence for chain in fold_input_obj.chains]
         self.assertCountEqual(actual_sequences, expected_sequences)
-        self.assertLen(actual_sequences, 4)
-        self.assertNotIn(concatenated_chopped_sequence, actual_sequences)
+        self.assertLen(actual_sequences, 2)
+
+        chopped_chains = [
+            chain for chain in fold_input_obj.chains
+            if chain.sequence == concatenated_chopped_sequence
+        ]
+        self.assertLen(chopped_chains, 1)
+        self.assertEqual(
+            list(chopped_chains[0].residue_ids),
+            expected_chopped_residue_ids,
+        )
 
         process_fold_input(
             fold_input=fold_input_obj,
@@ -1204,16 +1328,25 @@ class TestAlphaFold3RunModes(_TestBase):
             for sequence_entry in data.get("sequences", [])
             if "protein" in sequence_entry
         ]
-        self.assertLen(protein_entries, 4)
+        self.assertLen(protein_entries, 2)
         self.assertCountEqual(
             [entry["sequence"] for entry in protein_entries],
             expected_sequences,
         )
+        chopped_entries = [
+            entry for entry in protein_entries
+            if entry["sequence"] == concatenated_chopped_sequence
+        ]
+        self.assertLen(chopped_entries, 1)
+        self.assertEqual(
+            chopped_entries[0]["residueIds"],
+            expected_chopped_residue_ids,
+        )
 
-        print("✓ AF3 input expands discontinuous chopped regions into separate chains")
+        print("✓ AF3 input keeps discontinuous chopped regions in one gapped chain")
 
-    def test_af3_json_feature_ranges_expand_into_separate_chains(self):
-        """AF3 JSON feature files with ranges must expand into separate protein chains."""
+    def test_af3_json_feature_ranges_collapse_into_one_gapped_chain(self):
+        """AF3 JSON feature files with ranges must collapse into one gapped chain."""
         from alphapulldown.folding_backend.alphafold3_backend import (
             AlphaFold3Backend,
             process_fold_input,
@@ -1255,13 +1388,15 @@ class TestAlphaFold3RunModes(_TestBase):
         )
         self.assertLen(json_sequences, 1)
         full_sequence = json_sequences[0][1]
-        expected_sequences = [
-            full_sequence[1:5],
-            full_sequence[7:10],
-        ]
-        self.assertCountEqual(
+        expected_sequence = full_sequence[1:5] + full_sequence[7:10]
+        expected_residue_ids = [2, 3, 4, 5, 8, 9, 10]
+        self.assertEqual(
             [chain.sequence for chain in fold_input_obj.chains],
-            expected_sequences,
+            [expected_sequence],
+        )
+        self.assertEqual(
+            [list(chain.residue_ids) for chain in fold_input_obj.chains],
+            [expected_residue_ids],
         )
 
         process_fold_input(
@@ -1279,15 +1414,13 @@ class TestAlphaFold3RunModes(_TestBase):
             for sequence_entry in written.get("sequences", [])
             if "protein" in sequence_entry
         ]
-        self.assertLen(protein_entries, 2)
-        self.assertCountEqual(
-            [entry["sequence"] for entry in protein_entries],
-            expected_sequences,
-        )
+        self.assertLen(protein_entries, 1)
+        self.assertEqual(protein_entries[0]["sequence"], expected_sequence)
+        self.assertEqual(protein_entries[0]["residueIds"], expected_residue_ids)
 
-        print("✓ AF3 JSON feature ranges expand into separate chains")
+        print("✓ AF3 JSON feature ranges collapse into one gapped chain")
 
-    def test_af3_predicts_json_feature_ranges_as_separate_chains(self):
+    def test_af3_predicts_json_feature_ranges_as_one_gapped_chain(self):
         """Run AF3 on a Snakefile-style AF3 JSON feature input with explicit ranges."""
         self._require_af3_functional_environment()
         env = self._make_af3_test_env()
@@ -1317,11 +1450,8 @@ class TestAlphaFold3RunModes(_TestBase):
         )
         self.assertLen(json_sequences, 1)
         full_sequence = json_sequences[0][1]
-        expected_sequences = [
-            full_sequence[1:5],
-            full_sequence[7:10],
-        ]
-        concatenated_sequence = "".join(expected_sequences)
+        expected_sequence = full_sequence[1:5] + full_sequence[7:10]
+        expected_residue_ids = [2, 3, 4, 5, 8, 9, 10]
 
         result_dir = self._resolve_single_af3_result_dir()
         cif_files = list(result_dir.glob("*_model.cif"))
@@ -1329,15 +1459,15 @@ class TestAlphaFold3RunModes(_TestBase):
 
         actual_chains_and_sequences = self._extract_cif_chains_and_sequences(cif_files[0])
         actual_sequences = [sequence for _, sequence in actual_chains_and_sequences]
+        actual_residue_numbers = self._extract_cif_chain_residue_numbers(cif_files[0])
 
-        self.assertLen(actual_sequences, 2)
-        self.assertCountEqual(actual_sequences, expected_sequences)
-        self.assertNotIn(concatenated_sequence, actual_sequences)
+        self.assertEqual(actual_sequences, [expected_sequence])
+        self.assertEqual(actual_residue_numbers, [("A", expected_residue_ids)])
 
-        print("✓ AF3 prediction keeps AF3 JSON feature ranges as separate chains")
+        print("✓ AF3 prediction keeps AF3 JSON feature ranges as one gapped chain")
 
-    def test_af3_predicts_discontinuous_chopped_regions_as_separate_chains(self):
-        """Run AF3 inference and ensure discontinuous chopped regions remain separate chains."""
+    def test_af3_predicts_discontinuous_chopped_regions_as_one_gapped_chain(self):
+        """Run AF3 inference and ensure discontinuous chopped regions remain one chain."""
         self._require_af3_functional_environment()
         env = self._make_af3_test_env()
         flash_impl = self._af3_flash_attention_impl()
@@ -1360,14 +1490,16 @@ class TestAlphaFold3RunModes(_TestBase):
         )
         self._runCommonTests(res)
 
+        chopped_region_sequences = self._get_region_sequences(
+            "A0A075B6L2",
+            [(1, 10), (2, 5), (12, 15)],
+        )
+        concatenated_chopped_sequence = "".join(chopped_region_sequences)
         expected_sequences = [
             self._get_sequence_for_protein("TEST"),
-            *self._get_region_sequences(
-                "A0A075B6L2",
-                [(1, 10), (2, 5), (12, 15)],
-            ),
+            concatenated_chopped_sequence,
         ]
-        concatenated_chopped_sequence = "".join(expected_sequences[1:])
+        expected_chopped_residue_ids = list(range(1, 11)) + list(range(2, 6)) + list(range(12, 16))
 
         result_dir = self._resolve_single_af3_result_dir()
         cif_files = list(result_dir.glob("*_model.cif"))
@@ -1375,27 +1507,41 @@ class TestAlphaFold3RunModes(_TestBase):
 
         actual_chains_and_sequences = self._extract_cif_chains_and_sequences(cif_files[0])
         actual_sequences = [sequence for _, sequence in actual_chains_and_sequences]
+        residue_numbers_by_chain = dict(self._extract_cif_chain_residue_numbers(cif_files[0]))
+        sequences_by_chain = dict(actual_chains_and_sequences)
 
-        self.assertLen(actual_sequences, 4)
+        self.assertLen(actual_sequences, 2)
         self.assertCountEqual(actual_sequences, expected_sequences)
-        self.assertNotIn(concatenated_chopped_sequence, actual_sequences)
+        chopped_chain_ids = [
+            chain_id
+            for chain_id, sequence in sequences_by_chain.items()
+            if sequence == concatenated_chopped_sequence
+        ]
+        self.assertLen(chopped_chain_ids, 1)
+        self.assertEqual(
+            residue_numbers_by_chain[chopped_chain_ids[0]],
+            expected_chopped_residue_ids,
+        )
 
-        print("✓ AF3 prediction keeps discontinuous chopped regions as separate chains")
+        print("✓ AF3 prediction keeps discontinuous chopped regions as one gapped chain")
 
-    def test_dimer_chopped_expected_sequences_are_split_by_region(self):
-        """Sequence expectations for AF3 chopped inputs must reflect chain splitting."""
+    def test_dimer_chopped_expected_sequences_are_concatenated_per_chain(self):
+        """Sequence expectations for AF3 chopped inputs must reflect one gapped chain."""
         expected_sequences = self._extract_expected_sequences("test_dimer_chopped.txt")
+        chopped_sequence = "".join(
+            self._get_region_sequences(
+                "A0A075B6L2",
+                [(1, 10), (2, 5), (12, 15)],
+            )
+        )
         self.assertCountEqual(
             [sequence for _, sequence in expected_sequences],
             [
                 self._get_sequence_for_protein("TEST"),
-                *self._get_region_sequences(
-                    "A0A075B6L2",
-                    [(1, 10), (2, 5), (12, 15)],
-                ),
+                chopped_sequence,
             ],
         )
-        self.assertLen(expected_sequences, 4)
+        self.assertLen(expected_sequences, 2)
 
     def test_multi_seeds_samples_sequence_extraction(self):
         """Test that sequence extraction works correctly for multi_seeds_samples."""
