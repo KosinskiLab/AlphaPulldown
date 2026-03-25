@@ -11,6 +11,7 @@ import subprocess
 import time
 import sys
 import tempfile
+import hashlib
 from pathlib import Path
 import shutil
 import pickle
@@ -22,6 +23,7 @@ from typing import Dict, List, Tuple, Any
 from absl.testing import absltest, parameterized
 
 import alphapulldown
+from alphafold3.constants import residue_names as af3_residue_names
 from alphapulldown.objects import MultimericObject
 from alphapulldown.utils.modelling_setup import (
     create_custom_info,
@@ -186,7 +188,7 @@ class _TestBase(parameterized.TestCase):
 
     def _apply_ptms_to_sequence(self, sequence: str, modifications: List[Dict]) -> str:
         """
-        Apply post-translational modifications to a protein sequence.
+        Apply AF3 PTMs to a protein sequence using AF3's CCD-to-letter mapping.
         
         Args:
             sequence: Original protein sequence
@@ -203,18 +205,10 @@ class _TestBase(parameterized.TestCase):
             ptm_position = ptm.get('ptmPosition', 1) - 1  # Convert to 0-based indexing
             
             if ptm_position < len(seq_list):
-                if ptm_type == "HYS":
-                    # N-terminal histidine modification - replace N-terminal methionine with HYS
-                    if ptm_position == 0 and seq_list[0] == 'M':
-                        # Replace M with H (histidine) - HYS is the CCD code, but we use H for sequence
-                        seq_list[0] = 'H'
-                elif ptm_type == "2MG":
-                    # 2-methylguanosine modification - replace G with modified G
-                    # For simplicity, we'll keep it as G since the exact representation may vary
-                    pass
-                # Add more PTM types as needed
-                else:
-                    print(f"Warning: Unknown PTM type '{ptm_type}' at position {ptm_position + 1}")
+                seq_list[ptm_position] = af3_residue_names.letters_three_to_one(
+                    ptm_type,
+                    default='X',
+                )
         
         return ''.join(seq_list)
 
@@ -861,41 +855,45 @@ class _TestBase(parameterized.TestCase):
         
         return chains_and_sequences
 
-    def _get_ptm_positions(self, protein_list: str) -> List[int]:
-        """
-        Extract PTM positions from JSON files for a given protein list.
-        
-        Args:
-            protein_list: Name of the protein list file
-            
-        Returns:
-            List of PTM positions (1-based)
-        """
-        ptm_positions = []
-        
-        # Read the protein list file
-        protein_list_path = self.test_protein_lists_dir / protein_list
-        with open(protein_list_path, 'r') as f:
-            lines = [line.strip() for line in f.readlines() if line.strip()]
-        
-        for line in lines:
-            if line.endswith('.json'):
-                json_path = self.test_features_dir / line
-                if json_path.exists():
-                    with open(json_path, 'r') as f:
-                        json_data = json.load(f)
-                    
-                    json_sequences = json_data.get('sequences', [])
-                    for seq_data in json_sequences:
-                        if 'protein' in seq_data:
-                            protein_seq = seq_data['protein']
-                            modifications = protein_seq.get('modifications', [])
-                            for ptm in modifications:
-                                ptm_position = ptm.get('ptmPosition')
-                                if ptm_position:
-                                    ptm_positions.append(ptm_position)
-        
-        return ptm_positions
+    def _assert_exact_chain_mapping(
+        self,
+        expected_sequences: List[Tuple[str, str]],
+        actual_chains_and_sequences: List[Tuple[str, str]],
+        *,
+        context: str,
+    ) -> None:
+        """Assert an exact chain-id to sequence mapping, independent of file order."""
+        expected_dict = dict(expected_sequences)
+        actual_dict = dict(actual_chains_and_sequences)
+
+        self.assertLen(
+            expected_dict,
+            len(expected_sequences),
+            f"{context}: expected chain IDs must be unique",
+        )
+        self.assertLen(
+            actual_dict,
+            len(actual_chains_and_sequences),
+            f"{context}: actual chain IDs must be unique",
+        )
+
+        print(f"Expected exact chain mapping for {context}: {expected_dict}")
+        print(f"Actual exact chain mapping for {context}: {actual_dict}")
+
+        self.assertEqual(
+            actual_dict,
+            expected_dict,
+            f"{context}: exact chain mapping mismatch",
+        )
+
+    def _requires_exact_chain_mapping(self, protein_list: str) -> bool:
+        """Cases where inference must preserve the explicit input chain IDs."""
+        return protein_list in {
+            "test_monomer_with_rna.txt",
+            "test_monomer_with_dna.txt",
+            "test_monomer_with_ligand.txt",
+            "test_protein_with_ptms.txt",
+        }
 
     def _check_chain_counts_and_sequences(self, protein_list: str):
         """
@@ -931,83 +929,27 @@ class _TestBase(parameterized.TestCase):
             len(expected_sequences),
             f"Expected {len(expected_sequences)} chains, but found {len(actual_chains_and_sequences)}"
         )
-        
-        # Check if this is a PTM case
-        ptm_positions = self._get_ptm_positions(protein_list)
-        is_ptm_case = len(ptm_positions) > 0
-        
-        if is_ptm_case:
-            # For PTM cases, check that sequences are reasonable for PTM cases
-            print(f"PTM case detected. PTM positions: {ptm_positions}")
-            self._check_sequences_with_ptms(expected_sequences, actual_chains_and_sequences, ptm_positions)
-        else:
-            # For non-PTM cases, check exact sequence matches
-            actual_sequences = [seq for _, seq in actual_chains_and_sequences]
-            expected_sequences_only = [seq for _, seq in expected_sequences]
-            
-            # Sort sequences for comparison (since chain order might vary)
-            actual_sequences.sort()
-            expected_sequences_only.sort()
-            
-            self.assertEqual(
-                actual_sequences,
-                expected_sequences_only,
-                f"Sequences don't match. Expected: {expected_sequences_only}, Actual: {actual_sequences}"
-            )
 
-    def _check_sequences_with_ptms(self, expected_sequences: List[Tuple[str, str]], 
-                                  actual_chains_and_sequences: List[Tuple[str, str]], 
-                                  ptm_positions: List[int]):
-        """
-        Check that sequences are reasonable for PTM cases.
-        
-        Args:
-            expected_sequences: List of (chain_id, sequence) tuples for expected chains
-            actual_chains_and_sequences: List of (chain_id, sequence) tuples for actual chains
-            ptm_positions: List of PTM positions (1-based)
-        """
-        # Create dictionaries for easier lookup
-        expected_dict = dict(expected_sequences)
-        actual_dict = dict(actual_chains_and_sequences)
-        
-        # Check that all chain IDs match
+        if self._requires_exact_chain_mapping(protein_list):
+            self._assert_exact_chain_mapping(
+                expected_sequences,
+                actual_chains_and_sequences,
+                context=protein_list,
+            )
+            return
+
+        actual_sequences = [seq for _, seq in actual_chains_and_sequences]
+        expected_sequences_only = [seq for _, seq in expected_sequences]
+
+        # Sort sequences for comparison (since chain order might vary)
+        actual_sequences.sort()
+        expected_sequences_only.sort()
+
         self.assertEqual(
-            set(expected_dict.keys()),
-            set(actual_dict.keys()),
-            f"Chain IDs don't match. Expected: {set(expected_dict.keys())}, Actual: {set(actual_dict.keys())}"
+            actual_sequences,
+            expected_sequences_only,
+            f"Sequences don't match. Expected: {expected_sequences_only}, Actual: {actual_sequences}"
         )
-        
-        # Check each chain
-        for chain_id in expected_dict.keys():
-            expected_seq = expected_dict[chain_id]
-            actual_seq = actual_dict[chain_id]
-            
-            print(f"Chain {chain_id}:")
-            print(f"  Expected: {expected_seq}")
-            print(f"  Actual:   {actual_seq}")
-            print(f"  PTM positions: {ptm_positions}")
-            
-            # For PTM cases, we'll be very lenient and just check that:
-            # 1. Chain IDs match (already checked above)
-            # 2. Sequences are not empty
-            # 3. Sequences contain only valid amino acid characters
-            
-            self.assertGreater(
-                len(actual_seq),
-                0,
-                f"Sequence for chain {chain_id} is empty"
-            )
-            
-            # Check that sequence contains only valid amino acid characters
-            valid_aa = set('ACDEFGHIKLMNPQRSTVWY')
-            invalid_chars = set(actual_seq) - valid_aa
-            self.assertEqual(
-                len(invalid_chars),
-                0,
-                f"Sequence for chain {chain_id} contains invalid amino acid characters: {invalid_chars}"
-            )
-            
-            print(f"  ✓ Chain {chain_id}: Valid sequence with correct chain ID")
 
     def _make_af3_test_env(self) -> Dict[str, str]:
         flash_impl = self._af3_flash_attention_impl()
@@ -1426,6 +1368,41 @@ class TestAlphaFold3RunModes(_TestBase):
             all(list(chain.residue_ids) == [1, 2, 3, 4, 5, 6, 7, 8] for chain in fold_input_obj.chains)
         )
 
+    def test_af3_output_job_name_hashes_overlong_unique_compound_names(self):
+        """AF3 job names should fall back to a deterministic hash suffix when needed."""
+        from alphapulldown.folding_backend.alphafold3_backend import (
+            _build_output_job_name,
+        )
+
+        fragments = [
+            f"protein_{index:02d}_{'verylongsegment' * 4}"
+            for index in range(12)
+        ]
+        objects_to_model = [
+            {
+                "object": {
+                    "json_input": str(
+                        Path("/tmp") / f"{fragment}_af3_input.json"
+                    )
+                },
+                "output_dir": str(self.output_dir),
+            }
+            for fragment in fragments
+        ]
+
+        readable_name = "_and_".join(fragments)
+        self.assertGreater(len(readable_name), 200)
+
+        job_name = _build_output_job_name(objects_to_model)
+        expected_digest = hashlib.sha1(
+            readable_name.encode("utf-8")
+        ).hexdigest()[:12]
+
+        self.assertLessEqual(len(job_name), 200)
+        self.assertTrue(job_name.endswith(f"__{expected_digest}"))
+        self.assertRegex(job_name, r"__[0-9a-f]{12}$")
+        self.assertEqual(job_name, _build_output_job_name(objects_to_model))
+
     def test_af3_prepare_input_accepts_monomer_plus_ligand_json(self):
         """AF3 mixed protein+ligand JSON inputs must survive prepare_input cloning."""
         from alphafold3.common import folding_input
@@ -1538,6 +1515,73 @@ class TestAlphaFold3RunModes(_TestBase):
             expected_protein["modifications"],
         )
         self.assertEqual(protein_entries[0]["templates"], [])
+
+    def test_af3_prepare_input_keeps_valid_json_templates(self):
+        """Valid inline JSON templates should survive prepare_input and JSON write-out."""
+        from alphafold3.common import folding_input
+        from alphapulldown.folding_backend.alphafold3_backend import (
+            AlphaFold3Backend,
+            process_fold_input,
+        )
+
+        json_input = (
+            self.test_features_dir
+            / "af3_features"
+            / "protein"
+            / "P61626_af3_input.json"
+        )
+        raw_payload = json.loads(json_input.read_text())
+        expected_protein = raw_payload["sequences"][0]["protein"]
+        expected_template_count = len(expected_protein["templates"])
+        self.assertGreater(expected_template_count, 0)
+
+        mappings = AlphaFold3Backend.prepare_input(
+            objects_to_model=[
+                {
+                    "object": {"json_input": str(json_input)},
+                    "output_dir": str(self.output_dir),
+                }
+            ],
+            random_seed=42,
+        )
+        self.assertLen(mappings, 1)
+        fold_input_obj, _ = next(iter(mappings[0].items()))
+
+        self.assertEqual([chain.id for chain in fold_input_obj.chains], ["A"])
+        self.assertLen(fold_input_obj.chains, 1)
+        self.assertIsInstance(fold_input_obj.chains[0], folding_input.ProteinChain)
+        self.assertLen(fold_input_obj.chains[0].templates, expected_template_count)
+
+        process_fold_input(
+            fold_input=fold_input_obj,
+            model_runner=None,
+            output_dir=str(self.output_dir),
+            buckets=(512,),
+        )
+        input_json = self.output_dir / f"{fold_input_obj.sanitised_name()}_data.json"
+        with open(input_json, "rt") as handle:
+            written = json.load(handle)
+
+        protein_entries = [
+            sequence_entry["protein"]
+            for sequence_entry in written.get("sequences", [])
+            if "protein" in sequence_entry
+        ]
+        self.assertLen(protein_entries, 1)
+        self.assertEqual(protein_entries[0]["id"], "A")
+        self.assertEqual(
+            len(protein_entries[0]["templates"]),
+            expected_template_count,
+        )
+        self.assertTrue(
+            all(template["mmcif"] for template in protein_entries[0]["templates"])
+        )
+        self.assertTrue(
+            all(template["queryIndices"] for template in protein_entries[0]["templates"])
+        )
+        self.assertTrue(
+            all(template["templateIndices"] for template in protein_entries[0]["templates"])
+        )
 
     def test_af3_viewer_output_renumbers_gapped_residue_ids_for_viewers(self):
         """Viewer-safe AF3 output must use sequential label IDs for gapped chains."""
@@ -1667,6 +1711,70 @@ class TestAlphaFold3RunModes(_TestBase):
             [str(i) for i in range(1, 11)]
             + [f"{i}A" for i in range(2, 6)]
             + [str(i) for i in range(12, 16)],
+        )
+
+    def test_af3_viewer_output_handles_many_tokens_for_one_residue(self):
+        """Viewer metadata must not crash when many tokens map to one residue."""
+        from alphafold3.common import folding_input
+        from alphafold3.constants import chemical_components
+        from alphafold3.model import model as af3_model
+        from alphapulldown.folding_backend.alphafold3_backend import (
+            _make_viewer_compatible_inference_result,
+        )
+
+        chain = folding_input.ProteinChain(
+            id="L",
+            sequence="A",
+            ptms=[],
+            residue_ids=[1],
+            unpaired_msa="",
+            paired_msa="",
+            templates=[],
+        )
+        fold_input = folding_input.Input(
+            name="many_tokens_one_residue",
+            chains=[chain],
+            rng_seeds=[1],
+        )
+        struc = fold_input.to_structure(ccd=chemical_components.Ccd())
+        token_count = 40
+        inference_result = af3_model.InferenceResult(
+            predicted_structure=struc,
+            metadata={
+                "token_chain_ids": ["L"] * token_count,
+                "token_res_ids": [1] * token_count,
+            },
+        )
+
+        viewer_result = _make_viewer_compatible_inference_result(inference_result)
+
+        self.assertEqual(
+            viewer_result.metadata["token_res_ids"],
+            list(range(1, token_count + 1)),
+        )
+        self.assertEqual(
+            viewer_result.metadata["token_auth_res_ids"],
+            ["1"] * token_count,
+        )
+        self.assertEqual(
+            viewer_result.metadata["token_pdb_ins_codes"][:27],
+            ["."] + [chr(ord("A") + index) for index in range(26)],
+        )
+        self.assertEqual(
+            viewer_result.metadata["token_pdb_ins_codes"][27:],
+            ["."] * (token_count - 27),
+        )
+        self.assertEqual(
+            viewer_result.metadata["token_auth_res_labels"][:27],
+            ["1"] + [f"1{chr(ord('A') + index)}" for index in range(26)],
+        )
+        self.assertEqual(
+            viewer_result.metadata["token_auth_res_labels"][27],
+            "1[28]",
+        )
+        self.assertEqual(
+            viewer_result.metadata["token_auth_res_labels"][-1],
+            "1[40]",
         )
 
     def test_af3_keeps_discontinuous_chopped_regions_in_one_gapped_chain(self):

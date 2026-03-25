@@ -236,16 +236,22 @@ def write_outputs(
             writer.writerows(ranking_scores)
 
 
-def _duplicate_occurrence_to_insertion_code(occurrence_index: int) -> str:
+def _duplicate_occurrence_to_insertion_code(
+    occurrence_index: int,
+    *,
+    strict: bool = True,
+) -> str:
     """Maps the Nth occurrence of a residue ID to a mmCIF insertion code."""
     if occurrence_index <= 1:
         return '.'
     offset = occurrence_index - 2
     if offset >= 26:
-        raise ValueError(
-            'More than 27 repeated residue occurrences in one chain are not '
-            'supported for mmCIF insertion-code output.'
-        )
+        if strict:
+            raise ValueError(
+                'More than 27 repeated residue occurrences in one chain are not '
+                'supported for mmCIF insertion-code output.'
+            )
+        return '.'
     return chr(ord('A') + offset)
 
 
@@ -390,6 +396,8 @@ def _author_ids_with_insertion_codes(
     chain_ids: Sequence[str],
     author_residue_ids: Sequence[str],
     existing_insertion_codes: Sequence[str] | None = None,
+    *,
+    strict: bool = True,
 ) -> tuple[list[str], list[str], list[str]]:
     """Returns author IDs, insertion codes, and combined author labels."""
     occurrence_count_by_residue: dict[tuple[str, str], int] = {}
@@ -400,6 +408,7 @@ def _author_ids_with_insertion_codes(
         zip(chain_ids, author_residue_ids, strict=True)
     ):
         explicit_insertion_code = "."
+        overflow_occurrence = 0
         if existing_insertion_codes is not None:
             explicit_insertion_code = existing_insertion_codes[index]
 
@@ -409,11 +418,19 @@ def _author_ids_with_insertion_codes(
             key = (chain_id, residue_id)
             occurrence = occurrence_count_by_residue.get(key, 0) + 1
             occurrence_count_by_residue[key] = occurrence
-            insertion_code = _duplicate_occurrence_to_insertion_code(occurrence)
+            insertion_code = _duplicate_occurrence_to_insertion_code(
+                occurrence,
+                strict=strict,
+            )
+            if insertion_code == "." and occurrence > 1:
+                overflow_occurrence = occurrence
 
         insertion_codes.append(insertion_code)
         if insertion_code == ".":
-            combined_labels.append(residue_id)
+            if overflow_occurrence and not strict:
+                combined_labels.append(f"{residue_id}[{overflow_occurrence}]")
+            else:
+                combined_labels.append(residue_id)
         else:
             combined_labels.append(f"{residue_id}{insertion_code}")
 
@@ -511,6 +528,7 @@ def _make_viewer_compatible_inference_result(
         ) = _author_ids_with_insertion_codes(
             token_chain_ids,
             token_author_ids,
+            strict=False,
         )
         metadata["token_res_ids"] = _sequential_residue_ids_per_chain(token_chain_ids)
         metadata["token_auth_res_ids"] = token_author_ids
@@ -820,13 +838,25 @@ class AlphaFold3Backend(FoldingBackend):
             }
             return chain_cls(**filtered_kwargs)
 
+        def _chain_input_sequence(
+            chain: (
+                folding_input.ProteinChain
+                | folding_input.RnaChain
+                | folding_input.DnaChain
+            ),
+        ) -> str:
+            canonical_sequence = getattr(chain, "_sequence", None)
+            if isinstance(canonical_sequence, str):
+                return canonical_sequence
+            return chain.sequence
+
         def _clone_chain_with_id(chain, new_id: str):
             description = getattr(chain, "description", None)
             if isinstance(chain, folding_input.ProteinChain):
                 return _construct_chain(
                     folding_input.ProteinChain,
                     id=new_id,
-                    sequence=chain.sequence,
+                    sequence=_chain_input_sequence(chain),
                     description=description,
                     residue_ids=getattr(chain, "residue_ids", None),
                     ptms=chain.ptms,
@@ -838,7 +868,7 @@ class AlphaFold3Backend(FoldingBackend):
                 return _construct_chain(
                     folding_input.RnaChain,
                     id=new_id,
-                    sequence=chain.sequence,
+                    sequence=_chain_input_sequence(chain),
                     description=description,
                     residue_ids=getattr(chain, "residue_ids", None),
                     modifications=chain.modifications,
@@ -848,7 +878,7 @@ class AlphaFold3Backend(FoldingBackend):
                 return _construct_chain(
                     folding_input.DnaChain,
                     id=new_id,
-                    sequence=chain.sequence,
+                    sequence=_chain_input_sequence(chain),
                     description=description,
                     residue_ids=getattr(chain, "residue_ids", None),
                     modifications=chain.modifications(),
@@ -880,12 +910,30 @@ class AlphaFold3Backend(FoldingBackend):
         def _slice_sequence_like(
             value: str | bytes | bytearray,
             keep_indices: np.ndarray,
+            *,
+            tolerate_shorter_input: bool = False,
+            context: str = "sequence",
         ) -> str | bytes:
             as_text = (
                 value.decode("utf-8")
                 if isinstance(value, (bytes, bytearray))
                 else str(value)
             )
+            if keep_indices.size:
+                max_index = int(np.max(keep_indices))
+                if max_index >= len(as_text):
+                    if tolerate_shorter_input:
+                        logging.warning(
+                            "Leaving %s unsliced because length %d is shorter "
+                            "than requested keep index %d",
+                            context,
+                            len(as_text),
+                            max_index,
+                        )
+                        return value
+                    raise IndexError(
+                        f"{context} length {len(as_text)} is shorter than keep index {max_index}"
+                    )
             sliced = "".join(as_text[int(index)] for index in keep_indices.tolist())
             if isinstance(value, (bytes, bytearray)):
                 return sliced.encode("utf-8")
@@ -960,7 +1008,12 @@ class AlphaFold3Backend(FoldingBackend):
             if "template_sequence" in normalized_feature_dict:
                 normalized_feature_dict["template_sequence"] = np.array(
                     [
-                        _slice_sequence_like(template_sequence, keep_indices)
+                        _slice_sequence_like(
+                            template_sequence,
+                            keep_indices,
+                            tolerate_shorter_input=True,
+                            context="template_sequence",
+                        )
                         for template_sequence in normalized_feature_dict["template_sequence"]
                     ],
                     dtype=object,
@@ -1056,7 +1109,7 @@ class AlphaFold3Backend(FoldingBackend):
             return _construct_chain(
                 folding_input.ProteinChain,
                 id=chain.id,
-                sequence=chain.sequence,
+                sequence=_chain_input_sequence(chain),
                 description=getattr(chain, "description", None),
                 residue_ids=getattr(chain, "residue_ids", None),
                 ptms=chain.ptms,
@@ -1238,7 +1291,7 @@ class AlphaFold3Backend(FoldingBackend):
                     folding_input.DnaChain,
                 ),
             ):
-                return list(range(1, len(chain.sequence) + 1))
+                return list(range(1, len(_chain_input_sequence(chain)) + 1))
             return None
 
         def _slice_af3_chain_to_regions(
@@ -1257,7 +1310,8 @@ class AlphaFold3Backend(FoldingBackend):
                     f"Region ranges are not supported for ligand AF3 JSON inputs: {json_path}"
                 )
 
-            sequence_length = len(chain.sequence)
+            chain_sequence = _chain_input_sequence(chain)
+            sequence_length = len(chain_sequence)
             for start, end in regions:
                 if not 1 <= start <= end <= sequence_length:
                     raise ValueError(
@@ -1266,7 +1320,7 @@ class AlphaFold3Backend(FoldingBackend):
                     )
 
             sliced_sequence = "".join(
-                chain.sequence[start - 1:end]
+                chain_sequence[start - 1:end]
                 for start, end in regions
             )
             sliced_residue_ids = [
@@ -1786,7 +1840,7 @@ class AlphaFold3Backend(FoldingBackend):
                         base_chain = _construct_chain(
                             folding_input.ProteinChain,
                             id=base_chain.id,
-                            sequence=base_chain.sequence,
+                            sequence=_chain_input_sequence(base_chain),
                             ptms=base_chain.ptms,
                             residue_ids=getattr(base_chain, "residue_ids", None),
                             description=interactor.description,
