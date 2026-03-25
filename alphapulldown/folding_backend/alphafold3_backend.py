@@ -1920,7 +1920,7 @@ class AlphaFold3Backend(FoldingBackend):
                             new_chain = _construct_chain(
                                 folding_input.ProteinChain,
                                 id=ch.id,
-                                sequence=ch.sequence,
+                                sequence=_chain_input_sequence(ch),
                                 ptms=ch.ptms,
                                 residue_ids=getattr(ch, "residue_ids", None),
                                 description=getattr(ch, "description", None),
