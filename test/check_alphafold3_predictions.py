@@ -1463,6 +1463,60 @@ class TestAlphaFold3RunModes(_TestBase):
         self.assertEqual(ligand_entries[0]["id"], "L")
         self.assertEqual(ligand_entries[0]["ccdCodes"], ["ATP"])
 
+    def test_af3_prepare_input_skips_invalid_json_templates_for_ptm_input(self):
+        """Malformed inline JSON templates should be dropped instead of crashing AF3."""
+        from alphafold3.common import folding_input
+        from alphapulldown.folding_backend.alphafold3_backend import (
+            AlphaFold3Backend,
+            process_fold_input,
+        )
+
+        json_input = self.test_features_dir / "protein_with_ptms.json"
+        raw_payload = json.loads(json_input.read_text())
+        expected_protein = raw_payload["sequences"][0]["protein"]
+
+        mappings = AlphaFold3Backend.prepare_input(
+            objects_to_model=[
+                {
+                    "object": {"json_input": str(json_input)},
+                    "output_dir": str(self.output_dir),
+                }
+            ],
+            random_seed=42,
+        )
+        self.assertLen(mappings, 1)
+        fold_input_obj, _ = next(iter(mappings[0].items()))
+
+        self.assertEqual([chain.id for chain in fold_input_obj.chains], ["P"])
+        self.assertLen(fold_input_obj.chains, 1)
+        self.assertIsInstance(fold_input_obj.chains[0], folding_input.ProteinChain)
+        self.assertEqual(list(fold_input_obj.chains[0].ptms), [("HYS", 1), ("2MG", 15)])
+        self.assertEqual(list(fold_input_obj.chains[0].templates), [])
+
+        process_fold_input(
+            fold_input=fold_input_obj,
+            model_runner=None,
+            output_dir=str(self.output_dir),
+            buckets=(512,),
+        )
+        input_json = self.output_dir / f"{fold_input_obj.sanitised_name()}_data.json"
+        with open(input_json, "rt") as handle:
+            written = json.load(handle)
+
+        protein_entries = [
+            sequence_entry["protein"]
+            for sequence_entry in written.get("sequences", [])
+            if "protein" in sequence_entry
+        ]
+        self.assertLen(protein_entries, 1)
+        self.assertEqual(protein_entries[0]["id"], "P")
+        self.assertEqual(protein_entries[0]["sequence"], expected_protein["sequence"])
+        self.assertEqual(
+            protein_entries[0]["modifications"],
+            expected_protein["modifications"],
+        )
+        self.assertEqual(protein_entries[0]["templates"], [])
+
     def test_af3_viewer_output_renumbers_gapped_residue_ids_for_viewers(self):
         """Viewer-safe AF3 output must use sequential label IDs for gapped chains."""
         from alphafold3.common import folding_input

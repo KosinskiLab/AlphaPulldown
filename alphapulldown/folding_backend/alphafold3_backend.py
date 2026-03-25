@@ -34,6 +34,7 @@ from alphafold3.jax.attention import attention
 from alphafold3.model import features, params, post_processing
 from alphafold3.model import model
 from alphafold3.model.components import utils
+from alphafold3.structure import mmcif as af3_mmcif
 from jax import numpy as jnp
 
 from alphafold.common import residue_constants
@@ -862,6 +863,72 @@ class AlphaFold3Backend(FoldingBackend):
                 )
             raise TypeError(f"Unsupported chain type: {type(chain)}")
 
+        @functools.lru_cache(maxsize=None)
+        def _validate_json_template_mmcif(
+            mmcif_string: str,
+        ) -> tuple[bool, str | None]:
+            try:
+                af3_mmcif.from_string(mmcif_string)
+            except Exception as exc:
+                return False, str(exc)
+            return True, None
+
+        def _sanitize_json_input_chain_templates(
+            chain: (
+                folding_input.ProteinChain
+                | folding_input.RnaChain
+                | folding_input.DnaChain
+                | folding_input.Ligand
+            ),
+            *,
+            json_path: str,
+        ):
+            if not isinstance(chain, folding_input.ProteinChain):
+                return chain
+            if chain.templates is None:
+                return chain
+
+            valid_templates = []
+            dropped_template_count = 0
+            for template_index, template in enumerate(chain.templates):
+                is_valid, error_message = _validate_json_template_mmcif(
+                    template.mmcif
+                )
+                if is_valid:
+                    valid_templates.append(template)
+                    continue
+
+                dropped_template_count += 1
+                logging.warning(
+                    "Skipping invalid template %d for JSON input %s chain %s: %s",
+                    template_index,
+                    json_path,
+                    chain.id,
+                    error_message,
+                )
+
+            if dropped_template_count == 0:
+                return chain
+
+            logging.info(
+                "Kept %d/%d template(s) for JSON input %s chain %s after validation",
+                len(valid_templates),
+                len(chain.templates),
+                json_path,
+                chain.id,
+            )
+            return _construct_chain(
+                folding_input.ProteinChain,
+                id=chain.id,
+                sequence=chain.sequence,
+                description=getattr(chain, "description", None),
+                residue_ids=getattr(chain, "residue_ids", None),
+                ptms=chain.ptms,
+                paired_msa=chain.paired_msa,
+                unpaired_msa=chain.unpaired_msa,
+                templates=valid_templates,
+            )
+
         def _slice_a3m_row_to_region(a3m_row: str, start: int, end: int) -> str:
             query_position = 0
             sliced_chars: list[str] = []
@@ -1140,18 +1207,22 @@ class AlphaFold3Backend(FoldingBackend):
             | folding_input.RnaChain
             | folding_input.DnaChain
             | folding_input.Ligand
-        ]:
+            ]:
+            sanitized_chains = [
+                _sanitize_json_input_chain_templates(chain, json_path=json_path)
+                for chain in chains
+            ]
             if not regions:
-                return list(chains)
+                return list(sanitized_chains)
 
-            if len(chains) != 1:
+            if len(sanitized_chains) != 1:
                 raise ValueError(
                     "Region ranges for AF3 JSON feature inputs require exactly "
-                    f"one chain per file, but {json_path} contains {len(chains)} chains."
+                    f"one chain per file, but {json_path} contains {len(sanitized_chains)} chains."
                 )
 
             merged_chain = _slice_af3_chain_to_regions(
-                chains[0],
+                sanitized_chains[0],
                 regions=regions,
                 json_path=json_path,
             )
