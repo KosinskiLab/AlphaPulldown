@@ -1653,15 +1653,10 @@ class TestAlphaFold3RunModes(_TestBase):
             for sequence_entry in written.get("sequences", [])
             if "protein" in sequence_entry
         ]
-        self.assertLen(protein_entries, 2)
-        self.assertEqual(
-            [entry["sequence"] for entry in protein_entries],
-            [expected_sequence, expected_sequence],
-        )
-        self.assertEqual(
-            [entry["residueIds"] for entry in protein_entries],
-            [expected_residue_ids, expected_residue_ids],
-        )
+        self.assertLen(protein_entries, 1)
+        self.assertEqual(protein_entries[0]["id"], ["A", "B"])
+        self.assertEqual(protein_entries[0]["sequence"], expected_sequence)
+        self.assertEqual(protein_entries[0]["residueIds"], expected_residue_ids)
 
         print("✓ AF3 input keeps two copied out-of-order gapped regions as two chains")
 
