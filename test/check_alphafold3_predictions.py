@@ -1376,6 +1376,93 @@ class TestAlphaFold3RunModes(_TestBase):
 
         self.assertEqual(rebuilt.present_residues.id.tolist(), expected_residue_ids)
 
+    def test_af3_output_job_name_compacts_long_homomer_names(self):
+        """AF3 job names should stay readable and below common filename limits."""
+        from alphapulldown.folding_backend.alphafold3_backend import AlphaFold3Backend
+
+        parsed = parse_fold(
+            ["A0A075B6L2:10:1-3:4-5:6-7:7-8"],
+            [str(self.test_features_dir)],
+            "+",
+        )
+        data = create_custom_info(parsed)
+        all_interactors = create_interactors(data, [str(self.test_features_dir)])
+        self.assertLen(all_interactors, 1)
+        self.assertLen(all_interactors[0], 10)
+
+        object_to_model = MultimericObject(interactors=all_interactors[0], pair_msa=True)
+        mappings = AlphaFold3Backend.prepare_input(
+            objects_to_model=[{"object": object_to_model, "output_dir": str(self.output_dir)}],
+            random_seed=42,
+        )
+        self.assertLen(mappings, 1)
+        fold_input_obj, _ = next(iter(mappings[0].items()))
+
+        self.assertEqual(
+            fold_input_obj.sanitised_name(),
+            "A0A075B6L2_1-3_4-5_6-7_7-8__x10",
+        )
+        self.assertLessEqual(len(fold_input_obj.sanitised_name()), 200)
+
+    def test_af3_prepare_input_accepts_monomer_plus_ligand_json(self):
+        """AF3 mixed protein+ligand JSON inputs must survive prepare_input cloning."""
+        from alphafold3.common import folding_input
+        from alphapulldown.folding_backend.alphafold3_backend import (
+            AlphaFold3Backend,
+            process_fold_input,
+        )
+
+        parsed = parse_fold(
+            ["A0A024R1R8+ligand.json"],
+            [str(self.test_features_dir)],
+            "+",
+        )
+        data = create_custom_info(parsed)
+        all_interactors = create_interactors(data, [str(self.test_features_dir)])
+        self.assertLen(all_interactors, 1)
+        self.assertLen(all_interactors[0], 2)
+
+        objects_to_model = [
+            {"object": obj, "output_dir": str(self.output_dir)}
+            for obj in all_interactors[0]
+        ]
+        mappings = AlphaFold3Backend.prepare_input(
+            objects_to_model=objects_to_model,
+            random_seed=42,
+        )
+        self.assertLen(mappings, 1)
+        fold_input_obj, _ = next(iter(mappings[0].items()))
+
+        self.assertEqual([chain.id for chain in fold_input_obj.chains], ["A", "L"])
+        self.assertIsInstance(fold_input_obj.chains[0], folding_input.ProteinChain)
+        self.assertIsInstance(fold_input_obj.chains[1], folding_input.Ligand)
+        self.assertEqual(list(fold_input_obj.chains[1].ccd_ids), ["ATP"])
+
+        process_fold_input(
+            fold_input=fold_input_obj,
+            model_runner=None,
+            output_dir=str(self.output_dir),
+            buckets=(512,),
+        )
+        input_json = self.output_dir / f"{fold_input_obj.sanitised_name()}_data.json"
+        with open(input_json, "rt") as handle:
+            written = json.load(handle)
+
+        protein_entries = [
+            sequence_entry["protein"]
+            for sequence_entry in written.get("sequences", [])
+            if "protein" in sequence_entry
+        ]
+        ligand_entries = [
+            sequence_entry["ligand"]
+            for sequence_entry in written.get("sequences", [])
+            if "ligand" in sequence_entry
+        ]
+        self.assertLen(protein_entries, 1)
+        self.assertLen(ligand_entries, 1)
+        self.assertEqual(ligand_entries[0]["id"], "L")
+        self.assertEqual(ligand_entries[0]["ccdCodes"], ["ATP"])
+
     def test_af3_viewer_output_renumbers_gapped_residue_ids_for_viewers(self):
         """Viewer-safe AF3 output must use sequential label IDs for gapped chains."""
         from alphafold3.common import folding_input
