@@ -510,6 +510,45 @@ class AlphaFold3Backend(FoldingBackend):
             }
             return chain_cls(**filtered_kwargs)
 
+        def _clone_chain_with_id(chain, new_id: str):
+            common_kwargs = {
+                "id": new_id,
+                "sequence": chain.sequence,
+                "description": getattr(chain, "description", None),
+                "residue_ids": getattr(chain, "residue_ids", None),
+            }
+            if isinstance(chain, folding_input.ProteinChain):
+                return _construct_chain(
+                    folding_input.ProteinChain,
+                    **common_kwargs,
+                    ptms=chain.ptms,
+                    paired_msa=chain.paired_msa,
+                    unpaired_msa=chain.unpaired_msa,
+                    templates=chain.templates,
+                )
+            if isinstance(chain, folding_input.RnaChain):
+                return _construct_chain(
+                    folding_input.RnaChain,
+                    **common_kwargs,
+                    modifications=chain.modifications,
+                    unpaired_msa=chain.unpaired_msa,
+                )
+            if isinstance(chain, folding_input.DnaChain):
+                return _construct_chain(
+                    folding_input.DnaChain,
+                    **common_kwargs,
+                    modifications=chain.modifications(),
+                )
+            if isinstance(chain, folding_input.Ligand):
+                return _construct_chain(
+                    folding_input.Ligand,
+                    id=new_id,
+                    ccd_ids=chain.ccd_ids,
+                    smiles=chain.smiles,
+                    description=getattr(chain, "description", None),
+                )
+            raise TypeError(f"Unsupported chain type: {type(chain)}")
+
         def _slice_a3m_row_to_region(a3m_row: str, start: int, end: int) -> str:
             query_position = 0
             sliced_chars: list[str] = []
@@ -541,6 +580,33 @@ class AlphaFold3Backend(FoldingBackend):
             sequences, descriptions = af3_parsers.parse_fasta(a3m_text)
             sliced_sequences = [
                 _slice_a3m_row_to_region(sequence, start, end)
+                for sequence in sequences
+            ]
+            return (
+                "\n".join(
+                    f">{description}\n{sequence}"
+                    for description, sequence in zip(
+                        descriptions,
+                        sliced_sequences,
+                        strict=True,
+                    )
+                )
+                + "\n"
+            )
+
+        def _slice_a3m_to_regions(
+            a3m_text: str | None,
+            regions: Sequence[tuple[int, int]],
+        ) -> str | None:
+            if a3m_text in (None, "") or not regions:
+                return a3m_text
+
+            sequences, descriptions = af3_parsers.parse_fasta(a3m_text)
+            sliced_sequences = [
+                "".join(
+                    _slice_a3m_row_to_region(sequence, start, end)
+                    for start, end in regions
+                )
                 for sequence in sequences
             ]
             return (
@@ -591,7 +657,75 @@ class AlphaFold3Backend(FoldingBackend):
                 if start <= modification_position <= end
             ]
 
-        def _slice_af3_chain_to_region(
+        def _slice_positioned_modifications_to_regions(
+            modifications: Sequence[tuple[str, int]],
+            regions: Sequence[tuple[int, int]],
+        ) -> list[tuple[str, int]]:
+            sliced_modifications: list[tuple[str, int]] = []
+            offset = 0
+            for start, end in regions:
+                sliced_modifications.extend(
+                    (
+                        modification_name,
+                        offset + modification_position - start + 1,
+                    )
+                    for modification_name, modification_position in modifications
+                    if start <= modification_position <= end
+                )
+                offset += end - start + 1
+            return sliced_modifications
+
+        def _slice_templates_to_regions(
+            templates: Sequence[folding_input.Template] | None,
+            regions: Sequence[tuple[int, int]],
+        ) -> Sequence[folding_input.Template] | None:
+            if templates is None:
+                return None
+
+            sliced_templates = []
+            for template in templates:
+                remapped_indices = {}
+                offset = 0
+                for start, end in regions:
+                    start_index = start - 1
+                    remapped_indices.update({
+                        offset + (query_index - start_index): template_index
+                        for query_index, template_index in template.query_to_template_map.items()
+                        if start_index <= query_index < end
+                    })
+                    offset += end - start + 1
+                if remapped_indices:
+                    sliced_templates.append(
+                        folding_input.Template(
+                            mmcif=template.mmcif,
+                            query_to_template_map=remapped_indices,
+                        )
+                    )
+            return sliced_templates
+
+        def _chain_residue_ids(
+            chain: (
+                folding_input.ProteinChain
+                | folding_input.RnaChain
+                | folding_input.DnaChain
+                | folding_input.Ligand
+            ),
+        ) -> list[int] | None:
+            residue_ids = getattr(chain, "residue_ids", None)
+            if residue_ids is not None:
+                return [int(residue_id) for residue_id in residue_ids]
+            if isinstance(
+                chain,
+                (
+                    folding_input.ProteinChain,
+                    folding_input.RnaChain,
+                    folding_input.DnaChain,
+                ),
+            ):
+                return list(range(1, len(chain.sequence) + 1))
+            return None
+
+        def _slice_af3_chain_to_regions(
             chain: (
                 folding_input.ProteinChain
                 | folding_input.RnaChain
@@ -599,8 +733,7 @@ class AlphaFold3Backend(FoldingBackend):
                 | folding_input.Ligand
             ),
             *,
-            start: int,
-            end: int,
+            regions: Sequence[tuple[int, int]],
             json_path: str,
         ):
             if isinstance(chain, folding_input.Ligand):
@@ -609,37 +742,43 @@ class AlphaFold3Backend(FoldingBackend):
                 )
 
             sequence_length = len(chain.sequence)
-            if not 1 <= start <= end <= sequence_length:
-                raise ValueError(
-                    f"Requested region {start}-{end} is outside the sequence "
-                    f"length {sequence_length} for AF3 JSON input {json_path}."
-                )
+            for start, end in regions:
+                if not 1 <= start <= end <= sequence_length:
+                    raise ValueError(
+                        f"Requested region {start}-{end} is outside the sequence "
+                        f"length {sequence_length} for AF3 JSON input {json_path}."
+                    )
 
-            sliced_sequence = chain.sequence[start - 1:end]
+            sliced_sequence = "".join(
+                chain.sequence[start - 1:end]
+                for start, end in regions
+            )
+            sliced_residue_ids = [
+                residue_id
+                for start, end in regions
+                for residue_id in (_chain_residue_ids(chain) or [])[start - 1:end]
+            ]
             if isinstance(chain, folding_input.ProteinChain):
                 return _construct_chain(
                     folding_input.ProteinChain,
                     id=chain.id,
                     sequence=sliced_sequence,
-                    ptms=_slice_positioned_modifications_to_region(
+                    ptms=_slice_positioned_modifications_to_regions(
                         chain.ptms,
-                        start,
-                        end,
+                        regions,
                     ),
-                    unpaired_msa=_slice_a3m_to_region(
+                    residue_ids=sliced_residue_ids,
+                    unpaired_msa=_slice_a3m_to_regions(
                         chain.unpaired_msa,
-                        start,
-                        end,
+                        regions,
                     ),
-                    paired_msa=_slice_a3m_to_region(
+                    paired_msa=_slice_a3m_to_regions(
                         chain.paired_msa,
-                        start,
-                        end,
+                        regions,
                     ),
-                    templates=_slice_templates_to_region(
+                    templates=_slice_templates_to_regions(
                         chain.templates,
-                        start,
-                        end,
+                        regions,
                     ),
                 )
 
@@ -648,15 +787,14 @@ class AlphaFold3Backend(FoldingBackend):
                     folding_input.RnaChain,
                     id=chain.id,
                     sequence=sliced_sequence,
-                    modifications=_slice_positioned_modifications_to_region(
+                    modifications=_slice_positioned_modifications_to_regions(
                         chain.modifications,
-                        start,
-                        end,
+                        regions,
                     ),
-                    unpaired_msa=_slice_a3m_to_region(
+                    residue_ids=sliced_residue_ids,
+                    unpaired_msa=_slice_a3m_to_regions(
                         chain.unpaired_msa,
-                        start,
-                        end,
+                        regions,
                     ),
                 )
 
@@ -665,11 +803,11 @@ class AlphaFold3Backend(FoldingBackend):
                     folding_input.DnaChain,
                     id=chain.id,
                     sequence=sliced_sequence,
-                    modifications=_slice_positioned_modifications_to_region(
+                    modifications=_slice_positioned_modifications_to_regions(
                         chain.modifications(),
-                        start,
-                        end,
+                        regions,
                     ),
+                    residue_ids=sliced_residue_ids,
                 )
 
             raise TypeError(f"Unsupported chain type for AF3 JSON slicing: {type(chain)}")
@@ -699,23 +837,17 @@ class AlphaFold3Backend(FoldingBackend):
                     f"one chain per file, but {json_path} contains {len(chains)} chains."
                 )
 
-            base_chain = chains[0]
-            expanded_chains = [
-                _slice_af3_chain_to_region(
-                    base_chain,
-                    start=start,
-                    end=end,
-                    json_path=json_path,
-                )
-                for start, end in regions
-            ]
+            merged_chain = _slice_af3_chain_to_regions(
+                chains[0],
+                regions=regions,
+                json_path=json_path,
+            )
             logging.info(
-                "Expanded AF3 JSON input %s into %d chain(s) for regions %s",
+                "Collapsed AF3 JSON input %s into one gapped chain for regions %s",
                 json_path,
-                len(expanded_chains),
                 regions,
             )
-            return expanded_chains
+            return [merged_chain]
         
         def get_chain_id(index: int) -> str:
             if index < 26:
@@ -887,6 +1019,12 @@ class AlphaFold3Backend(FoldingBackend):
         ) -> folding_input.ProteinChain:
             sequence = mono_obj.sequence
             feature_dict = mono_obj.feature_dict
+            residue_ids = None
+            residue_index = feature_dict.get("residue_index")
+            if residue_index is not None:
+                residue_ids = (
+                    np.asarray(residue_index, dtype=np.int32).reshape(-1) + 1
+                ).astype(int).tolist()
             msa_array = feature_dict.get('msa')
             deletion_matrix = feature_dict.get('deletion_matrix_int')
             if deletion_matrix is None:
@@ -997,6 +1135,7 @@ class AlphaFold3Backend(FoldingBackend):
                 id=chain_id,
                 sequence=sequence,
                 ptms=[],
+                residue_ids=residue_ids,
                 description=mono_obj.description,
                 unpaired_msa=unpaired_msa,
                 paired_msa=paired_msa,
@@ -1007,8 +1146,6 @@ class AlphaFold3Backend(FoldingBackend):
         def _expand_monomeric_object(
             mono_obj: Union[MonomericObject, ChoppedObject],
         ) -> list[Union[MonomericObject, ChoppedObject]]:
-            if isinstance(mono_obj, ChoppedObject):
-                return mono_obj.split_into_individual_region_objects()
             return [mono_obj]
 
         def _process_single_object(obj, chain_id_counter_ref, used_chain_ids: set):
@@ -1049,47 +1186,7 @@ class AlphaFold3Backend(FoldingBackend):
                         used_chain_ids.add(new_id)
                         logging.info(f"Added chain ID '{new_id}' from JSON file {json_path}")
                         
-                        # Create a new chain with the modified ID
-                        if isinstance(chain, folding_input.ProteinChain):
-                            modified_chain = _construct_chain(
-                                folding_input.ProteinChain,
-                                id=new_id,
-                                sequence=chain.sequence,
-                                ptms=chain.ptms,
-                                description=getattr(chain, "description", None),
-                                paired_msa=chain.paired_msa,
-                                unpaired_msa=chain.unpaired_msa,
-                                templates=chain.templates,
-                            )
-                        elif isinstance(chain, folding_input.RnaChain):
-                            modified_chain = _construct_chain(
-                                folding_input.RnaChain,
-                                id=new_id,
-                                sequence=chain.sequence,
-                                modifications=chain.modifications,
-                                description=getattr(chain, "description", None),
-                                unpaired_msa=chain.unpaired_msa,
-                            )
-                        elif isinstance(chain, folding_input.DnaChain):
-                            modified_chain = _construct_chain(
-                                folding_input.DnaChain,
-                                id=new_id,
-                                sequence=chain.sequence,
-                                description=getattr(chain, "description", None),
-                                modifications=chain.modifications(),
-                            )
-                        elif isinstance(chain, folding_input.Ligand):
-                            modified_chain = _construct_chain(
-                                folding_input.Ligand,
-                                id=new_id,
-                                ccd_ids=chain.ccd_ids,
-                                smiles=chain.smiles,
-                                description=getattr(chain, "description", None),
-                            )
-                        else:
-                            raise TypeError(f"Unsupported chain type: {type(chain)}")
-                        
-                        modified_chains.append(modified_chain)
+                        modified_chains.append(_clone_chain_with_id(chain, new_id))
                     
                     all_chains.extend(modified_chains)
                     if len(all_chains) == len(modified_chains):
@@ -1112,12 +1209,7 @@ class AlphaFold3Backend(FoldingBackend):
                 chains = []
                 translated_result = None
                 combined_msa = obj.feature_dict.get('msa')
-                expanded_interactors = [
-                    expanded_interactor
-                    for interactor in obj.interactors
-                    for expanded_interactor in _expand_monomeric_object(interactor)
-                ]
-                expanded_discontinuous_regions = len(expanded_interactors) != len(obj.interactors)
+                expanded_interactors = list(obj.interactors)
 
                 translated_result = (
                     translate_af2_individual_chain_features_to_af3_msas_with_stats(
@@ -1129,38 +1221,29 @@ class AlphaFold3Backend(FoldingBackend):
                         ],
                     )
                 )
-                if not expanded_discontinuous_regions:
-                    num_pairable_chains = sum(
-                        chain_stats.paired_species_identifier_count > 0
-                        for chain_stats in translated_result.chain_stats
-                    )
-                    if num_pairable_chains < 2 and combined_msa is not None:
-                        # Fall back to the merged AF2 multimer MSA transport path when the
-                        # individual `_all_seq` features do not carry usable species IDs.
-                        translated_result = (
-                            translate_af2_complex_msa_to_af3_unpaired_chain_msas_with_stats(
-                                merged_msa=np.asarray(combined_msa),
-                                chain_sequences=[
-                                    interactor.sequence for interactor in obj.interactors
-                                ],
-                                num_alignments=obj.feature_dict.get('num_alignments'),
-                                deletion_matrix=(
-                                    obj.feature_dict.get('deletion_matrix_int')
-                                    if obj.feature_dict.get('deletion_matrix_int') is not None
-                                    else obj.feature_dict.get('deletion_matrix')
-                                ),
-                                asym_id=obj.feature_dict.get('asym_id'),
-                            )
+                num_pairable_chains = sum(
+                    chain_stats.paired_species_identifier_count > 0
+                    for chain_stats in translated_result.chain_stats
+                )
+                if num_pairable_chains < 2 and combined_msa is not None:
+                    # Fall back to the merged AF2 multimer MSA transport path when the
+                    # individual `_all_seq` features do not carry usable species IDs.
+                    translated_result = (
+                        translate_af2_complex_msa_to_af3_unpaired_chain_msas_with_stats(
+                            merged_msa=np.asarray(combined_msa),
+                            chain_sequences=[
+                                interactor.sequence for interactor in obj.interactors
+                            ],
+                            num_alignments=obj.feature_dict.get('num_alignments'),
+                            deletion_matrix=(
+                                obj.feature_dict.get('deletion_matrix_int')
+                                if obj.feature_dict.get('deletion_matrix_int') is not None
+                                else obj.feature_dict.get('deletion_matrix')
+                            ),
+                            asym_id=obj.feature_dict.get('asym_id'),
                         )
-                        expanded_interactors = list(obj.interactors)
-                else:
-                    logging.info(
-                        "Expanded discontinuous chopped interactors into %d AF3 chains "
-                        "for job %s; keeping per-chain AF2-derived MSAs because AF3 "
-                        "cannot encode polymer chain breaks within one protein chain.",
-                        len(expanded_interactors),
-                        obj.description,
                     )
+                    expanded_interactors = list(obj.interactors)
 
                 for chain_index, interactor in enumerate(expanded_interactors):
                     chain_id = get_next_available_chain_id(used_chain_ids, chain_id_counter_ref)
@@ -1175,6 +1258,7 @@ class AlphaFold3Backend(FoldingBackend):
                             id=base_chain.id,
                             sequence=base_chain.sequence,
                             ptms=base_chain.ptms,
+                            residue_ids=getattr(base_chain, "residue_ids", None),
                             description=interactor.description,
                             unpaired_msa=chain_msas.unpaired_msa,
                             paired_msa=chain_msas.paired_msa,

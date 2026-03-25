@@ -477,9 +477,9 @@ class ChoppedObject(MonomericObject):
     def split_into_individual_region_objects(self) -> List["ChoppedObject"]:
         """Return one chopped object per requested region.
 
-        This is used by backends such as AlphaFold 3 that cannot encode
-        discontinuous regions as a single polymer chain without introducing a
-        peptide bond between adjacent modeled residues.
+        This helper is retained for backends or experiments that need each
+        requested region as an independent object instead of one discontinuous
+        polymer chain.
         """
         if len(self.regions) <= 1:
             return [self]
