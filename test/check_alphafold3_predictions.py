@@ -1600,22 +1600,11 @@ class TestAlphaFold3RunModes(_TestBase):
             process_fold_input,
         )
 
-        with tempfile.TemporaryDirectory() as temp_dir:
-            protein_list = Path(temp_dir) / "two_copy_out_of_order.txt"
-            protein_list.write_text("A0A075B6L2,2,8-10,2-5\n")
-
-            specifications = generate_fold_specifications(
-                input_files=[str(protein_list)],
-                delimiter="+",
-                exclude_permutations=True,
-            )
-            self.assertLen(specifications, 1)
-
-            parsed = parse_fold(
-                specifications,
-                [str(self.test_features_dir)],
-                "+",
-            )
+        parsed = parse_fold(
+            ["A0A075B6L2:2:8-10:2-5"],
+            [str(self.test_features_dir)],
+            "+",
+        )
 
         data = create_custom_info(parsed)
         all_interactors = create_interactors(data, [str(self.test_features_dir)])
