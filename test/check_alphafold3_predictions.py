@@ -1848,6 +1848,56 @@ class TestAlphaFold3RunModes(_TestBase):
 
         print("✓ AF3 prediction keeps discontinuous chopped regions as one gapped chain")
 
+    def test_af3_predicts_two_out_of_order_gapped_copies_as_two_chains(self):
+        """Run AF3 inference and ensure copied out-of-order gapped regions remain two chains."""
+        self._require_af3_functional_environment()
+        env = self._make_af3_test_env()
+        flash_impl = self._af3_flash_attention_impl()
+
+        res = subprocess.run(
+            [
+                sys.executable,
+                str(self.script_single),
+                "--input=A0A075B6L2:2:8-10:2-5",
+                f"--output_directory={self.output_dir}",
+                f"--data_directory={DATA_DIR}",
+                f"--features_directory={self.test_features_dir}",
+                "--fold_backend=alphafold3",
+                f"--flash_attention_implementation={flash_impl}",
+                "--num_diffusion_samples=1",
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        self._runCommonTests(res)
+
+        expected_regions = [(8, 10), (2, 5)]
+        expected_sequence = "".join(
+            self._get_region_sequences("A0A075B6L2", expected_regions)
+        )
+        expected_residue_ids = [8, 9, 10, 2, 3, 4, 5]
+
+        result_dir = self._resolve_single_af3_result_dir()
+        cif_files = list(result_dir.glob("*_model.cif"))
+        self.assertTrue(cif_files, f"No predicted CIF files found in {result_dir}")
+
+        actual_chains_and_sequences = self._extract_cif_chains_and_sequences(cif_files[0])
+        residue_numbers_by_chain = dict(self._extract_cif_chain_residue_numbers(cif_files[0]))
+
+        self.assertEqual(
+            [sequence for _, sequence in actual_chains_and_sequences],
+            [expected_sequence, expected_sequence],
+        )
+        self.assertEqual(
+            [chain_id for chain_id, _ in actual_chains_and_sequences],
+            ["A", "B"],
+        )
+        self.assertEqual(residue_numbers_by_chain["A"], expected_residue_ids)
+        self.assertEqual(residue_numbers_by_chain["B"], expected_residue_ids)
+
+        print("✓ AF3 prediction keeps two copied out-of-order gapped regions as two chains")
+
     def test_dimer_chopped_expected_sequences_are_concatenated_per_chain(self):
         """Sequence expectations for AF3 chopped inputs must reflect one gapped chain."""
         expected_sequences = self._extract_expected_sequences("test_dimer_chopped.txt")
