@@ -1376,6 +1376,66 @@ class TestAlphaFold3RunModes(_TestBase):
 
         self.assertEqual(rebuilt.present_residues.id.tolist(), expected_residue_ids)
 
+    def test_af3_viewer_output_renumbers_gapped_residue_ids_for_viewers(self):
+        """Viewer-safe AF3 output must use sequential label IDs for gapped chains."""
+        from alphafold3.common import folding_input
+        from alphafold3.constants import chemical_components
+        from alphafold3.model import model as af3_model
+        from alphapulldown.folding_backend.alphafold3_backend import (
+            _make_viewer_compatible_inference_result,
+        )
+
+        original_residue_ids = [2, 3, 4, 5, 8, 9, 10]
+        chain = folding_input.ProteinChain(
+            id="A",
+            sequence="ACDEFGH",
+            ptms=[],
+            residue_ids=original_residue_ids,
+            unpaired_msa="",
+            paired_msa="",
+            templates=[],
+        )
+        fold_input = folding_input.Input(
+            name="gapped_residue_ids_for_viewers",
+            chains=[chain],
+            rng_seeds=[1],
+        )
+        struc = fold_input.to_structure(ccd=chemical_components.Ccd())
+        inference_result = af3_model.InferenceResult(
+            predicted_structure=struc,
+            metadata={
+                "token_chain_ids": ["A"] * len(original_residue_ids),
+                "token_res_ids": original_residue_ids,
+            },
+        )
+
+        viewer_result = _make_viewer_compatible_inference_result(inference_result)
+
+        self.assertEqual(
+            viewer_result.predicted_structure.present_residues.id.tolist(),
+            list(range(1, len(original_residue_ids) + 1)),
+        )
+        self.assertEqual(
+            viewer_result.metadata["token_res_ids"],
+            list(range(1, len(original_residue_ids) + 1)),
+        )
+        self.assertEqual(
+            viewer_result.predicted_structure.residues_table.auth_seq_id.tolist(),
+            [str(residue_id) for residue_id in original_residue_ids],
+        )
+        self.assertEqual(
+            viewer_result.predicted_structure.residues_table.insertion_code.tolist(),
+            ["."] * len(original_residue_ids),
+        )
+        self.assertEqual(
+            viewer_result.metadata["token_auth_res_ids"],
+            [str(residue_id) for residue_id in original_residue_ids],
+        )
+        self.assertEqual(
+            viewer_result.metadata["token_auth_res_labels"],
+            [str(residue_id) for residue_id in original_residue_ids],
+        )
+
     def test_af3_viewer_output_uses_insertion_codes_for_duplicate_residue_ids(self):
         """Viewer-safe AF3 output must preserve IDs and disambiguate with insertions."""
         from alphafold3.common import folding_input
@@ -1430,6 +1490,20 @@ class TestAlphaFold3RunModes(_TestBase):
         self.assertEqual(
             viewer_result.predicted_structure.residues_table.insertion_code.tolist(),
             ['.'] * 10 + ['A'] * 4 + ['.'] * 4,
+        )
+        self.assertEqual(
+            viewer_result.metadata["token_auth_res_ids"],
+            [str(residue_id) for residue_id in original_residue_ids],
+        )
+        self.assertEqual(
+            viewer_result.metadata["token_pdb_ins_codes"],
+            ['.'] * 10 + ['A'] * 4 + ['.'] * 4,
+        )
+        self.assertEqual(
+            viewer_result.metadata["token_auth_res_labels"],
+            [str(i) for i in range(1, 11)]
+            + [f"{i}A" for i in range(2, 6)]
+            + [str(i) for i in range(12, 16)],
         )
 
     def test_af3_keeps_discontinuous_chopped_regions_in_one_gapped_chain(self):
@@ -1567,6 +1641,10 @@ class TestAlphaFold3RunModes(_TestBase):
         self.assertEqual(
             [chain.sequence for chain in fold_input_obj.chains],
             [expected_sequence],
+        )
+        self.assertEqual(
+            fold_input_obj.sanitised_name(),
+            "A0A024R1R8__2-5_8-10",
         )
         self.assertEqual(
             [list(chain.residue_ids) for chain in fold_input_obj.chains],
