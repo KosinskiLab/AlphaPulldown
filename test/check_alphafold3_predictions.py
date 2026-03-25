@@ -2485,6 +2485,12 @@ class TestAlphaFold3RunModes(_TestBase):
 
     def test_af3_num_recycles_affects_runtime(self):
         """num_recycles=1 should be faster than default (keeping other knobs same)."""
+        if os.getenv("AF3_RUN_PERF_TESTS", "").lower() not in ("1", "true", "yes"):
+            self.skipTest(
+                "Set AF3_RUN_PERF_TESTS=1 to run AF3 runtime benchmarks."
+            )
+
+        self._require_af3_functional_environment()
         env = self._make_af3_test_env()
         flash_impl = self._af3_flash_attention_impl()
 
