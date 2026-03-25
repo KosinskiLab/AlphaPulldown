@@ -1593,6 +1593,89 @@ class TestAlphaFold3RunModes(_TestBase):
 
         print("✓ AF3 input keeps discontinuous chopped regions in one gapped chain")
 
+    def test_af3_keeps_two_out_of_order_gapped_copies_as_two_chains(self):
+        """AF3 must keep two copied out-of-order gapped regions as two chains."""
+        from alphapulldown.folding_backend.alphafold3_backend import (
+            AlphaFold3Backend,
+            process_fold_input,
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            protein_list = Path(temp_dir) / "two_copy_out_of_order.txt"
+            protein_list.write_text("A0A075B6L2,2,8-10,2-5\n")
+
+            specifications = generate_fold_specifications(
+                input_files=[str(protein_list)],
+                delimiter="+",
+                exclude_permutations=True,
+            )
+            self.assertLen(specifications, 1)
+
+            parsed = parse_fold(
+                specifications,
+                [str(self.test_features_dir)],
+                "+",
+            )
+
+        data = create_custom_info(parsed)
+        all_interactors = create_interactors(data, [str(self.test_features_dir)])
+        self.assertLen(all_interactors, 1)
+        self.assertLen(all_interactors[0], 2)
+
+        objects_to_model = [{"object": all_interactors[0], "output_dir": str(self.output_dir)}]
+        mappings = AlphaFold3Backend.prepare_input(
+            objects_to_model=objects_to_model,
+            random_seed=42,
+        )
+        self.assertLen(mappings, 1)
+        fold_input_obj, _ = next(iter(mappings[0].items()))
+
+        expected_regions = [(8, 10), (2, 5)]
+        expected_sequence = "".join(
+            self._get_region_sequences("A0A075B6L2", expected_regions)
+        )
+        expected_residue_ids = [8, 9, 10, 2, 3, 4, 5]
+
+        self.assertEqual(
+            [chain.id for chain in fold_input_obj.chains],
+            ["A", "B"],
+        )
+        self.assertEqual(
+            [chain.sequence for chain in fold_input_obj.chains],
+            [expected_sequence, expected_sequence],
+        )
+        self.assertEqual(
+            [list(chain.residue_ids) for chain in fold_input_obj.chains],
+            [expected_residue_ids, expected_residue_ids],
+        )
+
+        process_fold_input(
+            fold_input=fold_input_obj,
+            model_runner=None,
+            output_dir=str(self.output_dir),
+            buckets=(512,),
+        )
+        input_json = self.output_dir / f"{fold_input_obj.sanitised_name()}_data.json"
+        with open(input_json, "rt") as handle:
+            written = json.load(handle)
+
+        protein_entries = [
+            sequence_entry["protein"]
+            for sequence_entry in written.get("sequences", [])
+            if "protein" in sequence_entry
+        ]
+        self.assertLen(protein_entries, 2)
+        self.assertEqual(
+            [entry["sequence"] for entry in protein_entries],
+            [expected_sequence, expected_sequence],
+        )
+        self.assertEqual(
+            [entry["residueIds"] for entry in protein_entries],
+            [expected_residue_ids, expected_residue_ids],
+        )
+
+        print("✓ AF3 input keeps two copied out-of-order gapped regions as two chains")
+
     def test_af3_json_feature_ranges_collapse_into_one_gapped_chain(self):
         """AF3 JSON feature files with ranges must collapse into one gapped chain."""
         from alphapulldown.folding_backend.alphafold3_backend import (
