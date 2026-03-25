@@ -582,21 +582,23 @@ class _TestBase(parameterized.TestCase):
     def _extract_cif_chain_residue_numbers(self, cif_path: Path) -> List[Tuple[str, List[int]]]:
         """Extract residue numbers for each polymer chain from a CIF file."""
         try:
-            from Bio.PDB import MMCIFParser
+            from alphafold3.cpp import cif_dict
 
-            parser = MMCIFParser(QUIET=True)
-            structure = parser.get_structure("model", str(cif_path))
-            model = structure[0]
+            with open(cif_path, "rt") as handle:
+                cif = cif_dict.from_string(handle.read())
+
+            asym_ids = cif.get_array("_pdbx_poly_seq_scheme.asym_id", dtype=object)
+            seq_ids = cif.get_array("_pdbx_poly_seq_scheme.seq_id", dtype=object)
 
             chain_residue_numbers = []
-            for chain in model:
-                residue_numbers = [
-                    residue.id[1]
-                    for residue in chain.get_residues()
-                    if residue.id[0] == " "
-                ]
+            chain_to_numbers = {}
+            for chain_id, seq_id in zip(asym_ids, seq_ids, strict=True):
+                residue_numbers = chain_to_numbers.setdefault(chain_id, [])
+                residue_numbers.append(int(seq_id))
+
+            for chain_id, residue_numbers in chain_to_numbers.items():
                 if residue_numbers:
-                    chain_residue_numbers.append((chain.id, residue_numbers))
+                    chain_residue_numbers.append((chain_id, residue_numbers))
             return chain_residue_numbers
         except Exception as exc:
             self.fail(f"Failed to extract CIF residue numbers from {cif_path}: {exc}")
