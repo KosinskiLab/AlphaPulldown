@@ -1286,11 +1286,12 @@ class TestAlphaFold3RunModes(_TestBase):
         ccd = chemical_components.Ccd()
         struc = fold_input.to_structure(ccd=ccd)
         flat_layout = atom_layout.atom_layout_from_structure(struc)
+        all_physical_residues = atom_layout.residues_from_structure(struc)
         rebuilt = atom_layout.make_structure(
             flat_layout,
             atom_coords=np.zeros((flat_layout.atom_name.shape[0], 3), dtype=np.float32),
             name="duplicate_residue_ids_test",
-            all_physical_residues=struc.present_residues,
+            all_physical_residues=all_physical_residues,
         )
 
         self.assertEqual(rebuilt.present_residues.id.tolist(), expected_residue_ids)
