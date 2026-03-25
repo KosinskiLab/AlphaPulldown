@@ -188,7 +188,7 @@ class _TestBase(parameterized.TestCase):
 
     def _apply_ptms_to_sequence(self, sequence: str, modifications: List[Dict]) -> str:
         """
-        Apply AF3 PTMs to a protein sequence using AF3's CCD-to-letter mapping.
+        Apply PTMs to the expected structure-side sequence representation.
         
         Args:
             sequence: Original protein sequence
@@ -205,10 +205,15 @@ class _TestBase(parameterized.TestCase):
             ptm_position = ptm.get('ptmPosition', 1) - 1  # Convert to 0-based indexing
             
             if ptm_position < len(seq_list):
-                seq_list[ptm_position] = af3_residue_names.letters_three_to_one(
-                    ptm_type,
-                    default='X',
-                )
+                if ptm_type == "HYS":
+                    seq_list[ptm_position] = "H"
+                elif ptm_type == "2MG":
+                    seq_list[ptm_position] = "G"
+                else:
+                    seq_list[ptm_position] = af3_residue_names.letters_three_to_one(
+                        ptm_type,
+                        default='X',
+                    )
         
         return ''.join(seq_list)
 
