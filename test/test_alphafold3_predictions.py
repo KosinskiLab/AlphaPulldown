@@ -541,8 +541,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--use-temp-dir",
-        action="store_true",
-        help="Pass --use-temp-dir through to the target pytest invocation.",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "Run target tests with isolated temporary output directories. "
+            "Use --no-use-temp-dir to keep the shared repo output tree."
+        ),
     )
     parser.add_argument("--partition", default="gpu-el8", help="Slurm partition/queue.")
     parser.add_argument("--qos", default="normal", help="Slurm QoS.")

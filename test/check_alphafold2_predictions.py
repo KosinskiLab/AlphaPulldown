@@ -115,7 +115,8 @@ class _TestBase(parameterized.TestCase):
         self.test_features_dir = self.test_data_dir / "features"
         self.test_protein_lists_dir = self.test_data_dir / "protein_lists"
         self.test_modelling_dir = self.test_data_dir / "predictions"
-        self.af2_backend_dir = self.test_modelling_dir / "af2_backend"
+        # setUpClass already resolved this to either a temp root or the legacy shared root
+        self.af2_backend_dir = self.base_output_dir
 
         test_name = self._testMethodName
         self.output_dir = self.af2_backend_dir / test_name
@@ -245,10 +246,9 @@ class TestResume(_TestBase):
     def setUp(self):
         super().setUp()
         self.protein_lists = self.test_protein_lists_dir / "test_dimer.txt"
-        self.af2_backend_dir.mkdir(parents=True, exist_ok=True)
-
-        source = self.test_modelling_dir / "TEST_and_TEST"
-        target = self.af2_backend_dir / "TEST_and_TEST"
+        # Resume tests need a pre-populated per-test output tree to continue from.
+        source = self.test_modelling_dir / "TEST_homo_2er"
+        target = self.output_dir / "TEST_homo_2er"
         shutil.copytree(source, target, dirs_exist_ok=True)
 
         self.base_args = [

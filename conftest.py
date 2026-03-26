@@ -1,5 +1,15 @@
 import pytest
 
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--use-temp-dir",
+        action="store_true",
+        default=False,
+        help="Run functional test suites with isolated temporary output directories.",
+    )
+
+
 @pytest.hookimpl(tryfirst=True)
 def pytest_itemcollected(item):
     try:
