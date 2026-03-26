@@ -625,6 +625,13 @@ def main() -> int:
         print("No tests matched the requested selection.")
         return 0
 
+    if not args.use_temp_dir and len(nodeids) > 1:
+        raise SystemExit(
+            "--no-use-temp-dir is not safe for parallel AF3 wrapper runs because "
+            "the tests share and clean common output roots. Re-run with the default "
+            "--use-temp-dir, or submit a single nodeid at a time."
+        )
+
     if args.list:
         for nodeid in nodeids:
             print(nodeid)
