@@ -20,14 +20,19 @@ __test__ = False
 import argparse
 import dataclasses
 import datetime as dt
+import importlib.util
+import inspect
 import json
 import re
 import shlex
 import subprocess
 import sys
 import time
+import unittest
 from pathlib import Path
 from typing import Iterable
+
+from _pytest.mark.expression import Expression
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -115,6 +120,48 @@ def _timestamp() -> str:
     return dt.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
 
+def _relative_nodeid_prefix(test_file: Path) -> str:
+    return str(test_file.resolve().relative_to(REPO_ROOT))
+
+
+def _matches_k_expression(nodeid: str, k_expr: str | None) -> bool:
+    if not k_expr:
+        return True
+    expression = Expression.compile(k_expr)
+    lowered = nodeid.lower()
+    return expression.evaluate(lambda token: token.lower() in lowered)
+
+
+def _collect_nodeids_from_module_import(test_file: Path, k_expr: str | None) -> list[str]:
+    module_name = f"_codex_collect_{test_file.stem}"
+    spec = importlib.util.spec_from_file_location(module_name, test_file)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Failed to create import spec for {test_file}")
+
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.modules.pop(module_name, None)
+
+    prefix = _relative_nodeid_prefix(test_file)
+    nodeids: list[str] = []
+    for _, cls in inspect.getmembers(module, inspect.isclass):
+        if cls.__module__ != module.__name__:
+            continue
+        if not issubclass(cls, unittest.TestCase):
+            continue
+        if not cls.__name__.startswith("Test"):
+            continue
+
+        for method_name in sorted(name for name in dir(cls) if name.startswith("test")):
+            nodeid = f"{prefix}::{cls.__name__}::{method_name}"
+            if _matches_k_expression(nodeid, k_expr):
+                nodeids.append(nodeid)
+    return nodeids
+
+
 def collect_nodeids(
     *,
     python_executable: str,
@@ -149,7 +196,10 @@ def collect_nodeids(
         if line.startswith("ERROR ") or line.startswith("SKIPPED "):
             continue
         nodeids.append(line)
-    return nodeids
+    if nodeids:
+        return nodeids
+
+    return _collect_nodeids_from_module_import(test_file, k_expr)
 
 
 def write_job_script(
