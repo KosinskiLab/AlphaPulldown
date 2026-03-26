@@ -139,7 +139,7 @@ snakemake --profile config/profiles/desktop --cores 8
 <details>
 <summary>Cluster execution</summary>
 
-For running on a SLURM cluster, furst create a virtual terminal e.g. using `screen`:
+For running on a SLURM cluster, first create a virtual terminal e.g. using `screen`:
 
 ```bash
 screen -S snakemake_session
@@ -284,7 +284,7 @@ structure_inference_arguments:
   --<other-flags>
 ```
 
-> **Note**: AlphaPulldown supports: `alphafold`, `alphafold3`, `alphalink`, and `unifold` backends.
+> **Note**: AlphaPulldown supports: `alphafold2`, `alphafold3`, `alphalink`, and `unifold` backends.
 
 ### Backend Specific Flags
 
@@ -404,10 +404,14 @@ structure_inference_arguments:
 ```
 
 When you provide multiple residue ranges for one AF3 input, AlphaPulldown slices
-the sequence/MSA/template columns to the requested residues and emits each
-discontinuous region as a separate AF3 chain. This matches the current AF3 input
-model, which cannot represent an internal polymer chain break inside one protein
-chain.
+the sequence, MSA, and template columns to the requested residues and preserves
+the result as one discontinuous AF3 polymer chain with gapped residue numbering.
+The original residue IDs are written to the mmCIF author-numbering fields
+(`auth_seq_id` and `pdbx_PDB_ins_code`); overlapping IDs are disambiguated with
+insertion codes such as `2A`, `2B`, and so on.
+For the AlphaFold 3 backend this keeps retained fragments intra-chain, so
+template contacts between those fragments are not masked as inter-chain
+interactions.
 
 </details>
 
