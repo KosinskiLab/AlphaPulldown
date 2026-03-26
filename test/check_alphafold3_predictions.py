@@ -18,6 +18,7 @@ import pickle
 import json
 import numpy as np
 import re
+import unittest
 from typing import Dict, List, Tuple, Any
 
 from absl.testing import absltest, parameterized
@@ -45,6 +46,37 @@ if not os.path.exists(DATA_DIR):
     absltest.skip("set $ALPHAFOLD_DATA_DIR to run Alphafold functional tests")
 
 
+def _has_nvidia_gpu() -> bool:
+    nvidia_smi = shutil.which("nvidia-smi")
+    if not nvidia_smi:
+        return False
+    try:
+        result = subprocess.run(
+            [nvidia_smi, "-L"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return False
+    return result.returncode == 0 and bool(result.stdout.strip())
+
+
+def _gpu_functional_test_skip_reason() -> str | None:
+    if os.getenv("RUN_GPU_FUNCTIONAL_TESTS", "").lower() in ("1", "true", "yes"):
+        return None
+    if os.getenv("CI", "").lower() in ("1", "true", "yes") or os.getenv(
+        "GITHUB_ACTIONS", ""
+    ).lower() == "true":
+        return (
+            "GPU functional tests are disabled on CI/CD. "
+            "Set RUN_GPU_FUNCTIONAL_TESTS=1 to override."
+        )
+    if not _has_nvidia_gpu():
+        return "GPU functional tests require an NVIDIA GPU and nvidia-smi."
+    return None
+
+
 # --------------------------------------------------------------------------- #
 #                       common helper mix-in / assertions                     #
 # --------------------------------------------------------------------------- #
@@ -54,6 +86,9 @@ class _TestBase(parameterized.TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        skip_reason = _gpu_functional_test_skip_reason()
+        if skip_reason:
+            raise unittest.SkipTest(skip_reason)
         # Create a base directory for all test outputs
         if cls.use_temp_dir:
             cls.base_output_dir = Path(tempfile.mkdtemp(prefix="af3_test_"))
