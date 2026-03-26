@@ -9,3 +9,4 @@ test/test_data/predictions/af*
 build/
 *.egg-info/
 tmp/
+test_logs/
