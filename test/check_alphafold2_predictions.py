@@ -135,12 +135,12 @@ class _TestBase(parameterized.TestCase):
                 f"STDERR:\n{res.stderr}"
             )
 
-        dirs = [dirname] if dirname else [
-            d for d in self.output_dir.iterdir() if d.is_dir()
-        ]
+        if dirname is not None:
+            folders = [self.output_dir / dirname]
+        else:
+            folders = [d for d in self.output_dir.iterdir() if d.is_dir()]
 
-        for d in dirs:
-            folder = self.output_dir / d
+        for folder in folders:
             files = list(folder.iterdir())
 
             self.assertEqual(
