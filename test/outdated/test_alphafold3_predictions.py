@@ -154,7 +154,7 @@ class TestAlphaFold3PredictStructure(parameterized.TestCase):
     # ---------- per-test set-up ------------------------------------------- #
     def setUp(self):
         super().setUp()
-        if not _has_gpu():
+        if not _has_gpu() and not self._is_slurm_available():
             self.skipTest("NVIDIA GPU not detected – skipping Alphafold3 tests")
 
         # Check for correct conda environment
@@ -239,7 +239,7 @@ class TestAlphaFold3PredictStructure(parameterized.TestCase):
         log_path = self.case_dir / f"test_{idx}_{cls_name}_{test_name}.log"
 
         res = subprocess.run(
-            ["sbatch", f"--output={log_path}", str(script_path)],
+            ["sbatch", "--export=ALL", f"--output={log_path}", str(script_path)],
             text=True,
             capture_output=True,
             check=True,
@@ -263,6 +263,12 @@ class TestAlphaFold3PredictStructure(parameterized.TestCase):
         {"testcase_name": "homo_oligomer", "i": 5, "cls": "TestAlphaFold3RunModes", "test": "test__homo_oligomer"},
         {"testcase_name": "chopped_dimer", "i": 6, "cls": "TestAlphaFold3RunModes", "test": "test__chopped_dimer"},
         {"testcase_name": "long_name", "i": 7, "cls": "TestAlphaFold3RunModes", "test": "test__long_name"},
+        {
+            "testcase_name": "issue_588_mmseqs_inference",
+            "i": 8,
+            "cls": "TestAlphaFold3MmseqsIssue588Inference",
+            "test": "test_issue_588_mmseqs_af2_features_enable_af3_species_pairing_inference",
+        },
     )
     def test_predict_structure(self, i: int, cls: str, test: str):
         """Route each parameterised test either through Slurm or local run."""

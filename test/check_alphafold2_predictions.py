@@ -14,6 +14,7 @@ import sys
 import tempfile
 import logging
 import unittest
+import lzma
 from pathlib import Path
 
 from absl.testing import absltest, parameterized
@@ -70,6 +71,34 @@ def _gpu_functional_test_skip_reason() -> str | None:
         return "GPU functional tests require an NVIDIA GPU and nvidia-smi."
     return None
 
+
+def _mmseqs_functional_test_skip_reason() -> str | None:
+    if os.getenv("RUN_MMSEQS_FUNCTIONAL_TESTS", "").lower() in ("1", "true", "yes"):
+        return None
+    return (
+        "MMseqs functional inference tests are disabled by default. "
+        "Set RUN_MMSEQS_FUNCTIONAL_TESTS=1 to enable."
+    )
+
+
+def _load_feature_dict(feature_path: Path) -> dict:
+    opener = lzma.open if feature_path.suffix == ".xz" else open
+    with opener(feature_path, "rb") as handle:
+        payload = pickle.load(handle)
+    if hasattr(payload, "feature_dict"):
+        return payload.feature_dict
+    return payload
+
+
+def _non_empty_identifier_count(values) -> int:
+    count = 0
+    for value in values:
+        if isinstance(value, bytes):
+            value = value.decode("utf-8")
+        if str(value).strip():
+            count += 1
+    return count
+
 # --------------------------------------------------------------------------- #
 #                       common helper mix-in / assertions                     #
 # --------------------------------------------------------------------------- #
@@ -125,6 +154,9 @@ class _TestBase(parameterized.TestCase):
         apd_path = Path(alphapulldown.__path__[0])
         self.script_multimer = apd_path / "scripts" / "run_multimer_jobs.py"
         self.script_single = apd_path / "scripts" / "run_structure_prediction.py"
+        self.script_create_features = (
+            apd_path / "scripts" / "create_individual_features.py"
+        )
 
     # ---------------- assertions reused by all subclasses ----------------- #
     def _runCommonTests(self, res: subprocess.CompletedProcess, multimer: bool, dirname: str | None = None):
@@ -438,6 +470,141 @@ class TestDropoutDiversity(_TestBase):
                 logger.info("⚠ Dropout did not increase diversity in this run (this can happen due to randomness)")
 
             # The test passes if calculations succeed - the diversity check is informational
+
+
+class TestMmseqsIssue588Inference(_TestBase):
+    """Opt-in end-to-end regression for freshly generated mmseq AF2 features."""
+
+    ISSUE_588_IDS = ("A0ABD7FQG0", "P18004")
+
+    def _require_mmseqs_functional_environment(self) -> None:
+        skip_reason = _mmseqs_functional_test_skip_reason()
+        if skip_reason:
+            self.skipTest(skip_reason)
+        for protein_id in self.ISSUE_588_IDS:
+            fasta_path = self.test_data_dir / "fastas" / f"{protein_id}.fasta"
+            self.assertTrue(
+                fasta_path.is_file(),
+                f"Missing FASTA fixture {fasta_path}",
+            )
+
+    def _generate_issue_588_mmseq_features(self) -> Path:
+        feature_dir = self.output_dir / "issue_588_mmseq_features"
+        feature_dir.mkdir(parents=True, exist_ok=True)
+        fasta_paths = ",".join(
+            str(self.test_data_dir / "fastas" / f"{protein_id}.fasta")
+            for protein_id in self.ISSUE_588_IDS
+        )
+        args = [
+            sys.executable,
+            str(self.script_create_features),
+            f"--fasta_paths={fasta_paths}",
+            f"--output_dir={feature_dir}",
+            f"--data_dir={DATA_DIR}",
+            "--max_template_date=2024-05-02",
+            "--use_mmseqs2=True",
+            "--data_pipeline=alphafold2",
+            "--compress_features=True",
+            "--skip_existing=False",
+        ]
+        res = subprocess.run(args, capture_output=True, text=True)
+        self.assertEqual(
+            res.returncode,
+            0,
+            f"MMseqs feature generation failed.\nSTDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}",
+        )
+        return feature_dir
+
+    def _resolve_af2_result_dir(self, root: Path) -> Path:
+        if (root / "ranking_debug.json").exists():
+            return root
+        candidates = sorted(
+            path.parent for path in root.rglob("ranking_debug.json")
+        )
+        self.assertEqual(
+            len(candidates),
+            1,
+            f"Expected one AF2 result directory under {root}, found {candidates}",
+        )
+        return candidates[0]
+
+    def test_issue_588_mmseqs_generated_features_enable_af2_multimer_inference(self):
+        from alphafold.data import feature_processing
+        from alphafold.data import msa_pairing
+        from alphafold.data import pipeline_multimer
+
+        self._require_mmseqs_functional_environment()
+        feature_dir = self._generate_issue_588_mmseq_features()
+
+        converted_chains = {}
+        for chain_id, protein_id in zip(("A", "B"), self.ISSUE_588_IDS):
+            feature_path = feature_dir / f"{protein_id}.pkl.xz"
+            feature_dict = _load_feature_dict(feature_path)
+            self.assertGreater(
+                _non_empty_identifier_count(
+                    feature_dict["msa_species_identifiers_all_seq"]
+                ),
+                0,
+                f"{protein_id} should keep recovered species IDs in msa_species_identifiers_all_seq",
+            )
+            self.assertGreater(
+                _non_empty_identifier_count(
+                    feature_dict["msa_uniprot_accession_identifiers_all_seq"]
+                ),
+                0,
+                f"{protein_id} should keep recovered accession IDs in msa_uniprot_accession_identifiers_all_seq",
+            )
+            converted_chains[chain_id] = pipeline_multimer.convert_monomer_features(
+                feature_dict,
+                chain_id,
+            )
+
+        assembly_features = pipeline_multimer.add_assembly_features(converted_chains)
+        np_chains = list(assembly_features.values())
+        feature_processing.process_unmerged_features(np_chains)
+        paired_rows = msa_pairing.pair_sequences(np_chains)
+        self.assertGreater(
+            paired_rows.shape[0],
+            1,
+            "Fresh mmseq AF2 features should produce paired rows beyond the query",
+        )
+
+        prediction_dir = self.output_dir / "af2_prediction"
+        prediction_dir.mkdir(parents=True, exist_ok=True)
+        res = subprocess.run(
+            [
+                sys.executable,
+                str(self.script_single),
+                "--input=A0ABD7FQG0+P18004",
+                f"--output_directory={prediction_dir}",
+                "--num_cycle=1",
+                "--num_predictions_per_model=1",
+                "--model_names=model_4_multimer_v3",
+                f"--data_directory={DATA_DIR}",
+                f"--features_directory={feature_dir}",
+                "--random_seed=42",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(
+            res.returncode,
+            0,
+            f"AF2 inference failed.\nSTDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}",
+        )
+
+        result_dir = self._resolve_af2_result_dir(prediction_dir)
+        ranking_payload = json.loads(
+            (result_dir / "ranking_debug.json").read_text(encoding="utf-8")
+        )
+        self.assertTrue(ranking_payload["order"])
+
+        result_pickles = sorted(result_dir.glob("result_*.pkl"))
+        self.assertLen(result_pickles, 1)
+        with result_pickles[0].open("rb") as handle:
+            result_payload = pickle.load(handle)
+        self.assertIn("iptm", result_payload)
+        self.assertIn("ranking_confidence", result_payload)
 
 if __name__ == "__main__":
     absltest.main()
