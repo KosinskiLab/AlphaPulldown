@@ -10,13 +10,12 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-test:
+  smoke-tests:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.11"]
-        install-type: ["user", "developer"]
 
     defaults:
       run:
@@ -35,25 +34,12 @@ jobs:
           auto-update-conda: true
           use-mamba: true
 
-      - if: matrix.install-type == 'user'
-        run: |
-          pip install alphapulldown
-          #pip install -U "jax[cuda12]"==0.5.3
-
-      - if: matrix.install-type == 'developer'
-        run: |
-          pip install .
-          #pip install -U "jax[cuda12]"==0.5.3
-          # export PYTHONPATH=$PWD/AlphaLink2:$PYTHONPATH
-          # install dependencies for AlphaLink backend
-          # pip install torch==1.13.0+cu117 --extra-index-url https://download.pytorch.org/whl/cu117
-          # pip install setuptools==69.5.1 # Downgrade setuptools to avoid crashes when installing unicore
-          # git clone https://github.com/dptech-corp/Uni-Core.git
-          # cd Uni-Core
-          # python setup.py install --disable-cuda-ext
-          # cd ..
       - run: |
-          pytest test/
+          pip install -e .[test]
+
+      - run: |
+          pytest -n auto --dist loadfile test/unit
+          pytest test/integration
           #export PYTHONPATH=$PWD/alphapulldown/analysis_pipeline:$PYTHONPATH
           ## Test analysis pipeline
           #conda install -c bioconda biopandas
@@ -61,6 +47,52 @@ jobs:
           #python -c 'import pyrosetta_installer; pyrosetta_installer.install_pyrosetta()'
           #pytest -s test/test_pdb_analyser.py
           #pytest -s test/test_get_good_inter_pae.py
+
+  coverage:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          environment-file: environment.yml
+          activate-environment: AlphaPulldown
+          python-version: "3.11"
+          auto-update-conda: true
+          use-mamba: true
+
+      - run: |
+          pip install -e .[test]
+
+      - run: |
+          pytest -n auto --dist loadfile test/unit \
+            --cov=alphapulldown \
+            --cov-config=.coveragerc \
+            --cov-report=
+          pytest test/integration \
+            --cov=alphapulldown \
+            --cov-config=.coveragerc \
+            --cov-append \
+            --cov-report=
+          coverage report --skip-covered --show-missing
+          coverage xml -o coverage.xml
+          coverage json -o coverage.json
+          coverage html -d htmlcov
+          python test/tools/check_function_coverage.py --report-only coverage.json
+          coverage report --fail-under=25 --skip-covered --show-missing
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            coverage.json
+            coverage.xml
+            htmlcov
 
   build-alphafold2-container:
     runs-on: ubuntu-latest
@@ -157,4 +189,3 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/alphafold3:${{ github.event.release.tag_name }}
           ssh: default
-

@@ -1,4 +1,106 @@
+import sys
+import types
+from pathlib import Path
+
+import numpy as np
 import pytest
+
+
+REPO_ROOT = Path(__file__).resolve().parent
+TEST_IMPORT_PATHS = (
+    REPO_ROOT,
+    REPO_ROOT / "ColabFold",
+    REPO_ROOT / "alphafold",
+    REPO_ROOT / "alphafold3" / "src",
+    REPO_ROOT / "AlphaLink2",
+)
+
+for import_path in TEST_IMPORT_PATHS:
+    import_path_str = str(import_path)
+    if import_path.exists() and import_path_str not in sys.path:
+        sys.path.insert(0, import_path_str)
+
+
+def _install_jax_tree_stub() -> None:
+    try:
+        import jax  # noqa: F401
+        return
+    except Exception:
+        for module_name in list(sys.modules):
+            if module_name == "jax" or module_name.startswith("jax."):
+                sys.modules.pop(module_name, None)
+
+    import tree as dm_tree
+
+    jax_stub = types.ModuleType("jax")
+    jax_numpy_stub = types.ModuleType("jax.numpy")
+    jax_nn_stub = types.ModuleType("jax.nn")
+    jax_lax_stub = types.ModuleType("jax.lax")
+    tree_stub = types.ModuleType("jax.tree")
+    tree_util_stub = types.ModuleType("jax.tree_util")
+    version_stub = types.ModuleType("jax.version")
+    version_stub.__version__ = "0.0-test"
+
+    def _tree_map(func, *structures):
+        return dm_tree.map_structure(func, *structures)
+
+    def _tree_flatten(structure):
+        return dm_tree.flatten(structure), structure
+
+    def _tree_unflatten(treedef, leaves):
+        return dm_tree.unflatten_as(treedef, leaves)
+
+    def _tree_leaves(structure):
+        return dm_tree.flatten(structure)
+
+    def _register_pytree_node(*args, **kwargs):
+        return None
+
+    def _register_pytree_node_class(cls):
+        return cls
+
+    tree_stub.map = _tree_map
+    tree_stub.flatten = _tree_leaves
+    tree_stub.unflatten = _tree_unflatten
+
+    tree_util_stub.tree_map = _tree_map
+    tree_util_stub.tree_flatten = _tree_flatten
+    tree_util_stub.tree_unflatten = _tree_unflatten
+    tree_util_stub.tree_leaves = _tree_leaves
+    tree_util_stub.tree_structure = lambda structure: structure
+    tree_util_stub.register_pytree_node = _register_pytree_node
+    tree_util_stub.register_pytree_node_class = _register_pytree_node_class
+
+    jax_numpy_stub.__dict__.update(np.__dict__)
+    jax_nn_stub.softmax = lambda x, axis=-1: np.exp(x - np.max(x, axis=axis, keepdims=True)) / np.sum(
+        np.exp(x - np.max(x, axis=axis, keepdims=True)),
+        axis=axis,
+        keepdims=True,
+    )
+    jax_lax_stub.stop_gradient = lambda x: x
+
+    jax_stub.tree = tree_stub
+    jax_stub.tree_map = _tree_map
+    jax_stub.tree_util = tree_util_stub
+    jax_stub.numpy = jax_numpy_stub
+    jax_stub.nn = jax_nn_stub
+    jax_stub.lax = jax_lax_stub
+    jax_stub.Array = np.ndarray
+    jax_stub.local_devices = lambda: [types.SimpleNamespace(platform="cpu")]
+    jax_stub.devices = lambda *_args, **_kwargs: [types.SimpleNamespace(platform="cpu")]
+    jax_stub.default_backend = lambda: "cpu"
+    jax_stub.version = version_stub
+
+    sys.modules["jax"] = jax_stub
+    sys.modules["jax.numpy"] = jax_numpy_stub
+    sys.modules["jax.nn"] = jax_nn_stub
+    sys.modules["jax.lax"] = jax_lax_stub
+    sys.modules["jax.tree"] = tree_stub
+    sys.modules["jax.tree_util"] = tree_util_stub
+    sys.modules["jax.version"] = version_stub
+
+
+_install_jax_tree_stub()
 
 
 def pytest_addoption(parser):
@@ -8,6 +110,20 @@ def pytest_addoption(parser):
         default=False,
         help="Run functional test suites with isolated temporary output directories.",
     )
+
+
+def pytest_collection_modifyitems(config, items):
+    for item in items:
+        path = Path(str(item.fspath))
+        parts = set(path.parts)
+        if "unit" in parts:
+            item.add_marker(pytest.mark.unit)
+        if "integration" in parts:
+            item.add_marker(pytest.mark.integration)
+        if "functional" in parts:
+            item.add_marker(pytest.mark.functional)
+        if "cluster" in parts:
+            item.add_marker(pytest.mark.cluster)
 
 
 @pytest.hookimpl(tryfirst=True)

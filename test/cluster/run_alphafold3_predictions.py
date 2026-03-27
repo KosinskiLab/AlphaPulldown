@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 """Submit AlphaFold3 functional tests to Slurm and summarize results.
 
-This is a standalone wrapper for `test/check_alphafold3_predictions.py`.
+This is a standalone wrapper for `test/cluster/check_alphafold3_predictions.py`.
 It is intentionally not a pytest test module, despite the filename.
 
 Typical usage from a login node:
 
-    python test/test_alphafold3_predictions.py
+    python test/cluster/run_alphafold3_predictions.py
 
 Run only selected tests:
 
-    python test/test_alphafold3_predictions.py -k chopped
+    python test/cluster/run_alphafold3_predictions.py -k chopped
 
 Enable the runtime benchmark test as well:
 
-    python test/test_alphafold3_predictions.py --include-perf
+    python test/cluster/run_alphafold3_predictions.py --include-perf
 """
 
 from __future__ import annotations
@@ -40,8 +40,8 @@ from typing import Iterable
 from _pytest.mark.expression import Expression
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_TEST_FILE = REPO_ROOT / "test" / "check_alphafold3_predictions.py"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_TEST_FILE = REPO_ROOT / "test" / "cluster" / "check_alphafold3_predictions.py"
 DEFAULT_LOG_ROOT = REPO_ROOT / "test_logs"
 
 PASS_STATES = {"COMPLETED"}
@@ -177,6 +177,8 @@ def collect_nodeids(
         python_executable,
         "-m",
         "pytest",
+        "-o",
+        "addopts=-ra --strict-markers",
         "--collect-only",
         "-q",
         str(test_file),
@@ -218,6 +220,8 @@ def write_job_script(
         python_executable,
         "-m",
         "pytest",
+        "-o",
+        "addopts=-ra --strict-markers",
         "-vv",
         "-s",
         job.nodeid,
@@ -510,7 +514,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--test-file",
         default=str(DEFAULT_TEST_FILE),
-        help="Pytest file to collect from. Defaults to test/check_alphafold3_predictions.py",
+        help="Pytest file to collect from. Defaults to test/cluster/check_alphafold3_predictions.py",
     )
     parser.add_argument(
         "-k",
