@@ -9,6 +9,9 @@ on:
     types: [published]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   smoke-tests:
     runs-on: ubuntu-latest
@@ -86,6 +89,35 @@ jobs:
           python test/tools/check_function_coverage.py --report-only coverage.json
           coverage report --fail-under=25 --skip-covered --show-missing
 
+      - name: Prepare coverage site
+        run: |
+          mkdir -p _site/coverage
+          cp -R htmlcov/. _site/coverage/
+          cat > _site/index.html <<'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <meta http-equiv="refresh" content="0; url=coverage/">
+            <title>AlphaPulldown Coverage</title>
+          </head>
+          <body>
+            <p>Redirecting to the latest coverage report...</p>
+            <p><a href="coverage/">Open coverage report</a></p>
+          </body>
+          </html>
+          EOF
+
+      - name: Coverage summary
+        run: |
+          {
+            echo "## Coverage reports"
+            echo ""
+            echo "- Raw artifact: \`coverage-reports\`"
+            echo "- HTML entrypoint inside artifact: \`htmlcov/index.html\`"
+            echo "- Latest browsable HTML report is published from the \`main\` branch via the Pages job."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - uses: actions/upload-artifact@v4
         with:
           name: coverage-reports
@@ -93,6 +125,35 @@ jobs:
             coverage.json
             coverage.xml
             htmlcov
+
+      - name: Upload coverage site artifact
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  coverage-pages:
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: coverage
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+      contents: read
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Pages summary
+        run: |
+          {
+            echo "## Coverage HTML"
+            echo ""
+            echo "Latest coverage site: ${{ steps.deployment.outputs.page_url }}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   build-alphafold2-container:
     runs-on: ubuntu-latest
