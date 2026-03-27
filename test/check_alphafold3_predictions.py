@@ -1583,8 +1583,11 @@ class TestAlphaFold3MmseqsIssue588Inference(_TestBase):
             confidence_files[0].read_text(encoding="utf-8")
         )
         self.assertIn("iptm", confidence_payload)
-        self.assertGreaterEqual(confidence_payload["iptm"], 0.0)
-        self.assertLessEqual(confidence_payload["iptm"], 1.0)
+        self.assertGreater(
+            confidence_payload["iptm"],
+            0.6,
+            f"Expected AF3 ipTM > 0.6, got {confidence_payload['iptm']}",
+        )
 
 
 # --------------------------------------------------------------------------- #
