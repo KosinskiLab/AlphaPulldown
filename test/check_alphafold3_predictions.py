@@ -135,6 +135,10 @@ def _metadata_bool(value: Any) -> bool:
     raise AssertionError(f"Unsupported metadata boolean value: {value!r}")
 
 
+def _non_empty_a3m_payload_rows(a3m_text: str) -> list[str]:
+    return _a3m_payload_sequences(a3m_text) if a3m_text else []
+
+
 # --------------------------------------------------------------------------- #
 #                       common helper mix-in / assertions                     #
 # --------------------------------------------------------------------------- #
@@ -1306,37 +1310,60 @@ class TestAlphaFold3BackendRegressions(_BackendOnlyTestBase):
         summary = json.loads(summary_path.read_text(encoding="utf-8"))
         self.assertTrue(summary["paired_rows_valid"])
         self.assertTrue(summary["unpaired_rows_valid"])
+        self.assertLen(summary["translation_modes"], 1)
+        translation_mode = summary["translation_modes"][0]
         self.assertIn(
-            "af3_species_pairing_from_af2_individual_msas",
-            summary["translation_modes"],
+            translation_mode,
+            {
+                "af3_species_pairing_from_af2_individual_msas",
+                "manual_unpaired_from_af2_multimer",
+            },
         )
         self.assertLen(summary["chains"], 2)
 
         for chain_summary in summary["chains"]:
             chain_id = chain_summary["chain_id"]
             expected_sequence = chain_sequences[chain_id]
-            self.assertGreater(
-                chain_summary["paired_msa_row_count"],
-                0,
-                f"Expected non-empty paired MSA rows for chain {chain_id}",
-            )
-            self.assertGreater(
-                chain_summary["unpaired_msa_row_count"],
-                0,
-                f"Expected non-empty unpaired MSA rows for chain {chain_id}",
-            )
+            if translation_mode == "af3_species_pairing_from_af2_individual_msas":
+                self.assertGreater(
+                    chain_summary["paired_msa_row_count"],
+                    0,
+                    f"Expected non-empty paired MSA rows for chain {chain_id}",
+                )
+                self.assertGreater(
+                    chain_summary["unpaired_msa_row_count"],
+                    0,
+                    f"Expected non-empty unpaired MSA rows for chain {chain_id}",
+                )
+            else:
+                self.assertEqual(chain_summary["paired_msa_row_count"], 0)
+                self.assertGreater(
+                    chain_summary["unpaired_msa_row_count"],
+                    0,
+                    f"Expected non-empty unpaired MSA rows for chain {chain_id}",
+                )
 
             for msa_kind in ("paired_input", "unpaired_input"):
                 msa_path = self.output_dir / f"{job_name}_chain-{chain_id}_{msa_kind}.a3m"
                 self.assertTrue(msa_path.is_file(), f"Missing debug MSA {msa_path}")
                 msa_text = msa_path.read_text(encoding="utf-8")
-                self.assertEqual(_a3m_query_sequence(msa_text), expected_sequence)
-                payload_sequences = _a3m_payload_sequences(msa_text)
-                self.assertGreater(
-                    len(payload_sequences),
-                    0,
-                    f"Expected payload rows in {msa_path}",
-                )
+                if msa_text:
+                    self.assertEqual(_a3m_query_sequence(msa_text), expected_sequence)
+                payload_sequences = _non_empty_a3m_payload_rows(msa_text)
+                if translation_mode == "af3_species_pairing_from_af2_individual_msas":
+                    self.assertGreater(
+                        len(payload_sequences),
+                        0,
+                        f"Expected payload rows in {msa_path}",
+                    )
+                elif msa_kind == "unpaired_input":
+                    self.assertGreater(
+                        len(payload_sequences),
+                        0,
+                        f"Expected payload rows in {msa_path}",
+                    )
+                else:
+                    self.assertEqual(payload_sequences, [])
                 for payload_sequence in payload_sequences:
                     self.assertEqual(
                         _aligned_a3m_row_length(payload_sequence),
@@ -1361,14 +1388,21 @@ class TestAlphaFold3BackendRegressions(_BackendOnlyTestBase):
         for chain_id, protein_entry in protein_entries.items():
             expected_sequence = chain_sequences[chain_id]
             self.assertEqual(protein_entry["sequence"], expected_sequence)
-            self.assertEqual(
-                _a3m_query_sequence(protein_entry["pairedMsa"]),
-                expected_sequence,
-            )
-            self.assertEqual(
-                _a3m_query_sequence(protein_entry["unpairedMsa"]),
-                expected_sequence,
-            )
+            if translation_mode == "af3_species_pairing_from_af2_individual_msas":
+                self.assertEqual(
+                    _a3m_query_sequence(protein_entry["pairedMsa"]),
+                    expected_sequence,
+                )
+                self.assertEqual(
+                    _a3m_query_sequence(protein_entry["unpairedMsa"]),
+                    expected_sequence,
+                )
+            else:
+                self.assertEqual(protein_entry["pairedMsa"], "")
+                self.assertEqual(
+                    _a3m_query_sequence(protein_entry["unpairedMsa"]),
+                    expected_sequence,
+                )
             # These exact issue-588 fixtures are AF2/mmseqs2-derived and were
             # generated without MMseqs template re-search. Empty templates
             # document fixture provenance here, not an AF3 conversion failure.
