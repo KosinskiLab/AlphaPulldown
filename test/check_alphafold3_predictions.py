@@ -78,6 +78,15 @@ def _gpu_functional_test_skip_reason() -> str | None:
     return None
 
 
+def _mmseqs_functional_test_skip_reason() -> str | None:
+    if os.getenv("RUN_MMSEQS_FUNCTIONAL_TESTS", "").lower() in ("1", "true", "yes"):
+        return None
+    return (
+        "MMseqs functional inference tests are disabled by default. "
+        "Set RUN_MMSEQS_FUNCTIONAL_TESTS=1 to enable."
+    )
+
+
 def _a3m_sequences(a3m_text: str) -> list[str]:
     if not a3m_text:
         return []
@@ -139,6 +148,25 @@ def _non_empty_a3m_payload_rows(a3m_text: str) -> list[str]:
     return _a3m_payload_sequences(a3m_text) if a3m_text else []
 
 
+def _load_feature_dict(feature_path: Path) -> dict[str, Any]:
+    opener = lzma.open if feature_path.suffix == ".xz" else open
+    with opener(feature_path, "rb") as handle:
+        payload = pickle.load(handle)
+    if hasattr(payload, "feature_dict"):
+        return payload.feature_dict
+    return payload
+
+
+def _non_empty_identifier_count(values) -> int:
+    count = 0
+    for value in values:
+        if isinstance(value, bytes):
+            value = value.decode("utf-8")
+        if str(value).strip():
+            count += 1
+    return count
+
+
 # --------------------------------------------------------------------------- #
 #                       common helper mix-in / assertions                     #
 # --------------------------------------------------------------------------- #
@@ -185,6 +213,9 @@ class _TestBase(parameterized.TestCase):
         apd_path = Path(alphapulldown.__path__[0])
         self.script_multimer = apd_path / "scripts" / "run_multimer_jobs.py"
         self.script_single = apd_path / "scripts" / "run_structure_prediction.py"
+        self.script_create_features = (
+            apd_path / "scripts" / "create_individual_features.py"
+        )
 
     @classmethod
     def tearDownClass(cls):
@@ -1436,6 +1467,124 @@ class TestAlphaFold3BackendRegressions(_BackendOnlyTestBase):
         self.assertTrue(
             all(template["mmcif"] for template in protein_entries[0]["templates"])
         )
+
+
+class TestAlphaFold3MmseqsIssue588Inference(_TestBase):
+    """Opt-in AF3 end-to-end smoke test for freshly regenerated mmseq AF2 features."""
+
+    ISSUE_588_IDS = ("A0ABD7FQG0", "P18004")
+
+    def _require_mmseqs_functional_environment(self) -> None:
+        self._require_af3_functional_environment()
+        skip_reason = _mmseqs_functional_test_skip_reason()
+        if skip_reason:
+            self.skipTest(skip_reason)
+        for protein_id in self.ISSUE_588_IDS:
+            fasta_path = self.test_data_dir / "fastas" / f"{protein_id}.fasta"
+            self.assertTrue(
+                fasta_path.is_file(),
+                f"Missing FASTA fixture {fasta_path}",
+            )
+
+    def _generate_issue_588_mmseq_features(self, env: Dict[str, str]) -> Path:
+        feature_dir = self.output_dir / "issue_588_mmseq_features"
+        feature_dir.mkdir(parents=True, exist_ok=True)
+        fasta_paths = ",".join(
+            str(self.test_data_dir / "fastas" / f"{protein_id}.fasta")
+            for protein_id in self.ISSUE_588_IDS
+        )
+        res = subprocess.run(
+            [
+                sys.executable,
+                str(self.script_create_features),
+                f"--fasta_paths={fasta_paths}",
+                f"--output_dir={feature_dir}",
+                f"--data_dir={DATA_DIR}",
+                "--max_template_date=2024-05-02",
+                "--use_mmseqs2=True",
+                "--data_pipeline=alphafold2",
+                "--compress_features=True",
+                "--skip_existing=False",
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        self.assertEqual(
+            res.returncode,
+            0,
+            f"MMseqs feature generation failed.\nSTDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}",
+        )
+        return feature_dir
+
+    def test_issue_588_mmseqs_af2_features_enable_af3_species_pairing_inference(self):
+        self._require_mmseqs_functional_environment()
+        env = self._make_af3_test_env()
+        feature_dir = self._generate_issue_588_mmseq_features(env)
+
+        for protein_id in self.ISSUE_588_IDS:
+            feature_dict = _load_feature_dict(feature_dir / f"{protein_id}.pkl.xz")
+            self.assertGreater(
+                _non_empty_identifier_count(
+                    feature_dict["msa_species_identifiers_all_seq"]
+                ),
+                0,
+                f"{protein_id} should keep recovered species IDs in msa_species_identifiers_all_seq",
+            )
+            self.assertGreater(
+                _non_empty_identifier_count(
+                    feature_dict["msa_uniprot_accession_identifiers_all_seq"]
+                ),
+                0,
+                f"{protein_id} should keep recovered accession IDs in msa_uniprot_accession_identifiers_all_seq",
+            )
+
+        flash_impl = self._af3_flash_attention_impl()
+        res = subprocess.run(
+            [
+                sys.executable,
+                str(self.script_single),
+                "--input=A0ABD7FQG0+P18004",
+                f"--output_directory={self.output_dir}",
+                f"--data_directory={DATA_DIR}",
+                f"--features_directory={feature_dir}",
+                "--fold_backend=alphafold3",
+                f"--flash_attention_implementation={flash_impl}",
+                "--num_diffusion_samples=1",
+                "--random_seed=42",
+                "--debug_msas",
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        self._runCommonTests(res)
+
+        result_dir = self._resolve_single_af3_result_dir()
+        summary_paths = sorted(
+            result_dir.glob("*_af2_to_af3_translation_summary.json")
+        )
+        self.assertLen(summary_paths, 1)
+        summary = json.loads(summary_paths[0].read_text(encoding="utf-8"))
+        self.assertEqual(
+            summary["translation_modes"],
+            ["af3_species_pairing_from_af2_individual_msas"],
+        )
+        self.assertTrue(summary["paired_rows_valid"])
+        self.assertTrue(summary["unpaired_rows_valid"])
+        for chain_summary in summary["chains"]:
+            self.assertGreater(chain_summary["paired_msa_row_count"], 0)
+            self.assertGreater(chain_summary["unpaired_msa_row_count"], 0)
+            self.assertGreater(chain_summary["paired_species_identifier_count"], 0)
+
+        confidence_files = sorted(result_dir.glob("*_summary_confidences.json"))
+        self.assertLen(confidence_files, 1)
+        confidence_payload = json.loads(
+            confidence_files[0].read_text(encoding="utf-8")
+        )
+        self.assertIn("iptm", confidence_payload)
+        self.assertGreaterEqual(confidence_payload["iptm"], 0.0)
+        self.assertLessEqual(confidence_payload["iptm"], 1.0)
 
 
 # --------------------------------------------------------------------------- #
