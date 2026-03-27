@@ -1,7 +1,10 @@
 import gzip
 import json
 import pickle
+import builtins
 from pathlib import Path
+
+import pytest
 
 from alphapulldown.utils import post_modelling
 
@@ -92,3 +95,54 @@ def test_post_prediction_process_handles_missing_ranking_debug(tmp_path):
     post_modelling.post_prediction_process(str(tmp_path), compress_pickles=True)
 
     assert lonely_pickle.is_file()
+
+
+def test_compress_file_returns_gz_path_even_when_open_fails(monkeypatch, tmp_path):
+    file_path = tmp_path / "broken.pkl"
+    file_path.write_bytes(b"payload")
+
+    def fake_open(*args, **kwargs):
+        raise OSError("cannot read")
+
+    monkeypatch.setattr(builtins, "open", fake_open)
+
+    gz_path = post_modelling.compress_file(str(file_path))
+
+    assert gz_path == str(file_path) + ".gz"
+    assert file_path.is_file()
+    assert not (tmp_path / "broken.pkl.gz").exists()
+
+
+def test_remove_keys_from_pickle_logs_and_leaves_missing_pickle_untouched(tmp_path):
+    missing = tmp_path / "missing.pkl"
+
+    post_modelling.remove_keys_from_pickle(str(missing), ["distogram"])
+
+    assert not missing.exists()
+
+
+def test_post_prediction_process_compresses_all_pickles_without_removal(tmp_path):
+    (tmp_path / "ranking_debug.json").write_text(json.dumps({"order": ["model_1"]}), encoding="utf-8")
+    for name in ("result_model_1.pkl", "result_model_2.pkl"):
+        with open(tmp_path / name, "wb") as handle:
+            pickle.dump({"keep": name}, handle)
+
+    post_modelling.post_prediction_process(str(tmp_path), compress_pickles=True, remove_pickles=False)
+
+    assert not any(path.suffix == ".pkl" for path in tmp_path.iterdir())
+    assert sorted(path.name for path in tmp_path.glob("*.gz")) == [
+        "result_model_1.pkl.gz",
+        "result_model_2.pkl.gz",
+    ]
+
+
+def test_post_prediction_process_removes_non_best_pickles_without_compressing(tmp_path):
+    (tmp_path / "ranking_debug.json").write_text(json.dumps({"order": ["model_2"]}), encoding="utf-8")
+    for name in ("result_model_1.pkl", "result_model_2.pkl", "result_model_3.pkl"):
+        with open(tmp_path / name, "wb") as handle:
+            pickle.dump({"keep": name}, handle)
+
+    post_modelling.post_prediction_process(str(tmp_path), compress_pickles=False, remove_pickles=True)
+
+    assert sorted(path.name for path in tmp_path.glob("*.pkl")) == ["result_model_2.pkl"]
+    assert not list(tmp_path.glob("*.gz"))
