@@ -1,0 +1,19 @@
+[run]
+branch = True
+source =
+    alphapulldown
+omit =
+    alphapulldown/__init__.py
+    alphapulldown/analysis_pipeline/af2plots/*
+
+[report]
+skip_empty = True
+show_missing = True
+precision = 1
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:
+    raise NotImplementedError
+
+[html]
+directory = htmlcov

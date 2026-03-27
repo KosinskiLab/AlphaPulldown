@@ -21,7 +21,7 @@ class TestCreateIndividualFeaturesWithTemplates(parameterized.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.TEST_DATA_DIR = Path(self.temp_dir.name)
         # copy test data into temp area
-        original_test_data_dir = Path(__file__).parent / "test_data"
+        original_test_data_dir = Path(__file__).resolve().parents[2] / "test" / "test_data"
         shutil.copytree(original_test_data_dir, self.TEST_DATA_DIR, dirs_exist_ok=True)
         # ensure required dirs exist
         (self.TEST_DATA_DIR / 'features').mkdir(parents=True, exist_ok=True)

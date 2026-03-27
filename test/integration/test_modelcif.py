@@ -4,24 +4,28 @@ import subprocess
 from absl.testing import parameterized
 import shutil
 import tempfile
-from os.path import join, dirname, abspath
+from os.path import join
 import zipfile
 import json
 import glob
+from pathlib import Path
+
+import pytest
 
 """
 Test conversion of PDB to CIF for monomers and multimers
 """
 
+pytestmark = pytest.mark.external_tools
+
 
 class TestConvertPDB2CIF(parameterized.TestCase):
     def setUp(self) -> None:
         super().setUp()
-        # Get path of the alphapulldown module
-        parent_dir = join(dirname(dirname(abspath(__file__))))
+        repo_root = Path(__file__).resolve().parents[2]
         # Join the path with the script name
-        self.input_dir = join(parent_dir, "test/test_data/predictions")
-        self.script_path = join(parent_dir, "alphapulldown/scripts/convert_to_modelcif.py")
+        self.input_dir = join(repo_root, "test/test_data/predictions")
+        self.script_path = join(repo_root, "alphapulldown/scripts/convert_to_modelcif.py")
         # Set logging level to INFO
         logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 

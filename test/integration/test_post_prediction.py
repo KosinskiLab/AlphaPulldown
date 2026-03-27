@@ -3,17 +3,18 @@ import logging
 from absl.testing import parameterized
 import shutil
 import tempfile
-from os.path import join, dirname, abspath
+from os.path import join
 import gzip
 import json
 import pickle
+from pathlib import Path
 from alphapulldown.utils.post_modelling import post_prediction_process
 
 class TestPostPrediction(parameterized.TestCase):
     def setUp(self) -> None:
         super().setUp()
-        parent_dir = join(dirname(dirname(abspath(__file__))))
-        self.input_dir = join(parent_dir, "test/test_data/predictions")
+        repo_root = Path(__file__).resolve().parents[2]
+        self.input_dir = join(repo_root, "test/test_data/predictions")
         logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
     @parameterized.parameters(

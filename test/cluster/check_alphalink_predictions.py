@@ -47,6 +47,8 @@ ALPHALINK_WEIGHTS_DIR = os.getenv(
 ALPHALINK_WEIGHTS_FILE = os.path.join(ALPHALINK_WEIGHTS_DIR, "AlphaLink-Multimer_SDA_v3.pt")
 if not os.path.exists(ALPHALINK_WEIGHTS_FILE):
     absltest.skip("set $ALPHALINK_WEIGHTS_DIR to run AlphaLink functional tests")
+REPO_ROOT = Path(__file__).resolve().parents[2]
+TEST_ROOT = REPO_ROOT / "test"
 
 
 # --------------------------------------------------------------------------- #
@@ -75,13 +77,12 @@ class _TestBase(parameterized.TestCase):
         super().setUp()
 
         # directories inside the repo (relative to this file)
-        this_dir = Path(__file__).resolve().parent
-        self.test_data_dir = this_dir / "test_data"
+        self.test_data_dir = TEST_ROOT / "test_data"
         self.test_fastas_dir = self.test_data_dir / "fastas"
-        self.test_features_dir = this_dir / "test_data" / "features"
-        self.test_protein_lists_dir = this_dir / "test_data" / "protein_lists"
-        self.test_templates_dir = this_dir / "test_data" / "templates"
-        self.test_crosslinks_dir = this_dir / "alphalink"
+        self.test_features_dir = self.test_data_dir / "features"
+        self.test_protein_lists_dir = self.test_data_dir / "protein_lists"
+        self.test_templates_dir = self.test_data_dir / "templates"
+        self.test_crosslinks_dir = TEST_ROOT / "alphalink"
 
         # Create a unique output directory for this test
         test_name = self._testMethodName

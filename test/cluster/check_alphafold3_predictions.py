@@ -45,6 +45,8 @@ DATA_DIR = os.getenv(
 )
 if not os.path.exists(DATA_DIR):
     absltest.skip("set $ALPHAFOLD_DATA_DIR to run Alphafold functional tests")
+REPO_ROOT = Path(__file__).resolve().parents[2]
+TEST_ROOT = REPO_ROOT / "test"
 
 
 def _has_nvidia_gpu() -> bool:
@@ -196,13 +198,12 @@ class _TestBase(parameterized.TestCase):
         super().setUp()
 
         # directories inside the repo (relative to this file)
-        this_dir = Path(__file__).resolve().parent
-        self.test_data_dir = this_dir / "test_data"
+        self.test_data_dir = TEST_ROOT / "test_data"
         self.test_fastas_dir = self.test_data_dir / "fastas"
-        self.test_features_dir = this_dir / "test_data" / "features"
-        self.test_protein_lists_dir = this_dir / "test_data" / "protein_lists"
-        self.test_templates_dir = this_dir / "test_data" / "templates"
-        self.test_modelling_dir = this_dir / "test_data" / "predictions"
+        self.test_features_dir = self.test_data_dir / "features"
+        self.test_protein_lists_dir = self.test_data_dir / "protein_lists"
+        self.test_templates_dir = self.test_data_dir / "templates"
+        self.test_modelling_dir = self.test_data_dir / "predictions"
 
         # Create a unique output directory for this test
         test_name = self._testMethodName

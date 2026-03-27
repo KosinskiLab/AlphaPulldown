@@ -27,6 +27,8 @@ from alphapulldown_input_parser import generate_fold_specifications
 # --------------------------------------------------------------------------- #
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+REPO_ROOT = Path(__file__).resolve().parents[2]
+TEST_ROOT = REPO_ROOT / "test"
 
 DATA_DIR = Path(os.getenv("ALPHAFOLD_DATA_DIR", "/scratch/AlphaFold_DBs/2.3.0"))
 os.environ["JAX_COMPILATION_CACHE_DIR"] = "/scratch/dima/jax_cache"
@@ -139,8 +141,7 @@ class _TestBase(parameterized.TestCase):
     def setUp(self):
         super().setUp()
 
-        this_dir = Path(__file__).resolve().parent
-        self.test_data_dir = this_dir / "test_data"
+        self.test_data_dir = TEST_ROOT / "test_data"
         self.test_features_dir = self.test_data_dir / "features"
         self.test_protein_lists_dir = self.test_data_dir / "protein_lists"
         self.test_modelling_dir = self.test_data_dir / "predictions"

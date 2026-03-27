@@ -4,6 +4,7 @@ from __future__ import annotations
 import pickle
 import numpy as np
 from pathlib import Path
+import pytest
 from absl import logging
 from absl.testing import absltest
 
@@ -15,10 +16,13 @@ from alphafold.common import residue_constants
 from alphapulldown.utils.msa_encoding import a3m_to_ids, ids_to_a3m 
 
 
+pytestmark = [pytest.mark.functional, pytest.mark.external_tools]
+
+
 class TestAF3WithAF2Features(absltest.TestCase):
   def test_msa_identity_after_slicing_and_runtime_dump(self):
     # Load monomeric pickles
-    repo_root = Path(__file__).resolve().parents[1]
+    repo_root = Path(__file__).resolve().parents[2]
     features_dir = repo_root / 'test' / 'test_data' / 'features'
     pkl_a = features_dir / '3L4Q_A.3L4Q.cif.A.pkl'
     pkl_c = features_dir / '3L4Q_C.3L4Q.pdb.C.pkl'
@@ -77,4 +81,3 @@ class TestAF3WithAF2Features(absltest.TestCase):
 
 if __name__ == '__main__':
   absltest.main()
-
