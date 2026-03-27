@@ -139,6 +139,19 @@ def test_get_best_plddt_falls_back_to_ranked_pdb_bfactors(monkeypatch, tmp_path)
     np.testing.assert_array_equal(plddt, expected)
 
 
+def test_get_best_plddt_returns_none_when_no_sources_exist(tmp_path, capsys):
+    (tmp_path / "ranking_debug.json").write_text(
+        json.dumps({"order": ["model_4"]}),
+        encoding="utf-8",
+    )
+
+    plddt = mpdockq.get_best_plddt(str(tmp_path))
+
+    captured = capsys.readouterr()
+    assert plddt is None
+    assert "ranked_0.pdb not found" in captured.out
+
+
 def test_read_plddt_slices_values_per_chain():
     best_plddt = np.asarray([90.0, 91.0, 50.0])
     chain_ca_inds = {"A": [0, 1], "B": [0]}
@@ -199,6 +212,26 @@ def test_read_pdb_pdockq_uses_cb_and_gly_ca_coordinates(tmp_path):
     np.testing.assert_array_equal(chain_coords["B"], np.asarray([[6.0, 0.0, 0.0]]))
     np.testing.assert_array_equal(chain_plddt["A"], np.asarray([40.0]))
     np.testing.assert_array_equal(chain_plddt["B"], np.asarray([60.0]))
+
+
+def test_read_pdb_pdockq_appends_multiple_qualifying_atoms_per_chain(tmp_path):
+    pdb_path = _write_pdb(
+        tmp_path / "pdockq_multi.pdb",
+        [
+            _atom_line(1, "CB", "ALA", "A", 1, 1.0, 1.0, 0.0, bfactor=40.0),
+            _atom_line(2, "CB", "SER", "A", 2, 2.0, 1.0, 0.0, bfactor=45.0),
+            _atom_line(3, "CA", "GLY", "B", 1, 6.0, 0.0, 0.0, bfactor=60.0),
+        ],
+    )
+
+    chain_coords, chain_plddt = mpdockq.read_pdb_pdockq(str(pdb_path))
+
+    np.testing.assert_array_equal(
+        chain_coords["A"],
+        np.asarray([[1.0, 1.0, 0.0], [2.0, 1.0, 0.0]]),
+    )
+    np.testing.assert_array_equal(chain_plddt["A"], np.asarray([40.0, 45.0]))
+    np.testing.assert_array_equal(chain_coords["B"], np.asarray([[6.0, 0.0, 0.0]]))
 
 
 def test_calc_pdockq_returns_zero_without_contacts():

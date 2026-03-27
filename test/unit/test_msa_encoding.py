@@ -56,6 +56,22 @@ def test_a3m_to_ids_returns_empty_matrix_for_empty_input():
     assert rows.dtype == np.int32
 
 
+def test_a3m_to_ids_ignores_blank_lines_between_headers_and_sequences():
+    char_to_id = msa_encoding.get_char_to_id_map()
+    a3m = "\n>sequence_0\n\nAC-\n\n>sequence_1\nAZ-\n\n"
+
+    rows = msa_encoding.a3m_to_ids(a3m)
+
+    expected = np.asarray(
+        [
+            [char_to_id["A"], char_to_id["C"], char_to_id["-"]],
+            [char_to_id["A"], 20, char_to_id["-"]],
+        ],
+        dtype=np.int32,
+    )
+    np.testing.assert_array_equal(rows, expected)
+
+
 def test_ids_to_a3m_af3_uses_af3_alphabet_and_unknown_fallback():
     rows = np.asarray([[0, 21, 22, 29, 30, 99]], dtype=np.int32)
 
