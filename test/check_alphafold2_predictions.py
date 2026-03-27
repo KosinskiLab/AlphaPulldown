@@ -562,7 +562,8 @@ class TestMmseqsIssue588Inference(_TestBase):
         assembly_features = pipeline_multimer.add_assembly_features(converted_chains)
         feature_processing.process_unmerged_features(assembly_features)
         np_chains = list(assembly_features.values())
-        paired_rows = msa_pairing.pair_sequences(np_chains)
+        paired_row_groups = msa_pairing.pair_sequences(np_chains)
+        paired_rows = msa_pairing.reorder_paired_rows(paired_row_groups)
         self.assertGreater(
             paired_rows.shape[0],
             1,
