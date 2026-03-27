@@ -21,6 +21,9 @@ from colabfold.batch import get_msa_and_templates, msa_to_str, build_monomer_fea
 from alphapulldown.utils.multimeric_template_utils import (extract_multimeric_template_features_for_single_chain,
                                                      prepare_multimeric_template_meta_info)
 from alphapulldown.utils.file_handling import temp_fasta_file
+from alphapulldown.utils.mmseqs_species_identifiers import (
+    enrich_mmseq_feature_dict_with_identifiers,
+)
 
 class MonomericObject:
     """
@@ -253,6 +256,10 @@ class MonomericObject:
         # Remove header lines starting with '#' if present.
         a3m_lines[0] = "\n".join([line for line in a3m_lines[0].splitlines() if not line.startswith("#")])
         self.feature_dict = build_monomer_feature(self.sequence, unpaired_msa[0], template_features[0])
+        enrich_mmseq_feature_dict_with_identifiers(
+            self.feature_dict,
+            unpaired_msa[0],
+        )
 
         # Fix: Change tuple to list so that we can concatenate with msa_pairing.MSA_FEATURES.
         valid_feats = msa_pairing.MSA_FEATURES + ("msa_species_identifiers", "msa_uniprot_accession_identifiers")
