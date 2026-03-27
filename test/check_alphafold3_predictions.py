@@ -1277,6 +1277,86 @@ class _BackendOnlyTestBase(_TestBase):
 class TestAlphaFold3BackendRegressions(_BackendOnlyTestBase):
     """AF3 input-construction regressions; these tests do not assert end-to-end ipTM quality."""
 
+    ISSUE_588_IDS = ("A0ABD7FQG0", "P18004")
+
+    def _require_issue_588_mmseqs_environment(self) -> None:
+        skip_reason = _mmseqs_functional_test_skip_reason()
+        if skip_reason:
+            self.skipTest(skip_reason)
+        for protein_id in self.ISSUE_588_IDS:
+            fasta_path = self.test_data_dir / "fastas" / f"{protein_id}.fasta"
+            self.assertTrue(
+                fasta_path.is_file(),
+                f"Missing FASTA fixture {fasta_path}",
+            )
+
+    def _generate_issue_588_precomputed_mmseq_features(self, env: Dict[str, str]) -> Path:
+        source_dir = self.output_dir / "issue_588_mmseq_source_features"
+        precomputed_dir = self.output_dir / "issue_588_mmseq_precomputed_features"
+        source_dir.mkdir(parents=True, exist_ok=True)
+        precomputed_dir.mkdir(parents=True, exist_ok=True)
+        fasta_paths = ",".join(
+            str(self.test_data_dir / "fastas" / f"{protein_id}.fasta")
+            for protein_id in self.ISSUE_588_IDS
+        )
+
+        source_res = subprocess.run(
+            [
+                sys.executable,
+                str(self.script_create_features),
+                f"--fasta_paths={fasta_paths}",
+                f"--output_dir={source_dir}",
+                f"--data_dir={DATA_DIR}",
+                "--max_template_date=2024-05-02",
+                "--use_mmseqs2=True",
+                "--data_pipeline=alphafold2",
+                "--save_msa_files=True",
+                "--compress_features=True",
+                "--skip_existing=False",
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        self.assertEqual(
+            source_res.returncode,
+            0,
+            "MMseqs source feature generation failed.\n"
+            f"STDOUT:\n{source_res.stdout}\nSTDERR:\n{source_res.stderr}",
+        )
+
+        for protein_id in self.ISSUE_588_IDS:
+            shutil.copy2(
+                source_dir / f"{protein_id}.a3m",
+                precomputed_dir / f"{protein_id}.a3m",
+            )
+
+        precomputed_res = subprocess.run(
+            [
+                sys.executable,
+                str(self.script_create_features),
+                f"--fasta_paths={fasta_paths}",
+                f"--output_dir={precomputed_dir}",
+                f"--data_dir={DATA_DIR}",
+                "--max_template_date=2024-05-02",
+                "--use_mmseqs2=True",
+                "--use_precomputed_msas=True",
+                "--data_pipeline=alphafold2",
+                "--compress_features=True",
+                "--skip_existing=False",
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        self.assertEqual(
+            precomputed_res.returncode,
+            0,
+            "Precomputed-MMseq feature generation failed.\n"
+            f"STDOUT:\n{precomputed_res.stdout}\nSTDERR:\n{precomputed_res.stderr}",
+        )
+        return precomputed_dir
+
     def _prepare_fold_input(
         self,
         *,
@@ -1438,6 +1518,78 @@ class TestAlphaFold3BackendRegressions(_BackendOnlyTestBase):
             # generated without MMseqs template re-search. Empty templates
             # document fixture provenance here, not an AF3 conversion failure.
             self.assertEqual(protein_entry["templates"], [])
+
+    def test_issue_588_precomputed_mmseqs_msas_preserve_af3_species_pairing(self):
+        """Precomputed MMseq A3Ms should preserve recovered identifiers and AF3 species pairing."""
+        from alphapulldown.folding_backend.alphafold3_backend import process_fold_input
+
+        self._require_issue_588_mmseqs_environment()
+        env = os.environ.copy()
+        feature_dir = self._generate_issue_588_precomputed_mmseq_features(env)
+
+        for protein_id in self.ISSUE_588_IDS:
+            metadata_path, metadata = _load_feature_metadata(feature_dir, protein_id)
+            self.assertTrue(
+                _metadata_bool(metadata["other"]["use_precomputed_msas"]),
+                f"{metadata_path} should record use_precomputed_msas=True",
+            )
+            feature_dict = _load_feature_dict(feature_dir / f"{protein_id}.pkl.xz")
+            self.assertGreater(
+                _non_empty_identifier_count(
+                    feature_dict["msa_species_identifiers_all_seq"]
+                ),
+                0,
+                f"{protein_id} should keep recovered species IDs from cached MMseq A3Ms",
+            )
+            self.assertGreater(
+                _non_empty_identifier_count(
+                    feature_dict["msa_uniprot_accession_identifiers_all_seq"]
+                ),
+                0,
+                f"{protein_id} should keep recovered accession IDs from cached MMseq A3Ms",
+            )
+
+        fold_input_obj = self._prepare_fold_input(
+            fold_spec="A0ABD7FQG0+P18004",
+            feature_dir=feature_dir,
+            debug_msas=True,
+        )
+        job_name = fold_input_obj.sanitised_name()
+        summary_path = self.output_dir / f"{job_name}_af2_to_af3_translation_summary.json"
+        self.assertTrue(summary_path.is_file(), f"Missing translation summary {summary_path}")
+
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        self.assertEqual(
+            summary["translation_modes"],
+            ["af3_species_pairing_from_af2_individual_msas"],
+        )
+        self.assertTrue(summary["paired_rows_valid"])
+        self.assertTrue(summary["unpaired_rows_valid"])
+        self.assertLen(summary["chains"], 2)
+        for chain_summary in summary["chains"]:
+            self.assertGreater(chain_summary["paired_msa_row_count"], 0)
+            self.assertGreater(chain_summary["unpaired_msa_row_count"], 0)
+            self.assertGreater(chain_summary["paired_species_identifier_count"], 0)
+
+        process_fold_input(
+            fold_input=fold_input_obj,
+            model_runner=None,
+            output_dir=str(self.output_dir),
+            buckets=(512,),
+        )
+        input_json = self.output_dir / f"{job_name}_data.json"
+        written = json.loads(input_json.read_text(encoding="utf-8"))
+        protein_entries = _protein_entries_from_af3_input(written)
+        self.assertLen(protein_entries, 2)
+        for protein_entry in protein_entries:
+            self.assertEqual(
+                _a3m_query_sequence(protein_entry["pairedMsa"]),
+                protein_entry["sequence"],
+            )
+            self.assertEqual(
+                _a3m_query_sequence(protein_entry["unpairedMsa"]),
+                protein_entry["sequence"],
+            )
 
     def test_af3_prepare_input_preserves_templates_for_templated_af2_pkl_features(self):
         """Positive control: templated AF2 pkl inputs should keep templates in AF3 JSON."""
