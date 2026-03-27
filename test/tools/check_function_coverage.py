@@ -21,6 +21,7 @@ class FunctionSpan:
     path: Path
     qualname: str
     lineno: int
+    body_lineno: int
     end_lineno: int
 
 
@@ -44,11 +45,13 @@ class FunctionCollector(ast.NodeVisitor):
     def _record(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         qualname = ".".join([*self.stack, node.name]) if self.stack else node.name
         end_lineno = getattr(node, "end_lineno", node.lineno)
+        body_lineno = getattr(node.body[0], "lineno", node.lineno) if node.body else node.lineno
         self.functions.append(
             FunctionSpan(
                 path=self.path,
                 qualname=qualname,
                 lineno=node.lineno,
+                body_lineno=body_lineno,
                 end_lineno=end_lineno,
             )
         )
@@ -92,7 +95,10 @@ def check_function_coverage(coverage_json: Path, *, report_only: bool = False) -
 
     for function in iter_package_functions():
         executed_lines = executed_by_path.get(function.path, set())
-        if not any(line in executed_lines for line in range(function.lineno, function.end_lineno + 1)):
+        if not any(
+            line in executed_lines
+            for line in range(function.body_lineno, function.end_lineno + 1)
+        ):
             missing.append(function)
 
     if not missing:
