@@ -123,6 +123,18 @@ def _load_feature_metadata(feature_dir: Path, protein_id: str) -> tuple[Path, di
     return matches[0], _load_json_payload(matches[0])
 
 
+def _metadata_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "1", "yes"}:
+            return True
+        if normalized in {"false", "0", "no", ""}:
+            return False
+    raise AssertionError(f"Unsupported metadata boolean value: {value!r}")
+
+
 # --------------------------------------------------------------------------- #
 #                       common helper mix-in / assertions                     #
 # --------------------------------------------------------------------------- #
@@ -1271,11 +1283,11 @@ class TestAlphaFold3BackendRegressions(_BackendOnlyTestBase):
             metadata_path, metadata = _load_feature_metadata(issue_588_dir, protein_id)
             other = metadata["other"]
             self.assertTrue(
-                other["use_mmseqs2"],
+                _metadata_bool(other["use_mmseqs2"]),
                 f"{metadata_path} is not a mmseqs2-generated AF2 fixture.",
             )
             self.assertEqual(other["data_pipeline"], "alphafold2")
-            self.assertFalse(other["re_search_templates_mmseqs2"])
+            self.assertFalse(_metadata_bool(other["re_search_templates_mmseqs2"]))
 
         fold_input_obj = self._prepare_fold_input(
             fold_spec="A0ABD7FQG0+P18004",
