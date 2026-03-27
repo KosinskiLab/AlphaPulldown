@@ -560,8 +560,8 @@ class TestMmseqsIssue588Inference(_TestBase):
             )
 
         assembly_features = pipeline_multimer.add_assembly_features(converted_chains)
+        feature_processing.process_unmerged_features(assembly_features)
         np_chains = list(assembly_features.values())
-        feature_processing.process_unmerged_features(np_chains)
         paired_rows = msa_pairing.pair_sequences(np_chains)
         self.assertGreater(
             paired_rows.shape[0],
@@ -605,6 +605,11 @@ class TestMmseqsIssue588Inference(_TestBase):
             result_payload = pickle.load(handle)
         self.assertIn("iptm", result_payload)
         self.assertIn("ranking_confidence", result_payload)
+        self.assertGreater(
+            result_payload["iptm"],
+            0.6,
+            f"Expected AF2 ipTM > 0.6, got {result_payload['iptm']}",
+        )
 
 if __name__ == "__main__":
     absltest.main()
