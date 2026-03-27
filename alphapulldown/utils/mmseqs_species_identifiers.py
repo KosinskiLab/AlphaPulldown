@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 from typing import Callable, Iterable, Sequence
+from urllib import error
 from urllib import parse
 from urllib import request
 
@@ -75,6 +76,12 @@ def _batched(items: Sequence[str], batch_size: int) -> Iterable[Sequence[str]]:
         yield items[start : start + batch_size]
 
 
+def _is_transport_error(exc: Exception) -> bool:
+    return isinstance(exc, (TimeoutError, ConnectionError, OSError, error.URLError)) and not isinstance(
+        exc, error.HTTPError
+    )
+
+
 def _query_uniprot_batch(
     accessions: Sequence[str],
     *,
@@ -113,56 +120,68 @@ def _query_uniprot_species_ids(
     accessions: Sequence[str],
     *,
     urlopen: Callable[..., object],
-) -> dict[str, str]:
+) -> tuple[dict[str, str], set[str]]:
     resolved: dict[str, str] = {}
+    cacheable_misses: set[str] = set()
     for batch in _batched(sorted(set(accessions)), _UNIPROT_BATCH_SIZE):
         try:
             payload = _query_uniprot_batch(batch, urlopen=urlopen)
+            cacheable_misses.update(batch)
         except Exception as exc:  # pragma: no cover - best-effort network fallback
             logging.warning(
                 "Unable to resolve UniProtKB taxonomy for %d accessions: %s",
                 len(batch),
                 exc,
             )
+            if _is_transport_error(exc):
+                continue
             payload = {"results": []}
             for accession in batch:
                 try:
-                    payload["results"].extend(
-                        _query_uniprot_batch([accession], urlopen=urlopen)["results"]
-                    )
-                except Exception:
+                    single_payload = _query_uniprot_batch([accession], urlopen=urlopen)
+                except Exception as single_exc:
+                    if _is_transport_error(single_exc):
+                        continue
                     continue
+                cacheable_misses.add(accession)
+                payload["results"].extend(single_payload["results"])
         for result in payload.get("results", []):
             accession = result.get("primaryAccession")
             taxon_id = result.get("organism", {}).get("taxonId")
             if accession and taxon_id is not None:
                 resolved[accession] = str(taxon_id)
-    return resolved
+    return resolved, cacheable_misses
 
 
 def _query_uniparc_species_ids(
     accessions: Sequence[str],
     *,
     urlopen: Callable[..., object],
-) -> dict[str, str]:
+) -> tuple[dict[str, str], set[str]]:
     resolved: dict[str, str] = {}
+    cacheable_misses: set[str] = set()
     for batch in _batched(sorted(set(accessions)), _UNIPARC_BATCH_SIZE):
         try:
             payload = _query_uniparc_batch(batch, urlopen=urlopen)
+            cacheable_misses.update(batch)
         except Exception as exc:  # pragma: no cover - best-effort network fallback
             logging.warning(
                 "Unable to resolve UniParc taxonomy for %d accessions: %s",
                 len(batch),
                 exc,
             )
+            if _is_transport_error(exc):
+                continue
             payload = {"results": []}
             for accession in batch:
                 try:
-                    payload["results"].extend(
-                        _query_uniparc_batch([accession], urlopen=urlopen)["results"]
-                    )
-                except Exception:
+                    single_payload = _query_uniparc_batch([accession], urlopen=urlopen)
+                except Exception as single_exc:
+                    if _is_transport_error(single_exc):
+                        continue
                     continue
+                cacheable_misses.add(accession)
+                payload["results"].extend(single_payload["results"])
         for result in payload.get("results", []):
             accession = result.get("uniParcId")
             organisms = result.get("organisms", [])
@@ -173,7 +192,7 @@ def _query_uniparc_species_ids(
             }
             if accession and len(taxon_ids) == 1:
                 resolved[accession] = next(iter(taxon_ids))
-    return resolved
+    return resolved, cacheable_misses
 
 
 def resolve_species_ids_by_accession(
@@ -193,14 +212,18 @@ def resolve_species_ids_by_accession(
         uniparc_accessions = [
             accession for accession in unresolved if accession.startswith("UPI")
         ]
-        resolved = _query_uniprot_species_ids(
+        resolved, cacheable_misses = _query_uniprot_species_ids(
             uniprot_accessions, urlopen=urlopen
         )
-        resolved.update(
-            _query_uniparc_species_ids(uniparc_accessions, urlopen=urlopen)
+        uniparc_resolved, uniparc_cacheable_misses = _query_uniparc_species_ids(
+            uniparc_accessions, urlopen=urlopen
         )
-        for accession in unresolved:
-            _SPECIES_ID_CACHE[accession] = resolved.get(accession, "")
+        resolved.update(uniparc_resolved)
+        cacheable_misses.update(uniparc_cacheable_misses)
+        for accession, species_id in resolved.items():
+            _SPECIES_ID_CACHE[accession] = species_id
+        for accession in cacheable_misses:
+            _SPECIES_ID_CACHE.setdefault(accession, "")
 
     return {
         accession: _SPECIES_ID_CACHE.get(accession, "")
