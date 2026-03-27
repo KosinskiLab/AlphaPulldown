@@ -196,3 +196,33 @@ def test_calculate_rmsd_and_superpose_returns_none_without_matching_chains(
     assert rmsd is None
     assert "No suitable atoms found for RMSD calculation." in caplog.text
 
+
+def test_calculate_rmsd_and_superpose_writes_to_cwd_when_temp_dir_is_none(
+    tmp_path,
+    monkeypatch,
+):
+    ref_path = _write_pdb(
+        tmp_path / "cwd_ref.pdb",
+        [
+            _atom_line(1, "CA", "ALA", "A", 1, 0.0, 0.0, 0.0),
+            _atom_line(2, "CB", "ALA", "A", 1, 1.0, 0.0, 0.0),
+        ],
+    )
+    target_path = _write_pdb(
+        tmp_path / "cwd_target.pdb",
+        [
+            _atom_line(1, "CA", "ALA", "A", 1, 5.0, 0.0, 0.0),
+            _atom_line(2, "CB", "ALA", "A", 1, 6.0, 0.0, 0.0),
+        ],
+    )
+
+    monkeypatch.chdir(tmp_path)
+
+    rmsd = calculate_rmsd.calculate_rmsd_and_superpose(
+        str(ref_path),
+        str(target_path),
+    )
+
+    assert rmsd == pytest.approx(0.0)
+    assert (tmp_path / "superposed_cwd_ref.pdb").is_file()
+    assert (tmp_path / "superposed_cwd_target.pdb").is_file()
