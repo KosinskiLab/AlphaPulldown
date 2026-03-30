@@ -13,7 +13,7 @@ The Docker files remain the long-term reference environments, but the commands b
 
 These are the two EMBL environments that were already working and that we rechecked while validating the wrappers:
 
-- `AlphaPulldown` for AF2:
+- `AlphaPulldown_alphafold2` for AF2:
   - Python `3.10`
   - `jax 0.5.3`
   - `jaxlib 0.5.3`
@@ -107,11 +107,9 @@ Notes:
 python -m pip install -e . --no-deps
 ```
 
-## Cluster smoke tests
+## Cluster validation
 
-The wrappers submit one Slurm job per pytest node, so they are the fastest way to validate many scenarios in parallel.
-
-On EMBL, the AF2 and AF3 functional tests already have default database roots baked into the test files, so the only environment variable you need for the standard cluster smoke tests is:
+On EMBL, the AF2 and AF3 functional tests already have default database roots baked into the test files, so the only environment variable you need for the standard cluster runs is:
 
 ```bash
 export RUN_GPU_FUNCTIONAL_TESTS=1
@@ -119,29 +117,39 @@ export RUN_GPU_FUNCTIONAL_TESTS=1
 
 Set `ALPHAFOLD_DATA_DIR` only if your databases are not in the EMBL default locations.
 
+Two ways to run the cluster tests:
+
+1. Direct `srun` + `pytest`
+   - Best for validating a fresh install end-to-end.
+   - Keeps everything on one allocated GPU node.
+   - More reliable than the wrappers when Slurm priority is poor.
+2. Wrapper scripts
+   - `test/cluster/run_alphafold2_predictions.py`
+   - `test/cluster/run_alphafold3_predictions.py`
+   - Faster when the queue is healthy, because they fan out one job per pytest node.
+
 ### AlphaFold2
 
-Preview the collected nodes:
+Direct full-suite validation:
+
+```bash
+srun -p gpu-el8 --constraint gaming --gres=gpu:1 \
+  --cpus-per-task=4 --mem=16G --time=04:00:00 \
+  bash -lc '
+    cd /path/to/AlphaPulldown
+    export RUN_GPU_FUNCTIONAL_TESTS=1
+    python -m pytest -o addopts="-ra --strict-markers" -vv -s \
+      test/cluster/check_alphafold2_predictions.py --use-temp-dir
+  '
+```
+
+Preview the collected nodes for wrapper mode:
 
 ```bash
 python test/cluster/run_alphafold2_predictions.py --list
 ```
 
-Known-good EMBL monomer smoke test:
-
-```bash
-python test/cluster/run_alphafold2_predictions.py \
-  --partition gpu-training \
-  --constraint hgx \
-  --extra-sbatch-arg=--nodelist=hgx5 \
-  --time 01:00:00 \
-  --cpus-per-task 4 \
-  --mem 16G \
-  --use-temp-dir \
-  test/cluster/check_alphafold2_predictions.py::TestRunModes::test__monomer
-```
-
-Default queue-based batch example:
+Wrapper-based parallel submission:
 
 ```bash
 python test/cluster/run_alphafold2_predictions.py \
@@ -154,27 +162,26 @@ python test/cluster/run_alphafold2_predictions.py \
 
 ### AlphaFold3
 
-Preview the collected nodes:
+Direct full-suite validation:
+
+```bash
+srun -p gpu-el8 --constraint gaming --gres=gpu:1 \
+  --cpus-per-task=4 --mem=32G --time=08:00:00 \
+  bash -lc '
+    cd /path/to/AlphaPulldown
+    export RUN_GPU_FUNCTIONAL_TESTS=1
+    python -m pytest -o addopts="-ra --strict-markers" -vv -s \
+      test/cluster/check_alphafold3_predictions.py --use-temp-dir
+  '
+```
+
+Preview the collected nodes for wrapper mode:
 
 ```bash
 python test/cluster/run_alphafold3_predictions.py --list
 ```
 
-Known-good EMBL monomer smoke test:
-
-```bash
-python test/cluster/run_alphafold3_predictions.py \
-  --partition gpu-training \
-  --constraint hgx \
-  --extra-sbatch-arg=--nodelist=hgx5 \
-  --time 01:00:00 \
-  --cpus-per-task 4 \
-  --mem 16G \
-  --use-temp-dir \
-  test/cluster/check_alphafold3_predictions.py::TestAlphaFold3RunModes::test__monomer
-```
-
-Default queue-based batch example:
+Wrapper-based parallel submission:
 
 ```bash
 python test/cluster/run_alphafold3_predictions.py \
@@ -199,6 +206,12 @@ print(jax.__version__)
 print(jax.local_devices(backend="gpu"))
 PY
 ```
+
+### AlphaFold2: `There is no registered Platform called "CUDA"`
+
+That comes from OpenMM relaxation, not from JAX. Older working EMBL envs exposed a CUDA-enabled OpenMM platform, while a fresh pip-installed OpenMM may expose only `Reference`, `CPU`, and `OpenCL`.
+
+Current AlphaPulldown falls back to CPU relax automatically if CUDA is unavailable, so the AF2 cluster tests still pass. If you want GPU-backed OpenMM relax as well, install the OpenMM stack from conda before the pip install.
 
 ### AlphaFold3: `ModuleNotFoundError: No module named 'alphafold3.cpp'`
 
