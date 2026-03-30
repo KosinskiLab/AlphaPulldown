@@ -1210,3 +1210,271 @@ def test_prepare_input_normalises_adjacent_duplicate_residues_for_monomers(
         captured["deletion_rows"],
         np.asarray([[0, 2, 3], [4, 6, 7]], dtype=np.int32),
     )
+
+
+def _make_af3_translation_result(
+    af3_backend_module,
+    *,
+    chain_msas,
+    chain_stats,
+    translation_mode,
+    total_rows_considered=3,
+    paired_row_count=0,
+    invalid_paired_rows=0,
+    invalid_unpaired_rows=0,
+):
+    return af3_backend_module.Af2ToAf3TranslationResult(
+        chain_msas=tuple(chain_msas),
+        chain_stats=tuple(chain_stats),
+        translation_mode=translation_mode,
+        total_rows_considered=total_rows_considered,
+        occupancy_histogram={"0": 0, "1": 1, "ge_2": 0},
+        paired_row_count=paired_row_count,
+        per_chain_unpaired_row_counts=tuple(
+            stats.unpaired_msa_row_count for stats in chain_stats
+        ),
+        invalid_paired_rows=invalid_paired_rows,
+        invalid_unpaired_rows=invalid_unpaired_rows,
+    )
+
+
+def _translation_msas(*, paired_msa, unpaired_msa):
+    return SimpleNamespace(paired_msa=paired_msa, unpaired_msa=unpaired_msa)
+
+
+def _translation_stats(
+    *,
+    paired_msa_row_count,
+    unpaired_msa_row_count,
+    paired_species_identifier_count=0,
+    paired_rows_without_species_identifier_count=0,
+    paired_rows_with_generated_accession_count=0,
+):
+    return SimpleNamespace(
+        paired_msa_row_count=paired_msa_row_count,
+        unpaired_msa_row_count=unpaired_msa_row_count,
+        paired_species_identifier_count=paired_species_identifier_count,
+        paired_rows_without_species_identifier_count=(
+            paired_rows_without_species_identifier_count
+        ),
+        paired_rows_with_generated_accession_count=(
+            paired_rows_with_generated_accession_count
+        ),
+    )
+
+
+def test_prepare_input_multimer_writes_translated_msa_debug_artifacts(
+    af3_backend_module,
+    monkeypatch,
+    tmp_path,
+):
+    interactor_a = MonomericObject("protA", "ACDE")
+    interactor_b = MonomericObject("protB", "FGHI")
+    interactor_a.feature_dict = {}
+    interactor_b.feature_dict = {}
+
+    multimer = object.__new__(af3_backend_module.MultimericObject)
+    multimer.description = "protA_and_protB"
+    multimer.interactors = [interactor_a, interactor_b]
+    multimer.feature_dict = {"msa": np.asarray([[1, 2, 3, 4, 5, 6, 7, 8]], dtype=np.int32)}
+
+    translation_result = _make_af3_translation_result(
+        af3_backend_module,
+        chain_msas=[
+            _translation_msas(
+                paired_msa=">pairA\nACDE\n",
+                unpaired_msa=">unpairedA\nACDE\n",
+            ),
+            _translation_msas(
+                paired_msa=">pairB\nFGHI\n",
+                unpaired_msa=">unpairedB\nFGHI\n",
+            ),
+        ],
+        chain_stats=[
+            _translation_stats(
+                paired_msa_row_count=1,
+                unpaired_msa_row_count=1,
+                paired_species_identifier_count=2,
+                paired_rows_without_species_identifier_count=0,
+                paired_rows_with_generated_accession_count=1,
+            ),
+            _translation_stats(
+                paired_msa_row_count=1,
+                unpaired_msa_row_count=2,
+                paired_species_identifier_count=1,
+                paired_rows_without_species_identifier_count=1,
+                paired_rows_with_generated_accession_count=0,
+            ),
+        ],
+        translation_mode="af3_species_pairing_from_af2_individual_msas",
+        total_rows_considered=5,
+        paired_row_count=2,
+    )
+
+    monkeypatch.setattr(
+        af3_backend_module,
+        "translate_af2_individual_chain_features_to_af3_msas_with_stats",
+        lambda **kwargs: translation_result,
+    )
+    fallback_calls = []
+    monkeypatch.setattr(
+        af3_backend_module,
+        "translate_af2_complex_msa_to_af3_unpaired_chain_msas_with_stats",
+        lambda **kwargs: fallback_calls.append(kwargs),
+    )
+
+    prepared_inputs = af3_backend_module.AlphaFold3Backend.prepare_input(
+        objects_to_model=[
+            {
+                "object": multimer,
+                "output_dir": str(tmp_path),
+            }
+        ],
+        random_seed=23,
+        debug_msas=True,
+    )
+
+    assert fallback_calls == []
+    fold_input, (output_dir, resolve_msa_overlaps) = next(iter(prepared_inputs[0].items()))
+    assert output_dir == str(tmp_path)
+    assert resolve_msa_overlaps is False
+    assert [chain.id for chain in fold_input.chains] == ["A", "B"]
+    assert fold_input.chains[0].paired_msa == ">pairA\nACDE\n"
+    assert fold_input.chains[0].unpaired_msa == ">unpairedA\nACDE\n"
+    assert fold_input.chains[1].paired_msa == ">pairB\nFGHI\n"
+    assert fold_input.chains[1].unpaired_msa == ">unpairedB\nFGHI\n"
+
+    summary_path = tmp_path / f"{fold_input.sanitised_name()}_af2_to_af3_translation_summary.json"
+    assert summary_path.is_file()
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert summary["translation_modes"] == [
+        "af3_species_pairing_from_af2_individual_msas"
+    ]
+    assert summary["paired_row_count"] == 2
+    assert summary["chains"] == [
+        {
+            "chain_id": "A",
+            "chain_description": "protA",
+            "chain_length": 4,
+            "paired_msa_row_count": 1,
+            "unpaired_msa_row_count": 1,
+            "paired_species_identifier_count": 2,
+            "paired_rows_without_species_identifier_count": 0,
+            "paired_rows_with_generated_accession_count": 1,
+        },
+        {
+            "chain_id": "B",
+            "chain_description": "protB",
+            "chain_length": 4,
+            "paired_msa_row_count": 1,
+            "unpaired_msa_row_count": 2,
+            "paired_species_identifier_count": 1,
+            "paired_rows_without_species_identifier_count": 1,
+            "paired_rows_with_generated_accession_count": 0,
+        },
+    ]
+    assert (
+        tmp_path / f"{fold_input.sanitised_name()}_chain-A_paired_input.a3m"
+    ).read_text(encoding="utf-8") == ">pairA\nACDE\n"
+    assert (
+        tmp_path / f"{fold_input.sanitised_name()}_chain-B_unpaired_input.a3m"
+    ).read_text(encoding="utf-8") == ">unpairedB\nFGHI\n"
+
+
+def test_prepare_input_multimer_falls_back_to_complex_msa_when_pairing_is_unavailable(
+    af3_backend_module,
+    monkeypatch,
+    tmp_path,
+):
+    interactor_a = MonomericObject("protA", "ACDE")
+    interactor_b = MonomericObject("protB", "FGHI")
+    interactor_a.feature_dict = {}
+    interactor_b.feature_dict = {}
+
+    multimer = object.__new__(af3_backend_module.MultimericObject)
+    multimer.description = "protA_and_protB"
+    multimer.interactors = [interactor_a, interactor_b]
+    multimer.feature_dict = {
+        "msa": np.asarray([[1, 2, 3, 4, 5, 6, 7, 8]], dtype=np.int32),
+        "num_alignments": np.asarray([1], dtype=np.int32),
+        "deletion_matrix_int": np.zeros((1, 8), dtype=np.int32),
+        "asym_id": np.asarray([1, 1, 1, 1, 2, 2, 2, 2], dtype=np.int32),
+    }
+
+    individual_calls = []
+    fallback_calls = []
+    individual_result = _make_af3_translation_result(
+        af3_backend_module,
+        chain_msas=[
+            _translation_msas(paired_msa="", unpaired_msa=">indA\nACDE\n"),
+            _translation_msas(paired_msa="", unpaired_msa=">indB\nFGHI\n"),
+        ],
+        chain_stats=[
+            _translation_stats(
+                paired_msa_row_count=0,
+                unpaired_msa_row_count=1,
+                paired_species_identifier_count=0,
+            ),
+            _translation_stats(
+                paired_msa_row_count=0,
+                unpaired_msa_row_count=1,
+                paired_species_identifier_count=0,
+            ),
+        ],
+        translation_mode="af3_species_pairing_from_af2_individual_msas",
+    )
+    fallback_result = _make_af3_translation_result(
+        af3_backend_module,
+        chain_msas=[
+            _translation_msas(paired_msa="", unpaired_msa=">fallbackA\nACDE\n"),
+            _translation_msas(paired_msa="", unpaired_msa=">fallbackB\nFGHI\n"),
+        ],
+        chain_stats=[
+            _translation_stats(
+                paired_msa_row_count=0,
+                unpaired_msa_row_count=1,
+            ),
+            _translation_stats(
+                paired_msa_row_count=0,
+                unpaired_msa_row_count=1,
+            ),
+        ],
+        translation_mode="manual_unpaired_from_af2_multimer",
+    )
+
+    monkeypatch.setattr(
+        af3_backend_module,
+        "translate_af2_individual_chain_features_to_af3_msas_with_stats",
+        lambda **kwargs: individual_calls.append(kwargs) or individual_result,
+    )
+    monkeypatch.setattr(
+        af3_backend_module,
+        "translate_af2_complex_msa_to_af3_unpaired_chain_msas_with_stats",
+        lambda **kwargs: fallback_calls.append(kwargs) or fallback_result,
+    )
+
+    prepared_inputs = af3_backend_module.AlphaFold3Backend.prepare_input(
+        objects_to_model=[
+            {
+                "object": multimer,
+                "output_dir": str(tmp_path),
+            }
+        ],
+        random_seed=29,
+    )
+
+    assert len(individual_calls) == 1
+    assert len(fallback_calls) == 1
+    assert fallback_calls[0]["chain_sequences"] == ["ACDE", "FGHI"]
+    np.testing.assert_array_equal(
+        fallback_calls[0]["merged_msa"],
+        np.asarray([[1, 2, 3, 4, 5, 6, 7, 8]], dtype=np.int32),
+    )
+
+    fold_input, (_output_dir, resolve_msa_overlaps) = next(iter(prepared_inputs[0].items()))
+    assert resolve_msa_overlaps is False
+    assert [chain.unpaired_msa for chain in fold_input.chains] == [
+        ">fallbackA\nACDE\n",
+        ">fallbackB\nFGHI\n",
+    ]
+    assert [chain.paired_msa for chain in fold_input.chains] == ["", ""]
