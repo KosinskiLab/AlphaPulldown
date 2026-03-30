@@ -650,10 +650,21 @@ def main() -> int:
         stdout_path = log_dir / f"{index:03d}_{slug}.out"
         stderr_path = log_dir / f"{index:03d}_{slug}.err"
         script_path = log_dir / f"{index:03d}_{slug}.sbatch.sh"
-        rerun_command = (
-            f"{_quote(args.python)} -m pytest -vv -s {_quote(nodeid)}"
-            + (" --use-temp-dir" if args.use_temp_dir else "")
-        )
+        rerun_parts = [
+            _quote(args.python),
+            "-m",
+            "pytest",
+            "-o",
+            _quote("addopts=-ra --strict-markers"),
+            "-vv",
+            "-s",
+            _quote(nodeid),
+        ]
+        if args.use_temp_dir:
+            rerun_parts.append("--use-temp-dir")
+        rerun_command = " ".join(rerun_parts)
+        if args.include_perf:
+            rerun_command = f"AF3_RUN_PERF_TESTS=1 {rerun_command}"
         job = JobSpec(
             index=index,
             nodeid=nodeid,
