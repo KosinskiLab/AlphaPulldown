@@ -215,9 +215,10 @@ def tmp_flags(monkeypatch, tmp_path):
             # not an absl flag on this FLAGS; attach as attribute for completeness
             setattr(F, name, value)
             continue
+        fl.unparse()
         arg = _to_arg_str(name, value)
         if arg is None:
-            # leave at declared default (often None); don't parse
+            # reset to the declared default and leave it unset
             continue
         fl.parse(arg)  # sets .value and marks present
 
