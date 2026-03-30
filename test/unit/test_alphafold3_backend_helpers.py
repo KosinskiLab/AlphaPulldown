@@ -1546,3 +1546,128 @@ def test_prepare_input_multimer_skips_complex_fallback_after_duplicate_residue_n
         ">indA\nACD\n",
         ">indB\nFGHI\n",
     ]
+
+
+def test_prepare_input_builds_template_mmcif_and_skips_zero_atom_templates(
+    af3_backend_module,
+    monkeypatch,
+    tmp_path,
+):
+    monomer = MonomericObject("templated", "ACDE")
+    atom_type_num = af3_backend_module.residue_constants.atom_type_num
+    hhblits_alphabet_size = len(
+        af3_backend_module.residue_constants.MAP_HHBLITS_AATYPE_TO_OUR_AATYPE
+    )
+    template_aatype = np.zeros((2, 4, hhblits_alphabet_size), dtype=np.float32)
+    template_aatype[:, np.arange(4), [0, 4, 3, 6]] = 1.0
+    template_masks = np.zeros((2, 4, atom_type_num), dtype=np.float32)
+    template_masks[1, 0, 0] = 1.0
+    template_masks[1, 2, 0] = 1.0
+    monomer.feature_dict = {
+        "residue_index": np.arange(4, dtype=np.int32),
+        "template_aatype": template_aatype,
+        "template_domain_names": np.asarray([b"skip", b"1abc_B"], dtype=object),
+        "template_sequence": np.asarray([b"ACDE", b"ACDE"], dtype=object),
+        "template_all_atom_masks": template_masks,
+        "template_all_atom_positions": np.zeros(
+            (2, 4, atom_type_num, 3), dtype=np.float32
+        ),
+    }
+
+    mmcif_calls = []
+
+    def _fake_to_mmcif(*, prot, file_id, model_type):
+        mmcif_calls.append((prot, file_id, model_type))
+        return (
+            "data_1abc\n"
+            "loop_\n"
+            "_entity_poly_seq.entity_id\n"
+            "_entity_poly_seq.num\n"
+            "_entity_poly_seq.mon_id\n"
+            "1 1 ALA\n"
+            "1 2 CYS\n"
+            "#\n"
+            "loop_\n"
+            "_atom_site.group_PDB\n"
+            "ATOM\n"
+        )
+
+    monkeypatch.setattr(af3_backend_module, "to_mmcif", _fake_to_mmcif)
+    monkeypatch.chdir(tmp_path)
+
+    prepared_inputs = af3_backend_module.AlphaFold3Backend.prepare_input(
+        objects_to_model=[
+            {
+                "object": monomer,
+                "output_dir": str(tmp_path),
+            }
+        ],
+        random_seed=37,
+        debug_templates=True,
+    )
+
+    assert len(mmcif_calls) == 1
+    fold_input, _ = next(iter(prepared_inputs[0].items()))
+    chain = fold_input.chains[0]
+    assert len(chain.templates) == 1
+    assert chain.templates[0].query_to_template_map == {0: 0, 2: 1}
+    assert "_entity_poly_seq.mon_id" not in chain.templates[0].mmcif
+    assert "_pdbx_audit_revision_history.revision_date" in chain.templates[0].mmcif
+    debug_path = (
+        tmp_path
+        / "templates_debug"
+        / "generated_template_1abc_B_chainA_idx1.cif"
+    )
+    assert debug_path.read_text(encoding="utf-8") == chain.templates[0].mmcif
+
+
+def test_prepare_input_writes_template_error_artifacts_on_mmcif_generation_failure(
+    af3_backend_module,
+    monkeypatch,
+    tmp_path,
+):
+    monomer = MonomericObject("templated", "ACDE")
+    atom_type_num = af3_backend_module.residue_constants.atom_type_num
+    hhblits_alphabet_size = len(
+        af3_backend_module.residue_constants.MAP_HHBLITS_AATYPE_TO_OUR_AATYPE
+    )
+    template_aatype = np.zeros((1, 4, hhblits_alphabet_size), dtype=np.float32)
+    template_aatype[0, np.arange(4), [0, 4, 3, 6]] = 1.0
+    template_masks = np.zeros((1, 4, atom_type_num), dtype=np.float32)
+    template_masks[0, :, 0] = 1.0
+    monomer.feature_dict = {
+        "residue_index": np.arange(4, dtype=np.int32),
+        "template_aatype": template_aatype,
+        "template_domain_names": np.asarray([b"bad_C"], dtype=object),
+        "template_sequence": np.asarray([b"ACDE"], dtype=object),
+        "template_all_atom_masks": template_masks,
+        "template_all_atom_positions": np.zeros(
+            (1, 4, atom_type_num, 3), dtype=np.float32
+        ),
+    }
+
+    monkeypatch.setattr(
+        af3_backend_module,
+        "to_mmcif",
+        lambda **kwargs: (_ for _ in ()).throw(RuntimeError("mmcif boom")),
+    )
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(RuntimeError, match="mmcif boom"):
+        af3_backend_module.AlphaFold3Backend.prepare_input(
+            objects_to_model=[
+                {
+                    "object": monomer,
+                    "output_dir": str(tmp_path),
+                }
+            ],
+            random_seed=41,
+        )
+
+    error_path = tmp_path / "templates_debug" / "ERROR_template_0_chain_A.txt"
+    error_report = error_path.read_text(encoding="utf-8")
+    assert "Error: mmcif boom" in error_report
+    assert "Template index: 0" in error_report
+    assert "Chain ID: A" in error_report
+    assert "Domain name:" in error_report
+    assert "Template sequence:" in error_report
