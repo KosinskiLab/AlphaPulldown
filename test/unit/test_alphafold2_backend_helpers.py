@@ -569,6 +569,130 @@ def test_predict_individual_job_rejects_skipped_templates_in_multimer_mode(
         )
 
 
+def test_predict_individual_job_resumes_completed_models_and_returns_early(
+    af2_backend_module,
+    tmp_path,
+):
+    monomer = af2_backend_module.MonomericObject("single", "AB")
+    monomer.feature_dict = {"residue_index": np.array([0, 1], dtype=np.int32)}
+
+    result_path = tmp_path / "result_modelA.pkl"
+    with open(result_path, "wb") as handle:
+        pickle.dump({"plddt": np.array([91.0, 88.0], dtype=np.float32)}, handle, protocol=4)
+    (tmp_path / "unrelaxed_modelA.pdb").write_text("existing pdb", encoding="utf-8")
+
+    process_calls = []
+    predict_calls = []
+    fake_runner = SimpleNamespace(
+        multimer_mode=False,
+        process_features=lambda feature_dict, random_seed: process_calls.append(
+            random_seed
+        )
+        or dict(feature_dict),
+        predict=lambda *args, **kwargs: predict_calls.append((args, kwargs)),
+    )
+
+    results = af2_backend_module.AlphaFold2Backend.predict_individual_job(
+        model_runners={"modelA": fake_runner},
+        multimeric_object=monomer,
+        allow_resume=True,
+        skip_templates=False,
+        output_dir=tmp_path,
+        random_seed=11,
+    )
+
+    assert predict_calls == []
+    assert process_calls == [11]
+    assert results["modelA"]["seqs"] == ["AB"]
+    assert results["modelA"]["unrelaxed_protein"].name == "predicted"
+
+
+def test_predict_individual_job_rejects_missing_or_zero_template_positions(
+    af2_backend_module,
+    tmp_path,
+):
+    multimer = af2_backend_module.MultimericObject(
+        description="complex",
+        input_seqs=["AB"],
+        feature_dict={"msa": np.ones((1, 2), dtype=np.int32)},
+        multimeric_mode=True,
+    )
+    missing_template_runner = SimpleNamespace(
+        multimer_mode=True,
+        process_features=lambda feature_dict, random_seed: {},
+        predict=lambda *args, **kwargs: None,
+    )
+    zero_template_runner = SimpleNamespace(
+        multimer_mode=True,
+        process_features=lambda feature_dict, random_seed: {
+            "template_all_atom_positions": np.zeros((1, 2, 37, 3), dtype=np.float32),
+        },
+        predict=lambda *args, **kwargs: None,
+    )
+
+    with pytest.raises(ValueError, match="No template_all_atom_positions key found"):
+        af2_backend_module.AlphaFold2Backend.predict_individual_job(
+            model_runners={"modelA": missing_template_runner},
+            multimeric_object=multimer,
+            allow_resume=False,
+            skip_templates=False,
+            output_dir=tmp_path,
+            random_seed=3,
+        )
+
+    with pytest.raises(ValueError, match="No valid templates found"):
+        af2_backend_module.AlphaFold2Backend.predict_individual_job(
+            model_runners={"modelA": zero_template_runner},
+            multimeric_object=multimer,
+            allow_resume=False,
+            skip_templates=False,
+            output_dir=tmp_path,
+            random_seed=3,
+        )
+
+
+def test_predict_yields_results_for_each_object(af2_backend_module, monkeypatch, tmp_path):
+    monomer_a = af2_backend_module.MonomericObject("a", "AA")
+    monomer_b = af2_backend_module.MonomericObject("b", "BB")
+    calls = []
+
+    monkeypatch.setattr(
+        af2_backend_module.AlphaFold2Backend,
+        "predict_individual_job",
+        staticmethod(
+            lambda **kwargs: calls.append(kwargs["multimeric_object"].description)
+            or {"modelA": kwargs["multimeric_object"].description}
+        ),
+    )
+
+    outputs = list(
+        af2_backend_module.AlphaFold2Backend.predict(
+            model_runners={"modelA": object()},
+            objects_to_model=[
+                {"object": monomer_a, "output_dir": str(tmp_path / "a")},
+                {"object": monomer_b, "output_dir": str(tmp_path / "b")},
+            ],
+            allow_resume=False,
+            skip_templates=False,
+            random_seed=5,
+        )
+    )
+
+    assert calls == ["a", "b"]
+    assert outputs == [
+        {
+            "object": monomer_a,
+            "prediction_results": {"modelA": "a"},
+            "output_dir": str(tmp_path / "a"),
+        },
+        {
+            "object": monomer_b,
+            "prediction_results": {"modelA": "b"},
+            "output_dir": str(tmp_path / "b"),
+        },
+    ]
+
+
 def test_recalculate_confidence_handles_multimer_and_monomer_paths(af2_backend_module):
     already_numpy = {
         "predicted_aligned_error": np.zeros((1, 1), dtype=np.float32),
@@ -747,3 +871,70 @@ def test_postprocess_relaxes_all_using_saved_unrelaxed_pdbs(
     assert (tmp_path / "ranked_0.pdb").read_text(encoding="utf-8") == "RELAXED:model_b_unrelaxed"
     assert (tmp_path / "ranked_1.pdb").read_text(encoding="utf-8") == "RELAXED:model_a_unrelaxed"
     assert cleanup_calls
+
+
+def test_postprocess_handles_monomers_without_relaxation_and_logs_modelcif_errors(
+    af2_backend_module,
+    monkeypatch,
+    tmp_path,
+):
+    cleanup_calls = []
+    modelcif_errors = []
+    plot_calls = []
+
+    monkeypatch.setattr(
+        af2_backend_module,
+        "plot_pae_from_matrix",
+        lambda **kwargs: plot_calls.append(kwargs["ranking"]),
+    )
+    monkeypatch.setattr(
+        af2_backend_module,
+        "post_prediction_process",
+        lambda *args, **kwargs: cleanup_calls.append((args, kwargs)),
+    )
+    monkeypatch.setattr(
+        af2_backend_module.logging,
+        "error",
+        lambda message: modelcif_errors.append(message),
+    )
+    monkeypatch.setattr(
+        af2_backend_module.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(
+            stderr="convert failed",
+            stdout="",
+            returncode=1,
+        ),
+    )
+
+    monomer = af2_backend_module.MonomericObject("single", "AB")
+    prediction_results = {
+        "modelA": {
+            "plddt": np.array([81.0, 82.0], dtype=np.float32),
+            "predicted_aligned_error": np.zeros((2, 2), dtype=np.float32),
+            "max_predicted_aligned_error": 31.0,
+            "ranking_confidence": 81.5,
+            "ptm": 0.4,
+            "seqs": ["AB"],
+            "unrelaxed_protein": SimpleNamespace(name="mono"),
+        }
+    }
+
+    af2_backend_module.AlphaFold2Backend.postprocess(
+        prediction_results=prediction_results,
+        multimeric_object=monomer,
+        output_dir=tmp_path,
+        features_directory="/features",
+        models_to_relax=af2_backend_module.ModelsToRelax.NONE,
+        convert_to_modelcif=True,
+    )
+
+    ranking = json.loads((tmp_path / "ranking_debug.json").read_text(encoding="utf-8"))
+    assert ranking["plddts"] == {"modelA": 81.5}
+    assert ranking["ptm"] == {"modelA": 0.4}
+    assert ranking["order"] == ["modelA"]
+    assert (tmp_path / "ranked_0.pdb").read_text(encoding="utf-8") == "PDB:mono"
+    assert not (tmp_path / "relaxed_modelA.pdb").exists()
+    assert plot_calls == [0]
+    assert cleanup_calls
+    assert modelcif_errors == ["Error: convert failed"]
