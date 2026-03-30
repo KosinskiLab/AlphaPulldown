@@ -27,6 +27,22 @@ Install AlphaPulldown itself:
 pip install -e ".[alphafold2]"
 ```
 
+If you created the environment before the AF2 extra started pinning GPU-enabled JAX, refresh it explicitly:
+
+```bash
+pip install --upgrade --no-cache-dir "jax==0.5.3" "jax[cuda12]==0.5.3"
+```
+
+Verify that JAX can actually see the GPU before running the cluster suite:
+
+```bash
+python - <<'PY'
+import jax
+print(jax.__version__)
+print(jax.local_devices(backend="gpu"))
+PY
+```
+
 If you also want to run the repo test suites in that environment:
 
 ```bash
@@ -35,34 +51,80 @@ pip install -e ".[alphafold2,test]"
 
 ## AlphaFold3 backend
 
-AlphaFold3 needs the Python extra dependencies, HMMER, and the `libcifpp` chemical component data used by `build_af3_data`.
+AlphaFold3 needs the vendored `alphafold3` package itself to be built, because the backend depends on the compiled `alphafold3.cpp` extension. A root-level `pip install -e .` is not enough on its own.
 
 ```bash
 mamba create -y -n apd-af3 -c conda-forge -c bioconda \
   python=3.11 \
   hmmer \
   libcifpp \
-  "openmm>=8.2" \
-  "pdbfixer>=1.10" \
-  "modelcif>=1.6" \
-  "numpy<2"
+  c-compiler \
+  cxx-compiler \
+  sqlite \
+  zlib
 mamba activate apd-af3
-pip install -e ".[alphafold3]"
-build_af3_data
+pip install -e ".[alphafold3,test]"
+pip install -r alphafold3/dev-requirements.txt
+pip install --no-deps -e ./alphafold3
+build_data
 ```
 
 If you also want the repo tests in that environment:
 
 ```bash
-pip install -e ".[alphafold3,test]"
-build_af3_data
+python - <<'PY'
+import numpy
+import alphafold3.cpp
+from alphafold3.constants import chemical_components
+print(numpy.__version__)
+print(alphafold3.cpp.__file__)
+print(chemical_components.Ccd.component_names()[:3])
+PY
 ```
 
 Notes:
 
-- The `alphafold3` extra installs the Python-side AlphaFold3 dependencies that are vendored in this repo.
-- The CUDA-specific wheels in that extra are intended for Linux/x86_64 GPU environments.
+- `alphafold3/dev-requirements.txt` currently pins the supported AF3 stack, including `numpy==2.1.3`.
+- The root `.[alphafold3]` extra installs the Python-side AlphaPulldown dependencies, but the compiled `alphafold3.cpp` extension still comes from `pip install --no-deps -e ./alphafold3`.
+- The vendored `alphafold3` package installs its own `build_data` entry point; use that rather than a root-level wrapper.
 - You still need valid AlphaFold3 model parameters and databases from Google DeepMind for real AF3 runs.
+
+## Troubleshooting
+
+### AlphaFold2: `Unknown backend: 'gpu' requested, ... Platforms present are: cpu`
+
+That means the environment has CPU-only JAX. Reinstall the AF2 JAX stack:
+
+```bash
+pip install --upgrade --no-cache-dir "jax==0.5.3" "jax[cuda12]==0.5.3"
+python - <<'PY'
+import jax
+print(jax.__version__)
+print(jax.local_devices(backend="gpu"))
+PY
+```
+
+### AlphaFold3: `ModuleNotFoundError: No module named 'alphafold3.cpp'`
+
+That means AlphaPulldown is installed, but the vendored `alphafold3` package was not built yet:
+
+```bash
+pip install -e ".[alphafold3,test]"
+pip install -r alphafold3/dev-requirements.txt
+pip install --no-deps -e ./alphafold3
+build_data
+```
+
+### AlphaFold3 build error: `Could NOT find SQLite3`
+
+Install SQLite into the environment, then rerun the editable AF3 build:
+
+```bash
+mamba install -y -n apd-af3 -c conda-forge sqlite
+mamba activate apd-af3
+pip install --no-deps -e ./alphafold3
+build_data
+```
 
 ## Cluster smoke tests
 

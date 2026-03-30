@@ -461,7 +461,7 @@ class TestCreateIndividualFeaturesComprehensive:
             
             FLAGS.data_pipeline = "alphafold3"
             FLAGS.data_dir = "/test/db"
-            with pytest.raises(ImportError):
+            with pytest.raises(ImportError, match="pip install -e .*alphafold3,test.*build_data"):
                 create_features.create_pipeline_af3()
             logger.info("AF3 pipeline creation correctly failed with ImportError")
 
