@@ -71,19 +71,189 @@ def _install_alphafold3_backend_stubs(tmp_path: Path) -> None:
     folding_input_mod = types.ModuleType("alphafold3.common.folding_input")
 
     @dataclasses.dataclass(frozen=True)
+    class StubTemplate:
+        mmcif: str
+        query_to_template_map: dict[int, int]
+
+    class StubProteinChain:
+        def __init__(
+            self,
+            *,
+            id,
+            sequence,
+            ptms=None,
+            residue_ids=None,
+            description=None,
+            paired_msa="",
+            unpaired_msa="",
+            templates=None,
+        ):
+            self.id = id
+            self.sequence = sequence
+            self.ptms = [] if ptms is None else list(ptms)
+            self.residue_ids = None if residue_ids is None else list(residue_ids)
+            self.description = description
+            self.paired_msa = paired_msa
+            self.unpaired_msa = unpaired_msa
+            self.templates = None if templates is None else list(templates)
+
+    class StubRnaChain:
+        def __init__(
+            self,
+            *,
+            id,
+            sequence,
+            modifications=None,
+            residue_ids=None,
+            description=None,
+            unpaired_msa="",
+        ):
+            self.id = id
+            self.sequence = sequence
+            self.modifications = [] if modifications is None else list(modifications)
+            self.residue_ids = None if residue_ids is None else list(residue_ids)
+            self.description = description
+            self.unpaired_msa = unpaired_msa
+
+    class StubDnaChain:
+        def __init__(
+            self,
+            *,
+            id,
+            sequence,
+            modifications=None,
+            residue_ids=None,
+            description=None,
+        ):
+            self.id = id
+            self.sequence = sequence
+            self._modifications = [] if modifications is None else list(modifications)
+            self.residue_ids = None if residue_ids is None else list(residue_ids)
+            self.description = description
+
+        def modifications(self):
+            return list(self._modifications)
+
+    class StubLigand:
+        def __init__(self, *, id, ccd_ids=None, smiles=None, description=None):
+            self.id = id
+            self.ccd_ids = None if ccd_ids is None else list(ccd_ids)
+            self.smiles = smiles
+            self.description = description
+
+    @dataclasses.dataclass(frozen=True)
     class StubInput:
         name: str
         chains: tuple
         rng_seeds: tuple[int, ...]
         user_ccd: object | None = None
 
+        def __post_init__(self):
+            object.__setattr__(self, "chains", tuple(self.chains))
+            object.__setattr__(self, "rng_seeds", tuple(self.rng_seeds))
+
         def sanitised_name(self) -> str:
             return self.name.replace(" ", "_")
 
         def to_json(self) -> str:
-            return json.dumps({"name": self.name, "chains": list(self.chains)})
+            def _serialize_chain(chain):
+                if isinstance(chain, (str, int, float, bool)) or chain is None:
+                    return chain
+                payload = {"type": chain.__class__.__name__, "id": getattr(chain, "id", None)}
+                if hasattr(chain, "sequence"):
+                    payload["sequence"] = chain.sequence
+                if hasattr(chain, "paired_msa"):
+                    payload["paired_msa"] = chain.paired_msa
+                if hasattr(chain, "unpaired_msa"):
+                    payload["unpaired_msa"] = chain.unpaired_msa
+                return payload
+
+            return json.dumps(
+                {"name": self.name, "chains": [_serialize_chain(chain) for chain in self.chains]}
+            )
+
+        @classmethod
+        def from_json(cls, json_str: str):
+            payload = json.loads(json_str)
+            if isinstance(payload, list):
+                payload = payload[0]
+            if not isinstance(payload, dict):
+                raise ValueError("Unsupported AF3 JSON payload")
+
+            def _parse_template(template_payload):
+                return StubTemplate(
+                    mmcif=template_payload["mmcif"],
+                    query_to_template_map={
+                        int(key): int(value)
+                        for key, value in template_payload.get(
+                            "query_to_template_map", {}
+                        ).items()
+                    },
+                )
+
+            chains = []
+            for chain_payload in payload.get("chains", []):
+                chain_type = chain_payload["type"]
+                common_kwargs = {
+                    "id": chain_payload["id"],
+                    "sequence": chain_payload.get("sequence", ""),
+                    "description": chain_payload.get("description"),
+                    "residue_ids": chain_payload.get("residue_ids"),
+                }
+                if chain_type == "protein":
+                    chains.append(
+                        StubProteinChain(
+                            **common_kwargs,
+                            ptms=chain_payload.get("ptms", []),
+                            paired_msa=chain_payload.get("paired_msa", ""),
+                            unpaired_msa=chain_payload.get("unpaired_msa", ""),
+                            templates=[
+                                _parse_template(template_payload)
+                                for template_payload in chain_payload.get("templates", [])
+                            ],
+                        )
+                    )
+                elif chain_type == "rna":
+                    chains.append(
+                        StubRnaChain(
+                            **common_kwargs,
+                            modifications=chain_payload.get("modifications", []),
+                            unpaired_msa=chain_payload.get("unpaired_msa", ""),
+                        )
+                    )
+                elif chain_type == "dna":
+                    chains.append(
+                        StubDnaChain(
+                            **common_kwargs,
+                            modifications=chain_payload.get("modifications", []),
+                        )
+                    )
+                elif chain_type == "ligand":
+                    chains.append(
+                        StubLigand(
+                            id=chain_payload["id"],
+                            ccd_ids=chain_payload.get("ccd_ids"),
+                            smiles=chain_payload.get("smiles"),
+                            description=chain_payload.get("description"),
+                        )
+                    )
+                else:
+                    raise ValueError(f"Unsupported chain type: {chain_type}")
+            return cls(
+                name=payload.get("name", "json_input"),
+                chains=tuple(chains),
+                rng_seeds=tuple(payload.get("rng_seeds", [0])),
+            )
+
+        def with_multiple_seeds(self, num_seeds: int):
+            return dataclasses.replace(self, rng_seeds=tuple(range(1, num_seeds + 1)))
 
     folding_input_mod.Input = StubInput
+    folding_input_mod.Template = StubTemplate
+    folding_input_mod.ProteinChain = StubProteinChain
+    folding_input_mod.RnaChain = StubRnaChain
+    folding_input_mod.DnaChain = StubDnaChain
+    folding_input_mod.Ligand = StubLigand
 
     constants_pkg = _package("alphafold3.constants")
     chemical_components_mod = types.ModuleType("alphafold3.constants.chemical_components")
@@ -93,6 +263,30 @@ def _install_alphafold3_backend_stubs(tmp_path: Path) -> None:
     featurisation_mod = types.ModuleType("alphafold3.data.featurisation")
     featurisation_mod.featurise_input = lambda **_kwargs: []
     parsers_mod = types.ModuleType("alphafold3.data.parsers")
+
+    def _parse_fasta(text: str):
+        descriptions = []
+        sequences = []
+        current_description = None
+        current_sequence = []
+        for raw_line in text.splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            if line.startswith(">"):
+                if current_description is not None:
+                    descriptions.append(current_description)
+                    sequences.append("".join(current_sequence))
+                current_description = line[1:]
+                current_sequence = []
+            else:
+                current_sequence.append(line)
+        if current_description is not None:
+            descriptions.append(current_description)
+            sequences.append("".join(current_sequence))
+        return sequences, descriptions
+
+    parsers_mod.parse_fasta = _parse_fasta
 
     af3_jax_pkg = _package("alphafold3.jax")
     attention_pkg = _package("alphafold3.jax.attention")
@@ -130,6 +324,11 @@ def _install_alphafold3_backend_stubs(tmp_path: Path) -> None:
 
     structure_pkg = _package("alphafold3.structure")
     mmcif_mod = types.ModuleType("alphafold3.structure.mmcif")
+    mmcif_mod.from_string = (
+        lambda mmcif_string: (_ for _ in ()).throw(ValueError("invalid mmcif"))
+        if mmcif_string == "INVALID"
+        else {"mmcif": mmcif_string}
+    )
 
     modules = {
         "alphafold3": alphafold3_pkg,
@@ -776,3 +975,238 @@ def test_af3_postprocess_skips_missing_args_and_writes_outputs(
             "job_name": "job",
         }
     ]
+
+
+def _write_stub_af3_json(path: Path, payload: dict) -> Path:
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
+def test_prepare_input_merges_json_chain_and_rewrites_duplicate_ids(
+    af3_backend_module,
+    tmp_path,
+):
+    json_path = _write_stub_af3_json(
+        tmp_path / "input.json",
+        {
+            "name": "json job",
+            "rng_seeds": [99],
+            "chains": [
+                {
+                    "type": "protein",
+                    "id": "A",
+                    "sequence": "GG",
+                    "unpaired_msa": ">query\nGG\n",
+                    "paired_msa": "",
+                }
+            ],
+        },
+    )
+    monomer = MonomericObject("protA", "ACDE")
+
+    prepared_inputs = af3_backend_module.AlphaFold3Backend.prepare_input(
+        objects_to_model=[
+            {
+                "object": [monomer, {"json_input": str(json_path)}],
+                "output_dir": str(tmp_path),
+            }
+        ],
+        random_seed=7,
+    )
+
+    assert len(prepared_inputs) == 1
+    fold_input, (output_dir, resolve_msa_overlaps) = next(
+        iter(prepared_inputs[0].items())
+    )
+    assert output_dir == str(tmp_path)
+    assert resolve_msa_overlaps is True
+    assert [chain.id for chain in fold_input.chains] == ["A", "B"]
+    assert fold_input.chains[0].sequence == "ACDE"
+    assert fold_input.chains[1].sequence == "GG"
+    assert fold_input.chains[1].paired_msa == ">query\nGG\n"
+    assert fold_input.chains[1].unpaired_msa == ""
+
+
+def test_prepare_input_rejects_regions_for_multi_chain_json_inputs(
+    af3_backend_module,
+    tmp_path,
+):
+    json_path = _write_stub_af3_json(
+        tmp_path / "multi_chain.json",
+        {
+            "name": "multi job",
+            "chains": [
+                {"type": "protein", "id": "A", "sequence": "AAAA"},
+                {"type": "protein", "id": "B", "sequence": "BBBB"},
+            ],
+        },
+    )
+
+    with pytest.raises(ValueError, match="exactly one chain per file"):
+        af3_backend_module.AlphaFold3Backend.prepare_input(
+            objects_to_model=[
+                {
+                    "object": {"json_input": str(json_path), "regions": [(1, 2)]},
+                    "output_dir": str(tmp_path),
+                }
+            ],
+            random_seed=11,
+        )
+
+
+def test_prepare_input_slices_single_chain_json_regions_and_promotes_msa(
+    af3_backend_module,
+    tmp_path,
+):
+    json_path = _write_stub_af3_json(
+        tmp_path / "single_chain.json",
+        {
+            "name": "single job",
+            "chains": [
+                {
+                    "type": "protein",
+                    "id": "Q",
+                    "sequence": "ABCDEFGH",
+                    "residue_ids": [10, 11, 12, 13, 14, 15, 16, 17],
+                    "ptms": [["phospho", 2], ["methyl", 6]],
+                    "unpaired_msa": ">query\nABCDEFGH\n",
+                    "paired_msa": "",
+                    "templates": [
+                        {
+                            "mmcif": "data_valid",
+                            "query_to_template_map": {"0": 0, "1": 1, "4": 2, "5": 3},
+                        }
+                    ],
+                }
+            ],
+        },
+    )
+
+    prepared_inputs = af3_backend_module.AlphaFold3Backend.prepare_input(
+        objects_to_model=[
+            {
+                "object": {
+                    "json_input": str(json_path),
+                    "regions": [(1, 2), (5, 6)],
+                },
+                "output_dir": str(tmp_path),
+            }
+        ],
+        random_seed=13,
+    )
+
+    fold_input, (_output_dir, resolve_msa_overlaps) = next(iter(prepared_inputs[0].items()))
+    chain = fold_input.chains[0]
+
+    assert resolve_msa_overlaps is True
+    assert chain.id == "Q"
+    assert chain.sequence == "ABEF"
+    assert chain.residue_ids == [10, 11, 14, 15]
+    assert chain.ptms == [("phospho", 2), ("methyl", 4)]
+    assert chain.paired_msa == ">query\nABEF\n"
+    assert chain.unpaired_msa == ""
+    assert len(chain.templates) == 1
+    assert chain.templates[0].query_to_template_map == {0: 0, 1: 1, 2: 2, 3: 3}
+
+
+def test_prepare_input_drops_invalid_json_templates_but_keeps_valid_ones(
+    af3_backend_module,
+    tmp_path,
+):
+    json_path = _write_stub_af3_json(
+        tmp_path / "templates.json",
+        {
+            "name": "template job",
+            "chains": [
+                {
+                    "type": "protein",
+                    "id": "A",
+                    "sequence": "ACDE",
+                    "templates": [
+                        {"mmcif": "data_valid", "query_to_template_map": {"0": 0}},
+                        {"mmcif": "INVALID", "query_to_template_map": {"1": 1}},
+                    ],
+                }
+            ],
+        },
+    )
+
+    prepared_inputs = af3_backend_module.AlphaFold3Backend.prepare_input(
+        objects_to_model=[
+            {
+                "object": {"json_input": str(json_path)},
+                "output_dir": str(tmp_path),
+            }
+        ],
+        random_seed=17,
+    )
+
+    fold_input, _ = next(iter(prepared_inputs[0].items()))
+    chain = fold_input.chains[0]
+    assert len(chain.templates) == 1
+    assert chain.templates[0].mmcif == "data_valid"
+    assert chain.templates[0].query_to_template_map == {0: 0}
+
+
+def test_prepare_input_normalises_adjacent_duplicate_residues_for_monomers(
+    af3_backend_module,
+    monkeypatch,
+    tmp_path,
+):
+    monomer = MonomericObject("protA", "ABCD")
+    monomer.feature_dict = {
+        "residue_index": np.asarray([0, 0, 1, 2], dtype=np.int32),
+        "msa": np.asarray([[1, 2, 3, 4], [5, 6, 7, 8]], dtype=np.int32),
+        "deletion_matrix_int": np.asarray(
+            [[0, 1, 2, 3], [4, 5, 6, 7]], dtype=np.int32
+        ),
+        "sequence": np.asarray([b"ABCD"], dtype=object),
+        "seq_length": np.full(4, 4, dtype=np.int32),
+        "num_alignments": np.full(4, 2, dtype=np.int32),
+    }
+    captured = {}
+
+    def _fake_msa_rows_and_deletions_to_a3m(
+        *,
+        msa_rows,
+        deletion_rows,
+        query_sequence,
+    ):
+        captured["msa_rows"] = np.asarray(msa_rows)
+        captured["deletion_rows"] = np.asarray(deletion_rows)
+        captured["query_sequence"] = query_sequence
+        return ">query\nACD\n"
+
+    monkeypatch.setattr(
+        af3_backend_module,
+        "msa_rows_and_deletions_to_a3m",
+        _fake_msa_rows_and_deletions_to_a3m,
+    )
+
+    prepared_inputs = af3_backend_module.AlphaFold3Backend.prepare_input(
+        objects_to_model=[
+            {
+                "object": monomer,
+                "output_dir": str(tmp_path),
+            }
+        ],
+        random_seed=19,
+    )
+
+    fold_input, (_output_dir, resolve_msa_overlaps) = next(iter(prepared_inputs[0].items()))
+    chain = fold_input.chains[0]
+
+    assert resolve_msa_overlaps is True
+    assert chain.sequence == "ACD"
+    assert chain.residue_ids == [1, 2, 3]
+    assert chain.paired_msa == ">query\nACD\n"
+    assert chain.unpaired_msa == ""
+    assert captured["query_sequence"] == "ACD"
+    np.testing.assert_array_equal(
+        captured["msa_rows"],
+        np.asarray([[1, 3, 4], [5, 7, 8]], dtype=np.int32),
+    )
+    np.testing.assert_array_equal(
+        captured["deletion_rows"],
+        np.asarray([[0, 2, 3], [4, 6, 7]], dtype=np.int32),
+    )
