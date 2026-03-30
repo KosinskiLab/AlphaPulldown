@@ -56,6 +56,45 @@ def _ensure_typing_dataclass_transform() -> None:
     typing.dataclass_transform = dataclass_transform
 
 
+def _get_openmm_platform_names() -> list[str]:
+    """Return the available OpenMM platform names."""
+    try:
+        import openmm
+    except ImportError:
+        return []
+
+    try:
+        return [
+            openmm.Platform.getPlatform(i).getName()
+            for i in range(openmm.Platform.getNumPlatforms())
+        ]
+    except Exception as exc:  # pragma: no cover - defensive
+        logging.warning("Failed to inspect OpenMM platforms: %s", exc)
+        return []
+
+
+def _resolve_gpu_relax(use_gpu_relax: bool) -> bool:
+    """Only request GPU relax when OpenMM exposes a CUDA platform."""
+    if not use_gpu_relax:
+        return False
+
+    platform_names = _get_openmm_platform_names()
+    if "CUDA" in platform_names:
+        return True
+
+    if platform_names:
+        logging.warning(
+            "OpenMM CUDA platform is unavailable; falling back to CPU relax. "
+            "Available platforms: %s",
+            ", ".join(platform_names),
+        )
+    else:
+        logging.warning(
+            "OpenMM CUDA platform is unavailable; falling back to CPU relax."
+        )
+    return False
+
+
 def _jnp_to_np(output):
     """Recursively changes jax arrays to numpy arrays."""
     for k, v in output.items():
@@ -876,7 +915,7 @@ class AlphaFold2Backend(FoldingBackend):
             stiffness=RELAX_STIFFNESS,
             exclude_residues=RELAX_EXCLUDE_RESIDUES,
             max_outer_iterations=RELAX_MAX_OUTER_ITERATIONS,
-            use_gpu=use_gpu_relax)
+            use_gpu=_resolve_gpu_relax(use_gpu_relax))
 
         if models_to_relax == ModelsToRelax.BEST:
             to_relax = [ranked_order[0]]

@@ -347,6 +347,29 @@ def test_ensure_typing_dataclass_transform_backfills_missing_attribute(
     assert af2_backend_module.typing.dataclass_transform is not None
 
 
+def test_resolve_gpu_relax_keeps_cuda_when_available(af2_backend_module, monkeypatch):
+    monkeypatch.setattr(
+        af2_backend_module,
+        "_get_openmm_platform_names",
+        lambda: ["Reference", "CPU", "CUDA"],
+    )
+
+    assert af2_backend_module._resolve_gpu_relax(True) is True
+
+
+def test_resolve_gpu_relax_falls_back_when_cuda_is_missing(
+    af2_backend_module, monkeypatch, caplog
+):
+    monkeypatch.setattr(
+        af2_backend_module,
+        "_get_openmm_platform_names",
+        lambda: ["Reference", "CPU", "OpenCL"],
+    )
+
+    assert af2_backend_module._resolve_gpu_relax(True) is False
+    assert "falling back to CPU relax" in caplog.text
+
+
 def test_asym_query_and_msa_debug_helpers(af2_backend_module, tmp_path):
     normalized = af2_backend_module._normalize_asym_id(
         {"asym_id": np.array([5, 5, 2, 9], dtype=np.int32)}
