@@ -2,38 +2,53 @@
 
 This guide is for direct AlphaPulldown use without Snakemake.
 
-The Docker recipes in [`docker/alphafold2.dockerfile`](../docker/alphafold2.dockerfile) and [`docker/alphafold3.dockerfile`](../docker/alphafold3.dockerfile), plus the vendored upstream files in [`alphafold/docker/Dockerfile`](../alphafold/docker/Dockerfile) and [`alphafold3/docker/Dockerfile`](../alphafold3/docker/Dockerfile), are the reference environments behind the commands below.
+Two points matter in practice:
+
+1. Run `pip install -e ...` from the AlphaPulldown repo root.
+2. For AlphaFold3, building the vendored `alphafold3` package is a separate step. A root-level install alone is not enough.
+
+The Docker files remain the long-term reference environments, but the commands below are the simpler cluster-facing paths.
+
+## Known-good cluster stacks
+
+These are the two EMBL environments that were already working and that we rechecked while validating the wrappers:
+
+- `AlphaPulldown` for AF2:
+  - Python `3.10`
+  - `jax 0.5.3`
+  - `jaxlib 0.5.3`
+  - `numpy 1.26.4`
+  - `openmm 8.1.1`
+  - `pdbfixer 1.12`
+  - `modelcif 1.6`
+- `AlphaPulldown_alphafold3` for AF3:
+  - Python `3.11`
+  - `jax 0.4.34`
+  - `jaxlib 0.4.34`
+  - `numpy 2.0.2`
+  - `openmm 8.0.0`
+  - `pdbfixer 1.9`
+  - `modelcif 1.3`
+  - compiled `alphafold3.cpp`
+
+The installation steps below are written to stay close to those working environments and to keep user-facing environment variables to a minimum.
 
 ## AlphaFold2 backend
 
-Create a clean environment with the compiled tools first:
+Create the environment, activate it, move into the repo, and install:
 
 ```bash
 mamba create -y -n apd-af2 -c conda-forge -c bioconda \
-  python=3.11 \
+  python=3.10 \
   kalign2 \
   hmmer \
-  hhsuite \
-  "openmm>=8.2" \
-  "pdbfixer>=1.10" \
-  "modelcif>=1.6" \
-  "numpy<2"
+  hhsuite
 mamba activate apd-af2
+cd /path/to/AlphaPulldown
+python -m pip install -e ".[alphafold2,test]"
 ```
 
-Install AlphaPulldown itself:
-
-```bash
-pip install -e ".[alphafold2]"
-```
-
-If you created the environment before the AF2 extra started pinning GPU-enabled JAX, refresh it explicitly:
-
-```bash
-pip install --upgrade --no-cache-dir "jax==0.5.3" "jax[cuda12]==0.5.3"
-```
-
-Verify that JAX can actually see the GPU before running the cluster suite:
+Check that GPU JAX is visible:
 
 ```bash
 python - <<'PY'
@@ -43,113 +58,80 @@ print(jax.local_devices(backend="gpu"))
 PY
 ```
 
-If you also want to run the repo test suites in that environment:
-
-```bash
-pip install -e ".[alphafold2,test]"
-```
-
 ## AlphaFold3 backend
 
-AlphaFold3 needs the vendored `alphafold3` package itself to be built, because the backend depends on the compiled `alphafold3.cpp` extension. A root-level `pip install -e .` is not enough on its own.
+AlphaFold3 needs both the AlphaPulldown install and the vendored `alphafold3` build.
 
 ```bash
 mamba create -y -n apd-af3 -c conda-forge -c bioconda \
   python=3.11 \
+  kalign2 \
   hmmer \
+  hhsuite \
   libcifpp \
-  c-compiler \
-  cxx-compiler \
-  sqlite \
-  zlib
+  sqlite
 mamba activate apd-af3
-pip install -e ".[alphafold3,test]"
-pip install -r alphafold3/dev-requirements.txt
-export CMAKE_PREFIX_PATH="$CONDA_PREFIX"
-export SQLite3_ROOT="$CONDA_PREFIX"
-pip install --no-deps -e ./alphafold3
+cd /path/to/AlphaPulldown
+python -m pip install -e ".[test]"
+python -m pip install -r alphafold3/dev-requirements.txt
+python -m pip install --no-deps -e ./alphafold3
 build_data
 ```
 
-If you also want the repo tests in that environment:
+Check that the compiled extension and GPU JAX are available:
 
 ```bash
 python - <<'PY'
-import numpy
 import alphafold3.cpp
-from alphafold3.constants import chemical_components
-print(numpy.__version__)
+import jax
+print(jax.__version__)
+print(jax.local_devices(backend="gpu"))
 print(alphafold3.cpp.__file__)
-print(chemical_components.Ccd.component_names()[:3])
 PY
 ```
 
 Notes:
 
-- `alphafold3/dev-requirements.txt` currently pins the supported AF3 stack, including `numpy==2.1.3`.
-- The root `.[alphafold3]` extra installs the Python-side AlphaPulldown dependencies, but the compiled `alphafold3.cpp` extension still comes from `pip install --no-deps -e ./alphafold3`.
-- The vendored `alphafold3` package installs its own `build_data` entry point; use that rather than a root-level wrapper.
-- You still need valid AlphaFold3 model parameters and databases from Google DeepMind for real AF3 runs.
-
-## Troubleshooting
-
-### AlphaFold2: `Unknown backend: 'gpu' requested, ... Platforms present are: cpu`
-
-That means the environment has CPU-only JAX. Reinstall the AF2 JAX stack:
-
-```bash
-pip install --upgrade --no-cache-dir "jax==0.5.3" "jax[cuda12]==0.5.3"
-python - <<'PY'
-import jax
-print(jax.__version__)
-print(jax.local_devices(backend="gpu"))
-PY
-```
-
-### AlphaFold3: `ModuleNotFoundError: No module named 'alphafold3.cpp'`
-
-That means AlphaPulldown is installed, but the vendored `alphafold3` package was not built yet:
-
-```bash
-pip install -e ".[alphafold3,test]"
-pip install -r alphafold3/dev-requirements.txt
-pip install --no-deps -e ./alphafold3
-build_data
-```
-
-### AlphaFold3 build error: `Could NOT find SQLite3`
-
-Install SQLite into the environment, then rerun the editable AF3 build:
-
-```bash
-mamba install -y -n apd-af3 -c conda-forge sqlite
-mamba activate apd-af3
-export CMAKE_PREFIX_PATH="$CONDA_PREFIX"
-export SQLite3_ROOT="$CONDA_PREFIX"
-pip install --no-deps -e ./alphafold3
-build_data
-```
+- `alphafold3/dev-requirements.txt` pins the AF3 runtime stack and should be installed as written.
+- For cluster installs, do not layer `.[alphafold3]` on top of `alphafold3/dev-requirements.txt`. The dev requirements already pin the AF3 stack, and mixing both can upgrade packages away from the older working AF3 environment.
+- The compiled `alphafold3.cpp` extension comes from `python -m pip install --no-deps -e ./alphafold3`, not from the root install.
+- The vendored AF3 package provides the `build_data` entry point. Use that directly.
 
 ## Cluster smoke tests
 
-The cluster wrappers submit one Slurm job per pytest node, so they are the fastest way to validate many scenarios in parallel.
+The wrappers submit one Slurm job per pytest node, so they are the fastest way to validate many scenarios in parallel.
 
-### AlphaFold2
-
-Set the AlphaFold2 database root and enable GPU functional tests:
+On EMBL, the AF2 and AF3 functional tests already have default database roots baked into the test files, so the only environment variable you need for the standard cluster smoke tests is:
 
 ```bash
-export ALPHAFOLD_DATA_DIR=/path/to/AlphaFold_DBs/2.3.0
 export RUN_GPU_FUNCTIONAL_TESTS=1
 ```
 
-Preview what would run:
+Set `ALPHAFOLD_DATA_DIR` only if your databases are not in the EMBL default locations.
+
+### AlphaFold2
+
+Preview the collected nodes:
 
 ```bash
 python test/cluster/run_alphafold2_predictions.py --list
 ```
 
-Submit a small smoke batch in parallel:
+Known-good EMBL monomer smoke test:
+
+```bash
+python test/cluster/run_alphafold2_predictions.py \
+  --partition gpu-training \
+  --constraint hgx \
+  --extra-sbatch-arg=--nodelist=hgx5 \
+  --time 01:00:00 \
+  --cpus-per-task 4 \
+  --mem 16G \
+  --use-temp-dir \
+  test/cluster/check_alphafold2_predictions.py::TestRunModes::test__monomer
+```
+
+Default queue-based batch example:
 
 ```bash
 python test/cluster/run_alphafold2_predictions.py \
@@ -160,28 +142,29 @@ python test/cluster/run_alphafold2_predictions.py \
   --constraint gaming
 ```
 
-Run only a subset:
-
-```bash
-python test/cluster/run_alphafold2_predictions.py -k dimer --max-tests 4
-```
-
 ### AlphaFold3
 
-For the current AF3 cluster tests, `ALPHAFOLD_DATA_DIR` is used as the shared root passed both to feature creation and structure prediction. Point it at the AF3 bundle layout you use on the cluster.
-
-```bash
-export ALPHAFOLD_DATA_DIR=/path/to/alphafold3_bundle
-export RUN_GPU_FUNCTIONAL_TESTS=1
-```
-
-Preview the collected AF3 nodes:
+Preview the collected nodes:
 
 ```bash
 python test/cluster/run_alphafold3_predictions.py --list
 ```
 
-Submit a small smoke batch in parallel:
+Known-good EMBL monomer smoke test:
+
+```bash
+python test/cluster/run_alphafold3_predictions.py \
+  --partition gpu-training \
+  --constraint hgx \
+  --extra-sbatch-arg=--nodelist=hgx5 \
+  --time 01:00:00 \
+  --cpus-per-task 4 \
+  --mem 16G \
+  --use-temp-dir \
+  test/cluster/check_alphafold3_predictions.py::TestAlphaFold3RunModes::test__monomer
+```
+
+Default queue-based batch example:
 
 ```bash
 python test/cluster/run_alphafold3_predictions.py \
@@ -192,22 +175,42 @@ python test/cluster/run_alphafold3_predictions.py \
   --constraint gaming
 ```
 
-Run only selected AF3 scenarios:
+## Troubleshooting
+
+### AlphaFold2: `Unknown backend: 'gpu' requested, ... Platforms present are: cpu`
+
+That means the environment has CPU-only JAX:
 
 ```bash
-python test/cluster/run_alphafold3_predictions.py -k chopped --max-tests 4
+python -m pip install --upgrade --no-cache-dir "jax==0.5.3" "jax[cuda12]==0.5.3"
+python - <<'PY'
+import jax
+print(jax.__version__)
+print(jax.local_devices(backend="gpu"))
+PY
 ```
 
-Include the AF3 runtime benchmark test as well:
+### AlphaFold3: `ModuleNotFoundError: No module named 'alphafold3.cpp'`
+
+The root AlphaPulldown install succeeded, but the vendored AF3 package was not built yet:
 
 ```bash
-python test/cluster/run_alphafold3_predictions.py --include-perf --max-tests 2
+cd /path/to/AlphaPulldown
+python -m pip install -e ".[test]"
+python -m pip install -r alphafold3/dev-requirements.txt
+python -m pip install --no-deps -e ./alphafold3
+build_data
 ```
 
-## Optional checks
+### AlphaFold3 build error: `Could NOT find SQLite3`
 
-The end-to-end ModelCIF subprocess tests are still opt-in because they require the optional `ihm` / `modelcif` runtime:
+If SQLite is installed in the conda environment but CMake still cannot find it, rerun the AF3 build with the conda prefix exposed:
 
 ```bash
-pytest -o addopts='-ra --strict-markers -m external_tools' test/integration/test_modelcif.py
+mamba activate apd-af3
+export CMAKE_PREFIX_PATH="$CONDA_PREFIX"
+export SQLite3_ROOT="$CONDA_PREFIX"
+cd /path/to/AlphaPulldown
+python -m pip install --no-deps -e ./alphafold3
+build_data
 ```
