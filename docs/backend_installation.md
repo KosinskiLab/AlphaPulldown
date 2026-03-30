@@ -4,7 +4,7 @@ This guide is for direct AlphaPulldown use without Snakemake.
 
 Two points matter in practice:
 
-1. Run `pip install -e ...` from the AlphaPulldown repo root.
+1. Run the install commands from the AlphaPulldown repo root.
 2. For AlphaFold3, building the vendored `alphafold3` package is a separate step. A root-level install alone is not enough.
 
 The Docker files remain the long-term reference environments, but the commands below are the simpler cluster-facing paths.
@@ -23,12 +23,16 @@ These are the two EMBL environments that were already working and that we rechec
   - `modelcif 1.6`
 - `AlphaPulldown_alphafold3` for AF3:
   - Python `3.11`
-  - `jax 0.4.34`
-  - `jaxlib 0.4.34`
-  - `numpy 2.0.2`
-  - `openmm 8.0.0`
-  - `pdbfixer 1.9`
-  - `modelcif 1.3`
+  - `jax 0.5.3`
+  - `jaxlib 0.5.3`
+  - `numpy 1.26.4`
+  - `openmm 8.3.1`
+  - `pdbfixer 1.12`
+  - `modelcif 1.6`
+  - `jax-triton 0.2.0`
+  - `triton 3.1.0`
+  - `rdkit 2024.3.5`
+  - `typeguard 2.13.3`
   - compiled `alphafold3.cpp`
 
 The installation steps below are written to stay close to those working environments and to keep user-facing environment variables to a minimum.
@@ -45,7 +49,7 @@ mamba create -y -n apd-af2 -c conda-forge -c bioconda \
   hhsuite
 mamba activate apd-af2
 cd /path/to/AlphaPulldown
-python -m pip install -e ".[alphafold2,test]"
+python -m pip install ".[alphafold2,test]"
 ```
 
 Check that GPU JAX is visible:
@@ -72,8 +76,7 @@ mamba create -y -n apd-af3 -c conda-forge -c bioconda \
   sqlite
 mamba activate apd-af3
 cd /path/to/AlphaPulldown
-python -m pip install -e ".[test]"
-python -m pip install -r alphafold3/dev-requirements.txt
+python -m pip install ".[alphafold3,test]"
 python -m pip install --no-deps -e ./alphafold3
 build_data
 ```
@@ -92,10 +95,15 @@ PY
 
 Notes:
 
-- `alphafold3/dev-requirements.txt` pins the AF3 runtime stack and should be installed as written.
-- For cluster installs, do not layer `.[alphafold3]` on top of `alphafold3/dev-requirements.txt`. The dev requirements already pin the AF3 stack, and mixing both can upgrade packages away from the older working AF3 environment.
+- The working EMBL AF3 environment is closer to `.[alphafold3,test]` than to the upstream `alphafold3/dev-requirements.txt` stack.
+- For cluster installs, prefer `python -m pip install ".[alphafold3,test]"` and then build the vendored `alphafold3` package.
 - The compiled `alphafold3.cpp` extension comes from `python -m pip install --no-deps -e ./alphafold3`, not from the root install.
 - The vendored AF3 package provides the `build_data` entry point. Use that directly.
+- If you are actively developing inside the checkout and want the root package editable as well, add:
+
+```bash
+python -m pip install -e . --no-deps
+```
 
 ## Cluster smoke tests
 
@@ -196,8 +204,7 @@ The root AlphaPulldown install succeeded, but the vendored AF3 package was not b
 
 ```bash
 cd /path/to/AlphaPulldown
-python -m pip install -e ".[test]"
-python -m pip install -r alphafold3/dev-requirements.txt
+python -m pip install ".[alphafold3,test]"
 python -m pip install --no-deps -e ./alphafold3
 build_data
 ```

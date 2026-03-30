@@ -54,11 +54,11 @@ alphafold2 = [
 ]
 alphafold3 = [
   "jaxtyping==0.2.34",
-  "jax==0.4.34",
-  "jax[cuda12]==0.4.34; platform_system == 'Linux' and platform_machine == 'x86_64'",
+  "jax==0.5.3",
+  "jax[cuda12]==0.5.3; platform_system == 'Linux' and platform_machine == 'x86_64'",
   "jax-triton==0.2.0; platform_system == 'Linux' and platform_machine == 'x86_64'",
   "modelcif>=1.6",
-  "numpy>=2,<3",
+  "numpy<2",
   "openmm>=8.2",
   "pdbfixer>=1.10",
   "rdkit==2024.3.5",
