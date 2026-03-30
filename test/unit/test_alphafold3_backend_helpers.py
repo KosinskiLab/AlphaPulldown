@@ -1478,3 +1478,71 @@ def test_prepare_input_multimer_falls_back_to_complex_msa_when_pairing_is_unavai
         ">fallbackB\nFGHI\n",
     ]
     assert [chain.paired_msa for chain in fold_input.chains] == ["", ""]
+
+
+def test_prepare_input_multimer_skips_complex_fallback_after_duplicate_residue_normalisation(
+    af3_backend_module,
+    monkeypatch,
+    tmp_path,
+):
+    interactor_a = MonomericObject("protA", "ABCD")
+    interactor_b = MonomericObject("protB", "FGHI")
+    interactor_a.feature_dict = {"residue_index": np.asarray([0, 0, 1, 2], dtype=np.int32)}
+    interactor_b.feature_dict = {}
+
+    multimer = object.__new__(af3_backend_module.MultimericObject)
+    multimer.description = "protA_and_protB"
+    multimer.interactors = [interactor_a, interactor_b]
+    multimer.feature_dict = {"msa": np.asarray([[1, 2, 3, 4, 5, 6, 7, 8]], dtype=np.int32)}
+
+    individual_result = _make_af3_translation_result(
+        af3_backend_module,
+        chain_msas=[
+            _translation_msas(paired_msa="", unpaired_msa=">indA\nACD\n"),
+            _translation_msas(paired_msa="", unpaired_msa=">indB\nFGHI\n"),
+        ],
+        chain_stats=[
+            _translation_stats(
+                paired_msa_row_count=0,
+                unpaired_msa_row_count=1,
+                paired_species_identifier_count=0,
+            ),
+            _translation_stats(
+                paired_msa_row_count=0,
+                unpaired_msa_row_count=1,
+                paired_species_identifier_count=0,
+            ),
+        ],
+        translation_mode="af3_species_pairing_from_af2_individual_msas",
+    )
+    fallback_calls = []
+
+    monkeypatch.setattr(
+        af3_backend_module,
+        "translate_af2_individual_chain_features_to_af3_msas_with_stats",
+        lambda **kwargs: individual_result,
+    )
+    monkeypatch.setattr(
+        af3_backend_module,
+        "translate_af2_complex_msa_to_af3_unpaired_chain_msas_with_stats",
+        lambda **kwargs: fallback_calls.append(kwargs),
+    )
+
+    prepared_inputs = af3_backend_module.AlphaFold3Backend.prepare_input(
+        objects_to_model=[
+            {
+                "object": multimer,
+                "output_dir": str(tmp_path),
+            }
+        ],
+        random_seed=31,
+    )
+
+    assert fallback_calls == []
+    fold_input, (_output_dir, resolve_msa_overlaps) = next(iter(prepared_inputs[0].items()))
+    assert resolve_msa_overlaps is False
+    assert [chain.sequence for chain in fold_input.chains] == ["ACD", "FGHI"]
+    assert [chain.unpaired_msa for chain in fold_input.chains] == [
+        ">indA\nACD\n",
+        ">indB\nFGHI\n",
+    ]
