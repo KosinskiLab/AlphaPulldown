@@ -798,6 +798,7 @@ class AlphaFold2Backend(FoldingBackend):
         for model_name, prediction_result in prediction_results.items():
             prediction_result.update(AlphaFold2Backend.recalculate_confidence(prediction_result,multimer_mode,
                                                                          total_num_res))
+            unrelaxed_protein = prediction_result.get("unrelaxed_protein")
             if 'unrelaxed_protein' in prediction_result.keys():
                 unrelaxed_protein = prediction_result.pop("unrelaxed_protein")
             # Remove jax dependency from results
@@ -806,7 +807,8 @@ class AlphaFold2Backend(FoldingBackend):
             result_output_path = os.path.join(output_dir, f"result_{model_name}.pkl")
             with open(result_output_path, "wb") as f:
                 pickle.dump(np_prediction_result, f, protocol=4)
-            prediction_results[model_name]['unrelaxed_protein'] = unrelaxed_protein
+            if unrelaxed_protein is not None:
+                prediction_results[model_name]['unrelaxed_protein'] = unrelaxed_protein
             if 'iptm' in prediction_result:
                 label = 'iptm+ptm'
                 iptm_scores[model_name] = float(prediction_result['iptm'])

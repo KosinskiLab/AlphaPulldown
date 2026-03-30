@@ -271,8 +271,9 @@ The active CPU-first pytest layout is:
 
 - `test/unit` for pure helpers and small mocked components
 - `test/integration` for CPU-only filesystem and CLI wiring tests
-- `test/functional` for heavier deterministic package-level tests
+- `test/functional` for heavier package-level tests, including workflow cases that may still be marked `external_tools`
 - `test/cluster` for Slurm/GPU smoke utilities that are not part of default CI
+- `test/outdated` for legacy tests kept out of collection until they are refreshed
 
 Recommended local commands:
 
@@ -283,6 +284,9 @@ pytest -n auto --dist loadfile test/unit
 # CPU CI-equivalent run
 pytest -n auto --dist loadfile test/unit
 pytest test/integration
+
+# functional suites that need the real external toolchain
+pytest test/functional -m "functional and external_tools"
 
 # coverage run with pytest-cov
 pytest -n auto --dist loadfile test/unit \

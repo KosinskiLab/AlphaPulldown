@@ -562,3 +562,217 @@ def test_process_fold_input_checks_model_params_and_calls_predict_structure(
     assert predict_calls[0]["buckets"] == [256]
     assert predict_calls[0]["resolve_msa_overlaps"] is False
     assert predict_calls[0]["debug_msas"] is True
+
+
+def test_predict_structure_writes_final_msa_and_collects_optional_outputs(
+    af3_backend_module,
+    monkeypatch,
+    tmp_path,
+):
+    fold_input = af3_backend_module.folding_input.Input(
+        name="job name",
+        chains=("A",),
+        rng_seeds=(7,),
+    )
+    example = {
+        "msa": np.asarray([[1, 2, 3], [4, 5, 6]], dtype=np.int32),
+        "num_alignments": 1,
+    }
+    inference_result = af3_backend_module.model.InferenceResult(
+        predicted_structure=None,
+        metadata={"token_chain_ids": ["A", "A"]},
+    )
+
+    monkeypatch.setattr(
+        af3_backend_module.featurisation,
+        "featurise_input",
+        lambda **kwargs: [example],
+    )
+    monkeypatch.setattr(
+        af3_backend_module,
+        "ids_to_a3m_af3",
+        lambda rows: ">query\nABC\n",
+    )
+
+    class FakeRunner:
+        def run_inference(self, batch, rng_key):
+            return {
+                "single_embeddings": np.asarray([[1.0], [2.0], [3.0]], dtype=np.float32),
+                "pair_embeddings": np.ones((3, 3), dtype=np.float32),
+                "distogram": {"distogram": np.full((3, 3), 0.5, dtype=np.float32)},
+            }
+
+        def extract_structures(self, batch, result, target_name):
+            return [inference_result]
+
+    results = af3_backend_module.predict_structure(
+        fold_input=fold_input,
+        model_runner=FakeRunner(),
+        buckets=[128],
+        output_dir=tmp_path,
+        resolve_msa_overlaps=False,
+        debug_msas=True,
+    )
+
+    assert len(results) == 1
+    assert results[0].seed == 7
+    assert results[0].embeddings["single_embeddings"].shape == (2, 1)
+    assert results[0].embeddings["pair_embeddings"].shape == (2, 2)
+    assert results[0].distogram.shape == (2, 2)
+    final_msa = tmp_path / "job_name_seed-7_final_complex_msa.a3m"
+    assert final_msa.read_text(encoding="utf-8") == ">query\nABC\n"
+
+
+def test_af3_setup_builds_model_runner_and_validates_gpu_capability(
+    af3_backend_module,
+    monkeypatch,
+    tmp_path,
+):
+    class FakeConfig:
+        def __init__(self):
+            self.global_config = SimpleNamespace(
+                flash_attention_implementation=None
+            )
+            self.heads = SimpleNamespace(
+                diffusion=SimpleNamespace(eval=SimpleNamespace(num_samples=None))
+            )
+            self.num_recycles = None
+            self.return_embeddings = False
+            self.return_distogram = False
+
+    class FakeModel:
+        Config = FakeConfig
+
+    cache_updates = []
+    monkeypatch.setattr(
+        sys.modules["alphafold3.model.model"],
+        "Model",
+        FakeModel,
+    )
+    monkeypatch.setattr(
+        af3_backend_module.jax,
+        "config",
+        SimpleNamespace(update=lambda key, value: cache_updates.append((key, value))),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        af3_backend_module.jax,
+        "local_devices",
+        lambda backend="gpu": [SimpleNamespace(compute_capability=8.0)],
+    )
+
+    configured = af3_backend_module.AlphaFold3Backend.setup(
+        num_diffusion_samples=8,
+        flash_attention_implementation="triton",
+        buckets=[128],
+        jax_compilation_cache_dir=str(tmp_path / "jax-cache"),
+        model_dir=str(tmp_path / "models"),
+        num_recycles=12,
+        return_embeddings=True,
+        return_distogram=True,
+    )
+
+    runner = configured["model_runner"]
+    assert runner.device.compute_capability == 8.0
+    assert runner.model_dir == tmp_path / "models"
+    assert runner.config.global_config.flash_attention_implementation == "triton"
+    assert runner.config.heads.diffusion.eval.num_samples == 8
+    assert runner.config.num_recycles == 12
+    assert runner.config.return_embeddings is True
+    assert runner.config.return_distogram is True
+    assert cache_updates == [("jax_compilation_cache_dir", str(tmp_path / "jax-cache"))]
+
+    monkeypatch.setattr(
+        af3_backend_module.jax,
+        "local_devices",
+        lambda backend="gpu": [SimpleNamespace(compute_capability=5.0)],
+    )
+    with pytest.raises(ValueError, match="requires at least GPU compute capability 6.0"):
+        af3_backend_module.AlphaFold3Backend.setup(
+            num_diffusion_samples=1,
+            flash_attention_implementation="triton",
+            buckets=[128],
+            jax_compilation_cache_dir=None,
+            model_dir=str(tmp_path / "models"),
+        )
+
+
+def test_af3_predict_expands_num_seeds_and_calls_process_fold_input(
+    af3_backend_module,
+    monkeypatch,
+    tmp_path,
+):
+    calls = []
+
+    class FakeFoldInput:
+        def __init__(self, name):
+            self.name = name
+            self.rng_seeds = (3,)
+
+        def with_multiple_seeds(self, num_seeds):
+            return FakeFoldInput(f"{self.name}__{num_seeds}")
+
+    fake_input = FakeFoldInput("job")
+    monkeypatch.setattr(
+        af3_backend_module.AlphaFold3Backend,
+        "prepare_input",
+        staticmethod(lambda **kwargs: [{fake_input: (tmp_path, False)}]),
+    )
+    monkeypatch.setattr(
+        af3_backend_module,
+        "process_fold_input",
+        lambda **kwargs: calls.append(kwargs) or ["predicted"],
+    )
+
+    results = list(
+        af3_backend_module.AlphaFold3Backend.predict(
+            model_runner=object(),
+            objects_to_model=[{"object": object(), "output_dir": str(tmp_path)}],
+            random_seed=7,
+            buckets=256,
+            num_seeds=4,
+            debug_msas=True,
+        )
+    )
+
+    assert len(results) == 1
+    assert results[0]["prediction_results"] == ["predicted"]
+    assert calls[0]["buckets"] == (256,)
+    assert calls[0]["resolve_msa_overlaps"] is False
+    assert calls[0]["debug_msas"] is True
+    assert calls[0]["fold_input"].name == "job__4"
+
+
+def test_af3_postprocess_skips_missing_args_and_writes_outputs(
+    af3_backend_module,
+    monkeypatch,
+    tmp_path,
+):
+    calls = []
+    monkeypatch.setattr(
+        af3_backend_module,
+        "write_outputs",
+        lambda **kwargs: calls.append(kwargs),
+    )
+
+    af3_backend_module.AlphaFold3Backend.postprocess(output_dir=tmp_path)
+    assert calls == []
+
+    fold_input = af3_backend_module.folding_input.Input(
+        name="job",
+        chains=("A",),
+        rng_seeds=(1,),
+    )
+    af3_backend_module.AlphaFold3Backend.postprocess(
+        prediction_results=["result"],
+        output_dir=tmp_path,
+        multimeric_object=fold_input,
+    )
+
+    assert calls == [
+        {
+            "all_inference_results": ["result"],
+            "output_dir": tmp_path,
+            "job_name": "job",
+        }
+    ]

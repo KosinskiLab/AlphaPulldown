@@ -1,3 +1,11 @@
+"""Template-heavy feature-generation smoke tests.
+
+These exercise the real CLI path for custom-template feature creation. They are
+kept under `test/functional/`, but still marked `external_tools` because the
+subprocess touches the ColabFold/JAX import chain and local bioinformatics
+tooling that is not available in the lightweight default test environment.
+"""
+
 import os
 import sys
 import shutil
@@ -9,9 +17,13 @@ import lzma
 import json
 
 import numpy as np
+import pytest
 from absl.testing import absltest, parameterized
 
 from alphapulldown.utils.remove_clashes_low_plddt import extract_seqs
+
+
+pytestmark = pytest.mark.external_tools
 
 
 class TestCreateIndividualFeaturesWithTemplates(parameterized.TestCase):
