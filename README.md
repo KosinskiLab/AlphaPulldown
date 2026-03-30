@@ -4,7 +4,7 @@
 
 [AlphaPulldownSnakemake](https://github.com/KosinskiLab/AlphaPulldownSnakemake) provides a convenient way to run AlphaPulldown using a Snakemake pipeline. This lets you focus entirely on **what** you want to compute, rather than **how** to manage dependencies, versioning, and cluster execution. When you deploy the workflow with `snakedeploy`, the configuration file will be copied after deployment to your local project directory as [config/config.yaml](https://github.com/KosinskiLab/AlphaPulldownSnakemake/blob/main/config/config.yaml).
 
-For running without Snakemake, see this [link](https://github.com/KosinskiLab/AlphaPulldown/wiki).
+For running without Snakemake, see the [wiki](https://github.com/KosinskiLab/AlphaPulldown/wiki) and the repo-side [backend installation guide](docs/backend_installation.md).
 
 ## 1. Installation
 

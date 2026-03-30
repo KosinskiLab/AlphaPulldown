@@ -40,7 +40,9 @@ RUN set -eux; \
       modelcif \
       hmmer \
       hhsuite \
-      pdbfixer=1.9 \
+      "numpy<2" \
+      "openmm>=8.2" \
+      "pdbfixer>=1.10" \
       pip \
       git \
     && micromamba clean -a -y
@@ -78,5 +80,3 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     rm -rf /var/lib/apt/lists/* /root/.cache
 
 #ENTRYPOINT ["bash"]
-RUN pip install --no-cache-dir "numpy<2"
-

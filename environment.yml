@@ -4,8 +4,9 @@ channels:
   - bioconda
   - omnia
 dependencies:
-  - openmm=8.0
-  - pdbfixer=1.9
+  - numpy<2
+  - openmm>=8.2
+  - pdbfixer>=1.10
   - kalign2
   - hmmer
   - hhsuite
