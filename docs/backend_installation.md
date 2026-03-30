@@ -18,6 +18,7 @@ These are the two EMBL environments that were already working and that we rechec
   - `jax 0.5.3`
   - `jaxlib 0.5.3`
   - `numpy 1.26.4`
+  - `tensorflow-cpu 2.20.0`
   - `openmm 8.1.1`
   - `pdbfixer 1.12`
   - `modelcif 1.6`
@@ -26,6 +27,7 @@ These are the two EMBL environments that were already working and that we rechec
   - `jax 0.5.3`
   - `jaxlib 0.5.3`
   - `numpy 1.26.4`
+  - `tensorflow-cpu 2.18.0`
   - `openmm 8.3.1`
   - `pdbfixer 1.12`
   - `modelcif 1.6`

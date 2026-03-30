@@ -26,7 +26,7 @@ dependencies = [
   "matplotlib>=3.3.3",
   "ml-collections>=0.1.0",
   "pandas>=1.5.3",
-  "tensorflow-cpu>=2.16.1",
+  "tensorflow-cpu==2.20.0",
   "importlib-resources>=6.1.0",
   "importlib-metadata>=4.8.2,<5.0.0",
   "biopython>=1.81,<1.82",
