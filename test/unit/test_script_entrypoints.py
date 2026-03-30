@@ -273,6 +273,9 @@ def _load_run_multimer_jobs_module():
         "absl.logging",
         "jax",
         "alphapulldown",
+        "alphapulldown.utils",
+        "alphapulldown.utils.modelling_setup",
+        "alphapulldown.utils.output_paths",
         "alphapulldown.scripts",
         "alphapulldown.scripts.run_structure_prediction",
         "alphapulldown_input_parser",
@@ -338,11 +341,20 @@ def _load_run_multimer_jobs_module():
     jax_mod.local_devices = lambda backend="gpu": []
 
     root_pkg = _package("alphapulldown")
+    utils_pkg = _package("alphapulldown.utils")
     scripts_pkg = _package("alphapulldown.scripts")
     run_structure_prediction_stub = types.ModuleType(
         "alphapulldown.scripts.run_structure_prediction"
     )
     run_structure_prediction_stub.FLAGS = flags_mod.FLAGS
+    modelling_setup_mod = types.ModuleType("alphapulldown.utils.modelling_setup")
+    modelling_setup_mod.parse_fold = (
+        lambda input_list, features_directory, protein_delimiter: []
+    )
+    output_paths_mod = types.ModuleType("alphapulldown.utils.output_paths")
+    output_paths_mod.derive_af3_job_name_from_json = (
+        lambda json_input_path: Path(json_input_path).stem
+    )
 
     input_parser_mod = types.ModuleType("alphapulldown_input_parser")
     input_parser_mod.generate_fold_specifications = (
@@ -356,6 +368,9 @@ def _load_run_multimer_jobs_module():
         "absl.logging": logging_mod,
         "jax": jax_mod,
         "alphapulldown": root_pkg,
+        "alphapulldown.utils": utils_pkg,
+        "alphapulldown.utils.modelling_setup": modelling_setup_mod,
+        "alphapulldown.utils.output_paths": output_paths_mod,
         "alphapulldown.scripts": scripts_pkg,
         "alphapulldown.scripts.run_structure_prediction": run_structure_prediction_stub,
         "alphapulldown_input_parser": input_parser_mod,
@@ -364,6 +379,9 @@ def _load_run_multimer_jobs_module():
         sys.modules[name] = module
 
     root_pkg.scripts = scripts_pkg
+    root_pkg.utils = utils_pkg
+    utils_pkg.modelling_setup = modelling_setup_mod
+    utils_pkg.output_paths = output_paths_mod
     scripts_pkg.run_structure_prediction = run_structure_prediction_stub
 
     spec = importlib.util.spec_from_file_location(module_name, RUN_MULTIMER_JOBS_PATH)
@@ -998,6 +1016,56 @@ def test_run_multimer_jobs_builds_af3_commands_and_sanitizes_env(
     assert "--input" in first_command
     assert "A:B" in first_command
     assert "XLA_PYTHON_CLIENT_MEM_FRACTION" not in first_env
+
+
+def test_run_multimer_jobs_scopes_af3_json_jobs_to_per_job_dirs(
+    run_multimer_jobs_module,
+    monkeypatch,
+):
+    calls = []
+    monkeypatch.setattr(
+        run_multimer_jobs_module.subprocess,
+        "run",
+        lambda command, check, env: calls.append((command, env)),
+    )
+    run_multimer_jobs_module.generate_fold_specifications = (
+        lambda input_files, delimiter, exclude_permutations: [
+            "protein_with_ptms.json",
+            "P01308_af3_input.json",
+        ]
+    )
+    run_multimer_jobs_module.parse_fold = (
+        lambda input_list, features_directory, protein_delimiter: [
+            [{"json_input": f"/tmp/features/{input_list[0]}"}]
+        ]
+    )
+    run_multimer_jobs_module.derive_af3_job_name_from_json = (
+        lambda json_input_path: {
+            "/tmp/features/protein_with_ptms.json": "protein_with_ptms",
+            "/tmp/features/P01308_af3_input.json": "p01308",
+        }[json_input_path]
+    )
+
+    _set_flag(run_multimer_jobs_module.FLAGS, "mode", "custom")
+    _set_flag(run_multimer_jobs_module.FLAGS, "protein_lists", ["proteins.txt"])
+    _set_flag(run_multimer_jobs_module.FLAGS, "dry_run", False)
+    _set_flag(run_multimer_jobs_module.FLAGS, "fold_backend", "alphafold3")
+    _set_flag(run_multimer_jobs_module.FLAGS, "output_path", "/tmp/output")
+    _set_flag(run_multimer_jobs_module.FLAGS, "data_dir", "/tmp/models")
+    _set_flag(run_multimer_jobs_module.FLAGS, "monomer_objects_dir", ["/tmp/features"])
+    _set_flag(run_multimer_jobs_module.FLAGS, "use_ap_style", True)
+
+    run_multimer_jobs_module.main(["prog"])
+
+    assert len(calls) == 2
+    first_command, _ = calls[0]
+    second_command, _ = calls[1]
+    assert first_command[first_command.index("--output_directory") + 1] == (
+        "/tmp/output/protein_with_ptms"
+    )
+    assert second_command[second_command.index("--output_directory") + 1] == (
+        "/tmp/output/p01308"
+    )
 
 
 def test_run_multimer_jobs_combines_inputs_when_padding_requested(

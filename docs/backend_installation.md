@@ -8,12 +8,13 @@ Two points matter in practice:
 2. For AlphaFold3, building the vendored `alphafold3` package is a separate step. A root-level install alone is not enough.
 
 The Docker files remain the long-term reference environments, but the commands below are the simpler cluster-facing paths.
+We revalidated them on EMBL on March 30, 2026 by creating fresh environments and running the cluster test suites there.
 
 ## Known-good cluster stacks
 
 These are the two EMBL environments that were already working and that we rechecked while validating the wrappers:
 
-- `AlphaPulldown_alphafold2` for AF2:
+- `AlphaPulldown` for AF2:
   - Python `3.10`
   - `jax 0.5.3`
   - `jaxlib 0.5.3`
@@ -123,6 +124,7 @@ Two ways to run the cluster tests:
    - Best for validating a fresh install end-to-end.
    - Keeps everything on one allocated GPU node.
    - More reliable than the wrappers when Slurm priority is poor.
+   - Important: when calling `pytest` directly, pass `-o addopts="-ra --strict-markers"`. The repo-level `pytest.ini` excludes cluster tests by default.
 2. Wrapper scripts
    - `test/cluster/run_alphafold2_predictions.py`
    - `test/cluster/run_alphafold3_predictions.py`
@@ -133,8 +135,8 @@ Two ways to run the cluster tests:
 Direct full-suite validation:
 
 ```bash
-srun -p gpu-el8 --constraint gaming --gres=gpu:1 \
-  --cpus-per-task=4 --mem=16G --time=04:00:00 \
+srun -p gpu-training --gres=gpu:1 \
+  --cpus-per-task=4 --mem=16G --time=12:00:00 \
   bash -lc '
     cd /path/to/AlphaPulldown
     export RUN_GPU_FUNCTIONAL_TESTS=1
@@ -142,6 +144,14 @@ srun -p gpu-el8 --constraint gaming --gres=gpu:1 \
       test/cluster/check_alphafold2_predictions.py --use-temp-dir
   '
 ```
+
+Expected result on the standard suite:
+
+```text
+11 passed, 1 skipped
+```
+
+The skip is the opt-in MMseqs functional inference check, which only runs when `RUN_MMSEQS_FUNCTIONAL_TESTS=1` is set.
 
 Preview the collected nodes for wrapper mode:
 
@@ -155,9 +165,7 @@ Wrapper-based parallel submission:
 python test/cluster/run_alphafold2_predictions.py \
   --max-tests 6 \
   --use-temp-dir \
-  --partition gpu-el8 \
-  --qos normal \
-  --constraint gaming
+  --partition gpu-training
 ```
 
 ### AlphaFold3
@@ -165,8 +173,8 @@ python test/cluster/run_alphafold2_predictions.py \
 Direct full-suite validation:
 
 ```bash
-srun -p gpu-el8 --constraint gaming --gres=gpu:1 \
-  --cpus-per-task=4 --mem=32G --time=08:00:00 \
+srun -p gpu-training --gres=gpu:1 \
+  --cpus-per-task=4 --mem=64G --time=12:00:00 \
   bash -lc '
     cd /path/to/AlphaPulldown
     export RUN_GPU_FUNCTIONAL_TESTS=1
@@ -174,6 +182,8 @@ srun -p gpu-el8 --constraint gaming --gres=gpu:1 \
       test/cluster/check_alphafold3_predictions.py --use-temp-dir
   '
 ```
+
+On our fresh EMBL validation run, `32G` was not enough for the full AF3 suite on `hgx5`; `64G` was.
 
 Preview the collected nodes for wrapper mode:
 
@@ -187,9 +197,7 @@ Wrapper-based parallel submission:
 python test/cluster/run_alphafold3_predictions.py \
   --max-tests 6 \
   --use-temp-dir \
-  --partition gpu-el8 \
-  --qos normal \
-  --constraint gaming
+  --partition gpu-training
 ```
 
 ## Troubleshooting
