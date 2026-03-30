@@ -402,6 +402,33 @@ def test_validate_flags_for_backend_rejects_disallowed_flags(run_structure_predi
         run_structure_prediction_module._validate_flags_for_backend("alphafold3")
 
 
+def test_validate_flags_for_backend_allows_unknown_backend(run_structure_prediction_module):
+    _set_flag(run_structure_prediction_module.FLAGS, "fold_backend", "custom-backend")
+    _set_flag(run_structure_prediction_module.FLAGS, "num_cycle", 3)
+
+    run_structure_prediction_module._validate_flags_for_backend("custom-backend")
+
+
+def test_validate_flags_for_backend_falls_back_to_all_flags(
+    run_structure_prediction_module,
+    monkeypatch,
+):
+    _set_flag(run_structure_prediction_module.FLAGS, "fold_backend", "alphafold3")
+    _set_flag(run_structure_prediction_module.FLAGS, "num_cycle", 3)
+
+    def _raise(_module):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(
+        run_structure_prediction_module.FLAGS,
+        "get_key_flags_for_module",
+        _raise,
+    )
+
+    with pytest.raises(ValueError, match="num_cycle"):
+        run_structure_prediction_module._validate_flags_for_backend("alphafold3")
+
+
 def test_predict_structure_changes_backend_and_postprocesses_jobs(
     run_structure_prediction_module,
 ):
@@ -456,6 +483,67 @@ def test_predict_structure_changes_backend_and_postprocesses_jobs(
     ]
 
 
+@pytest.mark.parametrize(
+    ("backend_name", "setup_payload", "expected_upper_bound"),
+    [
+        (
+            "alphafold2",
+            {"model_runners": {"modelA": object(), "modelB": object()}},
+            sys.maxsize // 2,
+        ),
+        ("alphafold3", {"model_runners": {"modelA": object()}}, 2**32 - 1),
+        ("custom-backend", {"model_runners": {"modelA": object()}}, sys.maxsize),
+    ],
+)
+def test_predict_structure_generates_backend_specific_random_seeds(
+    run_structure_prediction_module,
+    monkeypatch,
+    backend_name,
+    setup_payload,
+    expected_upper_bound,
+):
+    recorded_upper_bounds = []
+    predict_calls = []
+
+    class FakeBackend:
+        def change_backend(self, **kwargs):
+            return None
+
+        def setup(self, **kwargs):
+            return setup_payload
+
+        def predict(self, **kwargs):
+            predict_calls.append(kwargs)
+            return iter([])
+
+        def postprocess(self, **kwargs):
+            raise AssertionError("postprocess should not run without predictions")
+
+    run_structure_prediction_module.backend = FakeBackend()
+    _set_flag(
+        run_structure_prediction_module.FLAGS,
+        "random_seed",
+        None,
+        present=False,
+        using_default_value=True,
+    )
+    monkeypatch.setattr(
+        run_structure_prediction_module.random,
+        "randrange",
+        lambda upper: recorded_upper_bounds.append(upper) or 17,
+    )
+
+    run_structure_prediction_module.predict_structure(
+        objects_to_model=[{"object": "obj1", "output_dir": "/tmp/output"}],
+        model_flags={"model_name": "model"},
+        postprocess_flags={},
+        fold_backend=backend_name,
+    )
+
+    assert recorded_upper_bounds == [expected_upper_bound]
+    assert predict_calls[0]["random_seed"] == 17
+
+
 def test_pre_modelling_setup_decompresses_metadata_and_sets_input_sequences(
     run_structure_prediction_module,
     tmp_path,
@@ -488,6 +576,56 @@ def test_pre_modelling_setup_decompresses_metadata_and_sets_input_sequences(
     assert returned_object.input_seqs == ["ACDE"]
     copied_metadata = Path(returned_output_dir) / "protA_feature_metadata_2026-03-30.json"
     assert copied_metadata.read_text(encoding="utf-8") == '{"meta": 1}'
+
+
+def test_pre_modelling_setup_saves_multimer_features_and_builds_unique_ap_style_dir(
+    run_structure_prediction_module,
+    monkeypatch,
+    tmp_path,
+):
+    _set_flag(run_structure_prediction_module.FLAGS, "pair_msa", True)
+    _set_flag(run_structure_prediction_module.FLAGS, "multimeric_template", False)
+    _set_flag(run_structure_prediction_module.FLAGS, "description_file", None)
+    _set_flag(run_structure_prediction_module.FLAGS, "path_to_mmt", None)
+    _set_flag(run_structure_prediction_module.FLAGS, "save_features_for_multimeric_object", True)
+    _set_flag(
+        run_structure_prediction_module.FLAGS,
+        "features_directory",
+        [str(tmp_path / "features")],
+    )
+    _set_flag(run_structure_prediction_module.FLAGS, "use_ap_style", True)
+
+    feature_dir = tmp_path / "features"
+    feature_dir.mkdir()
+    (tmp_path / "outputs").mkdir()
+    for description in ("protA", "protB"):
+        (feature_dir / f"{description}_feature_metadata_2026-03-30.json").write_text(
+            '{"meta": 1}',
+            encoding="utf-8",
+        )
+
+    dumped = []
+    monkeypatch.setattr(
+        run_structure_prediction_module.pickle,
+        "dump",
+        lambda obj, handle: dumped.append((obj, handle.name)) or handle.close(),
+    )
+
+    monomer_a = run_structure_prediction_module.MonomericObject("protA", "AAAA")
+    monomer_b = run_structure_prediction_module.MonomericObject("protB", "BBBB")
+    returned_object, returned_output_dir = run_structure_prediction_module.pre_modelling_setup(
+        [monomer_a, monomer_b],
+        output_dir=str(tmp_path / "outputs"),
+    )
+
+    assert isinstance(returned_object, run_structure_prediction_module.MultimericObject)
+    assert returned_output_dir.endswith("protA_and_protB")
+    assert dumped == [
+        (
+            run_structure_prediction_module.MultimericObject.feature_dict,
+            str(tmp_path / "outputs" / "multimeric_object_features.pkl"),
+        )
+    ]
 
 
 def test_pre_modelling_setup_builds_ap_style_homo_oligomer_dir(
@@ -523,6 +661,60 @@ def test_pre_modelling_setup_builds_ap_style_homo_oligomer_dir(
     assert isinstance(returned_object, run_structure_prediction_module.MultimericObject)
     assert returned_output_dir.endswith("protA_homo_2er")
     assert Path(returned_output_dir).is_dir()
+
+
+def test_pre_modelling_setup_warns_for_long_paths_and_uses_chopped_metadata_name(
+    run_structure_prediction_module,
+    monkeypatch,
+):
+    _set_flag(run_structure_prediction_module.FLAGS, "pair_msa", True)
+    _set_flag(run_structure_prediction_module.FLAGS, "multimeric_template", False)
+    _set_flag(run_structure_prediction_module.FLAGS, "description_file", None)
+    _set_flag(run_structure_prediction_module.FLAGS, "path_to_mmt", None)
+    _set_flag(run_structure_prediction_module.FLAGS, "save_features_for_multimeric_object", False)
+    _set_flag(
+        run_structure_prediction_module.FLAGS,
+        "features_directory",
+        ["/features"],
+    )
+    _set_flag(run_structure_prediction_module.FLAGS, "use_ap_style", False)
+
+    warnings = []
+    glob_patterns = []
+    created_dirs = []
+    monkeypatch.setattr(
+        run_structure_prediction_module.glob,
+        "glob",
+        lambda pattern: glob_patterns.append(pattern) or [],
+    )
+    monkeypatch.setattr(
+        run_structure_prediction_module.logging,
+        "warning",
+        lambda message: warnings.append(message),
+    )
+    monkeypatch.setattr(
+        run_structure_prediction_module.os,
+        "makedirs",
+        lambda path, exist_ok=True: created_dirs.append(path),
+    )
+
+    chopped = run_structure_prediction_module.ChoppedObject(
+        "fragmentA",
+        "ACDE",
+        monomeric_description="protA",
+    )
+    long_output_dir = "a" * 4100
+    returned_object, returned_output_dir = run_structure_prediction_module.pre_modelling_setup(
+        [chopped],
+        output_dir=long_output_dir,
+    )
+
+    assert returned_object is chopped
+    assert returned_output_dir == long_output_dir
+    assert glob_patterns == ["/features/protA_feature_metadata_*.json*"]
+    assert created_dirs == [long_output_dir]
+    assert any("Output directory path is too long" in message for message in warnings)
+    assert any("No feature metadata found for fragmentA" in message for message in warnings)
 
 
 def test_main_routes_protein_and_json_jobs_to_predict_structure(
@@ -610,6 +802,123 @@ def test_main_routes_protein_and_json_jobs_to_predict_structure(
         {"object": {"json_input": "/tmp/job.json"}, "output_dir": f"{tmp_path / 'shared-output'}/json"},
     ]
     assert call["model_flags"]["model_name"] == "multimer"
+
+
+def test_main_sets_multimer_model_flags_for_multimer_jobs(
+    run_structure_prediction_module,
+    monkeypatch,
+    tmp_path,
+):
+    captured_calls = []
+    protein_obj = run_structure_prediction_module.MonomericObject("protA", "AC")
+    multimer_obj = run_structure_prediction_module.MultimericObject(
+        [protein_obj, protein_obj],
+        pair_msa=True,
+        multimeric_template=False,
+        multimeric_template_meta_data=None,
+        multimeric_template_dir=None,
+    )
+
+    _set_flag(run_structure_prediction_module.FLAGS, "fold_backend", "alphafold2")
+    _set_flag(run_structure_prediction_module.FLAGS, "input", ["job1"])
+    _set_flag(
+        run_structure_prediction_module.FLAGS,
+        "output_directory",
+        [str(tmp_path / "shared-output")],
+    )
+    _set_flag(
+        run_structure_prediction_module.FLAGS,
+        "features_directory",
+        [str(tmp_path / "features")],
+    )
+    _set_flag(run_structure_prediction_module.FLAGS, "protein_delimiter", "+")
+    _set_flag(run_structure_prediction_module.FLAGS, "data_directory", "/models")
+    _set_flag(run_structure_prediction_module.FLAGS, "msa_depth_scan", True)
+    _set_flag(run_structure_prediction_module.FLAGS, "model_names", ["model_2_multimer_v3"])
+    _set_flag(run_structure_prediction_module.FLAGS, "msa_depth", 64)
+
+    monkeypatch.setattr(run_structure_prediction_module, "parse_fold", lambda *args: [["parsed"]])
+    monkeypatch.setattr(run_structure_prediction_module, "create_custom_info", lambda parsed: "data")
+    monkeypatch.setattr(
+        run_structure_prediction_module,
+        "create_interactors",
+        lambda data, features_directory: [[protein_obj, protein_obj]],
+    )
+    monkeypatch.setattr(
+        run_structure_prediction_module,
+        "pre_modelling_setup",
+        lambda prot_objs, output_dir: (multimer_obj, str(tmp_path / "protein")),
+    )
+    monkeypatch.setattr(
+        run_structure_prediction_module,
+        "predict_structure",
+        lambda **kwargs: captured_calls.append(kwargs),
+    )
+
+    run_structure_prediction_module.main([])
+
+    assert len(captured_calls) == 1
+    assert captured_calls[0]["model_flags"]["model_name"] == "multimer"
+    assert captured_calls[0]["model_flags"]["msa_depth_scan"] is True
+    assert captured_calls[0]["model_flags"]["model_names_custom"] == ["model_2_multimer_v3"]
+    assert captured_calls[0]["model_flags"]["msa_depth"] == 64
+
+
+def test_main_rejects_mismatched_output_directories(
+    run_structure_prediction_module,
+    monkeypatch,
+):
+    _set_flag(run_structure_prediction_module.FLAGS, "fold_backend", "alphafold2")
+    _set_flag(run_structure_prediction_module.FLAGS, "input", ["job1", "job2"])
+    _set_flag(
+        run_structure_prediction_module.FLAGS,
+        "output_directory",
+        ["/tmp/out1", "/tmp/out2", "/tmp/out3"],
+    )
+    _set_flag(
+        run_structure_prediction_module.FLAGS,
+        "features_directory",
+        ["/tmp/features"],
+    )
+    _set_flag(run_structure_prediction_module.FLAGS, "protein_delimiter", "+")
+
+    monkeypatch.setattr(run_structure_prediction_module, "parse_fold", lambda *args: [])
+    monkeypatch.setattr(run_structure_prediction_module, "create_custom_info", lambda parsed: parsed)
+    monkeypatch.setattr(run_structure_prediction_module, "create_interactors", lambda data, features: [])
+
+    with pytest.raises(ValueError, match="Either specify one output_directory"):
+        run_structure_prediction_module.main([])
+
+
+def test_main_skips_empty_interactor_groups_without_predicting(
+    run_structure_prediction_module,
+    monkeypatch,
+):
+    predict_calls = []
+
+    _set_flag(run_structure_prediction_module.FLAGS, "fold_backend", "alphafold2")
+    _set_flag(run_structure_prediction_module.FLAGS, "input", ["job1"])
+    _set_flag(run_structure_prediction_module.FLAGS, "output_directory", ["/tmp/out"])
+    _set_flag(run_structure_prediction_module.FLAGS, "features_directory", ["/tmp/features"])
+    _set_flag(run_structure_prediction_module.FLAGS, "protein_delimiter", "+")
+    _set_flag(run_structure_prediction_module.FLAGS, "data_directory", "/models")
+
+    monkeypatch.setattr(run_structure_prediction_module, "parse_fold", lambda *args: [["parsed"]])
+    monkeypatch.setattr(run_structure_prediction_module, "create_custom_info", lambda parsed: parsed)
+    monkeypatch.setattr(
+        run_structure_prediction_module,
+        "create_interactors",
+        lambda data, features_directory: [[]],
+    )
+    monkeypatch.setattr(
+        run_structure_prediction_module,
+        "predict_structure",
+        lambda **kwargs: predict_calls.append(kwargs),
+    )
+
+    run_structure_prediction_module.main([])
+
+    assert predict_calls == []
 
 
 def test_run_multimer_jobs_dry_run_exits_and_reports_count(run_multimer_jobs_module):

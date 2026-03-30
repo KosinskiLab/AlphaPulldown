@@ -4,7 +4,8 @@ source =
     alphapulldown
 omit =
     alphapulldown/__init__.py
-    alphapulldown/analysis_pipeline/af2plots/*
+    alphapulldown/analysis_pipeline/*
+    alphapulldown/folding_backend/alphalink_backend.py
 
 [report]
 skip_empty = True

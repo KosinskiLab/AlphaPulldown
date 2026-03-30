@@ -14,7 +14,6 @@ import pytest
 
 import alphapulldown.scripts.generate_crosslink_pickle as crosslink_pickle
 import alphapulldown.scripts.rename_colab_search_a3m as rename_a3m
-import alphapulldown.scripts.truncate_pickles as truncate_pickles
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -24,6 +23,9 @@ PREPARE_SEQ_NAMES_PATH = (
 PARSE_INPUT_PATH = REPO_ROOT / "alphapulldown" / "scripts" / "parse_input.py"
 SPLIT_JOBS_PATH = (
     REPO_ROOT / "alphapulldown" / "scripts" / "split_jobs_into_clusters.py"
+)
+TRUNCATE_PICKLES_PATH = (
+    REPO_ROOT / "alphapulldown" / "scripts" / "truncate_pickles.py"
 )
 
 
@@ -136,6 +138,48 @@ def _load_split_jobs_module(monkeypatch):
     monkeypatch.setitem(sys.modules, "alphapulldown.objects", objects_mod)
 
     return _load_module_from_path("test_split_jobs_module", SPLIT_JOBS_PATH)
+
+
+def _load_truncate_pickles_module(monkeypatch):
+    flags_mod = types.ModuleType("absl.flags")
+    flags_mod.FLAGS = SimpleNamespace()
+
+    def _define_string(name, default, help_text, required=False):
+        del help_text, required
+        setattr(flags_mod.FLAGS, name, default)
+
+    def _define_list(name, default, help_text):
+        del help_text
+        setattr(flags_mod.FLAGS, name, default)
+
+    def _define_integer(name, default, help_text):
+        del help_text
+        setattr(flags_mod.FLAGS, name, default)
+
+    flags_mod.DEFINE_string = _define_string
+    flags_mod.DEFINE_list = _define_list
+    flags_mod.DEFINE_integer = _define_integer
+
+    app_mod = types.ModuleType("absl.app")
+    app_mod.run = lambda fn: fn([])
+
+    logging_mod = types.ModuleType("absl.logging")
+    logging_mod.error = lambda *_args, **_kwargs: None
+
+    absl_pkg = types.ModuleType("absl")
+    absl_pkg.app = app_mod
+    absl_pkg.flags = flags_mod
+    absl_pkg.logging = logging_mod
+
+    monkeypatch.setitem(sys.modules, "absl", absl_pkg)
+    monkeypatch.setitem(sys.modules, "absl.app", app_mod)
+    monkeypatch.setitem(sys.modules, "absl.flags", flags_mod)
+    monkeypatch.setitem(sys.modules, "absl.logging", logging_mod)
+
+    return _load_module_from_path(
+        "test_truncate_pickles_module",
+        TRUNCATE_PICKLES_PATH,
+    )
 
 
 def test_prepare_seq_names_rewrites_headers_from_uniprot_style_fasta(
@@ -333,6 +377,7 @@ def test_truncate_pickles_main_copies_tree_and_removes_selected_pickle_keys(
     monkeypatch,
     tmp_path,
 ):
+    truncate_pickles = _load_truncate_pickles_module(monkeypatch)
     src_dir = tmp_path / "src"
     dst_dir = tmp_path / "dst"
     nested_src = src_dir / "nested"
@@ -369,6 +414,7 @@ def test_truncate_pickles_main_copies_tree_and_removes_selected_pickle_keys(
 
 
 def test_truncate_pickles_main_exits_when_source_dir_is_missing(monkeypatch, tmp_path):
+    truncate_pickles = _load_truncate_pickles_module(monkeypatch)
     monkeypatch.setattr(
         truncate_pickles,
         "FLAGS",
