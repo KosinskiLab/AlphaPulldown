@@ -337,6 +337,16 @@ def test_json_template_and_alignment_helpers(af2_backend_module, tmp_path):
     )
 
 
+def test_ensure_typing_dataclass_transform_backfills_missing_attribute(
+    af2_backend_module, monkeypatch
+):
+    monkeypatch.delattr(af2_backend_module.typing, "dataclass_transform", raising=False)
+
+    af2_backend_module._ensure_typing_dataclass_transform()
+
+    assert af2_backend_module.typing.dataclass_transform is not None
+
+
 def test_asym_query_and_msa_debug_helpers(af2_backend_module, tmp_path):
     normalized = af2_backend_module._normalize_asym_id(
         {"asym_id": np.array([5, 5, 2, 9], dtype=np.int32)}

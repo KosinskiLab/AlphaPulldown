@@ -11,6 +11,7 @@ import json
 import pickle
 import subprocess
 import enum
+import typing
 from typing import Dict, Union, List, Any
 import os
 from absl import logging
@@ -43,6 +44,16 @@ class ModelsToRelax(enum.Enum):
   ALL = 0
   BEST = 1
   NONE = 2
+
+
+def _ensure_typing_dataclass_transform() -> None:
+    """Provide typing.dataclass_transform on Python versions that lack it."""
+    if hasattr(typing, "dataclass_transform"):
+        return
+
+    from typing_extensions import dataclass_transform
+
+    typing.dataclass_transform = dataclass_transform
 
 
 def _jnp_to_np(output):
@@ -381,6 +392,7 @@ class AlphaFold2Backend(FoldingBackend):
             If provided custom model names are not part of the available models.
         """
 
+        _ensure_typing_dataclass_transform()
         from alphafold.model import config
         from alphafold.model import data, model
 
