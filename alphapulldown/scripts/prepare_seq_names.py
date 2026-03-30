@@ -38,8 +38,7 @@ out_lines = []
 
 with open(sys.argv[1]) as f:
     for headerStr, seq in fasta_iter(f):
-        items = re.split('[ \|]', headerStr)
+        items = re.split(r"[ |]", headerStr)
         out_lines.append(f'>{items[1]}')
         out_lines.append(seq)
-    f.close()
 print("\n".join(out_lines))
