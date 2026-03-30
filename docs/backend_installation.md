@@ -65,6 +65,8 @@ mamba create -y -n apd-af3 -c conda-forge -c bioconda \
 mamba activate apd-af3
 pip install -e ".[alphafold3,test]"
 pip install -r alphafold3/dev-requirements.txt
+export CMAKE_PREFIX_PATH="$CONDA_PREFIX"
+export SQLite3_ROOT="$CONDA_PREFIX"
 pip install --no-deps -e ./alphafold3
 build_data
 ```
@@ -122,6 +124,8 @@ Install SQLite into the environment, then rerun the editable AF3 build:
 ```bash
 mamba install -y -n apd-af3 -c conda-forge sqlite
 mamba activate apd-af3
+export CMAKE_PREFIX_PATH="$CONDA_PREFIX"
+export SQLite3_ROOT="$CONDA_PREFIX"
 pip install --no-deps -e ./alphafold3
 build_data
 ```
