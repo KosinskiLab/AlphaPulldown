@@ -56,7 +56,7 @@ def _ensure_typing_dataclass_transform() -> None:
     typing.dataclass_transform = dataclass_transform
 
 
-def _get_openmm_platform_names() -> list[str]:
+def _get_openmm_platform_names() -> List[str]:
     """Return the available OpenMM platform names."""
     try:
         import openmm

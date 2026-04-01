@@ -229,6 +229,9 @@ def _load_run_structure_prediction_module():
     modelling_setup_mod.parse_fold = lambda inputs, features_directory, delimiter: []
 
     output_paths_mod = types.ModuleType("alphapulldown.utils.output_paths")
+    output_paths_mod.resolve_af3_combined_json_output_dir = (
+        lambda json_inputs, out_dir, use_ap_style: out_dir
+    )
     output_paths_mod.resolve_af3_json_output_dir = (
         lambda json_input, out_dir, use_ap_style, shared_output_root: out_dir
     )
