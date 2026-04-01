@@ -4,7 +4,7 @@
 
 [AlphaPulldownSnakemake](https://github.com/KosinskiLab/AlphaPulldownSnakemake) provides a convenient way to run AlphaPulldown using a Snakemake pipeline. This lets you focus entirely on **what** you want to compute, rather than **how** to manage dependencies, versioning, and cluster execution. When you deploy the workflow with `snakedeploy`, the configuration file will be copied after deployment to your local project directory as [config/config.yaml](https://github.com/KosinskiLab/AlphaPulldownSnakemake/blob/main/config/config.yaml).
 
-For running without Snakemake, see the [wiki](https://github.com/KosinskiLab/AlphaPulldown/wiki) and the repo-side [backend installation guide](docs/backend_installation.md).
+For running without Snakemake, see this [link](https://github.com/KosinskiLab/AlphaPulldown/wiki).
 
 ## 1. Installation
 
@@ -258,65 +258,6 @@ script manually). Commonly used flags:
 - `--skip_existing` – leave existing feature files untouched (safe for reruns).
 - `--seq_index N` – only process the N‑th sequence from the FASTA list.
 - `--use_hhsearch`, `--re_search_templates_mmseqs2` – toggle template search implementations.
-
-## Testing
-
-Install the repo with test dependencies:
-
-```bash
-pip install -e .[test]
-```
-
-The active CPU-first pytest layout is:
-
-- `test/unit` for pure helpers and small mocked components
-- `test/integration` for CPU-only filesystem and CLI wiring tests
-- `test/functional` for heavier package-level tests, including workflow cases that may still be marked `external_tools`
-- `test/cluster` for Slurm/GPU smoke utilities that are not part of default CI
-- `test/outdated` for legacy tests kept out of collection until they are refreshed
-
-Recommended local commands:
-
-```bash
-# fast parallel unit tests
-pytest -n auto --dist loadfile test/unit
-
-# CPU CI-equivalent run
-pytest -n auto --dist loadfile test/unit
-pytest test/integration
-
-# functional suites that need the real external toolchain
-pytest test/functional -m "functional and external_tools"
-
-# coverage run with pytest-cov
-pytest -n auto --dist loadfile test/unit \
-  --cov=alphapulldown \
-  --cov-config=.coveragerc \
-  --cov-report=
-pytest test/integration \
-  --cov=alphapulldown \
-  --cov-config=.coveragerc \
-  --cov-append \
-  --cov-report=
-coverage report --skip-covered --show-missing
-coverage xml -o coverage.xml
-coverage json -o coverage.json
-coverage html -d htmlcov
-python test/tools/check_function_coverage.py --report-only coverage.json
-```
-
-The AST-based function coverage helper is currently report-first: it lists uncovered
-`alphapulldown/` functions without failing. The CI coverage job still enforces a
-package-only line-coverage floor via `pytest-cov`.
-
-Cluster/GPU smoke wrappers live under `test/cluster/`, for example:
-
-```bash
-python test/cluster/run_alphafold2_predictions.py
-python test/cluster/run_alphafold3_predictions.py
-```
-- `--path_to_mmt`, `--description_file`, `--multiple_mmts` – enable TrueMultimer CSV-driven feature sets.
-- `--max_template_date YYYY-MM-DD` – required cutoff for template structures; keeps runs reproducible.
 
 
 ### Structure analysis & reporting
