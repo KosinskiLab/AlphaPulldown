@@ -296,3 +296,96 @@ def test_resolve_species_ids_by_accession_skips_single_accession_fallback_after_
       'A0A743YDY2': '',
   }
   assert calls == [('A0A636IKY3', 'A0A743YDY2')]
+
+
+def test_build_mmseq_identifier_features_skips_non_uniprot_identifiers(
+    monkeypatch,
+):
+  calls = []
+
+  def fake_resolver(accessions):
+    calls.append(tuple(accessions))
+    return {'A0A636IKY3': '108619'}
+
+  a3m = '\n'.join([
+      '>101',
+      'ACDE',
+      '>MGYP000264027769',
+      'ACDF',
+      '>UniRef100_MGYP000264027769',
+      'ACDG',
+      '>UniRef100_A0A636IKY3',
+      'ACDH',
+      '',
+  ])
+
+  features = mmseqs_species_identifiers.build_mmseq_identifier_features(
+      a3m,
+      species_resolver=fake_resolver,
+  )
+
+  assert calls == [('A0A636IKY3',)]
+  assert features['msa_species_identifiers'].tolist() == [
+      b'',
+      b'',
+      b'',
+      b'108619',
+  ]
+  assert features['msa_uniprot_accession_identifiers'].tolist() == [
+      b'',
+      b'',
+      b'',
+      b'A0A636IKY3',
+  ]
+
+
+def test_resolve_species_ids_by_accession_skips_unsupported_accessions(
+    monkeypatch,
+):
+  uniprot_calls = []
+  uniparc_calls = []
+
+  def fake_uniprot_query(accessions, *, urlopen):
+    uniprot_calls.append(tuple(accessions))
+    return {
+        'results': [
+            {
+                'primaryAccession': 'A0A636IKY3',
+                'organism': {'taxonId': 562},
+            }
+        ]
+    }
+
+  def fake_uniparc_query(accessions, *, urlopen):
+    uniparc_calls.append(tuple(accessions))
+    return {
+        'results': [
+            {
+                'uniParcId': 'UPI001118B830',
+                'organisms': [{'taxonId': 83333}],
+            }
+        ]
+    }
+
+  monkeypatch.setattr(
+      mmseqs_species_identifiers,
+      '_query_uniprot_batch',
+      fake_uniprot_query,
+  )
+  monkeypatch.setattr(
+      mmseqs_species_identifiers,
+      '_query_uniparc_batch',
+      fake_uniparc_query,
+  )
+
+  resolved = mmseqs_species_identifiers.resolve_species_ids_by_accession(
+      ['A0A636IKY3', 'MGYP000264027769', 'UPI001118B830']
+  )
+
+  assert resolved == {
+      'A0A636IKY3': '562',
+      'MGYP000264027769': '',
+      'UPI001118B830': '83333',
+  }
+  assert uniprot_calls == [('A0A636IKY3',)]
+  assert uniparc_calls == [('UPI001118B830',)]

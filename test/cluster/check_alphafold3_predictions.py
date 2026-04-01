@@ -1327,6 +1327,14 @@ class TestAlphaFold3BackendRegressions(_BackendOnlyTestBase):
         )
 
         for protein_id in self.ISSUE_588_IDS:
+            self.assertTrue(
+                (source_dir / f"{protein_id}.a3m").is_file(),
+                f"Expected MMseq A3M {source_dir / f'{protein_id}.a3m'} to be created.",
+            )
+            self.assertTrue(
+                (source_dir / f"{protein_id}.pkl.xz").is_file(),
+                f"Expected compressed feature pickle {source_dir / f'{protein_id}.pkl.xz'} to be created.",
+            )
             shutil.copy2(
                 source_dir / f"{protein_id}.a3m",
                 precomputed_dir / f"{protein_id}.a3m",
@@ -1356,6 +1364,15 @@ class TestAlphaFold3BackendRegressions(_BackendOnlyTestBase):
             "Precomputed-MMseq feature generation failed.\n"
             f"STDOUT:\n{precomputed_res.stdout}\nSTDERR:\n{precomputed_res.stderr}",
         )
+        for protein_id in self.ISSUE_588_IDS:
+            self.assertTrue(
+                (precomputed_dir / f"{protein_id}.a3m").is_file(),
+                f"Expected copied MMseq A3M {precomputed_dir / f'{protein_id}.a3m'} to be present.",
+            )
+            self.assertTrue(
+                (precomputed_dir / f"{protein_id}.pkl.xz").is_file(),
+                f"Expected precomputed feature pickle {precomputed_dir / f'{protein_id}.pkl.xz'} to be created.",
+            )
         return precomputed_dir
 
     def _prepare_fold_input(
@@ -1656,6 +1673,7 @@ class TestAlphaFold3MmseqsIssue588Inference(_TestBase):
                 "--max_template_date=2024-05-02",
                 "--use_mmseqs2=True",
                 "--data_pipeline=alphafold2",
+                "--save_msa_files=True",
                 "--compress_features=True",
                 "--skip_existing=False",
             ],
@@ -1676,6 +1694,14 @@ class TestAlphaFold3MmseqsIssue588Inference(_TestBase):
         feature_dir = self._generate_issue_588_mmseq_features(env)
 
         for protein_id in self.ISSUE_588_IDS:
+            self.assertTrue(
+                (feature_dir / f"{protein_id}.a3m").is_file(),
+                f"Expected MMseq A3M {feature_dir / f'{protein_id}.a3m'} to be created.",
+            )
+            self.assertTrue(
+                (feature_dir / f"{protein_id}.pkl.xz").is_file(),
+                f"Expected compressed feature pickle {feature_dir / f'{protein_id}.pkl.xz'} to be created.",
+            )
             feature_dict = _load_feature_dict(feature_dir / f"{protein_id}.pkl.xz")
             self.assertGreater(
                 _non_empty_identifier_count(
@@ -2974,19 +3000,28 @@ class TestAlphaFold3RunModes(_TestBase):
             self._assert_af3_outputs_present(current_output_dir)
 
     def test_af3_run_multimer_jobs_multiple_json_jobs_create_per_job_subdirs(self):
-        """Shared AF3 wrapper output roots must isolate multiple JSON jobs by subdirectory."""
-        from alphapulldown.utils.output_paths import derive_af3_job_name_from_json
+        """Shared AF3 wrapper roots must isolate combined JSON folds by subdirectory."""
 
         self._require_af3_functional_environment()
         env = self._make_af3_test_env()
         flash_impl = self._af3_flash_attention_impl()
-        json_inputs = [
-            self.test_features_dir / "protein_with_ptms.json",
-            self.test_features_dir / "P01308_af3_input.json",
+        json_folds = [
+            [
+                self.test_features_dir / "protein_with_ptms.json",
+                self.test_features_dir / "P61626_af3_input.json",
+            ],
+            [
+                self.test_features_dir / "P01308_af3_input.json",
+                self.test_features_dir / "P61626_af3_input.json",
+            ],
         ]
         protein_list = self.output_dir / "test_multiple_json_jobs.txt"
         protein_list.write_text(
-            "\n".join(json_input.name for json_input in json_inputs) + "\n",
+            "\n".join(
+                ";".join(json_input.name for json_input in json_fold)
+                for json_fold in json_folds
+            )
+            + "\n",
             encoding="utf-8",
         )
 
@@ -3017,11 +3052,16 @@ class TestAlphaFold3RunModes(_TestBase):
             (self.output_dir / "ranking_scores.csv").exists(),
             "Shared wrapper output root should not contain flattened AF3 JSON outputs.",
         )
+        self.assertFalse(
+            any(self.output_dir.glob("*_data.json")),
+            "Combined JSON folds should not write flat AF3 input JSONs into the shared root.",
+        )
 
-        for json_input in json_inputs:
-            current_output_dir = self.output_dir / derive_af3_job_name_from_json(
-                str(json_input)
-            )
+        for output_dir_name in (
+            "protein_with_ptms_and_p61626",
+            "p01308_and_p61626",
+        ):
+            current_output_dir = self.output_dir / output_dir_name
             self.assertTrue(
                 current_output_dir.is_dir(),
                 f"Expected per-job output directory {current_output_dir} to be created.",

@@ -1,7 +1,9 @@
 import json
 
 from alphapulldown.utils.output_paths import (
+    build_af3_combined_json_job_name,
     derive_af3_job_name_from_json,
+    resolve_af3_combined_json_output_dir,
     resolve_af3_json_output_dir,
     sanitise_af3_job_name,
 )
@@ -106,3 +108,60 @@ def test_resolve_af3_json_output_dir_keeps_unsafe_json_name_within_root(tmp_path
         use_ap_style=True,
         shared_output_root=True,
     ) == str(tmp_path / "predictions" / "input_name")
+
+
+def test_build_af3_combined_json_job_name_uses_fold_fragments(tmp_path):
+    ptm_json = tmp_path / "protein_with_ptms.json"
+    ptm_json.write_text(
+        json.dumps(
+            {
+                "name": "protein_ptms",
+                "dialect": "alphafold3",
+                "version": 1,
+            }
+        ),
+        encoding="utf-8",
+    )
+    partner_json = tmp_path / "P61626_af3_input.json"
+    partner_json.write_text(
+        json.dumps(
+            {
+                "name": "P61626",
+                "dialect": "alphafold3",
+                "version": 1,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert build_af3_combined_json_job_name(
+        [
+            {"json_input": str(ptm_json)},
+            {"json_input": str(partner_json)},
+        ]
+    ) == "protein_with_ptms_and_p61626"
+
+
+def test_resolve_af3_combined_json_output_dir_uses_one_fold_directory(tmp_path):
+    json_a = tmp_path / "P01308_af3_input.json"
+    json_b = tmp_path / "P61626_af3_input.json"
+    for json_path, name in ((json_a, "P01308"), (json_b, "P61626")):
+        json_path.write_text(
+            json.dumps(
+                {
+                    "name": name,
+                    "dialect": "alphafold3",
+                    "version": 1,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    assert resolve_af3_combined_json_output_dir(
+        [
+            {"json_input": str(json_a)},
+            {"json_input": str(json_b)},
+        ],
+        str(tmp_path / "predictions"),
+        use_ap_style=True,
+    ) == str(tmp_path / "predictions" / "p01308_and_p61626")
