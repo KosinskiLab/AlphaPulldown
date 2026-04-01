@@ -11,3 +11,4 @@ Notes:
 - `pytest.ini` only collects `unit`, `integration`, and `functional`.
 - `conftest.py` auto-applies markers from the directory layout.
 - `test/alphalink` now holds AlphaLink fixture files used by optional tests and cluster smoke runs.
+- `test/RELEASE_READINESS.md` tracks which workflows are continuously protected by CI and which still require explicit cluster or manual validation before a release.
