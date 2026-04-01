@@ -11,6 +11,7 @@ import json
 import pickle
 import subprocess
 import enum
+import typing
 from typing import Dict, Union, List, Any
 import os
 from absl import logging
@@ -43,6 +44,55 @@ class ModelsToRelax(enum.Enum):
   ALL = 0
   BEST = 1
   NONE = 2
+
+
+def _ensure_typing_dataclass_transform() -> None:
+    """Provide typing.dataclass_transform on Python versions that lack it."""
+    if hasattr(typing, "dataclass_transform"):
+        return
+
+    from typing_extensions import dataclass_transform
+
+    typing.dataclass_transform = dataclass_transform
+
+
+def _get_openmm_platform_names() -> List[str]:
+    """Return the available OpenMM platform names."""
+    try:
+        import openmm
+    except ImportError:
+        return []
+
+    try:
+        return [
+            openmm.Platform.getPlatform(i).getName()
+            for i in range(openmm.Platform.getNumPlatforms())
+        ]
+    except Exception as exc:  # pragma: no cover - defensive
+        logging.warning("Failed to inspect OpenMM platforms: %s", exc)
+        return []
+
+
+def _resolve_gpu_relax(use_gpu_relax: bool) -> bool:
+    """Only request GPU relax when OpenMM exposes a CUDA platform."""
+    if not use_gpu_relax:
+        return False
+
+    platform_names = _get_openmm_platform_names()
+    if "CUDA" in platform_names:
+        return True
+
+    if platform_names:
+        logging.warning(
+            "OpenMM CUDA platform is unavailable; falling back to CPU relax. "
+            "Available platforms: %s",
+            ", ".join(platform_names),
+        )
+    else:
+        logging.warning(
+            "OpenMM CUDA platform is unavailable; falling back to CPU relax."
+        )
+    return False
 
 
 def _jnp_to_np(output):
@@ -381,6 +431,7 @@ class AlphaFold2Backend(FoldingBackend):
             If provided custom model names are not part of the available models.
         """
 
+        _ensure_typing_dataclass_transform()
         from alphafold.model import config
         from alphafold.model import data, model
 
@@ -798,6 +849,7 @@ class AlphaFold2Backend(FoldingBackend):
         for model_name, prediction_result in prediction_results.items():
             prediction_result.update(AlphaFold2Backend.recalculate_confidence(prediction_result,multimer_mode,
                                                                          total_num_res))
+            unrelaxed_protein = prediction_result.get("unrelaxed_protein")
             if 'unrelaxed_protein' in prediction_result.keys():
                 unrelaxed_protein = prediction_result.pop("unrelaxed_protein")
             # Remove jax dependency from results
@@ -806,7 +858,8 @@ class AlphaFold2Backend(FoldingBackend):
             result_output_path = os.path.join(output_dir, f"result_{model_name}.pkl")
             with open(result_output_path, "wb") as f:
                 pickle.dump(np_prediction_result, f, protocol=4)
-            prediction_results[model_name]['unrelaxed_protein'] = unrelaxed_protein
+            if unrelaxed_protein is not None:
+                prediction_results[model_name]['unrelaxed_protein'] = unrelaxed_protein
             if 'iptm' in prediction_result:
                 label = 'iptm+ptm'
                 iptm_scores[model_name] = float(prediction_result['iptm'])
@@ -862,7 +915,7 @@ class AlphaFold2Backend(FoldingBackend):
             stiffness=RELAX_STIFFNESS,
             exclude_residues=RELAX_EXCLUDE_RESIDUES,
             max_outer_iterations=RELAX_MAX_OUTER_ITERATIONS,
-            use_gpu=use_gpu_relax)
+            use_gpu=_resolve_gpu_relax(use_gpu_relax))
 
         if models_to_relax == ModelsToRelax.BEST:
             to_relax = [ranked_order[0]]

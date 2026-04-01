@@ -13,6 +13,8 @@ import sys
 import jax
 gpus = jax.local_devices(backend='gpu')
 from alphapulldown.scripts.run_structure_prediction import FLAGS
+from alphapulldown.utils.modelling_setup import parse_fold
+from alphapulldown.utils.output_paths import derive_af3_job_name_from_json
 from alphapulldown_input_parser import generate_fold_specifications
 
 logging.set_verbosity(logging.INFO)
@@ -38,6 +40,36 @@ flags.DEFINE_boolean("dry_run", False, "Report number of jobs that would be run 
 flags.DEFINE_list("monomer_objects_dir", None, "a list of directories where monomer objects are stored")
 flags.DEFINE_string("output_path", None, "output directory where the region data is going to be stored")
 flags.DEFINE_string("data_dir", None, "Path to params directory")
+
+
+def _resolve_af3_wrapper_output_dir(
+    job_spec: str,
+    output_root: str,
+    *,
+    features_directory,
+    protein_delimiter: str,
+    use_ap_style: bool,
+) -> str:
+    """Scope single AF3 JSON wrapper jobs to stable per-job subdirectories."""
+    if not use_ap_style:
+        return output_root
+
+    try:
+        parsed_jobs = parse_fold([job_spec], features_directory, protein_delimiter)
+    except Exception:
+        return output_root
+
+    if len(parsed_jobs) != 1 or len(parsed_jobs[0]) != 1:
+        return output_root
+
+    entry = parsed_jobs[0][0]
+    if not (isinstance(entry, dict) and "json_input" in entry):
+        return output_root
+
+    return os.path.join(
+        output_root,
+        derive_af3_job_name_from_json(entry["json_input"]),
+    )
 del(FLAGS.models_to_relax)
 flags.DEFINE_enum("models_to_relax",'None',['None','All','Best'],
                   "Which models to relax. Default is None, meaning no model will be relaxed")
@@ -177,6 +209,14 @@ def main(argv):
     else:
         for job_index in job_indices:
             command_args["--input"] = all_folds[job_index]
+            if fold_backend == "alphafold3":
+                command_args["--output_directory"] = _resolve_af3_wrapper_output_dir(
+                    all_folds[job_index],
+                    FLAGS.output_path,
+                    features_directory=FLAGS.monomer_objects_dir,
+                    protein_delimiter=FLAGS.protein_delimiter,
+                    use_ap_style=af3_use_ap_style,
+                )
             command = base_command.copy()
             for arg, value in command_args.items():
                 command.extend([str(arg), str(value)])

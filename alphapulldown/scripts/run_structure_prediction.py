@@ -26,7 +26,10 @@ from alphapulldown.folding_backend import backend
 from alphapulldown.folding_backend.alphafold2_backend import ModelsToRelax
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
 from alphapulldown.utils.modelling_setup import create_interactors, create_custom_info, parse_fold
-from alphapulldown.utils.output_paths import resolve_af3_json_output_dir
+from alphapulldown.utils.output_paths import (
+    resolve_af3_combined_json_output_dir,
+    resolve_af3_json_output_dir,
+)
 import sys as _sys
 
 logging.set_verbosity(logging.INFO)
@@ -120,7 +123,7 @@ flags.DEFINE_string(
 flags.DEFINE_list(
     'buckets',
     # pyformat: disable
-    ['64', '128', '256', '512', '768', '1024', '1280', '1536', '2048', '2560', '3072',
+    ['128', '256', '512', '768', '1024', '1280', '1536', '2048', '2560', '3072',
      '3584', '4096', '4608', '5120'],
     # pyformat: enable
     'Strictly increasing order of token sizes for which to cache compilations.'
@@ -486,6 +489,7 @@ def main(argv):
                 prot_objs, output_dir=out_dir
             )
             objects_to_model.append({'object': obj, 'output_dir': real_out})
+            json_output_dir = real_out
             
             # Update final flags based on object type
             final_model_flags = default_model_flags.copy()
@@ -498,15 +502,27 @@ def main(argv):
                     "model_names_custom": FLAGS.model_names,
                     "msa_depth": FLAGS.msa_depth
                 })
-        # Then handle any number of JSON inputs
-        for json_dict in json_dicts:
-            json_output_dir = resolve_af3_json_output_dir(
-                json_dict["json_input"],
+        elif len(json_dicts) > 1:
+            json_output_dir = resolve_af3_combined_json_output_dir(
+                json_dicts,
                 out_dir,
                 use_ap_style=FLAGS.use_ap_style,
-                shared_output_root=shared_output_root,
             )
-            objects_to_model.append({'object': json_dict, 'output_dir': json_output_dir})
+        else:
+            json_output_dir = None
+        # Then handle any number of JSON inputs
+        for json_dict in json_dicts:
+            current_json_output_dir = json_output_dir
+            if current_json_output_dir is None:
+                current_json_output_dir = resolve_af3_json_output_dir(
+                    json_dict["json_input"],
+                    out_dir,
+                    use_ap_style=FLAGS.use_ap_style,
+                    shared_output_root=shared_output_root,
+                )
+            objects_to_model.append(
+                {'object': json_dict, 'output_dir': current_json_output_dir}
+            )
 
     if objects_to_model:
         predict_structure(

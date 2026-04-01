@@ -71,19 +71,189 @@ def _install_alphafold3_backend_stubs(tmp_path: Path) -> None:
     folding_input_mod = types.ModuleType("alphafold3.common.folding_input")
 
     @dataclasses.dataclass(frozen=True)
+    class StubTemplate:
+        mmcif: str
+        query_to_template_map: dict[int, int]
+
+    class StubProteinChain:
+        def __init__(
+            self,
+            *,
+            id,
+            sequence,
+            ptms=None,
+            residue_ids=None,
+            description=None,
+            paired_msa="",
+            unpaired_msa="",
+            templates=None,
+        ):
+            self.id = id
+            self.sequence = sequence
+            self.ptms = [] if ptms is None else list(ptms)
+            self.residue_ids = None if residue_ids is None else list(residue_ids)
+            self.description = description
+            self.paired_msa = paired_msa
+            self.unpaired_msa = unpaired_msa
+            self.templates = None if templates is None else list(templates)
+
+    class StubRnaChain:
+        def __init__(
+            self,
+            *,
+            id,
+            sequence,
+            modifications=None,
+            residue_ids=None,
+            description=None,
+            unpaired_msa="",
+        ):
+            self.id = id
+            self.sequence = sequence
+            self.modifications = [] if modifications is None else list(modifications)
+            self.residue_ids = None if residue_ids is None else list(residue_ids)
+            self.description = description
+            self.unpaired_msa = unpaired_msa
+
+    class StubDnaChain:
+        def __init__(
+            self,
+            *,
+            id,
+            sequence,
+            modifications=None,
+            residue_ids=None,
+            description=None,
+        ):
+            self.id = id
+            self.sequence = sequence
+            self._modifications = [] if modifications is None else list(modifications)
+            self.residue_ids = None if residue_ids is None else list(residue_ids)
+            self.description = description
+
+        def modifications(self):
+            return list(self._modifications)
+
+    class StubLigand:
+        def __init__(self, *, id, ccd_ids=None, smiles=None, description=None):
+            self.id = id
+            self.ccd_ids = None if ccd_ids is None else list(ccd_ids)
+            self.smiles = smiles
+            self.description = description
+
+    @dataclasses.dataclass(frozen=True)
     class StubInput:
         name: str
         chains: tuple
         rng_seeds: tuple[int, ...]
         user_ccd: object | None = None
 
+        def __post_init__(self):
+            object.__setattr__(self, "chains", tuple(self.chains))
+            object.__setattr__(self, "rng_seeds", tuple(self.rng_seeds))
+
         def sanitised_name(self) -> str:
             return self.name.replace(" ", "_")
 
         def to_json(self) -> str:
-            return json.dumps({"name": self.name, "chains": list(self.chains)})
+            def _serialize_chain(chain):
+                if isinstance(chain, (str, int, float, bool)) or chain is None:
+                    return chain
+                payload = {"type": chain.__class__.__name__, "id": getattr(chain, "id", None)}
+                if hasattr(chain, "sequence"):
+                    payload["sequence"] = chain.sequence
+                if hasattr(chain, "paired_msa"):
+                    payload["paired_msa"] = chain.paired_msa
+                if hasattr(chain, "unpaired_msa"):
+                    payload["unpaired_msa"] = chain.unpaired_msa
+                return payload
+
+            return json.dumps(
+                {"name": self.name, "chains": [_serialize_chain(chain) for chain in self.chains]}
+            )
+
+        @classmethod
+        def from_json(cls, json_str: str):
+            payload = json.loads(json_str)
+            if isinstance(payload, list):
+                payload = payload[0]
+            if not isinstance(payload, dict):
+                raise ValueError("Unsupported AF3 JSON payload")
+
+            def _parse_template(template_payload):
+                return StubTemplate(
+                    mmcif=template_payload["mmcif"],
+                    query_to_template_map={
+                        int(key): int(value)
+                        for key, value in template_payload.get(
+                            "query_to_template_map", {}
+                        ).items()
+                    },
+                )
+
+            chains = []
+            for chain_payload in payload.get("chains", []):
+                chain_type = chain_payload["type"]
+                common_kwargs = {
+                    "id": chain_payload["id"],
+                    "sequence": chain_payload.get("sequence", ""),
+                    "description": chain_payload.get("description"),
+                    "residue_ids": chain_payload.get("residue_ids"),
+                }
+                if chain_type == "protein":
+                    chains.append(
+                        StubProteinChain(
+                            **common_kwargs,
+                            ptms=chain_payload.get("ptms", []),
+                            paired_msa=chain_payload.get("paired_msa", ""),
+                            unpaired_msa=chain_payload.get("unpaired_msa", ""),
+                            templates=[
+                                _parse_template(template_payload)
+                                for template_payload in chain_payload.get("templates", [])
+                            ],
+                        )
+                    )
+                elif chain_type == "rna":
+                    chains.append(
+                        StubRnaChain(
+                            **common_kwargs,
+                            modifications=chain_payload.get("modifications", []),
+                            unpaired_msa=chain_payload.get("unpaired_msa", ""),
+                        )
+                    )
+                elif chain_type == "dna":
+                    chains.append(
+                        StubDnaChain(
+                            **common_kwargs,
+                            modifications=chain_payload.get("modifications", []),
+                        )
+                    )
+                elif chain_type == "ligand":
+                    chains.append(
+                        StubLigand(
+                            id=chain_payload["id"],
+                            ccd_ids=chain_payload.get("ccd_ids"),
+                            smiles=chain_payload.get("smiles"),
+                            description=chain_payload.get("description"),
+                        )
+                    )
+                else:
+                    raise ValueError(f"Unsupported chain type: {chain_type}")
+            return cls(
+                name=payload.get("name", "json_input"),
+                chains=tuple(chains),
+                rng_seeds=tuple(payload.get("rng_seeds", [0])),
+            )
+
+        def with_multiple_seeds(self, num_seeds: int):
+            return dataclasses.replace(self, rng_seeds=tuple(range(1, num_seeds + 1)))
 
     folding_input_mod.Input = StubInput
+    folding_input_mod.Template = StubTemplate
+    folding_input_mod.ProteinChain = StubProteinChain
+    folding_input_mod.RnaChain = StubRnaChain
+    folding_input_mod.DnaChain = StubDnaChain
+    folding_input_mod.Ligand = StubLigand
 
     constants_pkg = _package("alphafold3.constants")
     chemical_components_mod = types.ModuleType("alphafold3.constants.chemical_components")
@@ -93,6 +263,30 @@ def _install_alphafold3_backend_stubs(tmp_path: Path) -> None:
     featurisation_mod = types.ModuleType("alphafold3.data.featurisation")
     featurisation_mod.featurise_input = lambda **_kwargs: []
     parsers_mod = types.ModuleType("alphafold3.data.parsers")
+
+    def _parse_fasta(text: str):
+        descriptions = []
+        sequences = []
+        current_description = None
+        current_sequence = []
+        for raw_line in text.splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            if line.startswith(">"):
+                if current_description is not None:
+                    descriptions.append(current_description)
+                    sequences.append("".join(current_sequence))
+                current_description = line[1:]
+                current_sequence = []
+            else:
+                current_sequence.append(line)
+        if current_description is not None:
+            descriptions.append(current_description)
+            sequences.append("".join(current_sequence))
+        return sequences, descriptions
+
+    parsers_mod.parse_fasta = _parse_fasta
 
     af3_jax_pkg = _package("alphafold3.jax")
     attention_pkg = _package("alphafold3.jax.attention")
@@ -130,6 +324,11 @@ def _install_alphafold3_backend_stubs(tmp_path: Path) -> None:
 
     structure_pkg = _package("alphafold3.structure")
     mmcif_mod = types.ModuleType("alphafold3.structure.mmcif")
+    mmcif_mod.from_string = (
+        lambda mmcif_string: (_ for _ in ()).throw(ValueError("invalid mmcif"))
+        if mmcif_string == "INVALID"
+        else {"mmcif": mmcif_string}
+    )
 
     modules = {
         "alphafold3": alphafold3_pkg,
@@ -562,3 +761,913 @@ def test_process_fold_input_checks_model_params_and_calls_predict_structure(
     assert predict_calls[0]["buckets"] == [256]
     assert predict_calls[0]["resolve_msa_overlaps"] is False
     assert predict_calls[0]["debug_msas"] is True
+
+
+def test_predict_structure_writes_final_msa_and_collects_optional_outputs(
+    af3_backend_module,
+    monkeypatch,
+    tmp_path,
+):
+    fold_input = af3_backend_module.folding_input.Input(
+        name="job name",
+        chains=("A",),
+        rng_seeds=(7,),
+    )
+    example = {
+        "msa": np.asarray([[1, 2, 3], [4, 5, 6]], dtype=np.int32),
+        "num_alignments": 1,
+    }
+    inference_result = af3_backend_module.model.InferenceResult(
+        predicted_structure=None,
+        metadata={"token_chain_ids": ["A", "A"]},
+    )
+
+    monkeypatch.setattr(
+        af3_backend_module.featurisation,
+        "featurise_input",
+        lambda **kwargs: [example],
+    )
+    monkeypatch.setattr(
+        af3_backend_module,
+        "ids_to_a3m_af3",
+        lambda rows: ">query\nABC\n",
+    )
+
+    class FakeRunner:
+        def run_inference(self, batch, rng_key):
+            return {
+                "single_embeddings": np.asarray([[1.0], [2.0], [3.0]], dtype=np.float32),
+                "pair_embeddings": np.ones((3, 3), dtype=np.float32),
+                "distogram": {"distogram": np.full((3, 3), 0.5, dtype=np.float32)},
+            }
+
+        def extract_structures(self, batch, result, target_name):
+            return [inference_result]
+
+    results = af3_backend_module.predict_structure(
+        fold_input=fold_input,
+        model_runner=FakeRunner(),
+        buckets=[128],
+        output_dir=tmp_path,
+        resolve_msa_overlaps=False,
+        debug_msas=True,
+    )
+
+    assert len(results) == 1
+    assert results[0].seed == 7
+    assert results[0].embeddings["single_embeddings"].shape == (2, 1)
+    assert results[0].embeddings["pair_embeddings"].shape == (2, 2)
+    assert results[0].distogram.shape == (2, 2)
+    final_msa = tmp_path / "job_name_seed-7_final_complex_msa.a3m"
+    assert final_msa.read_text(encoding="utf-8") == ">query\nABC\n"
+
+
+def test_af3_setup_builds_model_runner_and_validates_gpu_capability(
+    af3_backend_module,
+    monkeypatch,
+    tmp_path,
+):
+    class FakeConfig:
+        def __init__(self):
+            self.global_config = SimpleNamespace(
+                flash_attention_implementation=None
+            )
+            self.heads = SimpleNamespace(
+                diffusion=SimpleNamespace(eval=SimpleNamespace(num_samples=None))
+            )
+            self.num_recycles = None
+            self.return_embeddings = False
+            self.return_distogram = False
+
+    class FakeModel:
+        Config = FakeConfig
+
+    cache_updates = []
+    monkeypatch.setattr(
+        sys.modules["alphafold3.model.model"],
+        "Model",
+        FakeModel,
+    )
+    monkeypatch.setattr(
+        af3_backend_module.jax,
+        "config",
+        SimpleNamespace(update=lambda key, value: cache_updates.append((key, value))),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        af3_backend_module.jax,
+        "local_devices",
+        lambda backend="gpu": [SimpleNamespace(compute_capability=8.0)],
+    )
+
+    configured = af3_backend_module.AlphaFold3Backend.setup(
+        num_diffusion_samples=8,
+        flash_attention_implementation="triton",
+        buckets=[128],
+        jax_compilation_cache_dir=str(tmp_path / "jax-cache"),
+        model_dir=str(tmp_path / "models"),
+        num_recycles=12,
+        return_embeddings=True,
+        return_distogram=True,
+    )
+
+    runner = configured["model_runner"]
+    assert runner.device.compute_capability == 8.0
+    assert runner.model_dir == tmp_path / "models"
+    assert runner.config.global_config.flash_attention_implementation == "triton"
+    assert runner.config.heads.diffusion.eval.num_samples == 8
+    assert runner.config.num_recycles == 12
+    assert runner.config.return_embeddings is True
+    assert runner.config.return_distogram is True
+    assert cache_updates == [("jax_compilation_cache_dir", str(tmp_path / "jax-cache"))]
+
+    monkeypatch.setattr(
+        af3_backend_module.jax,
+        "local_devices",
+        lambda backend="gpu": [SimpleNamespace(compute_capability=5.0)],
+    )
+    with pytest.raises(ValueError, match="requires at least GPU compute capability 6.0"):
+        af3_backend_module.AlphaFold3Backend.setup(
+            num_diffusion_samples=1,
+            flash_attention_implementation="triton",
+            buckets=[128],
+            jax_compilation_cache_dir=None,
+            model_dir=str(tmp_path / "models"),
+        )
+
+
+def test_af3_predict_expands_num_seeds_and_calls_process_fold_input(
+    af3_backend_module,
+    monkeypatch,
+    tmp_path,
+):
+    calls = []
+
+    class FakeFoldInput:
+        def __init__(self, name):
+            self.name = name
+            self.rng_seeds = (3,)
+
+        def with_multiple_seeds(self, num_seeds):
+            return FakeFoldInput(f"{self.name}__{num_seeds}")
+
+    fake_input = FakeFoldInput("job")
+    monkeypatch.setattr(
+        af3_backend_module.AlphaFold3Backend,
+        "prepare_input",
+        staticmethod(lambda **kwargs: [{fake_input: (tmp_path, False)}]),
+    )
+    monkeypatch.setattr(
+        af3_backend_module,
+        "process_fold_input",
+        lambda **kwargs: calls.append(kwargs) or ["predicted"],
+    )
+
+    results = list(
+        af3_backend_module.AlphaFold3Backend.predict(
+            model_runner=object(),
+            objects_to_model=[{"object": object(), "output_dir": str(tmp_path)}],
+            random_seed=7,
+            buckets=256,
+            num_seeds=4,
+            debug_msas=True,
+        )
+    )
+
+    assert len(results) == 1
+    assert results[0]["prediction_results"] == ["predicted"]
+    assert calls[0]["buckets"] == (256,)
+    assert calls[0]["resolve_msa_overlaps"] is False
+    assert calls[0]["debug_msas"] is True
+    assert calls[0]["fold_input"].name == "job__4"
+
+
+def test_af3_postprocess_skips_missing_args_and_writes_outputs(
+    af3_backend_module,
+    monkeypatch,
+    tmp_path,
+):
+    calls = []
+    monkeypatch.setattr(
+        af3_backend_module,
+        "write_outputs",
+        lambda **kwargs: calls.append(kwargs),
+    )
+
+    af3_backend_module.AlphaFold3Backend.postprocess(output_dir=tmp_path)
+    assert calls == []
+
+    fold_input = af3_backend_module.folding_input.Input(
+        name="job",
+        chains=("A",),
+        rng_seeds=(1,),
+    )
+    af3_backend_module.AlphaFold3Backend.postprocess(
+        prediction_results=["result"],
+        output_dir=tmp_path,
+        multimeric_object=fold_input,
+    )
+
+    assert calls == [
+        {
+            "all_inference_results": ["result"],
+            "output_dir": tmp_path,
+            "job_name": "job",
+        }
+    ]
+
+
+def _write_stub_af3_json(path: Path, payload: dict) -> Path:
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
+def test_prepare_input_merges_json_chain_and_rewrites_duplicate_ids(
+    af3_backend_module,
+    tmp_path,
+):
+    json_path = _write_stub_af3_json(
+        tmp_path / "input.json",
+        {
+            "name": "json job",
+            "rng_seeds": [99],
+            "chains": [
+                {
+                    "type": "protein",
+                    "id": "A",
+                    "sequence": "GG",
+                    "unpaired_msa": ">query\nGG\n",
+                    "paired_msa": "",
+                }
+            ],
+        },
+    )
+    monomer = MonomericObject("protA", "ACDE")
+
+    prepared_inputs = af3_backend_module.AlphaFold3Backend.prepare_input(
+        objects_to_model=[
+            {
+                "object": [monomer, {"json_input": str(json_path)}],
+                "output_dir": str(tmp_path),
+            }
+        ],
+        random_seed=7,
+    )
+
+    assert len(prepared_inputs) == 1
+    fold_input, (output_dir, resolve_msa_overlaps) = next(
+        iter(prepared_inputs[0].items())
+    )
+    assert output_dir == str(tmp_path)
+    assert resolve_msa_overlaps is True
+    assert [chain.id for chain in fold_input.chains] == ["A", "B"]
+    assert fold_input.chains[0].sequence == "ACDE"
+    assert fold_input.chains[1].sequence == "GG"
+    assert fold_input.chains[1].paired_msa == ">query\nGG\n"
+    assert fold_input.chains[1].unpaired_msa == ""
+
+
+def test_prepare_input_rejects_regions_for_multi_chain_json_inputs(
+    af3_backend_module,
+    tmp_path,
+):
+    json_path = _write_stub_af3_json(
+        tmp_path / "multi_chain.json",
+        {
+            "name": "multi job",
+            "chains": [
+                {"type": "protein", "id": "A", "sequence": "AAAA"},
+                {"type": "protein", "id": "B", "sequence": "BBBB"},
+            ],
+        },
+    )
+
+    with pytest.raises(ValueError, match="exactly one chain per file"):
+        af3_backend_module.AlphaFold3Backend.prepare_input(
+            objects_to_model=[
+                {
+                    "object": {"json_input": str(json_path), "regions": [(1, 2)]},
+                    "output_dir": str(tmp_path),
+                }
+            ],
+            random_seed=11,
+        )
+
+
+def test_prepare_input_slices_single_chain_json_regions_and_promotes_msa(
+    af3_backend_module,
+    tmp_path,
+):
+    json_path = _write_stub_af3_json(
+        tmp_path / "single_chain.json",
+        {
+            "name": "single job",
+            "chains": [
+                {
+                    "type": "protein",
+                    "id": "Q",
+                    "sequence": "ABCDEFGH",
+                    "residue_ids": [10, 11, 12, 13, 14, 15, 16, 17],
+                    "ptms": [["phospho", 2], ["methyl", 6]],
+                    "unpaired_msa": ">query\nABCDEFGH\n",
+                    "paired_msa": "",
+                    "templates": [
+                        {
+                            "mmcif": "data_valid",
+                            "query_to_template_map": {"0": 0, "1": 1, "4": 2, "5": 3},
+                        }
+                    ],
+                }
+            ],
+        },
+    )
+
+    prepared_inputs = af3_backend_module.AlphaFold3Backend.prepare_input(
+        objects_to_model=[
+            {
+                "object": {
+                    "json_input": str(json_path),
+                    "regions": [(1, 2), (5, 6)],
+                },
+                "output_dir": str(tmp_path),
+            }
+        ],
+        random_seed=13,
+    )
+
+    fold_input, (_output_dir, resolve_msa_overlaps) = next(iter(prepared_inputs[0].items()))
+    chain = fold_input.chains[0]
+
+    assert resolve_msa_overlaps is True
+    assert chain.id == "Q"
+    assert chain.sequence == "ABEF"
+    assert chain.residue_ids == [10, 11, 14, 15]
+    assert chain.ptms == [("phospho", 2), ("methyl", 4)]
+    assert chain.paired_msa == ">query\nABEF\n"
+    assert chain.unpaired_msa == ""
+    assert len(chain.templates) == 1
+    assert chain.templates[0].query_to_template_map == {0: 0, 1: 1, 2: 2, 3: 3}
+
+
+def test_prepare_input_drops_invalid_json_templates_but_keeps_valid_ones(
+    af3_backend_module,
+    tmp_path,
+):
+    json_path = _write_stub_af3_json(
+        tmp_path / "templates.json",
+        {
+            "name": "template job",
+            "chains": [
+                {
+                    "type": "protein",
+                    "id": "A",
+                    "sequence": "ACDE",
+                    "templates": [
+                        {"mmcif": "data_valid", "query_to_template_map": {"0": 0}},
+                        {"mmcif": "INVALID", "query_to_template_map": {"1": 1}},
+                    ],
+                }
+            ],
+        },
+    )
+
+    prepared_inputs = af3_backend_module.AlphaFold3Backend.prepare_input(
+        objects_to_model=[
+            {
+                "object": {"json_input": str(json_path)},
+                "output_dir": str(tmp_path),
+            }
+        ],
+        random_seed=17,
+    )
+
+    fold_input, _ = next(iter(prepared_inputs[0].items()))
+    chain = fold_input.chains[0]
+    assert len(chain.templates) == 1
+    assert chain.templates[0].mmcif == "data_valid"
+    assert chain.templates[0].query_to_template_map == {0: 0}
+
+
+def test_prepare_input_normalises_adjacent_duplicate_residues_for_monomers(
+    af3_backend_module,
+    monkeypatch,
+    tmp_path,
+):
+    monomer = MonomericObject("protA", "ABCD")
+    monomer.feature_dict = {
+        "residue_index": np.asarray([0, 0, 1, 2], dtype=np.int32),
+        "msa": np.asarray([[1, 2, 3, 4], [5, 6, 7, 8]], dtype=np.int32),
+        "deletion_matrix_int": np.asarray(
+            [[0, 1, 2, 3], [4, 5, 6, 7]], dtype=np.int32
+        ),
+        "sequence": np.asarray([b"ABCD"], dtype=object),
+        "seq_length": np.full(4, 4, dtype=np.int32),
+        "num_alignments": np.full(4, 2, dtype=np.int32),
+    }
+    captured = {}
+
+    def _fake_msa_rows_and_deletions_to_a3m(
+        *,
+        msa_rows,
+        deletion_rows,
+        query_sequence,
+    ):
+        captured["msa_rows"] = np.asarray(msa_rows)
+        captured["deletion_rows"] = np.asarray(deletion_rows)
+        captured["query_sequence"] = query_sequence
+        return ">query\nACD\n"
+
+    monkeypatch.setattr(
+        af3_backend_module,
+        "msa_rows_and_deletions_to_a3m",
+        _fake_msa_rows_and_deletions_to_a3m,
+    )
+
+    prepared_inputs = af3_backend_module.AlphaFold3Backend.prepare_input(
+        objects_to_model=[
+            {
+                "object": monomer,
+                "output_dir": str(tmp_path),
+            }
+        ],
+        random_seed=19,
+    )
+
+    fold_input, (_output_dir, resolve_msa_overlaps) = next(iter(prepared_inputs[0].items()))
+    chain = fold_input.chains[0]
+
+    assert resolve_msa_overlaps is True
+    assert chain.sequence == "ACD"
+    assert chain.residue_ids == [1, 2, 3]
+    assert chain.paired_msa == ">query\nACD\n"
+    assert chain.unpaired_msa == ""
+    assert captured["query_sequence"] == "ACD"
+    np.testing.assert_array_equal(
+        captured["msa_rows"],
+        np.asarray([[1, 3, 4], [5, 7, 8]], dtype=np.int32),
+    )
+    np.testing.assert_array_equal(
+        captured["deletion_rows"],
+        np.asarray([[0, 2, 3], [4, 6, 7]], dtype=np.int32),
+    )
+
+
+def _make_af3_translation_result(
+    af3_backend_module,
+    *,
+    chain_msas,
+    chain_stats,
+    translation_mode,
+    total_rows_considered=3,
+    paired_row_count=0,
+    invalid_paired_rows=0,
+    invalid_unpaired_rows=0,
+):
+    return af3_backend_module.Af2ToAf3TranslationResult(
+        chain_msas=tuple(chain_msas),
+        chain_stats=tuple(chain_stats),
+        translation_mode=translation_mode,
+        total_rows_considered=total_rows_considered,
+        occupancy_histogram={"0": 0, "1": 1, "ge_2": 0},
+        paired_row_count=paired_row_count,
+        per_chain_unpaired_row_counts=tuple(
+            stats.unpaired_msa_row_count for stats in chain_stats
+        ),
+        invalid_paired_rows=invalid_paired_rows,
+        invalid_unpaired_rows=invalid_unpaired_rows,
+    )
+
+
+def _translation_msas(*, paired_msa, unpaired_msa):
+    return SimpleNamespace(paired_msa=paired_msa, unpaired_msa=unpaired_msa)
+
+
+def _translation_stats(
+    *,
+    paired_msa_row_count,
+    unpaired_msa_row_count,
+    paired_species_identifier_count=0,
+    paired_rows_without_species_identifier_count=0,
+    paired_rows_with_generated_accession_count=0,
+):
+    return SimpleNamespace(
+        paired_msa_row_count=paired_msa_row_count,
+        unpaired_msa_row_count=unpaired_msa_row_count,
+        paired_species_identifier_count=paired_species_identifier_count,
+        paired_rows_without_species_identifier_count=(
+            paired_rows_without_species_identifier_count
+        ),
+        paired_rows_with_generated_accession_count=(
+            paired_rows_with_generated_accession_count
+        ),
+    )
+
+
+def test_prepare_input_multimer_writes_translated_msa_debug_artifacts(
+    af3_backend_module,
+    monkeypatch,
+    tmp_path,
+):
+    interactor_a = MonomericObject("protA", "ACDE")
+    interactor_b = MonomericObject("protB", "FGHI")
+    interactor_a.feature_dict = {}
+    interactor_b.feature_dict = {}
+
+    multimer = object.__new__(af3_backend_module.MultimericObject)
+    multimer.description = "protA_and_protB"
+    multimer.interactors = [interactor_a, interactor_b]
+    multimer.feature_dict = {"msa": np.asarray([[1, 2, 3, 4, 5, 6, 7, 8]], dtype=np.int32)}
+
+    translation_result = _make_af3_translation_result(
+        af3_backend_module,
+        chain_msas=[
+            _translation_msas(
+                paired_msa=">pairA\nACDE\n",
+                unpaired_msa=">unpairedA\nACDE\n",
+            ),
+            _translation_msas(
+                paired_msa=">pairB\nFGHI\n",
+                unpaired_msa=">unpairedB\nFGHI\n",
+            ),
+        ],
+        chain_stats=[
+            _translation_stats(
+                paired_msa_row_count=1,
+                unpaired_msa_row_count=1,
+                paired_species_identifier_count=2,
+                paired_rows_without_species_identifier_count=0,
+                paired_rows_with_generated_accession_count=1,
+            ),
+            _translation_stats(
+                paired_msa_row_count=1,
+                unpaired_msa_row_count=2,
+                paired_species_identifier_count=1,
+                paired_rows_without_species_identifier_count=1,
+                paired_rows_with_generated_accession_count=0,
+            ),
+        ],
+        translation_mode="af3_species_pairing_from_af2_individual_msas",
+        total_rows_considered=5,
+        paired_row_count=2,
+    )
+
+    monkeypatch.setattr(
+        af3_backend_module,
+        "translate_af2_individual_chain_features_to_af3_msas_with_stats",
+        lambda **kwargs: translation_result,
+    )
+    fallback_calls = []
+    monkeypatch.setattr(
+        af3_backend_module,
+        "translate_af2_complex_msa_to_af3_unpaired_chain_msas_with_stats",
+        lambda **kwargs: fallback_calls.append(kwargs),
+    )
+
+    prepared_inputs = af3_backend_module.AlphaFold3Backend.prepare_input(
+        objects_to_model=[
+            {
+                "object": multimer,
+                "output_dir": str(tmp_path),
+            }
+        ],
+        random_seed=23,
+        debug_msas=True,
+    )
+
+    assert fallback_calls == []
+    fold_input, (output_dir, resolve_msa_overlaps) = next(iter(prepared_inputs[0].items()))
+    assert output_dir == str(tmp_path)
+    assert resolve_msa_overlaps is False
+    assert [chain.id for chain in fold_input.chains] == ["A", "B"]
+    assert fold_input.chains[0].paired_msa == ">pairA\nACDE\n"
+    assert fold_input.chains[0].unpaired_msa == ">unpairedA\nACDE\n"
+    assert fold_input.chains[1].paired_msa == ">pairB\nFGHI\n"
+    assert fold_input.chains[1].unpaired_msa == ">unpairedB\nFGHI\n"
+
+    summary_path = tmp_path / f"{fold_input.sanitised_name()}_af2_to_af3_translation_summary.json"
+    assert summary_path.is_file()
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert summary["translation_modes"] == [
+        "af3_species_pairing_from_af2_individual_msas"
+    ]
+    assert summary["paired_row_count"] == 2
+    assert summary["chains"] == [
+        {
+            "chain_id": "A",
+            "chain_description": "protA",
+            "chain_length": 4,
+            "paired_msa_row_count": 1,
+            "unpaired_msa_row_count": 1,
+            "paired_species_identifier_count": 2,
+            "paired_rows_without_species_identifier_count": 0,
+            "paired_rows_with_generated_accession_count": 1,
+        },
+        {
+            "chain_id": "B",
+            "chain_description": "protB",
+            "chain_length": 4,
+            "paired_msa_row_count": 1,
+            "unpaired_msa_row_count": 2,
+            "paired_species_identifier_count": 1,
+            "paired_rows_without_species_identifier_count": 1,
+            "paired_rows_with_generated_accession_count": 0,
+        },
+    ]
+    assert (
+        tmp_path / f"{fold_input.sanitised_name()}_chain-A_paired_input.a3m"
+    ).read_text(encoding="utf-8") == ">pairA\nACDE\n"
+    assert (
+        tmp_path / f"{fold_input.sanitised_name()}_chain-B_unpaired_input.a3m"
+    ).read_text(encoding="utf-8") == ">unpairedB\nFGHI\n"
+
+
+def test_prepare_input_multimer_falls_back_to_complex_msa_when_pairing_is_unavailable(
+    af3_backend_module,
+    monkeypatch,
+    tmp_path,
+):
+    interactor_a = MonomericObject("protA", "ACDE")
+    interactor_b = MonomericObject("protB", "FGHI")
+    interactor_a.feature_dict = {}
+    interactor_b.feature_dict = {}
+
+    multimer = object.__new__(af3_backend_module.MultimericObject)
+    multimer.description = "protA_and_protB"
+    multimer.interactors = [interactor_a, interactor_b]
+    multimer.feature_dict = {
+        "msa": np.asarray([[1, 2, 3, 4, 5, 6, 7, 8]], dtype=np.int32),
+        "num_alignments": np.asarray([1], dtype=np.int32),
+        "deletion_matrix_int": np.zeros((1, 8), dtype=np.int32),
+        "asym_id": np.asarray([1, 1, 1, 1, 2, 2, 2, 2], dtype=np.int32),
+    }
+
+    individual_calls = []
+    fallback_calls = []
+    individual_result = _make_af3_translation_result(
+        af3_backend_module,
+        chain_msas=[
+            _translation_msas(paired_msa="", unpaired_msa=">indA\nACDE\n"),
+            _translation_msas(paired_msa="", unpaired_msa=">indB\nFGHI\n"),
+        ],
+        chain_stats=[
+            _translation_stats(
+                paired_msa_row_count=0,
+                unpaired_msa_row_count=1,
+                paired_species_identifier_count=0,
+            ),
+            _translation_stats(
+                paired_msa_row_count=0,
+                unpaired_msa_row_count=1,
+                paired_species_identifier_count=0,
+            ),
+        ],
+        translation_mode="af3_species_pairing_from_af2_individual_msas",
+    )
+    fallback_result = _make_af3_translation_result(
+        af3_backend_module,
+        chain_msas=[
+            _translation_msas(paired_msa="", unpaired_msa=">fallbackA\nACDE\n"),
+            _translation_msas(paired_msa="", unpaired_msa=">fallbackB\nFGHI\n"),
+        ],
+        chain_stats=[
+            _translation_stats(
+                paired_msa_row_count=0,
+                unpaired_msa_row_count=1,
+            ),
+            _translation_stats(
+                paired_msa_row_count=0,
+                unpaired_msa_row_count=1,
+            ),
+        ],
+        translation_mode="manual_unpaired_from_af2_multimer",
+    )
+
+    monkeypatch.setattr(
+        af3_backend_module,
+        "translate_af2_individual_chain_features_to_af3_msas_with_stats",
+        lambda **kwargs: individual_calls.append(kwargs) or individual_result,
+    )
+    monkeypatch.setattr(
+        af3_backend_module,
+        "translate_af2_complex_msa_to_af3_unpaired_chain_msas_with_stats",
+        lambda **kwargs: fallback_calls.append(kwargs) or fallback_result,
+    )
+
+    prepared_inputs = af3_backend_module.AlphaFold3Backend.prepare_input(
+        objects_to_model=[
+            {
+                "object": multimer,
+                "output_dir": str(tmp_path),
+            }
+        ],
+        random_seed=29,
+    )
+
+    assert len(individual_calls) == 1
+    assert len(fallback_calls) == 1
+    assert fallback_calls[0]["chain_sequences"] == ["ACDE", "FGHI"]
+    np.testing.assert_array_equal(
+        fallback_calls[0]["merged_msa"],
+        np.asarray([[1, 2, 3, 4, 5, 6, 7, 8]], dtype=np.int32),
+    )
+
+    fold_input, (_output_dir, resolve_msa_overlaps) = next(iter(prepared_inputs[0].items()))
+    assert resolve_msa_overlaps is False
+    assert [chain.unpaired_msa for chain in fold_input.chains] == [
+        ">fallbackA\nACDE\n",
+        ">fallbackB\nFGHI\n",
+    ]
+    assert [chain.paired_msa for chain in fold_input.chains] == ["", ""]
+
+
+def test_prepare_input_multimer_skips_complex_fallback_after_duplicate_residue_normalisation(
+    af3_backend_module,
+    monkeypatch,
+    tmp_path,
+):
+    interactor_a = MonomericObject("protA", "ABCD")
+    interactor_b = MonomericObject("protB", "FGHI")
+    interactor_a.feature_dict = {"residue_index": np.asarray([0, 0, 1, 2], dtype=np.int32)}
+    interactor_b.feature_dict = {}
+
+    multimer = object.__new__(af3_backend_module.MultimericObject)
+    multimer.description = "protA_and_protB"
+    multimer.interactors = [interactor_a, interactor_b]
+    multimer.feature_dict = {"msa": np.asarray([[1, 2, 3, 4, 5, 6, 7, 8]], dtype=np.int32)}
+
+    individual_result = _make_af3_translation_result(
+        af3_backend_module,
+        chain_msas=[
+            _translation_msas(paired_msa="", unpaired_msa=">indA\nACD\n"),
+            _translation_msas(paired_msa="", unpaired_msa=">indB\nFGHI\n"),
+        ],
+        chain_stats=[
+            _translation_stats(
+                paired_msa_row_count=0,
+                unpaired_msa_row_count=1,
+                paired_species_identifier_count=0,
+            ),
+            _translation_stats(
+                paired_msa_row_count=0,
+                unpaired_msa_row_count=1,
+                paired_species_identifier_count=0,
+            ),
+        ],
+        translation_mode="af3_species_pairing_from_af2_individual_msas",
+    )
+    fallback_calls = []
+
+    monkeypatch.setattr(
+        af3_backend_module,
+        "translate_af2_individual_chain_features_to_af3_msas_with_stats",
+        lambda **kwargs: individual_result,
+    )
+    monkeypatch.setattr(
+        af3_backend_module,
+        "translate_af2_complex_msa_to_af3_unpaired_chain_msas_with_stats",
+        lambda **kwargs: fallback_calls.append(kwargs),
+    )
+
+    prepared_inputs = af3_backend_module.AlphaFold3Backend.prepare_input(
+        objects_to_model=[
+            {
+                "object": multimer,
+                "output_dir": str(tmp_path),
+            }
+        ],
+        random_seed=31,
+    )
+
+    assert fallback_calls == []
+    fold_input, (_output_dir, resolve_msa_overlaps) = next(iter(prepared_inputs[0].items()))
+    assert resolve_msa_overlaps is False
+    assert [chain.sequence for chain in fold_input.chains] == ["ACD", "FGHI"]
+    assert [chain.unpaired_msa for chain in fold_input.chains] == [
+        ">indA\nACD\n",
+        ">indB\nFGHI\n",
+    ]
+
+
+def test_prepare_input_builds_template_mmcif_and_skips_zero_atom_templates(
+    af3_backend_module,
+    monkeypatch,
+    tmp_path,
+):
+    monomer = MonomericObject("templated", "ACDE")
+    atom_type_num = af3_backend_module.residue_constants.atom_type_num
+    hhblits_alphabet_size = len(
+        af3_backend_module.residue_constants.MAP_HHBLITS_AATYPE_TO_OUR_AATYPE
+    )
+    template_aatype = np.zeros((2, 4, hhblits_alphabet_size), dtype=np.float32)
+    template_aatype[:, np.arange(4), [0, 4, 3, 6]] = 1.0
+    template_masks = np.zeros((2, 4, atom_type_num), dtype=np.float32)
+    template_masks[1, 0, 0] = 1.0
+    template_masks[1, 2, 0] = 1.0
+    monomer.feature_dict = {
+        "residue_index": np.arange(4, dtype=np.int32),
+        "template_aatype": template_aatype,
+        "template_domain_names": np.asarray([b"skip", b"1abc_B"], dtype=object),
+        "template_sequence": np.asarray([b"ACDE", b"ACDE"], dtype=object),
+        "template_all_atom_masks": template_masks,
+        "template_all_atom_positions": np.zeros(
+            (2, 4, atom_type_num, 3), dtype=np.float32
+        ),
+    }
+
+    mmcif_calls = []
+
+    def _fake_to_mmcif(*, prot, file_id, model_type):
+        mmcif_calls.append((prot, file_id, model_type))
+        return (
+            "data_1abc\n"
+            "loop_\n"
+            "_entity_poly_seq.entity_id\n"
+            "_entity_poly_seq.num\n"
+            "_entity_poly_seq.mon_id\n"
+            "1 1 ALA\n"
+            "1 2 CYS\n"
+            "#\n"
+            "loop_\n"
+            "_atom_site.group_PDB\n"
+            "ATOM\n"
+        )
+
+    monkeypatch.setattr(af3_backend_module, "to_mmcif", _fake_to_mmcif)
+    monkeypatch.chdir(tmp_path)
+
+    prepared_inputs = af3_backend_module.AlphaFold3Backend.prepare_input(
+        objects_to_model=[
+            {
+                "object": monomer,
+                "output_dir": str(tmp_path),
+            }
+        ],
+        random_seed=37,
+        debug_templates=True,
+    )
+
+    assert len(mmcif_calls) == 1
+    fold_input, _ = next(iter(prepared_inputs[0].items()))
+    chain = fold_input.chains[0]
+    assert len(chain.templates) == 1
+    assert chain.templates[0].query_to_template_map == {0: 0, 2: 1}
+    assert "_entity_poly_seq.mon_id" not in chain.templates[0].mmcif
+    assert "_pdbx_audit_revision_history.revision_date" in chain.templates[0].mmcif
+    debug_path = (
+        tmp_path
+        / "templates_debug"
+        / "generated_template_1abc_B_chainA_idx1.cif"
+    )
+    assert debug_path.read_text(encoding="utf-8") == chain.templates[0].mmcif
+
+
+def test_prepare_input_writes_template_error_artifacts_on_mmcif_generation_failure(
+    af3_backend_module,
+    monkeypatch,
+    tmp_path,
+):
+    monomer = MonomericObject("templated", "ACDE")
+    atom_type_num = af3_backend_module.residue_constants.atom_type_num
+    hhblits_alphabet_size = len(
+        af3_backend_module.residue_constants.MAP_HHBLITS_AATYPE_TO_OUR_AATYPE
+    )
+    template_aatype = np.zeros((1, 4, hhblits_alphabet_size), dtype=np.float32)
+    template_aatype[0, np.arange(4), [0, 4, 3, 6]] = 1.0
+    template_masks = np.zeros((1, 4, atom_type_num), dtype=np.float32)
+    template_masks[0, :, 0] = 1.0
+    monomer.feature_dict = {
+        "residue_index": np.arange(4, dtype=np.int32),
+        "template_aatype": template_aatype,
+        "template_domain_names": np.asarray([b"bad_C"], dtype=object),
+        "template_sequence": np.asarray([b"ACDE"], dtype=object),
+        "template_all_atom_masks": template_masks,
+        "template_all_atom_positions": np.zeros(
+            (1, 4, atom_type_num, 3), dtype=np.float32
+        ),
+    }
+
+    monkeypatch.setattr(
+        af3_backend_module,
+        "to_mmcif",
+        lambda **kwargs: (_ for _ in ()).throw(RuntimeError("mmcif boom")),
+    )
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(RuntimeError, match="mmcif boom"):
+        af3_backend_module.AlphaFold3Backend.prepare_input(
+            objects_to_model=[
+                {
+                    "object": monomer,
+                    "output_dir": str(tmp_path),
+                }
+            ],
+            random_seed=41,
+        )
+
+    error_path = tmp_path / "templates_debug" / "ERROR_template_0_chain_A.txt"
+    error_report = error_path.read_text(encoding="utf-8")
+    assert "Error: mmcif boom" in error_report
+    assert "Template index: 0" in error_report
+    assert "Chain ID: A" in error_report
+    assert "Domain name:" in error_report
+    assert "Template sequence:" in error_report

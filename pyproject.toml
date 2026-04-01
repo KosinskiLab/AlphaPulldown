@@ -26,7 +26,7 @@ dependencies = [
   "matplotlib>=3.3.3",
   "ml-collections>=0.1.0",
   "pandas>=1.5.3",
-  "tensorflow-cpu>=2.16.1",
+  "tensorflow-cpu==2.20.0",
   "importlib-resources>=6.1.0",
   "importlib-metadata>=4.8.2,<5.0.0",
   "biopython>=1.81,<1.82",
@@ -44,6 +44,28 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+alphafold2 = [
+  "jax==0.5.3",
+  "jax[cuda12]==0.5.3; platform_system == 'Linux' and platform_machine == 'x86_64'",
+  "modelcif>=1.6",
+  "numpy<2",
+  "openmm>=8.2",
+  "pdbfixer>=1.10",
+]
+alphafold3 = [
+  "jaxtyping==0.2.34",
+  "jax==0.5.3",
+  "jax[cuda12]==0.5.3; platform_system == 'Linux' and platform_machine == 'x86_64'",
+  "jax-triton==0.2.0; platform_system == 'Linux' and platform_machine == 'x86_64'",
+  "modelcif>=1.6",
+  "numpy<2",
+  "openmm>=8.2",
+  "pdbfixer>=1.10",
+  "rdkit==2024.3.5",
+  "triton==3.1.0; platform_system == 'Linux' and platform_machine == 'x86_64'",
+  "typeguard==2.13.3",
+  "zstandard",
+]
 test = [
   "parameterized",
   "pytest>=8.0",

@@ -33,8 +33,8 @@ _UNIREF_HEADER_PATTERN = re.compile(
     r'^UniRef\d+_(?P<accession>[A-Za-z0-9]+)$'
 )
 _UNIPARC_HEADER_PATTERN = re.compile(r'^(?P<accession>UPI[A-Z0-9]+)$')
-_GENERIC_ACCESSION_PATTERN = re.compile(
-    r'^(?P<accession>[A-Za-z0-9]{6,16})$'
+_UNIPROT_ACCESSION_PATTERN = re.compile(
+    r'^(?:[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9](?:[A-Z][A-Z0-9]{2}[0-9]){1,2})$'
 )
 
 _UNIPROT_BATCH_SIZE = 32
@@ -59,14 +59,19 @@ def _extract_accession_and_species(description: str) -> tuple[str, str]:
     if matches:
         return matches.group("accession"), matches.group("species")
 
-    for pattern in (
-        _UNIREF_HEADER_PATTERN,
-        _UNIPARC_HEADER_PATTERN,
-        _GENERIC_ACCESSION_PATTERN,
-    ):
-        matches = pattern.search(sequence_identifier.strip())
-        if matches:
-            return matches.group("accession"), ""
+    matches = _UNIREF_HEADER_PATTERN.search(sequence_identifier.strip())
+    if matches:
+        accession = matches.group("accession")
+        if _is_resolvable_accession(accession):
+            return accession, ""
+        return "", ""
+
+    matches = _UNIPARC_HEADER_PATTERN.search(sequence_identifier.strip())
+    if matches:
+        return matches.group("accession"), ""
+
+    if _UNIPROT_ACCESSION_PATTERN.search(sequence_identifier.strip()):
+        return sequence_identifier.strip(), ""
 
     return "", ""
 
@@ -79,6 +84,12 @@ def _batched(items: Sequence[str], batch_size: int) -> Iterable[Sequence[str]]:
 def _is_transport_error(exc: Exception) -> bool:
     return isinstance(exc, (TimeoutError, ConnectionError, OSError, error.URLError)) and not isinstance(
         exc, error.HTTPError
+    )
+
+
+def _is_resolvable_accession(accession: str) -> bool:
+    return accession.startswith("UPI") or bool(
+        _UNIPROT_ACCESSION_PATTERN.fullmatch(accession)
     )
 
 
@@ -203,8 +214,13 @@ def resolve_species_ids_by_accession(
     unresolved = [
         accession
         for accession in sorted(set(accessions))
-        if accession and accession not in _SPECIES_ID_CACHE
+        if accession
+        and accession not in _SPECIES_ID_CACHE
+        and _is_resolvable_accession(accession)
     ]
+    for accession in accessions:
+        if accession and accession not in _SPECIES_ID_CACHE and not _is_resolvable_accession(accession):
+            _SPECIES_ID_CACHE.setdefault(accession, "")
     if unresolved:
         uniprot_accessions = [
             accession for accession in unresolved if not accession.startswith("UPI")

@@ -31,13 +31,15 @@ from alphapulldown.utils.modelling_setup import create_uniprot_runner
 from alphapulldown.utils import save_meta_data
 
 # Try to import AlphaFold3, but it's optional
+AF3_IMPORT_ERROR = None
 try:
     from alphafold3.data.pipeline import DataPipeline as AF3DataPipeline, DataPipelineConfig as AF3DataPipelineConfig
     from alphafold3.common import folding_input
-except ImportError:
+except ImportError as exc:
     AF3DataPipeline = None
     AF3DataPipelineConfig = None
     folding_input = None
+    AF3_IMPORT_ERROR = exc
 
 # =================== Database Maps ===================
 AF2_DATABASES = {
@@ -321,7 +323,13 @@ def create_custom_db(temp_dir, protein, template_paths, chains):
 def create_pipeline_af3():
     """Create the AlphaFold3 pipeline. Raises if AF3 not available."""
     if AF3DataPipeline is None or AF3DataPipelineConfig is None:
-        raise ImportError("alphafold3.data.pipeline not available")
+        raise ImportError(
+            "AlphaFold3 is not installed correctly. "
+            "Install AlphaPulldown with 'pip install -e \".[alphafold3,test]\"', "
+            "make sure the build environment provides SQLite, then build the "
+            "vendored package with 'pip install -r alphafold3/dev-requirements.txt', "
+            "'pip install --no-deps -e ./alphafold3', and 'build_data'."
+        ) from AF3_IMPORT_ERROR
     
     # Convert max_template_date string to datetime.date object
     import datetime

@@ -5,11 +5,14 @@ Tests both AlphaFold2 and AlphaFold3 pipelines with various configurations.
 """
 
 import os
+import sys
 import tempfile
 import json
+import lzma
 import pickle
 import pytest
 import logging
+import types
 from pathlib import Path
 from unittest.mock import patch, MagicMock, mock_open
 
@@ -22,8 +25,9 @@ logger = logging.getLogger(__name__)
 
 # Minimal real MonomericObject for pickling
 class DummyMonomer:
-    def __init__(self, description):
+    def __init__(self, description, sequence=None):
         self.description = description
+        self.sequence = sequence
         self.feature_dict = {}
         self.uniprot_runner = None
     def make_features(self, *a, **k):
@@ -32,6 +36,20 @@ class DummyMonomer:
         return None
     def all_seq_msa_features(self, *a, **k):
         return {}
+
+
+class RecordingDummyMonomer(DummyMonomer):
+    def __init__(self, description, sequence=None):
+        super().__init__(description, sequence)
+        self.feature_calls = []
+        self.mmseq_calls = []
+
+    def make_features(self, *args, **kwargs):
+        self.feature_calls.append(kwargs)
+
+    def make_mmseq_features(self, *args, **kwargs):
+        self.mmseq_calls.append(kwargs)
+
 
 class DummyJsonObj:
     def to_json(self):
@@ -43,6 +61,60 @@ def real_write_text(self, content, *args, **kwargs):
     with open(self, 'w') as f:
         f.write(content)
     return len(content)
+
+
+def build_af3_stub_modules():
+    alphafold3_pkg = types.ModuleType("alphafold3")
+    alphafold3_pkg.__path__ = []
+    common_pkg = types.ModuleType("alphafold3.common")
+    common_pkg.__path__ = []
+    structure_pkg = types.ModuleType("alphafold3.structure")
+    structure_pkg.__path__ = []
+    folding_input_mod = types.ModuleType("alphafold3.common.folding_input")
+    mmcif_mod = types.ModuleType("alphafold3.structure.mmcif")
+
+    class ProteinChain:
+        def __init__(self, sequence, id, ptms=None):
+            self.sequence = sequence
+            self.id = id
+            self.ptms = [] if ptms is None else list(ptms)
+
+    class RnaChain:
+        def __init__(self, sequence, id, modifications=None):
+            self.sequence = sequence
+            self.id = id
+            self.modifications = [] if modifications is None else list(modifications)
+
+    class DnaChain:
+        def __init__(self, sequence, id, modifications=None):
+            self.sequence = sequence
+            self.id = id
+            self.modifications = [] if modifications is None else list(modifications)
+
+    class Input:
+        def __init__(self, name, chains, rng_seeds):
+            self.name = name
+            self.chains = list(chains)
+            self.rng_seeds = list(rng_seeds)
+
+    folding_input_mod.ProteinChain = ProteinChain
+    folding_input_mod.RnaChain = RnaChain
+    folding_input_mod.DnaChain = DnaChain
+    folding_input_mod.Input = Input
+    mmcif_mod.int_id_to_str_id = lambda idx: chr(ord("A") + idx - 1)
+
+    alphafold3_pkg.common = common_pkg
+    alphafold3_pkg.structure = structure_pkg
+    common_pkg.folding_input = folding_input_mod
+    structure_pkg.mmcif = mmcif_mod
+
+    return {
+        "alphafold3": alphafold3_pkg,
+        "alphafold3.common": common_pkg,
+        "alphafold3.common.folding_input": folding_input_mod,
+        "alphafold3.structure": structure_pkg,
+        "alphafold3.structure.mmcif": mmcif_mod,
+    }, folding_input_mod
 
 class TestCreateIndividualFeaturesComprehensive:
     """Comprehensive test cases for create_individual_features.py."""
@@ -98,10 +170,10 @@ class TestCreateIndividualFeaturesComprehensive:
         ("alphafold2", "multi_protein.fasta", False, False),
         ("alphafold2", "single_protein.fasta", True, False),  # mmseqs2
         ("alphafold2", "single_protein.fasta", False, True),  # compressed
-        #("alphafold3", "single_protein.fasta", False, False),
-        #("alphafold3", "multi_protein.fasta", False, False),
-        #("alphafold3", "rna.fasta", False, False),
-        #("alphafold3", "dna.fasta", False, False),
+        ("alphafold3", "single_protein.fasta", False, False),
+        ("alphafold3", "multi_protein.fasta", False, False),
+        ("alphafold3", "rna.fasta", False, False),
+        ("alphafold3", "dna.fasta", False, False),
     ])
     def test_feature_creation(self, pipeline, fasta_file, use_mmseqs2, compress_features):
         """Test feature creation for different configurations."""
@@ -157,38 +229,198 @@ class TestCreateIndividualFeaturesComprehensive:
                     logger.info(f"Verified file exists: {file_path}")
         else:
             logger.info("Testing AlphaFold3 pipeline")
-            with patch.object(create_features, 'create_pipeline_af3') as mock_af3_pipeline, \
-                 patch('alphapulldown.scripts.create_individual_features.folding_input') as mock_folding_input, \
+            af3_modules, folding_input_stub = build_af3_stub_modules()
+            with patch.dict(sys.modules, af3_modules), \
+                 patch.object(create_features, 'create_pipeline_af3') as mock_af3_pipeline, \
+                 patch.object(create_features, 'folding_input', folding_input_stub), \
                  patch('pathlib.Path.write_text', new=real_write_text), \
                  patch('alphapulldown.utils.save_meta_data.get_meta_dict', return_value={}):
                 mock_af3_pipeline.return_value = MagicMock(process=MagicMock(return_value=DummyJsonObj()))
-                # Patch chain classes in folding_input
-                mock_folding_input.ProteinChain = lambda sequence, id, ptms: MagicMock()
-                mock_folding_input.RnaChain = lambda sequence, id, modifications=None: MagicMock()
-                mock_folding_input.DnaChain = lambda sequence, id: MagicMock()
-                mock_folding_input.Input = lambda name, chains, rng_seeds: MagicMock()
                 create_features.create_af3_individual_features()
-                
+
+                process_calls = mock_af3_pipeline.return_value.process.call_args_list
+                observed_chain_types = [
+                    type(call.args[0].chains[0]).__name__ for call in process_calls
+                ]
+
                 expected_files = []
+                expected_chain_types = []
                 if fasta_file == "single_protein.fasta":
                     expected_files.append("A0A024R1R8_af3_input.json")
+                    expected_chain_types.append("ProteinChain")
                 elif fasta_file == "multi_protein.fasta":
                     expected_files.extend(["A0A024R1R8_af3_input.json", "P61626_af3_input.json"])
+                    expected_chain_types.extend(["ProteinChain", "ProteinChain"])
                 elif fasta_file == "rna.fasta":
                     expected_files.append("RNA_TEST_af3_input.json")
+                    expected_chain_types.append("RnaChain")
                 elif fasta_file == "dna.fasta":
                     expected_files.append("DNA_TEST_af3_input.json")
+                    expected_chain_types.append("DnaChain")
                 
                 logger.info(f"Checking for expected files: {expected_files}")
+                assert observed_chain_types == expected_chain_types
                 for expected_file in expected_files:
                     file_path = os.path.join(output_dir, expected_file)
-                    # Simulate file creation
-                    Path(file_path).parent.mkdir(parents=True, exist_ok=True)
-                    Path(file_path).write_text('{"test": "features"}')
                     assert os.path.exists(file_path), f"Expected file {file_path} not found"
                     logger.info(f"Verified file exists: {file_path}")
         
         logger.info("Feature creation test completed successfully")
+
+    def test_af3_invalid_sequence_is_logged_and_skipped(self):
+        """Invalid AF3 sequences should not create output files."""
+        invalid_fasta = os.path.join(self.fasta_dir, "invalid_af3.fasta")
+        with open(invalid_fasta, "w") as handle:
+            handle.write(">INVALID\nACDZ*\n")
+
+        from absl import flags
+
+        FLAGS = flags.FLAGS
+        FLAGS(["test"])
+        FLAGS.data_pipeline = "alphafold3"
+        FLAGS.fasta_paths = [invalid_fasta]
+        FLAGS.data_dir = self.af3_db
+        FLAGS.output_dir = os.path.join(self.test_dir, "output_invalid_af3")
+        FLAGS.max_template_date = "2021-09-30"
+
+        error_messages = []
+        af3_modules, folding_input_stub = build_af3_stub_modules()
+
+        with patch.dict(sys.modules, af3_modules), \
+             patch.object(create_features, "create_pipeline_af3") as mock_af3_pipeline, \
+             patch.object(create_features, "folding_input", folding_input_stub), \
+             patch.object(create_features.logging, "error", side_effect=error_messages.append):
+            mock_af3_pipeline.return_value = MagicMock(process=MagicMock(return_value=DummyJsonObj()))
+
+            create_features.create_af3_individual_features()
+
+        mock_af3_pipeline.return_value.process.assert_not_called()
+        assert not os.path.exists(
+            os.path.join(FLAGS.output_dir, "INVALID_af3_input.json")
+        )
+        assert any("Failed to create AlphaFold3 input object" in message for message in error_messages)
+
+    def test_create_individual_features_truemultimer_respects_seq_index(self):
+        """TrueMultimer mode should only process the selected CSV row."""
+        from absl import flags
+
+        FLAGS = flags.FLAGS
+        FLAGS(["test"])
+        FLAGS.description_file = os.path.join(self.test_dir, "description.csv")
+        FLAGS.fasta_paths = [os.path.join(self.fasta_dir, "multi_protein.fasta")]
+        FLAGS.path_to_mmt = os.path.join(self.test_dir, "templates")
+        FLAGS.multiple_mmts = True
+        FLAGS.seq_index = 2
+
+        feats = [
+            {"protein": "prot1"},
+            {"protein": "prot2"},
+            {"protein": "prot3"},
+        ]
+
+        with patch.object(create_features, "parse_csv_file", return_value=feats) as mock_parse, \
+             patch.object(create_features, "process_multimeric_features") as mock_process:
+            create_features.create_individual_features_truemultimer()
+
+        mock_parse.assert_called_once_with(
+            FLAGS.description_file,
+            FLAGS.fasta_paths,
+            FLAGS.path_to_mmt,
+            FLAGS.multiple_mmts,
+        )
+        mock_process.assert_called_once_with(feats[1], 2)
+
+    def test_process_multimeric_features_rejects_missing_templates(self):
+        """TrueMultimer mode should fail early if a template path is missing."""
+        feat = {
+            "protein": "complexA",
+            "chains": ["A"],
+            "templates": [os.path.join(self.test_dir, "missing_template.cif")],
+            "sequence": "ACDE",
+        }
+
+        with pytest.raises(FileNotFoundError, match="does not exist"):
+            create_features.process_multimeric_features(feat, 1)
+
+    def test_process_multimeric_features_creates_custom_db_and_saves_monomer(self):
+        """TrueMultimer processing should build a custom DB and hand a monomer to the saver."""
+        template_path = os.path.join(self.test_dir, "template1.cif")
+        Path(template_path).write_text("data_template\n", encoding="utf-8")
+
+        class RecordingMonomer:
+            def __init__(self, description, sequence):
+                self.description = description
+                self.sequence = sequence
+                self.feature_dict = {}
+                self.uniprot_runner = None
+
+        feat = {
+            "protein": "complexB",
+            "chains": ["A", "B"],
+            "templates": [template_path],
+            "sequence": "ACDEFG",
+        }
+
+        from absl import flags
+
+        FLAGS = flags.FLAGS
+        FLAGS(["test"])
+        FLAGS.output_dir = os.path.join(self.test_dir, "truemultimer_output")
+        FLAGS.data_dir = self.af2_db
+        FLAGS.max_template_date = "2021-09-30"
+        FLAGS.use_mmseqs2 = False
+        FLAGS.jackhmmer_binary_path = "/usr/bin/jackhmmer"
+        FLAGS.uniprot_database_path = "/db/uniprot.fasta"
+
+        with patch.object(create_features, "MonomericObject", RecordingMonomer), \
+             patch.object(create_features, "create_custom_db", return_value="/tmp/custom_db") as mock_custom_db, \
+             patch.object(create_features, "create_arguments") as mock_create_arguments, \
+             patch.object(create_features, "create_pipeline_af2", return_value="pipeline") as mock_pipeline, \
+             patch.object(create_features, "create_uniprot_runner", return_value="runner") as mock_runner, \
+             patch.object(create_features, "create_and_save_monomer_objects") as mock_save:
+            create_features.process_multimeric_features(feat, 1)
+
+        mock_custom_db.assert_called_once()
+        custom_db_args = mock_custom_db.call_args.args
+        assert custom_db_args[1:] == (
+            "complexB",
+            [template_path],
+            ["A", "B"],
+        )
+        mock_create_arguments.assert_called_once_with("/tmp/custom_db")
+        mock_pipeline.assert_called_once_with()
+        mock_runner.assert_called_once_with(
+            FLAGS.jackhmmer_binary_path,
+            FLAGS.uniprot_database_path,
+        )
+
+        saved_monomer, saved_pipeline = mock_save.call_args.args
+        assert saved_pipeline == "pipeline"
+        assert saved_monomer.description == "complexB"
+        assert saved_monomer.sequence == "ACDEFG"
+        assert saved_monomer.uniprot_runner == "runner"
+
+    def test_main_dispatches_to_truemultimer_for_af2_template_runs(self):
+        """The main entrypoint should route AF2 template jobs to the TrueMultimer path."""
+        from absl import flags
+
+        FLAGS = flags.FLAGS
+        FLAGS(["test"])
+        FLAGS.data_pipeline = "alphafold2"
+        FLAGS.fasta_paths = [os.path.join(self.fasta_dir, "single_protein.fasta")]
+        FLAGS.data_dir = self.af2_db
+        FLAGS.output_dir = os.path.join(self.test_dir, "main_truemultimer")
+        FLAGS.max_template_date = "2021-09-30"
+        FLAGS.path_to_mmt = os.path.join(self.test_dir, "templates")
+
+        with patch.object(create_features, "check_template_date") as mock_check, \
+             patch.object(create_features, "create_individual_features_truemultimer") as mock_tm, \
+             patch.object(create_features, "create_individual_features") as mock_single:
+            create_features.main([])
+
+        mock_check.assert_called_once_with()
+        mock_tm.assert_called_once_with()
+        mock_single.assert_not_called()
 
     def test_database_path_mapping(self):
         """Test that database paths are correctly mapped for both pipelines."""
@@ -229,7 +461,7 @@ class TestCreateIndividualFeaturesComprehensive:
             
             FLAGS.data_pipeline = "alphafold3"
             FLAGS.data_dir = "/test/db"
-            with pytest.raises(ImportError):
+            with pytest.raises(ImportError, match="pip install -e .*alphafold3,test.*build_data"):
                 create_features.create_pipeline_af3()
             logger.info("AF3 pipeline creation correctly failed with ImportError")
 
@@ -670,3 +902,286 @@ class TestCreateIndividualFeaturesComprehensive:
             create_features.main([])
         
         logger.info("Flag validation for MMseqs2 scenarios successful") 
+
+
+def test_create_pipeline_af2_uses_hhsearch_template_stack(tmp_flags):
+    create_features.FLAGS.use_mmseqs2 = False
+    create_features.FLAGS.use_hhsearch = True
+    create_features.FLAGS.hhsearch_binary_path = "/bin/hhsearch"
+    create_features.FLAGS.pdb70_database_path = "/db/pdb70"
+    create_features.FLAGS.template_mmcif_dir = "/db/mmcif"
+    create_features.FLAGS.max_template_date = "2021-09-30"
+    create_features.FLAGS.kalign_binary_path = "/bin/kalign"
+    create_features.FLAGS.obsolete_pdbs_path = "/db/obsolete.dat"
+
+    with patch.object(create_features.hhsearch, "HHSearch", return_value="searcher") as mock_searcher, \
+         patch.object(create_features.templates, "HhsearchHitFeaturizer", return_value="featurizer") as mock_featurizer, \
+         patch.object(create_features, "AF2DataPipeline", return_value="pipeline") as mock_pipeline:
+        pipeline = create_features.create_pipeline_af2()
+
+    assert pipeline == "pipeline"
+    mock_searcher.assert_called_once_with(
+        binary_path="/bin/hhsearch",
+        databases=["/db/pdb70"],
+    )
+    mock_featurizer.assert_called_once_with(
+        mmcif_dir="/db/mmcif",
+        max_template_date="2021-09-30",
+        max_hits=20,
+        kalign_binary_path="/bin/kalign",
+        release_dates_path=None,
+        obsolete_pdbs_path="/db/obsolete.dat",
+    )
+    assert mock_pipeline.call_args.kwargs["template_searcher"] == "searcher"
+    assert mock_pipeline.call_args.kwargs["template_featurizer"] == "featurizer"
+
+
+def test_create_pipeline_af2_uses_hmmsearch_template_stack(tmp_flags):
+    create_features.FLAGS.use_mmseqs2 = False
+    create_features.FLAGS.use_hhsearch = False
+    create_features.FLAGS.hmmsearch_binary_path = "/bin/hmmsearch"
+    create_features.FLAGS.hmmbuild_binary_path = "/bin/hmmbuild"
+    create_features.FLAGS.pdb_seqres_database_path = "/db/pdb_seqres.txt"
+    create_features.FLAGS.template_mmcif_dir = "/db/mmcif"
+    create_features.FLAGS.max_template_date = "2021-09-30"
+    create_features.FLAGS.kalign_binary_path = "/bin/kalign"
+    create_features.FLAGS.obsolete_pdbs_path = "/db/obsolete.dat"
+
+    with patch.object(create_features.hmmsearch, "Hmmsearch", return_value="searcher") as mock_searcher, \
+         patch.object(create_features.templates, "HmmsearchHitFeaturizer", return_value="featurizer") as mock_featurizer, \
+         patch.object(create_features, "AF2DataPipeline", return_value="pipeline") as mock_pipeline:
+        pipeline = create_features.create_pipeline_af2()
+
+    assert pipeline == "pipeline"
+    mock_searcher.assert_called_once_with(
+        binary_path="/bin/hmmsearch",
+        hmmbuild_binary_path="/bin/hmmbuild",
+        database_path="/db/pdb_seqres.txt",
+    )
+    mock_featurizer.assert_called_once_with(
+        mmcif_dir="/db/mmcif",
+        max_template_date="2021-09-30",
+        max_hits=20,
+        kalign_binary_path="/bin/kalign",
+        obsolete_pdbs_path="/db/obsolete.dat",
+        release_dates_path=None,
+    )
+    assert mock_pipeline.call_args.kwargs["template_searcher"] == "searcher"
+    assert mock_pipeline.call_args.kwargs["template_featurizer"] == "featurizer"
+
+
+def test_create_individual_features_only_saves_selected_sequence(tmp_flags):
+    create_features.FLAGS.seq_index = 2
+
+    with patch.object(create_features, "create_arguments") as mock_arguments, \
+         patch.object(create_features, "create_pipeline_af2", return_value="pipeline") as mock_pipeline, \
+         patch.object(create_features, "create_uniprot_runner", return_value="runner") as mock_runner, \
+         patch.object(create_features, "MonomericObject", DummyMonomer), \
+         patch.object(create_features, "iter_seqs", return_value=[("AAAA", "first"), ("BBBB", "second")]), \
+         patch.object(create_features, "create_and_save_monomer_objects") as mock_save:
+        create_features.create_individual_features()
+
+    mock_arguments.assert_called_once_with()
+    mock_pipeline.assert_called_once_with()
+    mock_runner.assert_called_once()
+    saved_monomer, saved_pipeline = mock_save.call_args.args
+    assert saved_pipeline == "pipeline"
+    assert saved_monomer.description == "second"
+    assert saved_monomer.uniprot_runner == "runner"
+
+
+def test_create_and_save_monomer_objects_writes_compressed_af2_outputs(tmp_flags, tmp_path):
+    create_features.FLAGS.output_dir = str(tmp_path)
+    create_features.FLAGS.compress_features = True
+    create_features.FLAGS.skip_existing = False
+    create_features.FLAGS.use_mmseqs2 = False
+    create_features.FLAGS.use_precomputed_msas = True
+    create_features.FLAGS.save_msa_files = True
+
+    monomer = RecordingDummyMonomer("protA")
+    with patch("alphapulldown.utils.save_meta_data.get_meta_dict", return_value={"source": "test"}):
+        create_features.create_and_save_monomer_objects(monomer, pipeline="pipeline")
+
+    metadata_files = list(tmp_path.glob("protA_feature_metadata_*.json.xz"))
+    assert len(metadata_files) == 1
+    with lzma.open(metadata_files[0], "rt", encoding="utf-8") as handle:
+        assert json.load(handle) == {"source": "test"}
+    assert (tmp_path / "protA.pkl.xz").exists()
+    assert monomer.feature_calls == [
+        {
+            "pipeline": "pipeline",
+            "output_dir": str(tmp_path),
+            "use_precomputed_msa": True,
+            "save_msa": True,
+        }
+    ]
+    assert monomer.mmseq_calls == []
+
+
+def test_create_and_save_monomer_objects_skips_existing_outputs(tmp_flags, tmp_path):
+    create_features.FLAGS.output_dir = str(tmp_path)
+    create_features.FLAGS.compress_features = False
+    create_features.FLAGS.skip_existing = True
+    create_features.FLAGS.use_mmseqs2 = True
+
+    existing_pickle = tmp_path / "protA.pkl"
+    existing_pickle.write_bytes(b"already-there")
+    monomer = RecordingDummyMonomer("protA")
+    create_features.create_and_save_monomer_objects(monomer, pipeline=None)
+
+    assert monomer.feature_calls == []
+    assert monomer.mmseq_calls == []
+    assert list(tmp_path.glob("protA_feature_metadata_*.json")) == []
+
+
+def test_create_and_save_monomer_objects_uses_mmseqs_when_requested(tmp_flags, tmp_path):
+    create_features.FLAGS.output_dir = str(tmp_path)
+    create_features.FLAGS.compress_features = False
+    create_features.FLAGS.skip_existing = False
+    create_features.FLAGS.use_mmseqs2 = True
+    create_features.FLAGS.use_precomputed_msas = True
+    create_features.FLAGS.re_search_templates_mmseqs2 = True
+
+    monomer = RecordingDummyMonomer("protA")
+    with patch("alphapulldown.utils.save_meta_data.get_meta_dict", return_value={"source": "test"}):
+        create_features.create_and_save_monomer_objects(monomer, pipeline=None)
+
+    assert monomer.feature_calls == []
+    assert monomer.mmseq_calls == [
+        {
+            "DEFAULT_API_SERVER": create_features.DEFAULT_API_SERVER,
+            "output_dir": str(tmp_path),
+            "use_precomputed_msa": True,
+            "use_templates": True,
+        }
+    ]
+    assert (tmp_path / "protA.pkl").exists()
+
+
+def test_process_multimeric_features_uses_mmseqs_without_local_pipeline(tmp_flags, tmp_path):
+    template_path = tmp_path / "template.cif"
+    template_path.write_text("data_template\n", encoding="utf-8")
+
+    create_features.FLAGS.output_dir = str(tmp_path / "out")
+    create_features.FLAGS.use_mmseqs2 = True
+
+    feat = {
+        "protein": "complex_mmseqs",
+        "chains": ["A"],
+        "templates": [str(template_path)],
+        "sequence": "ACDE",
+    }
+
+    with patch.object(create_features, "MonomericObject", RecordingDummyMonomer), \
+         patch.object(create_features, "create_custom_db", return_value="/tmp/custom_db") as mock_custom_db, \
+         patch.object(create_features, "create_arguments") as mock_arguments, \
+         patch.object(create_features, "create_pipeline_af2") as mock_pipeline, \
+         patch.object(create_features, "create_uniprot_runner") as mock_runner, \
+         patch.object(create_features, "create_and_save_monomer_objects") as mock_save:
+        create_features.process_multimeric_features(feat, 1)
+
+    mock_custom_db.assert_called_once()
+    mock_arguments.assert_called_once_with("/tmp/custom_db")
+    mock_pipeline.assert_not_called()
+    mock_runner.assert_not_called()
+    saved_monomer, saved_pipeline = mock_save.call_args.args
+    assert saved_pipeline is None
+    assert saved_monomer.description == "complex_mmseqs"
+    assert saved_monomer.uniprot_runner is None
+
+
+def test_create_custom_db_passes_thresholds_to_builder(tmp_flags):
+    create_features.FLAGS.threshold_clashes = 12.5
+    create_features.FLAGS.hb_allowance = 0.7
+    create_features.FLAGS.plddt_threshold = 42.0
+
+    with patch.object(create_features, "create_db") as mock_create_db:
+        db_path = create_features.create_custom_db("/tmp/base", "proteinX", ["a.cif"], ["A"])
+
+    assert str(db_path) == "/tmp/base/custom_template_db/proteinX"
+    mock_create_db.assert_called_once_with(
+        db_path,
+        ["a.cif"],
+        ["A"],
+        12.5,
+        0.7,
+        42.0,
+    )
+
+
+def test_create_pipeline_af3_prefers_explicit_database_overrides(tmp_flags):
+    class DummyConfig:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    create_features.FLAGS.max_template_date = "2021-09-30"
+    create_features.FLAGS.data_pipeline = "alphafold3"
+    create_features.FLAGS.data_dir = "/db"
+    create_features.FLAGS.small_bfd_database_path = "/override/small_bfd"
+    create_features.FLAGS.uniref90_database_path = "/override/uniref90"
+    create_features.FLAGS.template_mmcif_dir = "/override/mmcif"
+
+    with patch.object(create_features, "AF3DataPipelineConfig", side_effect=DummyConfig) as mock_config, \
+         patch.object(create_features, "AF3DataPipeline", side_effect=lambda config: config) as mock_pipeline:
+        config = create_features.create_pipeline_af3()
+
+    mock_config.assert_called_once()
+    mock_pipeline.assert_called_once()
+    assert config.kwargs["small_bfd_database_path"] == "/override/small_bfd"
+    assert config.kwargs["uniref90_database_path"] == "/override/uniref90"
+    assert config.kwargs["pdb_database_path"] == "/override/mmcif"
+    assert config.kwargs["mgnify_database_path"] == "/db/mgy_clusters_2022_05.fa"
+    assert config.kwargs["seqres_database_path"] == "/db/pdb_seqres_2022_09_28.fasta"
+
+
+def test_create_af3_individual_features_falls_back_to_double_letter_chain_ids(tmp_flags, tmp_path):
+    create_features.FLAGS.output_dir = str(tmp_path)
+    create_features.FLAGS.seq_index = 27
+
+    af3_modules, folding_input_stub = build_af3_stub_modules()
+    del af3_modules["alphafold3.structure"].mmcif
+    af3_modules.pop("alphafold3.structure.mmcif")
+
+    sequences = [("ACDE", f"chain_{idx}") for idx in range(1, 28)]
+    with patch.dict(sys.modules, af3_modules), \
+         patch.object(create_features, "create_pipeline_af3", return_value=MagicMock(process=MagicMock(return_value={"plain": "json"}))), \
+         patch.object(create_features, "folding_input", folding_input_stub), \
+         patch.object(create_features, "iter_seqs", return_value=sequences), \
+         patch("pathlib.Path.write_text", new=real_write_text):
+        create_features.create_af3_individual_features()
+
+    outpath = tmp_path / "chain_27_af3_input.json"
+    assert outpath.exists()
+    assert json.loads(outpath.read_text(encoding="utf-8")) == {"plain": "json"}
+
+
+def test_create_af3_individual_features_skips_existing_outputs(tmp_flags, tmp_path):
+    create_features.FLAGS.output_dir = str(tmp_path)
+    create_features.FLAGS.skip_existing = True
+
+    af3_modules, folding_input_stub = build_af3_stub_modules()
+    existing_output = tmp_path / "protA_af3_input.json"
+    existing_output.write_text("{}", encoding="utf-8")
+
+    pipeline = MagicMock(process=MagicMock(return_value=DummyJsonObj()))
+    with patch.dict(sys.modules, af3_modules), \
+         patch.object(create_features, "create_pipeline_af3", return_value=pipeline), \
+         patch.object(create_features, "folding_input", folding_input_stub), \
+         patch.object(create_features, "iter_seqs", return_value=[("ACDE", "protA")]), \
+         patch("pathlib.Path.write_text", new=real_write_text):
+        create_features.create_af3_individual_features()
+
+    pipeline.process.assert_not_called()
+    assert existing_output.read_text(encoding="utf-8") == "{}"
+
+
+def test_main_dispatches_to_af3_feature_creation(tmp_flags, tmp_path):
+    create_features.FLAGS.data_pipeline = "alphafold3"
+    create_features.FLAGS.output_dir = str(tmp_path / "af3_out")
+
+    with patch.object(create_features, "create_af3_individual_features") as mock_af3, \
+         patch.object(create_features, "check_template_date") as mock_check:
+        create_features.main([])
+
+    mock_af3.assert_called_once_with()
+    mock_check.assert_not_called()

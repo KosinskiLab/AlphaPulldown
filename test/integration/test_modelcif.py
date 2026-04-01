@@ -16,6 +16,8 @@ import pytest
 Test conversion of PDB to CIF for monomers and multimers
 """
 
+pytest.importorskip("ihm")
+pytest.importorskip("modelcif")
 pytestmark = pytest.mark.external_tools
 
 

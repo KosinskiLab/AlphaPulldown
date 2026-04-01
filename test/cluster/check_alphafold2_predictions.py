@@ -101,6 +101,27 @@ def _non_empty_identifier_count(values) -> int:
             count += 1
     return count
 
+
+def _af2_subprocess_env() -> dict[str, str]:
+    """Return stable GPU/JAX defaults for AF2 functional subprocesses."""
+    env = os.environ.copy()
+    env.setdefault("OMP_NUM_THREADS", "4")
+    env.setdefault("MKL_NUM_THREADS", "4")
+    env.setdefault("NUMEXPR_NUM_THREADS", "4")
+    env.setdefault("TF_NUM_INTEROP_THREADS", "4")
+    env.setdefault("TF_NUM_INTRAOP_THREADS", "4")
+    env.setdefault("TF_FORCE_GPU_ALLOW_GROWTH", "true")
+    env.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
+    env.setdefault("XLA_PYTHON_CLIENT_PREALLOCATE", "false")
+    env.setdefault("XLA_PYTHON_CLIENT_MEM_FRACTION", "0.8")
+    env.setdefault("JAX_PLATFORM_NAME", "gpu")
+    env.setdefault(
+        "XLA_FLAGS",
+        "--xla_gpu_force_compilation_parallelism=0 "
+        "--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1",
+    )
+    return env
+
 # --------------------------------------------------------------------------- #
 #                       common helper mix-in / assertions                     #
 # --------------------------------------------------------------------------- #
@@ -157,6 +178,14 @@ class _TestBase(parameterized.TestCase):
         self.script_single = apd_path / "scripts" / "run_structure_prediction.py"
         self.script_create_features = (
             apd_path / "scripts" / "create_individual_features.py"
+        )
+
+    def _run_prediction_subprocess(self, args):
+        return subprocess.run(
+            args,
+            capture_output=True,
+            text=True,
+            env=_af2_subprocess_env(),
         )
 
     # ---------------- assertions reused by all subclasses ----------------- #
@@ -265,9 +294,8 @@ class TestRunModes(_TestBase):
     )
     def test_(self, protein_list, mode, script):
         multimer = "monomer" not in protein_list
-        res = subprocess.run(
-            self._args(plist=protein_list, mode=mode, script=script),
-            capture_output=True, text=True
+        res = self._run_prediction_subprocess(
+            self._args(plist=protein_list, mode=mode, script=script)
         )
         self._runCommonTests(res, multimer)
 
@@ -351,7 +379,7 @@ class TestResume(_TestBase):
                 (self.output_dir / "TEST_homo_2er" / fname).unlink()
             except FileNotFoundError:
                 pass
-        res = subprocess.run(args, capture_output=True, text=True)
+        res = self._run_prediction_subprocess(args)
         self._runCommonTests(res, multimer=True, dirname="TEST_homo_2er")
         self._runAfterRelaxTests(relax_mode)
 
@@ -422,12 +450,12 @@ class TestDropoutDiversity(_TestBase):
         # Execute both predictions
         logger.info("Running prediction without dropout...")
         #logger.info("".join(args_no_dropout))
-        res_no_dropout = subprocess.run(args_no_dropout, capture_output=True, text=True)
+        res_no_dropout = self._run_prediction_subprocess(args_no_dropout)
         self.assertEqual(res_no_dropout.returncode, 0, 
                         f"No dropout prediction failed: {res_no_dropout.stderr}")
 
         logger.info("Running prediction with dropout...")
-        res_with_dropout = subprocess.run(args_with_dropout, capture_output=True, text=True)
+        res_with_dropout = self._run_prediction_subprocess(args_with_dropout)
         self.assertEqual(res_with_dropout.returncode, 0,
                         f"Dropout prediction failed: {res_with_dropout.stderr}")
 
@@ -508,7 +536,7 @@ class TestMmseqsIssue588Inference(_TestBase):
             "--compress_features=True",
             "--skip_existing=False",
         ]
-        res = subprocess.run(args, capture_output=True, text=True)
+        res = self._run_prediction_subprocess(args)
         self.assertEqual(
             res.returncode,
             0,
@@ -588,6 +616,7 @@ class TestMmseqsIssue588Inference(_TestBase):
             ],
             capture_output=True,
             text=True,
+            env=_af2_subprocess_env(),
         )
         self.assertEqual(
             res.returncode,

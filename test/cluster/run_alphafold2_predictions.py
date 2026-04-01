@@ -120,6 +120,24 @@ def _timestamp() -> str:
     return dt.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
 
+def _default_gpu_env_lines(*, cpus_per_task: int) -> list[str]:
+    thread_count = max(1, min(cpus_per_task, 4))
+    return [
+        "export PYTHONUNBUFFERED=1",
+        f'export OMP_NUM_THREADS="${{OMP_NUM_THREADS:-{thread_count}}}"',
+        f'export MKL_NUM_THREADS="${{MKL_NUM_THREADS:-{thread_count}}}"',
+        f'export NUMEXPR_NUM_THREADS="${{NUMEXPR_NUM_THREADS:-{thread_count}}}"',
+        f'export TF_NUM_INTEROP_THREADS="${{TF_NUM_INTEROP_THREADS:-{thread_count}}}"',
+        f'export TF_NUM_INTRAOP_THREADS="${{TF_NUM_INTRAOP_THREADS:-{thread_count}}}"',
+        'export TF_FORCE_GPU_ALLOW_GROWTH="${TF_FORCE_GPU_ALLOW_GROWTH:-true}"',
+        'export TF_CPP_MIN_LOG_LEVEL="${TF_CPP_MIN_LOG_LEVEL:-2}"',
+        'export XLA_PYTHON_CLIENT_PREALLOCATE="${XLA_PYTHON_CLIENT_PREALLOCATE:-false}"',
+        'export XLA_PYTHON_CLIENT_MEM_FRACTION="${XLA_PYTHON_CLIENT_MEM_FRACTION:-0.8}"',
+        'export JAX_PLATFORM_NAME="${JAX_PLATFORM_NAME:-gpu}"',
+        'if [ -z "${XLA_FLAGS:-}" ]; then export XLA_FLAGS="--xla_gpu_force_compilation_parallelism=0 --xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1"; fi',
+    ]
+
+
 def _relative_nodeid_prefix(test_file: Path) -> str:
     return str(test_file.resolve().relative_to(REPO_ROOT))
 
@@ -209,6 +227,7 @@ def write_job_script(
     job: JobSpec,
     python_executable: str,
     use_temp_dir: bool,
+    cpus_per_task: int,
 ) -> None:
     pytest_cmd = [
         python_executable,
@@ -228,7 +247,7 @@ def write_job_script(
             "#!/bin/bash",
             "set -euo pipefail",
             f"cd {_quote(str(REPO_ROOT))}",
-            "export PYTHONUNBUFFERED=1",
+            *_default_gpu_env_lines(cpus_per_task=cpus_per_task),
             "echo \"[$(date)] Running test node:\"",
             f"echo {_quote(job.nodeid)}",
             "echo \"[$(date)] Host: $(hostname)\"",
@@ -634,7 +653,7 @@ def main() -> int:
         stderr_path = log_dir / f"{index:03d}_{slug}.err"
         script_path = log_dir / f"{index:03d}_{slug}.sbatch.sh"
         rerun_command = (
-            f"{_quote(args.python)} -m pytest -vv -s {_quote(nodeid)}"
+            f"{_quote(args.python)} -m pytest -o {_quote('addopts=-ra --strict-markers')} -vv -s {_quote(nodeid)}"
             + (" --use-temp-dir" if args.use_temp_dir else "")
         )
         job = JobSpec(
@@ -650,6 +669,7 @@ def main() -> int:
             job=job,
             python_executable=args.python,
             use_temp_dir=args.use_temp_dir,
+            cpus_per_task=args.cpus_per_task,
         )
         jobs.append(job)
 
