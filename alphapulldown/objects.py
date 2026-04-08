@@ -23,6 +23,7 @@ from alphapulldown.utils.multimeric_template_utils import (extract_multimeric_te
 from alphapulldown.utils.file_handling import temp_fasta_file
 from alphapulldown.utils.mmseqs_species_identifiers import (
     enrich_mmseq_feature_dict_with_identifiers,
+    strip_mmseq_comment_lines,
 )
 
 class MonomericObject:
@@ -254,11 +255,14 @@ class MonomericObject:
                 MonomericObject.zip_msa_files(os.path.join(result_dir, self.description))
 
         # Remove header lines starting with '#' if present.
-        a3m_lines[0] = "\n".join([line for line in a3m_lines[0].splitlines() if not line.startswith("#")])
+        a3m_lines[0] = strip_mmseq_comment_lines(a3m_lines[0])
         self.feature_dict = build_monomer_feature(self.sequence, unpaired_msa[0], template_features[0])
         enrich_mmseq_feature_dict_with_identifiers(
             self.feature_dict,
-            unpaired_msa[0],
+            a3m_lines[0],
+            cache_path=os.path.join(
+                result_dir, f"{self.description}.mmseq_ids.json"
+            ),
         )
 
         # Fix: Change tuple to list so that we can concatenate with msa_pairing.MSA_FEATURES.

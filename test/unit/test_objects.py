@@ -6,6 +6,7 @@ import pytest
 
 import alphapulldown.objects as objects_mod
 from alphapulldown.objects import ChoppedObject, MonomericObject, MultimericObject
+from alphapulldown.utils import mmseqs_species_identifiers
 
 
 def _feature_dict(
@@ -226,8 +227,8 @@ def test_make_mmseq_features_builds_all_seq_features_and_writes_a3m(
 
     monkeypatch.setattr(objects_mod, "build_monomer_feature", fake_build)
 
-    def fake_enrich(feature_dict, a3m, **_kwargs):
-        calls["enrich"] = a3m
+    def fake_enrich(feature_dict, a3m, **kwargs):
+        calls["enrich"] = {"a3m": a3m, "kwargs": kwargs}
         feature_dict["msa_species_identifiers"] = np.asarray([b"", b"562"], dtype=object)
         feature_dict["msa_uniprot_accession_identifiers"] = np.asarray(
             [b"", b"A0A123"], dtype=object
@@ -251,7 +252,10 @@ def test_make_mmseq_features_builds_all_seq_features_and_writes_a3m(
     )
 
     assert calls["build_monomer_feature"] == ("ACDE", "UNPAIRED", "TEMPLATE")
-    assert calls["enrich"] == "UNPAIRED"
+    assert calls["enrich"] == {
+        "a3m": ">101\nACDE\n>hit\nAC-E",
+        "kwargs": {"cache_path": str(tmp_path / "proteinA.mmseq_ids.json")},
+    }
     assert (tmp_path / "proteinA.a3m").read_text(encoding="utf-8").startswith(">101")
     assert "msa_all_seq" in monomer.feature_dict
     assert "deletion_matrix_int_all_seq" in monomer.feature_dict
@@ -376,6 +380,199 @@ def test_make_mmseq_features_uses_precomputed_a3m_without_template_research(
         np.asarray([[0.9, 0.9, 0.9, 0.9]]),
     )
     assert monomer.feature_dict["template_release_date"] == ["2024-01-01"]
+
+
+def test_make_mmseq_features_researches_templates_without_rerunning_msa(
+    monkeypatch, tmp_path
+):
+    monomer = MonomericObject("proteinA", "ACDE")
+    calls = {}
+    (tmp_path / "proteinA.a3m").write_text(">101\nACDE\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        MonomericObject, "unzip_msa_files", staticmethod(lambda _path: False)
+    )
+    monkeypatch.setattr(
+        objects_mod,
+        "unserialize_msa",
+        lambda a3m_lines, sequence: (
+            ["PRECOMP_MSA"],
+            ["PRECOMP_PAIRED"],
+            ["UNIQUE"],
+            ["CARD"],
+            ["PRECOMP_TEMPLATE"],
+        ),
+    )
+
+    def fake_get_msa_and_templates(**kwargs):
+        calls["get_msa_and_templates"] = kwargs
+        return (
+            ["IGNORED_UNPAIRED"],
+            ["IGNORED_PAIRED"],
+            ["IGNORED_UNIQUE"],
+            ["IGNORED_CARD"],
+            ["RESEARCHED_TEMPLATE"],
+        )
+
+    monkeypatch.setattr(objects_mod, "get_msa_and_templates", fake_get_msa_and_templates)
+
+    def fake_build(sequence, msa, template_features):
+        calls["build_monomer_feature"] = (sequence, msa, template_features)
+        return {
+            "msa": np.asarray([[1, 2, 3, 4]], dtype=np.int32),
+            "deletion_matrix_int": np.asarray([[0, 0, 0, 0]], dtype=np.int32),
+            "template_confidence_scores": None,
+            "template_release_date": None,
+        }
+
+    monkeypatch.setattr(objects_mod, "build_monomer_feature", fake_build)
+    monkeypatch.setattr(
+        objects_mod,
+        "enrich_mmseq_feature_dict_with_identifiers",
+        lambda feature_dict, *_args, **_kwargs: feature_dict.update(
+            {
+                "msa_species_identifiers": np.asarray([b"562"], dtype=object),
+                "msa_uniprot_accession_identifiers": np.asarray([b"A0A123"], dtype=object),
+            }
+        ),
+    )
+
+    monomer.make_mmseq_features(
+        DEFAULT_API_SERVER="https://fake.server",
+        output_dir=str(tmp_path),
+        use_precomputed_msa=True,
+        use_templates=True,
+    )
+
+    assert calls["get_msa_and_templates"]["msa_mode"] == "single_sequence"
+    assert calls["get_msa_and_templates"]["a3m_lines"] is False
+    assert calls["get_msa_and_templates"]["use_templates"] is True
+    assert calls["build_monomer_feature"] == (
+        "ACDE",
+        "PRECOMP_MSA",
+        "RESEARCHED_TEMPLATE",
+    )
+
+
+def test_make_mmseq_features_reuses_identifier_sidecar_on_precomputed_run(
+    monkeypatch, tmp_path
+):
+    a3m_text = "\n".join(
+        [
+            "# mmseqs header",
+            ">101",
+            "ACDE",
+            ">UniRef100_A0A636IKY3\t136\t0.883",
+            "ACDF",
+            "",
+        ]
+    )
+    feature_rows = {
+        "msa": np.asarray([[1, 2, 3, 4], [1, 2, 3, 5]], dtype=np.int32),
+        "deletion_matrix_int": np.asarray([[0, 0, 0, 0], [0, 0, 0, 0]], dtype=np.int32),
+        "template_confidence_scores": None,
+        "template_release_date": None,
+    }
+
+    monkeypatch.setattr(
+        MonomericObject, "unzip_msa_files", staticmethod(lambda _path: False)
+    )
+    monkeypatch.setattr(
+        MonomericObject, "zip_msa_files", staticmethod(lambda _path: None)
+    )
+    monkeypatch.setattr(
+        objects_mod,
+        "get_msa_and_templates",
+        lambda **_kwargs: (
+            ["UNPAIRED"],
+            ["PAIRED"],
+            ["UNIQUE"],
+            ["CARD"],
+            ["TEMPLATE"],
+        ),
+    )
+    monkeypatch.setattr(objects_mod, "msa_to_str", lambda *args: a3m_text)
+    monkeypatch.setattr(
+        objects_mod,
+        "build_monomer_feature",
+        lambda *_args, **_kwargs: dict(feature_rows),
+    )
+    monkeypatch.setattr(
+        objects_mod,
+        "unserialize_msa",
+        lambda a3m_lines, sequence: (
+            ["PRECOMP_MSA"],
+            ["PRECOMP_PAIRED"],
+            ["UNIQUE"],
+            ["CARD"],
+            ["PRECOMP_TEMPLATE"],
+        ),
+    )
+
+    first_calls = []
+
+    def fake_uniprot_batch(accessions, *, urlopen):
+        first_calls.append(tuple(accessions))
+        return {
+            "results": [
+                {
+                    "primaryAccession": "A0A636IKY3",
+                    "organism": {"taxonId": 562},
+                }
+            ]
+        }
+
+    monkeypatch.setattr(
+        mmseqs_species_identifiers,
+        "_query_uniprot_batch",
+        fake_uniprot_batch,
+    )
+    monkeypatch.setattr(
+        mmseqs_species_identifiers,
+        "_query_uniparc_batch",
+        lambda accessions, *, urlopen: {"results": []},
+    )
+
+    first = MonomericObject("proteinA", "ACDE")
+    first.make_mmseq_features(
+        DEFAULT_API_SERVER="https://fake.server",
+        output_dir=str(tmp_path),
+        use_precomputed_msa=False,
+    )
+
+    assert first_calls == [("A0A636IKY3",)]
+    assert (tmp_path / "proteinA.mmseq_ids.json").exists()
+    assert first.feature_dict["msa_species_identifiers"].tolist() == [b"", b"562"]
+
+    mmseqs_species_identifiers._SPECIES_ID_CACHE.clear()
+    second_calls = []
+
+    def fail_uniprot_batch(accessions, *, urlopen):
+        second_calls.append(tuple(accessions))
+        raise AssertionError("expected sidecar cache to skip UniProt lookups")
+
+    monkeypatch.setattr(
+        mmseqs_species_identifiers,
+        "_query_uniprot_batch",
+        fail_uniprot_batch,
+    )
+
+    second = MonomericObject("proteinA", "ACDE")
+    second.make_mmseq_features(
+        DEFAULT_API_SERVER="https://fake.server",
+        output_dir=str(tmp_path),
+        use_precomputed_msa=True,
+    )
+
+    assert second_calls == []
+    assert second.feature_dict["msa_species_identifiers"].tolist() == [b"", b"562"]
+    assert second.feature_dict["msa_uniprot_accession_identifiers"].tolist() == [
+        b"",
+        b"A0A636IKY3",
+    ]
+    assert "msa_all_seq" in second.feature_dict
+    assert "msa_species_identifiers_all_seq" in second.feature_dict
+    assert "msa_uniprot_accession_identifiers_all_seq" in second.feature_dict
 
 
 def test_make_mmseq_features_rezips_output_dir_when_original_msas_were_zipped(

@@ -89,13 +89,18 @@ def test_all_seq_msa_features_keeps_only_pairing_related_keys(monkeypatch, tmp_p
     monomer = MonomericObject("desc", "ACDE")
     input_fasta_path = str(tmp_path / "input.fasta")
     Path(input_fasta_path).write_text(">x\nACDE\n", encoding="utf-8")
+    calls = {}
 
     class FakeMsa:
         def truncate(self, max_seqs):
             assert max_seqs == 50000
             return self
 
-    monkeypatch.setattr("alphapulldown.objects.pipeline.run_msa_tool", lambda *args, **kwargs: {"sto": "fake"})
+    def fake_run_msa_tool(*args, **kwargs):
+        calls["run_msa_tool"] = (args, kwargs)
+        return {"sto": "fake"}
+
+    monkeypatch.setattr("alphapulldown.objects.pipeline.run_msa_tool", fake_run_msa_tool)
     monkeypatch.setattr("alphapulldown.objects.parsers.parse_stockholm", lambda sto: FakeMsa())
     monkeypatch.setattr(
         "alphapulldown.objects.pipeline.make_msa_features",
@@ -121,3 +126,12 @@ def test_all_seq_msa_features_keeps_only_pairing_related_keys(monkeypatch, tmp_p
         "msa_uniprot_accession_identifiers_all_seq",
         "deletion_matrix_int_all_seq",
     }
+    run_args, run_kwargs = calls["run_msa_tool"]
+    assert run_args == (
+        "runner",
+        input_fasta_path,
+        f"{tmp_path}/uniprot_hits.sto",
+        "sto",
+        True,
+    )
+    assert run_kwargs == {}

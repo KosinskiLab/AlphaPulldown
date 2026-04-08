@@ -13,13 +13,17 @@ import pickle
 import pytest
 import logging
 import types
+import numpy as np
 from pathlib import Path
 from unittest.mock import patch, MagicMock, mock_open
 
 from parameterized import parameterized
 
 # Import the module under test
+import alphapulldown.objects as objects_mod
 import alphapulldown.scripts.create_individual_features as create_features
+from alphapulldown.objects import MonomericObject
+from alphapulldown.utils import mmseqs_species_identifiers
 
 logger = logging.getLogger(__name__)
 
@@ -203,11 +207,9 @@ class TestCreateIndividualFeaturesComprehensive:
             with patch.object(create_features, 'create_pipeline_af2') as mock_af2_pipeline, \
                  patch.object(create_features, 'create_uniprot_runner') as mock_uniprot_runner, \
                  patch('alphapulldown.utils.save_meta_data.get_meta_dict', return_value={}), \
-                 patch('alphapulldown.objects.MonomericObject', DummyMonomer), \
-                 patch('builtins.open', mock_open()) as m_open, \
-                 patch('pickle.dump', side_effect=lambda obj, f, protocol=None: f.write(b'dummy')):
-                mock_af2_pipeline.return_value = MagicMock()
-                mock_uniprot_runner.return_value = MagicMock()
+                 patch.object(create_features, 'MonomericObject', DummyMonomer):
+                mock_af2_pipeline.return_value = "pipeline"
+                mock_uniprot_runner.return_value = "runner"
                 create_features.create_individual_features()
                 
                 # Check for expected files
@@ -222,9 +224,6 @@ class TestCreateIndividualFeaturesComprehensive:
                     file_path = os.path.join(output_dir, expected_file)
                     if compress_features:
                         file_path += ".xz"
-                    # Simulate file creation
-                    Path(file_path).parent.mkdir(parents=True, exist_ok=True)
-                    Path(file_path).touch()
                     assert os.path.exists(file_path), f"Expected file {file_path} not found"
                     logger.info(f"Verified file exists: {file_path}")
         else:
@@ -833,11 +832,9 @@ class TestCreateIndividualFeaturesComprehensive:
         # Mock the necessary functions to avoid real database access
         with patch('alphapulldown.scripts.create_individual_features.create_pipeline_af2') as mock_pipeline, \
              patch('alphapulldown.scripts.create_individual_features.create_uniprot_runner') as mock_uniprot, \
-             patch('alphapulldown.utils.file_handling.iter_seqs') as mock_iter_seqs, \
-             patch('alphapulldown.objects.MonomericObject', DummyMonomer), \
-             patch('alphapulldown.utils.save_meta_data.get_meta_dict', return_value={}), \
-             patch('builtins.open', mock_open()), \
-             patch('pickle.dump'):
+             patch.object(create_features, 'iter_seqs') as mock_iter_seqs, \
+             patch.object(create_features, 'MonomericObject', DummyMonomer), \
+             patch('alphapulldown.utils.save_meta_data.get_meta_dict', return_value={}):
             
             mock_iter_seqs.return_value = [("TESTSEQ", "test_protein")]
             
@@ -847,6 +844,7 @@ class TestCreateIndividualFeaturesComprehensive:
             # Verify that pipeline and uniprot_runner are None for MMseqs2
             mock_pipeline.assert_not_called()
             mock_uniprot.assert_not_called()
+            assert os.path.exists(os.path.join(FLAGS.output_dir, "test_protein.pkl"))
             logger.info("Feature creation with MMseqs2 successful")
 
     def test_flag_validation_mmseqs2(self):
@@ -1056,6 +1054,137 @@ def test_create_and_save_monomer_objects_uses_mmseqs_when_requested(tmp_flags, t
         }
     ]
     assert (tmp_path / "protA.pkl").exists()
+
+
+def test_create_and_save_monomer_objects_reuses_mmseq_identifier_sidecar(
+    tmp_flags, tmp_path, monkeypatch
+):
+    create_features.FLAGS.output_dir = str(tmp_path)
+    create_features.FLAGS.compress_features = False
+    create_features.FLAGS.skip_existing = False
+    create_features.FLAGS.use_mmseqs2 = True
+    create_features.FLAGS.use_precomputed_msas = False
+    create_features.FLAGS.re_search_templates_mmseqs2 = False
+
+    a3m_text = "\n".join(
+        [
+            "# mmseqs header",
+            ">101",
+            "ACDE",
+            ">UniRef100_A0A636IKY3\t136\t0.883",
+            "ACDF",
+            "",
+        ]
+    )
+
+    monkeypatch.setattr(
+        MonomericObject, "unzip_msa_files", staticmethod(lambda _path: False)
+    )
+    monkeypatch.setattr(
+        MonomericObject, "zip_msa_files", staticmethod(lambda _path: None)
+    )
+    monkeypatch.setattr(
+        objects_mod,
+        "get_msa_and_templates",
+        lambda **_kwargs: (
+            ["UNPAIRED"],
+            ["PAIRED"],
+            ["UNIQUE"],
+            ["CARD"],
+            ["TEMPLATE"],
+        ),
+    )
+    monkeypatch.setattr(objects_mod, "msa_to_str", lambda *args: a3m_text)
+    monkeypatch.setattr(
+        objects_mod,
+        "unserialize_msa",
+        lambda a3m_lines, sequence: (
+            ["PRECOMP_MSA"],
+            ["PRECOMP_PAIRED"],
+            ["UNIQUE"],
+            ["CARD"],
+            ["PRECOMP_TEMPLATE"],
+        ),
+    )
+    monkeypatch.setattr(
+        objects_mod,
+        "build_monomer_feature",
+        lambda *_args, **_kwargs: {
+            "msa": np.asarray([[1, 2, 3, 4], [1, 2, 3, 5]], dtype=np.int32),
+            "deletion_matrix_int": np.asarray(
+                [[0, 0, 0, 0], [0, 0, 0, 0]], dtype=np.int32
+            ),
+            "template_confidence_scores": None,
+            "template_release_date": None,
+        },
+    )
+
+    first_calls = []
+
+    def fake_uniprot_batch(accessions, *, urlopen):
+        first_calls.append(tuple(accessions))
+        return {
+            "results": [
+                {
+                    "primaryAccession": "A0A636IKY3",
+                    "organism": {"taxonId": 562},
+                }
+            ]
+        }
+
+    monkeypatch.setattr(
+        mmseqs_species_identifiers,
+        "_query_uniprot_batch",
+        fake_uniprot_batch,
+    )
+    monkeypatch.setattr(
+        mmseqs_species_identifiers,
+        "_query_uniparc_batch",
+        lambda accessions, *, urlopen: {"results": []},
+    )
+
+    with patch(
+        "alphapulldown.utils.save_meta_data.get_meta_dict",
+        return_value={"source": "test"},
+    ):
+        first = MonomericObject("protA", "ACDE")
+        create_features.create_and_save_monomer_objects(first, pipeline=None)
+
+    assert first_calls == [("A0A636IKY3",)]
+    assert (tmp_path / "protA.a3m").exists()
+    assert (tmp_path / "protA.mmseq_ids.json").exists()
+    assert (tmp_path / "protA.pkl").exists()
+
+    create_features.FLAGS.use_precomputed_msas = True
+    mmseqs_species_identifiers._SPECIES_ID_CACHE.clear()
+    second_calls = []
+
+    def fail_uniprot_batch(accessions, *, urlopen):
+        second_calls.append(tuple(accessions))
+        raise AssertionError("expected mmseq sidecar cache to skip UniProt lookups")
+
+    monkeypatch.setattr(
+        mmseqs_species_identifiers,
+        "_query_uniprot_batch",
+        fail_uniprot_batch,
+    )
+
+    with patch(
+        "alphapulldown.utils.save_meta_data.get_meta_dict",
+        return_value={"source": "test"},
+    ):
+        second = MonomericObject("protA", "ACDE")
+        create_features.create_and_save_monomer_objects(second, pipeline=None)
+
+    assert second_calls == []
+    assert second.feature_dict["msa_species_identifiers_all_seq"].tolist() == [
+        b"",
+        b"562",
+    ]
+    assert second.feature_dict["msa_uniprot_accession_identifiers_all_seq"].tolist() == [
+        b"",
+        b"A0A636IKY3",
+    ]
 
 
 def test_process_multimeric_features_uses_mmseqs_without_local_pipeline(tmp_flags, tmp_path):

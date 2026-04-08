@@ -1,3 +1,4 @@
+import json
 from urllib import error
 
 import numpy as np
@@ -15,6 +16,30 @@ def clear_species_id_cache():
   mmseqs_species_identifiers._SPECIES_ID_CACHE.clear()
   yield
   mmseqs_species_identifiers._SPECIES_ID_CACHE.clear()
+
+
+def _write_identifier_sidecar(
+    cache_path,
+    a3m: str,
+    *,
+    species_ids: list[str],
+    accessions: list[str],
+    source_sha256: str | None = None,
+):
+  if source_sha256 is None:
+    source_sha256 = mmseqs_species_identifiers._calculate_mmseq_source_sha256(
+        mmseqs_species_identifiers.strip_mmseq_comment_lines(a3m)
+    )
+  cache_path.write_text(
+      json.dumps(
+          {
+              'source_sha256': source_sha256,
+              'msa_species_identifiers': species_ids,
+              'msa_uniprot_accession_identifiers': accessions,
+          }
+      ),
+      encoding='utf-8',
+  )
 
 
 def _feature_dict_from_a3m(
@@ -78,6 +103,168 @@ def test_make_msa_features_resolves_mmseqs_species_identifiers(monkeypatch):
       b'A0A636IKY3',
       b'UPI001118B830',
   ]
+
+
+def test_build_mmseq_identifier_features_uses_matching_sidecar_without_resolver(
+    tmp_path,
+):
+  a3m = '\n'.join([
+      '# mmseqs header',
+      '>101',
+      'ACDE',
+      '>UniRef100_A0A636IKY3\t136\t0.883',
+      'ACDF',
+      '',
+  ])
+  cache_path = tmp_path / 'protein.mmseq_ids.json'
+  _write_identifier_sidecar(
+      cache_path,
+      a3m,
+      species_ids=['', '108619'],
+      accessions=['', 'A0A636IKY3'],
+  )
+
+  calls = []
+  features = mmseqs_species_identifiers.build_mmseq_identifier_features(
+      a3m,
+      species_resolver=lambda accessions: calls.append(tuple(accessions)),
+      cache_path=str(cache_path),
+      expected_rows=2,
+  )
+
+  assert features['msa_species_identifiers'].tolist() == [b'', b'108619']
+  assert features['msa_uniprot_accession_identifiers'].tolist() == [
+      b'',
+      b'A0A636IKY3',
+  ]
+  assert calls == []
+
+
+def test_build_mmseq_identifier_features_writes_sidecar_on_cache_miss(tmp_path):
+  a3m = '\n'.join([
+      '>101',
+      'ACDE',
+      '>UniRef100_A0A636IKY3\t136\t0.883',
+      'ACDF',
+      '',
+  ])
+  cache_path = tmp_path / 'protein.mmseq_ids.json'
+  calls = []
+
+  features = mmseqs_species_identifiers.build_mmseq_identifier_features(
+      a3m,
+      species_resolver=lambda accessions: calls.append(tuple(accessions)) or {
+          'A0A636IKY3': '108619'
+      },
+      cache_path=str(cache_path),
+      expected_rows=2,
+  )
+
+  assert calls == [('A0A636IKY3',)]
+  assert features['msa_species_identifiers'].tolist() == [b'', b'108619']
+  payload = json.loads(cache_path.read_text(encoding='utf-8'))
+  assert payload['msa_species_identifiers'] == ['', '108619']
+  assert payload['msa_uniprot_accession_identifiers'] == ['', 'A0A636IKY3']
+
+
+def test_build_mmseq_identifier_features_refreshes_stale_checksum(tmp_path):
+  a3m = '\n'.join([
+      '>101',
+      'ACDE',
+      '>UniRef100_A0A636IKY3\t136\t0.883',
+      'ACDF',
+      '',
+  ])
+  cache_path = tmp_path / 'protein.mmseq_ids.json'
+  _write_identifier_sidecar(
+      cache_path,
+      a3m,
+      species_ids=['', 'stale'],
+      accessions=['', 'A0A636IKY3'],
+      source_sha256='wrong',
+  )
+  calls = []
+
+  features = mmseqs_species_identifiers.build_mmseq_identifier_features(
+      a3m,
+      species_resolver=lambda accessions: calls.append(tuple(accessions)) or {
+          'A0A636IKY3': '108619'
+      },
+      cache_path=str(cache_path),
+      expected_rows=2,
+  )
+
+  assert calls == [('A0A636IKY3',)]
+  assert features['msa_species_identifiers'].tolist() == [b'', b'108619']
+  payload = json.loads(cache_path.read_text(encoding='utf-8'))
+  assert payload['source_sha256'] != 'wrong'
+  assert payload['msa_species_identifiers'] == ['', '108619']
+
+
+def test_build_mmseq_identifier_features_refreshes_row_count_mismatch(tmp_path):
+  a3m = '\n'.join([
+      '>101',
+      'ACDE',
+      '>UniRef100_A0A636IKY3\t136\t0.883',
+      'ACDF',
+      '',
+  ])
+  cache_path = tmp_path / 'protein.mmseq_ids.json'
+  _write_identifier_sidecar(
+      cache_path,
+      a3m,
+      species_ids=[''],
+      accessions=[''],
+  )
+  calls = []
+
+  features = mmseqs_species_identifiers.build_mmseq_identifier_features(
+      a3m,
+      species_resolver=lambda accessions: calls.append(tuple(accessions)) or {
+          'A0A636IKY3': '108619'
+      },
+      cache_path=str(cache_path),
+      expected_rows=2,
+  )
+
+  assert calls == [('A0A636IKY3',)]
+  assert features['msa_species_identifiers'].tolist() == [b'', b'108619']
+  payload = json.loads(cache_path.read_text(encoding='utf-8'))
+  assert payload['msa_species_identifiers'] == ['', '108619']
+
+
+def test_build_mmseq_identifier_features_reuses_blank_species_ids_from_sidecar(
+    tmp_path,
+):
+  a3m = '\n'.join([
+      '>101',
+      'ACDE',
+      '>UniRef100_A0A636IKY3\t136\t0.883',
+      'ACDF',
+      '',
+  ])
+  cache_path = tmp_path / 'protein.mmseq_ids.json'
+  first_calls = []
+  first = mmseqs_species_identifiers.build_mmseq_identifier_features(
+      a3m,
+      species_resolver=lambda accessions: first_calls.append(tuple(accessions)) or {},
+      cache_path=str(cache_path),
+      expected_rows=2,
+  )
+
+  mmseqs_species_identifiers._SPECIES_ID_CACHE.clear()
+  second_calls = []
+  second = mmseqs_species_identifiers.build_mmseq_identifier_features(
+      a3m,
+      species_resolver=lambda accessions: second_calls.append(tuple(accessions)),
+      cache_path=str(cache_path),
+      expected_rows=2,
+  )
+
+  assert first_calls == [('A0A636IKY3',)]
+  assert first['msa_species_identifiers'].tolist() == [b'', b'']
+  assert second['msa_species_identifiers'].tolist() == [b'', b'']
+  assert second_calls == []
 
 
 def test_pair_sequences_works_with_mmseqs_accession_species_resolution(
@@ -179,8 +366,11 @@ def test_make_mmseq_features_researches_templates_for_precomputed_msa(
         'template_release_date': None,
     }
 
-  def fake_enrich(feature_dict, a3m, **_kwargs):
-    calls['enrich_mmseq_feature_dict_with_identifiers'] = a3m
+  def fake_enrich(feature_dict, a3m, **kwargs):
+    calls['enrich_mmseq_feature_dict_with_identifiers'] = {
+        'a3m': a3m,
+        'kwargs': kwargs,
+    }
     feature_dict['msa_species_identifiers'] = np.asarray([b''])
     feature_dict['msa_uniprot_accession_identifiers'] = np.asarray([b''])
 
@@ -228,10 +418,10 @@ def test_make_mmseq_features_researches_templates_for_precomputed_msa(
       'msa': 'PRECOMPUTED_UNPAIRED',
       'template_feature': 'TEMPLATE_FROM_RESEARCH',
   }
-  assert (
-      calls['enrich_mmseq_feature_dict_with_identifiers']
-      == 'PRECOMPUTED_UNPAIRED'
-  )
+  assert calls['enrich_mmseq_feature_dict_with_identifiers'] == {
+      'a3m': '>101\nACDE',
+      'kwargs': {'cache_path': str(tmp_path / 'dummy.mmseq_ids.json')},
+  }
   assert isinstance(monomer.feature_dict['template_confidence_scores'], np.ndarray)
   assert monomer.feature_dict['template_release_date'] == ['none']
 

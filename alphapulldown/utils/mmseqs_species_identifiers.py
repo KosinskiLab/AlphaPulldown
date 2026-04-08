@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 import re
+import tempfile
 from typing import Callable, Iterable, Sequence
 from urllib import error
 from urllib import parse
@@ -41,6 +44,11 @@ _UNIPROT_BATCH_SIZE = 32
 _UNIPARC_BATCH_SIZE = 16
 _UNIPROT_TIMEOUT_SECONDS = 30
 _SPECIES_ID_CACHE: dict[str, str] = {}
+_IDENTIFIER_CACHE_KEYS = (
+    "source_sha256",
+    "msa_species_identifiers",
+    "msa_uniprot_accession_identifiers",
+)
 
 
 def _extract_sequence_identifier(description: str) -> str:
@@ -248,13 +256,17 @@ def resolve_species_ids_by_accession(
     }
 
 
-def build_mmseq_identifier_features(
-    a3m_string: str,
-    *,
-    species_resolver: Callable[[Sequence[str]], dict[str, str]] = (
-        resolve_species_ids_by_accession
-    ),
-) -> dict[str, np.ndarray]:
+def strip_mmseq_comment_lines(a3m_string: str) -> str:
+    return "\n".join(
+        line for line in a3m_string.splitlines() if not line.startswith("#")
+    )
+
+
+def _calculate_mmseq_source_sha256(a3m_string: str) -> str:
+    return hashlib.sha256(a3m_string.encode("utf-8")).hexdigest()
+
+
+def _extract_mmseq_identifier_rows(a3m_string: str) -> tuple[list[str], list[str]]:
     msa = parsers.parse_a3m(a3m_string)
     seen_sequences: set[str] = set()
     accessions: list[str] = []
@@ -270,15 +282,32 @@ def build_mmseq_identifier_features(
         accessions.append(accession_id)
         species_ids.append(species_id)
 
+    return accessions, species_ids
+
+
+def _resolve_mmseq_identifier_rows(
+    accessions: Sequence[str],
+    species_ids: Sequence[str],
+    *,
+    species_resolver: Callable[[Sequence[str]], dict[str, str]],
+) -> tuple[list[str], list[str]]:
     resolved_species_ids = species_resolver(
-        [accession for accession, species_id in zip(accessions, species_ids, strict=True)
-         if accession and not species_id]
+        [
+            accession
+            for accession, species_id in zip(accessions, species_ids, strict=True)
+            if accession and not species_id
+        ]
     )
-    species_ids = [
+    return list(accessions), [
         species_id or resolved_species_ids.get(accession_id, "")
         for accession_id, species_id in zip(accessions, species_ids, strict=True)
     ]
 
+
+def _build_identifier_feature_arrays(
+    accessions: Sequence[str],
+    species_ids: Sequence[str],
+) -> dict[str, np.ndarray]:
     return {
         "msa_species_identifiers": np.array(
             [species_id.encode("utf-8") for species_id in species_ids],
@@ -291,6 +320,113 @@ def build_mmseq_identifier_features(
     }
 
 
+def _load_identifier_rows_from_cache(
+    cache_path: str,
+    *,
+    source_sha256: str,
+    expected_rows: int | None,
+) -> tuple[list[str], list[str]] | None:
+    if not cache_path or not os.path.isfile(cache_path):
+        return None
+    try:
+        with open(cache_path, encoding="utf-8") as handle:
+            payload = json.load(handle)
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+        logging.warning(
+            "Unable to read mmseqs identifier cache %s: %s", cache_path, exc
+        )
+        return None
+
+    if not isinstance(payload, dict):
+        return None
+    if any(key not in payload for key in _IDENTIFIER_CACHE_KEYS):
+        return None
+    if payload["source_sha256"] != source_sha256:
+        return None
+
+    species_ids = payload["msa_species_identifiers"]
+    accessions = payload["msa_uniprot_accession_identifiers"]
+    if not isinstance(species_ids, list) or not isinstance(accessions, list):
+        return None
+    if len(species_ids) != len(accessions):
+        return None
+    if expected_rows is not None and len(species_ids) != expected_rows:
+        return None
+    if not all(isinstance(value, str) for value in species_ids + accessions):
+        return None
+    return accessions, species_ids
+
+
+def _write_identifier_rows_to_cache(
+    cache_path: str,
+    *,
+    source_sha256: str,
+    accessions: Sequence[str],
+    species_ids: Sequence[str],
+) -> None:
+    cache_dir = os.path.dirname(cache_path) or "."
+    os.makedirs(cache_dir, exist_ok=True)
+    payload = {
+        "source_sha256": source_sha256,
+        "msa_species_identifiers": list(species_ids),
+        "msa_uniprot_accession_identifiers": list(accessions),
+    }
+    fd, temp_path = tempfile.mkstemp(
+        dir=cache_dir,
+        prefix=f".{os.path.basename(cache_path)}.",
+        suffix=".tmp",
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, ensure_ascii=False)
+        os.replace(temp_path, cache_path)
+    finally:
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
+
+
+def build_mmseq_identifier_features(
+    a3m_string: str,
+    *,
+    species_resolver: Callable[[Sequence[str]], dict[str, str]] = (
+        resolve_species_ids_by_accession
+    ),
+    cache_path: str | None = None,
+    expected_rows: int | None = None,
+) -> dict[str, np.ndarray]:
+    stripped_a3m = strip_mmseq_comment_lines(a3m_string)
+    source_sha256 = _calculate_mmseq_source_sha256(stripped_a3m)
+
+    cached_rows = None
+    if cache_path is not None:
+        cached_rows = _load_identifier_rows_from_cache(
+            cache_path,
+            source_sha256=source_sha256,
+            expected_rows=expected_rows,
+        )
+
+    if cached_rows is None:
+        accessions, species_ids = _extract_mmseq_identifier_rows(stripped_a3m)
+        accessions, species_ids = _resolve_mmseq_identifier_rows(
+            accessions,
+            species_ids,
+            species_resolver=species_resolver,
+        )
+        if cache_path is not None and (
+            expected_rows is None or len(species_ids) == expected_rows
+        ):
+            _write_identifier_rows_to_cache(
+                cache_path,
+                source_sha256=source_sha256,
+                accessions=accessions,
+                species_ids=species_ids,
+            )
+    else:
+        accessions, species_ids = cached_rows
+
+    return _build_identifier_feature_arrays(accessions, species_ids)
+
+
 def enrich_mmseq_feature_dict_with_identifiers(
     feature_dict: dict[str, np.ndarray],
     a3m_string: str,
@@ -298,14 +434,17 @@ def enrich_mmseq_feature_dict_with_identifiers(
     species_resolver: Callable[[Sequence[str]], dict[str, str]] = (
         resolve_species_ids_by_accession
     ),
+    cache_path: str | None = None,
 ) -> None:
-    identifier_features = build_mmseq_identifier_features(
-        a3m_string,
-        species_resolver=species_resolver,
-    )
     msa = feature_dict.get("msa")
     if msa is None:
         return
+    identifier_features = build_mmseq_identifier_features(
+        a3m_string,
+        species_resolver=species_resolver,
+        cache_path=cache_path,
+        expected_rows=msa.shape[0],
+    )
     if len(identifier_features["msa_species_identifiers"]) != msa.shape[0]:
         logging.warning(
             "Skipping mmseqs species enrichment because identifier rows do not "
