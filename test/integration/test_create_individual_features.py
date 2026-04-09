@@ -536,6 +536,68 @@ class TestCreateIndividualFeaturesComprehensive:
         assert reused.feature_dict["template_release_date"].tolist() == ["none", "none"]
         assert list(output_dir.glob("proteinA.template1.cif.A_feature_metadata_*.json"))
 
+    def test_process_multimeric_features_falls_back_when_source_sequence_mismatches(
+        self, tmp_flags
+    ):
+        template_path = Path(self.test_dir) / "template1.cif"
+        template_path.write_text("data_template\n", encoding="utf-8")
+
+        from absl import flags
+
+        FLAGS = flags.FLAGS
+        FLAGS(["test"])
+        FLAGS.output_dir = os.path.join(self.test_dir, "mismatched_truemultimer_output")
+        FLAGS.use_mmseqs2 = False
+        FLAGS.compress_features = False
+        FLAGS.skip_existing = False
+        FLAGS.jackhmmer_binary_path = "/usr/bin/jackhmmer"
+        FLAGS.uniprot_database_path = "/db/uniprot.fasta"
+
+        output_dir = Path(FLAGS.output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        source = MonomericObject("proteinA", "ACDE")
+        source.feature_dict = {
+            "msa": np.asarray([[1, 2, 3, 4]], dtype=np.int32),
+            "deletion_matrix_int": np.zeros((1, 4), dtype=np.int32),
+            "num_alignments": np.asarray([1, 1, 1, 1], dtype=np.int32),
+            "msa_species_identifiers": np.asarray([b"9606"], dtype=object),
+        }
+        with open(output_dir / "proteinA.pkl", "wb") as handle:
+            pickle.dump(source, handle)
+
+        feat = {
+            "protein": "proteinA.template1.cif.A",
+            "chains": ["A"],
+            "templates": [str(template_path)],
+            "sequence": "ACDF",
+        }
+
+        with patch.object(
+            create_features,
+            "extract_multimeric_template_features_for_single_chain",
+        ) as mock_extract, \
+            patch.object(create_features, "create_custom_db", return_value="/tmp/custom_db") as mock_custom_db, \
+            patch.object(create_features, "create_arguments") as mock_arguments, \
+            patch.object(create_features, "create_pipeline_af2", return_value="pipeline") as mock_pipeline, \
+            patch.object(create_features, "create_uniprot_runner", return_value="runner") as mock_runner, \
+            patch.object(create_features, "create_and_save_monomer_objects") as mock_save:
+            create_features.process_multimeric_features(feat, 1)
+
+        mock_extract.assert_not_called()
+        mock_custom_db.assert_called_once()
+        mock_arguments.assert_called_once_with("/tmp/custom_db")
+        mock_pipeline.assert_called_once_with()
+        mock_runner.assert_called_once_with(
+            FLAGS.jackhmmer_binary_path,
+            FLAGS.uniprot_database_path,
+        )
+        saved_monomer, saved_pipeline = mock_save.call_args.args
+        assert saved_pipeline == "pipeline"
+        assert saved_monomer.description == "proteinA.template1.cif.A"
+        assert saved_monomer.sequence == "ACDF"
+        assert saved_monomer.uniprot_runner == "runner"
+
     def test_main_dispatches_to_truemultimer_for_af2_template_runs(self):
         """The main entrypoint should route AF2 template jobs to the TrueMultimer path."""
         from absl import flags

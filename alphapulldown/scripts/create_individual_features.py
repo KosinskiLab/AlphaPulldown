@@ -444,6 +444,15 @@ def _reuse_truemultimer_monomer_features(feat):
     monomer = _load_existing_monomer_from_output_dir(source_name)
     if monomer is None:
         return None
+    if monomer.sequence != feat["sequence"]:
+        logging.warning(
+            "Existing monomer features for %s use sequence %s, but the current "
+            "TrueMultimer entry expects %s. Falling back to full feature generation.",
+            source_name,
+            monomer.sequence,
+            feat["sequence"],
+        )
+        return None
 
     template_path = feat["templates"][0]
     chain_id = feat["chains"][0]
