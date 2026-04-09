@@ -103,6 +103,9 @@ class _FakeFlagsModule(types.ModuleType):
     def DEFINE_integer(self, name, default, *_args, **_kwargs):
         return self.FLAGS.define(name, default)
 
+    def DEFINE_float(self, name, default, *_args, **_kwargs):
+        return self.FLAGS.define(name, default)
+
     def DEFINE_boolean(self, name, default, *_args, **_kwargs):
         return self.FLAGS.define(name, default)
 
@@ -208,12 +211,18 @@ def _load_run_structure_prediction_module():
             multimeric_template,
             multimeric_template_meta_data,
             multimeric_template_dir,
+            threshold_clashes=1000,
+            hb_allowance=0.4,
+            plddt_threshold=0,
         ):
             self.interactors = list(interactors)
             self.pair_msa = pair_msa
             self.multimeric_template = multimeric_template
             self.multimeric_template_meta_data = multimeric_template_meta_data
             self.multimeric_template_dir = multimeric_template_dir
+            self.threshold_clashes = threshold_clashes
+            self.hb_allowance = hb_allowance
+            self.plddt_threshold = plddt_threshold
             self.description = "_and_".join(interactor.description for interactor in interactors)
             self.input_seqs = [interactor.sequence for interactor in interactors]
             self.multimeric_mode = True
@@ -315,6 +324,9 @@ def _load_run_multimer_jobs_module():
         "fold_backend": "alphafold2",
         "description_file": None,
         "path_to_mmt": None,
+        "threshold_clashes": 1000,
+        "hb_allowance": 0.4,
+        "plddt_threshold": 0,
         "compress_result_pickles": False,
         "remove_result_pickles": False,
         "remove_keys_from_pickles": True,
@@ -647,6 +659,45 @@ def test_pre_modelling_setup_saves_multimer_features_and_builds_unique_ap_style_
             str(tmp_path / "outputs" / "multimeric_object_features.pkl"),
         )
     ]
+
+
+def test_pre_modelling_setup_passes_multimeric_template_filters(
+    run_structure_prediction_module,
+    tmp_path,
+):
+    _set_flag(run_structure_prediction_module.FLAGS, "pair_msa", True)
+    _set_flag(run_structure_prediction_module.FLAGS, "multimeric_template", True)
+    _set_flag(run_structure_prediction_module.FLAGS, "description_file", "meta.csv")
+    _set_flag(run_structure_prediction_module.FLAGS, "path_to_mmt", "/tmp/templates")
+    _set_flag(run_structure_prediction_module.FLAGS, "threshold_clashes", 12.5)
+    _set_flag(run_structure_prediction_module.FLAGS, "hb_allowance", 0.7)
+    _set_flag(run_structure_prediction_module.FLAGS, "plddt_threshold", 42.0)
+    _set_flag(run_structure_prediction_module.FLAGS, "save_features_for_multimeric_object", False)
+    _set_flag(
+        run_structure_prediction_module.FLAGS,
+        "features_directory",
+        [str(tmp_path / "features")],
+    )
+    _set_flag(run_structure_prediction_module.FLAGS, "use_ap_style", False)
+
+    feature_dir = tmp_path / "features"
+    feature_dir.mkdir()
+    for description in ("protA", "protB"):
+        (feature_dir / f"{description}_feature_metadata_2026-03-30.json").write_text(
+            '{"meta": 1}',
+            encoding="utf-8",
+        )
+
+    monomer_a = run_structure_prediction_module.MonomericObject("protA", "AAAA")
+    monomer_b = run_structure_prediction_module.MonomericObject("protB", "BBBB")
+    returned_object, _ = run_structure_prediction_module.pre_modelling_setup(
+        [monomer_a, monomer_b],
+        output_dir=str(tmp_path / "outputs"),
+    )
+
+    assert returned_object.threshold_clashes == 12.5
+    assert returned_object.hb_allowance == 0.7
+    assert returned_object.plddt_threshold == 42.0
 
 
 def test_pre_modelling_setup_builds_ap_style_homo_oligomer_dir(
@@ -1103,3 +1154,40 @@ def test_run_multimer_jobs_combines_inputs_when_padding_requested(
     input_index = calls[0].index("--input")
     assert calls[0][input_index + 1] == "job1,job2"
     assert "--nopair_msa" in calls[0]
+
+
+def test_run_multimer_jobs_forwards_multimeric_template_filters(
+    run_multimer_jobs_module,
+    monkeypatch,
+):
+    calls = []
+    monkeypatch.setattr(
+        run_multimer_jobs_module.subprocess,
+        "run",
+        lambda command, check, env: calls.append(command),
+    )
+    run_multimer_jobs_module.generate_fold_specifications = (
+        lambda input_files, delimiter, exclude_permutations: ["job1"]
+    )
+
+    _set_flag(run_multimer_jobs_module.FLAGS, "mode", "custom")
+    _set_flag(run_multimer_jobs_module.FLAGS, "protein_lists", ["proteins.txt"])
+    _set_flag(run_multimer_jobs_module.FLAGS, "dry_run", False)
+    _set_flag(run_multimer_jobs_module.FLAGS, "fold_backend", "alphafold2")
+    _set_flag(run_multimer_jobs_module.FLAGS, "output_path", "/tmp/output")
+    _set_flag(run_multimer_jobs_module.FLAGS, "data_dir", "/tmp/models")
+    _set_flag(run_multimer_jobs_module.FLAGS, "monomer_objects_dir", ["/tmp/features"])
+    _set_flag(run_multimer_jobs_module.FLAGS, "multimeric_template", True)
+    _set_flag(run_multimer_jobs_module.FLAGS, "threshold_clashes", 12.5)
+    _set_flag(run_multimer_jobs_module.FLAGS, "hb_allowance", 0.7)
+    _set_flag(run_multimer_jobs_module.FLAGS, "plddt_threshold", 42.0)
+
+    run_multimer_jobs_module.main(["prog"])
+
+    assert len(calls) == 1
+    assert "--threshold_clashes" in calls[0]
+    assert calls[0][calls[0].index("--threshold_clashes") + 1] == "12.5"
+    assert "--hb_allowance" in calls[0]
+    assert calls[0][calls[0].index("--hb_allowance") + 1] == "0.7"
+    assert "--plddt_threshold" in calls[0]
+    assert calls[0][calls[0].index("--plddt_threshold") + 1] == "42.0"

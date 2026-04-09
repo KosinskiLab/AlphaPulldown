@@ -968,16 +968,30 @@ def test_create_multimeric_template_features_updates_matching_monomer(monkeypatc
     multimer.multimeric_template_dir = str(tmp_path)
     multimer.multimeric_template_meta_data = {"proteinA": {"1abc.cif": "B"}}
     multimer.monomers_mapping = {"proteinA": monomer}
+    multimer.threshold_clashes = 12.5
+    multimer.hb_allowance = 0.7
+    multimer.plddt_threshold = 42.0
+    extractor_calls = []
 
     monkeypatch.setattr(
         objects_mod,
         "extract_multimeric_template_features_for_single_chain",
-        lambda **kwargs: SimpleNamespace(features={"templated": kwargs["chain_id"]}),
+        lambda **kwargs: extractor_calls.append(kwargs)
+        or SimpleNamespace(features={"templated": kwargs["chain_id"]}),
     )
 
     multimer.create_multimeric_template_features()
 
     assert monomer.feature_dict["templated"] == "B"
+    assert extractor_calls == [{
+        "query_seq": "ACDE",
+        "pdb_id": "1abc",
+        "chain_id": "B",
+        "mmcif_file": str(template_file),
+        "threshold_clashes": 12.5,
+        "hb_allowance": 0.7,
+        "plddt_threshold": 42.0,
+    }]
 
 
 def test_create_multimeric_template_features_rejects_non_mmcif_files(tmp_path):

@@ -42,6 +42,7 @@ def test_obtain_kalign_binary_path_asserts_when_binary_missing(monkeypatch):
 
 def test_parse_mmcif_file_returns_parsing_result(monkeypatch, tmp_path):
     expected = SimpleNamespace(name="parsed")
+    calls = []
 
     class FakeFiltered:
         def __init__(self, path, file_id, chain_id):
@@ -50,11 +51,28 @@ def test_parse_mmcif_file_returns_parsing_result(monkeypatch, tmp_path):
             assert chain_id == "A"
             self.parsing_result = expected
 
+        def remove_clashes(self, threshold, hb_allowance):
+            calls.append(("remove_clashes", threshold, hb_allowance))
+
+        def remove_low_plddt(self, threshold):
+            calls.append(("remove_low_plddt", threshold))
+
     monkeypatch.setattr(mtu, "MmcifChainFiltered", FakeFiltered)
 
-    result = mtu.parse_mmcif_file("1abc", str(tmp_path / "template.cif"), "A")
+    result = mtu.parse_mmcif_file(
+        "1abc",
+        str(tmp_path / "template.cif"),
+        "A",
+        threshold_clashes=12.5,
+        hb_allowance=0.7,
+        plddt_threshold=42.0,
+    )
 
     assert result is expected
+    assert calls == [
+        ("remove_clashes", 12.5, 0.7),
+        ("remove_low_plddt", 42.0),
+    ]
 
 
 def test_parse_mmcif_file_returns_none_when_file_missing(monkeypatch, tmp_path):
