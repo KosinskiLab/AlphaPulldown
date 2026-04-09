@@ -57,19 +57,39 @@ AF2_DATABASES = {
 
 AF3_DATABASES = {
     "uniref90": "uniref90_2022_05.fa",
-    "uniref30": "uniref30/UniRef30_2023_02",
     "mgnify": "mgy_clusters_2022_05.fa",
-    "bfd": "bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt",
     "small_bfd": "bfd-first_non_consensus_sequences.fasta",
     "pdb_seqres": "pdb_seqres_2022_09_28.fasta",
     "template_mmcif_dir": "mmcif_files",
-    "obsolete_pdbs": "obsolete.dat",
-    "pdb70": "pdb70/pdb70",
     "uniprot": "uniprot_all_2021_04.fa",
     "ntrna": "nt_rna_2023_02_23_clust_seq_id_90_cov_80_rep_seq.fasta",
     "rfam": "rfam_14_9_clust_seq_id_90_cov_80_rep_seq.fasta",
     "rna_central": "rnacentral_active_seq_id_90_cov_80_linclust.fasta",
 }
+
+AF2_DATABASE_FLAGS = {
+    "uniref90_database_path": "uniref90",
+    "uniref30_database_path": "uniref30",
+    "mgnify_database_path": "mgnify",
+    "bfd_database_path": "bfd",
+    "small_bfd_database_path": "small_bfd",
+    "pdb70_database_path": "pdb70",
+    "uniprot_database_path": "uniprot",
+    "pdb_seqres_database_path": "pdb_seqres",
+    "template_mmcif_dir": "template_mmcif_dir",
+    "obsolete_pdbs_path": "obsolete_pdbs",
+}
+
+AF3_DATABASE_FLAGS = {
+    "uniref90_database_path": "uniref90",
+    "mgnify_database_path": "mgnify",
+    "small_bfd_database_path": "small_bfd",
+    "uniprot_database_path": "uniprot",
+    "pdb_seqres_database_path": "pdb_seqres",
+    "template_mmcif_dir": "template_mmcif_dir",
+}
+
+DATABASE_PATH_FLAGS = frozenset(AF2_DATABASE_FLAGS) | frozenset(AF3_DATABASE_FLAGS)
 
 # =================== Flags ===================
 flags.DEFINE_enum(
@@ -131,40 +151,35 @@ def get_database_path(key):
         raise ValueError("data_dir is required when not using MMseqs2")
     
     db_map = AF3_DATABASES if FLAGS.data_pipeline == 'alphafold3' else AF2_DATABASES
-    default_subpath = db_map[key]
+    try:
+        default_subpath = db_map[key]
+    except KeyError as exc:
+        raise KeyError(
+            f"Database '{key}' is not configured for the {FLAGS.data_pipeline} pipeline"
+        ) from exc
     return os.path.join(FLAGS.data_dir, default_subpath)
 
 def create_arguments(local_custom_template_db=None):
-    """Set all database paths in FLAGS for the selected AlphaFold version.
+    """Set the database path flags relevant to the selected AlphaFold version.
     Optionally override template paths with a local custom template DB."""
+    required_database_flags = (
+        AF3_DATABASE_FLAGS if FLAGS.data_pipeline == 'alphafold3' else AF2_DATABASE_FLAGS
+    )
+
     # When using MMseqs2 (current implementation uses remote servers), database paths are not needed
     # Note: Current MMseqs2 implementation uses remote servers via DEFAULT_API_SERVER
     # For local MMseqs2, data_dir would be required and database paths would be set
     if FLAGS.use_mmseqs2:
         # When using MMseqs2, we don't need local database paths regardless of data_dir
-        FLAGS.uniref90_database_path = None
-        FLAGS.uniref30_database_path = None
-        FLAGS.mgnify_database_path = None
-        FLAGS.bfd_database_path = None
-        FLAGS.small_bfd_database_path = None
-        FLAGS.pdb70_database_path = None
-        FLAGS.uniprot_database_path = None
-        FLAGS.pdb_seqres_database_path = None
-        FLAGS.template_mmcif_dir = None
-        FLAGS.obsolete_pdbs_path = None
+        for flag_name in DATABASE_PATH_FLAGS:
+            setattr(FLAGS, flag_name, None)
     else:
-        FLAGS.uniref90_database_path = FLAGS.uniref90_database_path or get_database_path("uniref90")
-        FLAGS.uniref30_database_path = FLAGS.uniref30_database_path or get_database_path("uniref30")
-        FLAGS.mgnify_database_path = FLAGS.mgnify_database_path or get_database_path("mgnify")
-        FLAGS.bfd_database_path = FLAGS.bfd_database_path or get_database_path("bfd")
-        FLAGS.small_bfd_database_path = FLAGS.small_bfd_database_path or get_database_path("small_bfd")
-        FLAGS.pdb70_database_path = FLAGS.pdb70_database_path or get_database_path("pdb70")
-        FLAGS.uniprot_database_path = FLAGS.uniprot_database_path or get_database_path("uniprot")
-        FLAGS.pdb_seqres_database_path = FLAGS.pdb_seqres_database_path or get_database_path("pdb_seqres")
-        FLAGS.template_mmcif_dir = FLAGS.template_mmcif_dir or get_database_path("template_mmcif_dir")
-        FLAGS.obsolete_pdbs_path = FLAGS.obsolete_pdbs_path or get_database_path("obsolete_pdbs")
+        for flag_name, db_key in required_database_flags.items():
+            setattr(FLAGS, flag_name, getattr(FLAGS, flag_name) or get_database_path(db_key))
+        for flag_name in DATABASE_PATH_FLAGS - frozenset(required_database_flags):
+            setattr(FLAGS, flag_name, None)
     
-    if local_custom_template_db:
+    if local_custom_template_db and FLAGS.data_pipeline != 'alphafold3':
         FLAGS.pdb_seqres_database_path = os.path.join(local_custom_template_db, "pdb_seqres.txt")
         FLAGS.template_mmcif_dir = os.path.join(local_custom_template_db, "pdb_mmcif", "mmcif_files")
         FLAGS.obsolete_pdbs_path = os.path.join(local_custom_template_db, "pdb_mmcif", "obsolete.dat")

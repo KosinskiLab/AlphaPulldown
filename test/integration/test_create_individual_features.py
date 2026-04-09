@@ -434,7 +434,6 @@ class TestCreateIndividualFeaturesComprehensive:
             ("alphafold2", "uniref90", "uniref90/uniref90.fasta"),
             ("alphafold2", "uniref30", "uniref30/UniRef30_2023_02"),
             ("alphafold3", "uniref90", "uniref90_2022_05.fa"),
-            ("alphafold3", "uniref30", "uniref30/UniRef30_2023_02"),
         ]
         
         for pipeline, key, expected_subpath in test_cases:
@@ -445,6 +444,14 @@ class TestCreateIndividualFeaturesComprehensive:
             actual_path = create_features.get_database_path(key)
             assert actual_path == expected_path, f"Expected {expected_path}, got {actual_path}"
             logger.info(f"Database path mapping correct: {actual_path}")
+
+        FLAGS.data_pipeline = "alphafold3"
+        FLAGS.data_dir = "/test/db"
+        with pytest.raises(
+            KeyError,
+            match="Database 'uniref30' is not configured for the alphafold3 pipeline",
+        ):
+            create_features.get_database_path("uniref30")
 
     def test_af3_pipeline_creation_failure(self):
         """Test that AF3 pipeline creation fails gracefully when AF3 is not available."""
@@ -676,6 +683,47 @@ class TestCreateIndividualFeaturesComprehensive:
         assert FLAGS.data_dir == "/test/db", "Data directory should be preserved"
         assert FLAGS.max_template_date == "2021-09-30", "Max template date should be preserved"
         logger.info("Flag preservation in custom template database mode successful")
+
+    def test_create_arguments_alphafold3_clears_af2_only_databases(self):
+        """Test that AF3 argument creation only populates databases used by AF3."""
+        logger.info("Testing AF3 argument creation without AF2-only database leftovers")
+
+        from absl import flags
+        FLAGS = flags.FLAGS
+        FLAGS(['test'])
+
+        FLAGS.use_mmseqs2 = False
+        FLAGS.data_pipeline = "alphafold3"
+        FLAGS.data_dir = "/test/db"
+        FLAGS.uniref90_database_path = None
+        FLAGS.mgnify_database_path = None
+        FLAGS.small_bfd_database_path = None
+        FLAGS.uniprot_database_path = None
+        FLAGS.pdb_seqres_database_path = None
+        FLAGS.template_mmcif_dir = None
+        FLAGS.uniref30_database_path = "/stale/uniref30"
+        FLAGS.bfd_database_path = "/stale/bfd"
+        FLAGS.pdb70_database_path = "/stale/pdb70"
+        FLAGS.obsolete_pdbs_path = "/stale/obsolete.dat"
+
+        create_features.create_arguments()
+
+        assert FLAGS.uniref90_database_path == "/test/db/uniref90_2022_05.fa"
+        assert FLAGS.mgnify_database_path == "/test/db/mgy_clusters_2022_05.fa"
+        assert FLAGS.small_bfd_database_path == "/test/db/bfd-first_non_consensus_sequences.fasta"
+        assert FLAGS.uniprot_database_path == "/test/db/uniprot_all_2021_04.fa"
+        assert FLAGS.pdb_seqres_database_path == "/test/db/pdb_seqres_2022_09_28.fasta"
+        assert FLAGS.template_mmcif_dir == "/test/db/mmcif_files"
+        assert FLAGS.uniref30_database_path is None
+        assert FLAGS.bfd_database_path is None
+        assert FLAGS.pdb70_database_path is None
+        assert FLAGS.obsolete_pdbs_path is None
+
+        create_features.create_arguments("/custom/template/db")
+        assert FLAGS.pdb_seqres_database_path == "/test/db/pdb_seqres_2022_09_28.fasta"
+        assert FLAGS.template_mmcif_dir == "/test/db/mmcif_files"
+        assert FLAGS.obsolete_pdbs_path is None
+        logger.info("AF3 argument creation only kept AF3-relevant database paths")
 
     def test_mmseqs2_without_data_dir(self):
         """Test that MMseqs2 works without data_dir flag."""
