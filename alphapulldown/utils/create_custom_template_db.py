@@ -69,7 +69,14 @@ def parse_code(template):
 
     # Generate a deterministic 4-character code if needed
     if len(code) != 4:
+        original_code = code
         code = generate_code(code)
+        logging.info(
+            "Template %s does not have a four-character PDB-style code, so "
+            "using deterministic code %s instead.",
+            original_code,
+            code,
+        )
 
     return code.lower()
 
@@ -132,9 +139,16 @@ def _prepare_template(template, code, chain_id, mmcif_dir, seqres_path, template
     Process and prepare each template.
     """
     duplicate = number_of_templates == 1
+    codes_to_process = [f"{code[:-1]}{i}" for i in range(1, 5)] if duplicate else [code]
     new_template = templates_dir / Path(code + Path(template).suffix)
     copy_file_exclude_lines('HETATM', template, new_template)
     logging.info(f"Processing template: {new_template}  Chain {chain_id}")
+    if duplicate:
+        logging.info(
+            "Only one multimeric template was provided, so TrueMultimer will "
+            "duplicate it four times with codes %s to increase template influence.",
+            ", ".join(codes_to_process),
+        )
 
     # Convert to (our) mmcif object
     mmcif_obj = MmcifChainFiltered(new_template, code, chain_id)
@@ -152,7 +166,6 @@ def _prepare_template(template, code, chain_id, mmcif_dir, seqres_path, template
     sequence_ids = mmcif_obj.atom_site_label_seq_ids
 
     # Save to file and validate
-    codes_to_process = [f"{code[:-1]}{i}" for i in range(1, 5)] if duplicate else [code]
     for temp_code in codes_to_process:
         mmcif_string = to_mmcif(protein, f"{temp_code}_{chain_id}", "Monomer", chain_id, seqres, sequence_ids)
         fn = mmcif_dir / f"{temp_code}.cif"
