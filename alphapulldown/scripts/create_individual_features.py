@@ -68,13 +68,23 @@ AF3_DATABASES = {
     "rna_central": "rnacentral_active_seq_id_90_cov_80_linclust.fasta",
 }
 
-AF2_DATABASE_FLAGS = {
+AF2_FULL_DATABASE_FLAGS = {
     "uniref90_database_path": "uniref90",
     "uniref30_database_path": "uniref30",
     "mgnify_database_path": "mgnify",
     "bfd_database_path": "bfd",
     "small_bfd_database_path": "small_bfd",
     "pdb70_database_path": "pdb70",
+    "uniprot_database_path": "uniprot",
+    "pdb_seqres_database_path": "pdb_seqres",
+    "template_mmcif_dir": "template_mmcif_dir",
+    "obsolete_pdbs_path": "obsolete_pdbs",
+}
+
+AF2_REDUCED_DATABASE_FLAGS = {
+    "uniref90_database_path": "uniref90",
+    "mgnify_database_path": "mgnify",
+    "small_bfd_database_path": "small_bfd",
     "uniprot_database_path": "uniprot",
     "pdb_seqres_database_path": "pdb_seqres",
     "template_mmcif_dir": "template_mmcif_dir",
@@ -90,7 +100,11 @@ AF3_DATABASE_FLAGS = {
     "template_mmcif_dir": "template_mmcif_dir",
 }
 
-DATABASE_PATH_FLAGS = frozenset(AF2_DATABASE_FLAGS) | frozenset(AF3_DATABASE_FLAGS)
+DATABASE_PATH_FLAGS = (
+    frozenset(AF2_FULL_DATABASE_FLAGS)
+    | frozenset(AF2_REDUCED_DATABASE_FLAGS)
+    | frozenset(AF3_DATABASE_FLAGS)
+)
 
 # =================== Flags ===================
 flags.DEFINE_enum(
@@ -180,9 +194,7 @@ def create_arguments(local_custom_template_db=None):
     Optionally override template paths with a local custom template DB."""
     validate_data_pipeline_flags()
 
-    required_database_flags = (
-        AF3_DATABASE_FLAGS if FLAGS.data_pipeline == 'alphafold3' else AF2_DATABASE_FLAGS
-    )
+    required_database_flags = get_required_database_flags()
 
     # When using MMseqs2 (current implementation uses remote servers), database paths are not needed
     # Note: Current MMseqs2 implementation uses remote servers via DEFAULT_API_SERVER
@@ -201,6 +213,20 @@ def create_arguments(local_custom_template_db=None):
         FLAGS.pdb_seqres_database_path = os.path.join(local_custom_template_db, "pdb_seqres.txt")
         FLAGS.template_mmcif_dir = os.path.join(local_custom_template_db, "pdb_mmcif", "mmcif_files")
         FLAGS.obsolete_pdbs_path = os.path.join(local_custom_template_db, "pdb_mmcif", "obsolete.dat")
+
+
+def get_required_database_flags():
+    """Return the database flags required by the selected pipeline and preset."""
+    if FLAGS.data_pipeline == "alphafold3":
+        return AF3_DATABASE_FLAGS
+
+    if FLAGS.db_preset == "reduced_dbs":
+        required_flags = dict(AF2_REDUCED_DATABASE_FLAGS)
+        if FLAGS.use_hhsearch:
+            required_flags["pdb70_database_path"] = "pdb70"
+        return required_flags
+
+    return AF2_FULL_DATABASE_FLAGS
 
 def check_template_date():
     """Check if the max_template_date is provided."""

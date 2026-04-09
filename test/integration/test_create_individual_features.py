@@ -760,6 +760,66 @@ class TestCreateIndividualFeaturesComprehensive:
         assert FLAGS.obsolete_pdbs_path is None
         logger.info("AF3 argument creation only kept AF3-relevant database paths")
 
+    def test_create_arguments_reduced_dbs_clears_unused_af2_databases(self):
+        """Test that reduced_dbs only sets the AF2 paths it actually needs."""
+        logger.info("Testing reduced_dbs argument creation without full-db leftovers")
+
+        from absl import flags
+        FLAGS = flags.FLAGS
+        FLAGS(['test'])
+
+        FLAGS.use_mmseqs2 = False
+        FLAGS.data_pipeline = "alphafold2"
+        FLAGS.db_preset = "reduced_dbs"
+        FLAGS.use_hhsearch = False
+        FLAGS.data_dir = "/test/db"
+        FLAGS.uniref90_database_path = None
+        FLAGS.mgnify_database_path = None
+        FLAGS.small_bfd_database_path = None
+        FLAGS.uniprot_database_path = None
+        FLAGS.pdb_seqres_database_path = None
+        FLAGS.template_mmcif_dir = None
+        FLAGS.obsolete_pdbs_path = None
+        FLAGS.uniref30_database_path = "/stale/uniref30"
+        FLAGS.bfd_database_path = "/stale/bfd"
+        FLAGS.pdb70_database_path = "/stale/pdb70"
+
+        create_features.create_arguments()
+
+        assert FLAGS.uniref90_database_path == "/test/db/uniref90/uniref90.fasta"
+        assert FLAGS.mgnify_database_path == "/test/db/mgnify/mgy_clusters_2022_05.fa"
+        assert FLAGS.small_bfd_database_path == "/test/db/small_bfd/bfd-first_non_consensus_sequences.fasta"
+        assert FLAGS.uniprot_database_path == "/test/db/uniprot/uniprot.fasta"
+        assert FLAGS.pdb_seqres_database_path == "/test/db/pdb_seqres/pdb_seqres.txt"
+        assert FLAGS.template_mmcif_dir == "/test/db/pdb_mmcif/mmcif_files"
+        assert FLAGS.obsolete_pdbs_path == "/test/db/pdb_mmcif/obsolete.dat"
+        assert FLAGS.uniref30_database_path is None
+        assert FLAGS.bfd_database_path is None
+        assert FLAGS.pdb70_database_path is None
+        logger.info("Reduced-dbs argument creation cleared unused full-database paths")
+
+    def test_create_arguments_reduced_dbs_keeps_pdb70_for_hhsearch(self):
+        """Test that reduced_dbs still sets pdb70 when HHsearch templates are requested."""
+        logger.info("Testing reduced_dbs HHsearch argument creation")
+
+        from absl import flags
+        FLAGS = flags.FLAGS
+        FLAGS(['test'])
+
+        FLAGS.use_mmseqs2 = False
+        FLAGS.data_pipeline = "alphafold2"
+        FLAGS.db_preset = "reduced_dbs"
+        FLAGS.use_hhsearch = True
+        FLAGS.data_dir = "/test/db"
+        FLAGS.pdb70_database_path = None
+
+        create_features.create_arguments()
+
+        assert FLAGS.pdb70_database_path == "/test/db/pdb70/pdb70"
+        assert FLAGS.bfd_database_path is None
+        assert FLAGS.uniref30_database_path is None
+        logger.info("Reduced-dbs HHsearch argument creation kept pdb70 without restoring full BFD")
+
     def test_mmseqs2_without_data_dir(self):
         """Test that MMseqs2 works without data_dir flag."""
         logger.info("Testing MMseqs2 without data_dir flag")
