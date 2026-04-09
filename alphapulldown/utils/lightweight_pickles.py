@@ -1,7 +1,8 @@
-"""Helpers for reading AlphaPulldown feature pickles without importing heavy runtime modules."""
+"""Helpers for reading AlphaPulldown pickles without importing heavy runtime modules."""
 
 from __future__ import annotations
 
+import gzip
 import lzma
 import pickle
 from dataclasses import dataclass, field
@@ -46,7 +47,12 @@ def load_lightweight_pickle(path: str | Path) -> Any:
     """Loads a pickle while avoiding imports from alphapulldown.objects."""
 
     pickle_path = Path(path)
-    opener = lzma.open if pickle_path.suffix == ".xz" else open
+    if pickle_path.suffix == ".xz":
+        opener = lzma.open
+    elif pickle_path.suffix == ".gz":
+        opener = gzip.open
+    else:
+        opener = open
     with opener(pickle_path, "rb") as handle:
         return _AlphaPulldownObjectUnpickler(handle).load()
 
@@ -63,4 +69,3 @@ def extract_feature_dict(payload: Any) -> dict[str, Any]:
             f"Expected a dict-like payload or an object with feature_dict, got {type(payload)!r}"
         )
     return feature_dict
-

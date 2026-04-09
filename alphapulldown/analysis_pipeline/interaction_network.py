@@ -18,23 +18,38 @@ from matplotlib import pyplot as plt
 
 
 _INTERFACE_PATTERN = re.compile(r"^(?P<left>[A-Z]+)_(?P<right>[A-Z]+)$")
+_HOMO_OLIGOMER_PATTERN = re.compile(r"^(?P<name>.+)_homo_(?P<count>\d+)er$")
+
+
+def _expand_ap_style_homo_oligomer(token: str) -> list[str]:
+    match = _HOMO_OLIGOMER_PATTERN.fullmatch(token)
+    if match is None:
+        return [token] if token else []
+    return [match.group("name")] * int(match.group("count"))
 
 
 def split_job_name(job_name: str) -> list[str]:
     """Split AlphaPulldown job names into ordered interactors."""
 
     if "_and_" in job_name:
-        return [part for part in job_name.split("_and_") if part]
-    if "+" in job_name:
-        return [part for part in job_name.split("+") if part]
-    return [job_name] if job_name else []
+        parts = [part for part in job_name.split("_and_") if part]
+    elif "+" in job_name:
+        parts = [part for part in job_name.split("+") if part]
+    else:
+        parts = [job_name] if job_name else []
+
+    expanded_parts: list[str] = []
+    for part in parts:
+        expanded_parts.extend(_expand_ap_style_homo_oligomer(part))
+    return expanded_parts
 
 
 def _parse_float(value) -> float | None:
     try:
-        return float(value)
+        parsed = float(value)
     except (TypeError, ValueError):
         return None
+    return None if math.isnan(parsed) else parsed
 
 
 def _chain_label_to_index(label: str) -> int:

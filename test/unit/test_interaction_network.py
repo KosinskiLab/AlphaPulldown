@@ -64,6 +64,69 @@ def test_build_interaction_edge_table_prefers_interface_pairs():
     ]
 
 
+def test_build_interaction_edge_table_supports_ap_style_homo_job_names():
+    table = pd.DataFrame(
+        [
+            {
+                "jobs": "protA_homo_3er",
+                "iptm_ptm": 0.91,
+                "average_interface_pae": 4.0,
+                "interface": "A_C",
+            },
+        ]
+    )
+
+    edge_table = build_interaction_edge_table(table, min_score=0.7, max_pae=5.0)
+
+    assert edge_table.to_dict(orient="records") == [
+        {
+            "source": "protA",
+            "target": "protA",
+            "score": 0.91,
+            "support": 1,
+            "jobs": "protA_homo_3er",
+            "self_interaction": True,
+        },
+    ]
+
+
+def test_build_interaction_edge_table_skips_nan_scores():
+    table = pd.DataFrame(
+        [
+            {
+                "jobs": "A_and_B",
+                "pi_score": float("nan"),
+                "average_interface_pae": 4.0,
+                "interface": "A_B",
+            },
+            {
+                "jobs": "A_and_C",
+                "pi_score": 0.81,
+                "average_interface_pae": 4.0,
+                "interface": "A_B",
+            },
+        ]
+    )
+
+    edge_table = build_interaction_edge_table(
+        table,
+        score_column="pi_score",
+        min_score=0.8,
+        max_pae=5.0,
+    )
+
+    assert edge_table.to_dict(orient="records") == [
+        {
+            "source": "A",
+            "target": "C",
+            "score": 0.81,
+            "support": 1,
+            "jobs": "A_and_C",
+            "self_interaction": False,
+        },
+    ]
+
+
 def test_plot_interaction_network_and_tables_write_outputs(tmp_path):
     edge_table = pd.DataFrame(
         [
