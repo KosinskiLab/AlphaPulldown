@@ -1025,6 +1025,35 @@ def test_create_multimeric_template_features_assigns_duplicate_rows_to_homo_olig
     assert monomer_b.feature_dict["templated"] == "B"
 
 
+def test_create_multimeric_template_features_matches_chopped_objects_by_base_description(
+    monkeypatch,
+    tmp_path,
+):
+    template_file = tmp_path / "1abc.cif"
+    template_file.write_text("data_1abc", encoding="utf-8")
+    chopped = ChoppedObject("P04051", "ACDE", {}, [(1, 2), (3, 4)])
+    multimer = MultimericObject.__new__(MultimericObject)
+    multimer.interactors = [chopped]
+    multimer.multimeric_template_dir = str(tmp_path)
+    multimer.multimeric_template_meta_data = {"P04051": [("1abc.cif", "B")]}
+    multimer.threshold_clashes = 1000
+    multimer.hb_allowance = 0.4
+    multimer.plddt_threshold = 0
+    calls = []
+
+    monkeypatch.setattr(
+        objects_mod,
+        "extract_multimeric_template_features_for_single_chain",
+        lambda **kwargs: calls.append((kwargs["query_seq"], kwargs["chain_id"]))
+        or SimpleNamespace(features={"templated": kwargs["chain_id"]}),
+    )
+
+    multimer.create_multimeric_template_features()
+
+    assert calls == [("ACDE", "B")]
+    assert chopped.feature_dict["templated"] == "B"
+
+
 def test_create_multimeric_template_features_rejects_non_mmcif_files(tmp_path):
     multimer = MultimericObject.__new__(MultimericObject)
     multimer.interactors = [SimpleNamespace(description="proteinA", sequence="ACDE", feature_dict={})]

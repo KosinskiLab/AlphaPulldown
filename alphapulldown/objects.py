@@ -631,6 +631,20 @@ class MultimericObject:
         # DEBUG
         #self.save_binary_matrix(multichain_mask, "multichain_mask.png")
         return multichain_mask
+
+    def _get_matching_interactors_for_template_name(self, monomer_name):
+        """Resolve template CSV names to interactors, including chopped aliases."""
+        exact_matches = [
+            interactor for interactor in self.interactors
+            if interactor.description == monomer_name
+        ]
+        if exact_matches:
+            return exact_matches
+
+        return [
+            interactor for interactor in self.interactors
+            if getattr(interactor, "monomeric_description", None) == monomer_name
+        ]
     
     def create_multimeric_template_features(self):
         """A method of creating multimeric template features"""
@@ -644,10 +658,7 @@ create_individual_features.py
             pass
         else:
             for monomer_name, template_entries in self.multimeric_template_meta_data.items():
-                matching_monomers = [
-                    interactor for interactor in self.interactors
-                    if interactor.description == monomer_name
-                ]
+                matching_monomers = self._get_matching_interactors_for_template_name(monomer_name)
                 if not matching_monomers:
                     raise KeyError(monomer_name)
 
