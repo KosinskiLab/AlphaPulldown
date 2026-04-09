@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 from typing import Iterable
 
 import matplotlib
@@ -16,6 +17,12 @@ from af2plots.plotter import plotter
 from colabfold.plot import plot_msa_v2
 
 from alphapulldown.utils.lightweight_pickles import extract_feature_dict, load_lightweight_pickle
+
+
+_RESULT_PICKLE_PATTERNS = ("result*.pkl", "result*.pkl.gz", "result*.pkl.xz")
+_RESULT_PICKLE_PATTERN = re.compile(
+    r"^result(?P<jobid>_[\w\d]+)?_model_(?P<idx>\d+)(?:_\w+)?\.pkl(?:\.(?:gz|xz))?$"
+)
 
 
 def _normalise_stem(path: str | Path) -> str:
@@ -60,6 +67,70 @@ def _ensure_chain_metadata(parsed_models: dict[str, dict]) -> None:
         model_data["assembly_num_chains"] = assembly_num_chains
 
 
+def _find_result_pickles(prediction_dir: str | Path) -> list[Path]:
+    prediction_root = Path(prediction_dir)
+    suffix_priority = {".pkl": 0, ".gz": 1, ".xz": 2}
+    selected_paths: dict[str, Path] = {}
+
+    for pattern in _RESULT_PICKLE_PATTERNS:
+        for path in prediction_root.glob(pattern):
+            if _RESULT_PICKLE_PATTERN.fullmatch(path.name) is None:
+                continue
+            key = _normalise_stem(path)
+            current = selected_paths.get(key)
+            if current is None or suffix_priority[path.suffix] < suffix_priority[current.suffix]:
+                selected_paths[key] = path
+
+    return [selected_paths[key] for key in sorted(selected_paths)]
+
+
+def _parse_prediction_pickles(prediction_dir: str | Path) -> dict[str, dict]:
+    parsed_models: dict[str, dict] = {}
+
+    for result_pickle in _find_result_pickles(prediction_dir):
+        match = _RESULT_PICKLE_PATTERN.fullmatch(result_pickle.name)
+        if match is None:
+            continue
+
+        data = load_lightweight_pickle(result_pickle)
+        if not isinstance(data, dict):
+            raise TypeError(f"Expected dict payload in {result_pickle}, got {type(data)!r}")
+
+        if "ptm" in data:
+            ptm = float(data["ptm"])
+        elif "ranking_confidence" in data:
+            ptm = float(data["ranking_confidence"])
+        else:
+            ptm = float(np.mean(data["plddt"], dtype=float))
+
+        parsed_models[str(result_pickle)] = {
+            "datadir": str(prediction_dir),
+            "fn": str(result_pickle),
+            "idx": int(match.group("idx")),
+            "ptm": ptm,
+            "iptm": data.get("iptm"),
+            "distogram": data.get("distogram"),
+            "sm_contacts": data.get("sm_contacts"),
+            "pae": data.get("predicted_aligned_error"),
+            "plddt": data["plddt"],
+        }
+
+    if not parsed_models:
+        raise FileNotFoundError(
+            f"{prediction_dir} does not contain result*.pkl, result*.pkl.gz, or result*.pkl.xz files"
+        )
+
+    for rank, path in enumerate(
+        sorted(parsed_models, key=lambda item: parsed_models[item]["ptm"], reverse=True)
+    ):
+        parsed_models[path]["rank"] = rank + 1
+        parsed_models[path]["description"] = f"ranked_{rank}.pdb pTM={parsed_models[path]['ptm']:.2f}"
+        if parsed_models[path]["iptm"] is not None:
+            parsed_models[path]["description"] += f" iPTM={parsed_models[path]['iptm']:.2f}"
+
+    return parsed_models
+
+
 def save_msa_coverage_plot(
     feature_pickle: str | Path,
     output_dir: str | Path,
@@ -90,7 +161,7 @@ def save_prediction_plots(
     prediction_root = Path(prediction_dir)
     destination = _ensure_output_dir(output_dir)
     af2_plotter = plotter()
-    parsed_models = af2_plotter.parse_model_pickles(str(prediction_root))
+    parsed_models = _parse_prediction_pickles(prediction_root)
     _ensure_chain_metadata(parsed_models)
     output_prefix = destination / prediction_root.name
 
@@ -133,7 +204,7 @@ def plot_inputs(
         destination = Path(output_dir) if output_dir is not None else input_path.parent
 
         if input_path.is_dir():
-            if list(input_path.glob("result*.pkl")):
+            if _find_result_pickles(input_path):
                 written_paths.extend(save_prediction_plots(input_path, destination, dpi=dpi))
                 continue
             feature_pickle = input_path / "features.pkl"
@@ -148,7 +219,7 @@ def plot_inputs(
                 )
                 continue
             raise FileNotFoundError(
-                f"{input_path} does not contain result*.pkl files or a features.pkl file"
+                f"{input_path} does not contain result*.pkl(.gz/.xz) files or a features.pkl file"
             )
 
         written_paths.append(save_msa_coverage_plot(input_path, destination, dpi=dpi))

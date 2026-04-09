@@ -1,4 +1,6 @@
+import gzip
 from pathlib import Path
+import shutil
 
 from alphapulldown.analysis_pipeline.diagnostics import (
     plot_inputs,
@@ -51,4 +53,24 @@ def test_plot_inputs_accepts_feature_directories_and_prediction_dirs(tmp_path):
         "TEST_homo_2er_distogram.png",
         "TEST_homo_2er_pae.png",
         "TEST_homo_2er_plddt.png",
+    ]
+
+
+def test_plot_inputs_accepts_gzip_compressed_prediction_dirs(tmp_path):
+    source_dir = TEST_DATA / "predictions" / "TEST_homo_2er"
+    compressed_dir = tmp_path / "compressed_prediction"
+    shutil.copytree(source_dir, compressed_dir)
+
+    for result_pickle in compressed_dir.glob("result*.pkl"):
+        compressed_path = result_pickle.with_suffix(f"{result_pickle.suffix}.gz")
+        with result_pickle.open("rb") as source_handle, gzip.open(compressed_path, "wb") as target_handle:
+            shutil.copyfileobj(source_handle, target_handle)
+        result_pickle.unlink()
+
+    written_paths = plot_inputs([compressed_dir], output_dir=tmp_path / "plots")
+
+    assert sorted(path.name for path in written_paths) == [
+        "compressed_prediction_distogram.png",
+        "compressed_prediction_pae.png",
+        "compressed_prediction_plddt.png",
     ]
