@@ -2,6 +2,7 @@ import gzip
 from pathlib import Path
 import shutil
 
+import alphapulldown.analysis_pipeline.diagnostics as diagnostics
 from alphapulldown.analysis_pipeline.diagnostics import (
     plot_inputs,
     save_msa_coverage_plot,
@@ -73,4 +74,31 @@ def test_plot_inputs_accepts_gzip_compressed_prediction_dirs(tmp_path):
         "compressed_prediction_distogram.png",
         "compressed_prediction_pae.png",
         "compressed_prediction_plddt.png",
+    ]
+
+
+def test_save_prediction_plots_falls_back_when_af2plots_has_no_distogram(monkeypatch, tmp_path):
+    real_plotter = diagnostics.plotter
+
+    class LegacyPlotter:
+        def __init__(self):
+            self._delegate = real_plotter()
+
+        def plot_predicted_alignment_error(self, *args, **kwargs):
+            return self._delegate.plot_predicted_alignment_error(*args, **kwargs)
+
+        def plot_plddts(self, *args, **kwargs):
+            return self._delegate.plot_plddts(*args, **kwargs)
+
+    monkeypatch.setattr(diagnostics, "plotter", LegacyPlotter)
+
+    written_paths = save_prediction_plots(
+        TEST_DATA / "predictions" / "TEST_homo_2er",
+        tmp_path,
+    )
+
+    assert [path.name for path in written_paths] == [
+        "TEST_homo_2er_pae.png",
+        "TEST_homo_2er_plddt.png",
+        "TEST_homo_2er_distogram.png",
     ]
