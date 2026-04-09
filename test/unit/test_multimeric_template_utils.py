@@ -16,7 +16,21 @@ def test_prepare_multimeric_template_meta_info_parses_valid_csv(tmp_path):
 
     result = mtu.prepare_multimeric_template_meta_info(str(csv_path), str(tmp_path))
 
-    assert result == {"proteinA": {"template1.cif": "A"}}
+    assert result == {"proteinA": [("template1.cif", "A")]}
+
+
+def test_prepare_multimeric_template_meta_info_keeps_duplicate_rows_for_homo_oligomers(tmp_path):
+    csv_path = tmp_path / "templates.csv"
+    template_path = tmp_path / "template1.cif"
+    template_path.write_text("data", encoding="utf-8")
+    csv_path.write_text(
+        "proteinA,template1.cif,A\nproteinA,template1.cif,B\n",
+        encoding="utf-8",
+    )
+
+    result = mtu.prepare_multimeric_template_meta_info(str(csv_path), str(tmp_path))
+
+    assert result == {"proteinA": [("template1.cif", "A"), ("template1.cif", "B")]}
 
 
 def test_prepare_multimeric_template_meta_info_exits_on_invalid_row(tmp_path):

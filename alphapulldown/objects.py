@@ -518,7 +518,8 @@ class MultimericObject:
     interactors: individual interactors that are to be concatenated
     pair_msa: boolean, tells the programme whether to pair MSA or not
     multimeric_template: boolean, tells the programme whether use multimeric templates or not
-    multimeric_template_meta_data: a csv with the format {"monomer_A":{"xxx.cif":"chainID"},"monomer_B":{"yyy.cif":"chainID"}}
+    multimeric_template_meta_data: a csv with the format
+        {"monomer_A": [("xxx.cif", "chainID")], "monomer_B": [("yyy.cif", "chainID")]}
     multimeric_template_dir: a directory where all the multimeric templates mmcifs files are stored
     """
 
@@ -642,9 +643,25 @@ create_individual_features.py
                             """)
             pass
         else:
-            for monomer_name in self.multimeric_template_meta_data:
-                for k,v in self.multimeric_template_meta_data[monomer_name].items():
-                    curr_monomer = self.monomers_mapping[monomer_name]
+            for monomer_name, template_entries in self.multimeric_template_meta_data.items():
+                matching_monomers = [
+                    interactor for interactor in self.interactors
+                    if interactor.description == monomer_name
+                ]
+                if not matching_monomers:
+                    raise KeyError(monomer_name)
+
+                if len(matching_monomers) == 1:
+                    monomer_assignments = [matching_monomers[0]] * len(template_entries)
+                elif len(template_entries) <= len(matching_monomers):
+                    monomer_assignments = matching_monomers[:len(template_entries)]
+                else:
+                    raise ValueError(
+                        f"Found {len(template_entries)} template assignments for '{monomer_name}' "
+                        f"but only {len(matching_monomers)} matching interactors."
+                    )
+
+                for curr_monomer, (k, v) in zip(monomer_assignments, template_entries):
                     assert k.endswith(".cif"), "The multimeric template file you provided does not seem to be a mmcif file. Please check your format and make sure it ends with .cif"
                     assert os.path.exists(os.path.join(self.multimeric_template_dir,k)), f"Your provided {k} cannot be found in: {self.multimeric_template_dir}. Abort"
                     pdb_id = k.split('.cif')[0]
