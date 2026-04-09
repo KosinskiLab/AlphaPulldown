@@ -155,3 +155,25 @@ def test_long_filename_generates_valid_code():
         assert metadata.pdb_id == code, f"Parsed PDB ID {metadata.pdb_id} does not match generated code {code}"
     except ValueError as e:
         pytest.fail(f"Generated code '{code}' cannot be parsed by AlphaFold parser: {e}")
+
+
+def test_create_db_logs_generated_code_and_duplication(caplog, tmp_path):
+    caplog.set_level(logging.INFO)
+
+    create_db(
+        tmp_path / "custom_db",
+        ["./test/test_data/templates/RANdom_name1_.7-1_0.pdb"],
+        ["B"],
+        1000,
+        0.4,
+        0,
+    )
+
+    assert (
+        "does not have a four-character PDB-style code, so using deterministic code"
+        in caplog.text
+    )
+    assert (
+        "Only one multimeric template was provided, so TrueMultimer will duplicate it four times"
+        in caplog.text
+    )
