@@ -194,6 +194,7 @@ class MonomericObject:
             compress_msa_files=False,
             use_precomputed_msa=False,
             use_templates=False,
+            custom_template_path=None,
     ):
         """
         A method to use mmseq_remote to calculate MSA.
@@ -201,6 +202,7 @@ class MonomericObject:
         """
         os.makedirs(output_dir, exist_ok=True)
         using_zipped_msa_files = MonomericObject.unzip_msa_files(output_dir)
+        use_templates = use_templates or custom_template_path is not None
 
         msa_mode = "mmseqs2_uniref_env"
         keep_existing_results = True
@@ -224,7 +226,7 @@ class MonomericObject:
                 result_dir=plPath(result_dir),
                 msa_mode='single_sequence',
                 use_templates=True,
-                custom_template_path=None,
+                custom_template_path=custom_template_path,
                 pair_mode="none",
                 host_url=DEFAULT_API_SERVER,
                 user_agent='alphapulldown')
@@ -243,7 +245,7 @@ class MonomericObject:
                 result_dir=plPath(result_dir),
                 msa_mode=msa_mode,
                 use_templates=use_templates,
-                custom_template_path=None,
+                custom_template_path=custom_template_path,
                 pair_mode="none",
                 host_url=DEFAULT_API_SERVER,
                 user_agent='alphapulldown'

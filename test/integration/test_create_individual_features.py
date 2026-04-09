@@ -1358,6 +1358,38 @@ def test_create_and_save_monomer_objects_uses_mmseqs_when_requested(tmp_flags, t
             "output_dir": str(tmp_path),
             "use_precomputed_msa": True,
             "use_templates": True,
+            "custom_template_path": None,
+        }
+    ]
+    assert (tmp_path / "protA.pkl").exists()
+
+
+def test_create_and_save_monomer_objects_passes_custom_templates_to_mmseqs(tmp_flags, tmp_path):
+    create_features.FLAGS.output_dir = str(tmp_path)
+    create_features.FLAGS.compress_features = False
+    create_features.FLAGS.skip_existing = False
+    create_features.FLAGS.use_mmseqs2 = True
+    create_features.FLAGS.use_precomputed_msas = False
+    create_features.FLAGS.re_search_templates_mmseqs2 = False
+
+    monomer = RecordingDummyMonomer("protA")
+    custom_template_path = str(tmp_path / "custom_db" / "templates")
+
+    with patch("alphapulldown.utils.save_meta_data.get_meta_dict", return_value={"source": "test"}):
+        create_features.create_and_save_monomer_objects(
+            monomer,
+            pipeline=None,
+            custom_template_path=custom_template_path,
+        )
+
+    assert monomer.feature_calls == []
+    assert monomer.mmseq_calls == [
+        {
+            "DEFAULT_API_SERVER": create_features.DEFAULT_API_SERVER,
+            "output_dir": str(tmp_path),
+            "use_precomputed_msa": False,
+            "use_templates": True,
+            "custom_template_path": custom_template_path,
         }
     ]
     assert (tmp_path / "protA.pkl").exists()
@@ -1521,9 +1553,11 @@ def test_process_multimeric_features_uses_mmseqs_without_local_pipeline(tmp_flag
     mock_pipeline.assert_not_called()
     mock_runner.assert_not_called()
     saved_monomer, saved_pipeline = mock_save.call_args.args
+    saved_kwargs = mock_save.call_args.kwargs
     assert saved_pipeline is None
     assert saved_monomer.description == "complex_mmseqs"
     assert saved_monomer.uniprot_runner is None
+    assert saved_kwargs == {"custom_template_path": "/tmp/custom_db/templates"}
 
 
 def test_create_custom_db_passes_thresholds_to_builder(tmp_flags):
