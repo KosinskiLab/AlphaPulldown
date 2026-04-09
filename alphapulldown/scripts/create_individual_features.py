@@ -340,7 +340,7 @@ def create_individual_features():
             monomer.uniprot_runner = uniprot_runner
             create_and_save_monomer_objects(monomer, pipeline)
 
-def create_and_save_monomer_objects(monomer, pipeline):
+def create_and_save_monomer_objects(monomer, pipeline, custom_template_path=None):
     """Save a MonomericObject after feature creation (pickled, optionally compressed)."""
     # Ensure output directory exists
     os.makedirs(FLAGS.output_dir, exist_ok=True)
@@ -362,7 +362,13 @@ def create_and_save_monomer_objects(monomer, pipeline):
         with open(metadata_output_path, "w") as meta_data_outfile:
             json.dump(meta_dict, meta_data_outfile)
     if FLAGS.use_mmseqs2:
-        monomer.make_mmseq_features(DEFAULT_API_SERVER=DEFAULT_API_SERVER, output_dir=FLAGS.output_dir, use_precomputed_msa=FLAGS.use_precomputed_msas, use_templates=FLAGS.re_search_templates_mmseqs2)
+        monomer.make_mmseq_features(
+            DEFAULT_API_SERVER=DEFAULT_API_SERVER,
+            output_dir=FLAGS.output_dir,
+            use_precomputed_msa=FLAGS.use_precomputed_msas,
+            use_templates=FLAGS.re_search_templates_mmseqs2 or custom_template_path is not None,
+            custom_template_path=custom_template_path,
+        )
     else:
         monomer.make_features(
             pipeline=pipeline, output_dir=FLAGS.output_dir,
@@ -406,7 +412,12 @@ def process_multimeric_features(feat, idx):
         
         monomer = MonomericObject(protein, feat['sequence'])
         monomer.uniprot_runner = uniprot_runner
-        create_and_save_monomer_objects(monomer, pipeline)
+        custom_template_path = str(Path(local_path_to_custom_db) / "templates")
+        create_and_save_monomer_objects(
+            monomer,
+            pipeline,
+            custom_template_path=custom_template_path if FLAGS.use_mmseqs2 else None,
+        )
 
 def create_custom_db(temp_dir, protein, template_paths, chains):
     """Create a local custom template DB for TrueMultimer/AF2."""

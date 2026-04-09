@@ -454,6 +454,73 @@ def test_make_mmseq_features_researches_templates_without_rerunning_msa(
     )
 
 
+def test_make_mmseq_features_uses_custom_template_path_for_precomputed_msa(
+    monkeypatch, tmp_path
+):
+    monomer = MonomericObject("proteinA", "ACDE")
+    calls = {}
+    (tmp_path / "proteinA.a3m").write_text(">101\nACDE\n", encoding="utf-8")
+    custom_template_path = str(tmp_path / "custom_templates")
+
+    monkeypatch.setattr(
+        MonomericObject, "unzip_msa_files", staticmethod(lambda _path: False)
+    )
+    monkeypatch.setattr(
+        objects_mod,
+        "unserialize_msa",
+        lambda a3m_lines, sequence: (
+            ["PRECOMP_MSA"],
+            ["PRECOMP_PAIRED"],
+            ["UNIQUE"],
+            ["CARD"],
+            ["PRECOMP_TEMPLATE"],
+        ),
+    )
+
+    def fake_get_msa_and_templates(**kwargs):
+        calls["get_msa_and_templates"] = kwargs
+        return (
+            ["IGNORED_UNPAIRED"],
+            ["IGNORED_PAIRED"],
+            ["IGNORED_UNIQUE"],
+            ["IGNORED_CARD"],
+            ["CUSTOM_TEMPLATE"],
+        )
+
+    monkeypatch.setattr(objects_mod, "get_msa_and_templates", fake_get_msa_and_templates)
+    monkeypatch.setattr(
+        objects_mod,
+        "build_monomer_feature",
+        lambda *_args, **_kwargs: {
+            "msa": np.asarray([[1, 2, 3, 4]], dtype=np.int32),
+            "deletion_matrix_int": np.asarray([[0, 0, 0, 0]], dtype=np.int32),
+            "template_confidence_scores": None,
+            "template_release_date": None,
+        },
+    )
+    monkeypatch.setattr(
+        objects_mod,
+        "enrich_mmseq_feature_dict_with_identifiers",
+        lambda feature_dict, *_args, **_kwargs: feature_dict.update(
+            {
+                "msa_species_identifiers": np.asarray([b"562"], dtype=object),
+                "msa_uniprot_accession_identifiers": np.asarray([b"A0A123"], dtype=object),
+            }
+        ),
+    )
+
+    monomer.make_mmseq_features(
+        DEFAULT_API_SERVER="https://fake.server",
+        output_dir=str(tmp_path),
+        use_precomputed_msa=True,
+        use_templates=False,
+        custom_template_path=custom_template_path,
+    )
+
+    assert calls["get_msa_and_templates"]["use_templates"] is True
+    assert calls["get_msa_and_templates"]["custom_template_path"] == custom_template_path
+
+
 def test_make_mmseq_features_reuses_identifier_sidecar_on_precomputed_run(
     monkeypatch, tmp_path
 ):
