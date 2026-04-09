@@ -15,6 +15,7 @@ import sys
 import tempfile
 from datetime import datetime
 from pathlib import Path
+import numpy as np
 
 from absl import logging, app, flags
 from colabfold.utils import DEFAULT_API_SERVER
@@ -29,6 +30,9 @@ from alphapulldown.utils.create_custom_template_db import create_db
 from alphapulldown.objects import MonomericObject
 from alphapulldown.utils.file_handling import iter_seqs, parse_csv_file
 from alphapulldown.utils.modelling_setup import create_uniprot_runner
+from alphapulldown.utils.multimeric_template_utils import (
+    extract_multimeric_template_features_for_single_chain,
+)
 from alphapulldown.utils import save_meta_data
 
 # Try to import AlphaFold3, but it's optional
@@ -340,27 +344,151 @@ def create_individual_features():
             monomer.uniprot_runner = uniprot_runner
             create_and_save_monomer_objects(monomer, pipeline)
 
+def _feature_pickle_path(description, *, compress):
+    suffix = ".pkl.xz" if compress else ".pkl"
+    return Path(FLAGS.output_dir) / f"{description}{suffix}"
+
+
+def _metadata_output_path(description):
+    return Path(FLAGS.output_dir) / (
+        f"{description}_feature_metadata_{datetime.now().date()}.json"
+    )
+
+
+def _should_skip_monomer_output(description):
+    pickle_path = _feature_pickle_path(description, compress=FLAGS.compress_features)
+    if FLAGS.skip_existing and pickle_path.exists():
+        logging.info(f"Feature file for {description} already exists. Skipping...")
+        return True
+    return False
+
+
+def _persist_monomer_outputs(monomer):
+    meta_dict = save_meta_data.get_meta_dict(FLAGS.flag_values_dict())
+    metadata_output_path = _metadata_output_path(monomer.description)
+    if FLAGS.compress_features:
+        with lzma.open(str(metadata_output_path) + ".xz", "wt") as meta_data_outfile:
+            json.dump(meta_dict, meta_data_outfile)
+        with lzma.open(_feature_pickle_path(monomer.description, compress=True), "wb") as pickle_file:
+            pickle.dump(monomer, pickle_file)
+    else:
+        with open(metadata_output_path, "w") as meta_data_outfile:
+            json.dump(meta_dict, meta_data_outfile)
+        with open(_feature_pickle_path(monomer.description, compress=False), "wb") as pickle_file:
+            pickle.dump(monomer, pickle_file)
+
+
+def _load_existing_monomer_from_output_dir(description):
+    for suffix in (".pkl", ".pkl.xz"):
+        pickle_path = Path(FLAGS.output_dir) / f"{description}{suffix}"
+        if not pickle_path.exists():
+            continue
+        if suffix == ".pkl.xz":
+            with lzma.open(pickle_path, "rb") as handle:
+                return pickle.load(handle)
+        with open(pickle_path, "rb") as handle:
+            return pickle.load(handle)
+    return None
+
+
+def _infer_truemultimer_source_name(protein, template_paths, chains):
+    if len(template_paths) != 1 or len(chains) != 1:
+        return protein
+    template_name = Path(template_paths[0]).name
+    suffix = f".{template_name}.{chains[0]}"
+    if protein.endswith(suffix):
+        return protein[: -len(suffix)]
+    return protein
+
+
+def _replace_template_features(monomer, template_features):
+    monomer.feature_dict = {
+        key: value
+        for key, value in monomer.feature_dict.items()
+        if not key.startswith("template_")
+    }
+    monomer.feature_dict.update(template_features)
+
+    template_count = 0
+    if "template_aatype" in monomer.feature_dict:
+        template_count = int(monomer.feature_dict["template_aatype"].shape[0])
+    elif "template_sequence" in monomer.feature_dict:
+        template_count = len(monomer.feature_dict["template_sequence"])
+    template_count = max(template_count, 1)
+
+    if "template_sum_probs" in monomer.feature_dict:
+        monomer.feature_dict["template_sum_probs"] = np.asarray(
+            monomer.feature_dict["template_sum_probs"], dtype=np.float32
+        )
+    else:
+        monomer.feature_dict["template_sum_probs"] = np.zeros(
+            template_count, dtype=np.float32
+        )
+    if "template_confidence_scores" not in monomer.feature_dict:
+        monomer.feature_dict["template_confidence_scores"] = np.ones(
+            (template_count, len(monomer.sequence)), dtype=np.float32
+        )
+    if "template_release_date" not in monomer.feature_dict:
+        monomer.feature_dict["template_release_date"] = np.array(
+            ["none"] * template_count, dtype=object
+        )
+
+
+def _reuse_truemultimer_monomer_features(feat):
+    if FLAGS.use_mmseqs2 or len(feat["templates"]) != 1 or len(feat["chains"]) != 1:
+        return None
+
+    source_name = _infer_truemultimer_source_name(
+        feat["protein"], feat["templates"], feat["chains"]
+    )
+    monomer = _load_existing_monomer_from_output_dir(source_name)
+    if monomer is None:
+        return None
+    if monomer.sequence != feat["sequence"]:
+        logging.warning(
+            "Existing monomer features for %s use sequence %s, but the current "
+            "TrueMultimer entry expects %s. Falling back to full feature generation.",
+            source_name,
+            monomer.sequence,
+            feat["sequence"],
+        )
+        return None
+
+    template_path = feat["templates"][0]
+    chain_id = feat["chains"][0]
+    template_result = extract_multimeric_template_features_for_single_chain(
+        query_seq=monomer.sequence,
+        pdb_id=Path(template_path).stem,
+        chain_id=chain_id,
+        mmcif_file=template_path,
+        threshold_clashes=FLAGS.threshold_clashes,
+        hb_allowance=FLAGS.hb_allowance,
+        plddt_threshold=FLAGS.plddt_threshold,
+    )
+    if template_result is None or template_result.features is None:
+        raise RuntimeError(
+            f"Failed to extract template features from {template_path} chain {chain_id}."
+        )
+
+    monomer.description = feat["protein"]
+    monomer.sequence = feat["sequence"]
+    monomer.uniprot_runner = None
+    _replace_template_features(monomer, template_result.features)
+    logging.info(
+        "Reused existing monomer features from %s for TrueMultimer target %s.",
+        source_name,
+        feat["protein"],
+    )
+    return monomer
+
+
 def create_and_save_monomer_objects(monomer, pipeline, custom_template_path=None):
     """Save a MonomericObject after feature creation (pickled, optionally compressed)."""
     # Ensure output directory exists
     os.makedirs(FLAGS.output_dir, exist_ok=True)
-    
-    pickle_path = os.path.join(FLAGS.output_dir, f"{monomer.description}.pkl")
-    if FLAGS.compress_features:
-        pickle_path += ".xz"
-    if FLAGS.skip_existing and os.path.exists(pickle_path):
-        logging.info(f"Feature file for {monomer.description} already exists. Skipping...")
+
+    if _should_skip_monomer_output(monomer.description):
         return
-    meta_dict = save_meta_data.get_meta_dict(FLAGS.flag_values_dict())
-    metadata_output_path = os.path.join(
-        FLAGS.output_dir, f"{monomer.description}_feature_metadata_{datetime.now().date()}.json"
-    )
-    if FLAGS.compress_features:
-        with lzma.open(metadata_output_path + '.xz', "wt") as meta_data_outfile:
-            json.dump(meta_dict, meta_data_outfile)
-    else:
-        with open(metadata_output_path, "w") as meta_data_outfile:
-            json.dump(meta_dict, meta_data_outfile)
     if FLAGS.use_mmseqs2:
         monomer.make_mmseq_features(
             DEFAULT_API_SERVER=DEFAULT_API_SERVER,
@@ -374,12 +502,7 @@ def create_and_save_monomer_objects(monomer, pipeline, custom_template_path=None
             pipeline=pipeline, output_dir=FLAGS.output_dir,
             use_precomputed_msa=FLAGS.use_precomputed_msas,
             save_msa=FLAGS.save_msa_files)
-    if FLAGS.compress_features:
-        with lzma.open(pickle_path, "wb") as pickle_file:
-            pickle.dump(monomer, pickle_file)
-    else:
-        with open(pickle_path, "wb") as pickle_file:
-            pickle.dump(monomer, pickle_file)
+    _persist_monomer_outputs(monomer)
 
 def create_individual_features_truemultimer():
     """Generate features in TrueMultimer mode, one set per entry in the description CSV."""
@@ -395,6 +518,12 @@ def process_multimeric_features(feat, idx):
     for temp_path in feat["templates"]:
         if not os.path.isfile(temp_path):
             raise FileNotFoundError(f"Template file {temp_path} does not exist.")
+    reused_monomer = _reuse_truemultimer_monomer_features(feat)
+    if reused_monomer is not None:
+        if _should_skip_monomer_output(reused_monomer.description):
+            return
+        _persist_monomer_outputs(reused_monomer)
+        return
     protein, chains, template_paths = feat["protein"], feat["chains"], feat["templates"]
     with tempfile.TemporaryDirectory() as temp_dir:
         local_path_to_custom_db = create_custom_db(temp_dir, protein, template_paths, chains)
