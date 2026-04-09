@@ -109,6 +109,7 @@ packages = [
 script-files = [
   "./alphapulldown/scripts/create_individual_features.py",
   "./alphapulldown/scripts/run_multimer_jobs.py",
+  "./alphapulldown/scripts/generate_alphafold_server_json.py",
   "./alphapulldown/analysis_pipeline/create_notebook.py",
   "./alphapulldown/analysis_pipeline/get_good_inter_pae.py",
   "./alphapulldown/scripts/rename_colab_search_a3m.py",
