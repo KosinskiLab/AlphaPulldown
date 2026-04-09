@@ -102,6 +102,12 @@ flags.DEFINE_enum_class(
     "in case you are having issues with the relaxation "
     "stage.",
 )
+flags.DEFINE_float(
+    "relax_best_score_threshold",
+    None,
+    "Optional minimum iPTM/pTM score required before relaxing the best-ranked "
+    "model when --models_to_relax=Best.",
+)
 flags.DEFINE_enum('model_preset', 'monomer',
                   ['monomer', 'monomer_casp14', 'monomer_ptm', 'multimer'],
                   'Choose preset model configuration - the monomer model, '
@@ -228,7 +234,8 @@ def _validate_flags_for_backend(backend_name: str) -> None:
     # Backend-specific flags
     af2_like_flags = {
         'compress_result_pickles', 'remove_result_pickles', 'models_to_relax',
-        'remove_keys_from_pickles', 'convert_to_modelcif', 'allow_resume',
+        'relax_best_score_threshold', 'remove_keys_from_pickles',
+        'convert_to_modelcif', 'allow_resume',
         'num_cycle', 'num_predictions_per_model', 'pair_msa',
         'save_features_for_multimeric_object', 'skip_templates',
         'msa_depth_scan', 'multimeric_template', 'model_names', 'msa_depth',
@@ -475,6 +482,7 @@ def main(argv):
         "remove_keys_from_pickles": FLAGS.remove_keys_from_pickles,
         "use_gpu_relax": FLAGS.use_gpu_relax,
         "models_to_relax": FLAGS.models_to_relax,
+        "relax_best_score_threshold": FLAGS.relax_best_score_threshold,
         "features_directory": FLAGS.features_directory,
         "convert_to_modelcif": FLAGS.convert_to_modelcif
     }

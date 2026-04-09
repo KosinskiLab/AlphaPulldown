@@ -39,6 +39,46 @@ RELAX_EXCLUDE_RESIDUES = []
 RELAX_MAX_OUTER_ITERATIONS = 3
 
 
+def _select_models_to_relax(
+    ranked_order: List[str],
+    *,
+    models_to_relax: "ModelsToRelax",
+    iptm_scores: Dict[str, float],
+    ptm_scores: Dict[str, float],
+    relax_best_score_threshold,
+) -> List[str]:
+    if models_to_relax == ModelsToRelax.ALL:
+        return ranked_order
+    if models_to_relax == ModelsToRelax.NONE:
+        return []
+    if not ranked_order:
+        return []
+
+    best_model = ranked_order[0]
+    if relax_best_score_threshold is None:
+        return [best_model]
+
+    if best_model in iptm_scores:
+        score_name = "iPTM"
+        score_value = iptm_scores[best_model]
+    else:
+        score_name = "pTM"
+        score_value = ptm_scores.get(best_model)
+
+    if score_value is None or score_value < relax_best_score_threshold:
+        logging.info(
+            "Skipping relaxation for %s because its %s score %.3f is below the "
+            "requested threshold %.3f.",
+            best_model,
+            score_name,
+            0.0 if score_value is None else score_value,
+            relax_best_score_threshold,
+        )
+        return []
+
+    return [best_model]
+
+
 @enum.unique
 class ModelsToRelax(enum.Enum):
   ALL = 0
@@ -788,6 +828,7 @@ class AlphaFold2Backend(FoldingBackend):
         output_dir: str,
         features_directory: str,
         models_to_relax: ModelsToRelax,
+        relax_best_score_threshold = None,
         compress_pickles: bool = False,
         remove_pickles: bool = False,
         remove_keys_from_pickles: bool = False,
@@ -917,12 +958,13 @@ class AlphaFold2Backend(FoldingBackend):
             max_outer_iterations=RELAX_MAX_OUTER_ITERATIONS,
             use_gpu=_resolve_gpu_relax(use_gpu_relax))
 
-        if models_to_relax == ModelsToRelax.BEST:
-            to_relax = [ranked_order[0]]
-        elif models_to_relax == ModelsToRelax.ALL:
-            to_relax = ranked_order
-        elif models_to_relax == ModelsToRelax.NONE:
-            to_relax = []
+        to_relax = _select_models_to_relax(
+            ranked_order,
+            models_to_relax=models_to_relax,
+            iptm_scores=iptm_scores,
+            ptm_scores=ptm_scores,
+            relax_best_score_threshold=relax_best_score_threshold,
+        )
 
         for model_name in to_relax:
             if f'relax_{model_name}' in timings:
