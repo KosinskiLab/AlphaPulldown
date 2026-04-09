@@ -112,6 +112,7 @@ script-files = [
   "./alphapulldown/scripts/generate_alphafold_server_json.py",
   "./alphapulldown/analysis_pipeline/create_notebook.py",
   "./alphapulldown/analysis_pipeline/get_good_inter_pae.py",
+  "./alphapulldown/analysis_pipeline/plot_diagnostics.py",
   "./alphapulldown/scripts/rename_colab_search_a3m.py",
   "./alphapulldown/scripts/prepare_seq_names.py",
   "./alphapulldown/scripts/generate_crosslink_pickle.py",
