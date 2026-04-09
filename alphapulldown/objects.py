@@ -525,7 +525,10 @@ class MultimericObject:
     def __init__(self, interactors: list, pair_msa: bool = True, 
                  multimeric_template: bool = False,
                  multimeric_template_meta_data: str = None,
-                 multimeric_template_dir:str = None) -> None:
+                 multimeric_template_dir:str = None,
+                 threshold_clashes: float = 1000,
+                 hb_allowance: float = 0.4,
+                 plddt_threshold: float = 0) -> None:
         self.description = ""
         self.interactors = interactors
         self.build_description_monomer_mapping()
@@ -534,6 +537,9 @@ class MultimericObject:
         self.chain_id_map = dict()
         self.input_seqs = []
         self.multimeric_template_dir = multimeric_template_dir
+        self.threshold_clashes = threshold_clashes
+        self.hb_allowance = hb_allowance
+        self.plddt_threshold = plddt_threshold
         self.create_output_name()
 
         if multimeric_template_meta_data is not None:
@@ -644,7 +650,10 @@ create_individual_features.py
                     pdb_id = k.split('.cif')[0]
                     multimeric_template_features = extract_multimeric_template_features_for_single_chain(query_seq=curr_monomer.sequence,
                                                                                                         pdb_id=pdb_id,chain_id=v,
-                                                                                                        mmcif_file=os.path.join(self.multimeric_template_dir,k))
+                                                                                                        mmcif_file=os.path.join(self.multimeric_template_dir,k),
+                                                                                                        threshold_clashes=getattr(self, "threshold_clashes", 1000),
+                                                                                                        hb_allowance=getattr(self, "hb_allowance", 0.4),
+                                                                                                        plddt_threshold=getattr(self, "plddt_threshold", 0))
                     curr_monomer.feature_dict.update(multimeric_template_features.features)
             
 

@@ -73,6 +73,18 @@ flags.DEFINE_string('description_file', None,
                     'Path to the text file with multimeric template instruction.')
 flags.DEFINE_string('path_to_mmt', None,
                     'Path to directory with multimeric template mmCIF files.')
+flags.DEFINE_float(
+    'threshold_clashes',
+    1000,
+    'Threshold for VDW overlap used to remove clashes from quick-mode multimeric templates.')
+flags.DEFINE_float(
+    'hb_allowance',
+    0.4,
+    'Allowance for hydrogen bonding when filtering quick-mode multimeric templates.')
+flags.DEFINE_float(
+    'plddt_threshold',
+    0,
+    'Threshold for removing low-pLDDT residues from quick-mode multimeric templates.')
 flags.DEFINE_integer('desired_num_res', None,
                      'A desired number of residues to pad')
 flags.DEFINE_integer('desired_num_msa', None,
@@ -220,7 +232,8 @@ def _validate_flags_for_backend(backend_name: str) -> None:
         'num_cycle', 'num_predictions_per_model', 'pair_msa',
         'save_features_for_multimeric_object', 'skip_templates',
         'msa_depth_scan', 'multimeric_template', 'model_names', 'msa_depth',
-        'description_file', 'path_to_mmt', 'desired_num_res', 'desired_num_msa',
+        'description_file', 'path_to_mmt', 'threshold_clashes', 'hb_allowance',
+        'plddt_threshold', 'desired_num_res', 'desired_num_msa',
         'benchmark', 'model_preset', 'use_ap_style', 'use_gpu_relax', 'dropout',
     }
     alphalink_extra = {'crosslinks'}
@@ -336,6 +349,9 @@ def pre_modelling_setup(
             multimeric_template=FLAGS.multimeric_template,
             multimeric_template_meta_data=FLAGS.description_file,
             multimeric_template_dir=FLAGS.path_to_mmt,
+            threshold_clashes=FLAGS.threshold_clashes,
+            hb_allowance=FLAGS.hb_allowance,
+            plddt_threshold=FLAGS.plddt_threshold,
         )
         if FLAGS.save_features_for_multimeric_object:
             pickle.dump(MultimericObject.feature_dict, open(join(output_dir, "multimeric_object_features.pkl"), "wb"))

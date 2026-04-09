@@ -163,7 +163,10 @@ def main(argv):
             "--protein_delimiter": FLAGS.protein_delimiter,
             "--desired_num_res": FLAGS.desired_num_res,
             "--desired_num_msa": FLAGS.desired_num_msa,
-            "--models_to_relax": FLAGS.models_to_relax
+            "--models_to_relax": FLAGS.models_to_relax,
+            "--threshold_clashes": FLAGS.threshold_clashes,
+            "--hb_allowance": FLAGS.hb_allowance,
+            "--plddt_threshold": FLAGS.plddt_threshold,
         }
 
     command_args = {}

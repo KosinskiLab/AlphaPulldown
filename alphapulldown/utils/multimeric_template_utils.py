@@ -63,7 +63,14 @@ def obtain_kalign_binary_path() -> Optional[str]:
     return shutil.which('kalign')
 
 
-def parse_mmcif_file(file_id: str, mmcif_file: str, chain_id: str) -> ParsingResult:
+def parse_mmcif_file(
+    file_id: str,
+    mmcif_file: str,
+    chain_id: str,
+    threshold_clashes: float = 1000,
+    hb_allowance: float = 0.4,
+    plddt_threshold: float = 0,
+) -> ParsingResult:
     """
     Args:
     file_id: A string identifier for this file. Should be unique within the
@@ -76,6 +83,8 @@ def parse_mmcif_file(file_id: str, mmcif_file: str, chain_id: str) -> ParsingRes
     try:
         mmcif_filtered_obj = MmcifChainFiltered(
             Path(mmcif_file), file_id, chain_id=chain_id)
+        mmcif_filtered_obj.remove_clashes(threshold_clashes, hb_allowance)
+        mmcif_filtered_obj.remove_low_plddt(plddt_threshold)
         parsing_result = mmcif_filtered_obj.parsing_result
     except FileNotFoundError as e:
         parsing_result = None
@@ -121,6 +130,9 @@ def extract_multimeric_template_features_for_single_chain(
         pdb_id: str,
         chain_id: str,
         mmcif_file: str,
+        threshold_clashes: float = 1000,
+        hb_allowance: float = 0.4,
+        plddt_threshold: float = 0,
 ) -> SingleHitResult:
     """
     Args:
@@ -134,7 +146,13 @@ def extract_multimeric_template_features_for_single_chain(
     A SingleHitResult object
     """
     mmcif_parse_result = parse_mmcif_file(
-        pdb_id, mmcif_file, chain_id=chain_id)
+        pdb_id,
+        mmcif_file,
+        chain_id=chain_id,
+        threshold_clashes=threshold_clashes,
+        hb_allowance=hb_allowance,
+        plddt_threshold=plddt_threshold,
+    )
     if (mmcif_parse_result is not None) and (mmcif_parse_result.mmcif_object is not None):
         mapping,template_sequence = _obtain_mapping(mmcif_parse_result=mmcif_parse_result,
                                   chain_id=chain_id,
