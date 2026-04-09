@@ -30,8 +30,8 @@ def prepare_multimeric_template_meta_info(csv_path: str, mmt_dir: str) -> dict:
     mmt_dir: Path to directory with multimeric template mmCIF files
 
     Returns:
-        a list of dictionaries with the following structure:
-    [{"protein": protein_name, "sequence" :sequence", templates": [pdb_files], "chains": [chain_id]}, ...]}]
+        A dictionary keyed by protein name where each value preserves the CSV row
+        order as a list of `(template_file, chain_id)` tuples.
     """
     # Parse csv file
     parsed_dict = {}
@@ -45,10 +45,7 @@ def prepare_multimeric_template_meta_info(csv_path: str, mmt_dir: str) -> dict:
                 protein, template, chain = [item.strip() for item in row]
                 assert os.path.exists(os.path.join(
                     mmt_dir, template)), f"Provided {template} cannot be found in {mmt_dir}. Abort"
-                if protein not in parsed_dict:
-                    parsed_dict[protein] = {
-                        template: chain
-                    }
+                parsed_dict.setdefault(protein, []).append((template, chain))
             else:
                 logging.error(
                     f"Invalid line found in the file {csv_path}: {row}")

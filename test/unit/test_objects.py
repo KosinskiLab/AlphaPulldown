@@ -772,7 +772,7 @@ def test_multimeric_object_init_calls_template_setup_and_feature_creation(monkey
 
     def fake_prepare(path, template_dir):
         calls.append(("prepare_meta", path, template_dir))
-        return {"proteinA": {"file.cif": "A"}}
+        return {"proteinA": [("file.cif", "A")]}
 
     monkeypatch.setattr(objects_mod, "prepare_multimeric_template_meta_info", fake_prepare)
     monkeypatch.setattr(
@@ -802,7 +802,7 @@ def test_multimeric_object_init_calls_template_setup_and_feature_creation(monkey
     assert multimer.description == "proteinA"
     assert multimer.pair_msa is False
     assert multimer.multimeric_template is True
-    assert multimer.multimeric_template_meta_data == {"proteinA": {"file.cif": "A"}}
+    assert multimer.multimeric_template_meta_data == {"proteinA": [("file.cif", "A")]}
     assert calls == [
         ("prepare_meta", "meta.csv", "/tmp/templates"),
         "templates",
@@ -965,8 +965,9 @@ def test_create_multimeric_template_features_updates_matching_monomer(monkeypatc
     template_file.write_text("data_1abc", encoding="utf-8")
     monomer = SimpleNamespace(sequence="ACDE", feature_dict={})
     multimer = MultimericObject.__new__(MultimericObject)
+    multimer.interactors = [SimpleNamespace(description="proteinA", sequence="ACDE", feature_dict=monomer.feature_dict)]
     multimer.multimeric_template_dir = str(tmp_path)
-    multimer.multimeric_template_meta_data = {"proteinA": {"1abc.cif": "B"}}
+    multimer.multimeric_template_meta_data = {"proteinA": [("1abc.cif", "B")]}
     multimer.monomers_mapping = {"proteinA": monomer}
     multimer.threshold_clashes = 12.5
     multimer.hb_allowance = 0.7
@@ -994,10 +995,41 @@ def test_create_multimeric_template_features_updates_matching_monomer(monkeypatc
     }]
 
 
+def test_create_multimeric_template_features_assigns_duplicate_rows_to_homo_oligomers(monkeypatch, tmp_path):
+    template_file = tmp_path / "templ.cif"
+    template_file.write_text("data_templ", encoding="utf-8")
+    monomer_a = SimpleNamespace(description="proteinA", sequence="AAAA", feature_dict={})
+    monomer_b = SimpleNamespace(description="proteinA", sequence="BBBB", feature_dict={})
+    multimer = MultimericObject.__new__(MultimericObject)
+    multimer.interactors = [monomer_a, monomer_b]
+    multimer.multimeric_template_dir = str(tmp_path)
+    multimer.multimeric_template_meta_data = {
+        "proteinA": [("templ.cif", "A"), ("templ.cif", "B")]
+    }
+    multimer.threshold_clashes = 1000
+    multimer.hb_allowance = 0.4
+    multimer.plddt_threshold = 0
+    calls = []
+
+    monkeypatch.setattr(
+        objects_mod,
+        "extract_multimeric_template_features_for_single_chain",
+        lambda **kwargs: calls.append((kwargs["query_seq"], kwargs["chain_id"]))
+        or SimpleNamespace(features={"templated": kwargs["chain_id"]}),
+    )
+
+    multimer.create_multimeric_template_features()
+
+    assert calls == [("AAAA", "A"), ("BBBB", "B")]
+    assert monomer_a.feature_dict["templated"] == "A"
+    assert monomer_b.feature_dict["templated"] == "B"
+
+
 def test_create_multimeric_template_features_rejects_non_mmcif_files(tmp_path):
     multimer = MultimericObject.__new__(MultimericObject)
+    multimer.interactors = [SimpleNamespace(description="proteinA", sequence="ACDE", feature_dict={})]
     multimer.multimeric_template_dir = str(tmp_path)
-    multimer.multimeric_template_meta_data = {"proteinA": {"bad.pdb": "A"}}
+    multimer.multimeric_template_meta_data = {"proteinA": [("bad.pdb", "A")]}
     multimer.monomers_mapping = {"proteinA": SimpleNamespace(sequence="ACDE", feature_dict={})}
 
     with pytest.raises(AssertionError, match="does not seem to be a mmcif file"):
