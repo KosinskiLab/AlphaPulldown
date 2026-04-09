@@ -313,6 +313,7 @@ def _load_run_multimer_jobs_module():
     # Predefine the shared FLAGS that run_multimer_jobs expects from run_structure_prediction.
     shared_flag_defaults = {
         "models_to_relax": "NONE",
+        "relax_best_score_threshold": None,
         "num_cycle": 3,
         "num_predictions_per_model": 1,
         "pair_msa": True,
@@ -908,6 +909,7 @@ def test_main_sets_multimer_model_flags_for_multimer_jobs(
     _set_flag(run_structure_prediction_module.FLAGS, "msa_depth_scan", True)
     _set_flag(run_structure_prediction_module.FLAGS, "model_names", ["model_2_multimer_v3"])
     _set_flag(run_structure_prediction_module.FLAGS, "msa_depth", 64)
+    _set_flag(run_structure_prediction_module.FLAGS, "relax_best_score_threshold", 0.6)
 
     monkeypatch.setattr(run_structure_prediction_module, "parse_fold", lambda *args: [["parsed"]])
     monkeypatch.setattr(run_structure_prediction_module, "create_custom_info", lambda parsed: "data")
@@ -934,6 +936,7 @@ def test_main_sets_multimer_model_flags_for_multimer_jobs(
     assert captured_calls[0]["model_flags"]["msa_depth_scan"] is True
     assert captured_calls[0]["model_flags"]["model_names_custom"] == ["model_2_multimer_v3"]
     assert captured_calls[0]["model_flags"]["msa_depth"] == 64
+    assert captured_calls[0]["postprocess_flags"]["relax_best_score_threshold"] == 0.6
 
 
 def test_main_rejects_mismatched_output_directories(
@@ -1191,3 +1194,34 @@ def test_run_multimer_jobs_forwards_multimeric_template_filters(
     assert calls[0][calls[0].index("--hb_allowance") + 1] == "0.7"
     assert "--plddt_threshold" in calls[0]
     assert calls[0][calls[0].index("--plddt_threshold") + 1] == "42.0"
+
+
+def test_run_multimer_jobs_forwards_relax_best_score_threshold(
+    run_multimer_jobs_module,
+    monkeypatch,
+):
+    calls = []
+    monkeypatch.setattr(
+        run_multimer_jobs_module.subprocess,
+        "run",
+        lambda command, check, env: calls.append(command),
+    )
+    run_multimer_jobs_module.generate_fold_specifications = (
+        lambda input_files, delimiter, exclude_permutations: ["job1"]
+    )
+
+    _set_flag(run_multimer_jobs_module.FLAGS, "mode", "custom")
+    _set_flag(run_multimer_jobs_module.FLAGS, "protein_lists", ["proteins.txt"])
+    _set_flag(run_multimer_jobs_module.FLAGS, "dry_run", False)
+    _set_flag(run_multimer_jobs_module.FLAGS, "fold_backend", "alphafold2")
+    _set_flag(run_multimer_jobs_module.FLAGS, "output_path", "/tmp/output")
+    _set_flag(run_multimer_jobs_module.FLAGS, "data_dir", "/tmp/models")
+    _set_flag(run_multimer_jobs_module.FLAGS, "monomer_objects_dir", ["/tmp/features"])
+    _set_flag(run_multimer_jobs_module.FLAGS, "models_to_relax", "Best")
+    _set_flag(run_multimer_jobs_module.FLAGS, "relax_best_score_threshold", 0.6)
+
+    run_multimer_jobs_module.main(["prog"])
+
+    assert len(calls) == 1
+    assert "--relax_best_score_threshold" in calls[0]
+    assert calls[0][calls[0].index("--relax_best_score_threshold") + 1] == "0.6"

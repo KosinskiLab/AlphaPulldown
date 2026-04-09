@@ -164,6 +164,7 @@ def main(argv):
             "--desired_num_res": FLAGS.desired_num_res,
             "--desired_num_msa": FLAGS.desired_num_msa,
             "--models_to_relax": FLAGS.models_to_relax,
+            "--relax_best_score_threshold": FLAGS.relax_best_score_threshold,
             "--threshold_clashes": FLAGS.threshold_clashes,
             "--hb_allowance": FLAGS.hb_allowance,
             "--plddt_threshold": FLAGS.plddt_threshold,

@@ -971,3 +971,102 @@ def test_postprocess_handles_monomers_without_relaxation_and_logs_modelcif_error
     assert plot_calls == [0]
     assert cleanup_calls
     assert modelcif_errors == ["Error: convert failed"]
+
+
+def test_postprocess_skips_best_relaxation_below_score_threshold(
+    af2_backend_module,
+    monkeypatch,
+    tmp_path,
+):
+    info_messages = []
+    monkeypatch.setattr(
+        af2_backend_module,
+        "plot_pae_from_matrix",
+        lambda **kwargs: None,
+    )
+    monkeypatch.setattr(
+        af2_backend_module,
+        "post_prediction_process",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        af2_backend_module.logging,
+        "info",
+        lambda message, *args: info_messages.append(message % args if args else message),
+    )
+
+    multimer = af2_backend_module.MultimericObject(
+        description="complex",
+        input_seqs=["AA", "BB"],
+        feature_dict={},
+        multimeric_mode=True,
+    )
+    prediction_results = {
+        "model_high": {
+            "plddt": np.array([90.0, 91.0, 92.0, 93.0], dtype=np.float32),
+            "predicted_aligned_error": np.zeros((4, 4), dtype=np.float32),
+            "max_predicted_aligned_error": 31.0,
+            "ranking_confidence": 0.9,
+            "iptm": 0.7,
+            "ptm": 0.8,
+            "unrelaxed_protein": SimpleNamespace(name="high"),
+            "seqs": ["AA", "BB"],
+        }
+    }
+
+    af2_backend_module.AlphaFold2Backend.postprocess(
+        prediction_results=prediction_results,
+        multimeric_object=multimer,
+        output_dir=tmp_path,
+        features_directory="/features",
+        models_to_relax=af2_backend_module.ModelsToRelax.BEST,
+        relax_best_score_threshold=0.8,
+        convert_to_modelcif=False,
+    )
+
+    assert not (tmp_path / "relaxed_model_high.pdb").exists()
+    assert (tmp_path / "ranked_0.pdb").read_text(encoding="utf-8") == "PDB:high"
+    assert any("Skipping relaxation for model_high" in message for message in info_messages)
+
+
+def test_postprocess_uses_ptm_threshold_for_best_monomer_relaxation(
+    af2_backend_module,
+    monkeypatch,
+    tmp_path,
+):
+    monkeypatch.setattr(
+        af2_backend_module,
+        "plot_pae_from_matrix",
+        lambda **kwargs: None,
+    )
+    monkeypatch.setattr(
+        af2_backend_module,
+        "post_prediction_process",
+        lambda *args, **kwargs: None,
+    )
+
+    monomer = af2_backend_module.MonomericObject("single", "AB")
+    prediction_results = {
+        "modelA": {
+            "plddt": np.array([81.0, 82.0], dtype=np.float32),
+            "predicted_aligned_error": np.zeros((2, 2), dtype=np.float32),
+            "max_predicted_aligned_error": 31.0,
+            "ranking_confidence": 81.5,
+            "ptm": 0.4,
+            "seqs": ["AB"],
+            "unrelaxed_protein": SimpleNamespace(name="mono"),
+        }
+    }
+
+    af2_backend_module.AlphaFold2Backend.postprocess(
+        prediction_results=prediction_results,
+        multimeric_object=monomer,
+        output_dir=tmp_path,
+        features_directory="/features",
+        models_to_relax=af2_backend_module.ModelsToRelax.BEST,
+        relax_best_score_threshold=0.3,
+        convert_to_modelcif=False,
+    )
+
+    assert (tmp_path / "relaxed_modelA.pdb").read_text(encoding="utf-8") == "RELAXED:mono"
+    assert (tmp_path / "ranked_0.pdb").read_text(encoding="utf-8") == "RELAXED:mono"
