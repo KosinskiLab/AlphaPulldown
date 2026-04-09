@@ -266,8 +266,8 @@ class TestCreateIndividualFeaturesComprehensive:
         
         logger.info("Feature creation test completed successfully")
 
-    def test_af3_invalid_sequence_is_logged_and_skipped(self):
-        """Invalid AF3 sequences should not create output files."""
+    def test_af3_invalid_sequence_fails_run(self):
+        """Invalid AF3 sequences should fail the AF3 run instead of being skipped."""
         invalid_fasta = os.path.join(self.fasta_dir, "invalid_af3.fasta")
         with open(invalid_fasta, "w") as handle:
             handle.write(">INVALID\nACDZ*\n")
@@ -291,13 +291,48 @@ class TestCreateIndividualFeaturesComprehensive:
              patch.object(create_features.logging, "error", side_effect=error_messages.append):
             mock_af3_pipeline.return_value = MagicMock(process=MagicMock(return_value=DummyJsonObj()))
 
-            create_features.create_af3_individual_features()
+            with pytest.raises(RuntimeError, match="INVALID"):
+                create_features.create_af3_individual_features()
 
         mock_af3_pipeline.return_value.process.assert_not_called()
         assert not os.path.exists(
             os.path.join(FLAGS.output_dir, "INVALID_af3_input.json")
         )
         assert any("Failed to create AlphaFold3 input object" in message for message in error_messages)
+
+    def test_af3_ambiguous_sequence_requires_chain_hint(self):
+        """Ambiguous AF3 alphabets should require an explicit chain hint in the FASTA header."""
+        ambiguous_fasta = os.path.join(self.fasta_dir, "ambiguous_af3.fasta")
+        with open(ambiguous_fasta, "w") as handle:
+            handle.write(">AMBIG\nACGT\n")
+
+        from absl import flags
+
+        FLAGS = flags.FLAGS
+        FLAGS(["test"])
+        FLAGS.data_pipeline = "alphafold3"
+        FLAGS.fasta_paths = [ambiguous_fasta]
+        FLAGS.data_dir = self.af3_db
+        FLAGS.output_dir = os.path.join(self.test_dir, "output_ambiguous_af3")
+        FLAGS.max_template_date = "2021-09-30"
+
+        error_messages = []
+        af3_modules, folding_input_stub = build_af3_stub_modules()
+
+        with patch.dict(sys.modules, af3_modules), \
+             patch.object(create_features, "create_pipeline_af3") as mock_af3_pipeline, \
+             patch.object(create_features, "folding_input", folding_input_stub), \
+             patch.object(create_features.logging, "error", side_effect=error_messages.append):
+            mock_af3_pipeline.return_value = MagicMock(process=MagicMock(return_value=DummyJsonObj()))
+
+            with pytest.raises(RuntimeError, match="AMBIG"):
+                create_features.create_af3_individual_features()
+
+        mock_af3_pipeline.return_value.process.assert_not_called()
+        assert not os.path.exists(
+            os.path.join(FLAGS.output_dir, "AMBIG_af3_input.json")
+        )
+        assert any("Ambiguous sequence alphabet" in message for message in error_messages)
 
     def test_create_individual_features_truemultimer_respects_seq_index(self):
         """TrueMultimer mode should only process the selected CSV row."""
@@ -1309,6 +1344,22 @@ def test_create_pipeline_af3_prefers_explicit_database_overrides(tmp_flags):
     assert config.kwargs["pdb_database_path"] == "/override/mmcif"
     assert config.kwargs["mgnify_database_path"] == "/db/mgy_clusters_2022_05.fa"
     assert config.kwargs["seqres_database_path"] == "/db/pdb_seqres_2022_09_28.fasta"
+
+
+def test_main_rejects_af3_mmseqs2(tmp_flags, tmp_path):
+    create_features.FLAGS.data_pipeline = "alphafold3"
+    create_features.FLAGS.use_mmseqs2 = True
+    create_features.FLAGS.data_dir = None
+    create_features.FLAGS.output_dir = str(tmp_path / "af3_out")
+
+    with patch.object(create_features.logging, "error") as mock_error, \
+         pytest.raises(SystemExit):
+        create_features.main([])
+
+    mock_error.assert_called_once_with(
+        "AlphaFold3 does not support --use_mmseqs2. "
+        "Please provide local databases via --data_dir."
+    )
 
 
 def test_create_af3_individual_features_falls_back_to_double_letter_chain_ids(tmp_flags, tmp_path):

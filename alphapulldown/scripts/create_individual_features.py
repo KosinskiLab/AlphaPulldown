@@ -9,6 +9,7 @@ import json
 import lzma
 import os
 import pickle
+import re
 import shutil
 import sys
 import tempfile
@@ -137,10 +138,25 @@ flags.DEFINE_boolean("multiple_mmts", False, "")
 
 FLAGS = flags.FLAGS
 
+AF3_DNA_BASES = frozenset("ACGTN")
+AF3_RNA_BASES = frozenset("ACGUN")
+AF3_PROTEIN_RESIDUES = frozenset("ACDEFGHIKLMNPQRSTVWYX")
+AF3_PROTEIN_ONLY_RESIDUES = AF3_PROTEIN_RESIDUES - (AF3_DNA_BASES | {"U"})
+
 # =================== Helper Functions ===================
+
+def validate_data_pipeline_flags():
+    """Validate flag combinations that differ between AF2 and AF3."""
+    if FLAGS.data_pipeline == "alphafold3" and FLAGS.use_mmseqs2:
+        raise ValueError(
+            "AlphaFold3 does not support --use_mmseqs2. "
+            "Please provide local databases via --data_dir."
+        )
 
 def get_database_path(key):
     """Return the absolute path for a given database key, depending on pipeline."""
+    validate_data_pipeline_flags()
+
     # When using MMseqs2 remotely (current implementation), data_dir is not required
     # Note: Local MMseqs2 would require data_dir, but current implementation uses remote
     if FLAGS.use_mmseqs2 and not FLAGS.data_dir:
@@ -162,6 +178,8 @@ def get_database_path(key):
 def create_arguments(local_custom_template_db=None):
     """Set the database path flags relevant to the selected AlphaFold version.
     Optionally override template paths with a local custom template DB."""
+    validate_data_pipeline_flags()
+
     required_database_flags = (
         AF3_DATABASE_FLAGS if FLAGS.data_pipeline == 'alphafold3' else AF2_DATABASE_FLAGS
     )
@@ -189,6 +207,46 @@ def check_template_date():
     if not FLAGS.max_template_date:
         logging.error("You have not provided a max_template_date. Please specify a date and run again.")
         sys.exit(1)
+
+def get_af3_chain_kind(description, sequence):
+    """Infer an AF3 chain kind, requiring an explicit hint for ambiguous alphabets."""
+    residues = set(sequence.upper())
+    if not residues:
+        raise ValueError("Sequence is empty.")
+
+    invalid_residues = residues - (AF3_PROTEIN_RESIDUES | {"U"})
+    if invalid_residues:
+        invalid_list = ", ".join(sorted(invalid_residues))
+        raise ValueError(f"Invalid sequence residues: {invalid_list}")
+
+    if residues <= AF3_RNA_BASES and "U" in residues:
+        return "rna"
+    if residues & AF3_PROTEIN_ONLY_RESIDUES:
+        return "protein"
+
+    description_tokens = {
+        token for token in re.split(r"[^A-Za-z0-9]+", description.lower()) if token
+    }
+    if "dna" in description_tokens:
+        return "dna"
+    if "rna" in description_tokens:
+        return "rna"
+    if {"protein", "prot", "peptide"} & description_tokens:
+        return "protein"
+
+    raise ValueError(
+        "Ambiguous sequence alphabet. Add 'DNA', 'RNA', or 'protein' to "
+        f"the FASTA description for '{description}' to disambiguate."
+    )
+
+def create_af3_chain(sequence, description, chain_id):
+    """Construct an AF3 chain object for the provided sequence."""
+    chain_kind = get_af3_chain_kind(description, sequence)
+    if chain_kind == "dna":
+        return folding_input.DnaChain(sequence=sequence, id=chain_id, modifications=[])
+    if chain_kind == "rna":
+        return folding_input.RnaChain(sequence=sequence, id=chain_id, modifications=[])
+    return folding_input.ProteinChain(sequence=sequence, id=chain_id, ptms=[])
 
 # =================== AlphaFold 2 Feature Creation ===================
 
@@ -337,6 +395,8 @@ def create_custom_db(temp_dir, protein, template_paths, chains):
 
 def create_pipeline_af3():
     """Create the AlphaFold3 pipeline. Raises if AF3 not available."""
+    validate_data_pipeline_flags()
+
     if AF3DataPipeline is None or AF3DataPipelineConfig is None:
         raise ImportError(
             "AlphaFold3 is not installed correctly. "
@@ -376,10 +436,13 @@ def create_pipeline_af3():
 
 def create_af3_individual_features():
     """Generate AlphaFold3 features, one .json per chain."""
+    validate_data_pipeline_flags()
+
     # Ensure output directory exists
     os.makedirs(FLAGS.output_dir, exist_ok=True)
     
     pipeline = create_pipeline_af3()
+    failures = []
     for seq_idx, (seq, desc) in enumerate(iter_seqs(FLAGS.fasta_paths), 1):
         if FLAGS.seq_index is None or seq_idx == FLAGS.seq_index:
             # Check if output file already exists and skip if requested
@@ -401,21 +464,7 @@ def create_af3_individual_features():
                         # For sequences beyond 26, use AA, BB, etc.
                         chain_id = chain_id + chain_id
                 
-                # Determine chain type based on sequence content
-                if all(c in 'ACGTN' for c in seq.upper()):
-                    # DNA sequence
-                    from alphafold3.common.folding_input import DnaChain
-                    chain = DnaChain(sequence=seq, id=chain_id, modifications=[])
-                elif all(c in 'ACGUN' for c in seq.upper()):
-                    # RNA sequence
-                    from alphafold3.common.folding_input import RnaChain
-                    chain = RnaChain(sequence=seq, id=chain_id, modifications=[])
-                elif all(c in 'ACDEFGHIKLMNPQRSTVWYX' for c in seq.upper()):
-                    # Protein sequence
-                    from alphafold3.common.folding_input import ProteinChain
-                    chain = ProteinChain(sequence=seq, id=chain_id, ptms=[])
-                else:
-                    raise ValueError(f"Invalid sequence: {seq}")
+                chain = create_af3_chain(seq, desc, chain_id)
                 
                 input_obj = folding_input.Input(
                     name=desc,
@@ -431,13 +480,26 @@ def create_af3_individual_features():
                     
             except Exception as e:
                 logging.error(f"Failed to create AlphaFold3 input object for {desc}: {e}")
-                continue
+                failures.append((desc, str(e)))
+
+    if failures:
+        failure_summary = ", ".join(f"{desc} ({error})" for desc, error in failures)
+        raise RuntimeError(
+            f"Failed to create AlphaFold3 features for {len(failures)} sequence(s): "
+            f"{failure_summary}"
+        )
 
 # =================== Main Entry Point ===================
 
 def main(argv):
     """Main entry: dispatch to AF2 or AF3, truemultimer or not."""
     del argv
+
+    try:
+        validate_data_pipeline_flags()
+    except ValueError as exc:
+        logging.error(str(exc))
+        sys.exit(1)
     
     # Validate required flags based on configuration
     required_flags = ["fasta_paths", "output_dir", "max_template_date"]
