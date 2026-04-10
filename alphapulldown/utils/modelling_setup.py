@@ -271,6 +271,7 @@ def create_interactors(data : List[Dict[str, List[str]]],
                             monomer.feature_dict,
                             curr_interactor_region,
                         )
+                        chopped_object.skip_msa = getattr(monomer, "skip_msa", False)
                         chopped_object.prepare_final_sliced_feature_dict()
                         interactors.append(chopped_object)
         return interactors

@@ -142,6 +142,7 @@ flags.DEFINE_boolean('use_precomputed_msas', False, '')
 flags.DEFINE_boolean('re_search_templates_mmseqs2', False, '')
 flags.DEFINE_bool("use_mmseqs2", False, "")
 flags.DEFINE_bool("save_msa_files", False, "")
+flags.DEFINE_bool("skip_msa", False, "")
 flags.DEFINE_bool("skip_existing", False, "")
 flags.DEFINE_string("new_uniclust_dir", None, "")
 flags.DEFINE_integer("seq_index", None, "")
@@ -272,11 +273,40 @@ def get_af3_chain_kind(description, sequence):
 def create_af3_chain(sequence, description, chain_id):
     """Construct an AF3 chain object for the provided sequence."""
     chain_kind = get_af3_chain_kind(description, sequence)
+    query_only_a3m = f">query\n{sequence}\n" if FLAGS.skip_msa else None
     if chain_kind == "dna":
-        return folding_input.DnaChain(sequence=sequence, id=chain_id, modifications=[])
+        return folding_input.DnaChain(
+            sequence=sequence,
+            id=chain_id,
+            modifications=[],
+            description=description,
+        )
     if chain_kind == "rna":
-        return folding_input.RnaChain(sequence=sequence, id=chain_id, modifications=[])
-    return folding_input.ProteinChain(sequence=sequence, id=chain_id, ptms=[])
+        kwargs = {
+            "sequence": sequence,
+            "id": chain_id,
+            "modifications": [],
+            "description": description,
+        }
+        if FLAGS.skip_msa:
+            kwargs["unpaired_msa"] = query_only_a3m
+        return folding_input.RnaChain(**kwargs)
+
+    kwargs = {
+        "sequence": sequence,
+        "id": chain_id,
+        "ptms": [],
+        "description": description,
+    }
+    if FLAGS.skip_msa:
+        kwargs.update(
+            {
+                "paired_msa": "",
+                "unpaired_msa": query_only_a3m,
+                "templates": None,
+            }
+        )
+    return folding_input.ProteinChain(**kwargs)
 
 # =================== AlphaFold 2 Feature Creation ===================
 
@@ -444,6 +474,13 @@ def _reuse_truemultimer_monomer_features(feat):
     monomer = _load_existing_monomer_from_output_dir(source_name)
     if monomer is None:
         return None
+    if FLAGS.skip_msa and not getattr(monomer, "skip_msa", False):
+        logging.info(
+            "Existing monomer features for %s were generated with bulk MSAs. "
+            "Recomputing query-only features for --skip_msa.",
+            source_name,
+        )
+        return None
     if monomer.sequence != feat["sequence"]:
         logging.warning(
             "Existing monomer features for %s use sequence %s, but the current "
@@ -489,6 +526,7 @@ def create_and_save_monomer_objects(monomer, pipeline, custom_template_path=None
 
     if _should_skip_monomer_output(monomer.description):
         return
+    monomer.skip_msa = FLAGS.skip_msa
     if FLAGS.use_mmseqs2:
         monomer.make_mmseq_features(
             DEFAULT_API_SERVER=DEFAULT_API_SERVER,
@@ -496,12 +534,15 @@ def create_and_save_monomer_objects(monomer, pipeline, custom_template_path=None
             use_precomputed_msa=FLAGS.use_precomputed_msas,
             use_templates=FLAGS.re_search_templates_mmseqs2 or custom_template_path is not None,
             custom_template_path=custom_template_path,
+            skip_msa=FLAGS.skip_msa,
         )
     else:
         monomer.make_features(
             pipeline=pipeline, output_dir=FLAGS.output_dir,
             use_precomputed_msa=FLAGS.use_precomputed_msas,
-            save_msa=FLAGS.save_msa_files)
+            save_msa=FLAGS.save_msa_files,
+            skip_msa=FLAGS.skip_msa,
+        )
     _persist_monomer_outputs(monomer)
 
 def create_individual_features_truemultimer():
