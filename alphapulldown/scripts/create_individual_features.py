@@ -15,6 +15,7 @@ import sys
 import tempfile
 from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
 import numpy as np
 
 from absl import logging, app, flags
@@ -310,6 +311,31 @@ def create_af3_chain(sequence, description, chain_id):
 
 # =================== AlphaFold 2 Feature Creation ===================
 
+def _create_af2_template_stack():
+    """Create the AF2 template searcher and featurizer."""
+    if FLAGS.use_hhsearch:
+        template_searcher = hhsearch.HHSearch(
+            binary_path=FLAGS.hhsearch_binary_path, databases=[FLAGS.pdb70_database_path]
+        )
+        template_featuriser = templates.HhsearchHitFeaturizer(
+            mmcif_dir=FLAGS.template_mmcif_dir, max_template_date=FLAGS.max_template_date,
+            max_hits=20, kalign_binary_path=FLAGS.kalign_binary_path,
+            release_dates_path=None, obsolete_pdbs_path=FLAGS.obsolete_pdbs_path
+        )
+    else:
+        template_featuriser = templates.HmmsearchHitFeaturizer(
+            mmcif_dir=FLAGS.template_mmcif_dir, max_template_date=FLAGS.max_template_date,
+            max_hits=20, kalign_binary_path=FLAGS.kalign_binary_path,
+            obsolete_pdbs_path=FLAGS.obsolete_pdbs_path, release_dates_path=None
+        )
+        template_searcher = hmmsearch.Hmmsearch(
+            binary_path=FLAGS.hmmsearch_binary_path,
+            hmmbuild_binary_path=FLAGS.hmmbuild_binary_path,
+            database_path=FLAGS.pdb_seqres_database_path
+        )
+    return template_searcher, template_featuriser
+
+
 def create_pipeline_af2():
     """Create and configure the AlphaFold2 data pipeline."""
     use_small_bfd = FLAGS.db_preset == "reduced_dbs"
@@ -319,26 +345,13 @@ def create_pipeline_af2():
         template_searcher = None
         template_featuriser = None
     else:
-        if FLAGS.use_hhsearch:
-            template_searcher = hhsearch.HHSearch(
-                binary_path=FLAGS.hhsearch_binary_path, databases=[FLAGS.pdb70_database_path]
-            )
-            template_featuriser = templates.HhsearchHitFeaturizer(
-                mmcif_dir=FLAGS.template_mmcif_dir, max_template_date=FLAGS.max_template_date,
-                max_hits=20, kalign_binary_path=FLAGS.kalign_binary_path,
-                release_dates_path=None, obsolete_pdbs_path=FLAGS.obsolete_pdbs_path
-            )
-        else:
-            template_featuriser = templates.HmmsearchHitFeaturizer(
-                mmcif_dir=FLAGS.template_mmcif_dir, max_template_date=FLAGS.max_template_date,
-                max_hits=20, kalign_binary_path=FLAGS.kalign_binary_path,
-                obsolete_pdbs_path=FLAGS.obsolete_pdbs_path, release_dates_path=None
-            )
-            template_searcher = hmmsearch.Hmmsearch(
-                binary_path=FLAGS.hmmsearch_binary_path,
-                hmmbuild_binary_path=FLAGS.hmmbuild_binary_path,
-                database_path=FLAGS.pdb_seqres_database_path
-            )
+        template_searcher, template_featuriser = _create_af2_template_stack()
+
+    if FLAGS.skip_msa:
+        return SimpleNamespace(
+            template_searcher=template_searcher,
+            template_featurizer=template_featuriser,
+        )
     
     return AF2DataPipeline(
         jackhmmer_binary_path=FLAGS.jackhmmer_binary_path,
@@ -364,9 +377,12 @@ def create_individual_features():
         uniprot_runner = None
     else:
         pipeline = create_pipeline_af2()
-        uniprot_runner = create_uniprot_runner(
-            FLAGS.jackhmmer_binary_path, FLAGS.uniprot_database_path
-        )
+        if FLAGS.skip_msa:
+            uniprot_runner = None
+        else:
+            uniprot_runner = create_uniprot_runner(
+                FLAGS.jackhmmer_binary_path, FLAGS.uniprot_database_path
+            )
     
     for seq_idx, (seq, desc) in enumerate(iter_seqs(FLAGS.fasta_paths), 1):
         if FLAGS.seq_index is None or seq_idx == FLAGS.seq_index:
@@ -581,9 +597,12 @@ def process_multimeric_features(feat, idx):
             uniprot_runner = None
         else:
             pipeline = create_pipeline_af2()
-            uniprot_runner = create_uniprot_runner(
-                FLAGS.jackhmmer_binary_path, FLAGS.uniprot_database_path
-            )
+            if FLAGS.skip_msa:
+                uniprot_runner = None
+            else:
+                uniprot_runner = create_uniprot_runner(
+                    FLAGS.jackhmmer_binary_path, FLAGS.uniprot_database_path
+                )
         
         monomer = MonomericObject(protein, feat['sequence'])
         monomer.uniprot_runner = uniprot_runner

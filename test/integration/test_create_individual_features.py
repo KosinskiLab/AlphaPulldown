@@ -679,8 +679,10 @@ class TestCreateIndividualFeaturesComprehensive:
         mock_custom_db.assert_called_once()
         mock_arguments.assert_called_once_with("/tmp/custom_db")
         mock_pipeline.assert_called_once_with()
-        mock_runner.assert_called_once_with("/usr/bin/jackhmmer", "/db/uniprot.fasta")
-        mock_save.assert_called_once()
+        mock_runner.assert_not_called()
+        saved_monomer, saved_pipeline = mock_save.call_args.args
+        assert saved_pipeline == "pipeline"
+        assert saved_monomer.uniprot_runner is None
 
     def test_process_multimeric_features_does_not_reuse_skip_msa_pickle_for_full_msa(
         self, tmp_flags
@@ -1416,6 +1418,41 @@ def test_create_pipeline_af2_uses_hmmsearch_template_stack(tmp_flags):
     assert mock_pipeline.call_args.kwargs["template_featurizer"] == "featurizer"
 
 
+def test_create_pipeline_af2_skip_msa_returns_template_only_pipeline(tmp_flags):
+    create_features.FLAGS.use_mmseqs2 = False
+    create_features.FLAGS.use_hhsearch = False
+    create_features.FLAGS.skip_msa = True
+    create_features.FLAGS.hmmsearch_binary_path = "/bin/hmmsearch"
+    create_features.FLAGS.hmmbuild_binary_path = "/bin/hmmbuild"
+    create_features.FLAGS.pdb_seqres_database_path = "/db/pdb_seqres.txt"
+    create_features.FLAGS.template_mmcif_dir = "/db/mmcif"
+    create_features.FLAGS.max_template_date = "2021-09-30"
+    create_features.FLAGS.kalign_binary_path = "/bin/kalign"
+    create_features.FLAGS.obsolete_pdbs_path = "/db/obsolete.dat"
+
+    with patch.object(create_features.hmmsearch, "Hmmsearch", return_value="searcher") as mock_searcher, \
+         patch.object(create_features.templates, "HmmsearchHitFeaturizer", return_value="featurizer") as mock_featurizer, \
+         patch.object(create_features, "AF2DataPipeline") as mock_pipeline:
+        pipeline = create_features.create_pipeline_af2()
+
+    mock_searcher.assert_called_once_with(
+        binary_path="/bin/hmmsearch",
+        hmmbuild_binary_path="/bin/hmmbuild",
+        database_path="/db/pdb_seqres.txt",
+    )
+    mock_featurizer.assert_called_once_with(
+        mmcif_dir="/db/mmcif",
+        max_template_date="2021-09-30",
+        max_hits=20,
+        kalign_binary_path="/bin/kalign",
+        obsolete_pdbs_path="/db/obsolete.dat",
+        release_dates_path=None,
+    )
+    mock_pipeline.assert_not_called()
+    assert pipeline.template_searcher == "searcher"
+    assert pipeline.template_featurizer == "featurizer"
+
+
 def test_create_individual_features_only_saves_selected_sequence(tmp_flags):
     create_features.FLAGS.seq_index = 2
 
@@ -1434,6 +1471,28 @@ def test_create_individual_features_only_saves_selected_sequence(tmp_flags):
     assert saved_pipeline == "pipeline"
     assert saved_monomer.description == "second"
     assert saved_monomer.uniprot_runner == "runner"
+
+
+def test_create_individual_features_skip_msa_avoids_uniprot_runner(tmp_flags):
+    create_features.FLAGS.seq_index = None
+    create_features.FLAGS.use_mmseqs2 = False
+    create_features.FLAGS.skip_msa = True
+
+    with patch.object(create_features, "create_arguments") as mock_arguments, \
+         patch.object(create_features, "create_pipeline_af2", return_value="template-only-pipeline") as mock_pipeline, \
+         patch.object(create_features, "create_uniprot_runner") as mock_runner, \
+         patch.object(create_features, "MonomericObject", DummyMonomer), \
+         patch.object(create_features, "iter_seqs", return_value=[("AAAA", "first")]), \
+         patch.object(create_features, "create_and_save_monomer_objects") as mock_save:
+        create_features.create_individual_features()
+
+    mock_arguments.assert_called_once_with()
+    mock_pipeline.assert_called_once_with()
+    mock_runner.assert_not_called()
+    saved_monomer, saved_pipeline = mock_save.call_args.args
+    assert saved_pipeline == "template-only-pipeline"
+    assert saved_monomer.description == "first"
+    assert saved_monomer.uniprot_runner is None
 
 
 def test_create_and_save_monomer_objects_writes_compressed_af2_outputs(tmp_flags, tmp_path):
@@ -1751,6 +1810,41 @@ def test_process_multimeric_features_uses_mmseqs_without_local_pipeline(tmp_flag
     assert saved_monomer.description == "complex_mmseqs"
     assert saved_monomer.uniprot_runner is None
     assert saved_kwargs == {"custom_template_path": "/tmp/custom_db/templates"}
+
+
+def test_process_multimeric_features_skip_msa_avoids_uniprot_runner(tmp_flags, tmp_path):
+    template_path = tmp_path / "template.cif"
+    template_path.write_text("data_template\n", encoding="utf-8")
+
+    create_features.FLAGS.output_dir = str(tmp_path / "out")
+    create_features.FLAGS.use_mmseqs2 = False
+    create_features.FLAGS.skip_msa = True
+
+    feat = {
+        "protein": "complex_local",
+        "chains": ["A"],
+        "templates": [str(template_path)],
+        "sequence": "ACDE",
+    }
+
+    with patch.object(create_features, "MonomericObject", RecordingDummyMonomer), \
+         patch.object(create_features, "create_custom_db", return_value="/tmp/custom_db") as mock_custom_db, \
+         patch.object(create_features, "create_arguments") as mock_arguments, \
+         patch.object(create_features, "create_pipeline_af2", return_value="template-only-pipeline") as mock_pipeline, \
+         patch.object(create_features, "create_uniprot_runner") as mock_runner, \
+         patch.object(create_features, "create_and_save_monomer_objects") as mock_save:
+        create_features.process_multimeric_features(feat, 1)
+
+    mock_custom_db.assert_called_once()
+    mock_arguments.assert_called_once_with("/tmp/custom_db")
+    mock_pipeline.assert_called_once_with()
+    mock_runner.assert_not_called()
+    saved_monomer, saved_pipeline = mock_save.call_args.args
+    saved_kwargs = mock_save.call_args.kwargs
+    assert saved_pipeline == "template-only-pipeline"
+    assert saved_monomer.description == "complex_local"
+    assert saved_monomer.uniprot_runner is None
+    assert saved_kwargs == {"custom_template_path": None}
 
 
 def test_create_custom_db_passes_thresholds_to_builder(tmp_flags):
