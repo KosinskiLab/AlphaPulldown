@@ -220,6 +220,42 @@ def test_create_interactors_builds_chopped_object_for_region_lists(monkeypatch):
     assert calls["args"] == ("proteinA", "ACDEFG", monomer.feature_dict, [(2, 4)])
 
 
+def test_create_interactors_propagates_skip_msa_marker_to_chopped_objects(monkeypatch):
+    monomer = MonomericObject("proteinA", "ACDEFG")
+    monomer.feature_dict = {"template_aatype": np.ones((1,), dtype=np.float32)}
+    monomer.skip_msa = True
+
+    class FakeChoppedObject:
+        def __init__(self, description, sequence, feature_dict, regions):
+            self.description = description
+            self.sequence = sequence
+            self.feature_dict = feature_dict
+            self.regions = regions
+            self.prepared = False
+
+        def prepare_final_sliced_feature_dict(self):
+            self.prepared = True
+
+    monkeypatch.setattr(
+        modelling_setup,
+        "make_dir_monomer_dictionary",
+        lambda _: {"proteinA.pkl": "/unused"},
+    )
+    monkeypatch.setattr(modelling_setup, "load_monomer_objects", lambda *_: monomer)
+    monkeypatch.setattr(modelling_setup, "check_empty_templates", lambda _: False)
+    monkeypatch.setattr(modelling_setup, "ChoppedObject", FakeChoppedObject)
+
+    result = modelling_setup.create_interactors(
+        [{"col_1": [{"proteinA": [(2, 4)]}]}],
+        ["/unused"],
+    )
+
+    chopped = result[0][0]
+    assert isinstance(chopped, FakeChoppedObject)
+    assert chopped.prepared is True
+    assert chopped.skip_msa is True
+
+
 def test_create_interactors_currently_skips_append_when_templates_are_empty(monkeypatch):
     monomer = MonomericObject("proteinA", "ACDE")
     monomer.feature_dict = {}

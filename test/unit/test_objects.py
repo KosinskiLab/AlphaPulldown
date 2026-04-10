@@ -145,7 +145,9 @@ def test_make_features_rezips_when_inputs_were_zipped_and_compression_is_enabled
         staticmethod(lambda path: zip_calls.append(path)),
     )
     monkeypatch.setattr(
-        MonomericObject, "remove_msa_files", staticmethod(lambda _path: None)
+        MonomericObject,
+        "remove_msa_files",
+        staticmethod(lambda msa_output_path=None, **_kwargs: None),
     )
 
     monomer.make_features(
@@ -194,6 +196,86 @@ def test_make_features_removes_msa_when_precomputed_inputs_are_not_saved(
     )
 
     assert remove_calls == [str(tmp_path / "proteinA")]
+
+
+def test_make_features_skip_msa_builds_query_only_features_and_templates(
+    monkeypatch, tmp_path
+):
+    monomer = MonomericObject("proteinA", "ACDE")
+    calls = {}
+
+    class FakeTemplateSearcher:
+        input_format = "a3m"
+        output_format = "hhr"
+
+        def query(self, alignment):
+            calls["template_query"] = alignment
+            return "template_hits"
+
+        def get_template_hits(self, output_string, input_sequence):
+            calls["template_hits"] = (output_string, input_sequence)
+            return ["hitA"]
+
+    class FakeTemplateFeaturizer:
+        def get_templates(self, query_sequence, hits):
+            calls["template_features"] = (query_sequence, hits)
+            return SimpleNamespace(
+                features={
+                    "template_aatype": np.ones((1, 4, 22), dtype=np.float32),
+                    "template_all_atom_masks": np.ones((1, 4, 37), dtype=np.float32),
+                    "template_all_atom_positions": np.ones(
+                        (1, 4, 37, 3), dtype=np.float32
+                    ),
+                    "template_domain_names": np.asarray([b"1abc_A"], dtype=object),
+                    "template_sequence": np.asarray([b"ACDE"], dtype=object),
+                    "template_sum_probs": np.asarray([0.5], dtype=np.float32),
+                }
+            )
+
+    class FakePipeline:
+        template_searcher = FakeTemplateSearcher()
+        template_featurizer = FakeTemplateFeaturizer()
+
+        def process(self, *_args, **_kwargs):
+            raise AssertionError("skip_msa should bypass pipeline.process")
+
+    monkeypatch.setattr(
+        MonomericObject, "unzip_msa_files", staticmethod(lambda _path: False)
+    )
+    monkeypatch.setattr(
+        monomer,
+        "all_seq_msa_features",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("skip_msa should bypass all_seq_msa_features")
+        ),
+    )
+    monkeypatch.setattr(
+        MonomericObject,
+        "remove_msa_files",
+        staticmethod(lambda msa_output_path=None, **_kwargs: None),
+    )
+    monkeypatch.setattr(
+        MonomericObject, "zip_msa_files", staticmethod(lambda _path: None)
+    )
+
+    monomer.make_features(
+        pipeline=FakePipeline(),
+        output_dir=str(tmp_path),
+        save_msa=False,
+        skip_msa=True,
+    )
+
+    assert calls["template_query"] == ">query\nACDE\n"
+    assert calls["template_hits"] == ("template_hits", "ACDE")
+    assert calls["template_features"] == ("ACDE", ["hitA"])
+    assert monomer.skip_msa is True
+    assert monomer.feature_dict["msa"].shape == (1, 4)
+    assert monomer.feature_dict["msa_all_seq"].shape == (1, 4)
+    assert np.array_equal(
+        monomer.feature_dict["num_alignments"], np.asarray([1, 1, 1, 1], dtype=np.int32)
+    )
+    assert monomer.feature_dict["msa_species_identifiers_all_seq"].tolist() == [b""]
+    assert monomer.feature_dict["template_domain_names"].tolist() == [b"1abc_A"]
 
 
 def test_make_mmseq_features_builds_all_seq_features_and_writes_a3m(
@@ -263,6 +345,68 @@ def test_make_mmseq_features_builds_all_seq_features_and_writes_a3m(
     assert "msa_uniprot_accession_identifiers_all_seq" in monomer.feature_dict
     assert isinstance(monomer.feature_dict["template_confidence_scores"], np.ndarray)
     assert monomer.feature_dict["template_release_date"] == ["none"]
+
+
+def test_make_mmseq_features_skip_msa_uses_single_sequence_mode(
+    monkeypatch, tmp_path
+):
+    monomer = MonomericObject("proteinA", "ACDE")
+    calls = {}
+
+    monkeypatch.setattr(
+        MonomericObject, "unzip_msa_files", staticmethod(lambda _path: False)
+    )
+
+    def fake_get_msa_and_templates(**kwargs):
+        calls["get_msa_and_templates"] = kwargs
+        return (["UNPAIRED"], [""], ["UNIQUE"], ["CARD"], ["TEMPLATE"])
+
+    monkeypatch.setattr(objects_mod, "get_msa_and_templates", fake_get_msa_and_templates)
+    monkeypatch.setattr(
+        objects_mod,
+        "build_monomer_feature",
+        lambda sequence, msa, template_features: {
+            "msa": np.asarray([[1, 2, 3, 4]], dtype=np.int32),
+            "deletion_matrix_int": np.asarray([[0, 0, 0, 0]], dtype=np.int32),
+            "template_confidence_scores": None,
+            "template_release_date": None,
+        },
+    )
+
+    def fake_enrich(feature_dict, a3m, **kwargs):
+        calls["enrich"] = {"a3m": a3m, "kwargs": kwargs}
+        feature_dict["msa_species_identifiers"] = np.asarray([b""], dtype=object)
+        feature_dict["msa_uniprot_accession_identifiers"] = np.asarray(
+            [b""], dtype=object
+        )
+
+    monkeypatch.setattr(
+        objects_mod,
+        "enrich_mmseq_feature_dict_with_identifiers",
+        fake_enrich,
+    )
+    monkeypatch.setattr(
+        MonomericObject, "zip_msa_files", staticmethod(lambda _path: None)
+    )
+
+    monomer.make_mmseq_features(
+        DEFAULT_API_SERVER="https://fake.server",
+        output_dir=str(tmp_path),
+        use_templates=True,
+        skip_msa=True,
+    )
+
+    assert calls["get_msa_and_templates"]["msa_mode"] == "single_sequence"
+    assert calls["get_msa_and_templates"]["pair_mode"] == "none"
+    assert calls["get_msa_and_templates"]["a3m_lines"] == [">101\nACDE"]
+    assert calls["get_msa_and_templates"]["use_templates"] is True
+    assert calls["enrich"]["a3m"] == ">101\nACDE"
+    assert monomer.skip_msa is True
+    assert monomer.feature_dict["msa"].shape == (1, 4)
+    assert monomer.feature_dict["msa_all_seq"].shape == (1, 4)
+    assert monomer.feature_dict["msa_uniprot_accession_identifiers_all_seq"].tolist() == [
+        b""
+    ]
 
 
 def test_make_mmseq_features_compresses_fresh_mmseq_result_dir(

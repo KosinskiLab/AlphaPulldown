@@ -163,6 +163,7 @@ def tmp_flags(monkeypatch, tmp_path):
         use_mmseqs2=False,
         use_precomputed_msas=False,
         save_msa_files=False,
+        skip_msa=False,
         skip_existing=False,
         compress_features=False,
         db_preset="full_dbs",

@@ -26,6 +26,17 @@ from alphapulldown.utils.mmseqs_species_identifiers import (
     strip_mmseq_comment_lines,
 )
 
+
+def _query_only_a3m(sequence: str, query_id: str = "query") -> str:
+    """Return a single-sequence A3M string for query-only workflows."""
+    return f">{query_id}\n{sequence}\n"
+
+
+def _query_only_stockholm(sequence: str, query_id: str = "query") -> str:
+    """Return a single-sequence Stockholm alignment string."""
+    return f"# STOCKHOLM 1.0\n{query_id} {sequence}\n//\n"
+
+
 class MonomericObject:
     """
     monomeric objects
@@ -41,6 +52,7 @@ class MonomericObject:
         self.sequence = sequence
         self.feature_dict = dict()
         self._uniprot_runner = None
+        self.skip_msa = False
         pass
 
     @property
@@ -140,7 +152,8 @@ class MonomericObject:
     def make_features(
             self, pipeline, output_dir: str,
             use_precomputed_msa: bool = False,
-            save_msa: bool = True, compress_msa_files: bool = False
+            save_msa: bool = True, compress_msa_files: bool = False,
+            skip_msa: bool = False,
     ):
         """a method that make msa and template features"""
         os.makedirs(os.path.join(output_dir, self.description), exist_ok=True)
@@ -155,13 +168,20 @@ class MonomericObject:
         logging.info(
             "will save msa files in :{}".format(msa_output_dir))
         plPath(msa_output_dir).mkdir(parents=True, exist_ok=True)
-        with temp_fasta_file(sequence_str) as fasta_file:
-            self.feature_dict = pipeline.process(
-                fasta_file, msa_output_dir)
-            pairing_results = self.all_seq_msa_features(
-                fasta_file, self._uniprot_runner, msa_output_dir, use_precomputed_msa
+        self.skip_msa = skip_msa
+        if skip_msa:
+            self.feature_dict = self._build_query_only_feature_dict()
+            self.feature_dict.update(
+                self._search_templates_with_query_only_msa(pipeline, msa_output_dir)
             )
-            self.feature_dict.update(pairing_results)
+        else:
+            with temp_fasta_file(sequence_str) as fasta_file:
+                self.feature_dict = pipeline.process(
+                    fasta_file, msa_output_dir)
+                pairing_results = self.all_seq_msa_features(
+                    fasta_file, self._uniprot_runner, msa_output_dir, use_precomputed_msa
+                )
+                self.feature_dict.update(pairing_results)
         
         # Add extra features to make it compatible with pickle features obtaiend from mmseqs2
         template_confidence_scores = self.feature_dict.get('template_confidence_scores', None)
@@ -187,6 +207,60 @@ class MonomericObject:
             MonomericObject.zip_msa_files(
                 os.path.join(output_dir, self.description))
 
+    def _build_query_only_feature_dict(self) -> Dict[str, Any]:
+        """Build AF2-compatible features with the query as the only MSA row."""
+        query_only_msa = parsers.parse_a3m(_query_only_a3m(self.sequence))
+        sequence_features = pipeline.make_sequence_features(
+            sequence=self.sequence,
+            description=self.description,
+            num_res=len(self.sequence),
+        )
+        msa_features = pipeline.make_msa_features((query_only_msa,))
+        all_seq_features = {
+            f"{key}_all_seq": np.array(value, copy=True)
+            for key, value in msa_features.items()
+        }
+        all_seq_features["msa_uniprot_accession_identifiers_all_seq"] = np.array(
+            [b""], dtype=object
+        )
+        return {**sequence_features, **msa_features, **all_seq_features}
+
+    def _search_templates_with_query_only_msa(
+        self, af2_pipeline: pipeline.DataPipeline, msa_output_dir: str
+    ) -> Dict[str, Any]:
+        """Run template search from a synthetic single-sequence alignment."""
+        template_searcher = getattr(af2_pipeline, "template_searcher", None)
+        template_featurizer = getattr(af2_pipeline, "template_featurizer", None)
+        if template_searcher is None or template_featurizer is None:
+            return {}
+
+        stockholm_msa = _query_only_stockholm(self.sequence)
+        if template_searcher.input_format == "sto":
+            template_query = stockholm_msa
+        elif template_searcher.input_format == "a3m":
+            template_query = _query_only_a3m(self.sequence)
+        else:
+            raise ValueError(
+                "Unrecognized template input format: "
+                f"{template_searcher.input_format}"
+            )
+
+        pdb_templates_result = template_searcher.query(template_query)
+        pdb_hits_out_path = os.path.join(
+            msa_output_dir, f"pdb_hits.{template_searcher.output_format}"
+        )
+        with open(pdb_hits_out_path, "w") as handle:
+            handle.write(pdb_templates_result)
+
+        pdb_template_hits = template_searcher.get_template_hits(
+            output_string=pdb_templates_result,
+            input_sequence=self.sequence,
+        )
+        templates_result = template_featurizer.get_templates(
+            query_sequence=self.sequence,
+            hits=pdb_template_hits,
+        )
+        return dict(templates_result.features)
 
     def make_mmseq_features(
             self, DEFAULT_API_SERVER,
@@ -195,6 +269,7 @@ class MonomericObject:
             use_precomputed_msa=False,
             use_templates=False,
             custom_template_path=None,
+            skip_msa: bool = False,
     ):
         """
         A method to use mmseq_remote to calculate MSA.
@@ -212,7 +287,29 @@ class MonomericObject:
             logging.info(f"Skipping {self.description} (result.zip)")
 
         a3m_path = os.path.join(result_dir, self.description + ".a3m")
-        if use_precomputed_msa and os.path.isfile(a3m_path):
+        self.skip_msa = skip_msa
+        if skip_msa:
+            a3m_lines = [_query_only_a3m(self.sequence, query_id="101")]
+            plPath(a3m_path).write_text(a3m_lines[0])
+            (
+                unpaired_msa,
+                paired_msa,
+                query_seqs_unique,
+                query_seqs_cardinality,
+                template_features,
+            ) = get_msa_and_templates(
+                jobname=self.description,
+                query_sequences=self.sequence,
+                a3m_lines=a3m_lines,
+                result_dir=plPath(result_dir),
+                msa_mode="single_sequence",
+                use_templates=use_templates,
+                custom_template_path=custom_template_path,
+                pair_mode="none",
+                host_url=DEFAULT_API_SERVER,
+                user_agent="alphapulldown",
+            )
+        elif use_precomputed_msa and os.path.isfile(a3m_path):
             logging.info(f"Using precomputed MSA from {a3m_path}")
             a3m_lines = [plPath(a3m_path).read_text()]
             (unpaired_msa, paired_msa, query_seqs_unique, query_seqs_cardinality,
