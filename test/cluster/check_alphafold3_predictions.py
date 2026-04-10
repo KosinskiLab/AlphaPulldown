@@ -1835,8 +1835,13 @@ class TestAlphaFold3MmseqsIssue588Inference(_TestBase):
         self.assertLen(input_json_paths, 1)
         written = json.loads(input_json_paths[0].read_text(encoding="utf-8"))
         protein_entries = _protein_entries_from_af3_input(written)
-        self.assertLen(protein_entries, 3)
+        self.assertLen(protein_entries, 2)
+        all_chain_ids = []
         for protein_entry in protein_entries:
+            entry_ids = protein_entry["id"]
+            if isinstance(entry_ids, str):
+                entry_ids = [entry_ids]
+            all_chain_ids.extend(entry_ids)
             self.assertEqual(
                 _a3m_query_sequence(protein_entry["pairedMsa"]),
                 protein_entry["sequence"],
@@ -1845,6 +1850,7 @@ class TestAlphaFold3MmseqsIssue588Inference(_TestBase):
                 _a3m_query_sequence(protein_entry["unpairedMsa"]),
                 protein_entry["sequence"],
             )
+        self.assertCountEqual(all_chain_ids, ["A", "B", "C"])
 
 
 # --------------------------------------------------------------------------- #
