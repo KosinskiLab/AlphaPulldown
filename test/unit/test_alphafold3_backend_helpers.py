@@ -1263,6 +1263,69 @@ def _translation_stats(
     )
 
 
+AF2_ALPHABET = "ACDEFGHIKLMNPQRSTVWYX-"
+AF2_TOKEN_BY_RESIDUE = {
+    residue: index for index, residue in enumerate(AF2_ALPHABET)
+}
+
+
+def _encode_af2_row(sequence: str) -> np.ndarray:
+    return np.array(
+        [AF2_TOKEN_BY_RESIDUE[residue] for residue in sequence],
+        dtype=np.int32,
+    )
+
+
+def _make_af2_chain_feature_dict(
+    sequence: str,
+    *,
+    paired_rows: list[tuple[str, str]],
+    unpaired_rows: list[str] | None = None,
+) -> dict[str, np.ndarray]:
+    if unpaired_rows is None:
+        unpaired_rows = []
+
+    return {
+        "msa_all_seq": np.stack(
+            [_encode_af2_row(sequence)] + [_encode_af2_row(row) for _, row in paired_rows]
+        ),
+        "deletion_matrix_int_all_seq": np.zeros(
+            (len(paired_rows) + 1, len(sequence)),
+            dtype=np.int32,
+        ),
+        "msa_species_identifiers_all_seq": np.asarray(
+            [b""] + [species_id.encode("utf-8") for species_id, _ in paired_rows],
+            dtype=object,
+        ),
+        "msa": np.stack(
+            [_encode_af2_row(sequence)] + [_encode_af2_row(row) for row in unpaired_rows]
+        ),
+        "deletion_matrix_int": np.zeros(
+            (len(unpaired_rows) + 1, len(sequence)),
+            dtype=np.int32,
+        ),
+    }
+
+
+def _make_stub_multimeric_object(af3_backend_module, *, description: str, interactors):
+    multimer = object.__new__(af3_backend_module.MultimericObject)
+    multimer.description = description
+    multimer.interactors = list(interactors)
+
+    merged_sequence = "".join(interactor.sequence for interactor in interactors)
+    asym_ids = []
+    for asym_id, interactor in enumerate(interactors, start=1):
+        asym_ids.extend([asym_id] * len(interactor.sequence))
+
+    multimer.feature_dict = {
+        "msa": np.stack([_encode_af2_row(merged_sequence)]),
+        "num_alignments": np.asarray([1], dtype=np.int32),
+        "deletion_matrix_int": np.zeros((1, len(merged_sequence)), dtype=np.int32),
+        "asym_id": np.asarray(asym_ids, dtype=np.int32),
+    }
+    return multimer
+
+
 def test_prepare_input_multimer_writes_translated_msa_debug_artifacts(
     af3_backend_module,
     monkeypatch,
@@ -1282,24 +1345,32 @@ def test_prepare_input_multimer_writes_translated_msa_debug_artifacts(
         af3_backend_module,
         chain_msas=[
             _translation_msas(
-                paired_msa=">pairA\nACDE\n",
+                paired_msa=(
+                    ">query\nACDE\n"
+                    ">tr|APA0000001|APA0000001_ECOLX\nACDE\n"
+                    ">tr|APA0000002|APA0000002_SHIDY\nACDE\n"
+                ),
                 unpaired_msa=">unpairedA\nACDE\n",
             ),
             _translation_msas(
-                paired_msa=">pairB\nFGHI\n",
+                paired_msa=(
+                    ">query\nFGHI\n"
+                    ">tr|APB0000001|APB0000001_ECOLX\nFGHI\n"
+                    ">sequence_2\nFGHI\n"
+                ),
                 unpaired_msa=">unpairedB\nFGHI\n",
             ),
         ],
         chain_stats=[
             _translation_stats(
-                paired_msa_row_count=1,
+                paired_msa_row_count=2,
                 unpaired_msa_row_count=1,
                 paired_species_identifier_count=2,
                 paired_rows_without_species_identifier_count=0,
                 paired_rows_with_generated_accession_count=1,
             ),
             _translation_stats(
-                paired_msa_row_count=1,
+                paired_msa_row_count=2,
                 unpaired_msa_row_count=2,
                 paired_species_identifier_count=1,
                 paired_rows_without_species_identifier_count=1,
@@ -1339,9 +1410,17 @@ def test_prepare_input_multimer_writes_translated_msa_debug_artifacts(
     assert output_dir == str(tmp_path)
     assert resolve_msa_overlaps is False
     assert [chain.id for chain in fold_input.chains] == ["A", "B"]
-    assert fold_input.chains[0].paired_msa == ">pairA\nACDE\n"
+    assert fold_input.chains[0].paired_msa == (
+        ">query\nACDE\n"
+        ">tr|APA0000001|APA0000001_ECOLX\nACDE\n"
+        ">tr|APA0000002|APA0000002_SHIDY\nACDE\n"
+    )
     assert fold_input.chains[0].unpaired_msa == ">unpairedA\nACDE\n"
-    assert fold_input.chains[1].paired_msa == ">pairB\nFGHI\n"
+    assert fold_input.chains[1].paired_msa == (
+        ">query\nFGHI\n"
+        ">tr|APB0000001|APB0000001_ECOLX\nFGHI\n"
+        ">sequence_2\nFGHI\n"
+    )
     assert fold_input.chains[1].unpaired_msa == ">unpairedB\nFGHI\n"
 
     summary_path = tmp_path / f"{fold_input.sanitised_name()}_af2_to_af3_translation_summary.json"
@@ -1350,32 +1429,43 @@ def test_prepare_input_multimer_writes_translated_msa_debug_artifacts(
     assert summary["translation_modes"] == [
         "af3_species_pairing_from_af2_individual_msas"
     ]
-    assert summary["paired_row_count"] == 2
+    assert summary["translated_paired_input_row_count"] == 2
+    assert summary["paired_row_count"] == 1
+    assert summary["effective_paired_row_count"] == 1
+    assert summary["effective_paired_row_histogram_by_num_chains"] == {"2": 1}
     assert summary["chains"] == [
         {
             "chain_id": "A",
             "chain_description": "protA",
             "chain_length": 4,
-            "paired_msa_row_count": 1,
+            "paired_msa_row_count": 2,
             "unpaired_msa_row_count": 1,
             "paired_species_identifier_count": 2,
             "paired_rows_without_species_identifier_count": 0,
             "paired_rows_with_generated_accession_count": 1,
+            "effective_paired_msa_row_count": 1,
+            "effective_paired_gap_row_count": 0,
         },
         {
             "chain_id": "B",
             "chain_description": "protB",
             "chain_length": 4,
-            "paired_msa_row_count": 1,
+            "paired_msa_row_count": 2,
             "unpaired_msa_row_count": 2,
             "paired_species_identifier_count": 1,
             "paired_rows_without_species_identifier_count": 1,
             "paired_rows_with_generated_accession_count": 0,
+            "effective_paired_msa_row_count": 1,
+            "effective_paired_gap_row_count": 0,
         },
     ]
     assert (
         tmp_path / f"{fold_input.sanitised_name()}_chain-A_paired_input.a3m"
-    ).read_text(encoding="utf-8") == ">pairA\nACDE\n"
+    ).read_text(encoding="utf-8") == (
+        ">query\nACDE\n"
+        ">tr|APA0000001|APA0000001_ECOLX\nACDE\n"
+        ">tr|APA0000002|APA0000002_SHIDY\nACDE\n"
+    )
     assert (
         tmp_path / f"{fold_input.sanitised_name()}_chain-B_unpaired_input.a3m"
     ).read_text(encoding="utf-8") == ">unpairedB\nFGHI\n"
@@ -1546,6 +1636,157 @@ def test_prepare_input_multimer_skips_complex_fallback_after_duplicate_residue_n
         ">indA\nACD\n",
         ">indB\nFGHI\n",
     ]
+
+
+def test_prepare_input_multimer_trimer_preserves_sparse_middle_chain_pairing(
+    af3_backend_module,
+    monkeypatch,
+    tmp_path,
+):
+    interactor_a = MonomericObject("protA", "AC")
+    interactor_b = MonomericObject("protB", "GT")
+    interactor_c = MonomericObject("protC", "MK")
+    interactor_a.feature_dict = _make_af2_chain_feature_dict(
+        "AC",
+        paired_rows=[("ECOLX", "A-"), ("ECOLX", "AA")],
+        unpaired_rows=["AA"],
+    )
+    interactor_b.feature_dict = _make_af2_chain_feature_dict(
+        "GT",
+        paired_rows=[],
+        unpaired_rows=["G-"],
+    )
+    interactor_c.feature_dict = _make_af2_chain_feature_dict(
+        "MK",
+        paired_rows=[("ECOLX", "M-"), ("ECOLX", "MM")],
+        unpaired_rows=["MM"],
+    )
+
+    multimer = _make_stub_multimeric_object(
+        af3_backend_module,
+        description="protA_and_protB_and_protC",
+        interactors=[interactor_a, interactor_b, interactor_c],
+    )
+
+    def _unexpected_fallback(**kwargs):
+        raise AssertionError(f"Unexpected AF2 merged-MSA fallback: {kwargs}")
+
+    monkeypatch.setattr(
+        af3_backend_module,
+        "translate_af2_complex_msa_to_af3_unpaired_chain_msas_with_stats",
+        _unexpected_fallback,
+    )
+
+    prepared_inputs = af3_backend_module.AlphaFold3Backend.prepare_input(
+        objects_to_model=[
+            {
+                "object": multimer,
+                "output_dir": str(tmp_path),
+            }
+        ],
+        random_seed=43,
+        debug_msas=True,
+    )
+
+    fold_input, (_output_dir, resolve_msa_overlaps) = next(iter(prepared_inputs[0].items()))
+    assert resolve_msa_overlaps is False
+    assert [chain.id for chain in fold_input.chains] == ["A", "B", "C"]
+    assert fold_input.chains[0].paired_msa
+    assert fold_input.chains[1].paired_msa == ""
+    assert fold_input.chains[2].paired_msa
+
+    summary_path = tmp_path / f"{fold_input.sanitised_name()}_af2_to_af3_translation_summary.json"
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert summary["translation_modes"] == ["af3_species_pairing_from_af2_individual_msas"]
+    assert summary["translated_paired_input_row_count"] == 2
+    assert summary["paired_row_count"] == 2
+    assert summary["effective_paired_row_count"] == 2
+    assert summary["effective_paired_row_histogram_by_num_chains"] == {"2": 2}
+
+    chain_summary = {chain["chain_id"]: chain for chain in summary["chains"]}
+    assert chain_summary["A"]["paired_msa_row_count"] == 2
+    assert chain_summary["A"]["effective_paired_msa_row_count"] == 2
+    assert chain_summary["A"]["effective_paired_gap_row_count"] == 0
+    assert chain_summary["B"]["paired_msa_row_count"] == 0
+    assert chain_summary["B"]["effective_paired_msa_row_count"] == 0
+    assert chain_summary["B"]["effective_paired_gap_row_count"] == 2
+    assert chain_summary["C"]["paired_msa_row_count"] == 2
+    assert chain_summary["C"]["effective_paired_msa_row_count"] == 2
+    assert chain_summary["C"]["effective_paired_gap_row_count"] == 0
+
+
+def test_prepare_input_multimer_trimer_reports_effective_min_count_pairing(
+    af3_backend_module,
+    monkeypatch,
+    tmp_path,
+):
+    interactor_a = MonomericObject("protA", "AC")
+    interactor_b = MonomericObject("protB", "GT")
+    interactor_c = MonomericObject("protC", "MK")
+    interactor_a.feature_dict = _make_af2_chain_feature_dict(
+        "AC",
+        paired_rows=[("ECOLX", "A-"), ("ECOLX", "AA"), ("ECOLX", "AC")],
+        unpaired_rows=["AA"],
+    )
+    interactor_b.feature_dict = _make_af2_chain_feature_dict(
+        "GT",
+        paired_rows=[("ECOLX", "G-")],
+        unpaired_rows=["GG"],
+    )
+    interactor_c.feature_dict = _make_af2_chain_feature_dict(
+        "MK",
+        paired_rows=[("ECOLX", "M-"), ("ECOLX", "MM"), ("ECOLX", "MK")],
+        unpaired_rows=["MM"],
+    )
+
+    multimer = _make_stub_multimeric_object(
+        af3_backend_module,
+        description="protA_and_protB_and_protC",
+        interactors=[interactor_a, interactor_b, interactor_c],
+    )
+
+    def _unexpected_fallback(**kwargs):
+        raise AssertionError(f"Unexpected AF2 merged-MSA fallback: {kwargs}")
+
+    monkeypatch.setattr(
+        af3_backend_module,
+        "translate_af2_complex_msa_to_af3_unpaired_chain_msas_with_stats",
+        _unexpected_fallback,
+    )
+
+    prepared_inputs = af3_backend_module.AlphaFold3Backend.prepare_input(
+        objects_to_model=[
+            {
+                "object": multimer,
+                "output_dir": str(tmp_path),
+            }
+        ],
+        random_seed=47,
+        debug_msas=True,
+    )
+
+    fold_input, (_output_dir, resolve_msa_overlaps) = next(iter(prepared_inputs[0].items()))
+    assert resolve_msa_overlaps is False
+    assert all(chain.paired_msa for chain in fold_input.chains)
+
+    summary_path = tmp_path / f"{fold_input.sanitised_name()}_af2_to_af3_translation_summary.json"
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert summary["translation_modes"] == ["af3_species_pairing_from_af2_individual_msas"]
+    assert summary["translated_paired_input_row_count"] == 3
+    assert summary["paired_row_count"] == 1
+    assert summary["effective_paired_row_count"] == 1
+    assert summary["effective_paired_row_histogram_by_num_chains"] == {"3": 1}
+
+    chain_summary = {chain["chain_id"]: chain for chain in summary["chains"]}
+    assert chain_summary["A"]["paired_msa_row_count"] == 3
+    assert chain_summary["B"]["paired_msa_row_count"] == 1
+    assert chain_summary["C"]["paired_msa_row_count"] == 3
+    assert chain_summary["A"]["effective_paired_msa_row_count"] == 1
+    assert chain_summary["B"]["effective_paired_msa_row_count"] == 1
+    assert chain_summary["C"]["effective_paired_msa_row_count"] == 1
+    assert chain_summary["A"]["effective_paired_gap_row_count"] == 0
+    assert chain_summary["B"]["effective_paired_gap_row_count"] == 0
+    assert chain_summary["C"]["effective_paired_gap_row_count"] == 0
 
 
 def test_prepare_input_builds_template_mmcif_and_skips_zero_atom_templates(
