@@ -1,4 +1,5 @@
 import itertools
+from types import SimpleNamespace
 
 import numpy as np
 from alphafold3.model import data_constants as af3_data_constants
@@ -161,6 +162,49 @@ def _canonical_af3_paired_rows(chains) -> tuple[tuple[str, tuple[tuple[int, ...]
             )
         )
     return tuple(canonical_rows)
+
+
+def _build_native_af3_chain_msas(
+    *,
+    chain_ids: list[str],
+    chain_sequences: list[str],
+    paired_rows_by_chain: dict[str, list[tuple[str, str]]],
+    unpaired_rows_by_chain: dict[str, list[str]] | None = None,
+):
+    if unpaired_rows_by_chain is None:
+        unpaired_rows_by_chain = {}
+
+    chain_msas = []
+    for chain_id, sequence in zip(chain_ids, chain_sequences, strict=True):
+        paired_rows = paired_rows_by_chain.get(chain_id, [])
+        paired_msa = ""
+        if paired_rows:
+            paired_lines = [">query", sequence]
+            for index, (species_id, row) in enumerate(paired_rows, start=1):
+                if species_id:
+                    accession = f"AP{chain_id}{index:07d}"
+                    description = f"tr|{accession}|{accession}_{species_id}"
+                else:
+                    description = f"sequence_{index}"
+                paired_lines.extend([f">{description}", row])
+            paired_msa = "\n".join(paired_lines) + "\n"
+
+        unpaired_rows = unpaired_rows_by_chain.get(chain_id, [])
+        unpaired_msa = ""
+        if unpaired_rows:
+            unpaired_lines = [">query", sequence]
+            for index, row in enumerate(unpaired_rows, start=1):
+                unpaired_lines.extend([f">sequence_{index}", row])
+            unpaired_msa = "\n".join(unpaired_lines) + "\n"
+
+        chain_msas.append(
+            SimpleNamespace(
+                paired_msa=paired_msa,
+                unpaired_msa=unpaired_msa,
+            )
+        )
+
+    return chain_msas
 
 
 def test_msa_rows_and_deletions_to_a3m_preserves_lowercase_compression():
@@ -751,3 +795,132 @@ def test_translate_af2_individual_chain_features_is_permutation_invariant_for_th
         if canonical_rows is None:
             canonical_rows = permutation_rows
         assert permutation_rows == canonical_rows
+
+
+def test_translate_af2_individual_chain_features_matches_native_af3_pairing_for_sparse_trimer_permutations():
+    base_chain_ids = ["A", "B", "C"]
+    base_chain_sequences = {
+        "A": "AC",
+        "B": "GT",
+        "C": "MK",
+    }
+    base_chain_features = {
+        "A": _make_af2_chain_feature_dict(
+            "AC",
+            paired_rows=[("ECOLX", "A-"), ("ECOLX", "AA")],
+            unpaired_rows=["AA"],
+        ),
+        "B": _make_af2_chain_feature_dict(
+            "GT",
+            paired_rows=[],
+            unpaired_rows=["G-"],
+        ),
+        "C": _make_af2_chain_feature_dict(
+            "MK",
+            paired_rows=[("ECOLX", "M-"), ("ECOLX", "MM")],
+            unpaired_rows=["MM"],
+        ),
+    }
+    native_paired_rows = {
+        "A": [("ECOLX", "A-"), ("ECOLX", "AA")],
+        "B": [],
+        "C": [("ECOLX", "M-"), ("ECOLX", "MM")],
+    }
+    native_unpaired_rows = {
+        "A": ["AA"],
+        "B": ["G-"],
+        "C": ["MM"],
+    }
+
+    canonical_rows = None
+    for permutation in itertools.permutations(base_chain_ids):
+        chain_ids = list(permutation)
+        chain_sequences = [base_chain_sequences[chain_id] for chain_id in chain_ids]
+        translated = translate_af2_individual_chain_features_to_af3_msas_with_stats(
+            chain_feature_dicts=[base_chain_features[chain_id] for chain_id in chain_ids],
+            chain_sequences=chain_sequences,
+        )
+        translated_rows = _canonical_af3_paired_rows(
+            _pair_translated_msas_with_af3(
+                chain_ids=chain_ids,
+                chain_sequences=chain_sequences,
+                chain_msas=translated.chain_msas,
+            )
+        )
+        native_rows = _canonical_af3_paired_rows(
+            _pair_translated_msas_with_af3(
+                chain_ids=chain_ids,
+                chain_sequences=chain_sequences,
+                chain_msas=_build_native_af3_chain_msas(
+                    chain_ids=chain_ids,
+                    chain_sequences=chain_sequences,
+                    paired_rows_by_chain=native_paired_rows,
+                    unpaired_rows_by_chain=native_unpaired_rows,
+                ),
+            )
+        )
+
+        assert translated_rows == native_rows
+        if canonical_rows is None:
+            canonical_rows = translated_rows
+        assert translated_rows == canonical_rows
+
+
+def test_translate_af2_individual_chain_features_matches_native_af3_pairing_for_min_count_trimer_permutations():
+    base_chain_ids = ["A", "B", "C"]
+    base_chain_sequences = {
+        "A": "AC",
+        "B": "GT",
+        "C": "MK",
+    }
+    base_chain_features = {
+        "A": _make_af2_chain_feature_dict(
+            "AC",
+            paired_rows=[("S1", "A-"), ("S1", "AA"), ("S2", "AC")],
+        ),
+        "B": _make_af2_chain_feature_dict(
+            "GT",
+            paired_rows=[("S1", "G-")],
+        ),
+        "C": _make_af2_chain_feature_dict(
+            "MK",
+            paired_rows=[("S1", "M-"), ("S1", "MM"), ("S2", "MK")],
+        ),
+    }
+    native_paired_rows = {
+        "A": [("S1", "A-"), ("S1", "AA"), ("S2", "AC")],
+        "B": [("S1", "G-")],
+        "C": [("S1", "M-"), ("S1", "MM"), ("S2", "MK")],
+    }
+
+    canonical_rows = None
+    for permutation in itertools.permutations(base_chain_ids):
+        chain_ids = list(permutation)
+        chain_sequences = [base_chain_sequences[chain_id] for chain_id in chain_ids]
+        translated = translate_af2_individual_chain_features_to_af3_msas_with_stats(
+            chain_feature_dicts=[base_chain_features[chain_id] for chain_id in chain_ids],
+            chain_sequences=chain_sequences,
+        )
+        translated_rows = _canonical_af3_paired_rows(
+            _pair_translated_msas_with_af3(
+                chain_ids=chain_ids,
+                chain_sequences=chain_sequences,
+                chain_msas=translated.chain_msas,
+            )
+        )
+        native_rows = _canonical_af3_paired_rows(
+            _pair_translated_msas_with_af3(
+                chain_ids=chain_ids,
+                chain_sequences=chain_sequences,
+                chain_msas=_build_native_af3_chain_msas(
+                    chain_ids=chain_ids,
+                    chain_sequences=chain_sequences,
+                    paired_rows_by_chain=native_paired_rows,
+                ),
+            )
+        )
+
+        assert translated_rows == native_rows
+        if canonical_rows is None:
+            canonical_rows = translated_rows
+        assert translated_rows == canonical_rows
