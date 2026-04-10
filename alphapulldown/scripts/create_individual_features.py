@@ -474,11 +474,16 @@ def _reuse_truemultimer_monomer_features(feat):
     monomer = _load_existing_monomer_from_output_dir(source_name)
     if monomer is None:
         return None
-    if FLAGS.skip_msa and not getattr(monomer, "skip_msa", False):
+    cached_skip_msa = getattr(monomer, "skip_msa", False)
+    if FLAGS.skip_msa != cached_skip_msa:
+        requested_mode = "--skip_msa" if FLAGS.skip_msa else "full-MSA"
+        cached_mode = "--skip_msa" if cached_skip_msa else "full-MSA"
         logging.info(
-            "Existing monomer features for %s were generated with bulk MSAs. "
-            "Recomputing query-only features for --skip_msa.",
+            "Existing monomer features for %s were generated in %s mode, but the "
+            "current TrueMultimer entry requested %s mode. Recomputing features.",
             source_name,
+            cached_mode,
+            requested_mode,
         )
         return None
     if monomer.sequence != feat["sequence"]:

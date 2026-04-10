@@ -790,7 +790,7 @@ def test_pre_modelling_setup_warns_for_long_paths_and_uses_chopped_metadata_name
     assert any("No feature metadata found for fragmentA" in message for message in warnings)
 
 
-def test_pre_modelling_setup_rejects_pair_msa_for_skip_msa_interactors(
+def test_pre_modelling_setup_allows_skip_msa_monomers_with_default_pair_flag(
     run_structure_prediction_module,
     tmp_path,
 ):
@@ -816,9 +816,46 @@ def test_pre_modelling_setup_rejects_pair_msa_for_skip_msa_interactors(
     monomer = run_structure_prediction_module.MonomericObject("protA", "ACDE")
     monomer.skip_msa = True
 
+    returned_object, _ = run_structure_prediction_module.pre_modelling_setup(
+        [monomer],
+        output_dir=str(tmp_path / "outputs"),
+    )
+
+    assert returned_object is monomer
+    assert returned_object.input_seqs == ["ACDE"]
+
+
+def test_pre_modelling_setup_rejects_pair_msa_for_skip_msa_multimers(
+    run_structure_prediction_module,
+    tmp_path,
+):
+    _set_flag(run_structure_prediction_module.FLAGS, "pair_msa", True)
+    _set_flag(run_structure_prediction_module.FLAGS, "multimeric_template", False)
+    _set_flag(run_structure_prediction_module.FLAGS, "description_file", None)
+    _set_flag(run_structure_prediction_module.FLAGS, "path_to_mmt", None)
+    _set_flag(run_structure_prediction_module.FLAGS, "save_features_for_multimeric_object", False)
+    _set_flag(
+        run_structure_prediction_module.FLAGS,
+        "features_directory",
+        [str(tmp_path / "features")],
+    )
+    _set_flag(run_structure_prediction_module.FLAGS, "use_ap_style", False)
+
+    feature_dir = tmp_path / "features"
+    feature_dir.mkdir()
+    for description in ("protA", "protB"):
+        (feature_dir / f"{description}_feature_metadata_2026-03-30.json").write_text(
+            '{"meta": 1}',
+            encoding="utf-8",
+        )
+
+    monomer_a = run_structure_prediction_module.MonomericObject("protA", "ACDE")
+    monomer_a.skip_msa = True
+    monomer_b = run_structure_prediction_module.MonomericObject("protB", "BCDE")
+
     with pytest.raises(ValueError, match="--pair_msa=False"):
         run_structure_prediction_module.pre_modelling_setup(
-            [monomer],
+            [monomer_a, monomer_b],
             output_dir=str(tmp_path / "outputs"),
         )
 
