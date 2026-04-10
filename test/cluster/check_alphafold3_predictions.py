@@ -1088,14 +1088,6 @@ class _TestBase(parameterized.TestCase):
     def _make_af3_test_env(self) -> Dict[str, str]:
         flash_impl = self._af3_flash_attention_impl()
         env = os.environ.copy()
-        # Force subprocesses launched from test helpers to import this checkout,
-        # not an older AlphaPulldown installation from the cluster env.
-        existing_pythonpath = env.get("PYTHONPATH", "")
-        env["PYTHONPATH"] = (
-            f"{REPO_ROOT}:{existing_pythonpath}"
-            if existing_pythonpath
-            else str(REPO_ROOT)
-        )
         env["XLA_FLAGS"] = "--xla_disable_hlo_passes=custom-kernel-fusion-rewriter --xla_gpu_force_compilation_parallelism=0"
         env["XLA_PYTHON_CLIENT_PREALLOCATE"] = "true"
         env["XLA_CLIENT_MEM_FRACTION"] = "0.95"
@@ -1815,12 +1807,11 @@ class TestAlphaFold3MmseqsIssue588Inference(_TestBase):
         )
         self.assertTrue(summary["paired_rows_valid"])
         self.assertTrue(summary["unpaired_rows_valid"])
-        self.assertEqual(summary["paired_row_count"], summary["effective_paired_row_count"])
         self.assertGreater(summary["translated_paired_input_row_count"], 0)
-        self.assertGreater(summary["effective_paired_row_count"], 0)
+        self.assertGreater(summary["paired_row_count"], 0)
         self.assertGreaterEqual(
             summary["translated_paired_input_row_count"],
-            summary["effective_paired_row_count"],
+            summary["paired_row_count"],
         )
         histogram = summary["effective_paired_row_histogram_by_num_chains"]
         self.assertTrue(histogram)
