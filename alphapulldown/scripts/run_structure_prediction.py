@@ -348,7 +348,11 @@ def pre_modelling_setup(
     A MultimericObject or MonomericObject
     output_directory for this particular modelling job
     """
-    if FLAGS.pair_msa and any(getattr(interactor, "skip_msa", False) for interactor in interactors):
+    if (
+        len(interactors) > 1
+        and FLAGS.pair_msa
+        and any(getattr(interactor, "skip_msa", False) for interactor in interactors)
+    ):
         raise ValueError(
             "--skip_msa generates query-only MSAs and cannot be combined with "
             "--pair_msa=True. Re-run structure prediction with --pair_msa=False."
