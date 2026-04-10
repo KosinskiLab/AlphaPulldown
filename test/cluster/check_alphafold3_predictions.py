@@ -1768,6 +1768,76 @@ class TestAlphaFold3MmseqsIssue588Inference(_TestBase):
             f"Expected AF3 ipTM > 0.6, got {confidence_payload['iptm']}",
         )
 
+    def test_issue_588_mmseqs_af2_features_enable_af3_species_pairing_trimer_inference(self):
+        """AF3 should accept trimer jobs built from AF2/mmseqs2 pkl features and report effective pairing."""
+        self._require_mmseqs_functional_environment()
+        env = self._make_af3_test_env()
+        feature_dir = self._generate_issue_588_mmseq_features(env)
+
+        flash_impl = self._af3_flash_attention_impl()
+        res = subprocess.run(
+            [
+                sys.executable,
+                str(self.script_single),
+                "--input=A0ABD7FQG0+P18004+A0ABD7FQG0",
+                f"--output_directory={self.output_dir}",
+                f"--data_directory={DATA_DIR}",
+                f"--features_directory={feature_dir}",
+                "--fold_backend=alphafold3",
+                f"--flash_attention_implementation={flash_impl}",
+                "--num_diffusion_samples=1",
+                "--random_seed=42",
+                "--debug_msas",
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        self._runCommonTests(res)
+
+        result_dir = self._resolve_single_af3_result_dir()
+        summary_paths = sorted(
+            result_dir.glob("*_af2_to_af3_translation_summary.json")
+        )
+        self.assertLen(summary_paths, 1)
+        summary = json.loads(summary_paths[0].read_text(encoding="utf-8"))
+        self.assertEqual(
+            summary["translation_modes"],
+            ["af3_species_pairing_from_af2_individual_msas"],
+        )
+        self.assertTrue(summary["paired_rows_valid"])
+        self.assertTrue(summary["unpaired_rows_valid"])
+        self.assertEqual(summary["paired_row_count"], summary["effective_paired_row_count"])
+        self.assertGreater(summary["translated_paired_input_row_count"], 0)
+        self.assertGreater(summary["effective_paired_row_count"], 0)
+        self.assertGreaterEqual(
+            summary["translated_paired_input_row_count"],
+            summary["effective_paired_row_count"],
+        )
+        histogram = summary["effective_paired_row_histogram_by_num_chains"]
+        self.assertTrue(histogram)
+        self.assertGreaterEqual(max(int(key) for key in histogram), 2)
+        self.assertLen(summary["chains"], 3)
+        for chain_summary in summary["chains"]:
+            self.assertGreater(chain_summary["paired_msa_row_count"], 0)
+            self.assertGreater(chain_summary["unpaired_msa_row_count"], 0)
+            self.assertGreater(chain_summary["effective_paired_msa_row_count"], 0)
+
+        input_json_paths = sorted(result_dir.glob("*_data.json"))
+        self.assertLen(input_json_paths, 1)
+        written = json.loads(input_json_paths[0].read_text(encoding="utf-8"))
+        protein_entries = _protein_entries_from_af3_input(written)
+        self.assertLen(protein_entries, 3)
+        for protein_entry in protein_entries:
+            self.assertEqual(
+                _a3m_query_sequence(protein_entry["pairedMsa"]),
+                protein_entry["sequence"],
+            )
+            self.assertEqual(
+                _a3m_query_sequence(protein_entry["unpairedMsa"]),
+                protein_entry["sequence"],
+            )
+
 
 # --------------------------------------------------------------------------- #
 #                        parameterised "run mode" tests                       #
