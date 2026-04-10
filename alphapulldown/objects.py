@@ -34,7 +34,13 @@ def _query_only_a3m(sequence: str, query_id: str = "query") -> str:
 
 def _query_only_stockholm(sequence: str, query_id: str = "query") -> str:
     """Return a single-sequence Stockholm alignment string."""
-    return f"# STOCKHOLM 1.0\n{query_id} {sequence}\n//\n"
+    rf_annotation = "x" * len(sequence)
+    return (
+        "# STOCKHOLM 1.0\n"
+        f"{query_id} {sequence}\n"
+        f"#=GC RF {rf_annotation}\n"
+        "//\n"
+    )
 
 
 class MonomericObject:
