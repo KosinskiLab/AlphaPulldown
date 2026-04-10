@@ -253,6 +253,7 @@ script manually). Commonly used flags:
 - `--data_pipeline {alphafold2,alphafold3}` – choose the feature format to emit.
 - `--db_preset {full_dbs,reduced_dbs}` – switch between the full BFD stack or the reduced databases.
 - `--use_mmseqs2` – rely on the remote MMseqs2 API; skips local jackhmmer/HHsearch database lookups.
+- `--skip_msa` – generate query-only single-sequence features instead of running bulk MSA searches. Use these feature pickles with `run_structure_prediction.py --pair_msa=False`.
 - `--use_precomputed_msas` / `--save_msa_files` – reuse stored MSAs or keep new ones for later runs.
 - `--compress_features` – zip the generated `*.pkl` files (`.xz` extension) to save space.
 - `--skip_existing` – leave existing feature files untouched (safe for reruns).
