@@ -1088,6 +1088,14 @@ class _TestBase(parameterized.TestCase):
     def _make_af3_test_env(self) -> Dict[str, str]:
         flash_impl = self._af3_flash_attention_impl()
         env = os.environ.copy()
+        # Force subprocesses launched from test helpers to import this checkout,
+        # not an older AlphaPulldown installation from the cluster env.
+        existing_pythonpath = env.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = (
+            f"{REPO_ROOT}:{existing_pythonpath}"
+            if existing_pythonpath
+            else str(REPO_ROOT)
+        )
         env["XLA_FLAGS"] = "--xla_disable_hlo_passes=custom-kernel-fusion-rewriter --xla_gpu_force_compilation_parallelism=0"
         env["XLA_PYTHON_CLIENT_PREALLOCATE"] = "true"
         env["XLA_CLIENT_MEM_FRACTION"] = "0.95"
