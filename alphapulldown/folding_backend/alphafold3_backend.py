@@ -18,6 +18,7 @@ import pathlib
 import re
 import time
 import typing
+from collections import Counter
 from collections.abc import Sequence
 from typing import Any, List, Dict, Union, overload
 
@@ -1450,7 +1451,85 @@ class AlphaFold3Backend(FoldingBackend):
             if not chain_records or not translation_results:
                 return
 
+            def _extract_paired_species_identifier(description: str) -> str:
+                if not description.startswith(("tr|", "sp|")):
+                    return ""
+                description_tail = description.split("|")[-1]
+                if "_" not in description_tail:
+                    return ""
+                return description_tail.rsplit("_", maxsplit=1)[-1].strip()
+
+            def _summarise_effective_af3_pairing(
+                records: list[_TranslatedMsaDebugRecord],
+            ) -> dict[str, object]:
+                per_chain_species_counts: dict[str, Counter[str]] = {}
+                effective_non_gap_rows_by_chain: dict[str, int] = {}
+                effective_gap_rows_by_chain: dict[str, int] = {}
+
+                for record in records:
+                    _, descriptions = af3_parsers.parse_fasta(record.paired_msa)
+                    species_counts: Counter[str] = Counter()
+                    for description in descriptions[1:]:
+                        species_identifier = _extract_paired_species_identifier(description)
+                        if species_identifier:
+                            species_counts[species_identifier] += 1
+                    per_chain_species_counts[record.chain_id] = species_counts
+                    effective_non_gap_rows_by_chain[record.chain_id] = 0
+                    effective_gap_rows_by_chain[record.chain_id] = 0
+
+                effective_paired_row_count = 0
+                effective_paired_row_histogram_by_num_chains: Counter[str] = Counter()
+                all_species = sorted(
+                    {
+                        species_identifier
+                        for species_counts in per_chain_species_counts.values()
+                        for species_identifier in species_counts
+                    }
+                )
+                for species_identifier in all_species:
+                    present_chain_ids = [
+                        chain_id
+                        for chain_id, species_counts in per_chain_species_counts.items()
+                        if species_counts.get(species_identifier, 0) > 0
+                    ]
+                    if len(present_chain_ids) <= 1:
+                        continue
+
+                    kept_rows = min(
+                        per_chain_species_counts[chain_id][species_identifier]
+                        for chain_id in present_chain_ids
+                    )
+                    effective_paired_row_count += kept_rows
+                    effective_paired_row_histogram_by_num_chains[
+                        str(len(present_chain_ids))
+                    ] += kept_rows
+                    for chain_id in per_chain_species_counts:
+                        if chain_id in present_chain_ids:
+                            effective_non_gap_rows_by_chain[chain_id] += kept_rows
+                        else:
+                            effective_gap_rows_by_chain[chain_id] += kept_rows
+
+                return {
+                    "effective_paired_row_count": int(effective_paired_row_count),
+                    "effective_paired_row_histogram_by_num_chains": {
+                        key: int(value)
+                        for key, value in sorted(
+                            effective_paired_row_histogram_by_num_chains.items(),
+                            key=lambda item: int(item[0]),
+                        )
+                    },
+                    "effective_non_gap_rows_by_chain": {
+                        key: int(value)
+                        for key, value in sorted(effective_non_gap_rows_by_chain.items())
+                    },
+                    "effective_gap_rows_by_chain": {
+                        key: int(value)
+                        for key, value in sorted(effective_gap_rows_by_chain.items())
+                    },
+                }
+
             os.makedirs(output_dir, exist_ok=True)
+            effective_pairing_summary = _summarise_effective_af3_pairing(chain_records)
             summary = {
                 "job_name": job_name,
                 "translation_modes": sorted(
@@ -1470,7 +1549,18 @@ class AlphaFold3Backend(FoldingBackend):
                         sum(result.occupancy_histogram.get("ge_2", 0) for result in translation_results)
                     ),
                 },
-                "paired_row_count": int(sum(result.paired_row_count for result in translation_results)),
+                "paired_row_count": int(
+                    effective_pairing_summary["effective_paired_row_count"]
+                ),
+                "translated_paired_input_row_count": int(
+                    sum(result.paired_row_count for result in translation_results)
+                ),
+                "effective_paired_row_count": int(
+                    effective_pairing_summary["effective_paired_row_count"]
+                ),
+                "effective_paired_row_histogram_by_num_chains": dict(
+                    effective_pairing_summary["effective_paired_row_histogram_by_num_chains"]
+                ),
                 "invalid_paired_rows": int(
                     sum(result.invalid_paired_rows for result in translation_results)
                 ),
@@ -1514,6 +1604,16 @@ class AlphaFold3Backend(FoldingBackend):
                         ),
                         "paired_rows_with_generated_accession_count": int(
                             record.paired_rows_with_generated_accession_count
+                        ),
+                        "effective_paired_msa_row_count": int(
+                            effective_pairing_summary["effective_non_gap_rows_by_chain"].get(
+                                chain_id, 0
+                            )
+                        ),
+                        "effective_paired_gap_row_count": int(
+                            effective_pairing_summary["effective_gap_rows_by_chain"].get(
+                                chain_id, 0
+                            )
                         ),
                     }
                 )
