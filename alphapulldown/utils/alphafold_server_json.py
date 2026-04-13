@@ -261,7 +261,7 @@ def build_alphafold_server_job(
     job_entries: list[dict[str, Any]],
     monomer_directories: list[str],
     *,
-    model_seeds: list[str] | None = None,
+    model_seeds: list[int] | None = None,
 ) -> dict[str, Any]:
     entities: list[dict[str, Any]] = []
     for entry in job_entries:
@@ -301,7 +301,7 @@ def build_alphafold_server_jobs(
     mode: str = "pulldown",
     oligomer_state_file: str | None = None,
     protein_delimiter: str = "+",
-    model_seeds: list[str] | None = None,
+    model_seeds: list[int] | None = None,
     job_index: int | None = None,
 ) -> list[dict[str, Any]]:
     active_lists = list(protein_lists)
@@ -349,13 +349,18 @@ def write_jobs_to_json_files(
 ) -> list[Path]:
     if jobs_per_file < 1:
         raise ValueError("jobs_per_file must be at least 1")
+    if not jobs:
+        raise ValueError(
+            "No AlphaFold Server jobs to write; check --protein_lists, --mode, "
+            "and --job_index for filters that discarded every job."
+        )
 
     destination = Path(output_path)
     destination.parent.mkdir(parents=True, exist_ok=True)
     job_batches = [
         jobs[index : index + jobs_per_file]
         for index in range(0, len(jobs), jobs_per_file)
-    ] or [[]]
+    ]
 
     written_paths: list[Path] = []
     if len(job_batches) == 1:

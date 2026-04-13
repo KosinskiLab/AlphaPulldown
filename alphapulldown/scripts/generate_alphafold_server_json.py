@@ -74,7 +74,15 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> list[Path]:
     parser = build_parser()
     args = parser.parse_args(argv)
-    model_seeds = [seed.strip() for seed in args.model_seeds.split(",") if seed.strip()]
+    model_seeds = []
+    for raw_seed in args.model_seeds.split(","):
+        stripped = raw_seed.strip()
+        if not stripped:
+            continue
+        try:
+            model_seeds.append(int(stripped))
+        except ValueError as error:
+            parser.error(f"--model_seeds must be integers, got {stripped!r}: {error}")
     jobs = build_alphafold_server_jobs(
         protein_lists=args.protein_lists,
         monomer_directories=args.monomer_objects_dir,
