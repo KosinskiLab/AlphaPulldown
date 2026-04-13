@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
 import pandas as pd
@@ -21,7 +22,8 @@ def build_parser() -> argparse.ArgumentParser:
         description=(
             "Create an interaction-network plot from an AlphaPulldown score CSV "
             "(for example good_interpae or pi_score outputs)."
-        )
+        ),
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument("input_csv", help="Path to the score CSV.")
     parser.add_argument("output_plot", help="Path to the output PNG/PDF plot.")
@@ -33,8 +35,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--min_score",
         type=float,
-        default=0.0,
-        help="Minimum score required for an interaction to be plotted.",
+        default=0.7,
+        help=(
+            "Minimum score required for an interaction to be plotted. "
+            "Use 0.0 to include every aggregated edge."
+        ),
     )
     parser.add_argument(
         "--max_pae",
@@ -45,8 +50,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--label_top_n",
         type=int,
-        default=30,
+        default=60,
         help="Number of top-ranked nodes to label.",
+    )
+    parser.add_argument(
+        "--max_edges",
+        type=int,
+        default=300,
+        help=(
+            "Maximum number of strongest aggregated edges to plot after filtering. "
+            "Set to 0 to disable this cap."
+        ),
     )
     parser.add_argument(
         "--title",
@@ -89,6 +103,13 @@ def main(argv: list[str] | None = None) -> list[Path]:
         min_score=args.min_score,
         max_pae=args.max_pae,
     )
+    if args.max_edges > 0 and len(edge_table) > args.max_edges:
+        print(
+            f"Keeping the top {args.max_edges} of {len(edge_table)} aggregated edges.",
+            file=sys.stderr,
+        )
+        edge_table = edge_table.head(args.max_edges).reset_index(drop=True)
+
     plot_path = plot_interaction_network(
         edge_table,
         args.output_plot,
@@ -96,6 +117,7 @@ def main(argv: list[str] | None = None) -> list[Path]:
         label_top_n=args.label_top_n,
         dpi=args.dpi,
         seed=args.seed,
+        score_label=args.score_column,
     )
 
     written_paths = [plot_path]

@@ -15,6 +15,7 @@ matplotlib.use("Agg", force=True)
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
+from matplotlib.collections import LineCollection
 
 
 _INTERFACE_PATTERN = re.compile(r"^(?P<left>[A-Z]+)_(?P<right>[A-Z]+)$")
@@ -205,6 +206,11 @@ def _connected_components(nodes: list[str], edges: pd.DataFrame) -> list[list[st
 def _spring_layout(component_nodes: list[str], component_edges: pd.DataFrame, *, seed: int) -> dict[str, np.ndarray]:
     if len(component_nodes) == 1:
         return {component_nodes[0]: np.zeros(2, dtype=float)}
+    if len(component_nodes) == 2:
+        return {
+            component_nodes[0]: np.asarray([-0.45, 0.0], dtype=float),
+            component_nodes[1]: np.asarray([0.45, 0.0], dtype=float),
+        }
 
     index_by_node = {node: index for index, node in enumerate(component_nodes)}
     positions = np.random.default_rng(seed).normal(scale=0.25, size=(len(component_nodes), 2))
@@ -259,9 +265,19 @@ def compute_network_layout(edge_table: pd.DataFrame, *, seed: int = 0) -> dict[s
     components = _connected_components(nodes, edge_table)
     component_columns = max(1, math.ceil(math.sqrt(len(components))))
 
+    def component_sort_key(component_nodes: list[str]) -> tuple[int, float, str]:
+        component_edges = edge_table[
+            edge_table["source"].isin(component_nodes)
+            & edge_table["target"].isin(component_nodes)
+        ]
+        max_score = 0.0
+        if not component_edges.empty:
+            max_score = float(component_edges["score"].max())
+        return (-len(component_nodes), -max_score, component_nodes[0])
+
     layout: dict[str, np.ndarray] = {}
     for component_index, component_nodes in enumerate(
-        sorted(components, key=len, reverse=True)
+        sorted(components, key=component_sort_key)
     ):
         component_edges = edge_table[
             edge_table["source"].isin(component_nodes)
@@ -290,6 +306,7 @@ def plot_interaction_network(
     label_top_n: int = 30,
     dpi: int = 150,
     seed: int = 0,
+    score_label: str = "score",
 ) -> Path:
     """Render an interaction network plot to disk."""
 
@@ -301,15 +318,12 @@ def plot_interaction_network(
 
     layout = compute_network_layout(edge_table, seed=seed)
     node_summary = summarise_nodes(edge_table)
-    component_ids = {
-        node: index
-        for index, component in enumerate(
-            _connected_components(sorted(layout), edge_table)
-        )
-        for node in component
-    }
+    components = _connected_components(sorted(layout), edge_table)
+    component_count = max(len(components), 1)
 
-    fig, ax = plt.subplots(figsize=(11, 8), dpi=dpi)
+    fig_width = min(18.0, max(10.0, 6.0 + 1.8 * math.sqrt(component_count)))
+    fig_height = min(13.0, max(7.0, fig_width * 0.72))
+    fig, ax = plt.subplots(figsize=(fig_width, fig_height), dpi=dpi)
     ax.set_title(title)
 
     non_self_edges = edge_table[~edge_table["self_interaction"]]
@@ -317,39 +331,61 @@ def plot_interaction_network(
         min_score = float(non_self_edges["score"].min())
         max_score = float(non_self_edges["score"].max())
         score_span = max(max_score - min_score, 1e-6)
+        norm_min = min_score
+        norm_max = max_score
+        if math.isclose(norm_min, norm_max):
+            norm_min = max(0.0, min_score - 0.01)
+            norm_max = max_score + 0.01
+
+        segments = []
+        edge_scores = []
+        linewidths = []
         for row in non_self_edges.to_dict(orient="records"):
             source = str(row["source"])
             target = str(row["target"])
-            x_values = [layout[source][0], layout[target][0]]
-            y_values = [layout[source][1], layout[target][1]]
-            normalized_score = (float(row["score"]) - min_score) / score_span
-            ax.plot(
-                x_values,
-                y_values,
-                color="0.55",
-                alpha=0.35 + 0.45 * normalized_score,
-                linewidth=1.0 + 3.0 * normalized_score,
-                zorder=1,
+            score = float(row["score"])
+            normalized_score = (score - min_score) / score_span
+            segments.append(
+                [
+                    (layout[source][0], layout[source][1]),
+                    (layout[target][0], layout[target][1]),
+                ]
             )
+            edge_scores.append(score)
+            linewidths.append(0.7 + 3.1 * normalized_score)
 
-    color_map = plt.get_cmap("tab20", max(len(component_ids), 1))
-    max_degree = max(int(node_summary["degree"].max()), 1)
+        edge_collection = LineCollection(
+            segments,
+            cmap="viridis",
+            norm=plt.Normalize(norm_min, norm_max),
+            linewidths=linewidths,
+            alpha=0.72,
+            zorder=1,
+        )
+        edge_collection.set_array(np.asarray(edge_scores))
+        ax.add_collection(edge_collection)
+        colorbar = fig.colorbar(edge_collection, ax=ax, fraction=0.035, pad=0.01)
+        colorbar.set_label(score_label)
+
     max_self_score = max(float(node_summary["self_interaction_score"].max()), 1.0)
+    node_count = len(node_summary)
+    base_node_size = 120 if node_count <= 40 else 90 if node_count <= 120 else 60
 
     for row in node_summary.to_dict(orient="records"):
         node = str(row["node"])
         x_coord, y_coord = layout[node]
         degree = int(row["degree"])
         self_score = float(row["self_interaction_score"])
-        node_size = 220 + 110 * degree + (180 if self_score > 0 else 0)
-        face_color = color_map(component_ids.get(node, 0))
+        node_size = base_node_size + 55 * math.sqrt(max(degree, 0))
+        if self_score > 0:
+            node_size += 55
         ax.scatter(
             [x_coord],
             [y_coord],
             s=node_size,
-            c=[face_color],
-            edgecolors="black",
-            linewidths=1.0,
+            c=["#f8fbff"],
+            edgecolors="#263648",
+            linewidths=0.9,
             zorder=2,
         )
         if self_score > 0:
@@ -363,21 +399,31 @@ def plot_interaction_network(
                 zorder=3,
             )
 
-    labels_to_draw = node_summary.head(label_top_n)
-    for row in labels_to_draw.to_dict(orient="records"):
-        node = str(row["node"])
-        x_coord, y_coord = layout[node]
-        ax.text(
-            x_coord,
-            y_coord + 0.09,
-            node,
-            fontsize=9,
-            ha="center",
-            va="bottom",
-            zorder=4,
-        )
+    if label_top_n > 0:
+        labels_to_draw = node_summary.head(label_top_n)
+        label_font_size = 8 if len(labels_to_draw) <= 60 else 7
+        for row in labels_to_draw.to_dict(orient="records"):
+            node = str(row["node"])
+            x_coord, y_coord = layout[node]
+            ax.text(
+                x_coord,
+                y_coord + 0.12,
+                node,
+                fontsize=label_font_size,
+                ha="center",
+                va="bottom",
+                bbox={
+                    "facecolor": "white",
+                    "edgecolor": "none",
+                    "alpha": 0.78,
+                    "pad": 0.6,
+                },
+                zorder=4,
+            )
 
     ax.set_axis_off()
+    ax.set_aspect("equal", adjustable="datalim")
+    ax.margins(0.08)
     fig.tight_layout()
     fig.savefig(output_file, bbox_inches="tight")
     plt.close(fig)
