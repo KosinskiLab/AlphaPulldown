@@ -121,10 +121,13 @@ def _timestamp() -> str:
 
 
 def _default_gpu_env_lines(*, cpus_per_task: int) -> list[str]:
-    thread_count = max(1, min(cpus_per_task, 4))
+    # Keep host-side BLAS/TF work single-threaded to avoid oversubscribing
+    # CPUs while AF2 functional tests are already pinning a single GPU job.
+    thread_count = 1
     return [
         "export PYTHONUNBUFFERED=1",
         f'export OMP_NUM_THREADS="${{OMP_NUM_THREADS:-{thread_count}}}"',
+        f'export OPENBLAS_NUM_THREADS="${{OPENBLAS_NUM_THREADS:-{thread_count}}}"',
         f'export MKL_NUM_THREADS="${{MKL_NUM_THREADS:-{thread_count}}}"',
         f'export NUMEXPR_NUM_THREADS="${{NUMEXPR_NUM_THREADS:-{thread_count}}}"',
         f'export TF_NUM_INTEROP_THREADS="${{TF_NUM_INTEROP_THREADS:-{thread_count}}}"',
@@ -134,7 +137,7 @@ def _default_gpu_env_lines(*, cpus_per_task: int) -> list[str]:
         'export XLA_PYTHON_CLIENT_PREALLOCATE="${XLA_PYTHON_CLIENT_PREALLOCATE:-false}"',
         'export XLA_PYTHON_CLIENT_MEM_FRACTION="${XLA_PYTHON_CLIENT_MEM_FRACTION:-0.8}"',
         'export JAX_PLATFORM_NAME="${JAX_PLATFORM_NAME:-gpu}"',
-        'if [ -z "${XLA_FLAGS:-}" ]; then export XLA_FLAGS="--xla_gpu_force_compilation_parallelism=0 --xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1"; fi',
+        'if [ -z "${XLA_FLAGS:-}" ]; then export XLA_FLAGS="--xla_gpu_force_compilation_parallelism=1 --xla_force_host_platform_device_count=1 --xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1"; fi',
     ]
 
 
