@@ -20,7 +20,9 @@ import json
 import numpy as np
 import re
 import unittest
+from types import SimpleNamespace
 from typing import Dict, List, Tuple, Any
+from unittest import mock
 
 from absl.testing import absltest, parameterized
 
@@ -151,12 +153,22 @@ def _non_empty_a3m_payload_rows(a3m_text: str) -> list[str]:
 
 
 def _load_feature_dict(feature_path: Path) -> dict[str, Any]:
-    opener = lzma.open if feature_path.suffix == ".xz" else open
-    with opener(feature_path, "rb") as handle:
-        payload = pickle.load(handle)
+    payload = _load_feature_payload(feature_path)
     if hasattr(payload, "feature_dict"):
         return payload.feature_dict
     return payload
+
+
+def _load_feature_payload(feature_path: Path) -> Any:
+    opener = lzma.open if feature_path.suffix == ".xz" else open
+    with opener(feature_path, "rb") as handle:
+        return pickle.load(handle)
+
+
+def _write_feature_payload(feature_path: Path, payload: Any) -> None:
+    opener = lzma.open if feature_path.suffix == ".xz" else open
+    with opener(feature_path, "wb") as handle:
+        pickle.dump(payload, handle)
 
 
 def _non_empty_identifier_count(values) -> int:
@@ -1407,6 +1419,106 @@ class TestAlphaFold3BackendRegressions(_BackendOnlyTestBase):
         fold_input_obj, _ = next(iter(mappings[0].items()))
         return fold_input_obj
 
+    def _copy_real_feature_fixture(
+        self,
+        *,
+        source_dir: Path,
+        protein_id: str,
+        target_dir: Path,
+    ) -> Path:
+        copied_feature_path = None
+        for pattern in (
+            f"{protein_id}.pkl",
+            f"{protein_id}.pkl.xz",
+            f"{protein_id}.a3m",
+            f"{protein_id}_feature_metadata_*.json*",
+        ):
+            for source_path in sorted(source_dir.glob(pattern)):
+                target_path = target_dir / source_path.name
+                shutil.copy2(source_path, target_path)
+                if source_path.name.startswith(f"{protein_id}.pkl"):
+                    copied_feature_path = target_path
+
+        self.assertIsNotNone(
+            copied_feature_path,
+            f"Missing real feature fixture for {protein_id} in {source_dir}",
+        )
+        return copied_feature_path
+
+    @staticmethod
+    def _synthetic_accession_ids(species_ids: np.ndarray) -> np.ndarray:
+        identifiers = []
+        for index, value in enumerate(species_ids):
+            if isinstance(value, bytes):
+                value = value.decode("utf-8")
+            identifiers.append(
+                f"ACC{index:05d}".encode("utf-8") if str(value).strip() else b""
+            )
+        return np.asarray(identifiers, dtype=object)
+
+    def _prepare_mixed_identifier_fixture_dir(self) -> Path:
+        """Materialize real AF2 fixtures with mixed identifier enrichment.
+
+        The underlying MSA rows come from repo fixtures in `test/test_data`.
+        We only adjust the identifier sidecars so one chain looks enriched while
+        the other reproduces the "no species enrichment / no accession IDs"
+        failure mode from issue #614's AF3 follow-up comment.
+        """
+        feature_dir = self.output_dir / "mixed_identifier_features"
+        feature_dir.mkdir(parents=True, exist_ok=True)
+        source_dir = self.test_features_dir / "af2_features" / "protein"
+
+        enriched_feature_path = self._copy_real_feature_fixture(
+            source_dir=source_dir,
+            protein_id="A0A024R1R8",
+            target_dir=feature_dir,
+        )
+        unenriched_feature_path = self._copy_real_feature_fixture(
+            source_dir=source_dir,
+            protein_id="P61626",
+            target_dir=feature_dir,
+        )
+
+        enriched_payload = _load_feature_payload(enriched_feature_path)
+        enriched_feature_dict = (
+            enriched_payload.feature_dict
+            if hasattr(enriched_payload, "feature_dict")
+            else enriched_payload
+        )
+        enriched_feature_dict["msa_uniprot_accession_identifiers"] = (
+            self._synthetic_accession_ids(
+                np.asarray(enriched_feature_dict["msa_species_identifiers"])
+            )
+        )
+        enriched_feature_dict["msa_uniprot_accession_identifiers_all_seq"] = (
+            self._synthetic_accession_ids(
+                np.asarray(enriched_feature_dict["msa_species_identifiers_all_seq"])
+            )
+        )
+        _write_feature_payload(enriched_feature_path, enriched_payload)
+
+        unenriched_payload = _load_feature_payload(unenriched_feature_path)
+        unenriched_feature_dict = (
+            unenriched_payload.feature_dict
+            if hasattr(unenriched_payload, "feature_dict")
+            else unenriched_payload
+        )
+        unenriched_feature_dict["msa_species_identifiers"] = np.asarray(
+            [b""] * int(np.asarray(unenriched_feature_dict["msa"]).shape[0]),
+            dtype=object,
+        )
+        unenriched_feature_dict["msa_species_identifiers_all_seq"] = np.asarray(
+            [b""] * int(np.asarray(unenriched_feature_dict["msa_all_seq"]).shape[0]),
+            dtype=object,
+        )
+        unenriched_feature_dict.pop("msa_uniprot_accession_identifiers", None)
+        unenriched_feature_dict.pop(
+            "msa_uniprot_accession_identifiers_all_seq", None
+        )
+        _write_feature_payload(unenriched_feature_path, unenriched_payload)
+
+        return feature_dir
+
     def test_issue_588_mmseqs_af2_features_produce_sane_af3_chain_input_msas(self):
         """Issue #588 regression: verify AF3 input construction from exact AF2/mmseqs2 pkl fixtures."""
         from alphapulldown.folding_backend.alphafold3_backend import process_fold_input
@@ -1637,6 +1749,117 @@ class TestAlphaFold3BackendRegressions(_BackendOnlyTestBase):
         self.assertTrue(
             all(template["mmcif"] for template in protein_entries[0]["templates"])
         )
+
+    def test_af3_real_fixture_pipeline_tolerates_mixed_missing_accession_ids(self):
+        """AF3 prep should tolerate a real mixed-enrichment multimer feature set."""
+        from alphapulldown.folding_backend.alphafold3_backend import (
+            AlphaFold3Backend,
+            process_fold_input,
+        )
+        from alphapulldown.scripts import run_structure_prediction
+
+        feature_dir = self._prepare_mixed_identifier_fixture_dir()
+
+        enriched_feature_dict = _load_feature_dict(feature_dir / "A0A024R1R8.pkl")
+        self.assertGreater(
+            _non_empty_identifier_count(
+                enriched_feature_dict["msa_uniprot_accession_identifiers_all_seq"]
+            ),
+            0,
+        )
+        unenriched_feature_dict = _load_feature_dict(feature_dir / "P61626.pkl")
+        self.assertEqual(
+            _non_empty_identifier_count(
+                unenriched_feature_dict["msa_species_identifiers_all_seq"]
+            ),
+            0,
+        )
+        self.assertNotIn(
+            "msa_uniprot_accession_identifiers_all_seq",
+            unenriched_feature_dict,
+        )
+
+        script_flags = SimpleNamespace(
+            pair_msa=True,
+            multimeric_template=False,
+            description_file=None,
+            path_to_mmt=None,
+            threshold_clashes=1000,
+            hb_allowance=0.4,
+            plddt_threshold=0,
+            save_features_for_multimeric_object=False,
+            features_directory=[str(feature_dir)],
+            use_ap_style=False,
+        )
+
+        with mock.patch.object(run_structure_prediction, "FLAGS", script_flags):
+            parsed = run_structure_prediction.parse_fold(
+                ["A0A024R1R8+P61626"],
+                [str(feature_dir)],
+                "+",
+            )
+            data = run_structure_prediction.create_custom_info(parsed)
+            all_interactors = run_structure_prediction.create_interactors(
+                data,
+                [str(feature_dir)],
+            )
+            self.assertLen(all_interactors, 1)
+            self.assertLen(all_interactors[0], 2)
+            object_to_model, prepared_output_dir = (
+                run_structure_prediction.pre_modelling_setup(
+                    all_interactors[0],
+                    output_dir=str(self.output_dir / "mixed_identifier_prediction"),
+                )
+            )
+
+        mappings = AlphaFold3Backend.prepare_input(
+            objects_to_model=[
+                {"object": object_to_model, "output_dir": prepared_output_dir}
+            ],
+            random_seed=42,
+            debug_msas=True,
+        )
+        self.assertLen(mappings, 1)
+        fold_input_obj, (
+            prepared_output_dir,
+            resolve_msa_overlaps,
+        ) = next(iter(mappings[0].items()))
+
+        process_fold_input(
+            fold_input=fold_input_obj,
+            model_runner=None,
+            output_dir=prepared_output_dir,
+            buckets=(512,),
+            resolve_msa_overlaps=resolve_msa_overlaps,
+        )
+
+        job_name = fold_input_obj.sanitised_name()
+        summary_path = (
+            Path(prepared_output_dir)
+            / f"{job_name}_af2_to_af3_translation_summary.json"
+        )
+        self.assertTrue(summary_path.is_file(), f"Missing translation summary {summary_path}")
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        self.assertLen(summary["chains"], 2)
+        self.assertTrue(summary["unpaired_rows_valid"])
+
+        input_json = Path(prepared_output_dir) / f"{job_name}_data.json"
+        self.assertTrue(input_json.is_file(), f"Missing AF3 input JSON {input_json}")
+        written = json.loads(input_json.read_text(encoding="utf-8"))
+        protein_entries = {
+            protein_entry["id"]: protein_entry
+            for protein_entry in _protein_entries_from_af3_input(written)
+        }
+        self.assertEqual(set(protein_entries), {"A", "B"})
+        for chain in fold_input_obj.chains:
+            if not hasattr(chain, "sequence"):
+                continue
+            protein_entry = protein_entries[chain.id]
+            self.assertEqual(protein_entry["sequence"], chain.sequence)
+            self.assertEqual(
+                _a3m_query_sequence(protein_entry["unpairedMsa"]),
+                chain.sequence,
+            )
 
 
 class TestAlphaFold3MmseqsIssue588Inference(_TestBase):

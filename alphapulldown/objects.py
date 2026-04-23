@@ -43,6 +43,23 @@ def _query_only_stockholm(sequence: str, query_id: str = "query") -> str:
     )
 
 
+def _ensure_identifier_feature_arrays(
+    feature_dict: Dict[str, np.ndarray],
+    feature_groups: Tuple[Tuple[str, Tuple[str, ...]], ...],
+) -> Dict[str, np.ndarray]:
+    """Backfill missing identifier arrays to match the corresponding MSA rows."""
+    normalized = dict(feature_dict)
+    for msa_key, identifier_keys in feature_groups:
+        msa = normalized.get(msa_key)
+        if msa is None:
+            continue
+        num_rows = int(np.asarray(msa).shape[0])
+        for key in identifier_keys:
+            if key not in normalized:
+                normalized[key] = np.array([b""] * num_rows, dtype=object)
+    return normalized
+
+
 class MonomericObject:
     """
     monomeric objects
@@ -145,7 +162,18 @@ class MonomericObject:
 
         msa = parsers.parse_stockholm(result["sto"])
         msa = msa.truncate(max_seqs=50000)
-        all_seq_features = pipeline.make_msa_features([msa])
+        all_seq_features = _ensure_identifier_feature_arrays(
+            pipeline.make_msa_features([msa]),
+            (
+                (
+                    "msa",
+                    (
+                        "msa_species_identifiers",
+                        "msa_uniprot_accession_identifiers",
+                    ),
+                ),
+            ),
+        )
         valid_feats = msa_pairing.MSA_FEATURES + (
             "msa_species_identifiers",
             "msa_uniprot_accession_identifiers",
@@ -362,9 +390,12 @@ class MonomericObject:
         # Remove header lines starting with '#' if present.
         a3m_lines[0] = strip_mmseq_comment_lines(a3m_lines[0])
         self.feature_dict = build_monomer_feature(self.sequence, unpaired_msa[0], template_features[0])
+        # Enrich from the same A3M string that build_monomer_feature parsed, so
+        # the identifier rows go through the same parse_a3m dedup as msa_features
+        # and their count matches feature_dict['msa'] exactly.
         enrich_mmseq_feature_dict_with_identifiers(
             self.feature_dict,
-            a3m_lines[0],
+            unpaired_msa[0],
             cache_path=os.path.join(
                 result_dir, f"{self.description}.mmseq_ids.json"
             ),
@@ -811,12 +842,48 @@ create_individual_features.py
             output_list.append(new_chain)
         return output_list
 
+    @staticmethod
+    def normalize_all_seq_identifier_features(np_chain_list: List[Dict]) -> List[Dict]:
+        """Ensure identifier arrays exist consistently across chains.
+
+        Some feature sources provide species identifiers but omit UniProt
+        accession IDs, while DeepMind's multimer pairing and merge code assumes
+        both unpaired and `_all_seq` identifier keys exist consistently across
+        chains.
+        """
+        output_list = []
+        for feat_dict in np_chain_list:
+            output_list.append(
+                _ensure_identifier_feature_arrays(
+                    feat_dict,
+                    (
+                        (
+                            "msa",
+                            (
+                                "msa_species_identifiers",
+                                "msa_uniprot_accession_identifiers",
+                            ),
+                        ),
+                        (
+                            "msa_all_seq",
+                            (
+                                "msa_species_identifiers_all_seq",
+                                "msa_uniprot_accession_identifiers_all_seq",
+                            ),
+                        ),
+                    ),
+                )
+            )
+        return output_list
+
     def pair_and_merge(self, all_chain_features):
         """merge all chain features"""
         feature_processing.process_unmerged_features(all_chain_features)
         MAX_TEMPLATES = 4
         MSA_CROP_SIZE = 2048
-        np_chains_list = list(all_chain_features.values())
+        np_chains_list = MultimericObject.normalize_all_seq_identifier_features(
+            list(all_chain_features.values())
+        )
         pair_msa_sequences = self.pair_msa and not feature_processing._is_homomer_or_monomer(
             np_chains_list)
         logging.debug(f"pair_msa_sequences is type : {type(pair_msa_sequences)} value: {pair_msa_sequences}")
