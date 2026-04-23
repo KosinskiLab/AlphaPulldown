@@ -397,7 +397,7 @@ def test_make_mmseq_features_builds_all_seq_features_and_writes_a3m(
 
     assert calls["build_monomer_feature"] == ("ACDE", "UNPAIRED", "TEMPLATE")
     assert calls["enrich"] == {
-        "a3m": ">101\nACDE\n>hit\nAC-E",
+        "a3m": "UNPAIRED",
         "kwargs": {"cache_path": str(tmp_path / "proteinA.mmseq_ids.json")},
     }
     assert (tmp_path / "proteinA.a3m").read_text(encoding="utf-8").startswith(">101")
@@ -421,7 +421,7 @@ def test_make_mmseq_features_skip_msa_uses_single_sequence_mode(
 
     def fake_get_msa_and_templates(**kwargs):
         calls["get_msa_and_templates"] = kwargs
-        return (["UNPAIRED"], [""], ["UNIQUE"], ["CARD"], ["TEMPLATE"])
+        return ([">101\nACDE\n"], [""], ["UNIQUE"], ["CARD"], ["TEMPLATE"])
 
     monkeypatch.setattr(objects_mod, "get_msa_and_templates", fake_get_msa_and_templates)
     monkeypatch.setattr(
@@ -462,7 +462,7 @@ def test_make_mmseq_features_skip_msa_uses_single_sequence_mode(
     assert calls["get_msa_and_templates"]["pair_mode"] == "none"
     assert calls["get_msa_and_templates"]["a3m_lines"] == [">101\nACDE"]
     assert calls["get_msa_and_templates"]["use_templates"] is True
-    assert calls["enrich"]["a3m"] == ">101\nACDE"
+    assert calls["enrich"]["a3m"] == ">101\nACDE\n"
     assert monomer.skip_msa is True
     assert monomer.feature_dict["msa"].shape == (1, 4)
     assert monomer.feature_dict["msa_all_seq"].shape == (1, 4)
@@ -757,7 +757,7 @@ def test_make_mmseq_features_reuses_identifier_sidecar_on_precomputed_run(
         objects_mod,
         "get_msa_and_templates",
         lambda **_kwargs: (
-            ["UNPAIRED"],
+            [a3m_text],
             ["PAIRED"],
             ["UNIQUE"],
             ["CARD"],
@@ -774,7 +774,7 @@ def test_make_mmseq_features_reuses_identifier_sidecar_on_precomputed_run(
         objects_mod,
         "unserialize_msa",
         lambda a3m_lines, sequence: (
-            ["PRECOMP_MSA"],
+            [a3m_text],
             ["PRECOMP_PAIRED"],
             ["UNIQUE"],
             ["CARD"],
@@ -1415,6 +1415,81 @@ def test_pair_and_merge_pairs_and_deduplicates_for_heteromer(monkeypatch):
     assert crop_kwargs["pair_msa_sequences"] is True
     assert calls["merge_chain_features"]["pair_msa_sequences"] is True
     assert output == {"processed": {"merged": True}}
+
+
+def test_pair_and_merge_backfills_missing_all_seq_accession_ids_before_pairing(
+    monkeypatch,
+):
+    multimer = MultimericObject.__new__(MultimericObject)
+    multimer.pair_msa = True
+    calls = {}
+
+    chain_a = _feature_dict(sequence="ACDE", msa_rows=1, all_seq_rows=2, template_count=0)
+    chain_b = _feature_dict(sequence="FGHI", msa_rows=1, all_seq_rows=2, template_count=0)
+    chain_a["msa_species_identifiers_all_seq"] = np.asarray([b"", b"9606"], dtype=object)
+    chain_b["msa_species_identifiers_all_seq"] = np.asarray([b"", b"9606"], dtype=object)
+    chain_a["msa_uniprot_accession_identifiers"] = np.asarray([b"P12345"], dtype=object)
+    chain_a["msa_uniprot_accession_identifiers_all_seq"] = np.asarray(
+        [b"", b"P12345"],
+        dtype=object,
+    )
+
+    real_create_paired_features = objects_mod.msa_pairing.create_paired_features
+
+    monkeypatch.setattr(
+        objects_mod.feature_processing,
+        "process_unmerged_features",
+        lambda _features: None,
+    )
+    monkeypatch.setattr(
+        objects_mod.feature_processing,
+        "_is_homomer_or_monomer",
+        lambda _chains: False,
+    )
+
+    def wrapped_create_paired_features(*, chains):
+        calls["create_paired_features"] = chains
+        return real_create_paired_features(chains)
+
+    monkeypatch.setattr(
+        objects_mod.msa_pairing,
+        "create_paired_features",
+        wrapped_create_paired_features,
+    )
+    monkeypatch.setattr(
+        objects_mod.msa_pairing,
+        "deduplicate_unpaired_sequences",
+        lambda chains: chains,
+    )
+    monkeypatch.setattr(
+        objects_mod.feature_processing,
+        "crop_chains",
+        lambda chains, **kwargs: chains,
+    )
+    monkeypatch.setattr(
+        objects_mod.msa_pairing,
+        "merge_chain_features",
+        lambda **kwargs: {"chains": kwargs["np_chains_list"]},
+    )
+    monkeypatch.setattr(
+        objects_mod.feature_processing,
+        "process_final",
+        lambda example: example,
+    )
+
+    output = multimer.pair_and_merge({"A": chain_a, "B": chain_b})
+
+    assert calls["create_paired_features"][1][
+        "msa_uniprot_accession_identifiers"
+    ].tolist() == [b""]
+    assert calls["create_paired_features"][1][
+        "msa_uniprot_accession_identifiers_all_seq"
+    ].tolist() == [b"", b""]
+    assert output["chains"][1]["msa_uniprot_accession_identifiers"].tolist() == [b""]
+    assert output["chains"][1]["msa_uniprot_accession_identifiers_all_seq"].tolist() == [
+        b"",
+        b"",
+    ]
 
 
 def test_pair_and_merge_removes_all_seq_features_when_pairing_disabled(monkeypatch):

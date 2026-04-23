@@ -1,4 +1,5 @@
 import json
+import os
 from urllib import error
 
 import numpy as np
@@ -9,6 +10,32 @@ from alphafold.data import parsers
 from alphafold.data import pipeline
 from alphapulldown.objects import MonomericObject
 from alphapulldown.utils import mmseqs_species_identifiers
+
+
+_FASTAS_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    'test_data',
+    'fastas',
+)
+
+
+def _read_uniprot_fasta(uniprot_id: str) -> str:
+  path = os.path.join(_FASTAS_DIR, f'{uniprot_id}.fasta')
+  with open(path, encoding='utf-8') as handle:
+    lines = handle.read().splitlines()
+  return ''.join(line for line in lines[1:] if line and not line.startswith('>'))
+
+
+def _build_colabfold_server_a3m(
+    query_sequence: str, hits: list[tuple[str, str]]
+) -> str:
+  """Assemble a ColabFold-server-style A3M ('#<len>\\t1' header, one-line rows)."""
+  lines = [f'#{len(query_sequence)}\t1', '>101', query_sequence]
+  for header, aligned in hits:
+    lines.append(f'>{header}')
+    lines.append(aligned)
+  lines.append('')
+  return '\n'.join(lines)
 
 
 @pytest.fixture(autouse=True)
@@ -419,7 +446,7 @@ def test_make_mmseq_features_researches_templates_for_precomputed_msa(
       'template_feature': 'TEMPLATE_FROM_RESEARCH',
   }
   assert calls['enrich_mmseq_feature_dict_with_identifiers'] == {
-      'a3m': '>101\nACDE',
+      'a3m': 'PRECOMPUTED_UNPAIRED',
       'kwargs': {'cache_path': str(tmp_path / 'dummy.mmseq_ids.json')},
   }
   assert isinstance(monomer.feature_dict['template_confidence_scores'], np.ndarray)
@@ -579,3 +606,110 @@ def test_resolve_species_ids_by_accession_skips_unsupported_accessions(
   }
   assert uniprot_calls == [('A0A636IKY3',)]
   assert uniparc_calls == [('UPI001118B830',)]
+
+
+@pytest.mark.parametrize(
+    'uniprot_id,accession_species',
+    [
+        (
+            'P04737',
+            {
+                'A0A636IKY3': '562',
+                'A0A743YDY2': '573',
+                'UPI001118B830': '562',
+            },
+        ),
+        (
+            'P15069',
+            {
+                'A0A636IKY3': '562',
+                'A0A743YDY2': '573',
+                'UPI001118B830': '562',
+            },
+        ),
+    ],
+)
+def test_make_mmseq_features_precomputed_colabfold_a3m_enriches_identifiers(
+    monkeypatch, tmp_path, uniprot_id, accession_species
+):
+  """Regression for issue #613: precomputed ColabFold-server A3Ms must enrich.
+
+  Before the fix, make_mmseq_features parsed the raw A3M for identifiers but
+  fed a different processed string to build_monomer_feature, so dedup rules
+  disagreed and identifier rows did not match MSA rows. This drove
+  enrich_mmseq_feature_dict_with_identifiers to log a warning and skip
+  enrichment, leaving species pairing unusable.
+  """
+
+  query = _read_uniprot_fasta(uniprot_id)
+  assert len(query) > 0
+
+  # Realistic ColabFold-server-style A3M: '#<len>\t1' header, one header/seq per
+  # line pair, a mix of exact-duplicate hits, insertion-variant hits (lowercase
+  # letters) that strip to the query, an all-gap row, and point-mutation hits
+  # with real-format UniProt accessions so enrichment has something to resolve.
+  hits = [
+      (f'sp|{uniprot_id}|QUERY_DUP', query),
+      ('UniRef100_A0A636IKY3', query[:10] + 'a' + query[10:]),
+      ('UniRef100_A0A743YDY2', query[:15] + 'bc' + query[15:]),
+      ('UniRef100_UPI001118B830', query[:20] + 'def' + query[20:]),
+      ('UniRef100_A0A100XYZ0', query[:5] + 'X' + query[6:]),
+      ('UniRef100_A0A200ABC5', query[:8] + 'Y' + query[9:]),
+      ('UniRef100_GAP_ROW', '-' * len(query)),
+      ('UniRef100_ALL_LOWER', 'a' * len(query)),
+  ]
+  accession_species = {
+      **accession_species,
+      'A0A100XYZ0': '9606',
+      'A0A200ABC5': '10090',
+  }
+  a3m = _build_colabfold_server_a3m(query, hits)
+
+  precomputed_a3m = tmp_path / f'{uniprot_id}.a3m'
+  precomputed_a3m.write_text(a3m, encoding='utf-8')
+
+  monkeypatch.setattr(
+      MonomericObject, 'unzip_msa_files', staticmethod(lambda _path: False)
+  )
+  monkeypatch.setattr(
+      mmseqs_species_identifiers,
+      'resolve_species_ids_by_accession',
+      lambda accessions, **_: {
+          accession: accession_species.get(accession, '')
+          for accession in accessions
+      },
+  )
+
+  monomer = MonomericObject(uniprot_id, query)
+  monomer.make_mmseq_features(
+      DEFAULT_API_SERVER='https://unused.example',
+      output_dir=str(tmp_path),
+      use_precomputed_msa=True,
+      use_templates=False,
+  )
+
+  msa = monomer.feature_dict['msa']
+  species = monomer.feature_dict['msa_species_identifiers']
+  accessions = monomer.feature_dict['msa_uniprot_accession_identifiers']
+
+  assert species.shape[0] == msa.shape[0], (
+      f'enrichment row count {species.shape[0]} != msa rows {msa.shape[0]}'
+  )
+  assert accessions.shape[0] == msa.shape[0]
+  # '_all_seq' mirrors the enriched rows, used for pairing downstream.
+  assert (
+      monomer.feature_dict['msa_species_identifiers_all_seq'].shape[0]
+      == msa.shape[0]
+  )
+  # The resolver is called with the real UniProt-format accessions only —
+  # insertion-variant hits collapse onto the query row but the point-mutation
+  # hit survives, so at least one of the resolvable accessions lands in the
+  # deduped identifier rows.
+  resolvable = {
+      a.decode('utf-8')
+      for a in accessions.tolist()
+      if a.decode('utf-8') in accession_species
+  }
+  assert resolvable, (
+      f'expected at least one resolvable accession in {accessions.tolist()}'
+  )

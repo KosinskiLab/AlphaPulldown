@@ -135,3 +135,46 @@ def test_all_seq_msa_features_keeps_only_pairing_related_keys(monkeypatch, tmp_p
         True,
     )
     assert run_kwargs == {}
+
+
+def test_all_seq_msa_features_backfills_missing_uniprot_accession_identifiers(
+    monkeypatch, tmp_path
+):
+    monomer = MonomericObject("desc", "ACDE")
+    input_fasta_path = str(tmp_path / "input.fasta")
+    Path(input_fasta_path).write_text(">x\nACDE\n", encoding="utf-8")
+
+    class FakeMsa:
+        def truncate(self, max_seqs):
+            assert max_seqs == 50000
+            return self
+
+    monkeypatch.setattr(
+        "alphapulldown.objects.pipeline.run_msa_tool",
+        lambda *args, **kwargs: {"sto": "fake"},
+    )
+    monkeypatch.setattr(
+        "alphapulldown.objects.parsers.parse_stockholm",
+        lambda sto: FakeMsa(),
+    )
+    monkeypatch.setattr(
+        "alphapulldown.objects.pipeline.make_msa_features",
+        lambda _msas: {
+            "msa": np.asarray([[1, 2], [1, 3]], dtype=np.int32),
+            "msa_species_identifiers": np.asarray([b"", b"9606"], dtype=object),
+            "deletion_matrix_int": np.asarray([[0, 0], [0, 0]], dtype=np.int32),
+        },
+    )
+
+    features = monomer.all_seq_msa_features(
+        input_fasta_path=input_fasta_path,
+        uniprot_msa_runner="runner",
+        output_dir=str(tmp_path),
+        use_precomputed_msa=False,
+    )
+
+    assert features["msa_species_identifiers_all_seq"].tolist() == [b"", b"9606"]
+    assert features["msa_uniprot_accession_identifiers_all_seq"].tolist() == [
+        b"",
+        b"",
+    ]

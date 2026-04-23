@@ -92,6 +92,23 @@ def _load_feature_dict(feature_path: Path) -> dict:
     return payload
 
 
+def _load_feature_metadata(feature_dir: Path, protein_id: str) -> tuple[Path, dict]:
+    matches = sorted(feature_dir.glob(f"{protein_id}_feature_metadata_*.json*"))
+    if len(matches) != 1:
+        raise FileNotFoundError(
+            f"Expected one feature metadata file for {protein_id} in {feature_dir}, "
+            f"found {matches}"
+        )
+    metadata_path = matches[0]
+    opener = lzma.open if metadata_path.suffix == ".xz" else open
+    with opener(metadata_path, "rt", encoding="utf-8") as handle:
+        return metadata_path, json.load(handle)
+
+
+def _metadata_bool(value) -> bool:
+    return str(value).strip().lower() in {"1", "true", "yes"}
+
+
 def _non_empty_identifier_count(values) -> int:
     count = 0
     for value in values:
@@ -105,11 +122,12 @@ def _non_empty_identifier_count(values) -> int:
 def _af2_subprocess_env() -> dict[str, str]:
     """Return stable GPU/JAX defaults for AF2 functional subprocesses."""
     env = os.environ.copy()
-    env.setdefault("OMP_NUM_THREADS", "4")
-    env.setdefault("MKL_NUM_THREADS", "4")
-    env.setdefault("NUMEXPR_NUM_THREADS", "4")
-    env.setdefault("TF_NUM_INTEROP_THREADS", "4")
-    env.setdefault("TF_NUM_INTRAOP_THREADS", "4")
+    env.setdefault("OMP_NUM_THREADS", "1")
+    env.setdefault("OPENBLAS_NUM_THREADS", "1")
+    env.setdefault("MKL_NUM_THREADS", "1")
+    env.setdefault("NUMEXPR_NUM_THREADS", "1")
+    env.setdefault("TF_NUM_INTEROP_THREADS", "1")
+    env.setdefault("TF_NUM_INTRAOP_THREADS", "1")
     env.setdefault("TF_FORCE_GPU_ALLOW_GROWTH", "true")
     env.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
     env.setdefault("XLA_PYTHON_CLIENT_PREALLOCATE", "false")
@@ -117,7 +135,8 @@ def _af2_subprocess_env() -> dict[str, str]:
     env.setdefault("JAX_PLATFORM_NAME", "gpu")
     env.setdefault(
         "XLA_FLAGS",
-        "--xla_gpu_force_compilation_parallelism=0 "
+        "--xla_gpu_force_compilation_parallelism=1 "
+        "--xla_force_host_platform_device_count=1 "
         "--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1",
     )
     return env
@@ -544,6 +563,87 @@ class TestMmseqsIssue588Inference(_TestBase):
         )
         return feature_dir
 
+    def _generate_issue_588_precomputed_mmseq_features(self) -> Path:
+        source_dir = self.output_dir / "issue_588_mmseq_source_features"
+        precomputed_dir = self.output_dir / "issue_588_mmseq_precomputed_features"
+        source_dir.mkdir(parents=True, exist_ok=True)
+        precomputed_dir.mkdir(parents=True, exist_ok=True)
+        fasta_paths = ",".join(
+            str(self.test_data_dir / "fastas" / f"{protein_id}.fasta")
+            for protein_id in self.ISSUE_588_IDS
+        )
+
+        source_res = self._run_prediction_subprocess(
+            [
+                sys.executable,
+                str(self.script_create_features),
+                f"--fasta_paths={fasta_paths}",
+                f"--output_dir={source_dir}",
+                f"--data_dir={DATA_DIR}",
+                "--max_template_date=2024-05-02",
+                "--use_mmseqs2=True",
+                "--data_pipeline=alphafold2",
+                "--save_msa_files=True",
+                "--compress_features=True",
+                "--skip_existing=False",
+            ]
+        )
+        self.assertEqual(
+            source_res.returncode,
+            0,
+            "MMseqs source feature generation failed.\n"
+            f"STDOUT:\n{source_res.stdout}\nSTDERR:\n{source_res.stderr}",
+        )
+
+        for protein_id in self.ISSUE_588_IDS:
+            self.assertTrue(
+                (source_dir / f"{protein_id}.a3m").is_file(),
+                f"Expected MMseq A3M {source_dir / f'{protein_id}.a3m'} to be created.",
+            )
+            self.assertTrue(
+                (source_dir / f"{protein_id}.pkl.xz").is_file(),
+                f"Expected compressed feature pickle {source_dir / f'{protein_id}.pkl.xz'} to be created.",
+            )
+            shutil.copy2(
+                source_dir / f"{protein_id}.a3m",
+                precomputed_dir / f"{protein_id}.a3m",
+            )
+            sidecar = source_dir / f"{protein_id}.mmseq_ids.json"
+            if sidecar.is_file():
+                shutil.copy2(sidecar, precomputed_dir / sidecar.name)
+
+        precomputed_res = self._run_prediction_subprocess(
+            [
+                sys.executable,
+                str(self.script_create_features),
+                f"--fasta_paths={fasta_paths}",
+                f"--output_dir={precomputed_dir}",
+                f"--data_dir={DATA_DIR}",
+                "--max_template_date=2024-05-02",
+                "--use_mmseqs2=True",
+                "--use_precomputed_msas=True",
+                "--data_pipeline=alphafold2",
+                "--compress_features=True",
+                "--skip_existing=False",
+            ]
+        )
+        self.assertEqual(
+            precomputed_res.returncode,
+            0,
+            "Precomputed-MMseq feature generation failed.\n"
+            f"STDOUT:\n{precomputed_res.stdout}\nSTDERR:\n{precomputed_res.stderr}",
+        )
+        for protein_id in self.ISSUE_588_IDS:
+            self.assertTrue(
+                (precomputed_dir / f"{protein_id}.a3m").is_file(),
+                f"Expected copied MMseq A3M {precomputed_dir / f'{protein_id}.a3m'} to be present.",
+            )
+            self.assertTrue(
+                (precomputed_dir / f"{protein_id}.pkl.xz").is_file(),
+                f"Expected precomputed feature pickle {precomputed_dir / f'{protein_id}.pkl.xz'} to be created.",
+            )
+        return precomputed_dir
+
     def _resolve_af2_result_dir(self, root: Path) -> Path:
         if (root / "ranking_debug.json").exists():
             return root
@@ -640,6 +740,74 @@ class TestMmseqsIssue588Inference(_TestBase):
             result_payload["iptm"],
             0.6,
             f"Expected AF2 ipTM > 0.6, got {result_payload['iptm']}",
+        )
+
+    def test_issue_614_precomputed_mmseqs_features_enable_af2_multimer_inference(self):
+        """Issue #614 regression: AF2 should fold successfully from precomputed MMseq A3Ms."""
+        self._require_mmseqs_functional_environment()
+        feature_dir = self._generate_issue_588_precomputed_mmseq_features()
+
+        for protein_id in self.ISSUE_588_IDS:
+            metadata_path, metadata = _load_feature_metadata(feature_dir, protein_id)
+            self.assertTrue(
+                _metadata_bool(metadata["other"]["use_precomputed_msas"]),
+                f"{metadata_path} should record use_precomputed_msas=True",
+            )
+            feature_dict = _load_feature_dict(feature_dir / f"{protein_id}.pkl.xz")
+            self.assertGreater(
+                _non_empty_identifier_count(
+                    feature_dict["msa_species_identifiers_all_seq"]
+                ),
+                0,
+                f"{protein_id} should keep recovered species IDs from cached MMseq A3Ms",
+            )
+            self.assertGreater(
+                _non_empty_identifier_count(
+                    feature_dict["msa_uniprot_accession_identifiers_all_seq"]
+                ),
+                0,
+                f"{protein_id} should keep recovered accession IDs from cached MMseq A3Ms",
+            )
+
+        prediction_dir = self.output_dir / "af2_precomputed_prediction"
+        prediction_dir.mkdir(parents=True, exist_ok=True)
+        res = self._run_prediction_subprocess(
+            [
+                sys.executable,
+                str(self.script_single),
+                "--input=A0ABD7FQG0+P18004",
+                f"--output_directory={prediction_dir}",
+                "--num_cycle=1",
+                "--num_predictions_per_model=1",
+                "--model_names=model_4_multimer_v3",
+                f"--data_directory={DATA_DIR}",
+                f"--features_directory={feature_dir}",
+                "--random_seed=42",
+            ]
+        )
+        self.assertEqual(
+            res.returncode,
+            0,
+            "AF2 inference from precomputed MMseq features failed.\n"
+            f"STDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}",
+        )
+
+        result_dir = self._resolve_af2_result_dir(prediction_dir)
+        ranking_payload = json.loads(
+            (result_dir / "ranking_debug.json").read_text(encoding="utf-8")
+        )
+        self.assertTrue(ranking_payload["order"])
+
+        result_pickles = sorted(result_dir.glob("result_*.pkl"))
+        self.assertLen(result_pickles, 1)
+        with result_pickles[0].open("rb") as handle:
+            result_payload = pickle.load(handle)
+        self.assertIn("iptm", result_payload)
+        self.assertIn("ranking_confidence", result_payload)
+        self.assertGreater(
+            result_payload["iptm"],
+            0.6,
+            f"Expected AF2 ipTM > 0.6 from precomputed MMseq features, got {result_payload['iptm']}",
         )
 
 if __name__ == "__main__":
