@@ -24,6 +24,7 @@ def test_af2_cluster_subprocess_env_sets_safe_gpu_defaults(monkeypatch):
 
     for name in (
         "OMP_NUM_THREADS",
+        "OPENBLAS_NUM_THREADS",
         "MKL_NUM_THREADS",
         "NUMEXPR_NUM_THREADS",
         "TF_NUM_INTEROP_THREADS",
@@ -39,17 +40,19 @@ def test_af2_cluster_subprocess_env_sets_safe_gpu_defaults(monkeypatch):
 
     env = module._af2_subprocess_env()
 
-    assert env["OMP_NUM_THREADS"] == "4"
-    assert env["MKL_NUM_THREADS"] == "4"
-    assert env["NUMEXPR_NUM_THREADS"] == "4"
-    assert env["TF_NUM_INTEROP_THREADS"] == "4"
-    assert env["TF_NUM_INTRAOP_THREADS"] == "4"
+    assert env["OMP_NUM_THREADS"] == "1"
+    assert env["OPENBLAS_NUM_THREADS"] == "1"
+    assert env["MKL_NUM_THREADS"] == "1"
+    assert env["NUMEXPR_NUM_THREADS"] == "1"
+    assert env["TF_NUM_INTEROP_THREADS"] == "1"
+    assert env["TF_NUM_INTRAOP_THREADS"] == "1"
     assert env["TF_FORCE_GPU_ALLOW_GROWTH"] == "true"
     assert env["TF_CPP_MIN_LOG_LEVEL"] == "2"
     assert env["XLA_PYTHON_CLIENT_PREALLOCATE"] == "false"
     assert env["XLA_PYTHON_CLIENT_MEM_FRACTION"] == "0.8"
     assert env["JAX_PLATFORM_NAME"] == "gpu"
-    assert "--xla_gpu_force_compilation_parallelism=0" in env["XLA_FLAGS"]
+    assert "--xla_gpu_force_compilation_parallelism=1" in env["XLA_FLAGS"]
+    assert "--xla_force_host_platform_device_count=1" in env["XLA_FLAGS"]
 
 
 def test_af2_cluster_wrapper_job_script_exports_gpu_defaults(tmp_path):
@@ -72,9 +75,12 @@ def test_af2_cluster_wrapper_job_script_exports_gpu_defaults(tmp_path):
     )
 
     script_text = job.script_path.read_text(encoding="utf-8")
-    assert 'OMP_NUM_THREADS="${OMP_NUM_THREADS:-4}"' in script_text
-    assert 'TF_NUM_INTRAOP_THREADS="${TF_NUM_INTRAOP_THREADS:-4}"' in script_text
+    assert 'OMP_NUM_THREADS="${OMP_NUM_THREADS:-1}"' in script_text
+    assert 'OPENBLAS_NUM_THREADS="${OPENBLAS_NUM_THREADS:-1}"' in script_text
+    assert 'TF_NUM_INTRAOP_THREADS="${TF_NUM_INTRAOP_THREADS:-1}"' in script_text
     assert 'JAX_PLATFORM_NAME="${JAX_PLATFORM_NAME:-gpu}"' in script_text
+    assert "--xla_gpu_force_compilation_parallelism=1" in script_text
+    assert "--xla_force_host_platform_device_count=1" in script_text
     assert "addopts=-ra --strict-markers" in script_text
     assert "--use-temp-dir" in script_text
 
