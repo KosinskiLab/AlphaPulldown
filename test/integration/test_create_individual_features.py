@@ -1678,7 +1678,7 @@ def test_create_and_save_monomer_objects_reuses_mmseq_identifier_sidecar(
         objects_mod,
         "get_msa_and_templates",
         lambda **_kwargs: (
-            ["UNPAIRED"],
+            [a3m_text],
             ["PAIRED"],
             ["UNIQUE"],
             ["CARD"],
@@ -1690,7 +1690,7 @@ def test_create_and_save_monomer_objects_reuses_mmseq_identifier_sidecar(
         objects_mod,
         "unserialize_msa",
         lambda a3m_lines, sequence: (
-            ["PRECOMP_MSA"],
+            [a3m_text],
             ["PRECOMP_PAIRED"],
             ["UNIQUE"],
             ["CARD"],
