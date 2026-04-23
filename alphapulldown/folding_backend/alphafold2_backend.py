@@ -12,6 +12,7 @@ import pickle
 import subprocess
 import enum
 import typing
+from collections.abc import Mapping
 from typing import Dict, Union, List, Any
 import os
 from absl import logging
@@ -143,6 +144,37 @@ def _jnp_to_np(output):
         elif isinstance(v, jnp.ndarray):
             output[k] = np.array(v)
     return output
+
+
+def _normalize_prediction_result(
+    prediction_result: Any, *, model_name: str
+) -> Dict[str, Any]:
+    """Accept the supported AF2 runner return shapes and return a mutable dict."""
+    if isinstance(prediction_result, Mapping):
+        return dict(prediction_result)
+
+    if isinstance(prediction_result, tuple):
+        if len(prediction_result) == 2 and isinstance(prediction_result[0], Mapping):
+            auxiliary_output = prediction_result[1]
+            logging.warning(
+                "Model %s returned a (prediction_result, auxiliary_output) tuple; "
+                "ignoring auxiliary output of type %s.",
+                model_name,
+                type(auxiliary_output).__name__,
+            )
+            return dict(prediction_result[0])
+
+        first_type = type(prediction_result[0]).__name__ if prediction_result else "n/a"
+        raise TypeError(
+            "model_runner.predict must return a mapping or a (mapping, auxiliary) "
+            f"tuple; got tuple of length {len(prediction_result)} with first "
+            f"element type {first_type}."
+        )
+
+    raise TypeError(
+        "model_runner.predict must return a mapping or a (mapping, auxiliary) "
+        f"tuple; got {type(prediction_result).__name__}."
+    )
 
 
 def _save_pae_json_file(pae: np.ndarray, max_pae: float, output_dir: str, model_name: str) -> None:
@@ -708,6 +740,9 @@ class AlphaFold2Backend(FoldingBackend):
                 f"Now running predictions on {multimeric_object.description} using {model_name}")
             prediction_result = model_runner.predict(
                 processed_feature_dict, random_seed=model_random_seed
+            )
+            prediction_result = _normalize_prediction_result(
+                prediction_result, model_name=model_name
             )
             t_diff = time.time() - t_0
             timings[f"predict_and_compile_{model_name}"] = t_diff

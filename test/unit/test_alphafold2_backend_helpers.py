@@ -569,6 +569,73 @@ def test_predict_individual_job_writes_outputs_and_runs_debug_hooks(
     assert payload["plddt"].tolist() == [91.0, 88.0]
 
 
+def test_predict_individual_job_accepts_tuple_prediction_results(
+    af2_backend_module,
+    tmp_path,
+):
+    monomer = af2_backend_module.MonomericObject("single", "AB")
+    monomer.feature_dict = {"residue_index": np.array([0, 1], dtype=np.int32)}
+
+    fake_runner = SimpleNamespace(
+        multimer_mode=False,
+        process_features=lambda feature_dict, random_seed: dict(feature_dict),
+        predict=lambda processed_feature_dict, random_seed: (
+            {
+                "plddt": np.array([91.0, 88.0], dtype=np.float32),
+                "predicted_aligned_error": np.zeros((2, 2), dtype=np.float32),
+                "max_predicted_aligned_error": 31.0,
+            },
+            {"auxiliary": "ignored"},
+        ),
+    )
+
+    results = af2_backend_module.AlphaFold2Backend.predict_individual_job(
+        model_runners={"modelA": fake_runner},
+        multimeric_object=monomer,
+        allow_resume=False,
+        skip_templates=False,
+        output_dir=tmp_path,
+        random_seed=13,
+    )
+
+    assert results["modelA"]["plddt"].tolist() == [91.0, 88.0]
+    assert results["modelA"]["seqs"] == ["AB"]
+    assert results["modelA"]["unrelaxed_protein"].name == "predicted"
+    with open(tmp_path / "result_modelA.pkl", "rb") as handle:
+        payload = pickle.load(handle)
+    assert payload["plddt"].tolist() == [91.0, 88.0]
+
+
+def test_predict_individual_job_rejects_tuple_without_mapping_payload(
+    af2_backend_module,
+    tmp_path,
+):
+    monomer = af2_backend_module.MonomericObject("single", "AB")
+    monomer.feature_dict = {"residue_index": np.array([0, 1], dtype=np.int32)}
+
+    fake_runner = SimpleNamespace(
+        multimer_mode=False,
+        process_features=lambda feature_dict, random_seed: dict(feature_dict),
+        predict=lambda processed_feature_dict, random_seed: (
+            "not-a-mapping",
+            {"auxiliary": "ignored"},
+        ),
+    )
+
+    with pytest.raises(
+        TypeError,
+        match=r"model_runner\.predict must return a mapping or a \(mapping, auxiliary\) tuple",
+    ):
+        af2_backend_module.AlphaFold2Backend.predict_individual_job(
+            model_runners={"modelA": fake_runner},
+            multimeric_object=monomer,
+            allow_resume=False,
+            skip_templates=False,
+            output_dir=tmp_path,
+            random_seed=17,
+        )
+
+
 def test_predict_individual_job_rejects_skipped_templates_in_multimer_mode(
     af2_backend_module,
     tmp_path,
