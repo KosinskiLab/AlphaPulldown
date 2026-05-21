@@ -223,6 +223,8 @@ slurm_qos: "normal"                         # optional QoS if your site uses it
 structure_inference_gpus_per_task: 1        # number of GPUs each inference job needs
 structure_inference_gpu_model: "3090"       # optional GPU model constraint (remove to allow any)
 structure_inference_tasks_per_gpu: 0        # <=0 keeps --ntasks-per-gpu unset in the plugin
+slurm_exclude_nodes: ""                     # optional comma-separated nodes to avoid (sbatch --exclude)
+structure_inference_max_runtime: 10080      # cap wall time (min) at the partition MaxTime
 ```
 
 `structure_inference_gpus_per_task` and `structure_inference_gpu_model` are read by the
@@ -233,6 +235,75 @@ fields keeps the job submission consistent across clusters.
 `structure_inference_tasks_per_gpu` toggles whether the plugin also emits `--ntasks-per-gpu`. Leaving
 the default `0` prevents that flag, which avoids conflicting with the Tres-per-task request on many
 systems. Set it to a positive integer only if your site explicitly requires `--ntasks-per-gpu`.
+
+The remaining optional fields help with two common cluster issues: keeping inference off GPUs it
+can't use, and large complexes running out of GPU memory. Defaults are sensible; expand below only if
+you hit these.
+
+<details>
+<summary>Avoiding unsuitable GPUs (<code>slurm_exclude_nodes</code>, <code>gpu_model</code>) and the runtime cap</summary>
+
+- **Restrict to one model** with `structure_inference_gpu_model` (e.g. `"A100"`) → the plugin emits
+  `--gpus=<model>:<count>`. Accepts a single model name; leave `""` for any.
+- **Exclude specific nodes** with `slurm_exclude_nodes` → passed verbatim to `sbatch --exclude`
+  (e.g. `"gpu50,gpu51"`). Use it for nodes whose GPU the container can't use — e.g. a CUDA compute
+  capability newer than the container's bundled `ptxas` (fails `ptxas too old` / `UNIMPLEMENTED`).
+  `--exclude` is allowed in `slurm_extra` whereas `--constraint`/`--gres`/`--gpus` are not, so it is
+  the supported way to drop a few nodes while keeping the rest of the partition.
+- **`structure_inference_max_runtime`** caps per-job wall time (minutes). Wall time scales as
+  `1440 * attempt`, so without a cap enough retries exceed the partition `MaxTime` and SLURM rejects
+  the job with `Requested time limit is invalid`. Set it to your partition's `MaxTime`
+  (`scontrol show partition <name>`); default 7 days (10080).
+
+</details>
+
+<details>
+<summary>Unified memory for large complexes (<code>structure_inference_unified_memory</code>)</summary>
+
+Large AlphaFold 3 inputs (or smaller-VRAM GPUs) can fail with `RESOURCE_EXHAUSTED` /
+`Allocator (GPU_0_bfc) ran out of memory`. Inference enables JAX/XLA **unified (managed) memory** by
+default so the model spills from GPU VRAM into host RAM instead of OOM-ing (slower while spilling, but
+it completes) — the
+[DeepMind-recommended setting](https://github.com/google-deepmind/alphafold3/blob/main/docs/performance.md)
+for large inputs. It is exported inside the prediction container as:
+
+```sh
+export TF_FORCE_UNIFIED_MEMORY=true
+export XLA_PYTHON_CLIENT_PREALLOCATE=false   # don't grab a huge VRAM chunk up front
+export XLA_CLIENT_MEM_FRACTION=$FRACTION      # how far past physical VRAM XLA may allocate
+export XLA_PYTHON_CLIENT_MEM_FRACTION=$FRACTION
+```
+
+`XLA_PYTHON_CLIENT_PREALLOCATE=false` is required: without it XLA reserves a large
+slice of VRAM immediately, which defeats the point of letting the allocator grow into
+host RAM on demand.
+
+```yaml
+structure_inference_unified_memory: true     # set false to fail fast on OOM instead
+structure_inference_xla_mem_fraction: auto   # "auto", or pin a number like 3.2
+```
+
+With the default `structure_inference_xla_mem_fraction: auto`, the fraction is computed
+**per job at run time** as `(allocated host RAM) / (physical GPU VRAM)`: the GPU VRAM is
+read with `nvidia-smi` once the job lands on a node, and the host RAM is the job's SLURM
+`--mem` allocation (which scales with retry attempts). This keeps the unified-memory
+ceiling within the SLURM allocation so XLA cannot oversubscribe host RAM beyond what the
+job requested — which would otherwise get the job OOM-killed. The chosen fraction is
+logged as a `[unified-memory]` line at the top of the job log. Pin a number instead if
+you want a fixed multiplier regardless of GPU/RAM (mirrors the EMBL `run_AF_multimer.sh`
+convention).
+
+> The fraction is computed in the job shell rather than via the SLURM executor: the
+> executor passes the submit environment through with `--export=ALL` but offers no
+> per-job env hook, and the value depends on which GPU the job lands on (only known at
+> run time). Computing it in the container shell also avoids the apptainer env-crossing
+> that submit-side env vars would need.
+
+Because spilling is slower, make sure the job also requests enough host RAM
+(`structure_inference_ram_bytes`, in MB) to hold the overflow — under `auto` that RAM is
+exactly what the fraction is sized against.
+
+</details>
 
 ### Using Precomputed Features
 
