@@ -12,7 +12,7 @@ Install required dependencies:
 ```bash
 conda env create \
   -n snake \
-  -f https://raw.githubusercontent.com/KosinskiLab/AlphaPulldownSnakemake/2.1.8/workflow/envs/alphapulldown.yaml
+  -f https://raw.githubusercontent.com/KosinskiLab/AlphaPulldownSnakemake/2.4.0/workflow/envs/alphapulldown.yaml
 conda activate snake
 ```
 
@@ -28,7 +28,7 @@ Create a new processing directory for your project:
 snakedeploy deploy-workflow \
   https://github.com/KosinskiLab/AlphaPulldownSnakemake \
   AlphaPulldownSnakemake \
-  --tag 2.1.8
+  --tag 2.4.0
 cd AlphaPulldownSnakemake
 ```
 
