@@ -12,7 +12,7 @@ Install required dependencies:
 ```bash
 conda env create \
   -n snake \
-  -f https://raw.githubusercontent.com/KosinskiLab/AlphaPulldownSnakemake/2.4.0/workflow/envs/alphapulldown.yaml
+  -f https://raw.githubusercontent.com/KosinskiLab/AlphaPulldownSnakemake/2.5.0/workflow/envs/alphapulldown.yaml
 conda activate snake
 ```
 
@@ -28,7 +28,7 @@ Create a new processing directory for your project:
 snakedeploy deploy-workflow \
   https://github.com/KosinskiLab/AlphaPulldownSnakemake \
   AlphaPulldownSnakemake \
-  --tag 2.4.0
+  --tag 2.5.0
 cd AlphaPulldownSnakemake
 ```
 
@@ -70,8 +70,9 @@ selection and keeps the AF3 JSON feature input as one discontinuous polymer
 chain with preserved residue-number gaps. For the AlphaFold 3 backend this
 means chopped regions stay intra-chain, so template contacts between retained
 fragments are not masked as inter-chain interactions.
-For workflow deployments, make sure the execution environment also carries
-`alphapulldown-input-parser>=0.4.0`.
+This syntax is parsed by the shared `alphapulldown-input-parser` package used by
+both AlphaPulldown and AlphaPulldownSnakemake. For workflow deployments, make
+sure the execution environment carries `alphapulldown-input-parser>=0.5.0`.
 
 </details>
 
