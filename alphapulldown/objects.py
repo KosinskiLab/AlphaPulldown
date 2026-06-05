@@ -483,6 +483,19 @@ class ChoppedObject(MonomericObject):
             "deletion_matrix_int_all_seq": deletions_all,
             "msa_species_identifiers_all_seq": species_all,
         }
+        # Carry the per-row UniProt accession identifiers through unchanged: they
+        # index alignment rows, not residues, so they must not be sliced. Keeping
+        # them ensures a chopped chain exposes the same feature keys as a full
+        # monomer. Otherwise a heteromer that pairs a full chain (which has these
+        # keys) with a chopped chain (which would drop them) crashes inside
+        # msa_pairing.create_paired_features, which reads the key set from the
+        # first chain only and then indexes every chain with it (issue #619).
+        for key in (
+            "msa_uniprot_accession_identifiers",
+            "msa_uniprot_accession_identifiers_all_seq",
+        ):
+            if key in msa:
+                new_msa_feature[key] = msa[key]
         return new_msa_feature, sliced_seq[0].decode("utf-8")
 
     def prepare_new_template_feature(
@@ -579,6 +592,11 @@ class ChoppedObject(MonomericObject):
             "template_domain_names", "template_sequence",
             "template_sum_probs", "template_release_date",
             "msa_species_identifiers", "msa_species_identifiers_all_seq",
+            # Per-row identifier arrays are shared across region slices (they are
+            # not residue-sliced), so keep the first slice's copy instead of
+            # concatenating duplicates along the row axis.
+            "msa_uniprot_accession_identifiers",
+            "msa_uniprot_accession_identifiers_all_seq",
         }
 
         for key, base_arr in list(out.items()):

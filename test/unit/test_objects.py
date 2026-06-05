@@ -945,6 +945,97 @@ def test_prepare_new_msa_feature_slices_sequence_and_alignment_matrices():
     assert np.array_equal(sliced["num_alignments"], np.array([2, 2, 2]))
 
 
+def test_prepare_new_msa_feature_preserves_uniprot_accession_identifiers():
+    """Regression for issue #619: chopped chains must keep the per-row UniProt
+    accession identifier arrays so they expose the same ``*_all_seq`` key set as
+    an unchopped monomer."""
+    feature_dict = _feature_dict()
+    rows = feature_dict["msa"].shape[0]
+    all_rows = feature_dict["msa_all_seq"].shape[0]
+    feature_dict["msa_uniprot_accession_identifiers"] = np.array(
+        [b"P12345"] * rows, dtype=object
+    )
+    feature_dict["msa_uniprot_accession_identifiers_all_seq"] = np.array(
+        [b"Q67890"] * all_rows, dtype=object
+    )
+    chopped = ChoppedObject("proteinA", "ABCDEFGHIJ", feature_dict, [(2, 4)])
+
+    sliced, _ = chopped.prepare_new_msa_feature(chopped.feature_dict, 2, 4)
+
+    # identifier arrays index alignment rows, not residues, so they are unsliced
+    assert sliced["msa_uniprot_accession_identifiers"].tolist() == [b"P12345"] * rows
+    assert (
+        sliced["msa_uniprot_accession_identifiers_all_seq"].tolist()
+        == [b"Q67890"] * all_rows
+    )
+
+
+def test_prepare_new_msa_feature_omits_uniprot_accession_when_source_lacks_it():
+    chopped = ChoppedObject("proteinA", "ABCDEFGHIJ", _feature_dict(), [(2, 4)])
+
+    sliced, _ = chopped.prepare_new_msa_feature(chopped.feature_dict, 2, 4)
+
+    assert "msa_uniprot_accession_identifiers" not in sliced
+    assert "msa_uniprot_accession_identifiers_all_seq" not in sliced
+
+
+def test_concatenate_sliced_feature_dict_keeps_uniprot_accession_identifiers():
+    feature_dict = _feature_dict()
+    rows = feature_dict["msa"].shape[0]
+    all_rows = feature_dict["msa_all_seq"].shape[0]
+    feature_dict["msa_uniprot_accession_identifiers"] = np.array(
+        [b"P12345"] * rows, dtype=object
+    )
+    feature_dict["msa_uniprot_accession_identifiers_all_seq"] = np.array(
+        [b"Q67890"] * all_rows, dtype=object
+    )
+    chopped = ChoppedObject("proteinA", "ABCDEFGHIJ", feature_dict, [(1, 2), (5, 6)])
+    slice_a = chopped.prepare_individual_sliced_feature_dict(chopped.feature_dict, 1, 2)
+    slice_b = chopped.prepare_individual_sliced_feature_dict(chopped.feature_dict, 5, 6)
+
+    merged = chopped.concatenate_sliced_feature_dict([slice_a, slice_b])
+
+    # per-row identifier arrays keep their length across multi-region concatenation
+    assert merged["msa_uniprot_accession_identifiers"].tolist() == [b"P12345"] * rows
+    assert (
+        merged["msa_uniprot_accession_identifiers_all_seq"].tolist()
+        == [b"Q67890"] * all_rows
+    )
+
+
+def test_normalize_all_seq_identifier_features_backfills_chopped_chain():
+    """Safety net for issue #619: even if a chain omits the accession-identifier
+    keys, normalisation backfills them so every chain shares the same key set
+    before msa_pairing.create_paired_features reads keys off the first chain."""
+    full_chain = {
+        "msa": np.zeros((2, 4), dtype=np.int32),
+        "msa_all_seq": np.zeros((3, 4), dtype=np.int32),
+        "msa_uniprot_accession_identifiers": np.array([b"P1", b"P2"], dtype=object),
+        "msa_uniprot_accession_identifiers_all_seq": np.array(
+            [b"P1", b"P2", b"P3"], dtype=object
+        ),
+    }
+    chopped_chain = {
+        "msa": np.zeros((2, 4), dtype=np.int32),
+        "msa_all_seq": np.zeros((3, 4), dtype=np.int32),
+        # accession identifier keys intentionally absent (pre-fix chopped chain)
+    }
+
+    normalized = MultimericObject.normalize_all_seq_identifier_features(
+        [full_chain, chopped_chain]
+    )
+
+    assert "msa_uniprot_accession_identifiers_all_seq" in normalized[1]
+    assert normalized[1]["msa_uniprot_accession_identifiers_all_seq"].shape == (3,)
+    assert normalized[1]["msa_uniprot_accession_identifiers"].shape == (2,)
+    # populated chain keeps its original identifiers untouched
+    assert normalized[0]["msa_uniprot_accession_identifiers_all_seq"].tolist() == [
+        b"P1",
+        b"P2",
+        b"P3",
+    ]
+
+
 def test_prepare_new_template_feature_returns_empty_arrays_when_templates_missing():
     feature_dict = _feature_dict()
     for key in list(feature_dict):
