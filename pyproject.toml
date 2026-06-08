@@ -38,7 +38,6 @@ dependencies = [
   "jupyterlab>=3.0",
   "ipywidgets",
   "ml-dtypes",
-  "chex>=0.1.91",
   "immutabledict>=2.0.0",
   "typing-extensions>=4.15.0",
 ]
