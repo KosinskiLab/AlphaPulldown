@@ -38,9 +38,9 @@ dependencies = [
   "jupyterlab>=3.0",
   "ipywidgets",
   "ml-dtypes",
-  "chex>=0.1.86",
+  "chex>=0.1.91",
   "immutabledict>=2.0.0",
-  "typing-extensions==4.14.0",
+  "typing-extensions>=4.15.0",
 ]
 
 [project.optional-dependencies]
@@ -53,17 +53,15 @@ alphafold2 = [
   "pdbfixer>=1.10",
 ]
 alphafold3 = [
-  "jaxtyping==0.2.34",
-  "jax==0.5.3",
-  "jax[cuda12]==0.5.3; platform_system == 'Linux' and platform_machine == 'x86_64'",
-  "jax-triton==0.2.0; platform_system == 'Linux' and platform_machine == 'x86_64'",
+  "dm-haiku==0.0.16",
+  "jax==0.9.1",
+  "jax[cuda12]==0.9.1; platform_system == 'Linux' and platform_machine == 'x86_64'",
   "modelcif>=1.6",
-  "numpy<2",
+  "numpy",
   "openmm>=8.2",
   "pdbfixer>=1.10",
-  "rdkit==2024.3.5",
-  "triton==3.1.0; platform_system == 'Linux' and platform_machine == 'x86_64'",
-  "typeguard==2.13.3",
+  "rdkit==2025.9.4",
+  "tokamax==0.0.11",
   "zstandard",
 ]
 test = [

@@ -26,12 +26,12 @@ import alphafold3.cpp
 import haiku as hk
 import jax
 import numpy as np
+import tokamax
 from alphafold3.common import base_config
 from alphafold3.common import folding_input
 from alphafold3.constants import chemical_components
 from alphafold3.data import featurisation
 from alphafold3.data import parsers as af3_parsers
-from alphafold3.jax.attention import attention
 from alphafold3.model import features, params, post_processing
 from alphafold3.model import model
 from alphafold3.model.components import utils
@@ -145,8 +145,8 @@ class ModelRunner:
             self.device,
         )
         result = self._model(rng_key, featurised_example)
-        result = jax.tree_map(np.asarray, result)
-        result = jax.tree_map(
+        result = jax.tree_util.tree_map(np.asarray, result)
+        result = jax.tree_util.tree_map(
             lambda x: x.astype(jnp.float32) if x.dtype == jnp.bfloat16 else x,
             result,
         )
@@ -742,7 +742,7 @@ class AlphaFold3Backend(FoldingBackend):
         def make_model_config(
             *,
             model_class: type[ModelT] = MyNewModel,
-            flash_attention_implementation: attention.Implementation,
+            flash_attention_implementation: tokamax.DotProductAttentionImplementation,
             num_diffusion_samples: int = 5,
             num_recycles: int = 10,
             return_embeddings: bool = False,
@@ -787,7 +787,8 @@ class AlphaFold3Backend(FoldingBackend):
             model_class=MyNewModel,
             config=make_model_config(
                 flash_attention_implementation=typing.cast(
-                    attention.Implementation, flash_attention_implementation
+                    tokamax.DotProductAttentionImplementation,
+                    flash_attention_implementation,
                 ),
                 num_diffusion_samples=num_diffusion_samples,
                 num_recycles=num_recycles,

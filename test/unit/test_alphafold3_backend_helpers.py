@@ -57,6 +57,11 @@ def _install_alphafold3_backend_stubs(tmp_path: Path) -> None:
         haiku.transform = _transform
         sys.modules["haiku"] = haiku
 
+    if "tokamax" not in sys.modules:
+        tokamax = types.ModuleType("tokamax")
+        tokamax.DotProductAttentionImplementation = str
+        sys.modules["tokamax"] = tokamax
+
     terms_dir = tmp_path / "af3cpp"
     terms_dir.mkdir(parents=True, exist_ok=True)
     (terms_dir / "OUTPUT_TERMS_OF_USE.md").write_text("stub terms", encoding="utf-8")

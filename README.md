@@ -247,8 +247,11 @@ you hit these.
 - **Restrict to one model** with `structure_inference_gpu_model` (e.g. `"A100"`) → the plugin emits
   `--gpus=<model>:<count>`. Accepts a single model name; leave `""` for any.
 - **Exclude specific nodes** with `slurm_exclude_nodes` → passed verbatim to `sbatch --exclude`
-  (e.g. `"gpu50,gpu51"`). Use it for nodes whose GPU the container can't use — e.g. a CUDA compute
-  capability newer than the container's bundled `ptxas` (fails `ptxas too old` / `UNIMPLEMENTED`).
+  (e.g. `"gpu50,gpu51"`). Use it as a fallback for nodes whose GPU the container can't use — e.g.
+  a CUDA compute capability newer than the container's bundled `ptxas` (fails `ptxas too old` /
+  `UNIMPLEMENTED`). RTX PRO 6000 / Blackwell failures with old AlphaFold 3 images are fixed by
+  updating to AF3 v3.0.2/Tokamax; excluding those nodes is only an old-image workaround, not the
+  compatibility proof.
   `--exclude` is allowed in `slurm_extra` whereas `--constraint`/`--gres`/`--gpus` are not, so it is
   the supported way to drop a few nodes while keeping the rest of the partition.
 - **`structure_inference_max_runtime`** caps per-job wall time (minutes). Wall time scales as

@@ -2,6 +2,9 @@ FROM nvidia/cuda:12.6.3-base-ubuntu24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV VIRTUAL_ENV=/opt/venv
+ENV UV_PROJECT_ENVIRONMENT=${VIRTUAL_ENV}
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_LINK_MODE=copy
 ENV PATH="/hmmer/bin:${VIRTUAL_ENV}/bin:${PATH}"
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 
@@ -10,9 +13,9 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 # ---------------------------------------------------------------------
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        python3 \
-        python3-venv \
-        python3-dev \
+        python3.12 \
+        python3.12-venv \
+        python3.12-dev \
         gcc-12 g++-12 \
         build-essential \
         libc6-dev \
@@ -25,6 +28,7 @@ RUN apt-get update && \
         make \
         pkg-config \
         zlib1g-dev \
+        zstd \
     && rm -rf /var/lib/apt/lists/*
 
 # Force gcc-12 (avoid gcc-13 ICE on 24.04)
@@ -32,11 +36,10 @@ ENV CC=gcc-12
 ENV CXX=g++-12
 
 # ---------------------------------------------------------------------
-# Python venv  (PIN pip so pip-tools works)
+# Python venv and package installer
 # ---------------------------------------------------------------------
-RUN python3 -m venv ${VIRTUAL_ENV} && \
-    pip install --no-cache-dir --upgrade "pip<25.3" setuptools wheel && \
-    pip install --no-cache-dir "pip-tools==7.5.2"
+COPY --from=ghcr.io/astral-sh/uv:0.9.24 /uv /uvx /bin/
+RUN uv venv ${VIRTUAL_ENV}
 
 # ---------------------------------------------------------------------
 # HMMER (with seq_limit patch)
@@ -46,8 +49,7 @@ RUN mkdir /hmmer_build /hmmer && \
     echo "ca70d94fd0cf271bd7063423aabb116d42de533117343a9b27a65c17ff06fbf3  /hmmer_build/hmmer-3.4.tar.gz" | sha256sum -c - && \
     tar -xzf /hmmer_build/hmmer-3.4.tar.gz -C /hmmer_build
 
-RUN wget -O /hmmer_build/jackhmmer_seq_limit.patch \
-    https://raw.githubusercontent.com/google-deepmind/alphafold3/main/docker/jackhmmer_seq_limit.patch
+COPY alphafold3/docker/jackhmmer_seq_limit.patch /hmmer_build/
 
 RUN cd /hmmer_build && \
     patch -p0 < jackhmmer_seq_limit.patch && \
@@ -59,16 +61,17 @@ RUN cd /hmmer_build && \
     rm -rf /hmmer_build
 
 # ---------------------------------------------------------------------
-# Clone AlphaPulldown with submodules
+# Copy AlphaPulldown with its checked-out submodules. Building from the local
+# checkout is important for PR/SIF validation: it exercises this branch's
+# alphafold3 submodule pointer instead of cloning the repository default branch.
 # ---------------------------------------------------------------------
-RUN git clone --recurse-submodules https://github.com/KosinskiLab/AlphaPulldown.git /app/AlphaPulldown
+COPY . /app/AlphaPulldown
 
 # ---------------------------------------------------------------------
-# Install AlphaFold3 (regenerate dev-requirements inside image)
+# Install AlphaFold3 from its locked v3.0.2/Tokamax environment
 # ---------------------------------------------------------------------
 WORKDIR /app/AlphaPulldown/alphafold3
 
-# force real PyPI, not a mirror
 ARG PIP_INDEX_URL=https://pypi.org/simple
 ENV PIP_INDEX_URL=${PIP_INDEX_URL} \
     PIP_DEFAULT_TIMEOUT=600 \
@@ -76,39 +79,23 @@ ENV PIP_INDEX_URL=${PIP_INDEX_URL} \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-ENV PIP_CACHE_DIR=/tmp/pip-cache
 ENV CMAKE_BUILD_PARALLEL_LEVEL=1
 ENV CFLAGS="-O2 -pipe"
 ENV CXXFLAGS="-O2 -pipe"
-RUN apt-get update && apt-get install -y clang lld
-ENV CC=clang
-ENV CXX=clang++
-ENV CMAKE_BUILD_PARALLEL_LEVEL=2
 
-
-RUN rm -rf "$PIP_CACHE_DIR" && mkdir -p "$PIP_CACHE_DIR" && \
-    pip-compile \
-        --no-reuse-hashes \
-        --extra=dev \
-        --generate-hashes \
-        --resolver=backtracking \
-        --output-file=dev-requirements.txt \
-        pyproject.toml && \
-    pip install --require-hashes -r dev-requirements.txt && \
-    pip install git+https://github.com/openmm/pdbfixer.git && \
-    pip install --no-deps . && \
-    rm -rf "$PIP_CACHE_DIR"
+RUN uv sync --frozen --all-groups --no-editable && \
+    uv pip install --no-cache git+https://github.com/openmm/pdbfixer.git
 
 # ---------------------------------------------------------------------
 # Build CCD database
 # ---------------------------------------------------------------------
-RUN build_data
+RUN uv run --no-sync build_data
 
 # ---------------------------------------------------------------------
 # Install AlphaPulldown
 # ---------------------------------------------------------------------
 WORKDIR /app/AlphaPulldown
-RUN pip install --no-cache-dir .
+RUN uv pip install --no-cache .
 
 # ---------------------------------------------------------------------
 # Runtime env
@@ -128,4 +115,3 @@ from alphafold3.constants import chemical_components
 from alphapulldown.folding_backend.folding_backend import FoldingBackend
 print("AF3 + AlphaPulldown import OK, CCD present")
 EOF
-
