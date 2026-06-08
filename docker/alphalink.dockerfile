@@ -1,5 +1,6 @@
 # syntax=docker/dockerfile:1.7
-ARG BASE_IMAGE=registry.git.embl.de/grp-cbbcs/abcdesktop-apps/base-image:ubuntu22-cuda-11-8
+###ARG BASE_IMAGE=registry.git.embl.de/grp-cbbcs/abcdesktop-apps/base-image:ubuntu22-cuda-11-8
+ARG BASE_IMAGE=nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
 FROM ${BASE_IMAGE}
 ARG CUDA=11.8.0
 
