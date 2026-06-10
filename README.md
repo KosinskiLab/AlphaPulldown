@@ -327,9 +327,9 @@ script manually). Commonly used flags:
 
 - `--data_pipeline {alphafold2,alphafold3}` – choose the feature format to emit.
 - `--db_preset {full_dbs,reduced_dbs}` – switch between the full BFD stack or the reduced databases.
-- `--use_mmseqs2` – rely on the remote MMseqs2 API; skips local jackhmmer/HHsearch database lookups.
+- `--use_mmseqs2` – rely on the remote MMseqs2 API; skips local jackhmmer/HHsearch database lookups. To reuse a3m files you generated locally with `colabfold_search`, also set `--use_precomputed_msas=True` (see [mmseqs2 manual](manuals/mmseqs2_manual.md)); otherwise AlphaPulldown re-contacts the remote MMseqs2 API and overwrites your a3m files.
 - `--skip_msa` – generate query-only single-sequence features instead of running bulk MSA searches. Use these feature pickles with `run_structure_prediction.py --pair_msa=False`.
-- `--use_precomputed_msas` / `--save_msa_files` – reuse stored MSAs or keep new ones for later runs.
+- `--use_precomputed_msas` / `--save_msa_files` – reuse stored MSAs (`<output_dir>/<protein>.a3m`) or keep new ones for later runs. Required to reuse precomputed MMseqs2/ColabFold a3m files rather than regenerating them.
 - `--compress_features` – zip the generated `*.pkl` files (`.xz` extension) to save space.
 - `--skip_existing` – leave existing feature files untouched (safe for reruns).
 - `--seq_index N` – only process the N‑th sequence from the FASTA list.

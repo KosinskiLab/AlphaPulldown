@@ -1,3 +1,4 @@
+import pickle
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -1122,6 +1123,98 @@ def test_split_into_individual_region_objects_returns_prepared_region_objects():
     assert [obj.description for obj in split] == ["proteinA_1-2", "proteinA_7-8"]
     assert [obj.sequence for obj in split] == ["AB", "GH"]
     assert [obj.regions for obj in split] == [[(1, 2)], [(7, 8)]]
+
+
+_FEATURES_DIR = Path(__file__).resolve().parents[1] / "test_data" / "features"
+
+
+def _load_monomer_with_accession_ids(name, tag):
+    """Load a real monomer pickle and attach per-row UniProt accession ids,
+    mirroring what the current mmseqs/jackhmmer pipelines emit. Distinct ids per
+    chain make it observable whether the chopped chain keeps its own arrays."""
+    pkl = _FEATURES_DIR / name
+    if not pkl.is_file():
+        pytest.skip(f"missing test fixture {pkl}")
+    with open(pkl, "rb") as handle:
+        monomer = pickle.load(handle)
+    fd = monomer.feature_dict
+    fd["msa_uniprot_accession_identifiers"] = np.array(
+        [tag + str(i).encode() for i in range(fd["msa"].shape[0])], dtype=object
+    )
+    fd["msa_uniprot_accession_identifiers_all_seq"] = np.array(
+        [tag + b"s" + str(i).encode() for i in range(fd["msa_all_seq"].shape[0])],
+        dtype=object,
+    )
+    return monomer
+
+
+def _decode_complex_msa_row(row):
+    from alphafold.common import residue_constants as rc
+
+    alphabet = rc.restypes_with_x_and_gap
+    return "".join(alphabet[int(i)] for i in row)
+
+
+def test_multimeric_object_pairs_full_then_chopped_with_correct_features():
+    """End-to-end regression for issue #619 in the failing ``full ; chopped`` order.
+
+    Beyond confirming that pairing no longer raises, this asserts the *merged*
+    complex is correct: the chopped chain contributes exactly the requested
+    region residues, the feature shapes are internally consistent, and the merged
+    output is invariant to interactor order.
+    """
+    region = (20, 30)
+    region_len = region[1] - region[0] + 1
+
+    full_len = len(_load_monomer_with_accession_ids("A0A075B6L2.pkl", b"F").sequence)
+    chopped_source = _load_monomer_with_accession_ids("A0A024R1R8.pkl", b"C")
+    region_seq = chopped_source.sequence[region[0] - 1 : region[1]]
+    assert len(region_seq) == region_len
+
+    def make_full():
+        return _load_monomer_with_accession_ids("A0A075B6L2.pkl", b"F")
+
+    def make_chopped():
+        monomer = _load_monomer_with_accession_ids("A0A024R1R8.pkl", b"C")
+        chopped = ChoppedObject(
+            monomer.description, monomer.sequence, monomer.feature_dict, [region]
+        )
+        chopped.prepare_final_sliced_feature_dict()
+        # the chopped chain keeps its own accession identifiers (source fix), not
+        # an empty backfill, and they stay aligned with its MSA rows
+        assert (
+            chopped.feature_dict["msa_uniprot_accession_identifiers_all_seq"].shape[0]
+            == chopped.feature_dict["msa_all_seq"].shape[0]
+        )
+        return chopped
+
+    def build(interactors):
+        return MultimericObject(interactors=interactors, pair_msa=True).feature_dict
+
+    # Failing order from the issue: full chain first, chopped chain second.
+    merged = build([make_full(), make_chopped()])
+
+    num_res = full_len + region_len
+    # internal consistency of the merged complex
+    assert merged["aatype"].shape == (num_res,)
+    assert merged["msa"].shape[1] == num_res
+    assert merged["residue_index"].shape == (num_res,)
+    # two chains partitioned as [full | chopped]
+    _, counts = np.unique(merged["asym_id"], return_counts=True)
+    assert counts.tolist() == [full_len, region_len]
+
+    # The chopped block of the query row decodes to exactly the requested region
+    # of the source monomer: the right residues landed in the right place.
+    chopped_block = merged["msa"][0, full_len:]
+    assert _decode_complex_msa_row(chopped_block) == region_seq
+
+    # Order invariance: with the chopped chain first the same residues appear,
+    # now in the leading block.
+    merged_swapped = build([make_chopped(), make_full()])
+    assert merged_swapped["aatype"].shape == (num_res,)
+    assert (
+        _decode_complex_msa_row(merged_swapped["msa"][0, :region_len]) == region_seq
+    )
 
 
 def test_split_into_individual_region_objects_returns_self_for_single_region():

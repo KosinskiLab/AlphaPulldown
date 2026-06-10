@@ -80,8 +80,14 @@ create_individual_features.py \
   --output_dir=output_dir \ 
   --skip_existing=False \
   --use_mmseqs2=True \
+  --use_precomputed_msas=True \
   --seq_index=<any number you want or skip the flag to run all one after another>
 ```
+
+> [!IMPORTANT]
+> When reusing locally precomputed `colabfold_search` a3m files you **must** add `--use_precomputed_msas=True`. With `--use_mmseqs2=True` alone, AlphaPulldown does **not** trust the existing `{protein}.a3m` files: it re-enters the ColabFold/MMseqs2 path, contacts the remote MMseqs2 API again, and **overwrites** your a3m files. Setting `--use_precomputed_msas=True` tells AlphaPulldown to reuse each existing `<output_dir>/<protein>.a3m` instead of regenerating it.
+>
+> You can confirm reuse in the log via the `Using precomputed MSA from ...` line. Note that `Running MMseqs2 for feature generation...` is printed whenever `--use_mmseqs2=True` and does **not** by itself mean an MSA was recomputed — the decisive line is `Using precomputed MSA from ...`.
 
 and AlphaPulldown will automatically search each protein's corresponding a3m files. In the end, your output_dir will look like:
 
