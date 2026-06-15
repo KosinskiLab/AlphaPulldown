@@ -205,8 +205,9 @@ flags.DEFINE_enum(
     "'slim': drop redundant duplicates (AF2 PAE inside pickles, AF3 top-level "
     "confidences/data copies) and xz-compress the rest; output still has every "
     "score/structure AlphaJudge and convert_to_modelcif need. "
-    "'minimal': slim plus drop result pickles (AF2) and non-best per-sample "
-    "confidences.json (AF3); smallest footprint, no longer a vanilla AF layout.")
+    "'minimal': slim plus drop the (unused) AF2 result pickles; for AF3 it is "
+    "identical to slim (non-best confidences are compressed, never deleted, to "
+    "avoid silently degrading per-sample PAE). No longer a vanilla AF layout.")
 flags.DEFINE_boolean('use_ap_style', False,
                      'Change output directory to include a description of the fold '
                      'as seen in previous alphapulldown versions.')

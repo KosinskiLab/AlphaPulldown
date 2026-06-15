@@ -167,15 +167,21 @@ def post_prediction_process_af3(output_path, job_name, storage_mode="vanilla"):
     AlphaJudge (which reads the best model's PAE from it and has no xz support)
     keeps working.
 
+    ``"slim"`` and ``"minimal"`` behave identically for AlphaFold3. Deleting a
+    non-best sample's ``confidences.json`` would not lose disk-only data: it is
+    the sole source of that sample's full token x token PAE matrix, and with it
+    gone AlphaJudge silently falls back to ``summary_confidences.json`` (a much
+    coarser per-chain-pair PAE), degrading PAE-derived scores for that sample
+    without any error. So both presets compress rather than delete it; the AF2
+    backend is where ``minimal`` additionally drops the (genuinely unused)
+    result pickles.
+
     - ``"vanilla"``: no-op, keep byte-identical AlphaFold3 output.
-    - ``"slim"``: delete the two top-level duplicates (``*_confidences.json`` is
-      byte-identical to the best sample's, ``*_data.json`` duplicates the saved
-      features input) and xz-compress the per-sample ``confidences.json`` of the
-      NON-best samples. Best sample's stays plain; structures and summaries for
-      all samples are retained.
-    - ``"minimal"``: slim, but delete (rather than compress) the non-best
-      ``confidences.json`` entirely. Best sample keeps its plain
-      ``confidences.json``; all structures and summary scores are retained.
+    - ``"slim"`` / ``"minimal"``: delete the two top-level duplicates
+      (``*_confidences.json`` is byte-identical to the best sample's,
+      ``*_data.json`` duplicates the saved features input) and xz-compress the
+      per-sample ``confidences.json`` of the NON-best samples. The best sample's
+      stays plain; every structure and summary is retained, and no PAE is lost.
     """
     if storage_mode == "vanilla":
         return
@@ -212,11 +218,9 @@ def post_prediction_process_af3(output_path, job_name, storage_mode="vanilla"):
             if sample == best_sample_dir:
                 # Keep plain so AlphaJudge reads best-model PAE directly.
                 continue
-            if storage_mode == "minimal":
-                logging.info(f"storage_mode=minimal: removing {conf}")
-                os.remove(conf)
-            else:  # slim
-                compress_file(conf, method="xz")
+            # slim and minimal both compress (never delete) non-best confidences
+            # so the full per-sample PAE matrix is never lost.
+            compress_file(conf, method="xz")
 
     except FileNotFoundError as e:
         logging.error(f"AF3 post-processing error: {e}.")
