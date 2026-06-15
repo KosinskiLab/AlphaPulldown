@@ -867,6 +867,7 @@ class AlphaFold2Backend(FoldingBackend):
         compress_pickles: bool = False,
         remove_pickles: bool = False,
         remove_keys_from_pickles: bool = False,
+        storage_mode: str = "vanilla",
         convert_to_modelcif: bool = True,
         use_gpu_relax: bool = True,
         pae_plot_style: str = "red_blue",
@@ -1088,5 +1089,6 @@ class AlphaFold2Backend(FoldingBackend):
            output_dir,
            compress_pickles=compress_pickles,
            remove_pickles=remove_pickles,
-           remove_keys=remove_keys_from_pickles
+           remove_keys=remove_keys_from_pickles,
+           storage_mode=storage_mode,
         )
