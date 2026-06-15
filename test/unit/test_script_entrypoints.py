@@ -331,6 +331,7 @@ def _load_run_multimer_jobs_module():
         "compress_result_pickles": False,
         "remove_result_pickles": False,
         "remove_keys_from_pickles": True,
+        "storage_mode": "vanilla",
         "use_ap_style": False,
         "use_gpu_relax": True,
         "protein_delimiter": "+",

@@ -1,5 +1,7 @@
+import csv
 import gzip
 import json
+import lzma
 import pickle
 import builtins
 from pathlib import Path
@@ -146,3 +148,116 @@ def test_post_prediction_process_removes_non_best_pickles_without_compressing(tm
 
     assert sorted(path.name for path in tmp_path.glob("*.pkl")) == ["result_model_2.pkl"]
     assert not list(tmp_path.glob("*.gz"))
+
+
+# --- storage_mode presets (AF2) ---
+
+def _make_af2_dir(tmp_path):
+    order = ["model_1", "model_2"]
+    (tmp_path / "ranking_debug.json").write_text(json.dumps({"order": order}), encoding="utf-8")
+    for m in order:
+        with open(tmp_path / f"result_{m}.pkl", "wb") as handle:
+            pickle.dump(
+                {"predicted_aligned_error": [[0.0]], "max_predicted_aligned_error": 30.0,
+                 "iptm": 0.8, "plddt": [1.0], "distogram": 1, "masked_msa": 2},
+                handle,
+            )
+        (tmp_path / f"pae_{m}.json").write_text("[]", encoding="utf-8")
+    return order
+
+
+def test_storage_mode_vanilla_leaves_pickles_untouched(tmp_path):
+    _make_af2_dir(tmp_path)
+    post_modelling.post_prediction_process(str(tmp_path), storage_mode="vanilla")
+    pkls = sorted(p.name for p in tmp_path.glob("*.pkl"))
+    assert pkls == ["result_model_1.pkl", "result_model_2.pkl"]
+    payload = pickle.load(open(tmp_path / "result_model_1.pkl", "rb"))
+    assert "predicted_aligned_error" in payload  # vanilla keeps everything
+
+
+def test_storage_mode_slim_strips_pae_and_xz_compresses(tmp_path):
+    order = _make_af2_dir(tmp_path)
+    post_modelling.post_prediction_process(str(tmp_path), storage_mode="slim")
+    assert not list(tmp_path.glob("*.pkl"))  # all compressed
+    xz = sorted(tmp_path.glob("*.pkl.xz"))
+    assert len(xz) == 2
+    payload = pickle.loads(lzma.open(xz[0]).read())
+    assert "predicted_aligned_error" not in payload  # PAE stripped (kept in sidecar)
+    assert "max_predicted_aligned_error" not in payload
+    assert "distogram" not in payload and "masked_msa" not in payload
+    assert "iptm" in payload and "plddt" in payload  # scores retained
+    for m in order:  # pae sidecars (what AlphaJudge reads) survive
+        assert (tmp_path / f"pae_{m}.json").is_file()
+
+
+def test_storage_mode_minimal_deletes_all_pickles_keeps_sidecars(tmp_path):
+    order = _make_af2_dir(tmp_path)
+    post_modelling.post_prediction_process(str(tmp_path), storage_mode="minimal")
+    assert not list(tmp_path.glob("*.pkl"))
+    assert not list(tmp_path.glob("*.pkl.xz"))
+    assert (tmp_path / "ranking_debug.json").is_file()
+    for m in order:
+        assert (tmp_path / f"pae_{m}.json").is_file()
+
+
+# --- storage_mode presets (AF3) ---
+
+def _make_af3_dir(tmp_path, job="A_and_B"):
+    big = json.dumps({"pae": [[0.0]]})
+    (tmp_path / f"{job}_confidences.json").write_text(big, encoding="utf-8")
+    (tmp_path / f"{job}_data.json").write_text("{}", encoding="utf-8")
+    (tmp_path / f"{job}_model.cif").write_text("data_x\n", encoding="utf-8")
+    (tmp_path / f"{job}_summary_confidences.json").write_text("{}", encoding="utf-8")
+    rows = [("9", "0", 0.5), ("9", "1", 0.9), ("9", "2", 0.3)]  # best = sample-1
+    with open(tmp_path / "ranking_scores.csv", "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["seed", "sample", "ranking_score"])
+        w.writerows(rows)
+    for seed, sample, score in rows:
+        sd = tmp_path / f"seed-{seed}_sample-{sample}"
+        sd.mkdir()
+        (sd / "confidences.json").write_text(big, encoding="utf-8")
+        (sd / "model.cif").write_text("data_x\n", encoding="utf-8")
+        (sd / "summary_confidences.json").write_text(json.dumps({"ranking_score": score}), encoding="utf-8")
+    return job
+
+
+def test_af3_storage_mode_vanilla_is_noop(tmp_path):
+    job = _make_af3_dir(tmp_path)
+    post_modelling.post_prediction_process_af3(str(tmp_path), job, storage_mode="vanilla")
+    assert (tmp_path / f"{job}_confidences.json").is_file()
+    assert (tmp_path / "seed-9_sample-0" / "confidences.json").is_file()
+
+
+def test_af3_storage_mode_slim_keeps_best_plain_xz_others(tmp_path):
+    job = _make_af3_dir(tmp_path)
+    post_modelling.post_prediction_process_af3(str(tmp_path), job, storage_mode="slim")
+    # best (sample-1) plain for AlphaJudge; others xz
+    assert (tmp_path / "seed-9_sample-1" / "confidences.json").is_file()
+    assert not (tmp_path / "seed-9_sample-1" / "confidences.json.xz").exists()
+    for s in ("0", "2"):
+        assert (tmp_path / f"seed-9_sample-{s}" / "confidences.json.xz").is_file()
+        assert not (tmp_path / f"seed-9_sample-{s}" / "confidences.json").exists()
+    # top-level duplicates removed, structure kept
+    assert not (tmp_path / f"{job}_confidences.json").exists()
+    assert not (tmp_path / f"{job}_data.json").exists()
+    assert (tmp_path / f"{job}_model.cif").is_file()
+
+
+def test_af3_storage_mode_minimal_removes_non_best_confidences(tmp_path):
+    job = _make_af3_dir(tmp_path)
+    post_modelling.post_prediction_process_af3(str(tmp_path), job, storage_mode="minimal")
+    assert (tmp_path / "seed-9_sample-1" / "confidences.json").is_file()  # best plain
+    for s in ("0", "2"):
+        sd = tmp_path / f"seed-9_sample-{s}"
+        assert not (sd / "confidences.json").exists()
+        assert not (sd / "confidences.json.xz").exists()
+        assert (sd / "model.cif").is_file() and (sd / "summary_confidences.json").is_file()
+
+
+def test_af3_storage_mode_preserves_top_confidences_when_best_sample_lacks_it(tmp_path):
+    job = _make_af3_dir(tmp_path)
+    (tmp_path / "seed-9_sample-1" / "confidences.json").unlink()
+    post_modelling.post_prediction_process_af3(str(tmp_path), job, storage_mode="slim")
+    # top-level copy is the only remaining source of best-model PAE -> must survive
+    assert (tmp_path / f"{job}_confidences.json").is_file()

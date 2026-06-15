@@ -2128,6 +2128,7 @@ class AlphaFold3Backend(FoldingBackend):
         prediction_results = kwargs.get('prediction_results')
         output_dir = kwargs.get('output_dir')
         fold_input_obj = kwargs.get('multimeric_object')
+        storage_mode = kwargs.get('storage_mode', 'vanilla')
 
         if prediction_results is None or output_dir is None or fold_input_obj is None:
             logging.warning('AF3 postprocess called with missing arguments; skipping.')
@@ -2146,3 +2147,7 @@ class AlphaFold3Backend(FoldingBackend):
             output_dir=output_dir,
             job_name=job_name,
         )
+
+        # Apply the AF3 storage preset (no-op for the default 'vanilla').
+        from alphapulldown.utils.post_modelling import post_prediction_process_af3
+        post_prediction_process_af3(output_dir, job_name, storage_mode=storage_mode)

@@ -198,6 +198,15 @@ flags.DEFINE_boolean('remove_result_pickles', False,
                      'Whether the result pickles are going to be removed')
 flags.DEFINE_boolean('remove_keys_from_pickles',True,
                      'Whether to remove aligned_confidence_probs, distogram and masked_msa from pickles')
+flags.DEFINE_enum(
+    'storage_mode', 'vanilla', ['vanilla', 'slim', 'minimal'],
+    "High-level output storage preset (both backends). "
+    "'vanilla' (default): byte-identical to native AlphaFold2/3 output. "
+    "'slim': drop redundant duplicates (AF2 PAE inside pickles, AF3 top-level "
+    "confidences/data copies) and xz-compress the rest; output still has every "
+    "score/structure AlphaJudge and convert_to_modelcif need. "
+    "'minimal': slim plus drop result pickles (AF2) and non-best per-sample "
+    "confidences.json (AF3); smallest footprint, no longer a vanilla AF layout.")
 flags.DEFINE_boolean('use_ap_style', False,
                      'Change output directory to include a description of the fold '
                      'as seen in previous alphapulldown versions.')
@@ -228,7 +237,7 @@ def _validate_flags_for_backend(backend_name: str) -> None:
     # Flags common to all backends
     common_flags = {
         'input', 'output_directory', 'data_directory', 'features_directory',
-        'protein_delimiter', 'fold_backend', 'random_seed',
+        'protein_delimiter', 'fold_backend', 'random_seed', 'storage_mode',
     }
 
     # Backend-specific flags
@@ -490,6 +499,7 @@ def main(argv):
         "compress_pickles": FLAGS.compress_result_pickles,
         "remove_pickles": FLAGS.remove_result_pickles,
         "remove_keys_from_pickles": FLAGS.remove_keys_from_pickles,
+        "storage_mode": FLAGS.storage_mode,
         "use_gpu_relax": FLAGS.use_gpu_relax,
         "models_to_relax": FLAGS.models_to_relax,
         "relax_best_score_threshold": FLAGS.relax_best_score_threshold,
