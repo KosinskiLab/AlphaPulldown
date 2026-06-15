@@ -17,4 +17,4 @@
 [submodule "alphafold3"]
 	path = alphafold3
 	url = https://github.com/KosinskiLab/alphafold3.git
-	branch = ap-gapped-discontinuous-chains-v3.0.2
+	branch = main
