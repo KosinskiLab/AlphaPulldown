@@ -388,12 +388,12 @@ def _write_identifier_rows_to_cache(
 def build_mmseq_identifier_features(
     a3m_string: str,
     *,
-    species_resolver: Callable[[Sequence[str]], dict[str, str]] = (
-        resolve_species_ids_by_accession
-    ),
+    species_resolver: Callable[[Sequence[str]], dict[str, str]] | None = None,
     cache_path: str | None = None,
     expected_rows: int | None = None,
 ) -> dict[str, np.ndarray]:
+    if species_resolver is None:
+        species_resolver = resolve_species_ids_by_accession
     stripped_a3m = strip_mmseq_comment_lines(a3m_string)
     source_sha256 = _calculate_mmseq_source_sha256(stripped_a3m)
 
@@ -431,9 +431,7 @@ def enrich_mmseq_feature_dict_with_identifiers(
     feature_dict: dict[str, np.ndarray],
     a3m_string: str,
     *,
-    species_resolver: Callable[[Sequence[str]], dict[str, str]] = (
-        resolve_species_ids_by_accession
-    ),
+    species_resolver: Callable[[Sequence[str]], dict[str, str]] | None = None,
     cache_path: str | None = None,
 ) -> None:
     msa = feature_dict.get("msa")
