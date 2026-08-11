@@ -249,9 +249,9 @@ you hit these.
 - **Exclude specific nodes** with `slurm_exclude_nodes` → passed verbatim to `sbatch --exclude`
   (e.g. `"gpu50,gpu51"`). Use it as a fallback for nodes whose GPU the container can't use — e.g.
   a CUDA compute capability newer than the container's bundled `ptxas` (fails `ptxas too old` /
-  `UNIMPLEMENTED`). RTX PRO 6000 / Blackwell failures with old AlphaFold 3 images are fixed by
-  updating to AF3 v3.0.2/Tokamax; excluding those nodes is only an old-image workaround, not the
-  compatibility proof.
+  `UNIMPLEMENTED`). **Blackwell (compute capability 12.0 / sm_120) works from release 2.5.0 on** —
+  see [GPU compatibility](#gpu-compatibility) — so excluding those nodes is only a workaround for
+  pre-2.5.0 images, not a statement about the hardware.
   `--exclude` is allowed in `slurm_extra` whereas `--constraint`/`--gres`/`--gpus` are not, so it is
   the supported way to drop a few nodes while keeping the rest of the partition.
 - **`structure_inference_max_runtime`** caps per-job wall time (minutes). Wall time scales as
@@ -347,6 +347,40 @@ recursive_report_arguments:                 # optional extra CLI flags for alpha
   --models_to_analyse: best
 ```
 
+
+### GPU compatibility
+
+The published containers take their CUDA runtime from pip `nvidia-*` wheels rather than from the
+base image, so GPU support is set by the *image tag*, not by the driver on the node.
+
+**Blackwell (compute capability 12.0 / sm_120 — RTX PRO 4500/6000) requires release 2.5.0 or
+newer.** Pre-2.5.0 AlphaFold 3 images bundle jaxlib 0.4.34 with a CUDA 12.6 stack whose `ptxas`
+cannot target sm_120; they die at the very first kernel compilation with:
+
+```
+ptxas does not support CC 12.0
+XlaRuntimeError: UNIMPLEMENTED: ... ptxas too old
+```
+
+This cannot be worked around from outside the container: `--xla_gpu_cuda_data_dir` and `PATH` are
+ignored because jaxlib calls its own bundled `ptxas`, and bind-mounting a newer `ptxas` alone still
+leaves the CUDA runtime and cuDNN too old to execute the real kernels. The fix is the newer image,
+which ships a consistent CUDA ≥ 12.8 stack (AF3: jax 0.9.1 / ptxas 12.9 / cuDNN 9.17 / Tokamax;
+AF2: jax 0.5.3 with ptxas 12.9 / cuDNN 9.2x).
+
+Verified with real inference on release 2.5.0 — identical confidence scores across all of these,
+so Blackwell is numerically consistent with the older cards, not merely non-crashing:
+
+| GPU | Compute capability | AlphaFold 3 | AlphaFold 2 |
+|-----|--------------------|-------------|-------------|
+| RTX PRO 4500 Blackwell (16 GB MIG slice) | 12.0 | ✅ | ✅ |
+| RTX PRO 6000 Blackwell (96 GB) | 12.0 | ✅ | ✅ |
+| H100 PCIe (80 GB) | 9.0 | ✅ | — |
+| A100 (40 GB) | 8.0 | ✅ | ✅ |
+| RTX 3090 (24 GB) | 8.6 | ✅ | ✅ |
+
+For AlphaFold 3 all three attention implementations (`triton`/Tokamax, `cudnn`, `xla`) work on
+Blackwell, so no `--flash_attention_implementation` override is needed.
 
 ### Changing Folding Backends
 
