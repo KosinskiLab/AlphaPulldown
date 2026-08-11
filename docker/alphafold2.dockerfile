@@ -60,9 +60,21 @@ WORKDIR AlphaPulldown
 #WORKDIR /AlphaPulldown
 #COPY . /AlphaPulldown
 RUN pip install --no-build-isolation .
+# jax takes its CUDA runtime from the nvidia-* wheels, not from the base image, and
+# `jax[cuda12]==0.5.3` puts no floor on them - which version you get depends on when
+# the image was built. Blackwell cards (RTX PRO 4500/6000, compute capability 12.0 /
+# sm_120) need ptxas >= 12.8 and cuDNN >= 9.8; against anything older the first kernel
+# compilation dies with "ptxas does not support CC 12.0" / "ptxas too old" and JAX
+# never reaches inference. Pin the floors so a rebuild cannot silently drop below
+# Blackwell support. They are inert against today's index (pip already resolves
+# nvcc 12.9.86 / cuDNN 9.24) and only bind if resolution would otherwise regress.
 RUN pip3 install --upgrade pip --no-cache-dir \
     && pip3 install --upgrade --no-cache-dir \
-      "jax[cuda12]"==0.5.3
+      "jax[cuda12]"==0.5.3 \
+      "nvidia-cuda-nvcc-cu12>=12.8" \
+      "nvidia-cudnn-cu12>=9.8" \
+      "nvidia-cublas-cu12>=12.8" \
+      "nvidia-cuda-runtime-cu12>=12.8"
 
 # `pip install --upgrade "jax[cuda12]"==0.5.3` above drags in numpy 2.x, which makes
 # AlphaFold multimer fail at runtime: alphafold/data/msa_pairing.py does
