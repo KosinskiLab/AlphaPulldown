@@ -393,7 +393,7 @@ def pre_modelling_setup(
            output_dir = join(output_dir, object_to_model.description)
         else :
             old_output_dir = output_dir
-            for oligo in set(list_oligo) :
+            for oligo in list(dict.fromkeys(list_oligo)) :
                 number_oligo = list_oligo.count(oligo)
                 if output_dir == old_output_dir :
                     if number_oligo != 1 :
