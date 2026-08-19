@@ -118,6 +118,11 @@ print(parsed.to_json())
         capture_output=True,
         check=False,
     )
+    if (
+        result.returncode != 0
+        and "No module named 'alphafold3.cpp'" in result.stderr
+    ):
+        pytest.skip("vanilla AF3 parser requires its optional compiled extension")
     assert result.returncode == 0, result.stderr
     round_tripped = json.loads(result.stdout)
     assert extract_metadata_from_af3_json(round_tripped) == [METADATA]
