@@ -170,6 +170,32 @@ AF3_RNA_BASES = frozenset("ACGUN")
 AF3_PROTEIN_RESIDUES = frozenset("ACDEFGHIKLMNPQRSTVWYX")
 AF3_PROTEIN_ONLY_RESIDUES = AF3_PROTEIN_RESIDUES - (AF3_DNA_BASES | {"U"})
 
+AF3_PROTEIN_MSA_DATABASE_FLAGS = frozenset({
+    "uniref90_database_path",
+    "mgnify_database_path",
+    "small_bfd_database_path",
+    "uniprot_database_path",
+})
+AF3_TEMPLATE_DATABASE_FLAGS = frozenset({
+    "pdb_seqres_database_path",
+    "template_mmcif_dir",
+})
+AF3_RNA_DATABASE_FLAGS = frozenset({
+    "ntrna_database_path",
+    "rfam_database_path",
+    "rna_central_database_path",
+})
+AF3_PROTEIN_MSA_BINARY_FLAGS = frozenset({"jackhmmer_binary_path"})
+AF3_TEMPLATE_BINARY_FLAGS = frozenset({
+    "hmmbuild_binary_path",
+    "hmmsearch_binary_path",
+})
+AF3_RNA_BINARY_FLAGS = frozenset({
+    "hmmalign_binary_path",
+    "hmmbuild_binary_path",
+    "nhmmer_binary_path",
+})
+
 # =================== Helper Functions ===================
 
 def validate_data_pipeline_flags():
@@ -315,6 +341,55 @@ def create_af3_chain(sequence, description, chain_id):
             }
         )
     return folding_input.ProteinChain(**kwargs)
+
+
+def filter_af3_metadata_flags(flag_dict, chain_kinds, *, skip_msa):
+    """Keep only resources used by AF3 for the requested molecule types."""
+    chain_kinds = frozenset(chain_kinds)
+    unknown_kinds = chain_kinds - {"protein", "rna", "dna"}
+    if unknown_kinds:
+        raise ValueError(
+            "Unsupported AF3 chain kinds for metadata: "
+            + ", ".join(sorted(unknown_kinds))
+        )
+
+    database_flags = set()
+    binary_flags = set()
+    if "protein" in chain_kinds:
+        database_flags.update(AF3_TEMPLATE_DATABASE_FLAGS)
+        binary_flags.update(AF3_TEMPLATE_BINARY_FLAGS)
+        if not skip_msa:
+            database_flags.update(AF3_PROTEIN_MSA_DATABASE_FLAGS)
+            binary_flags.update(AF3_PROTEIN_MSA_BINARY_FLAGS)
+    if "rna" in chain_kinds and not skip_msa:
+        database_flags.update(AF3_RNA_DATABASE_FLAGS)
+        binary_flags.update(AF3_RNA_BINARY_FLAGS)
+
+    filtered = dict(flag_dict)
+    for flag_name in DATABASE_PATH_FLAGS - database_flags:
+        if flag_name in filtered:
+            filtered[flag_name] = None
+    for flag_name in filtered:
+        if flag_name.endswith("_binary_path") and flag_name not in binary_flags:
+            filtered[flag_name] = None
+    return filtered
+
+
+def get_af3_feature_metadata(chain_kinds, *, skip_msa):
+    """Collect provenance for resources the AF3 pipeline actually uses."""
+    metadata_flags = filter_af3_metadata_flags(
+        FLAGS.flag_values_dict(), chain_kinds, skip_msa=skip_msa
+    )
+    metadata = save_meta_data.get_meta_dict(metadata_flags)
+    try:
+        from alphafold3 import version as af3_version
+
+        metadata.setdefault("software", {}).setdefault("AlphaFold", {})[
+            "version"
+        ] = af3_version.__version__
+    except (ImportError, AttributeError):
+        logging.warning("Could not determine the AlphaFold 3 version for metadata")
+    return metadata
 
 # =================== AlphaFold 2 Feature Creation ===================
 
@@ -685,20 +760,9 @@ def create_af3_individual_features():
     if FLAGS.data_pipeline == "alphafold3":
         create_arguments()
     pipeline = create_pipeline_af3()
-    meta_dict = save_meta_data.get_meta_dict(FLAGS.flag_values_dict())
-    # ``save_meta_data`` is shared with the AF2 pipeline.  Record the AF3
-    # package version for AF3-generated features instead of the imported AF2
-    # compatibility package version.
-    try:
-        from alphafold3 import version as af3_version
-
-        meta_dict.setdefault("software", {}).setdefault("AlphaFold", {})[
-            "version"
-        ] = af3_version.__version__
-    except (ImportError, AttributeError):
-        logging.warning("Could not determine the AlphaFold 3 version for metadata")
 
     failures = []
+    metadata_by_kind = {}
     for seq_idx, (seq, desc) in enumerate(iter_seqs(FLAGS.fasta_paths), 1):
         if FLAGS.seq_index is None or seq_idx == FLAGS.seq_index:
             # Check if output file already exists and skip if requested
@@ -720,6 +784,7 @@ def create_af3_individual_features():
                         # For sequences beyond 26, use AA, BB, etc.
                         chain_id = chain_id + chain_id
                 
+                chain_kind = get_af3_chain_kind(desc, seq)
                 chain = create_af3_chain(seq, desc, chain_id)
                 
                 input_obj = folding_input.Input(
@@ -733,9 +798,13 @@ def create_af3_individual_features():
                     feature_payload = json.loads(features.to_json())
                 else:
                     feature_payload = features
+                if chain_kind not in metadata_by_kind:
+                    metadata_by_kind[chain_kind] = get_af3_feature_metadata(
+                        {chain_kind}, skip_msa=FLAGS.skip_msa
+                    )
                 try:
                     feature_payload = embed_metadata_in_af3_json(
-                        feature_payload, meta_dict
+                        feature_payload, metadata_by_kind[chain_kind]
                     )
                 except ValueError as exc:
                     # Third-party/test pipelines may return a non-AF3 mapping.

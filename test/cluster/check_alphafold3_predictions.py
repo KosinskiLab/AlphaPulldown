@@ -2253,6 +2253,7 @@ class TestAlphaFold3MetadataEndToEnd(_TestBase):
         required_software: set[str] = frozenset(),
         forbidden_software: set[str] = frozenset(),
         required_databases: set[str] = frozenset(),
+        forbidden_databases: set[str] = frozenset(),
     ) -> dict[str, list[str]]:
         import modelcif.reader
 
@@ -2282,11 +2283,38 @@ class TestAlphaFold3MetadataEndToEnd(_TestBase):
             databases = {
                 str(value) for value in cif.get("_ma_data_ref_db.name", ())
             }
+            parameter_names = {
+                str(value)
+                for value in cif.get("_ma_software_parameter.name", ())
+            }
+            parameter_values = [
+                str(value)
+                for value in cif.get("_ma_software_parameter.value", ())
+            ]
             observed_software.update(software)
             observed_databases.update(databases)
             self.assertTrue(required_software.issubset(software), cif_path)
             self.assertTrue(forbidden_software.isdisjoint(software), cif_path)
             self.assertTrue(required_databases.issubset(databases), cif_path)
+            self.assertTrue(forbidden_databases.isdisjoint(databases), cif_path)
+            self.assertTrue(
+                {
+                    "--?",
+                    "--data_dir",
+                    "--fasta_paths",
+                    "--output_dir",
+                    "--hhblits_binary_path",
+                }.isdisjoint(parameter_names),
+                cif_path,
+            )
+            self.assertFalse(
+                any(
+                    local_prefix in value
+                    for value in parameter_values
+                    for local_prefix in ("/g/", "/home/", "/scratch/")
+                ),
+                cif_path,
+            )
             if required_software or required_databases:
                 self.assertTrue(
                     cif.get("_ma_protocol_step.software_group_id", ()), cif_path
@@ -2397,6 +2425,11 @@ class TestAlphaFold3MetadataEndToEnd(_TestBase):
         )
         self.assertTrue(
             {"UniRef90", "MGnify", "PDB mmCIF"}.issubset(
+                ap_metadata[0].get("databases", {})
+            )
+        )
+        self.assertTrue(
+            {"NT-RNA", "Rfam", "RNAcentral", "ColabFold"}.isdisjoint(
                 ap_metadata[0].get("databases", {})
             )
         )
@@ -2556,6 +2589,12 @@ class TestAlphaFold3MetadataEndToEnd(_TestBase):
                     else set()
                 ),
                 required_databases=case["databases"],
+                forbidden_databases=(
+                    {"NT-RNA", "Rfam", "RNAcentral", "ColabFold"}
+                    if case_name
+                    in {"alphapulldown_af3_features", "mixed_af2_and_af3_features"}
+                    else set()
+                ),
             )
 
         print("\n=== AF3 metadata end-to-end report ===", flush=True)

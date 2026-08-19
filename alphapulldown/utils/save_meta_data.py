@@ -38,6 +38,27 @@ DB_NAME_TO_URL = {
     'PDB mmCIF': ["https://storage.googleapis.com/alphafold-databases/v3.0/pdb_2022_09_28_mmcif_files.tar.zst"],
 }
 
+AF3_BUNDLE_SIGNATURE_FILES = (
+    "nt_rna_2023_02_23_clust_seq_id_90_cov_80_rep_seq.fasta",
+    "pdb_seqres_2022_09_28.fasta",
+    "rfam_14_9_clust_seq_id_90_cov_80_rep_seq.fasta",
+    "rnacentral_active_seq_id_90_cov_80_linclust.fasta",
+)
+
+
+def _looks_like_official_af3_database_bundle(path):
+    """Return whether ``path`` belongs to the standard AF3 3.0 DB bundle."""
+    path = os.path.abspath(os.fspath(path))
+    expected_basenames = {*AF3_BUNDLE_SIGNATURE_FILES, "mmcif_files"}
+    if os.path.basename(path.rstrip(os.sep)) not in expected_basenames:
+        return False
+    bundle_root = os.path.dirname(path.rstrip(os.sep))
+    return all(
+        os.path.isfile(os.path.join(bundle_root, filename))
+        for filename in AF3_BUNDLE_SIGNATURE_FILES
+    )
+
+
 def get_program_version(binary_path):
     """Get version information for a given binary."""
     for cmd_suffix in ["--help", "-h"]:
@@ -79,19 +100,51 @@ def get_metadata_for_database(k, v):
                 }
             }
 
+    if name == "rna_central":
+        official_bundle = _looks_like_official_af3_database_bundle(v)
+        version_match = re.search(
+            r"(?:rnacentral|rna_central).*?(\d+_\d+)", str(v), re.IGNORECASE
+        )
+        if version_match:
+            version = version_match.group(1)
+        elif official_bundle:
+            version = "21_0"
+        else:
+            version = None
+        return {
+            "RNAcentral": {
+                "release_date": get_last_modified_date(v),
+                "version": version,
+                "location_url": (
+                    DB_NAME_TO_URL["RNAcentral"] if official_bundle else []
+                ),
+            }
+        }
+
+    if name == "template_mmcif":
+        official_bundle = _looks_like_official_af3_database_bundle(v)
+        release_match = re.search(
+            r"(\d{4}[-_]\d{2}[-_]\d{2})", str(v)
+        )
+        if release_match:
+            release_date = release_match.group(1).replace("_", "-")
+        elif official_bundle:
+            release_date = "2022-09-28"
+        else:
+            release_date = None
+        return {
+            "PDB mmCIF": {
+                "release_date": release_date,
+                "version": release_date,
+                "location_url": (
+                    DB_NAME_TO_URL["PDB mmCIF"] if official_bundle else []
+                ),
+            }
+        }
+
     af3_databases = {
         "ntrna": ("NT-RNA", r"(\d{4}_\d{2}_\d{2})", None, None),
         "rfam": ("Rfam", r"rfam_(\d+_\d+)", None, None),
-        "rna_central": ("RNAcentral", None, "21_0", None),
-        # Scanning every file in this very large directory makes metadata
-        # collection unnecessarily expensive.  The AF3 database bundle has a
-        # fixed release date, which is more meaningful than local mtimes.
-        "template_mmcif": (
-            "PDB mmCIF",
-            None,
-            "2022-09-28",
-            "2022-09-28",
-        ),
     }
     if name in af3_databases:
         (
@@ -183,7 +236,7 @@ def get_meta_dict(flag_dict):
             metadata["software"].update(get_metadata_for_binary(k, v))
         elif "_database_path" in k or "template_mmcif_dir" in k:
             metadata["databases"].update(get_metadata_for_database(k, v))
-        elif k == "use_mmseqs2":
+        elif k == "use_mmseqs2" and v:
             url = DB_NAME_TO_URL["ColabFold"]
             metadata["databases"].update({"ColabFold":
                                               {"version": datetime.datetime.now().strftime('%Y-%m-%d'),

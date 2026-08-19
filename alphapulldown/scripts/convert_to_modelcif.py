@@ -34,6 +34,7 @@ from alphapulldown.utils.feature_metadata import (
     decode_metadata_from_description,
     read_feature_metadata,
 )
+from alphapulldown.utils.modelcif_parameters import is_modelcif_parameter
 
 # ToDo: Software versions can not have a white space, e.g. ColabFold (drop time)
 # ToDo: DISCUSS Get options properly, best get the same names as used in
@@ -725,63 +726,6 @@ def _get_software_with_parameters(sw_dict, other_dict):
     trans_args = {
         "num_multimer_predictions_per_model": "num_predictions_per_model"
     }
-    ignored_args = [
-        "?",
-        "alsologtostderr",
-        "bfd_database_path",
-        "data_pipeline",
-        "data_dir",
-        "delta_threshold",
-        "description_file",
-        "hbm_oom_exit",
-        "hhblits_binary_path",
-        "hhsearch_binary_path",
-        "hmmbuild_binary_path",
-        "hmmsearch_binary_path",
-        "jackhmmer_binary_path",
-        "kalign_binary_path",
-        "log_dir",
-        "logger_levels",
-        "logtostderr",
-        "mgnify_database_path",
-        "nhmmer_binary_path",
-        "hmmalign_binary_path",
-        "ntrna_database_path",
-        "obsolete_pdbs_path",
-        "only_check_args",
-        "op_conversion_fallback_to_while_loop",
-        "output_dir",
-        "fasta_paths",
-        "path_to_mmt",
-        "pdb",
-        "pdb70_database_path",
-        "pdb_post_mortem",
-        "pdb_seqres_database_path",
-        "run_with_pdb",
-        "run_with_profiling",
-        "runtime_oom_exit",
-        "rfam_database_path",
-        "rna_central_database_path",
-        "showprefixforinfo",
-        "small_bfd_database_path",
-        "stderrthreshold",
-        "template_mmcif_dir",
-        "tt_check_filter",
-        "tt_single_core_summaries",
-        "uniprot_database_path",
-        "uniref30_database_path",
-        "uniref90_database_path",
-        "use_small_bfd",
-        "v",
-        "verbosity",
-        "xml_output_file",
-        "multiple_mmts",
-        "protein",
-        "compress_features",
-    ]
-    re_args = re.compile(
-        r"(?:fasta_paths|multimeric_chains|multimeric_templates|protein)_\d+"
-    )
     swwp = sw_dict  # Software With Parameters
     for key, val in other_dict.items():
         if key in known_args:
@@ -790,7 +734,7 @@ def _get_software_with_parameters(sw_dict, other_dict):
                 key = trans_args[key]
                 _assemble_params(key, known_args, swwp)
         else:
-            if key not in ignored_args and re.match(re_args, key) is None:
+            if is_modelcif_parameter(key):
                 logging.info(f"Found unknown key in 'other': {key}")
                 #sys.exit()
 

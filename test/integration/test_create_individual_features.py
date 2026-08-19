@@ -2010,15 +2010,113 @@ def test_create_af3_individual_features_embeds_metadata_without_sidecar(
     assert saved_metadata == metadata
     assert not list(tmp_path.glob("*_feature_metadata_*.json*"))
     captured_flags = mock_get_meta_dict.call_args.args[0]
-    assert captured_flags["ntrna_database_path"].endswith(
-        "nt_rna_2023_02_23_clust_seq_id_90_cov_80_rep_seq.fasta"
+    assert captured_flags["ntrna_database_path"] is None
+    assert captured_flags["rfam_database_path"] is None
+    assert captured_flags["rna_central_database_path"] is None
+    assert captured_flags["uniref90_database_path"].endswith(
+        "uniref90_2022_05.fa"
     )
-    assert captured_flags["rfam_database_path"].endswith(
-        "rfam_14_9_clust_seq_id_90_cov_80_rep_seq.fasta"
+    assert captured_flags["pdb_seqres_database_path"].endswith(
+        "pdb_seqres_2022_09_28.fasta"
     )
-    assert captured_flags["rna_central_database_path"].endswith(
-        "rnacentral_active_seq_id_90_cov_80_linclust.fasta"
+
+
+@pytest.mark.parametrize(
+    ("chain_kinds", "skip_msa", "expected_databases", "expected_binaries"),
+    [
+        (
+            {"protein"},
+            False,
+            create_features.AF3_PROTEIN_MSA_DATABASE_FLAGS
+            | create_features.AF3_TEMPLATE_DATABASE_FLAGS,
+            create_features.AF3_PROTEIN_MSA_BINARY_FLAGS
+            | create_features.AF3_TEMPLATE_BINARY_FLAGS,
+        ),
+        (
+            {"rna"},
+            False,
+            create_features.AF3_RNA_DATABASE_FLAGS,
+            create_features.AF3_RNA_BINARY_FLAGS,
+        ),
+        (
+            {"protein", "rna", "dna"},
+            False,
+            create_features.AF3_PROTEIN_MSA_DATABASE_FLAGS
+            | create_features.AF3_TEMPLATE_DATABASE_FLAGS
+            | create_features.AF3_RNA_DATABASE_FLAGS,
+            create_features.AF3_PROTEIN_MSA_BINARY_FLAGS
+            | create_features.AF3_TEMPLATE_BINARY_FLAGS
+            | create_features.AF3_RNA_BINARY_FLAGS,
+        ),
+        ({"dna"}, False, frozenset(), frozenset()),
+        (
+            {"protein"},
+            True,
+            create_features.AF3_TEMPLATE_DATABASE_FLAGS,
+            create_features.AF3_TEMPLATE_BINARY_FLAGS,
+        ),
+        ({"rna"}, True, frozenset(), frozenset()),
+    ],
+)
+def test_filter_af3_metadata_flags_tracks_resources_used_by_chain_type(
+    chain_kinds, skip_msa, expected_databases, expected_binaries
+):
+    database_flags = frozenset(create_features.AF3_DATABASE_FLAGS)
+    binary_flags = frozenset(
+        {
+            "jackhmmer_binary_path",
+            "hhblits_binary_path",
+            "hhsearch_binary_path",
+            "hmmsearch_binary_path",
+            "hmmbuild_binary_path",
+            "nhmmer_binary_path",
+            "hmmalign_binary_path",
+            "kalign_binary_path",
+        }
     )
+    flag_dict = {
+        **{name: f"/db/{name}" for name in database_flags},
+        **{name: f"/bin/{name}" for name in binary_flags},
+        "data_pipeline": "alphafold3",
+    }
+
+    filtered = create_features.filter_af3_metadata_flags(
+        flag_dict, chain_kinds, skip_msa=skip_msa
+    )
+
+    assert {name for name in database_flags if filtered[name] is not None} == set(
+        expected_databases
+    )
+    assert {name for name in binary_flags if filtered[name] is not None} == set(
+        expected_binaries
+    )
+    assert filtered["data_pipeline"] == "alphafold3"
+
+
+def test_filter_af3_metadata_flags_uses_only_literal_af3_protein_tools():
+    binary_flags = {
+        "jackhmmer_binary_path",
+        "hhblits_binary_path",
+        "hhsearch_binary_path",
+        "hmmsearch_binary_path",
+        "hmmbuild_binary_path",
+        "nhmmer_binary_path",
+        "hmmalign_binary_path",
+        "kalign_binary_path",
+    }
+    filtered = create_features.filter_af3_metadata_flags(
+        {name: f"/bin/{name}" for name in binary_flags},
+        {"protein"},
+        skip_msa=False,
+    )
+
+    assert {
+        name for name in binary_flags if filtered[name] is not None
+    } == {
+        "jackhmmer_binary_path",
+        "hmmbuild_binary_path",
+        "hmmsearch_binary_path",
+    }
 
 
 def test_create_af3_individual_features_prefills_query_only_msas_when_skip_msa(

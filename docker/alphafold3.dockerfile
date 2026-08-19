@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.6.3-base-ubuntu24.04
+FROM nvidia/cuda:12.6.3-base-ubuntu24.04 AS base
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV VIRTUAL_ENV=/opt/venv
@@ -116,3 +116,25 @@ from alphafold3.constants import chemical_components
 from alphapulldown.folding_backend.folding_backend import FoldingBackend
 print("AF3 + AlphaPulldown import OK, CCD present")
 EOF
+
+# ---------------------------------------------------------------------
+# Compatibility tests that require AF3's compiled extension. Keep these in a
+# separate stage so test-only dependencies are not included in the runtime.
+# The final stage copies a marker from here, making the checks mandatory for
+# every normal AF3 image build.
+# ---------------------------------------------------------------------
+FROM base AS af3-compatibility-tests
+
+WORKDIR /app/AlphaPulldown
+RUN uv pip install --no-cache "modelcif>=1.6" && \
+    python -c "from alphafold3.common import folding_input; import alphafold3.structure.mmcif; import ihm; import modelcif.reader" && \
+    python -m pytest -q \
+      test/unit/test_feature_metadata.py::test_embedded_json_is_accepted_and_round_tripped_by_vanilla_alphafold3 \
+      test/unit/test_af3_modelcif.py::test_augment_real_af3_modelcif_preserves_comments_and_is_modelcif_readable \
+      test/unit/test_convert_to_modelcif_helpers.py && \
+    touch /tmp/af3-compatibility-tests-passed
+
+FROM base AS runtime
+COPY --from=af3-compatibility-tests \
+    /tmp/af3-compatibility-tests-passed \
+    /opt/af3-compatibility-tests-passed

@@ -125,13 +125,6 @@ def test_get_metadata_for_database_handles_release_dated_databases(monkeypatch):
             "2023_02_23",
         ),
         ("rfam_database_path", "/db/rfam_14_9.fasta", "Rfam", "14_9"),
-        (
-            "rna_central_database_path",
-            "/db/rnacentral.fasta",
-            "RNAcentral",
-            "21_0",
-        ),
-        ("template_mmcif_dir", "/db/mmcif_files", "PDB mmCIF", "2022-09-28"),
     ],
 )
 def test_get_metadata_for_database_handles_af3_databases(
@@ -147,13 +140,83 @@ def test_get_metadata_for_database_handles_af3_databases(
 
     assert list(metadata) == [expected_name]
     assert metadata[expected_name]["version"] == expected_version
-    expected_release_date = (
-        "2022-09-28"
-        if key == "template_mmcif_dir"
-        else "2026-08-19 12:00:00"
-    )
-    assert metadata[expected_name]["release_date"] == expected_release_date
+    assert metadata[expected_name]["release_date"] == "2026-08-19 12:00:00"
     assert metadata[expected_name]["location_url"]
+
+
+def test_get_metadata_for_database_uses_official_af3_bundle_facts(tmp_path):
+    bundle_root = tmp_path / "3.0.0"
+    bundle_root.mkdir()
+    for filename in save_meta_data.AF3_BUNDLE_SIGNATURE_FILES:
+        (bundle_root / filename).write_text("fixture", encoding="utf-8")
+    mmcif_dir = bundle_root / "mmcif_files"
+    mmcif_dir.mkdir()
+
+    rna_metadata = save_meta_data.get_metadata_for_database(
+        "rna_central_database_path",
+        str(bundle_root / "rnacentral_active_seq_id_90_cov_80_linclust.fasta"),
+    )["RNAcentral"]
+    mmcif_metadata = save_meta_data.get_metadata_for_database(
+        "template_mmcif_dir", str(mmcif_dir)
+    )["PDB mmCIF"]
+
+    assert rna_metadata["version"] == "21_0"
+    assert rna_metadata["location_url"] == save_meta_data.DB_NAME_TO_URL["RNAcentral"]
+    assert mmcif_metadata == {
+        "release_date": "2022-09-28",
+        "version": "2022-09-28",
+        "location_url": save_meta_data.DB_NAME_TO_URL["PDB mmCIF"],
+    }
+
+    custom_mmcif_dir = bundle_root / "updated_mmcif_mirror"
+    custom_mmcif_dir.mkdir()
+    assert save_meta_data.get_metadata_for_database(
+        "template_mmcif_dir", str(custom_mmcif_dir)
+    )["PDB mmCIF"] == {
+        "release_date": None,
+        "version": None,
+        "location_url": [],
+    }
+
+
+def test_get_metadata_for_database_does_not_label_custom_af3_mirrors(tmp_path):
+    custom_root = tmp_path / "custom"
+    custom_root.mkdir()
+    rna_path = custom_root / "rnacentral.fasta"
+    rna_path.write_text("fixture", encoding="utf-8")
+    mmcif_dir = custom_root / "mmcif_files"
+    mmcif_dir.mkdir()
+
+    rna_metadata = save_meta_data.get_metadata_for_database(
+        "rna_central_database_path", str(rna_path)
+    )["RNAcentral"]
+    mmcif_metadata = save_meta_data.get_metadata_for_database(
+        "template_mmcif_dir", str(mmcif_dir)
+    )["PDB mmCIF"]
+
+    assert rna_metadata["version"] is None
+    assert rna_metadata["location_url"] == []
+    assert rna_metadata["release_date"] is not None
+    assert mmcif_metadata == {
+        "release_date": None,
+        "version": None,
+        "location_url": [],
+    }
+
+
+def test_get_metadata_for_database_parses_custom_af3_versions_from_paths(tmp_path):
+    rna_metadata = save_meta_data.get_metadata_for_database(
+        "rna_central_database_path",
+        str(tmp_path / "rnacentral_25_0.fasta"),
+    )["RNAcentral"]
+    mmcif_metadata = save_meta_data.get_metadata_for_database(
+        "template_mmcif_dir",
+        str(tmp_path / "pdb_2026_07_15_mmcif_files"),
+    )["PDB mmCIF"]
+
+    assert rna_metadata["version"] == "25_0"
+    assert mmcif_metadata["version"] == "2026-07-15"
+    assert mmcif_metadata["release_date"] == "2026-07-15"
 
 
 def test_get_metadata_for_database_uses_af3_pdb_seqres_release_without_hashing(
@@ -221,6 +284,13 @@ def test_get_meta_dict_collects_other_software_databases_and_mmseqs(monkeypatch)
     assert "use_cprofile_for_profiling" not in metadata["other"]
     assert "none_value" not in metadata["other"]
     assert metadata["date"] == "2026-03-27 10:11:12"
+
+
+def test_get_meta_dict_does_not_attribute_colabfold_when_mmseqs_is_disabled():
+    metadata = save_meta_data.get_meta_dict({"use_mmseqs2": False})
+
+    assert "ColabFold" not in metadata["databases"]
+    assert metadata["other"]["use_mmseqs2"] == "False"
 
 
 def test_get_last_modified_date_returns_none_for_missing_path(tmp_path):

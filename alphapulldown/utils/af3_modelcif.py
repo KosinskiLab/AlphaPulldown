@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from alphapulldown.utils.feature_metadata import decode_metadata_from_description
+from alphapulldown.utils.modelcif_parameters import is_modelcif_parameter
 
 
 _SOFTWARE_DETAILS = {
@@ -199,7 +200,9 @@ def _add_parameters(
         if not isinstance(other, Mapping):
             continue
         for name, value in other.items():
-            values_by_name[str(name)].add(str(value))
+            name = str(name)
+            if is_modelcif_parameter(name):
+                values_by_name[name].add(str(value))
     if not values_by_name:
         return None
 

@@ -84,8 +84,42 @@ def test_build_updates_covers_af3_and_af2_feature_provenance():
     assert updates["_ma_data_ref_db.name"] == ["UniRef90"]
     assert updates["_ma_data_ref_db.release_date"] == ["2022-05-01"]
     assert updates["_ma_protocol_step.software_group_id"] == ["2", "2", "3"]
-    assert "--data_pipeline" in updates["_ma_software_parameter.name"]
+    assert "--data_pipeline" not in updates["_ma_software_parameter.name"]
+    assert "--max_template_date" in updates["_ma_software_parameter.name"]
     assert set(updates["_ma_software_group.group_id"]) == {"1", "2", "3"}
+
+
+def test_build_updates_does_not_export_internal_flags_or_local_paths():
+    metadata = {
+        "software": {"AlphaPulldown": {"version": "2.6.1"}},
+        "databases": {},
+        "other": {
+            "?": "False",
+            "alsologtostderr": "False",
+            "data_pipeline": "alphafold3",
+            "data_dir": "/g/alphafold/AlphaFold_DBs/3.0.0",
+            "hhblits_binary_path": "/opt/conda/bin/hhblits",
+            "fasta_paths": "['/private/input/protein.fasta']",
+            "output_dir": "/scratch/jobs/123/output",
+            "protein_1": "/private/input/protein.fasta",
+            "future_cache_dir": "/private/cache",
+            "future_database_path": "/private/database",
+            "future_reference_path": "/private/reference",
+            "max_template_date": "2026-08-19",
+            "use_precomputed_msas": "False",
+        },
+    }
+
+    updates = build_alphapulldown_mmcif_updates(_baseline_cif(), [metadata])
+
+    assert updates["_ma_software_parameter.name"] == [
+        "--max_template_date",
+        "--use_precomputed_msas",
+    ]
+    assert all(
+        not value.startswith(("/", "['/"))
+        for value in updates["_ma_software_parameter.value"]
+    )
 
 
 def test_build_updates_recognises_legacy_af2_metadata_without_pipeline_flag():
