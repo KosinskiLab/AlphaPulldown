@@ -106,5 +106,6 @@ def test_af3_cluster_wrapper_job_script_sets_perf_flag(tmp_path):
 
     script_text = job.script_path.read_text(encoding="utf-8")
     assert "export AF3_RUN_PERF_TESTS=1" in script_text
+    assert f'export PATH={Path(sys.executable).resolve().parent}:"$PATH"' in script_text
     assert "addopts=-ra --strict-markers" in script_text
     assert "--use-temp-dir" in script_text

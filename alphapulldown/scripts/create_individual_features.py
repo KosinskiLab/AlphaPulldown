@@ -35,6 +35,7 @@ from alphapulldown.utils.multimeric_template_utils import (
     extract_multimeric_template_features_for_single_chain,
 )
 from alphapulldown.utils import save_meta_data
+from alphapulldown.utils.feature_metadata import embed_metadata_in_af3_json
 
 # Try to import AlphaFold3, but it's optional
 AF3_IMPORT_ERROR = None
@@ -103,6 +104,9 @@ AF3_DATABASE_FLAGS = {
     "uniprot_database_path": "uniprot",
     "pdb_seqres_database_path": "pdb_seqres",
     "template_mmcif_dir": "template_mmcif_dir",
+    "ntrna_database_path": "ntrna",
+    "rfam_database_path": "rfam",
+    "rna_central_database_path": "rna_central",
 }
 
 DATABASE_PATH_FLAGS = (
@@ -135,6 +139,9 @@ flags.DEFINE_string('uniref30_database_path', None, '')
 flags.DEFINE_string('uniprot_database_path', None, '')
 flags.DEFINE_string('pdb70_database_path', None, '')
 flags.DEFINE_string('pdb_seqres_database_path', None, '')
+flags.DEFINE_string('ntrna_database_path', None, '')
+flags.DEFINE_string('rfam_database_path', None, '')
+flags.DEFINE_string('rna_central_database_path', None, '')
 flags.DEFINE_string('template_mmcif_dir', None, '')
 flags.DEFINE_string('max_template_date', None, 'Max template release date.')
 flags.DEFINE_string('obsolete_pdbs_path', None, '')
@@ -671,8 +678,26 @@ def create_af3_individual_features():
 
     # Ensure output directory exists
     os.makedirs(FLAGS.output_dir, exist_ok=True)
-    
+
+    # Resolve every AF3 database flag before collecting provenance.  The AF3
+    # pipeline can derive paths lazily, but those derived paths would otherwise
+    # be absent from ``flag_values_dict()`` and therefore from the metadata.
+    if FLAGS.data_pipeline == "alphafold3":
+        create_arguments()
     pipeline = create_pipeline_af3()
+    meta_dict = save_meta_data.get_meta_dict(FLAGS.flag_values_dict())
+    # ``save_meta_data`` is shared with the AF2 pipeline.  Record the AF3
+    # package version for AF3-generated features instead of the imported AF2
+    # compatibility package version.
+    try:
+        from alphafold3 import version as af3_version
+
+        meta_dict.setdefault("software", {}).setdefault("AlphaFold", {})[
+            "version"
+        ] = af3_version.__version__
+    except (ImportError, AttributeError):
+        logging.warning("Could not determine the AlphaFold 3 version for metadata")
+
     failures = []
     for seq_idx, (seq, desc) in enumerate(iter_seqs(FLAGS.fasta_paths), 1):
         if FLAGS.seq_index is None or seq_idx == FLAGS.seq_index:
@@ -705,9 +730,23 @@ def create_af3_individual_features():
                 
                 features = pipeline.process(input_obj)
                 if hasattr(features, "to_json"):
-                    outpath.write_text(features.to_json())
+                    feature_payload = json.loads(features.to_json())
                 else:
-                    outpath.write_text(json.dumps(features))
+                    feature_payload = features
+                try:
+                    feature_payload = embed_metadata_in_af3_json(
+                        feature_payload, meta_dict
+                    )
+                except ValueError as exc:
+                    # Third-party/test pipelines may return a non-AF3 mapping.
+                    # A real AF3 DataPipeline result always contains sequences.
+                    logging.warning(
+                        "Could not embed feature metadata for %s: %s", desc, exc
+                    )
+                outpath.write_text(
+                    json.dumps(feature_payload, ensure_ascii=False, indent=2) + "\n",
+                    encoding="utf-8",
+                )
                     
             except Exception as e:
                 logging.error(f"Failed to create AlphaFold3 input object for {desc}: {e}")

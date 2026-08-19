@@ -10,6 +10,7 @@ pytest.importorskip("ihm")
 pytest.importorskip("modelcif")
 
 import alphapulldown.scripts.convert_to_modelcif as convert_to_modelcif
+from alphapulldown.utils.feature_metadata import embed_metadata_in_af3_json
 
 
 TEST_PREDICTIONS_DIR = (
@@ -59,6 +60,96 @@ def test_get_feature_metadata_falls_back_to_structure_sequence(tmp_path):
     assert fasta_dicts[0]["description"] == "chain_A"
     assert fasta_dicts[0]["sequence"].startswith("MESAIA")
     assert modelcif_json["__meta__"]["TEST"]["databases"]
+
+
+def test_get_feature_metadata_reads_embedded_af3_data_json(tmp_path):
+    metadata = {
+        "databases": {
+            "UniRef90": {
+                "version": "2022_05",
+                "release_date": "2022-05-01",
+                "location_url": ["https://example.test/uniref90"],
+            }
+        },
+        "software": {
+            "AlphaPulldown": {"version": "2.5.0"},
+            "AlphaFold": {"version": "3.0.2"},
+        },
+        "other": {
+            "data_pipeline": "alphafold3",
+            "use_precomputed_msas": "False",
+            "plddt_threshold": "0",
+        },
+    }
+    payload = embed_metadata_in_af3_json(
+        {
+            "dialect": "alphafold3",
+            "version": 1,
+            "name": "job",
+            "modelSeeds": [1],
+            "sequences": [
+                {
+                    "protein": {
+                        "id": "A",
+                        "sequence": "ACDE",
+                        "description": "protA",
+                        "unpairedMsa": "",
+                        "pairedMsa": "",
+                        "templates": [],
+                    }
+                }
+            ],
+            "bondedAtomPairs": [],
+            "userCCD": None,
+        },
+        metadata,
+    )
+    (tmp_path / "job_data.json").write_text(
+        json.dumps(payload), encoding="utf-8"
+    )
+
+    modelcif_json = {}
+    complex_name, fasta_dicts = convert_to_modelcif._get_feature_metadata(
+        modelcif_json,
+        "job",
+        str(tmp_path),
+    )
+
+    assert complex_name == "job"
+    assert fasta_dicts == [{"description": "protA", "sequence": "ACDE"}]
+    assert modelcif_json["__meta__"]["protA"]["databases"] == metadata["databases"]
+    assert (
+        modelcif_json["__meta__"]["protA"]["software"]["AlphaFold"]["version"]
+        == "3.0.2"
+    )
+
+
+def test_get_feature_metadata_reads_compressed_af2_sidecar(tmp_path):
+    import lzma
+
+    metadata = {
+        "databases": {},
+        "software": {
+            "AlphaPulldown": {"version": "2.5.0"},
+            "AlphaFold": {"version": "2.3.2"},
+        },
+        "other": {"use_precomputed_msas": "False"},
+    }
+    sidecar = tmp_path / "protA_feature_metadata_2026-08-19.json.xz"
+    with lzma.open(sidecar, "wt", encoding="utf-8") as handle:
+        json.dump(metadata, handle)
+
+    modelcif_json = {}
+    _, fasta_dicts = convert_to_modelcif._get_feature_metadata(
+        modelcif_json,
+        "job",
+        str(tmp_path),
+    )
+
+    assert fasta_dicts == []
+    assert modelcif_json["__meta__"]["protA"]["software"]["AlphaFold"][
+        "version"
+    ] == "2.3.2"
 
 
 def test_get_model_list_selects_requested_model_and_tracks_non_selected_models():

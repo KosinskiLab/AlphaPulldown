@@ -27,8 +27,14 @@ from unittest import mock
 from absl.testing import absltest, parameterized
 
 import alphapulldown
+from alphafold3.common import folding_input
 from alphafold3.constants import residue_names as af3_residue_names
+from alphafold3.structure import mmcif as af3_mmcif
 from alphapulldown.objects import MultimericObject
+from alphapulldown.utils.feature_metadata import (
+    AF3_METADATA_MARKER,
+    extract_metadata_from_af3_json,
+)
 from alphapulldown.utils.modelling_setup import (
     create_custom_info,
     create_interactors,
@@ -40,10 +46,13 @@ from alphapulldown_input_parser import generate_fold_specifications
 # --------------------------------------------------------------------------- #
 #                       configuration / environment guards                    #
 # --------------------------------------------------------------------------- #
-# Point to the full Alphafold database once, via env-var.
+# AF3 model weights used by inference tests.
 DATA_DIR = os.getenv(
     "ALPHAFOLD_DATA_DIR",
     "/g/kosinski/dima/alphafold3_weights/"   #  default for EMBL cluster
+)
+AF3_DATABASE_DIR = Path(
+    os.getenv("ALPHAFOLD3_DATABASE_DIR", "/g/alphafold/AlphaFold_DBs/3.0.0")
 )
 if not os.path.exists(DATA_DIR):
     absltest.skip("set $ALPHAFOLD_DATA_DIR to run Alphafold functional tests")
@@ -1100,7 +1109,11 @@ class _TestBase(parameterized.TestCase):
     def _make_af3_test_env(self) -> Dict[str, str]:
         flash_impl = self._af3_flash_attention_impl()
         env = os.environ.copy()
-        env["XLA_FLAGS"] = "--xla_disable_hlo_passes=custom-kernel-fusion-rewriter --xla_gpu_force_compilation_parallelism=0"
+        env["XLA_FLAGS"] = os.getenv(
+            "AF3_TEST_XLA_FLAGS",
+            "--xla_disable_hlo_passes=custom-kernel-fusion-rewriter "
+            "--xla_gpu_force_compilation_parallelism=0",
+        )
         env["XLA_PYTHON_CLIENT_PREALLOCATE"] = "true"
         env["XLA_CLIENT_MEM_FRACTION"] = "0.95"
         env["JAX_FLASH_ATTENTION_IMPL"] = flash_impl
@@ -1110,6 +1123,22 @@ class _TestBase(parameterized.TestCase):
 
     def _af3_flash_attention_impl(self) -> str:
         return os.getenv("AF3_TEST_FLASH_ATTENTION_IMPL", "xla")
+
+    @staticmethod
+    def _jax_compilation_cache_args(cache_dir: Path) -> list[str]:
+        """Return the optional persistent-cache flag for functional tests.
+
+        Some XLA/JAX combinations cannot safely populate the per-fusion cache on
+        a cluster scratch filesystem. Keep the normal cached path while making
+        it possible to isolate that environment failure without weakening the
+        actual inference and ModelCIF assertions.
+        """
+        disabled = os.getenv(
+            "AF3_TEST_DISABLE_JAX_COMPILATION_CACHE", ""
+        ).strip().lower()
+        if disabled in {"1", "true", "yes"}:
+            return []
+        return [f"--jax_compilation_cache_dir={cache_dir}"]
 
     def _require_af3_functional_environment(self) -> None:
         if not os.path.exists(DATA_DIR):
@@ -1122,7 +1151,17 @@ class _TestBase(parameterized.TestCase):
         print(f"contents of {output_dir}: {[f.name for f in files]}")
 
         self.assertIn("TERMS_OF_USE.md", {f.name for f in files})
-        self.assertIn("ranking_scores.csv", {f.name for f in files})
+        ranking_files = [
+            path
+            for path in files
+            if path.name == "ranking_scores.csv"
+            or path.name.endswith("_ranking_scores.csv")
+        ]
+        self.assertLen(
+            ranking_files,
+            1,
+            f"Expected one ranking-scores CSV in {output_dir}",
+        )
 
         conf_files = [f for f in files if f.name.endswith("_confidences.json")]
         summary_conf_files = [f for f in files if f.name.endswith("_summary_confidences.json")]
@@ -1138,11 +1177,35 @@ class _TestBase(parameterized.TestCase):
 
         for sample_dir in sample_dirs:
             sample_files = list(sample_dir.iterdir())
-            self.assertIn("confidences.json", {f.name for f in sample_files})
-            self.assertIn("model.cif", {f.name for f in sample_files})
-            self.assertIn("summary_confidences.json", {f.name for f in sample_files})
+            sample_names = {path.name for path in sample_files}
+            self.assertTrue(
+                any(
+                    name == "confidences.json"
+                    or (
+                        name.endswith("_confidences.json")
+                        and not name.endswith("_summary_confidences.json")
+                    )
+                    for name in sample_names
+                ),
+                sample_dir,
+            )
+            self.assertTrue(
+                any(
+                    name == "model.cif" or name.endswith("_model.cif")
+                    for name in sample_names
+                ),
+                sample_dir,
+            )
+            self.assertTrue(
+                any(
+                    name == "summary_confidences.json"
+                    or name.endswith("_summary_confidences.json")
+                    for name in sample_names
+                ),
+                sample_dir,
+            )
 
-        with open(output_dir / "ranking_scores.csv") as f:
+        with ranking_files[0].open() as f:
             lines = f.readlines()
             self.assertTrue(len(lines) > 1, "ranking_scores.csv should have header and data")
             self.assertEqual(len(lines[0].strip().split(",")), 3, "ranking_scores.csv should have 3 columns")
@@ -2065,6 +2128,438 @@ class TestAlphaFold3MmseqsIssue588Inference(_TestBase):
                 protein_entry["sequence"],
             )
         self.assertCountEqual(all_chain_ids, ["A", "B", "C"])
+
+
+class TestAlphaFold3MetadataEndToEnd(_TestBase):
+    """Real databases/GPU coverage for AF2, AF3, and mixed provenance paths."""
+
+    PROTEIN_ID = "A0A024R1R8"
+    REQUIRED_AF3_DATABASES = (
+        "bfd-first_non_consensus_sequences.fasta",
+        "mgy_clusters_2022_05.fa",
+        "uniprot_all_2021_04.fa",
+        "uniref90_2022_05.fa",
+        "pdb_seqres_2022_09_28.fasta",
+        "mmcif_files",
+    )
+
+    def _require_metadata_e2e_environment(self) -> None:
+        self._require_af3_functional_environment()
+        missing_databases = [
+            str(AF3_DATABASE_DIR / relative_path)
+            for relative_path in self.REQUIRED_AF3_DATABASES
+            if not (AF3_DATABASE_DIR / relative_path).exists()
+        ]
+        if missing_databases:
+            self.skipTest(
+                "AF3 metadata end-to-end test requires the AF3 databases; "
+                f"missing: {missing_databases}"
+            )
+
+        model_files = list(Path(DATA_DIR).glob("af3.bin*"))
+        self.assertTrue(model_files, f"No AF3 model weights found in {DATA_DIR}")
+        self.assertTrue(
+            (self.test_fastas_dir / f"{self.PROTEIN_ID}.fasta").is_file()
+        )
+        self.assertTrue(
+            (self.test_features_dir / f"{self.PROTEIN_ID}.pkl").is_file()
+        )
+        metadata_matches = list(
+            self.test_features_dir.glob(
+                f"{self.PROTEIN_ID}_feature_metadata_*.json*"
+            )
+        )
+        self.assertTrue(
+            metadata_matches,
+            f"No AF2 feature metadata sidecar for {self.PROTEIN_ID}",
+        )
+
+    def _run_e2e_command(
+        self,
+        args: list[str],
+        *,
+        env: Dict[str, str],
+        label: str,
+    ) -> None:
+        print(f"\n=== {label} ===", flush=True)
+        print(" ".join(str(arg) for arg in args), flush=True)
+        started = time.monotonic()
+        result = subprocess.run(args, text=True, env=env, check=False)
+        elapsed = time.monotonic() - started
+        print(
+            f"=== {label}: returncode={result.returncode}, "
+            f"elapsed_seconds={elapsed:.1f} ===",
+            flush=True,
+        )
+        self.assertEqual(result.returncode, 0, f"{label} failed")
+
+    def _write_native_af3_input(self, path: Path) -> str:
+        fasta_lines = (
+            self.test_fastas_dir / f"{self.PROTEIN_ID}.fasta"
+        ).read_text(encoding="utf-8").splitlines()
+        sequence = "".join(
+            line.strip() for line in fasta_lines if not line.startswith(">")
+        )
+        self.assertTrue(sequence)
+        raw_input = {
+            "dialect": "alphafold3",
+            "version": 1,
+            "name": "metadata_native_features",
+            "modelSeeds": [42],
+            "sequences": [
+                {
+                    "protein": {
+                        "id": "A",
+                        "sequence": sequence,
+                        "modifications": [],
+                        "unpairedMsa": None,
+                        "pairedMsa": None,
+                        "templates": None,
+                    }
+                }
+            ],
+            "bondedAtomPairs": [],
+            "userCCD": None,
+        }
+        path.write_text(json.dumps(raw_input, indent=2) + "\n", encoding="utf-8")
+        parsed = folding_input.Input.from_json(path.read_text(encoding="utf-8"))
+        self.assertEqual(parsed.name, "metadata_native_features")
+        return sequence
+
+    def _assert_feature_metadata(
+        self,
+        feature_path: Path,
+        *,
+        expected_count: int,
+        expected_pipeline: str | None = None,
+    ) -> list[dict[str, Any]]:
+        payload = _load_json_payload(feature_path)
+        # This is the compatibility boundary: the unmodified AF3 parser must
+        # accept the same JSON which carries AlphaPulldown metadata.
+        folding_input.Input.from_json(json.dumps(payload))
+        metadata = extract_metadata_from_af3_json(payload)
+        self.assertLen(metadata, expected_count)
+        if expected_pipeline is not None:
+            self.assertEqual(
+                {record.get("other", {}).get("data_pipeline") for record in metadata},
+                {expected_pipeline},
+            )
+        return metadata
+
+    def _assert_modelcif_files(
+        self,
+        output_dir: Path,
+        *,
+        required_software: set[str] = frozenset(),
+        forbidden_software: set[str] = frozenset(),
+        required_databases: set[str] = frozenset(),
+    ) -> dict[str, list[str]]:
+        import modelcif.reader
+
+        cif_paths = sorted(output_dir.glob("*_model.cif"))
+        for sample_dir in sorted(output_dir.glob("seed-*_sample-*")):
+            cif_paths.extend(
+                sorted(
+                    path
+                    for path in sample_dir.iterdir()
+                    if path.name == "model.cif" or path.name.endswith("_model.cif")
+                )
+            )
+        self.assertGreaterEqual(
+            len(cif_paths), 2, f"Expected best and sample ModelCIF files in {output_dir}"
+        )
+        observed_software: set[str] = set()
+        observed_databases: set[str] = set()
+        for cif_path in cif_paths:
+            cif_text = cif_path.read_text(encoding="utf-8")
+            self.assertNotIn(
+                AF3_METADATA_MARKER,
+                cif_text,
+                f"Transport metadata leaked into final ModelCIF {cif_path}",
+            )
+            cif = af3_mmcif.from_string(cif_text)
+            software = {str(value) for value in cif.get("_software.name", ())}
+            databases = {
+                str(value) for value in cif.get("_ma_data_ref_db.name", ())
+            }
+            observed_software.update(software)
+            observed_databases.update(databases)
+            self.assertTrue(required_software.issubset(software), cif_path)
+            self.assertTrue(forbidden_software.isdisjoint(software), cif_path)
+            self.assertTrue(required_databases.issubset(databases), cif_path)
+            if required_software or required_databases:
+                self.assertTrue(
+                    cif.get("_ma_protocol_step.software_group_id", ()), cif_path
+                )
+            with cif_path.open("rt", encoding="utf-8") as handle:
+                systems = modelcif.reader.read(handle)
+            self.assertTrue(systems, f"python-modelcif could not read {cif_path}")
+        return {
+            "software": sorted(observed_software),
+            "databases": sorted(observed_databases),
+        }
+
+    def _run_alphapulldown_inference(
+        self,
+        *,
+        input_spec: str,
+        output_dir: Path,
+        feature_directories: list[Path],
+        cache_dir: Path,
+        env: Dict[str, str],
+        label: str,
+    ) -> Path:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        self._run_e2e_command(
+            [
+                sys.executable,
+                str(self.script_single),
+                f"--input={input_spec}",
+                f"--output_directory={output_dir}",
+                f"--data_directory={DATA_DIR}",
+                "--features_directory="
+                + ",".join(str(path) for path in feature_directories),
+                "--fold_backend=alphafold3",
+                f"--flash_attention_implementation={self._af3_flash_attention_impl()}",
+                "--num_diffusion_samples=1",
+                "--num_recycles=1",
+                "--buckets=256",
+                "--random_seed=42",
+                *self._jax_compilation_cache_args(cache_dir),
+                "--convert_to_modelcif=True",
+                "--storage_mode=vanilla",
+            ],
+            env=env,
+            label=label,
+        )
+        self._assert_af3_outputs_present(output_dir)
+        return output_dir
+
+    def test_real_feature_generation_inference_and_modelcif_matrix(self):
+        self._require_metadata_e2e_environment()
+        env = self._make_af3_test_env()
+        cache_dir = self.output_dir / "jax_cache"
+        cache_dir.mkdir()
+        ap_feature_dir = self.output_dir / "features_alphapulldown_af3"
+        vanilla_feature_root = self.output_dir / "features_vanilla_af3"
+        ap_feature_dir.mkdir()
+        vanilla_feature_root.mkdir()
+        persistent_cache_value = os.getenv("AF3_METADATA_E2E_CACHE_DIR")
+        persistent_cache_dir = (
+            Path(persistent_cache_value).resolve()
+            if persistent_cache_value
+            else None
+        )
+        if persistent_cache_dir is not None:
+            persistent_cache_dir.mkdir(parents=True, exist_ok=True)
+
+        raw_input_path = self.output_dir / "metadata_native_raw.json"
+        self._write_native_af3_input(raw_input_path)
+
+        ap_feature_path = ap_feature_dir / f"{self.PROTEIN_ID}_af3_input.json"
+        cached_ap_feature_path = (
+            persistent_cache_dir / ap_feature_path.name
+            if persistent_cache_dir is not None
+            else None
+        )
+        if cached_ap_feature_path is not None and cached_ap_feature_path.is_file():
+            print(
+                f"Restoring validated AlphaPulldown AF3 features from "
+                f"{cached_ap_feature_path}",
+                flush=True,
+            )
+            shutil.copy2(cached_ap_feature_path, ap_feature_path)
+        else:
+            # Generate AF3 features through AlphaPulldown using the real databases.
+            self._run_e2e_command(
+                [
+                    sys.executable,
+                    str(self.script_create_features),
+                    f"--fasta_paths={self.test_fastas_dir / f'{self.PROTEIN_ID}.fasta'}",
+                    f"--output_dir={ap_feature_dir}",
+                    f"--data_dir={AF3_DATABASE_DIR}",
+                    "--max_template_date=2026-08-19",
+                    "--data_pipeline=alphafold3",
+                    "--skip_existing=False",
+                ],
+                env=env,
+                label="AlphaPulldown AF3 feature generation",
+            )
+        self.assertTrue(ap_feature_path.is_file())
+        self.assertFalse(
+            list(ap_feature_dir.glob(f"{self.PROTEIN_ID}_feature_metadata_*.json*")),
+            "AF3 metadata must be embedded, not written as a sidecar",
+        )
+        ap_metadata = self._assert_feature_metadata(
+            ap_feature_path,
+            expected_count=1,
+            expected_pipeline="alphafold3",
+        )
+        self.assertTrue(
+            {"UniRef90", "MGnify", "PDB mmCIF"}.issubset(
+                ap_metadata[0].get("databases", {})
+            )
+        )
+        if cached_ap_feature_path is not None and not cached_ap_feature_path.exists():
+            shutil.copy2(ap_feature_path, cached_ap_feature_path)
+            print(
+                f"Cached validated AlphaPulldown AF3 features at "
+                f"{cached_ap_feature_path}",
+                flush=True,
+            )
+
+        vanilla_feature_path = (
+            vanilla_feature_root
+            / "metadata_native_features"
+            / "metadata_native_features_data.json"
+        )
+        cached_vanilla_feature_path = (
+            persistent_cache_dir / vanilla_feature_path.name
+            if persistent_cache_dir is not None
+            else None
+        )
+        if (
+            cached_vanilla_feature_path is not None
+            and cached_vanilla_feature_path.is_file()
+        ):
+            print(
+                f"Restoring validated vanilla AF3 features from "
+                f"{cached_vanilla_feature_path}",
+                flush=True,
+            )
+            vanilla_feature_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(cached_vanilla_feature_path, vanilla_feature_path)
+        else:
+            # Generate an independent, unannotated feature JSON with vanilla AF3.
+            self._run_e2e_command(
+                [
+                    sys.executable,
+                    str(REPO_ROOT / "alphafold3" / "run_alphafold.py"),
+                    f"--json_path={raw_input_path}",
+                    f"--output_dir={vanilla_feature_root}",
+                    f"--model_dir={DATA_DIR}",
+                    f"--db_dir={AF3_DATABASE_DIR}",
+                    "--max_template_date=2026-08-19",
+                    "--run_data_pipeline",
+                    "--norun_inference",
+                    "--force_output_dir",
+                ],
+                env=env,
+                label="vanilla AF3 feature generation",
+            )
+        self.assertTrue(vanilla_feature_path.is_file(), vanilla_feature_path)
+        self._assert_feature_metadata(vanilla_feature_path, expected_count=0)
+        if (
+            cached_vanilla_feature_path is not None
+            and not cached_vanilla_feature_path.exists()
+        ):
+            shutil.copy2(vanilla_feature_path, cached_vanilla_feature_path)
+            print(
+                f"Cached validated vanilla AF3 features at "
+                f"{cached_vanilla_feature_path}",
+                flush=True,
+            )
+
+        # Vanilla AF3 must run inference directly from the metadata-bearing AP JSON.
+        vanilla_inference_root = self.output_dir / "vanilla_on_ap_features"
+        self._run_e2e_command(
+            [
+                sys.executable,
+                str(REPO_ROOT / "alphafold3" / "run_alphafold.py"),
+                f"--json_path={ap_feature_path}",
+                f"--output_dir={vanilla_inference_root}",
+                f"--model_dir={DATA_DIR}",
+                "--norun_data_pipeline",
+                "--run_inference",
+                "--force_output_dir",
+                f"--flash_attention_implementation={self._af3_flash_attention_impl()}",
+                "--num_diffusion_samples=1",
+                "--num_recycles=1",
+                "--buckets=256",
+                *self._jax_compilation_cache_args(cache_dir),
+            ],
+            env=env,
+            label="vanilla AF3 inference on AlphaPulldown AF3 features",
+        )
+        vanilla_inference_dir = vanilla_inference_root / self.PROTEIN_ID
+        self.assertTrue(vanilla_inference_dir.is_dir(), vanilla_inference_dir)
+        self._assert_af3_outputs_present(vanilla_inference_dir)
+        self._assert_feature_metadata(
+            vanilla_inference_dir / f"{self.PROTEIN_ID}_data.json",
+            expected_count=1,
+            expected_pipeline="alphafold3",
+        )
+        vanilla_cif_report = self._assert_modelcif_files(
+            vanilla_inference_dir,
+            forbidden_software={"AlphaPulldown", "AlphaFold 2"},
+        )
+
+        feature_directories = [
+            self.test_features_dir,
+            ap_feature_dir,
+            vanilla_feature_path.parent,
+        ]
+        cases = {
+            "af2_features": {
+                "input": self.PROTEIN_ID,
+                "metadata_count": 1,
+                "software": {"AlphaPulldown", "AlphaFold 2"},
+                "databases": set(),
+            },
+            "vanilla_af3_features": {
+                "input": str(vanilla_feature_path),
+                "metadata_count": 0,
+                "software": set(),
+                "databases": set(),
+            },
+            "alphapulldown_af3_features": {
+                "input": str(ap_feature_path),
+                "metadata_count": 1,
+                "software": {"AlphaPulldown"},
+                "databases": {"UniRef90", "MGnify", "PDB mmCIF"},
+            },
+            "mixed_af2_and_af3_features": {
+                "input": f"{self.PROTEIN_ID}+{ap_feature_path}",
+                "metadata_count": 2,
+                "software": {"AlphaPulldown", "AlphaFold 2"},
+                "databases": {"UniRef90", "MGnify", "PDB mmCIF"},
+            },
+        }
+        report: dict[str, Any] = {
+            "alphapulldown_feature_metadata_database_names": sorted(
+                ap_metadata[0].get("databases", {})
+            ),
+            "vanilla_on_alphapulldown_features": vanilla_cif_report,
+            "alphapulldown_backend": {},
+        }
+        for case_name, case in cases.items():
+            case_output_dir = self.output_dir / case_name
+            self._run_alphapulldown_inference(
+                input_spec=case["input"],
+                output_dir=case_output_dir,
+                feature_directories=feature_directories,
+                cache_dir=cache_dir,
+                env=env,
+                label=f"AlphaPulldown backend inference: {case_name}",
+            )
+            prepared_inputs = sorted(case_output_dir.glob("*_data.json"))
+            self.assertLen(prepared_inputs, 1)
+            self._assert_feature_metadata(
+                prepared_inputs[0], expected_count=case["metadata_count"]
+            )
+            report["alphapulldown_backend"][case_name] = self._assert_modelcif_files(
+                case_output_dir,
+                required_software=case["software"],
+                forbidden_software=(
+                    {"AlphaPulldown", "AlphaFold 2"}
+                    if case_name == "vanilla_af3_features"
+                    else set()
+                ),
+                required_databases=case["databases"],
+            )
+
+        print("\n=== AF3 metadata end-to-end report ===", flush=True)
+        print(json.dumps(report, indent=2, sort_keys=True), flush=True)
 
 
 # --------------------------------------------------------------------------- #

@@ -437,6 +437,15 @@ def test_validate_flags_for_backend_rejects_disallowed_flags(run_structure_predi
         run_structure_prediction_module._validate_flags_for_backend("alphafold3")
 
 
+def test_validate_flags_for_af3_allows_modelcif_conversion(
+    run_structure_prediction_module,
+):
+    _set_flag(run_structure_prediction_module.FLAGS, "fold_backend", "alphafold3")
+    _set_flag(run_structure_prediction_module.FLAGS, "convert_to_modelcif", True)
+
+    run_structure_prediction_module._validate_flags_for_backend("alphafold3")
+
+
 def test_validate_flags_for_backend_allows_unknown_backend(run_structure_prediction_module):
     _set_flag(run_structure_prediction_module.FLAGS, "fold_backend", "custom-backend")
     _set_flag(run_structure_prediction_module.FLAGS, "num_cycle", 3)

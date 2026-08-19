@@ -24,6 +24,7 @@ import alphapulldown.objects as objects_mod
 import alphapulldown.scripts.create_individual_features as create_features
 from alphapulldown.objects import MonomericObject
 from alphapulldown.utils import mmseqs_species_identifiers
+from alphapulldown.utils.feature_metadata import decode_metadata_from_description
 
 logger = logging.getLogger(__name__)
 
@@ -989,6 +990,9 @@ class TestCreateIndividualFeaturesComprehensive:
         FLAGS.pdb70_database_path = None
         FLAGS.uniprot_database_path = None
         FLAGS.pdb_seqres_database_path = None
+        FLAGS.ntrna_database_path = None
+        FLAGS.rfam_database_path = None
+        FLAGS.rna_central_database_path = None
         FLAGS.template_mmcif_dir = None
         FLAGS.obsolete_pdbs_path = None
         
@@ -1055,6 +1059,9 @@ class TestCreateIndividualFeaturesComprehensive:
         assert FLAGS.small_bfd_database_path == "/test/db/bfd-first_non_consensus_sequences.fasta"
         assert FLAGS.uniprot_database_path == "/test/db/uniprot_all_2021_04.fa"
         assert FLAGS.pdb_seqres_database_path == "/test/db/pdb_seqres_2022_09_28.fasta"
+        assert FLAGS.ntrna_database_path == "/test/db/nt_rna_2023_02_23_clust_seq_id_90_cov_80_rep_seq.fasta"
+        assert FLAGS.rfam_database_path == "/test/db/rfam_14_9_clust_seq_id_90_cov_80_rep_seq.fasta"
+        assert FLAGS.rna_central_database_path == "/test/db/rnacentral_active_seq_id_90_cov_80_linclust.fasta"
         assert FLAGS.template_mmcif_dir == "/test/db/mmcif_files"
         assert FLAGS.uniref30_database_path is None
         assert FLAGS.bfd_database_path is None
@@ -1946,6 +1953,72 @@ def test_create_af3_individual_features_skips_existing_outputs(tmp_flags, tmp_pa
 
     pipeline.process.assert_not_called()
     assert existing_output.read_text(encoding="utf-8") == "{}"
+
+
+def test_create_af3_individual_features_embeds_metadata_without_sidecar(
+    tmp_flags, tmp_path
+):
+    create_features.FLAGS.output_dir = str(tmp_path)
+    create_features.FLAGS.data_pipeline = "alphafold3"
+    metadata = {
+        "databases": {},
+        "software": {
+            "AlphaPulldown": {"version": "2.5.0"},
+            "AlphaFold": {"version": "placeholder"},
+        },
+        "other": {"data_pipeline": "alphafold3"},
+    }
+    feature_payload = {
+        "dialect": "alphafold3",
+        "version": 1,
+        "name": "protA",
+        "modelSeeds": [42],
+        "sequences": [
+            {
+                "protein": {
+                    "id": "A",
+                    "sequence": "ACDE",
+                    "description": "protA",
+                    "unpairedMsa": "",
+                    "pairedMsa": "",
+                    "templates": [],
+                }
+            }
+        ],
+        "bondedAtomPairs": [],
+        "userCCD": None,
+    }
+
+    af3_modules, folding_input_stub = build_af3_stub_modules()
+    pipeline = MagicMock(process=MagicMock(return_value=feature_payload))
+    with patch.dict(sys.modules, af3_modules), \
+         patch.object(create_features, "create_pipeline_af3", return_value=pipeline), \
+         patch.object(create_features, "folding_input", folding_input_stub), \
+         patch.object(create_features, "iter_seqs", return_value=[("ACDE", "protA")]), \
+         patch.object(
+             create_features.save_meta_data,
+             "get_meta_dict",
+             return_value=metadata,
+         ) as mock_get_meta_dict, \
+         patch("pathlib.Path.write_text", new=real_write_text):
+        create_features.create_af3_individual_features()
+
+    saved = json.loads((tmp_path / "protA_af3_input.json").read_text(encoding="utf-8"))
+    description = saved["sequences"][0]["protein"]["description"]
+    clean_description, saved_metadata = decode_metadata_from_description(description)
+    assert clean_description == "protA"
+    assert saved_metadata == metadata
+    assert not list(tmp_path.glob("*_feature_metadata_*.json*"))
+    captured_flags = mock_get_meta_dict.call_args.args[0]
+    assert captured_flags["ntrna_database_path"].endswith(
+        "nt_rna_2023_02_23_clust_seq_id_90_cov_80_rep_seq.fasta"
+    )
+    assert captured_flags["rfam_database_path"].endswith(
+        "rfam_14_9_clust_seq_id_90_cov_80_rep_seq.fasta"
+    )
+    assert captured_flags["rna_central_database_path"].endswith(
+        "rnacentral_active_seq_id_90_cov_80_linclust.fasta"
+    )
 
 
 def test_create_af3_individual_features_prefills_query_only_msas_when_skip_msa(

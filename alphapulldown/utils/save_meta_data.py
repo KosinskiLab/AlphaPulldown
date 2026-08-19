@@ -32,6 +32,10 @@ DB_NAME_TO_URL = {
         ],
     'PDB seqres' : ["ftp://ftp.wwpdb.org/pub/pdb/derived_data/pdb_seqres.txt"],
     'ColabFold' : ["https://wwwuser.gwdg.de/~compbiol/colabfold/colabfold_envdb_202108.tar.gz"],
+    'NT-RNA': ["https://storage.googleapis.com/alphafold-databases/v3.0/nt_rna_2023_02_23_clust_seq_id_90_cov_80_rep_seq.fasta.zst"],
+    'Rfam': ["https://storage.googleapis.com/alphafold-databases/v3.0/rfam_14_9_clust_seq_id_90_cov_80_rep_seq.fasta.zst"],
+    'RNAcentral': ["https://storage.googleapis.com/alphafold-databases/v3.0/rnacentral_active_seq_id_90_cov_80_linclust.fasta.zst"],
+    'PDB mmCIF': ["https://storage.googleapis.com/alphafold-databases/v3.0/pdb_2022_09_28_mmcif_files.tar.zst"],
 }
 
 def get_program_version(binary_path):
@@ -57,6 +61,57 @@ def get_metadata_for_binary(k, v):
 
 def get_metadata_for_database(k, v):
     name = k.replace("_database_path", "").replace("_dir", "")
+
+    if name == "pdb_seqres":
+        af3_seqres_release = re.search(
+            r"pdb_seqres_(\d{4}_\d{2}_\d{2})", str(v)
+        )
+        if af3_seqres_release:
+            version = af3_seqres_release.group(1)
+            return {
+                "PDB seqres": {
+                    "release_date": version.replace("_", "-"),
+                    "version": version,
+                    "location_url": [
+                        "https://storage.googleapis.com/alphafold-databases/"
+                        f"v3.0/pdb_seqres_{version}.fasta.zst"
+                    ],
+                }
+            }
+
+    af3_databases = {
+        "ntrna": ("NT-RNA", r"(\d{4}_\d{2}_\d{2})", None, None),
+        "rfam": ("Rfam", r"rfam_(\d+_\d+)", None, None),
+        "rna_central": ("RNAcentral", None, "21_0", None),
+        # Scanning every file in this very large directory makes metadata
+        # collection unnecessarily expensive.  The AF3 database bundle has a
+        # fixed release date, which is more meaningful than local mtimes.
+        "template_mmcif": (
+            "PDB mmCIF",
+            None,
+            "2022-09-28",
+            "2022-09-28",
+        ),
+    }
+    if name in af3_databases:
+        (
+            display_name,
+            version_pattern,
+            default_version,
+            default_release_date,
+        ) = af3_databases[name]
+        version = default_version
+        if version_pattern:
+            match = re.search(version_pattern, str(v))
+            if match:
+                version = match.group(1)
+        return {
+            display_name: {
+                "release_date": default_release_date or get_last_modified_date(v),
+                "version": version,
+                "location_url": DB_NAME_TO_URL[display_name],
+            }
+        }
 
     specific_databases = ["pdb70", "bfd"]
     if name in specific_databases:
@@ -152,8 +207,14 @@ def get_last_modified_date(path):
             return datetime.datetime.fromtimestamp(os.path.getmtime(path)).strftime('%Y-%m-%d %H:%M:%S')
 
         logging.info(f"Getting last modified date for {path}")
-        most_recent_timestamp = max((entry.stat().st_mtime for entry in glob.glob(path + '*') if entry.is_file()),
-                                    default=0.0)
+        most_recent_timestamp = max(
+            (
+                os.path.getmtime(entry)
+                for entry in glob.glob(os.path.join(path, "*"))
+                if os.path.isfile(entry)
+            ),
+            default=0.0,
+        )
 
         return datetime.datetime.fromtimestamp(most_recent_timestamp).strftime(
             '%Y-%m-%d %H:%M:%S') if most_recent_timestamp else None
@@ -180,8 +241,12 @@ def parse_version(output):
 def get_hash(filename):
     """Get the md5 hash of a file."""
     md5_hash = hashlib.md5()
-    with open(filename, "rb") as f:
-        # Read and update hash in chunks of 4K
-        for byte_block in iter(lambda: f.read(4096), b""):
-            md5_hash.update(byte_block)
-        return (md5_hash.hexdigest())
+    try:
+        with open(filename, "rb") as f:
+            # Read and update hash in chunks of 4K
+            for byte_block in iter(lambda: f.read(4096), b""):
+                md5_hash.update(byte_block)
+    except OSError as exc:
+        logging.warning(f"Cannot hash database file {filename}: {exc}")
+        return None
+    return md5_hash.hexdigest()

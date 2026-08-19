@@ -21,6 +21,32 @@ for import_path in TEST_IMPORT_PATHS:
         sys.path.insert(0, import_path_str)
 
 
+def _add_installed_af3_extension_path() -> None:
+    """Let vendored AF3 sources use the extension built by its installed wheel."""
+    try:
+        import alphafold3
+    except ImportError:
+        return
+
+    package_paths = {Path(path).resolve() for path in alphafold3.__path__}
+    for import_root in sys.path:
+        if not import_root:
+            continue
+        candidate = Path(import_root) / "alphafold3"
+        try:
+            resolved = candidate.resolve()
+        except OSError:
+            continue
+        if resolved in package_paths or not candidate.is_dir():
+            continue
+        if any(candidate.glob("cpp*.so")):
+            alphafold3.__path__.append(str(candidate))
+            return
+
+
+_add_installed_af3_extension_path()
+
+
 def _install_jax_tree_stub() -> None:
     try:
         import jax  # noqa: F401
@@ -177,6 +203,9 @@ def tmp_flags(monkeypatch, tmp_path):
         pdb70_database_path=None,
         uniprot_database_path=None,
         pdb_seqres_database_path=None,
+        ntrna_database_path=None,
+        rfam_database_path=None,
+        rna_central_database_path=None,
         template_mmcif_dir=None,
         obsolete_pdbs_path=None,
         # misc

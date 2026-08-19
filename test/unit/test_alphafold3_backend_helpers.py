@@ -10,6 +10,11 @@ import numpy as np
 import pytest
 
 from alphapulldown.objects import MonomericObject
+from alphapulldown.utils.feature_metadata import (
+    decode_metadata_from_description,
+    encode_metadata_in_description,
+    extract_metadata_from_fold_input,
+)
 
 
 MODULE_PATH = (
@@ -982,6 +987,84 @@ def test_af3_postprocess_skips_missing_args_and_writes_outputs(
     ]
 
 
+def test_af3_postprocess_enriches_modelcif_from_embedded_and_sidecar_metadata(
+    af3_backend_module,
+    monkeypatch,
+    tmp_path,
+):
+    embedded_metadata = {
+        "software": {"AlphaPulldown": {"version": "2.5.0"}},
+        "databases": {},
+        "other": {"data_pipeline": "alphafold3"},
+    }
+    sidecar_metadata = {
+        "software": {"AlphaFold": {"version": "2.3.2"}},
+        "databases": {},
+        "other": {"data_pipeline": "alphafold2"},
+    }
+    (tmp_path / "protB_feature_metadata_2026-08-19.json").write_text(
+        json.dumps(sidecar_metadata), encoding="utf-8"
+    )
+    fold_input = af3_backend_module.folding_input.Input(
+        name="job",
+        chains=(
+            af3_backend_module.folding_input.ProteinChain(
+                id="A",
+                sequence="ACDE",
+                description=encode_metadata_in_description(
+                    "protA", embedded_metadata
+                ),
+            ),
+        ),
+        rng_seeds=(1,),
+    )
+    best_cif = tmp_path / "job_model.cif"
+    calls = []
+    monkeypatch.setattr(af3_backend_module, "write_outputs", lambda **kwargs: None)
+    monkeypatch.setattr(
+        af3_backend_module,
+        "find_af3_modelcif_files",
+        lambda output_dir, job_name: [best_cif],
+    )
+    monkeypatch.setattr(
+        af3_backend_module,
+        "augment_af3_modelcif_file",
+        lambda path, records: calls.append((path, records)) or True,
+    )
+
+    af3_backend_module.AlphaFold3Backend.postprocess(
+        prediction_results=["result"],
+        output_dir=tmp_path,
+        multimeric_object=fold_input,
+        convert_to_modelcif=True,
+    )
+
+    assert calls == [(best_cif, [embedded_metadata, sidecar_metadata])]
+
+
+def test_af3_postprocess_respects_disabled_modelcif_enrichment(
+    af3_backend_module,
+    monkeypatch,
+    tmp_path,
+):
+    fold_input = af3_backend_module.folding_input.Input(
+        name="job", chains=("A",), rng_seeds=(1,)
+    )
+    monkeypatch.setattr(af3_backend_module, "write_outputs", lambda **kwargs: None)
+    monkeypatch.setattr(
+        af3_backend_module,
+        "augment_af3_modelcif_file",
+        lambda *args, **kwargs: pytest.fail("ModelCIF enrichment should be disabled"),
+    )
+
+    af3_backend_module.AlphaFold3Backend.postprocess(
+        prediction_results=["result"],
+        output_dir=tmp_path,
+        multimeric_object=fold_input,
+        convert_to_modelcif=False,
+    )
+
+
 def _write_stub_af3_json(path: Path, payload: dict) -> Path:
     path.write_text(json.dumps(payload), encoding="utf-8")
     return path
@@ -1032,6 +1115,93 @@ def test_prepare_input_merges_json_chain_and_rewrites_duplicate_ids(
     assert fold_input.chains[1].unpaired_msa == ""
 
 
+def test_prepare_input_transports_af2_sidecar_metadata_into_af3_description(
+    af3_backend_module,
+    tmp_path,
+):
+    feature_dir = tmp_path / "features"
+    feature_dir.mkdir()
+    metadata = {
+        "software": {
+            "AlphaPulldown": {"version": "2.5.0"},
+            "AlphaFold": {"version": "2.3.2"},
+        },
+        "databases": {},
+        "other": {"data_pipeline": "alphafold2"},
+    }
+    (feature_dir / "protA_feature_metadata_2026-08-19.json").write_text(
+        json.dumps(metadata), encoding="utf-8"
+    )
+    monomer = MonomericObject("protA", "ACDE")
+
+    prepared_inputs = af3_backend_module.AlphaFold3Backend.prepare_input(
+        objects_to_model=[{"object": monomer, "output_dir": str(tmp_path)}],
+        random_seed=7,
+        features_directory=[str(feature_dir)],
+    )
+
+    fold_input, _ = next(iter(prepared_inputs[0].items()))
+    clean_description, recovered = decode_metadata_from_description(
+        fold_input.chains[0].description
+    )
+    assert clean_description == "protA"
+    assert recovered == metadata
+
+
+def test_prepare_input_preserves_mixed_af2_and_af3_metadata(
+    af3_backend_module,
+    tmp_path,
+):
+    feature_dir = tmp_path / "features"
+    feature_dir.mkdir()
+    af2_metadata = {
+        "software": {"AlphaFold": {"version": "2.3.2"}},
+        "databases": {},
+        "other": {"data_pipeline": "alphafold2"},
+    }
+    af3_metadata = {
+        "software": {"AlphaFold": {"version": "3.0.2"}},
+        "databases": {},
+        "other": {"data_pipeline": "alphafold3"},
+    }
+    (feature_dir / "protA_feature_metadata_2026-08-19.json").write_text(
+        json.dumps(af2_metadata), encoding="utf-8"
+    )
+    json_path = _write_stub_af3_json(
+        tmp_path / "protB_af3_input.json",
+        {
+            "name": "protB",
+            "chains": [
+                {
+                    "type": "protein",
+                    "id": "B",
+                    "sequence": "GG",
+                    "description": encode_metadata_in_description(
+                        "protB", af3_metadata
+                    ),
+                }
+            ],
+        },
+    )
+
+    prepared_inputs = af3_backend_module.AlphaFold3Backend.prepare_input(
+        objects_to_model=[
+            {
+                "object": [
+                    MonomericObject("protA", "ACDE"),
+                    {"json_input": str(json_path)},
+                ],
+                "output_dir": str(tmp_path),
+            }
+        ],
+        random_seed=11,
+        features_directory=[str(feature_dir)],
+    )
+
+    fold_input, _ = next(iter(prepared_inputs[0].items()))
+    assert extract_metadata_from_fold_input(fold_input) == [af2_metadata, af3_metadata]
+
+
 def test_prepare_input_rejects_regions_for_multi_chain_json_inputs(
     af3_backend_module,
     tmp_path,
@@ -1063,6 +1233,11 @@ def test_prepare_input_slices_single_chain_json_regions_and_promotes_msa(
     af3_backend_module,
     tmp_path,
 ):
+    metadata = {
+        "software": {"AlphaFold": {"version": "3.0.2"}},
+        "databases": {},
+        "other": {"data_pipeline": "alphafold3"},
+    }
     json_path = _write_stub_af3_json(
         tmp_path / "single_chain.json",
         {
@@ -1072,6 +1247,7 @@ def test_prepare_input_slices_single_chain_json_regions_and_promotes_msa(
                     "type": "protein",
                     "id": "Q",
                     "sequence": "ABCDEFGH",
+                    "description": encode_metadata_in_description("query", metadata),
                     "residue_ids": [10, 11, 12, 13, 14, 15, 16, 17],
                     "ptms": [["phospho", 2], ["methyl", 6]],
                     "unpaired_msa": ">query\nABCDEFGH\n",
@@ -1112,6 +1288,7 @@ def test_prepare_input_slices_single_chain_json_regions_and_promotes_msa(
     assert chain.unpaired_msa == ""
     assert len(chain.templates) == 1
     assert chain.templates[0].query_to_template_map == {0: 0, 1: 1, 2: 2, 3: 3}
+    assert decode_metadata_from_description(chain.description) == ("query", metadata)
 
 
 def test_prepare_input_drops_invalid_json_templates_but_keeps_valid_ones(

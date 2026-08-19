@@ -30,6 +30,10 @@ import modelcif.model
 import modelcif.protocol
 
 from alphapulldown.utils.file_handling import iter_seqs
+from alphapulldown.utils.feature_metadata import (
+    decode_metadata_from_description,
+    read_feature_metadata,
+)
 
 # ToDo: Software versions can not have a white space, e.g. ColabFold (drop time)
 # ToDo: DISCUSS Get options properly, best get the same names as used in
@@ -65,7 +69,6 @@ flags.DEFINE_bool(
     + "'--model_selected' to the archive for associated files",
 )
 flags.DEFINE_bool("compress", False, "compress the ModelCIF file(s) using Gzip")
-flags.mark_flags_as_required(["ap_output"])
 
 FLAGS = flags.FLAGS
 
@@ -726,6 +729,7 @@ def _get_software_with_parameters(sw_dict, other_dict):
         "?",
         "alsologtostderr",
         "bfd_database_path",
+        "data_pipeline",
         "data_dir",
         "delta_threshold",
         "description_file",
@@ -740,6 +744,9 @@ def _get_software_with_parameters(sw_dict, other_dict):
         "logger_levels",
         "logtostderr",
         "mgnify_database_path",
+        "nhmmer_binary_path",
+        "hmmalign_binary_path",
+        "ntrna_database_path",
         "obsolete_pdbs_path",
         "only_check_args",
         "op_conversion_fallback_to_while_loop",
@@ -753,6 +760,8 @@ def _get_software_with_parameters(sw_dict, other_dict):
         "run_with_pdb",
         "run_with_profiling",
         "runtime_oom_exit",
+        "rfam_database_path",
+        "rna_central_database_path",
         "showprefixforinfo",
         "small_bfd_database_path",
         "stderrthreshold",
@@ -791,54 +800,119 @@ def _get_software_with_parameters(sw_dict, other_dict):
 def _get_feature_metadata(
     modelcif_json: dict,
     cmplx_name: str,
-    out_dir: list,
+    out_dir: str,
     fallback_structure_path: str | None = None,
-) -> Tuple[List[str], List[str]]:
-    """Read metadata from a feature JSON file."""
+) -> Tuple[str, List[dict]]:
+    """Read AF2 sidecar or embedded AF3 feature metadata.
+
+    AF3 feature JSON cannot contain custom top-level keys because vanilla AF3
+    rejects them.  AlphaPulldown therefore stores its metadata envelope in the
+    standard polymer ``description`` field; this reader understands both that
+    representation and the historical AF2 sidecars.
+    """
     if "__meta__" not in modelcif_json:
         modelcif_json["__meta__"] = {}
     fasta_dicts = []
-    feature_json_files = glob.glob(os.path.join(out_dir, f"*_feature_metadata_*.json"))
-    if feature_json_files:
-        for feature_json in feature_json_files:
-            _file_exists_or_exit(
-                feature_json, f"No feature metadata file '{feature_json}' found."
+
+    def _register_metadata(monomer_name: str, metadata: dict) -> None:
+        databases = metadata.get("databases", {})
+        software = metadata.get("software", {})
+        other = metadata.get("other", {})
+        if not isinstance(databases, dict) or not isinstance(software, dict):
+            logging.warning("Ignoring malformed feature metadata for %s", monomer_name)
+            return
+        if not isinstance(other, dict):
+            other = {}
+        modelcif_json["__meta__"][monomer_name] = {
+            "databases": databases,
+            "software": _get_software_with_parameters(software, other),
+        }
+
+        fasta_paths = other.get("fasta_paths")
+        if fasta_paths is None:
+            return
+        if isinstance(fasta_paths, str):
+            try:
+                fasta_paths = ast.literal_eval(fasta_paths)
+            except (SyntaxError, ValueError):
+                fasta_paths = [fasta_paths]
+        if not isinstance(fasta_paths, (list, tuple)):
+            return
+
+        existing_paths = []
+        missing_paths = []
+        for fasta_path in fasta_paths:
+            fasta_path = str(fasta_path)
+            if os.path.isfile(fasta_path):
+                existing_paths.append(fasta_path)
+            else:
+                relative_path = os.path.join(out_dir, fasta_path)
+                if os.path.isfile(relative_path):
+                    existing_paths.append(relative_path)
+                else:
+                    missing_paths.append(fasta_path)
+        if missing_paths:
+            logging.warning(
+                "FASTA file(s) referenced in feature metadata not found: "
+                + ", ".join(missing_paths)
             )
-            # ToDo: make sure that its always ASCII
-            with open(feature_json, "r", encoding="ascii") as jfh:
-                jdata = json.load(jfh)
-                #mnmr = jdata["protein"] # For backwards compatibility parse from filename
-                mnmr = os.path.basename(feature_json).split("_feature_metadata_")[0]
-                modelcif_json["__meta__"][mnmr] = {}
-                modelcif_json["__meta__"][mnmr]["databases"] = jdata["databases"]
-                modelcif_json["__meta__"][mnmr][
-                    "software"
-                ] = _get_software_with_parameters(jdata["software"], jdata["other"])
-                fp = jdata["other"].get("fasta_paths")
-                if fp is not None:
-                    fp = ast.literal_eval(fp)
-                    existing_fp = []
-                    missing_fp = []
-                    for p in fp:
-                        if os.path.isfile(p):
-                            existing_fp.append(p)
-                        else:
-                            # Also try relative-to-output-dir paths, as users
-                            # often run the converter from a different cwd.
-                            relp = os.path.join(out_dir, p)
-                            if os.path.isfile(relp):
-                                existing_fp.append(relp)
-                            else:
-                                missing_fp.append(p)
-                    if missing_fp:
-                        logging.warning(
-                            "FASTA file(s) referenced in feature metadata not found: "
-                            + ", ".join(missing_fp)
-                        )
-                    for curr_seq, curr_desc in iter_seqs(existing_fp):
-                        new_entry = {"description": curr_desc, "sequence": curr_seq}
-                        if new_entry not in fasta_dicts:
-                            fasta_dicts.append(new_entry)
+        for curr_seq, curr_desc in iter_seqs(existing_paths):
+            new_entry = {"description": curr_desc, "sequence": curr_seq}
+            if new_entry not in fasta_dicts:
+                fasta_dicts.append(new_entry)
+
+    feature_json_files = sorted(
+        set(glob.glob(os.path.join(out_dir, "*_feature_metadata_*.json")))
+        | set(glob.glob(os.path.join(out_dir, "*_feature_metadata_*.json.xz")))
+    )
+    for feature_json in feature_json_files:
+        _file_exists_or_exit(
+            feature_json, f"No feature metadata file '{feature_json}' found."
+        )
+        jdata = read_feature_metadata(feature_json)
+        monomer_name = os.path.basename(feature_json).split("_feature_metadata_")[0]
+        _register_metadata(monomer_name, jdata)
+
+    # AF3 prediction directories contain the exact prepared input as
+    # ``<job>_data.json``.  Feature directories use ``*_af3_input.json``.
+    af3_json_files = sorted(
+        set(glob.glob(os.path.join(out_dir, "*_af3_input.json")))
+        | set(glob.glob(os.path.join(out_dir, "*_data.json")))
+    )
+    for af3_json in af3_json_files:
+        try:
+            with open(af3_json, "r", encoding="utf-8") as handle:
+                payload = json.load(handle)
+        except (OSError, ValueError) as exc:
+            logging.warning("Could not read AF3 feature JSON %s: %s", af3_json, exc)
+            continue
+        sequences = payload.get("sequences") if isinstance(payload, dict) else None
+        if not isinstance(sequences, list):
+            continue
+        for sequence_entry in sequences:
+            if not isinstance(sequence_entry, dict):
+                continue
+            for polymer_type in ("protein", "rna", "dna"):
+                polymer = sequence_entry.get(polymer_type)
+                if not isinstance(polymer, dict):
+                    continue
+                clean_description, metadata = decode_metadata_from_description(
+                    polymer.get("description")
+                )
+                sequence = polymer.get("sequence")
+                chain_id = polymer.get("id", polymer_type)
+                if isinstance(chain_id, list):
+                    chain_id = "_".join(str(value) for value in chain_id)
+                monomer_name = clean_description or str(chain_id)
+                if metadata is not None:
+                    _register_metadata(monomer_name, metadata)
+                if isinstance(sequence, str):
+                    new_entry = {
+                        "description": monomer_name,
+                        "sequence": sequence,
+                    }
+                    if new_entry not in fasta_dicts:
+                        fasta_dicts.append(new_entry)
 
     # Fallback: if FASTA input is missing, we still want a usable sequence
     # mapping (primarily for descriptions) by extracting polymer sequences from
@@ -1177,6 +1251,17 @@ def _get_software_data(meta_json: dict) -> list:
     #       instantiate on the fly, there is anyway a hard-coded-tool-name.
     for data in meta_json.values():
         for sftwr, version in data["software"].items():
+            # AF3 feature generation additionally uses these HMMER programs.
+            # Instantiate them only when present so historical AF2 ModelCIF
+            # output does not gain unused software rows.
+            if sftwr in {"nhmmer", "hmmalign"} and sftwr not in sw_data:
+                descriptions = {
+                    "nhmmer": "Search nucleotide sequence(s) against a profile",
+                    "hmmalign": "Align sequence(s) to a profile HMM",
+                }
+                sw_data[sftwr] = _HmmerSW(
+                    sftwr, description=descriptions[sftwr]
+                )
             if sftwr not in sw_data:
                 raise RuntimeError(
                     "Unknown software found in meta data: " + f"'{sftwr}'"
@@ -1446,6 +1531,9 @@ def main(argv):
     # pylint: enable=pointless-string-statement
     del argv  # Unused.
 
+    if not FLAGS.ap_output:
+        raise ValueError("--ap_output is required")
+
     # get list of selected models and assemble ModelCIF files + associated data
     models = _get_model_list(
         FLAGS.ap_output,
@@ -1487,6 +1575,7 @@ def main(argv):
 
 
 if __name__ == "__main__":
+    flags.mark_flags_as_required(["ap_output"])
     app.run(main)
 
 # ToDo: Things to look at: '_struct.title', '_struct.pdbx_model_details',

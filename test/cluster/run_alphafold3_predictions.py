@@ -231,6 +231,10 @@ def write_job_script(
 
     env_lines = [
         "export PYTHONUNBUFFERED=1",
+        # Invoking a conda interpreter by absolute path does not activate its
+        # environment.  Keep external AF3 tools such as jackhmmer and nhmmer
+        # resolvable from the same environment selected by ``--python``.
+        f"export PATH={_quote(str(Path(python_executable).resolve().parent))}:\"$PATH\"",
     ]
     if include_perf:
         env_lines.append("export AF3_RUN_PERF_TESTS=1")

@@ -49,6 +49,16 @@ from alphapulldown.utils.af2_to_af3_msa import (
     translate_af2_complex_msa_to_af3_unpaired_chain_msas_with_stats,
 )
 from alphapulldown.utils.msa_encoding import ids_to_a3m_af3
+from alphapulldown.utils.af3_modelcif import (
+    augment_af3_modelcif_file,
+    find_af3_modelcif_files,
+)
+from alphapulldown.utils.feature_metadata import (
+    encode_metadata_in_description,
+    extract_metadata_from_fold_input,
+    find_feature_metadata,
+    load_feature_metadata_sidecars,
+)
 
 
 
@@ -814,6 +824,26 @@ class AlphaFold3Backend(FoldingBackend):
         for i, entry in enumerate(objects_to_model):
             logging.info(f"Object {i}: {entry}")
 
+        @functools.lru_cache(maxsize=None)
+        def _description_with_af2_feature_metadata(
+            output_description: str,
+            source_description: str,
+        ) -> str:
+            try:
+                metadata = find_feature_metadata(
+                    source_description, features_directory
+                )
+            except (OSError, ValueError) as exc:
+                logging.warning(
+                    "Could not read feature metadata for %s: %s",
+                    source_description,
+                    exc,
+                )
+                return output_description
+            if metadata is None:
+                return output_description
+            return encode_metadata_in_description(output_description, metadata)
+
         @dataclasses.dataclass(frozen=True, slots=True)
         class _TranslatedMsaDebugRecord:
             chain_id: str
@@ -1335,6 +1365,7 @@ class AlphaFold3Backend(FoldingBackend):
                     folding_input.ProteinChain,
                     id=chain.id,
                     sequence=sliced_sequence,
+                    description=getattr(chain, "description", None),
                     ptms=_slice_positioned_modifications_to_regions(
                         chain.ptms,
                         regions,
@@ -1359,6 +1390,7 @@ class AlphaFold3Backend(FoldingBackend):
                     folding_input.RnaChain,
                     id=chain.id,
                     sequence=sliced_sequence,
+                    description=getattr(chain, "description", None),
                     modifications=_slice_positioned_modifications_to_regions(
                         chain.modifications,
                         regions,
@@ -1375,6 +1407,7 @@ class AlphaFold3Backend(FoldingBackend):
                     folding_input.DnaChain,
                     id=chain.id,
                     sequence=sliced_sequence,
+                    description=getattr(chain, "description", None),
                     modifications=_slice_positioned_modifications_to_regions(
                         chain.modifications(),
                         regions,
@@ -1800,13 +1833,20 @@ class AlphaFold3Backend(FoldingBackend):
                         except Exception as save_error:
                             logging.error(f"Failed to save error info: {save_error}")
                         raise
+            source_description = getattr(
+                mono_obj, "monomeric_description", mono_obj.description
+            )
+            chain_description = _description_with_af2_feature_metadata(
+                mono_obj.description,
+                source_description,
+            )
             chain = _construct_chain(
                 folding_input.ProteinChain,
                 id=chain_id,
                 sequence=sequence,
                 ptms=[],
                 residue_ids=residue_ids,
-                description=mono_obj.description,
+                description=chain_description,
                 unpaired_msa=unpaired_msa,
                 paired_msa=paired_msa,
                 templates=templates,
@@ -1944,7 +1984,7 @@ class AlphaFold3Backend(FoldingBackend):
                             sequence=_chain_input_sequence(base_chain),
                             ptms=base_chain.ptms,
                             residue_ids=getattr(base_chain, "residue_ids", None),
-                            description=interactor.description,
+                            description=getattr(base_chain, "description", None),
                             unpaired_msa=chain_msas.unpaired_msa,
                             paired_msa=chain_msas.paired_msa,
                             templates=base_chain.templates,
@@ -2147,6 +2187,38 @@ class AlphaFold3Backend(FoldingBackend):
             output_dir=output_dir,
             job_name=job_name,
         )
+
+        if kwargs.get("convert_to_modelcif", True):
+            metadata_records = extract_metadata_from_fold_input(fold_input_obj)
+            try:
+                metadata_records.extend(load_feature_metadata_sidecars(output_dir))
+            except (OSError, ValueError) as exc:
+                logging.warning(
+                    "Could not read copied feature metadata from %s: %s",
+                    output_dir,
+                    exc,
+                )
+
+            # AF2 metadata may be present both in the transported description
+            # and as a copied sidecar.  Deduplicate exact records before adding
+            # ModelCIF categories.
+            unique_metadata = []
+            seen_metadata = set()
+            for metadata in metadata_records:
+                fingerprint = json.dumps(metadata, sort_keys=True, default=str)
+                if fingerprint not in seen_metadata:
+                    seen_metadata.add(fingerprint)
+                    unique_metadata.append(metadata)
+
+            for cif_path in find_af3_modelcif_files(output_dir, job_name):
+                try:
+                    augment_af3_modelcif_file(cif_path, unique_metadata)
+                except (OSError, ValueError) as exc:
+                    logging.warning(
+                        "Could not add AlphaPulldown metadata to %s: %s",
+                        cif_path,
+                        exc,
+                    )
 
         # Apply the AF3 storage preset (no-op for the default 'vanilla').
         from alphapulldown.utils.post_modelling import post_prediction_process_af3

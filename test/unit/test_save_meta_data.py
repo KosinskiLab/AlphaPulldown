@@ -115,6 +115,65 @@ def test_get_metadata_for_database_handles_release_dated_databases(monkeypatch):
     assert "2022_05" in mgnify["MGnify"]["location_url"][0]
 
 
+@pytest.mark.parametrize(
+    ("key", "path", "expected_name", "expected_version"),
+    [
+        (
+            "ntrna_database_path",
+            "/db/nt_rna_2023_02_23_clust.fasta",
+            "NT-RNA",
+            "2023_02_23",
+        ),
+        ("rfam_database_path", "/db/rfam_14_9.fasta", "Rfam", "14_9"),
+        (
+            "rna_central_database_path",
+            "/db/rnacentral.fasta",
+            "RNAcentral",
+            "21_0",
+        ),
+        ("template_mmcif_dir", "/db/mmcif_files", "PDB mmCIF", "2022-09-28"),
+    ],
+)
+def test_get_metadata_for_database_handles_af3_databases(
+    monkeypatch, key, path, expected_name, expected_version
+):
+    monkeypatch.setattr(
+        save_meta_data,
+        "get_last_modified_date",
+        lambda _: "2026-08-19 12:00:00",
+    )
+
+    metadata = save_meta_data.get_metadata_for_database(key, path)
+
+    assert list(metadata) == [expected_name]
+    assert metadata[expected_name]["version"] == expected_version
+    expected_release_date = (
+        "2022-09-28"
+        if key == "template_mmcif_dir"
+        else "2026-08-19 12:00:00"
+    )
+    assert metadata[expected_name]["release_date"] == expected_release_date
+    assert metadata[expected_name]["location_url"]
+
+
+def test_get_metadata_for_database_uses_af3_pdb_seqres_release_without_hashing(
+    monkeypatch,
+):
+    def fail_if_called(_):
+        raise AssertionError("AF3 PDB seqres should not be hashed")
+
+    monkeypatch.setattr(save_meta_data, "get_hash", fail_if_called)
+
+    metadata = save_meta_data.get_metadata_for_database(
+        "pdb_seqres_database_path",
+        "/db/pdb_seqres_2022_09_28.fasta",
+    )["PDB seqres"]
+
+    assert metadata["version"] == "2022_09_28"
+    assert metadata["release_date"] == "2022-09-28"
+    assert "pdb_seqres_2022_09_28" in metadata["location_url"][0]
+
+
 def test_get_metadata_for_database_returns_empty_for_unknown_key():
     assert save_meta_data.get_metadata_for_database("custom_path", "/db/custom") == {}
 
@@ -178,27 +237,21 @@ def test_get_last_modified_date_returns_timestamp_for_regular_file(tmp_path):
 
 
 def test_get_last_modified_date_uses_globbed_directory_entries(monkeypatch):
-    class FakeStat:
-        def __init__(self, ts):
-            self.st_mtime = ts
-
-    class FakeEntry:
-        def __init__(self, ts, is_file=True):
-            self._ts = ts
-            self._is_file = is_file
-
-        def is_file(self):
-            return self._is_file
-
-        def stat(self):
-            return FakeStat(self._ts)
-
     monkeypatch.setattr(save_meta_data.os.path, "exists", lambda _: True)
-    monkeypatch.setattr(save_meta_data.os.path, "isfile", lambda _: False)
+    monkeypatch.setattr(
+        save_meta_data.os.path,
+        "isfile",
+        lambda path: path in {"/db/dir/a", "/db/dir/b"},
+    )
+    monkeypatch.setattr(
+        save_meta_data.os.path,
+        "getmtime",
+        lambda path: {"/db/dir/a": 10, "/db/dir/b": 20}[path],
+    )
     monkeypatch.setattr(
         save_meta_data.glob,
         "glob",
-        lambda pattern: [FakeEntry(10), FakeEntry(20), FakeEntry(5, is_file=False)],
+        lambda pattern: ["/db/dir/a", "/db/dir/b", "/db/dir/subdir"],
     )
 
     result = save_meta_data.get_last_modified_date("/db/dir")
@@ -213,3 +266,7 @@ def test_get_hash_matches_md5_digest(tmp_path):
     digest = save_meta_data.get_hash(str(path))
 
     assert digest == hashlib.md5(b"AlphaPulldown").hexdigest()
+
+
+def test_get_hash_returns_none_for_missing_database_file(tmp_path):
+    assert save_meta_data.get_hash(str(tmp_path / "missing")) is None
