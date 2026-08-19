@@ -93,7 +93,6 @@ def test_embed_metadata_uses_only_standard_af3_polymer_description(polymer_type)
 
 
 def test_embedded_json_is_accepted_and_round_tripped_by_vanilla_alphafold3():
-    pytest.importorskip("alphafold3.common.folding_input")
     embedded = embed_metadata_in_af3_json(_af3_payload(), METADATA)
     script = """
 import json
@@ -118,11 +117,14 @@ print(parsed.to_json())
         capture_output=True,
         check=False,
     )
-    if (
-        result.returncode != 0
-        and "No module named 'alphafold3.cpp'" in result.stderr
+    unavailable_errors = (
+        "No module named 'alphafold3",
+        "cannot import name 'Self' from 'typing'",
+    )
+    if result.returncode != 0 and any(
+        error in result.stderr for error in unavailable_errors
     ):
-        pytest.skip("vanilla AF3 parser requires its optional compiled extension")
+        pytest.skip("vanilla AF3 parser is unavailable in this test environment")
     assert result.returncode == 0, result.stderr
     round_tripped = json.loads(result.stdout)
     assert extract_metadata_from_af3_json(round_tripped) == [METADATA]

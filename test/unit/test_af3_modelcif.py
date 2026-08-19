@@ -43,34 +43,30 @@ METADATA_AF2 = {
 
 
 def _baseline_cif():
-    mmcif = pytest.importorskip("alphafold3.structure.mmcif")
-    return mmcif.from_string(
-        """data_test
-_entry.id test
-_ma_data.id 1
-_ma_data.name Model
-_ma_data.content_type 'model coordinates'
-_software.pdbx_ordinal 1
-_software.name AlphaFold
-_software.classification other
-_software.description 'Structure prediction'
-_software.version 3.0.2
-_software.type package
-_software.date ?
-_ma_software_group.ordinal_id 1
-_ma_software_group.group_id 1
-_ma_software_group.software_id 1
-loop_
-_ma_protocol_step.ordinal_id
-_ma_protocol_step.protocol_id
-_ma_protocol_step.step_id
-_ma_protocol_step.method_type
-1 1 1 'coevolution MSA'
-2 1 2 'template search'
-3 1 3 modeling
-#
-"""
-    )
+    return {
+        "_entry.id": ("test",),
+        "_ma_data.id": ("1",),
+        "_ma_data.name": ("Model",),
+        "_ma_data.content_type": ("model coordinates",),
+        "_software.pdbx_ordinal": ("1",),
+        "_software.name": ("AlphaFold",),
+        "_software.classification": ("other",),
+        "_software.description": ("Structure prediction",),
+        "_software.version": ("3.0.2",),
+        "_software.type": ("package",),
+        "_software.date": ("?",),
+        "_ma_software_group.ordinal_id": ("1",),
+        "_ma_software_group.group_id": ("1",),
+        "_ma_software_group.software_id": ("1",),
+        "_ma_protocol_step.ordinal_id": ("1", "2", "3"),
+        "_ma_protocol_step.protocol_id": ("1", "1", "1"),
+        "_ma_protocol_step.step_id": ("1", "2", "3"),
+        "_ma_protocol_step.method_type": (
+            "coevolution MSA",
+            "template search",
+            "modeling",
+        ),
+    }
 
 
 def test_build_updates_covers_af3_and_af2_feature_provenance():
@@ -132,7 +128,8 @@ def test_build_updates_uses_omitted_value_for_unknown_database_release_date():
 
 
 def test_build_updates_removes_transport_envelope_from_entity_description():
-    cif = _baseline_cif().copy_and_update(
+    cif = _baseline_cif()
+    cif.update(
         {
             "_entity.id": ["1", "2"],
             "_entity.type": ["polymer", "polymer"],
@@ -154,7 +151,7 @@ def test_build_updates_removes_transport_envelope_from_entity_description():
 def test_augment_real_af3_modelcif_preserves_comments_and_is_modelcif_readable(
     tmp_path,
 ):
-    pytest.importorskip("alphafold3.structure.mmcif")
+    pytest.importorskip("alphafold3.structure.mmcif", exc_type=ImportError)
     modelcif_reader = pytest.importorskip("modelcif.reader")
     fixture = (
         Path(__file__).resolve().parents[1]
