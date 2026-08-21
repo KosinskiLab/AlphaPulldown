@@ -650,7 +650,7 @@ manually).
 - `--use_precomputed_msas` / `--save_msa_files` – reuse stored MSAs (`<output_dir>/<protein>.a3m`) or
   keep new ones for later runs. Required to reuse precomputed MMseqs2/ColabFold a3m files rather
   than regenerating them.
-- `--compress_features` – zip the generated `*.pkl` files (`.xz` extension) to save space.
+- `--compress_features` – compress the generated features to save space: `*.pkl.xz` for the AlphaFold2 pipeline, `*_af3_input.json.xz` for AlphaFold3. Both are read back transparently, so compressed feature sets can be used directly (this is how the [features database](https://alphapulldown.s3.embl.de) ships them).
 - `--skip_existing` – leave existing feature files untouched (safe for reruns).
 - `--seq_index N` – only process the N‑th sequence from the FASTA list.
 - `--use_hhsearch`, `--re_search_templates_mmseqs2` – toggle template search implementations.
