@@ -1,5 +1,9 @@
 # syntax=docker/dockerfile:1.4
 
+# Global build args must be declared before the first FROM so that every stage's
+# FROM line can interpolate them.
+ARG CUDA=12.2.2
+
 # ---------------------------------------------------------------------------
 # Patched HHblits, built in a throwaway stage so the runtime image never gains
 # a toolchain.
@@ -33,7 +37,6 @@ RUN set -eux; \
     cmake --build build -j"$(nproc)"; \
     cmake --install build
 
-ARG CUDA=12.2.2
 FROM nvidia/cuda:${CUDA}-cudnn8-runtime-ubuntu20.04
 ARG CUDA
 
