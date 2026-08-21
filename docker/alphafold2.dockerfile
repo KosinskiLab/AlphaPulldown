@@ -47,6 +47,38 @@ RUN set -eux; \
       git \
     && micromamba clean -a -y
 
+# Replace conda's hhblits with a patched build.
+#
+# Stock hhblits keys its realignment bookkeeping by database entry NAME, but ffindex
+# names are unique only within one database. AlphaFold searches two at once
+# (-d bfd -d uniref30), so identically named entries collide and the wrong HMM is
+# reused during MAC realignment, aborting long queries with
+#   MergeMasterSlave: did not find N match states in sequence 1 of <hit>
+# soedinglab/hh-suite#389 keys those maps by the concrete HHEntry* instead. It is
+# unmerged and absent from every release (3.3.0 is the newest and master still has
+# the bug), so it is built here from master + the vendored patch. The version is
+# bumped to 3.3.1 so features generated with it are distinguishable in metadata.
+COPY docker/patches/hhsuite-pr389.diff /tmp/hhsuite-pr389.diff
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    set -eux; \
+    apt-get update; \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      build-essential cmake git; \
+    git clone --recursive https://github.com/soedinglab/hh-suite.git /tmp/hh-suite; \
+    cd /tmp/hh-suite; \
+    git apply --exclude=data/test.sh /tmp/hhsuite-pr389.diff; \
+    sed -i 's/set(HHSUITE_VERSION_PATCH 0)/set(HHSUITE_VERSION_PATCH 1)/' CMakeLists.txt; \
+    mkdir build && cd build; \
+    cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_INSTALL_PREFIX=/opt/hhsuite ..; \
+    make -j"$(nproc)"; \
+    make install; \
+    install -m 0755 /opt/hhsuite/bin/hhblits /opt/conda/bin/hhblits; \
+    /opt/conda/bin/hhblits -h 2>&1 | head -1 | grep -q 'HHblits 3.3.1'; \
+    apt-get purge -y build-essential cmake git; apt-get autoremove -y; \
+    rm -rf /tmp/hh-suite /tmp/hhsuite-pr389.diff /var/lib/apt/lists/*
+
 #RUN micromamba run -n base python -m pip install --no-cache-dir "openmm==8.1.1"
 RUN python -m pip install --no-cache-dir "setuptools<82" # setuptools>82 breaks pdbfixer at relaxation
 
