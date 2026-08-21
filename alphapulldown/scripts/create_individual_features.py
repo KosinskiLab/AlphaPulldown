@@ -29,7 +29,7 @@ from alphafold.data.tools import hmmsearch, hhsearch
 # AlphaPulldown helpers
 from alphapulldown.utils.create_custom_template_db import create_db
 from alphapulldown.objects import MonomericObject
-from alphapulldown.utils.file_handling import iter_seqs, parse_csv_file
+from alphapulldown.utils.file_handling import iter_seqs, parse_csv_file, resolve_af3_input
 from alphapulldown.utils.modelling_setup import create_uniprot_runner
 from alphapulldown.utils.multimeric_template_utils import (
     extract_multimeric_template_features_for_single_chain,
@@ -765,9 +765,12 @@ def create_af3_individual_features():
     metadata_by_kind = {}
     for seq_idx, (seq, desc) in enumerate(iter_seqs(FLAGS.fasta_paths), 1):
         if FLAGS.seq_index is None or seq_idx == FLAGS.seq_index:
-            # Check if output file already exists and skip if requested
-            outpath = Path(FLAGS.output_dir) / f"{desc}_af3_input.json"
-            if FLAGS.skip_existing and outpath.exists():
+            # Check if output file already exists and skip if requested. Either
+            # spelling counts as existing, so a compressed feature set is not
+            # silently regenerated (and vice versa).
+            plain = Path(FLAGS.output_dir) / f"{desc}_af3_input.json"
+            outpath = Path(str(plain) + ".xz") if FLAGS.compress_features else plain
+            if FLAGS.skip_existing and resolve_af3_input(plain) is not None:
                 logging.info(f"Feature file for {desc} already exists. Skipping...")
                 continue
             
@@ -812,10 +815,14 @@ def create_af3_individual_features():
                     logging.warning(
                         "Could not embed feature metadata for %s: %s", desc, exc
                     )
-                outpath.write_text(
-                    json.dumps(feature_payload, ensure_ascii=False, indent=2) + "\n",
-                    encoding="utf-8",
+                payload_text = (
+                    json.dumps(feature_payload, ensure_ascii=False, indent=2) + "\n"
                 )
+                if FLAGS.compress_features:
+                    with lzma.open(outpath, "wt", encoding="utf-8") as handle:
+                        handle.write(payload_text)
+                else:
+                    outpath.write_text(payload_text, encoding="utf-8")
                     
             except Exception as e:
                 logging.error(f"Failed to create AlphaFold3 input object for {desc}: {e}")

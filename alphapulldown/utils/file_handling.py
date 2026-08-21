@@ -2,7 +2,38 @@ import os
 from absl import logging
 import csv
 import contextlib
+import lzma
 import tempfile
+from pathlib import Path
+
+AF3_INPUT_SUFFIX = "_af3_input.json"
+
+def read_maybe_xz(path) -> str:
+    """Read a text file that may be lzma-compressed, chosen by its suffix."""
+    path = str(path)
+    if path.endswith(".xz"):
+        with lzma.open(path, "rt", encoding="utf-8") as handle:
+            return handle.read()
+    with open(path, "r") as handle:
+        return handle.read()
+
+def resolve_af3_input(path) -> str | None:
+    """Existing path for an AF3 feature file, accepting a compressed variant.
+
+    AF2 features are published as ``.pkl.xz`` and read transparently; AF3 feature
+    JSONs are large and compress ~8x, so the same courtesy applies here. Given
+    either spelling, return whichever exists, preferring the exact path.
+    """
+    path = str(path)
+    candidates = [path]
+    if path.endswith(".xz"):
+        candidates.append(path[: -len(".xz")])
+    else:
+        candidates.append(path + ".xz")
+    for candidate in candidates:
+        if Path(candidate).is_file():
+            return candidate
+    return None
 
 
 @contextlib.contextmanager

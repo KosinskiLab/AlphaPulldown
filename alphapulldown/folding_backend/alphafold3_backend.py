@@ -53,6 +53,7 @@ from alphapulldown.utils.af3_modelcif import (
     augment_af3_modelcif_file,
     find_af3_modelcif_files,
 )
+from alphapulldown.utils.file_handling import read_maybe_xz, resolve_af3_input
 from alphapulldown.utils.feature_metadata import (
     encode_metadata_in_description,
     extract_metadata_from_fold_input,
@@ -1865,8 +1866,14 @@ class AlphaFold3Backend(FoldingBackend):
                 json_regions = obj.get('regions')
                 logging.info(f"Processing JSON file: {json_path}")
                 try:
-                    with open(json_path, 'r') as f:
-                        json_str = f.read()
+                    # Accept a compressed feature file: the published database
+                    # ships AF3 inputs as .json.xz, mirroring AF2's .pkl.xz.
+                    resolved = resolve_af3_input(json_path)
+                    if resolved is None:
+                        raise FileNotFoundError(json_path)
+                    if resolved != json_path:
+                        logging.info(f"Using compressed feature file: {resolved}")
+                    json_str = read_maybe_xz(resolved)
                     input_obj = folding_input.Input.from_json(json_str)
                     chains_to_add = _expand_json_input_chains(
                         chains=input_obj.chains,
