@@ -132,6 +132,22 @@ RUN pip3 install --upgrade pip --no-cache-dir \
 # numpy<2 as the LAST dependency step. jax 0.5.3 runs fine with numpy 1.26.x.
 RUN pip install --no-cache-dir "numpy<2"
 
+# AlphaFold's template code formats a hit's `sum_probs` with %.2f in the error
+# path of `_process_single_hit`, but sum_probs is legitimately None for some hits
+# - the same function's *warning* path already prints it with %s, and
+# `_build_query_to_hit_index_mapping`'s caller guards for None explicitly. So any
+# query whose template hits include one with sum_probs=None and a featurisation
+# error dies with
+#   TypeError: must be real number, not NoneType
+# instead of skipping that template. Observed on 30 of 2337 UniProt queries in the
+# feature-database backfill. Make the error path match the warning path.
+RUN AF_TEMPLATES="$(python -c 'import alphafold.data.templates as t; print(t.__file__)')" \
+ && grep -q "sum_probs: %.2f" "$AF_TEMPLATES" \
+ && sed -i "s/(sum_probs: %\.2f, rank: %d)/(sum_probs: %s, rank: %s)/" "$AF_TEMPLATES" \
+ && ! grep -q "sum_probs: %.2f" "$AF_TEMPLATES" \
+ && python -c "import alphafold.data.templates" \
+ && echo "patched sum_probs formatting in $AF_TEMPLATES"
+
 # Strip Python caches to reduce layer size
 RUN find /opt/conda -type d -name "__pycache__" -prune -exec rm -rf {} + \
  && find /opt/conda -type f -name "*.pyc" -delete \
