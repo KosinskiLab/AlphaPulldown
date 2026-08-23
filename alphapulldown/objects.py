@@ -21,6 +21,7 @@ from colabfold.batch import get_msa_and_templates, msa_to_str, build_monomer_fea
 from alphapulldown.utils.multimeric_template_utils import (extract_multimeric_template_features_for_single_chain,
                                                      prepare_multimeric_template_meta_info)
 from alphapulldown.utils.file_handling import temp_fasta_file
+from alphapulldown.utils.msa_integrity import validate_precomputed_msas
 from alphapulldown.utils.mmseqs_species_identifiers import (
     enrich_mmseq_feature_dict_with_identifiers,
     strip_mmseq_comment_lines,
@@ -202,6 +203,15 @@ class MonomericObject:
         logging.info(
             "will save msa files in :{}".format(msa_output_dir))
         plPath(msa_output_dir).mkdir(parents=True, exist_ok=True)
+
+        # AlphaFold reuses whatever alignments it finds here without checking
+        # them, so a file left behind by a killed job is read back as if it were
+        # complete. Drop the unsound ones first: an empty uniref90_hits.sto
+        # otherwise surfaces as StopIteration deep inside the Stockholm parser,
+        # and a *partially* written one silently yields shallower features.
+        if use_precomputed_msa:
+            validate_precomputed_msas(msa_output_dir, remove_invalid=True)
+
         self.skip_msa = skip_msa
         if skip_msa:
             self.feature_dict = self._build_query_only_feature_dict()
