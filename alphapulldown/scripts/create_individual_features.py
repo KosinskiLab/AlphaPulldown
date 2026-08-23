@@ -29,13 +29,22 @@ from alphafold.data.tools import hmmsearch, hhsearch
 # AlphaPulldown helpers
 from alphapulldown.utils.create_custom_template_db import create_db
 from alphapulldown.objects import MonomericObject
-from alphapulldown.utils.file_handling import iter_seqs, parse_csv_file, resolve_af3_input
+from alphapulldown.utils.file_handling import (
+    iter_seqs,
+    parse_csv_file,
+    read_maybe_xz,
+    resolve_af3_input,
+)
 from alphapulldown.utils.modelling_setup import create_uniprot_runner
 from alphapulldown.utils.multimeric_template_utils import (
     extract_multimeric_template_features_for_single_chain,
 )
 from alphapulldown.utils import save_meta_data
 from alphapulldown.utils.feature_metadata import embed_metadata_in_af3_json
+from alphapulldown.utils.template_reuse import (
+    msa_for_template_search,
+    search_templates,
+)
 
 # Try to import AlphaFold3, but it's optional
 AF3_IMPORT_ERROR = None
@@ -156,6 +165,14 @@ flags.DEFINE_string("new_uniclust_dir", None, "")
 flags.DEFINE_integer("seq_index", None, "")
 flags.DEFINE_boolean("use_hhsearch", False, "")
 flags.DEFINE_boolean("compress_features", False, "")
+flags.DEFINE_boolean(
+    "keep_msas", False,
+    "Update existing features in --output_dir in place: keep their MSAs and "
+    "re-run only the template search. Use this when the template database or "
+    "--max_template_date has changed but the alignments are still valid; it "
+    "costs a template search instead of a full MSA run. Features that do not "
+    "already exist are generated normally.",
+)
 flags.DEFINE_string("path_to_mmt", None, "")
 flags.DEFINE_string("description_file", None, "")
 flags.DEFINE_float("threshold_clashes", 1000, "")
@@ -204,6 +221,20 @@ def validate_data_pipeline_flags():
         raise ValueError(
             "AlphaFold3 does not support --use_mmseqs2. "
             "Please provide local databases via --data_dir."
+        )
+    if FLAGS.keep_msas and FLAGS.use_mmseqs2:
+        # MMseqs2 obtains MSAs and templates together from the remote server;
+        # there is no separable template search to re-run against a local
+        # database, so the combination cannot do what the flag promises.
+        raise ValueError(
+            "--keep_msas cannot be combined with --use_mmseqs2: the MMseqs2 "
+            "path fetches MSAs and templates together and has no standalone "
+            "template search to re-run."
+        )
+    if FLAGS.keep_msas and FLAGS.skip_msa:
+        raise ValueError(
+            "--keep_msas cannot be combined with --skip_msa: there are no MSAs "
+            "to keep when MSA generation is skipped."
         )
 
 def get_database_path(key):
@@ -468,6 +499,12 @@ def create_individual_features():
     
     for seq_idx, (seq, desc) in enumerate(iter_seqs(FLAGS.fasta_paths), 1):
         if FLAGS.seq_index is None or seq_idx == FLAGS.seq_index:
+            # --keep_msas updates existing features in place. When none exist
+            # yet there is nothing to keep, so fall through and generate them.
+            if FLAGS.keep_msas and _update_templates_keeping_msas(
+                desc, seq, pipeline
+            ):
+                continue
             monomer = MonomericObject(desc, seq)
             monomer.uniprot_runner = uniprot_runner
             create_and_save_monomer_objects(monomer, pipeline)
@@ -562,6 +599,70 @@ def _replace_template_features(monomer, template_features):
         )
 
 
+def _existing_monomer_for_update(description, sequence):
+    """Load existing features for in-place update, or None to regenerate.
+
+    Shared by the two modes that rewrite an existing monomer's templates
+    (TrueMultimer reuse and ``--keep_msas``). A sequence mismatch means the
+    stored features describe a different protein under the same name, so they
+    must not be updated in place.
+    """
+    monomer = _load_existing_monomer_from_output_dir(description)
+    if monomer is None:
+        return None
+    stored = getattr(monomer, "sequence", None)
+    if stored != sequence:
+        logging.warning(
+            "Existing features for %s hold sequence %s but the input FASTA has "
+            "%s; regenerating from scratch instead of updating templates.",
+            description, stored, sequence,
+        )
+        return None
+    return monomer
+
+
+def _update_templates_keeping_msas(description, sequence, pipeline):
+    """Re-run template search for one existing monomer, keeping its MSAs.
+
+    Returns True when the stored features were updated, False when there is
+    nothing to update and the caller should generate features normally.
+    """
+    monomer = _existing_monomer_for_update(description, sequence)
+    if monomer is None:
+        return False
+
+    template_searcher = getattr(pipeline, "template_searcher", None)
+    template_featurizer = getattr(pipeline, "template_featurizer", None)
+    if template_searcher is None or template_featurizer is None:
+        raise RuntimeError(
+            "--keep_msas needs a template searcher and featurizer, but the "
+            "pipeline provides none. Template search cannot be skipped in this "
+            "mode, since re-running it is the entire point."
+        )
+
+    msa_output_dir = Path(FLAGS.output_dir) / description
+    msa = msa_for_template_search(monomer, msa_output_dir)
+    template_features = search_templates(
+        template_searcher,
+        template_featurizer,
+        query_sequence=sequence,
+        stockholm_msa=msa.stockholm,
+        msa_output_dir=msa_output_dir,
+    )
+    _replace_template_features(monomer, template_features)
+    # Keep the provenance with the features: which alignment drove the search
+    # decides whether the hits reproduce a fresh run (see template_reuse).
+    monomer.template_msa_source = msa.source
+    _persist_monomer_outputs(monomer)
+    logging.info(
+        "Updated templates for %s from %s (MSAs kept, %d template(s)).",
+        description, msa.source,
+        int(np.asarray(template_features.get("template_domain_names", [])).shape[0])
+        if "template_domain_names" in template_features else 0,
+    )
+    return True
+
+
 def _reuse_truemultimer_monomer_features(feat):
     if FLAGS.use_mmseqs2 or len(feat["templates"]) != 1 or len(feat["chains"]) != 1:
         return None
@@ -569,7 +670,10 @@ def _reuse_truemultimer_monomer_features(feat):
     source_name = _infer_truemultimer_source_name(
         feat["protein"], feat["templates"], feat["chains"]
     )
-    monomer = _load_existing_monomer_from_output_dir(source_name)
+    # Shares the load-and-validate step with --keep_msas: both modes rewrite an
+    # existing monomer's templates and must refuse when the stored features
+    # describe a different sequence.
+    monomer = _existing_monomer_for_update(source_name, feat["sequence"])
     if monomer is None:
         return None
     cached_skip_msa = getattr(monomer, "skip_msa", False)
@@ -582,15 +686,6 @@ def _reuse_truemultimer_monomer_features(feat):
             source_name,
             cached_mode,
             requested_mode,
-        )
-        return None
-    if monomer.sequence != feat["sequence"]:
-        logging.warning(
-            "Existing monomer features for %s use sequence %s, but the current "
-            "TrueMultimer entry expects %s. Falling back to full feature generation.",
-            source_name,
-            monomer.sequence,
-            feat["sequence"],
         )
         return None
 
@@ -747,6 +842,70 @@ def create_pipeline_af3():
     )
     return AF3DataPipeline(config)
 
+def _af3_chain_without_templates(chain):
+    """Copy a protein chain keeping its MSAs but clearing its templates.
+
+    AlphaFold3's data pipeline dispatches on which of the three fields are set,
+    and one branch is exactly what ``--keep_msas`` wants::
+
+        elif has_unpaired_msa and has_paired_msa and not has_templates:
+            # Has MSA, but doesn't have templates. Search for templates only.
+
+    The distinction that matters: ``templates=[]`` means "no templates, do not
+    search", while ``templates=None`` means "search". A chain with only some of
+    the three set is rejected by AF3 outright, so both MSAs must be carried
+    over. Non-protein chains have no template search and pass through.
+    """
+    if folding_input is None or not isinstance(chain, folding_input.ProteinChain):
+        return chain
+    if chain.unpaired_msa is None or chain.paired_msa is None:
+        # Nothing to preserve - let the normal path search everything.
+        return chain
+    return folding_input.ProteinChain(
+        id=chain.id,
+        sequence=chain.sequence,
+        ptms=chain.ptms,
+        residue_ids=chain.residue_ids,
+        description=chain.description,
+        paired_msa=chain.paired_msa,
+        unpaired_msa=chain.unpaired_msa,
+        templates=None,
+    )
+
+
+def _af3_input_keeping_msas(existing_path, desc):
+    """Build an AF3 Input from existing features that re-searches templates only.
+
+    Returns None when the stored file cannot be reused, so the caller falls back
+    to generating features normally.
+    """
+    try:
+        payload = read_maybe_xz(existing_path)
+        input_obj = folding_input.Input.from_json(payload)
+    except Exception as exc:  # malformed/partial file, or an AF3 schema change
+        logging.warning(
+            "Cannot reuse existing AF3 features %s for %s (%s); regenerating.",
+            existing_path, desc, exc,
+        )
+        return None
+
+    chains = [_af3_chain_without_templates(chain) for chain in input_obj.chains]
+    if not any(
+        getattr(chain, "unpaired_msa", None) is not None for chain in chains
+    ):
+        logging.warning(
+            "Existing AF3 features %s carry no MSAs to keep; regenerating.",
+            existing_path,
+        )
+        return None
+
+    return folding_input.Input(
+        name=input_obj.name,
+        chains=chains,
+        rng_seeds=input_obj.rng_seeds,
+    )
+
+
 def create_af3_individual_features():
     """Generate AlphaFold3 features, one .json per chain."""
     validate_data_pipeline_flags()
@@ -770,10 +929,16 @@ def create_af3_individual_features():
             # silently regenerated (and vice versa).
             plain = Path(FLAGS.output_dir) / f"{desc}_af3_input.json"
             outpath = Path(str(plain) + ".xz") if FLAGS.compress_features else plain
-            if FLAGS.skip_existing and resolve_af3_input(plain) is not None:
+            existing = resolve_af3_input(plain)
+            # --keep_msas rewrites existing features, so it takes precedence
+            # over --skip_existing: skipping would defeat the point.
+            reuse_input = None
+            if FLAGS.keep_msas and existing is not None:
+                reuse_input = _af3_input_keeping_msas(existing, desc)
+            if reuse_input is None and FLAGS.skip_existing and existing is not None:
                 logging.info(f"Feature file for {desc} already exists. Skipping...")
                 continue
-            
+
             # Create AlphaFold3 input object with proper chain structure
             try:
                 # Generate proper chain ID using AlphaFold3's int_id_to_str_id function
@@ -788,14 +953,20 @@ def create_af3_individual_features():
                         chain_id = chain_id + chain_id
                 
                 chain_kind = get_af3_chain_kind(desc, seq)
-                chain = create_af3_chain(seq, desc, chain_id)
-                
-                input_obj = folding_input.Input(
-                    name=desc,
-                    chains=[chain],
-                    rng_seeds=[42]
-                )
-                
+                if reuse_input is not None:
+                    input_obj = reuse_input
+                    logging.info(
+                        "Keeping MSAs for %s and re-running template search only.",
+                        desc,
+                    )
+                else:
+                    chain = create_af3_chain(seq, desc, chain_id)
+                    input_obj = folding_input.Input(
+                        name=desc,
+                        chains=[chain],
+                        rng_seeds=[42]
+                    )
+
                 features = pipeline.process(input_obj)
                 if hasattr(features, "to_json"):
                     feature_payload = json.loads(features.to_json())

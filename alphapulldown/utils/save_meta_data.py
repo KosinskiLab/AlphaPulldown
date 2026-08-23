@@ -80,25 +80,54 @@ def get_metadata_for_binary(k, v):
     return {name: {"version": get_program_version(v)}}
 
 
+def resolve_database_path(v):
+    """Follow symlinks to the file a database flag actually reads.
+
+    Several AF3 database versions are encoded in the *filename*, and AF3's own
+    ``fetch_databases.sh`` pins ``pdb_seqres_2022_09_28.fasta``. Sites that
+    refresh a database in place commonly keep the pinned name as a symlink to
+    the current file, so the configured path and the bytes actually searched
+    disagree. Recording the configured name would then put a date in the
+    metadata -- and from there into a methods section -- that is simply wrong.
+
+    Returns ``(resolved_path, was_symlink)``.
+    """
+    try:
+        path = os.fspath(v)
+    except TypeError:
+        return str(v), False
+    try:
+        resolved = os.path.realpath(path)
+    except OSError:
+        return path, False
+    return resolved, os.path.abspath(path) != resolved
+
+
 def get_metadata_for_database(k, v):
     name = k.replace("_database_path", "").replace("_dir", "")
+    # Version strings are parsed out of file names, so follow symlinks first:
+    # a refreshed database hidden behind a pinned name must not be reported
+    # under the pinned name's date.
+    resolved, via_symlink = resolve_database_path(v)
 
     if name == "pdb_seqres":
         af3_seqres_release = re.search(
-            r"pdb_seqres_(\d{4}_\d{2}_\d{2})", str(v)
+            r"pdb_seqres_(\d{4}_\d{2}_\d{2})", str(resolved)
         )
         if af3_seqres_release:
             version = af3_seqres_release.group(1)
-            return {
-                "PDB seqres": {
-                    "release_date": version.replace("_", "-"),
-                    "version": version,
-                    "location_url": [
-                        "https://storage.googleapis.com/alphafold-databases/"
-                        f"v3.0/pdb_seqres_{version}.fasta.zst"
-                    ],
-                }
+            entry = {
+                "release_date": version.replace("_", "-"),
+                "version": version,
+                "location_url": [
+                    "https://storage.googleapis.com/alphafold-databases/"
+                    f"v3.0/pdb_seqres_{version}.fasta.zst"
+                ],
             }
+            if via_symlink:
+                entry["configured_path"] = str(v)
+                entry["resolved_path"] = resolved
+            return {"PDB seqres": entry}
 
     if name == "rna_central":
         official_bundle = _looks_like_official_af3_database_bundle(v)

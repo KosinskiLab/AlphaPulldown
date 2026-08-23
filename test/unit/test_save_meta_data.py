@@ -237,6 +237,57 @@ def test_get_metadata_for_database_uses_af3_pdb_seqres_release_without_hashing(
     assert "pdb_seqres_2022_09_28" in metadata["location_url"][0]
 
 
+def test_af3_pdb_seqres_release_follows_a_symlink(tmp_path, monkeypatch):
+    """A refreshed database behind AF3's pinned name must report its real date.
+
+    AF3's fetch_databases.sh pins pdb_seqres_2022_09_28.fasta, so sites that
+    update the database in place keep that name as a symlink to the current
+    file. Reporting the pinned name's date would put a wrong template cutoff
+    into the metadata and from there into a paper's methods.
+    """
+    monkeypatch.setattr(
+        save_meta_data, "get_hash", lambda _: pytest.fail("should not hash")
+    )
+
+    real = tmp_path / "pdb_seqres_2026_08_19.fasta"
+    real.write_text(">1abc_A\nACDE\n")
+    pinned = tmp_path / "pdb_seqres_2022_09_28.fasta"
+    pinned.symlink_to(real)
+
+    metadata = save_meta_data.get_metadata_for_database(
+        "pdb_seqres_database_path", str(pinned)
+    )["PDB seqres"]
+
+    assert metadata["version"] == "2026_08_19"
+    assert metadata["release_date"] == "2026-08-19"
+    # Both ends of the symlink are recorded so the substitution stays auditable.
+    assert metadata["configured_path"] == str(pinned)
+    assert metadata["resolved_path"] == str(real)
+
+
+def test_af3_pdb_seqres_plain_path_records_no_symlink_fields(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        save_meta_data, "get_hash", lambda _: pytest.fail("should not hash")
+    )
+    real = tmp_path / "pdb_seqres_2022_09_28.fasta"
+    real.write_text(">1abc_A\nACDE\n")
+
+    metadata = save_meta_data.get_metadata_for_database(
+        "pdb_seqres_database_path", str(real)
+    )["PDB seqres"]
+
+    assert metadata["version"] == "2022_09_28"
+    assert "configured_path" not in metadata
+    assert "resolved_path" not in metadata
+
+
+def test_resolve_database_path_handles_missing_path():
+    """A configured path that does not exist must not raise during metadata."""
+    resolved, via_symlink = save_meta_data.resolve_database_path("/no/such/db.fasta")
+    assert resolved.endswith("db.fasta")
+    assert via_symlink is False
+
+
 def test_get_metadata_for_database_returns_empty_for_unknown_key():
     assert save_meta_data.get_metadata_for_database("custom_path", "/db/custom") == {}
 
