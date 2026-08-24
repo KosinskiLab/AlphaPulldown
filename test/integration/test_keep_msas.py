@@ -416,6 +416,76 @@ def test_af3_input_keeping_msas_round_trips_existing_features(tmp_path, af3_stub
     assert chain.paired_msa == ">q\nACDE\n"
 
 
+def test_af3_input_keeping_msas_declines_on_a_sequence_mismatch(tmp_path, af3_stub):
+    """Same description, different protein: the AF2 path refuses, so must AF3.
+
+    Features are matched to inputs by description alone. If a FASTA is edited
+    but keeps its name, reusing the cached chain would re-run template search
+    against the old sequence and then overwrite the file with features for the
+    wrong protein.
+    """
+    path = tmp_path / "proteinA_af3_input.json"
+    path.write_text(_af3_json())          # cached chain is "ACDE"
+
+    assert create_features._af3_input_keeping_msas(
+        str(path), "proteinA", "WWWWWW"
+    ) is None
+
+
+def test_af3_input_keeping_msas_accepts_a_matching_sequence(tmp_path, af3_stub):
+    path = tmp_path / "proteinA_af3_input.json"
+    path.write_text(_af3_json())
+
+    rebuilt = create_features._af3_input_keeping_msas(
+        str(path), "proteinA", "ACDE"
+    )
+
+    assert rebuilt is not None
+    assert rebuilt.chains[0].unpaired_msa == ">q\nACDE\n"
+
+
+def test_af3_input_keeping_msas_skips_the_check_without_a_sequence(tmp_path, af3_stub):
+    """The sequence is optional so the helper stays usable on its own."""
+    path = tmp_path / "proteinA_af3_input.json"
+    path.write_text(_af3_json())
+    assert create_features._af3_input_keeping_msas(str(path), "proteinA") is not None
+
+
+def test_af3_loop_regenerates_rather_than_overwriting_a_renamed_protein(
+    tmp_path, af3_stub, monkeypatch
+):
+    """End to end: an edited FASTA under an old name must not be overwritten."""
+    FLAGS(["test"])
+    FLAGS.output_dir = str(tmp_path)
+    FLAGS.keep_msas = True
+    FLAGS.skip_existing = False
+    FLAGS.compress_features = False
+    FLAGS.data_pipeline = "alphafold3"
+    fasta = tmp_path / "in.fasta"
+    fasta.write_text(">proteinA\nWWWWWW\n")      # edited: no longer ACDE
+    FLAGS.fasta_paths = [str(fasta)]
+    (tmp_path / "proteinA_af3_input.json").write_text(_af3_json())
+
+    seen = {}
+
+    class _Pipeline:
+        def process(self, input_obj):
+            seen["chains"] = [c.sequence for c in input_obj.chains]
+            seen["msa"] = [getattr(c, "unpaired_msa", None) for c in input_obj.chains]
+            return {"sequences": []}
+
+    with patch.object(create_features, "create_arguments"), \
+         patch.object(create_features, "create_pipeline_af3", return_value=_Pipeline()), \
+         patch.object(create_features, "validate_data_pipeline_flags"), \
+         patch.object(create_features, "get_af3_feature_metadata", return_value={}):
+        create_features.create_af3_individual_features()
+
+    assert seen["chains"] == ["WWWWWW"], "must build a fresh chain from the FASTA"
+    assert seen["msa"] == [None], "stale MSAs must not be carried over"
+    FLAGS.keep_msas = False
+    FLAGS.data_pipeline = "alphafold2"
+
+
 def test_af3_input_keeping_msas_reads_a_compressed_file(tmp_path, af3_stub):
     """AF3 feature JSONs are published .xz; the reuse path must read them."""
     path = tmp_path / "proteinA_af3_input.json.xz"

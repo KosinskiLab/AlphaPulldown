@@ -873,7 +873,7 @@ def _af3_chain_without_templates(chain):
     )
 
 
-def _af3_input_keeping_msas(existing_path, desc):
+def _af3_input_keeping_msas(existing_path, desc, sequence=None):
     """Build an AF3 Input from existing features that re-searches templates only.
 
     Returns None when the stored file cannot be reused, so the caller falls back
@@ -888,6 +888,22 @@ def _af3_input_keeping_msas(existing_path, desc):
             existing_path, desc, exc,
         )
         return None
+
+    # Features are matched to the input by description alone, so an edited FASTA
+    # that kept its name would otherwise have its MSAs reused for a different
+    # protein and be overwritten with features for the wrong sequence. The AF2
+    # path refuses that in _existing_monomer_for_update; do the same here.
+    if sequence is not None:
+        stored = [getattr(chain, "sequence", None) for chain in input_obj.chains]
+        if sequence not in stored:
+            logging.warning(
+                "Existing AF3 features %s hold sequence(s) %s but the input FASTA "
+                "has %s; regenerating from scratch instead of keeping their MSAs.",
+                existing_path,
+                ", ".join(s for s in stored if s) or "none",
+                sequence,
+            )
+            return None
 
     chains = [_af3_chain_without_templates(chain) for chain in input_obj.chains]
     if not any(
@@ -934,7 +950,7 @@ def create_af3_individual_features():
             # over --skip_existing: skipping would defeat the point.
             reuse_input = None
             if FLAGS.keep_msas and existing is not None:
-                reuse_input = _af3_input_keeping_msas(existing, desc)
+                reuse_input = _af3_input_keeping_msas(existing, desc, seq)
             if reuse_input is None and FLAGS.skip_existing and existing is not None:
                 logging.info(f"Feature file for {desc} already exists. Skipping...")
                 continue
