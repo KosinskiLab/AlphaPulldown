@@ -36,10 +36,7 @@ def test_prediction_images_install_the_same_verified_mmseqs2_gpu_release(dockerf
         "${MMSEQS_VERSION}/mmseqs-linux-gpu.tar.gz"
     ) in source
     assert "sha256sum -c -" in source
-    assert (
-        'test "$(/opt/mmseqs/bin/mmseqs version)" = "${MMSEQS_COMMIT}"'
-        in source
-    )
+    assert 'test "$(/opt/mmseqs/bin/mmseqs version)" = "${MMSEQS_COMMIT}"' in source
 
 
 def test_alphafold2_container_builds_on_pull_requests_without_secrets():
@@ -77,3 +74,24 @@ def test_alphafold2_container_builds_on_pull_requests_without_secrets():
         "github.event_name == 'release' && github.event.action == 'published'",
     }
     assert all(step["with"]["ssh"] == "default" for step in publish_steps)
+
+
+def test_alphafold3_pr_build_runs_compiled_feature_batch_contracts():
+    workflow = yaml.load(WORKFLOW.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
+    steps = workflow["jobs"]["build-alphafold3-container"]["steps"]
+    pull_request_build = next(
+        step
+        for step in steps
+        if step.get("name")
+        == "Build alphafold3 container and run compiled-AF3 compatibility tests"
+    )
+    assert pull_request_build["if"] == "github.event_name == 'pull_request'"
+    assert pull_request_build["with"]["context"] == "."
+    assert pull_request_build["with"]["file"] == "./docker/alphafold3.dockerfile"
+    assert pull_request_build["with"]["push"] == "false"
+
+    dockerfile = (REPOSITORY / "docker" / "alphafold3.dockerfile").read_text(
+        encoding="utf-8"
+    )
+    assert "test/unit/test_feature_batch.py" in dockerfile
+    assert "test/unit/test_create_batch_features.py" in dockerfile

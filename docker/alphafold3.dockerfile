@@ -147,6 +147,8 @@ WORKDIR /app/AlphaPulldown
 RUN uv pip install --no-cache "modelcif>=1.6" && \
     python -c "from alphafold3.common import folding_input; import alphafold3.structure.mmcif; import ihm; import modelcif.reader" && \
     python -m pytest -q \
+      test/unit/test_feature_batch.py \
+      test/unit/test_create_batch_features.py \
       test/unit/test_feature_metadata.py::test_embedded_json_is_accepted_and_round_tripped_by_vanilla_alphafold3 \
       test/unit/test_af3_modelcif.py::test_augment_real_af3_modelcif_preserves_comments_and_is_modelcif_readable \
       test/unit/test_convert_to_modelcif_helpers.py && \

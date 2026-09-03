@@ -9,7 +9,6 @@ import json
 import lzma
 import os
 import pickle
-import re
 import shutil
 import sys
 import tempfile
@@ -45,6 +44,7 @@ from alphapulldown.utils.template_reuse import (
     msa_for_template_search,
     search_templates,
 )
+from alphapulldown.utils.sequence_types import get_af3_chain_kind
 
 # Try to import AlphaFold3, but it's optional
 AF3_IMPORT_ERROR = None
@@ -182,11 +182,6 @@ flags.DEFINE_boolean("multiple_mmts", False, "")
 
 FLAGS = flags.FLAGS
 
-AF3_DNA_BASES = frozenset("ACGTN")
-AF3_RNA_BASES = frozenset("ACGUN")
-AF3_PROTEIN_RESIDUES = frozenset("ACDEFGHIKLMNPQRSTVWYX")
-AF3_PROTEIN_ONLY_RESIDUES = AF3_PROTEIN_RESIDUES - (AF3_DNA_BASES | {"U"})
-
 AF3_PROTEIN_MSA_DATABASE_FLAGS = frozenset({
     "uniref90_database_path",
     "mgnify_database_path",
@@ -303,37 +298,6 @@ def check_template_date():
     if not FLAGS.max_template_date:
         logging.error("You have not provided a max_template_date. Please specify a date and run again.")
         sys.exit(1)
-
-def get_af3_chain_kind(description, sequence):
-    """Infer an AF3 chain kind, requiring an explicit hint for ambiguous alphabets."""
-    residues = set(sequence.upper())
-    if not residues:
-        raise ValueError("Sequence is empty.")
-
-    invalid_residues = residues - (AF3_PROTEIN_RESIDUES | {"U"})
-    if invalid_residues:
-        invalid_list = ", ".join(sorted(invalid_residues))
-        raise ValueError(f"Invalid sequence residues: {invalid_list}")
-
-    if residues <= AF3_RNA_BASES and "U" in residues:
-        return "rna"
-    if residues & AF3_PROTEIN_ONLY_RESIDUES:
-        return "protein"
-
-    description_tokens = {
-        token for token in re.split(r"[^A-Za-z0-9]+", description.lower()) if token
-    }
-    if "dna" in description_tokens:
-        return "dna"
-    if "rna" in description_tokens:
-        return "rna"
-    if {"protein", "prot", "peptide"} & description_tokens:
-        return "protein"
-
-    raise ValueError(
-        "Ambiguous sequence alphabet. Add 'DNA', 'RNA', or 'protein' to "
-        f"the FASTA description for '{description}' to disambiguate."
-    )
 
 def create_af3_chain(sequence, description, chain_id):
     """Construct an AF3 chain object for the provided sequence."""

@@ -49,6 +49,42 @@ def test_import_forces_jax_to_cpu_without_hiding_gpu_from_mmseqs():
     }
 
 
+def test_msa_stage_imports_neither_jax_nor_alphafold():
+    repository = Path(__file__).resolve().parents[2]
+    environment = os.environ.copy()
+    environment["OPENBLAS_NUM_THREADS"] = "1"
+    environment["OMP_NUM_THREADS"] = "1"
+    environment["PYTHONPATH"] = os.pathsep.join(
+        filter(None, (str(repository), environment.get("PYTHONPATH")))
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import json, sys\n"
+                "import alphapulldown.scripts.create_batch_msas\n"
+                "print(json.dumps({'jax': 'jax' in sys.modules, "
+                "'af2': 'alphafold' in sys.modules, "
+                "'af3': 'alphafold3' in sys.modules}))\n"
+            ),
+        ],
+        cwd=repository,
+        env=environment,
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+    assert json.loads(completed.stdout.splitlines()[-1]) == {
+        "jax": False,
+        "af2": False,
+        "af3": False,
+    }
+
+
 def test_cli_adapter_rejects_non_protein_af3_fasta(tmp_path: Path):
     fasta = tmp_path / "dna.fasta"
     fasta.write_text(">DNA example\nACGT\n", encoding="utf-8")

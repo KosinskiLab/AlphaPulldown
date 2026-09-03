@@ -1,36 +1,31 @@
 #!/usr/bin/env python3
-"""Compatibility CLI composing MMseqs2-GPU MSA and AF3 finalization stages."""
+"""GPU-only MMseqs2 MSA stage; intentionally imports neither AlphaFold nor JAX."""
 
 from __future__ import annotations
 
-import os
-
-# The composed direct mode imports AF3. Prevent JAX from reserving MMseqs' GPU.
-os.environ["JAX_PLATFORMS"] = "cpu"
-
 from pathlib import Path
-from typing import Sequence
 
 from absl import app, flags, logging
 
 from alphapulldown.feature_batch import (
     DatabaseSpec,
-    FeatureBatch,
-    FeatureBatchSettings,
-    FeatureRequest,
+    MsaBatch,
+    MsaBatchSettings,
     SubprocessMmseqsProcess,
     protein_requests_from_fastas,
+    write_batch_summary,
 )
-from alphapulldown.scripts import create_individual_features as legacy_features
 
 
+flags.DEFINE_list("fasta_paths", None, "Paths to protein FASTA files.")
+flags.DEFINE_string("msa_output_dir", None, "Durable per-protein MSA bundle directory.")
+flags.DEFINE_string("summary_path", None, "Atomic whole-shard completion record.")
 flags.DEFINE_string(
     "mmseqs_binary_path",
     "/opt/mmseqs/bin/mmseqs",
     "Path to the bundled GPU-capable MMseqs2 executable.",
 )
 flags.DEFINE_string("mmseqs_temp_dir", None, "Fast local MMseqs2 scratch directory.")
-flags.DEFINE_string("msa_output_dir", None, "Durable per-protein MSA bundle directory.")
 flags.DEFINE_integer(
     "mmseqs_batch_max_sequences", None, "Maximum unique sequences per query database."
 )
@@ -39,12 +34,6 @@ flags.DEFINE_integer(
 )
 flags.DEFINE_float("mmseqs_e_value", 1e-4, "MMseqs2 search E-value cutoff.")
 flags.DEFINE_integer("mmseqs_threads", 8, "CPU threads for MMseqs2 operations.")
-flags.DEFINE_string(
-    "template_seqres_database_id", None, "Immutable PDB seqres database identity."
-)
-flags.DEFINE_string(
-    "template_mmcif_database_id", None, "Immutable mmCIF directory identity."
-)
 
 for database_name in ("uniref90", "mgnify", "small_bfd", "uniprot"):
     flags.DEFINE_string(
@@ -83,71 +72,49 @@ def _database(name: str) -> DatabaseSpec:
     )
 
 
-def _feature_requests(fasta_paths: Sequence[str]) -> tuple[FeatureRequest, ...]:
-    return protein_requests_from_fastas(fasta_paths)
-
-
 def main(argv) -> None:
     del argv
-    if FLAGS.data_pipeline != "alphafold3":
-        raise ValueError(
-            "Batched local MMseqs2-GPU features require --data_pipeline=alphafold3"
-        )
-    if FLAGS.use_mmseqs2 or FLAGS.keep_msas or FLAGS.skip_msa or FLAGS.path_to_mmt:
-        raise ValueError(
-            "Batched local MMseqs2-GPU generation cannot be combined with "
-            "--use_mmseqs2, --keep_msas, --skip_msa, or --path_to_mmt"
-        )
-
-    legacy_features.create_arguments()
-    pipeline = legacy_features.create_pipeline_af3()
-    metadata = legacy_features.get_af3_feature_metadata({"protein"}, skip_msa=True)
-    requests = _feature_requests(FLAGS.fasta_paths)
-    result = FeatureBatch(
-        settings=FeatureBatchSettings(
-            output_dir=Path(FLAGS.output_dir),
-            msa_output_dir=Path(FLAGS.msa_output_dir),
-            temp_dir=Path(FLAGS.mmseqs_temp_dir),
-            unpaired_databases=tuple(
-                _database(name) for name in ("uniref90", "mgnify", "small_bfd")
-            ),
-            paired_database=_database("uniprot"),
-            max_sequences_per_batch=FLAGS.mmseqs_batch_max_sequences,
-            max_residues_per_batch=FLAGS.mmseqs_batch_max_residues,
-            threads=FLAGS.mmseqs_threads,
-            e_value=FLAGS.mmseqs_e_value,
-            compress=FLAGS.compress_features,
-            base_metadata=metadata,
-            max_template_date=FLAGS.max_template_date,
-            template_seqres_database_id=FLAGS.template_seqres_database_id,
-            template_mmcif_database_id=FLAGS.template_mmcif_database_id,
+    summary_path = Path(FLAGS.summary_path)
+    summary_path.unlink(missing_ok=True)
+    requests = protein_requests_from_fastas(FLAGS.fasta_paths)
+    settings = MsaBatchSettings(
+        output_dir=Path(FLAGS.msa_output_dir),
+        temp_dir=Path(FLAGS.mmseqs_temp_dir),
+        unpaired_databases=tuple(
+            _database(name) for name in ("uniref90", "mgnify", "small_bfd")
         ),
+        paired_database=_database("uniprot"),
+        max_sequences_per_batch=FLAGS.mmseqs_batch_max_sequences,
+        max_residues_per_batch=FLAGS.mmseqs_batch_max_residues,
+        threads=FLAGS.mmseqs_threads,
+        e_value=FLAGS.mmseqs_e_value,
+    )
+    result = MsaBatch(
+        settings=settings,
         mmseqs_process=SubprocessMmseqsProcess(FLAGS.mmseqs_binary_path),
-        af3_pipeline=pipeline,
     ).generate(requests)
     logging.info(
-        "Batched local MMseqs2-GPU features: %d written, %d reused, %d failed",
+        "MMseqs2-GPU MSA stage: %d written, %d reused, %d failed",
         len(result.written),
         len(result.reused),
         len(result.failures),
     )
     if result.failures:
-        detail = ", ".join(f"{item.name} ({item.error})" for item in result.failures)
-        raise RuntimeError(
-            f"Failed to create {len(result.failures)} artifact(s): {detail}"
+        detail = ", ".join(
+            f"{failure.name} ({failure.error})" for failure in result.failures
         )
+        raise RuntimeError(
+            f"MMseqs2-GPU MSA stage failed for {len(result.failures)} protein(s): {detail}"
+        )
+    write_batch_summary(summary_path, result)
 
 
 if __name__ == "__main__":
     flags.mark_flags_as_required(
         [
             "fasta_paths",
-            "data_dir",
-            "output_dir",
             "msa_output_dir",
-            "max_template_date",
-            "template_seqres_database_id",
-            "template_mmcif_database_id",
+            "summary_path",
             "mmseqs_binary_path",
             "mmseqs_temp_dir",
             "mmseqs_batch_max_sequences",
