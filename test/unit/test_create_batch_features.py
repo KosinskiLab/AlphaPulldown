@@ -85,7 +85,7 @@ def test_msa_stage_imports_neither_jax_nor_alphafold():
     }
 
 
-def test_batch_entry_points_share_one_idempotent_mmseqs_flag_schema():
+def test_lightweight_mmseqs_flag_schema_can_be_registered_twice_without_jax():
     repository = Path(__file__).resolve().parents[2]
     environment = os.environ.copy()
     environment["OPENBLAS_NUM_THREADS"] = "1"
@@ -99,9 +99,21 @@ def test_batch_entry_points_share_one_idempotent_mmseqs_flag_schema():
             sys.executable,
             "-c",
             (
-                "from absl import flags\n"
-                "import alphapulldown.scripts.create_batch_features\n"
+                "import importlib.abc, sys\n"
+                "class BlockJax(importlib.abc.MetaPathFinder):\n"
+                "    def find_spec(self, fullname, path, target=None):\n"
+                "        if fullname == 'jax' or fullname.startswith('jax.'):\n"
+                "            raise ModuleNotFoundError('JAX import forbidden')\n"
+                "        return None\n"
+                "sys.meta_path.insert(0, BlockJax())\n"
                 "import alphapulldown.scripts.create_batch_msas\n"
+                "from alphapulldown.scripts._mmseqs2_cli import "
+                "define_msa_search_flags, define_template_provenance_flags\n"
+                "define_msa_search_flags(include_fasta_paths=True, "
+                "include_summary_path=True)\n"
+                "define_template_provenance_flags()\n"
+                "define_template_provenance_flags()\n"
+                "from absl import flags\n"
                 "print(flags.FLAGS['mmseqs_uniref90_max_sequences'].default)\n"
             ),
         ],
