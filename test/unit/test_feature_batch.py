@@ -8,9 +8,15 @@ import sys
 
 import pytest
 
-_REAL_FOLDING_INPUT = pytest.importorskip("alphafold3.common.folding_input")
-_REAL_AF3_PIPELINE = pytest.importorskip("alphafold3.data.pipeline")
-_REAL_MSA_CONVERSION = pytest.importorskip("alphafold3.cpp.msa_conversion")
+try:
+    from alphafold3.common import folding_input as _REAL_FOLDING_INPUT
+    from alphafold3.cpp import msa_conversion as _REAL_MSA_CONVERSION
+    from alphafold3.data import pipeline as _REAL_AF3_PIPELINE
+except ImportError as exc:
+    pytest.skip(
+        f"AlphaFold 3 test dependencies are unavailable: {exc}",
+        allow_module_level=True,
+    )
 
 from alphapulldown.feature_batch import (
     DatabaseSpec,
