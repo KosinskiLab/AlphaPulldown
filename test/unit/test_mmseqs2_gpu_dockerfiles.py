@@ -95,3 +95,6 @@ def test_alphafold3_pr_build_runs_compiled_feature_batch_contracts():
     )
     assert "test/unit/test_feature_batch.py" in dockerfile
     assert "test/unit/test_create_batch_features.py" in dockerfile
+    assert "MMSEQS_INTEGRATION_BINARY=/opt/mmseqs/bin/mmseqs" in dockerfile
+    assert "test/integration/test_mmseqs2_command_contract.py" in dockerfile
+    assert 'addopts="-ra --strict-markers"' in dockerfile

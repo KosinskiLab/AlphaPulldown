@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import dataclasses
+import hashlib
 import json
 import lzma
 import os
@@ -119,6 +120,27 @@ class FeatureBatchSettings:
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
+class MsaArtifact:
+    """One durable per-protein MSA bundle."""
+
+    name: str
+    path: Path
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class MsaFailure:
+    name: str
+    error: str
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class MsaBatchResult:
+    written: tuple[MsaArtifact, ...]
+    reused: tuple[MsaArtifact, ...]
+    failures: tuple[MsaFailure, ...]
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
 class FeatureArtifact:
     name: str
     path: Path
@@ -137,19 +159,40 @@ class FeatureBatchResult:
     failures: tuple[FeatureFailure, ...]
 
 
-def write_batch_summary(path: Path, result: FeatureBatchResult) -> None:
+class _InvalidMsaBundle(ValueError):
+    """An on-disk MSA bundle whose contents are unsafe to reuse."""
+
+
+def write_batch_summary(path: Path, result: MsaBatchResult) -> None:
     """Atomically publish a completion record for an entirely successful stage."""
     if result.failures:
         raise ValueError("A completion summary cannot represent a failed batch")
+    artifacts = (*result.written, *result.reused)
     path.parent.mkdir(parents=True, exist_ok=True)
     _write_atomic(
         path,
         {
-            "schemaVersion": 1,
+            "schemaVersion": 2,
             "written": [artifact.name for artifact in result.written],
             "reused": [artifact.name for artifact in result.reused],
+            "artifacts": [_manifest_record(artifact) for artifact in artifacts],
         },
     )
+
+
+def _manifest_record(artifact: MsaArtifact) -> dict[str, Any]:
+    digest = hashlib.sha256()
+    with artifact.path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    stat = artifact.path.stat()
+    return {
+        "name": artifact.name,
+        "file": artifact.path.name,
+        "sizeBytes": stat.st_size,
+        "mtimeNs": stat.st_mtime_ns,
+        "sha256": digest.hexdigest(),
+    }
 
 
 class MmseqsProcess(Protocol):
@@ -167,7 +210,7 @@ class MmseqsProcess(Protocol):
         database: DatabaseSpec,
         result_db: Path,
         work_dir: Path,
-        settings: MsaBatchSettings | FeatureBatchSettings,
+        settings: MsaBatchSettings,
     ) -> None: ...
 
     def result_to_msa(
@@ -223,7 +266,7 @@ class SubprocessMmseqsProcess:
         database: DatabaseSpec,
         result_db: Path,
         work_dir: Path,
-        settings: MsaBatchSettings | FeatureBatchSettings,
+        settings: MsaBatchSettings,
     ) -> None:
         max_sequences = database.max_sequences or _default_max_sequences(database.name)
         self._run(
@@ -294,17 +337,19 @@ class MsaBatch:
     def __init__(
         self,
         *,
-        settings: MsaBatchSettings | FeatureBatchSettings,
+        settings: MsaBatchSettings,
         mmseqs_process: MmseqsProcess,
     ):
+        if not isinstance(settings, MsaBatchSettings):
+            raise TypeError("MsaBatch settings must be MsaBatchSettings")
         self._settings = settings
         self._mmseqs = mmseqs_process
         self._mmseqs_identity: str | None = None
 
-    def generate(self, requests: Sequence[FeatureRequest]) -> FeatureBatchResult:
+    def generate(self, requests: Sequence[FeatureRequest]) -> MsaBatchResult:
         requests = tuple(requests)
         self._validate(requests)
-        self._msa_output_dir.mkdir(parents=True, exist_ok=True)
+        self._settings.output_dir.mkdir(parents=True, exist_ok=True)
         self._settings.temp_dir.mkdir(parents=True, exist_ok=True)
 
         reused = []
@@ -316,7 +361,7 @@ class MsaBatch:
                 missing_requests.append(request)
                 continue
             path, payload = cached
-            reused.append(FeatureArtifact(name=request.name, path=path))
+            reused.append(MsaArtifact(name=request.name, path=path))
             msa_by_sequence.setdefault(
                 request.sequence,
                 (payload["unpairedMsa"], payload["pairedMsa"]),
@@ -338,9 +383,9 @@ class MsaBatch:
                     payload = self._msa_payload(request, *cached_msas)
                     path = self._msa_path(request.name)
                     _write_atomic(path, payload)
-                    written.append(FeatureArtifact(name=request.name, path=path))
+                    written.append(MsaArtifact(name=request.name, path=path))
                 except Exception as exc:
-                    failures.append(FeatureFailure(name=request.name, error=str(exc)))
+                    failures.append(MsaFailure(name=request.name, error=str(exc)))
 
         sequences_to_search = tuple(
             sequence
@@ -371,19 +416,19 @@ class MsaBatch:
                         payload = self._msa_payload(request, *msas)
                         path = self._msa_path(request.name)
                         _write_atomic(path, payload)
-                        written.append(FeatureArtifact(name=request.name, path=path))
+                        written.append(MsaArtifact(name=request.name, path=path))
                     except Exception as exc:
                         failures.append(
-                            FeatureFailure(name=request.name, error=str(exc))
+                            MsaFailure(name=request.name, error=str(exc))
                         )
 
         for sequence, error in search_errors.items():
             failures.extend(
-                FeatureFailure(name=request.name, error=error)
+                MsaFailure(name=request.name, error=error)
                 for request in sequence_to_requests[sequence]
             )
 
-        return FeatureBatchResult(
+        return MsaBatchResult(
             written=tuple(written), reused=tuple(reused), failures=tuple(failures)
         )
 
@@ -560,9 +605,14 @@ class MsaBatch:
                     "MMseqs2 unpackdb did not produce an alignment for "
                     f"{query_id!r} in {output_dir.parent.name!r}"
                 )
+            aligned_fasta = result_path.read_text(encoding="utf-8")
+            if not _fasta_records(aligned_fasta):
+                raise RuntimeError(
+                    "MMseqs2 unpackdb produced no FASTA records for "
+                    f"{query_id!r} in {output_dir.parent.name!r}"
+                )
             results[query_id] = _aligned_fasta_to_a3m(
-                result_path.read_text(encoding="utf-8"),
-                query_ids[query_id],
+                aligned_fasta, query_ids[query_id]
             )
         missing_queries = set(query_ids) - set(results)
         if missing_queries:
@@ -623,16 +673,8 @@ class MsaBatch:
             self._mmseqs_identity = identity
         return self._mmseqs_identity
 
-    @property
-    def _msa_output_dir(self) -> Path:
-        if isinstance(self._settings, MsaBatchSettings):
-            return self._settings.output_dir
-        return (
-            self._settings.msa_output_dir or self._settings.output_dir / ".mmseqs_msas"
-        )
-
     def _msa_path(self, name: str) -> Path:
-        return self._msa_output_dir / f"{name}_mmseqs_msa.json"
+        return self._settings.output_dir / f"{name}_mmseqs_msa.json"
 
 
 class FeatureFinalizer:
@@ -641,9 +683,13 @@ class FeatureFinalizer:
     def __init__(
         self,
         *,
-        settings: FeatureFinalizationSettings | FeatureBatchSettings,
+        settings: FeatureFinalizationSettings,
         af3_pipeline: Any,
     ):
+        if not isinstance(settings, FeatureFinalizationSettings):
+            raise TypeError(
+                "FeatureFinalizer settings must be FeatureFinalizationSettings"
+            )
         self._settings = settings
         self._af3_pipeline = af3_pipeline
 
@@ -681,32 +727,40 @@ class FeatureFinalizer:
             if not str(getattr(self._settings, field_name)).strip():
                 raise ValueError(f"{field_name} requires a non-empty value")
 
-    @property
-    def _msa_output_dir(self) -> Path:
-        if isinstance(self._settings, FeatureFinalizationSettings):
-            return self._settings.msa_input_dir
-        return (
-            self._settings.msa_output_dir or self._settings.output_dir / ".mmseqs_msas"
-        )
-
     def _read_msa(self, request: FeatureRequest) -> dict[str, Any]:
-        path = self._msa_output_dir / f"{request.name}_mmseqs_msa.json"
+        path = self._settings.msa_input_dir / f"{request.name}_mmseqs_msa.json"
         try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            encoded = path.read_text(encoding="utf-8")
+        except OSError as exc:
             raise RuntimeError(f"Cannot read MMseqs2 MSA bundle {path}: {exc}") from exc
-        if payload.get("sequence") != request.sequence:
-            raise ValueError(
-                f"MMseqs2 MSA bundle sequence does not match {request.name!r}"
-            )
-        if not isinstance(payload.get("provenance"), dict):
-            raise ValueError(
-                f"MMseqs2 MSA bundle lacks provenance for {request.name!r}"
-            )
-        for key in ("unpairedMsa", "pairedMsa"):
-            if not isinstance(payload.get(key), str):
-                raise ValueError(f"MMseqs2 MSA bundle lacks {key} for {request.name!r}")
-        return payload
+        try:
+            try:
+                payload = json.loads(encoded)
+            except (TypeError, ValueError, json.JSONDecodeError) as exc:
+                raise _InvalidMsaBundle(
+                    f"Cannot parse MMseqs2 MSA bundle {path}: {exc}"
+                ) from exc
+            if not isinstance(payload, dict):
+                raise _InvalidMsaBundle(
+                    f"MMseqs2 MSA bundle {path} is not a JSON object"
+                )
+            if payload.get("sequence") != request.sequence:
+                raise _InvalidMsaBundle(
+                    f"MMseqs2 MSA bundle sequence does not match {request.name!r}"
+                )
+            if not isinstance(payload.get("provenance"), dict):
+                raise _InvalidMsaBundle(
+                    f"MMseqs2 MSA bundle lacks provenance for {request.name!r}"
+                )
+            for key in ("unpairedMsa", "pairedMsa"):
+                if not isinstance(payload.get(key), str):
+                    raise _InvalidMsaBundle(
+                        f"MMseqs2 MSA bundle lacks {key} for {request.name!r}"
+                    )
+            return payload
+        except _InvalidMsaBundle:
+            path.unlink(missing_ok=True)
+            raise
 
     def _read_matching_artifact(
         self, request: FeatureRequest, msa_payload: Mapping[str, Any]
@@ -789,12 +843,30 @@ class FeatureBatch:
         mmseqs_process: MmseqsProcess,
         af3_pipeline: Any,
     ):
+        msa_output_dir = settings.msa_output_dir or settings.output_dir / ".mmseqs_msas"
         self._msa_batch = MsaBatch(
-            settings=settings,
+            settings=MsaBatchSettings(
+                output_dir=msa_output_dir,
+                temp_dir=settings.temp_dir,
+                unpaired_databases=settings.unpaired_databases,
+                paired_database=settings.paired_database,
+                max_sequences_per_batch=settings.max_sequences_per_batch,
+                max_residues_per_batch=settings.max_residues_per_batch,
+                threads=settings.threads,
+                e_value=settings.e_value,
+            ),
             mmseqs_process=mmseqs_process,
         )
         self._finalizer = FeatureFinalizer(
-            settings=settings,
+            settings=FeatureFinalizationSettings(
+                output_dir=settings.output_dir,
+                msa_input_dir=msa_output_dir,
+                max_template_date=settings.max_template_date,
+                template_seqres_database_id=settings.template_seqres_database_id,
+                template_mmcif_database_id=settings.template_mmcif_database_id,
+                compress=settings.compress,
+                base_metadata=settings.base_metadata,
+            ),
             af3_pipeline=af3_pipeline,
         )
 
@@ -807,7 +879,13 @@ class FeatureBatch:
         return FeatureBatchResult(
             written=final_result.written,
             reused=final_result.reused,
-            failures=(*msa_result.failures, *final_result.failures),
+            failures=(
+                *(
+                    FeatureFailure(name=failure.name, error=failure.error)
+                    for failure in msa_result.failures
+                ),
+                *final_result.failures,
+            ),
         )
 
 
@@ -860,7 +938,7 @@ def _aligned_fasta_to_a3m(aligned_fasta: str, query_sequence: str) -> str:
 
     records = _fasta_records(aligned_fasta)
     if not records:
-        return f">query\n{query_sequence}\n"
+        raise ValueError("MMseqs2 aligned FASTA contains no records")
     query_alignment = records[0][1]
     if (
         query_alignment.replace("-", "").replace(".", "").upper()

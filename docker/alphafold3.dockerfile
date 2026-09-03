@@ -152,6 +152,9 @@ RUN uv pip install --no-cache "modelcif>=1.6" && \
       test/unit/test_feature_metadata.py::test_embedded_json_is_accepted_and_round_tripped_by_vanilla_alphafold3 \
       test/unit/test_af3_modelcif.py::test_augment_real_af3_modelcif_preserves_comments_and_is_modelcif_readable \
       test/unit/test_convert_to_modelcif_helpers.py && \
+    MMSEQS_INTEGRATION_BINARY=/opt/mmseqs/bin/mmseqs \
+      python -m pytest -q -o addopts="-ra --strict-markers" \
+      test/integration/test_mmseqs2_command_contract.py && \
     touch /tmp/af3-compatibility-tests-passed
 
 FROM base AS runtime

@@ -14,7 +14,6 @@ from typing import Sequence
 from absl import app, flags, logging
 
 from alphapulldown.feature_batch import (
-    DatabaseSpec,
     FeatureBatch,
     FeatureBatchSettings,
     FeatureRequest,
@@ -22,65 +21,20 @@ from alphapulldown.feature_batch import (
     protein_requests_from_fastas,
 )
 from alphapulldown.scripts import create_individual_features as legacy_features
-
-
-flags.DEFINE_string(
-    "mmseqs_binary_path",
-    "/opt/mmseqs/bin/mmseqs",
-    "Path to the bundled GPU-capable MMseqs2 executable.",
-)
-flags.DEFINE_string("mmseqs_temp_dir", None, "Fast local MMseqs2 scratch directory.")
-flags.DEFINE_string("msa_output_dir", None, "Durable per-protein MSA bundle directory.")
-flags.DEFINE_integer(
-    "mmseqs_batch_max_sequences", None, "Maximum unique sequences per query database."
-)
-flags.DEFINE_integer(
-    "mmseqs_batch_max_residues", None, "Maximum residues per query database."
-)
-flags.DEFINE_float("mmseqs_e_value", 1e-4, "MMseqs2 search E-value cutoff.")
-flags.DEFINE_integer("mmseqs_threads", 8, "CPU threads for MMseqs2 operations.")
-flags.DEFINE_string(
-    "template_seqres_database_id", None, "Immutable PDB seqres database identity."
-)
-flags.DEFINE_string(
-    "template_mmcif_database_id", None, "Immutable mmCIF directory identity."
+from alphapulldown.scripts._mmseqs2_cli import (
+    DATABASE_NAMES,
+    database_spec,
+    define_msa_search_flags,
+    define_template_provenance_flags,
+    required_msa_flag_names,
+    required_template_flag_names,
 )
 
-for database_name in ("uniref90", "mgnify", "small_bfd", "uniprot"):
-    flags.DEFINE_string(
-        f"mmseqs_{database_name}_database_path",
-        None,
-        f"Explicit GPU-compatible MMseqs2 {database_name} database prefix.",
-    )
-    flags.DEFINE_string(
-        f"mmseqs_{database_name}_database_id",
-        None,
-        f"Immutable identifier for the {database_name} database build.",
-    )
 
-flags.DEFINE_integer(
-    "mmseqs_uniref90_max_sequences", 10_000, "Maximum UniRef90 hits per query."
-)
-flags.DEFINE_integer(
-    "mmseqs_mgnify_max_sequences", 5_000, "Maximum MGnify hits per query."
-)
-flags.DEFINE_integer(
-    "mmseqs_small_bfd_max_sequences", 5_000, "Maximum small-BFD hits per query."
-)
-flags.DEFINE_integer(
-    "mmseqs_uniprot_max_sequences", 50_000, "Maximum paired UniProt hits per query."
-)
+define_msa_search_flags()
+define_template_provenance_flags()
 
 FLAGS = flags.FLAGS
-
-
-def _database(name: str) -> DatabaseSpec:
-    return DatabaseSpec(
-        name=name,
-        path=Path(getattr(FLAGS, f"mmseqs_{name}_database_path")),
-        identifier=getattr(FLAGS, f"mmseqs_{name}_database_id"),
-        max_sequences=getattr(FLAGS, f"mmseqs_{name}_max_sequences"),
-    )
 
 
 def _feature_requests(fasta_paths: Sequence[str]) -> tuple[FeatureRequest, ...]:
@@ -109,9 +63,9 @@ def main(argv) -> None:
             msa_output_dir=Path(FLAGS.msa_output_dir),
             temp_dir=Path(FLAGS.mmseqs_temp_dir),
             unpaired_databases=tuple(
-                _database(name) for name in ("uniref90", "mgnify", "small_bfd")
+                database_spec(FLAGS, name) for name in DATABASE_NAMES[:3]
             ),
-            paired_database=_database("uniprot"),
+            paired_database=database_spec(FLAGS, "uniprot"),
             max_sequences_per_batch=FLAGS.mmseqs_batch_max_sequences,
             max_residues_per_batch=FLAGS.mmseqs_batch_max_residues,
             threads=FLAGS.mmseqs_threads,
@@ -144,19 +98,9 @@ if __name__ == "__main__":
             "fasta_paths",
             "data_dir",
             "output_dir",
-            "msa_output_dir",
             "max_template_date",
-            "template_seqres_database_id",
-            "template_mmcif_database_id",
-            "mmseqs_binary_path",
-            "mmseqs_temp_dir",
-            "mmseqs_batch_max_sequences",
-            "mmseqs_batch_max_residues",
-            *[
-                f"mmseqs_{database_name}_{suffix}"
-                for database_name in ("uniref90", "mgnify", "small_bfd", "uniprot")
-                for suffix in ("database_path", "database_id")
-            ],
+            *required_template_flag_names(),
+            *required_msa_flag_names(),
         ]
     )
     app.run(main)

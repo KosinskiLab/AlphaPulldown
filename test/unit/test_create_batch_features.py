@@ -85,6 +85,38 @@ def test_msa_stage_imports_neither_jax_nor_alphafold():
     }
 
 
+def test_batch_entry_points_share_one_idempotent_mmseqs_flag_schema():
+    repository = Path(__file__).resolve().parents[2]
+    environment = os.environ.copy()
+    environment["OPENBLAS_NUM_THREADS"] = "1"
+    environment["OMP_NUM_THREADS"] = "1"
+    environment["PYTHONPATH"] = os.pathsep.join(
+        filter(None, (str(repository), environment.get("PYTHONPATH")))
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "from absl import flags\n"
+                "import alphapulldown.scripts.create_batch_features\n"
+                "import alphapulldown.scripts.create_batch_msas\n"
+                "print(flags.FLAGS['mmseqs_uniref90_max_sequences'].default)\n"
+            ),
+        ],
+        cwd=repository,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stdout.splitlines()[-1] == "10000"
+
+
 def test_cli_adapter_rejects_non_protein_af3_fasta(tmp_path: Path):
     fasta = tmp_path / "dna.fasta"
     fasta.write_text(">DNA example\nACGT\n", encoding="utf-8")

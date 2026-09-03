@@ -26,6 +26,8 @@ from alphapulldown.feature_batch import (
     FeatureFinalizer,
     FeatureRequest,
     MsaBatch,
+    MsaArtifact,
+    MsaBatchResult,
     MsaBatchSettings,
     SubprocessMmseqsProcess,
     write_batch_summary,
@@ -138,6 +140,16 @@ class MissingUnpackOutputMmseqs(FakeMmseqsProcess):
         super().unpack_msa(query_db, msa_db, output_dir)
 
 
+class EmptyUnpackOutputMmseqs(FakeMmseqsProcess):
+    def unpack_msa(self, query_db: Path, msa_db: Path, output_dir: Path) -> None:
+        if msa_db.read_text(encoding="utf-8") == "mgnify":
+            output_dir.mkdir(parents=True, exist_ok=True)
+            for index, _ in enumerate(self._queries[query_db]):
+                (output_dir / f"{index}.fasta").write_text("", encoding="utf-8")
+            return
+        super().unpack_msa(query_db, msa_db, output_dir)
+
+
 class ForbiddenMmseqsProcess:
     def identity(self) -> str:
         return "mmseqs-fixture-1"
@@ -191,6 +203,12 @@ class CountingAf3Pipeline(PassthroughAf3Pipeline):
     def process(self, fold_input):
         self.calls += 1
         return super().process(fold_input)
+
+
+class FailingAf3Pipeline:
+    def process(self, fold_input):
+        del fold_input
+        raise RuntimeError("fixture template search failure")
 
 
 def test_subprocess_adapter_identity_comes_from_mmseqs_version(tmp_path):
@@ -322,6 +340,33 @@ def _settings(tmp_path: Path) -> FeatureBatchSettings:
     )
 
 
+def _msa_settings(settings: FeatureBatchSettings) -> MsaBatchSettings:
+    return MsaBatchSettings(
+        output_dir=settings.msa_output_dir,
+        temp_dir=settings.temp_dir,
+        unpaired_databases=settings.unpaired_databases,
+        paired_database=settings.paired_database,
+        max_sequences_per_batch=settings.max_sequences_per_batch,
+        max_residues_per_batch=settings.max_residues_per_batch,
+        threads=settings.threads,
+        e_value=settings.e_value,
+    )
+
+
+def _finalization_settings(
+    settings: FeatureBatchSettings,
+) -> FeatureFinalizationSettings:
+    return FeatureFinalizationSettings(
+        output_dir=settings.output_dir,
+        msa_input_dir=settings.msa_output_dir,
+        max_template_date=settings.max_template_date,
+        template_seqres_database_id=settings.template_seqres_database_id,
+        template_mmcif_database_id=settings.template_mmcif_database_id,
+        compress=settings.compress,
+        base_metadata=settings.base_metadata,
+    )
+
+
 def test_duplicate_sequences_are_searched_once_and_create_standard_artifacts(tmp_path):
     batch = FeatureBatch(
         settings=_settings(tmp_path),
@@ -359,7 +404,7 @@ def test_missing_unpack_output_fails_instead_of_caching_query_only_msa(tmp_path)
     settings = _settings(tmp_path)
 
     result = MsaBatch(
-        settings=settings,
+        settings=_msa_settings(settings),
         mmseqs_process=MissingUnpackOutputMmseqs(),
     ).generate([FeatureRequest(name="alpha", sequence="ACDE")])
 
@@ -369,38 +414,154 @@ def test_missing_unpack_output_fails_instead_of_caching_query_only_msa(tmp_path)
     assert not (settings.msa_output_dir / "alpha_mmseqs_msa.json").exists()
 
 
+def test_empty_unpack_output_fails_instead_of_caching_query_only_msa(tmp_path):
+    settings = _settings(tmp_path)
+
+    result = MsaBatch(
+        settings=_msa_settings(settings),
+        mmseqs_process=EmptyUnpackOutputMmseqs(),
+    ).generate([FeatureRequest(name="alpha", sequence="ACDE")])
+
+    assert result.written == ()
+    assert [failure.name for failure in result.failures] == ["alpha"]
+    assert "mgnify" in result.failures[0].error
+    assert "no FASTA records" in result.failures[0].error
+    assert not (settings.msa_output_dir / "alpha_mmseqs_msa.json").exists()
+
+
 def test_gpu_msa_and_cpu_finalization_stages_run_independently(tmp_path):
     combined = _settings(tmp_path)
     request = FeatureRequest(name="alpha", sequence="ACDE")
     msa_result = MsaBatch(
-        settings=MsaBatchSettings(
-            output_dir=combined.msa_output_dir,
-            temp_dir=combined.temp_dir,
-            unpaired_databases=combined.unpaired_databases,
-            paired_database=combined.paired_database,
-            max_sequences_per_batch=combined.max_sequences_per_batch,
-            max_residues_per_batch=combined.max_residues_per_batch,
-            threads=combined.threads,
-        ),
+        settings=_msa_settings(combined),
         mmseqs_process=FakeMmseqsProcess(),
     ).generate([request])
     summary = tmp_path / "summaries" / "shard.json"
     write_batch_summary(summary, msa_result)
 
     result = FeatureFinalizer(
-        settings=FeatureFinalizationSettings(
-            output_dir=combined.output_dir,
-            msa_input_dir=combined.msa_output_dir,
-            max_template_date=combined.max_template_date,
-            template_seqres_database_id=combined.template_seqres_database_id,
-            template_mmcif_database_id=combined.template_mmcif_database_id,
-        ),
+        settings=_finalization_settings(combined),
         af3_pipeline=PassthroughAf3Pipeline(),
     ).generate([request])
 
+    assert isinstance(msa_result, MsaBatchResult)
+    assert isinstance(msa_result.written[0], MsaArtifact)
     assert json.loads(summary.read_text(encoding="utf-8"))["written"] == ["alpha"]
     assert [artifact.name for artifact in result.written] == ["alpha"]
     assert (combined.output_dir / "alpha_af3_input.json").exists()
+
+
+def test_batch_summary_is_a_content_addressed_artifact_manifest(tmp_path):
+    artifact_path = tmp_path / "alpha_mmseqs_msa.json"
+    artifact_path.write_bytes(b"bundle\n")
+    artifact_stat = artifact_path.stat()
+    summary_path = tmp_path / "summaries" / "shard.json"
+
+    write_batch_summary(
+        summary_path,
+        MsaBatchResult(
+            written=(MsaArtifact(name="alpha", path=artifact_path),),
+            reused=(),
+            failures=(),
+        ),
+    )
+
+    assert json.loads(summary_path.read_text(encoding="utf-8")) == {
+        "schemaVersion": 2,
+        "written": ["alpha"],
+        "reused": [],
+        "artifacts": [
+            {
+                "name": "alpha",
+                "file": "alpha_mmseqs_msa.json",
+                "sizeBytes": 7,
+                "mtimeNs": artifact_stat.st_mtime_ns,
+                "sha256": (
+                    "ef17b7d320f2acc023f2018dab381827ba22f9d01b6c4c97894e1bbfe4928313"
+                ),
+            }
+        ],
+    }
+
+
+def test_deep_stages_accept_only_their_stage_specific_settings(tmp_path):
+    combined = _settings(tmp_path)
+
+    with pytest.raises(TypeError, match="MsaBatchSettings"):
+        MsaBatch(settings=combined, mmseqs_process=FakeMmseqsProcess())
+    with pytest.raises(TypeError, match="FeatureFinalizationSettings"):
+        FeatureFinalizer(settings=combined, af3_pipeline=PassthroughAf3Pipeline())
+
+
+@pytest.mark.parametrize(
+    "payload",
+    (
+        "{",
+        "[]",
+        json.dumps(
+            {
+                "sequence": "WRONG",
+                "provenance": {},
+                "unpairedMsa": ">query\nWRONG\n",
+                "pairedMsa": ">query\nWRONG\n",
+            }
+        ),
+        json.dumps(
+            {
+                "sequence": "ACDE",
+                "unpairedMsa": ">query\nACDE\n",
+                "pairedMsa": ">query\nACDE\n",
+            }
+        ),
+        json.dumps(
+            {
+                "sequence": "ACDE",
+                "provenance": {},
+                "pairedMsa": ">query\nACDE\n",
+            }
+        ),
+    ),
+)
+def test_invalid_msa_bundle_is_removed_so_the_next_dag_can_repair_it(
+    tmp_path, payload
+):
+    combined = _settings(tmp_path)
+    combined.msa_output_dir.mkdir(parents=True)
+    bundle = combined.msa_output_dir / "alpha_mmseqs_msa.json"
+    bundle.write_text(payload, encoding="utf-8")
+
+    result = FeatureFinalizer(
+        settings=_finalization_settings(combined),
+        af3_pipeline=PassthroughAf3Pipeline(),
+    ).generate([FeatureRequest(name="alpha", sequence="ACDE")])
+
+    assert [failure.name for failure in result.failures] == ["alpha"]
+    assert not bundle.exists()
+
+
+def test_downstream_af3_failure_preserves_a_valid_msa_bundle(tmp_path):
+    combined = _settings(tmp_path)
+    combined.msa_output_dir.mkdir(parents=True)
+    bundle = combined.msa_output_dir / "alpha_mmseqs_msa.json"
+    bundle.write_text(
+        json.dumps(
+            {
+                "sequence": "ACDE",
+                "provenance": {"schema_version": 4},
+                "unpairedMsa": ">query\nACDE\n",
+                "pairedMsa": ">query\nACDE\n",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = FeatureFinalizer(
+        settings=_finalization_settings(combined),
+        af3_pipeline=FailingAf3Pipeline(),
+    ).generate([FeatureRequest(name="alpha", sequence="ACDE")])
+
+    assert result.failures[0].error == "fixture template search failure"
+    assert bundle.exists()
 
 
 def test_aligned_fasta_conversion_preserves_taxon_header_and_insertions(tmp_path):
@@ -656,14 +817,16 @@ def test_changed_template_provenance_refinalizes_without_mmseqs_search(
 def test_broken_mmseqs_identity_invalidates_cache_and_reports_useful_failure(tmp_path):
     settings = _settings(tmp_path)
     request = FeatureRequest(name="alpha", sequence="ACDE")
-    MsaBatch(settings=settings, mmseqs_process=FakeMmseqsProcess()).generate([request])
+    MsaBatch(
+        settings=_msa_settings(settings), mmseqs_process=FakeMmseqsProcess()
+    ).generate([request])
 
     class BrokenIdentityProcess:
         def identity(self):
             raise RuntimeError("version command failed")
 
     result = MsaBatch(
-        settings=settings, mmseqs_process=BrokenIdentityProcess()
+        settings=_msa_settings(settings), mmseqs_process=BrokenIdentityProcess()
     ).generate([request])
 
     assert result.reused == ()

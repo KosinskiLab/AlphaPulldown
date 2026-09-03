@@ -18,19 +18,14 @@ from alphapulldown.feature_batch import (
     protein_requests_from_fastas,
 )
 from alphapulldown.scripts import create_individual_features as legacy_features
+from alphapulldown.scripts._mmseqs2_cli import (
+    define_template_provenance_flags,
+    required_template_flag_names,
+)
 
 
 flags.DEFINE_string("msa_input_dir", None, "Directory containing MMseqs2 MSA bundles.")
-flags.DEFINE_string(
-    "template_seqres_database_id",
-    None,
-    "Immutable identity of the PDB seqres database used for templates.",
-)
-flags.DEFINE_string(
-    "template_mmcif_database_id",
-    None,
-    "Immutable identity of the mmCIF directory used for templates.",
-)
+define_template_provenance_flags()
 
 FLAGS = flags.FLAGS
 
@@ -84,8 +79,7 @@ if __name__ == "__main__":
             "output_dir",
             "data_dir",
             "max_template_date",
-            "template_seqres_database_id",
-            "template_mmcif_database_id",
+            *required_template_flag_names(),
         ]
     )
     app.run(main)
