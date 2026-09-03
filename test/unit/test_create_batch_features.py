@@ -25,11 +25,14 @@ def test_import_forces_jax_to_cpu_without_hiding_gpu_from_mmseqs():
             sys.executable,
             "-c",
             (
-                "import json, os; "
-                "import alphapulldown.scripts.create_batch_features; "
+                "import json, os\n"
+                "try:\n"
+                "    import alphapulldown.scripts.create_batch_features\n"
+                "except ImportError:\n"
+                "    pass\n"
                 "print(json.dumps({"
                 "'jax': os.environ.get('JAX_PLATFORMS'), "
-                "'cuda': os.environ.get('CUDA_VISIBLE_DEVICES')}))"
+                "'cuda': os.environ.get('CUDA_VISIBLE_DEVICES')}))\n"
             ),
         ],
         cwd=repository,

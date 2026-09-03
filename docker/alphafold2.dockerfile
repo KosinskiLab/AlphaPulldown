@@ -4,6 +4,7 @@
 # FROM line can interpolate them.
 ARG CUDA=12.2.2
 ARG MMSEQS_VERSION=18-8cc5c
+ARG MMSEQS_COMMIT=8cc5ce367b5638c4306c2d7cfc652dd099a4643f
 ARG MMSEQS_GPU_SHA256=83969dd5c7d4c32858c2fc9a4d1024c15e8fe5da768ce76e787ab0195ffd64e7
 
 # ---------------------------------------------------------------------------
@@ -42,6 +43,7 @@ RUN set -eux; \
 FROM nvidia/cuda:${CUDA}-cudnn8-runtime-ubuntu20.04
 ARG CUDA
 ARG MMSEQS_VERSION
+ARG MMSEQS_COMMIT
 ARG MMSEQS_GPU_SHA256
 
 SHELL ["/bin/bash","-o","pipefail","-c"]
@@ -74,7 +76,7 @@ RUN set -eux; \
     echo "${MMSEQS_GPU_SHA256}  ${archive}" | sha256sum -c -; \
     tar -xzf "${archive}" -C /opt; \
     rm -f "${archive}"; \
-    test "$(/opt/mmseqs/bin/mmseqs version)" = "${MMSEQS_VERSION}"
+    test "$(/opt/mmseqs/bin/mmseqs version)" = "${MMSEQS_COMMIT}"
 
 # Micromamba bootstrap (smaller than Miniforge)
 ENV MAMBA_ROOT_PREFIX=/opt/conda

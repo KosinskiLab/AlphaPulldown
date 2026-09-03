@@ -12,6 +12,7 @@ DOCKERFILES = (
     REPOSITORY / "docker" / "alphafold3.dockerfile",
 )
 EXPECTED_VERSION = "18-8cc5c"
+EXPECTED_COMMIT = "8cc5ce367b5638c4306c2d7cfc652dd099a4643f"
 EXPECTED_SHA256 = "83969dd5c7d4c32858c2fc9a4d1024c15e8fe5da768ce76e787ab0195ffd64e7"
 
 
@@ -26,10 +27,14 @@ def test_prediction_images_install_the_same_verified_mmseqs2_gpu_release(dockerf
     source = dockerfile.read_text(encoding="utf-8")
 
     assert _build_argument(source, "MMSEQS_VERSION") == EXPECTED_VERSION
+    assert _build_argument(source, "MMSEQS_COMMIT") == EXPECTED_COMMIT
     assert _build_argument(source, "MMSEQS_GPU_SHA256") == EXPECTED_SHA256
     assert (
         "https://github.com/soedinglab/MMseqs2/releases/download/"
         "${MMSEQS_VERSION}/mmseqs-linux-gpu.tar.gz"
     ) in source
     assert "sha256sum -c -" in source
-    assert "/opt/mmseqs/bin/mmseqs version" in source
+    assert (
+        'test "$(/opt/mmseqs/bin/mmseqs version)" = "${MMSEQS_COMMIT}"'
+        in source
+    )
