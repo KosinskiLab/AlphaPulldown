@@ -961,7 +961,7 @@ def _aligned_fasta_to_a3m(aligned_fasta: str, query_sequence: str) -> str:
 def _normalise_query(a3m: str, query_sequence: str) -> str:
     records = _fasta_records(a3m)
     if not records:
-        return f">query\n{query_sequence}\n"
+        raise ValueError("MMseqs2 A3M contains no records")
     records[0] = ("query", query_sequence)
     return "".join(f">{description}\n{sequence}\n" for description, sequence in records)
 

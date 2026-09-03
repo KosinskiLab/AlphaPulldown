@@ -30,6 +30,7 @@ from alphapulldown.feature_batch import (
     MsaBatchResult,
     MsaBatchSettings,
     SubprocessMmseqsProcess,
+    _normalise_query,
     write_batch_summary,
 )
 from alphapulldown.utils.feature_metadata import (
@@ -427,6 +428,11 @@ def test_empty_unpack_output_fails_instead_of_caching_query_only_msa(tmp_path):
     assert "mgnify" in result.failures[0].error
     assert "no FASTA records" in result.failures[0].error
     assert not (settings.msa_output_dir / "alpha_mmseqs_msa.json").exists()
+
+
+def test_normalise_query_rejects_an_empty_alignment():
+    with pytest.raises(ValueError, match="contains no records"):
+        _normalise_query("", "ACDE")
 
 
 def test_gpu_msa_and_cpu_finalization_stages_run_independently(tmp_path):
