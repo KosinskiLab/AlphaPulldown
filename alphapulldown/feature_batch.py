@@ -179,7 +179,7 @@ class SubprocessMmseqsProcess:
                 str(result_db),
                 str(msa_db),
                 "--msa-format-mode",
-                "6",
+                "2",
             )
         )
 
@@ -193,7 +193,7 @@ class SubprocessMmseqsProcess:
                 "--unpack-name-mode",
                 "0",
                 "--unpack-suffix",
-                ".a3m",
+                ".fasta",
             )
         )
 
@@ -457,15 +457,20 @@ class FeatureBatch:
             if query_id not in query_ids:
                 continue
             candidates = (
+                output_dir / f"{index}.fasta",
                 output_dir / f"{index}.a3m",
                 output_dir / index,
+                output_dir / f"{query_id}.fasta",
                 output_dir / f"{query_id}.a3m",
             )
             result_path = next((path for path in candidates if path.exists()), None)
             if result_path is None:
                 results[query_id] = f">query\n{query_ids[query_id]}\n"
             else:
-                results[query_id] = result_path.read_text(encoding="utf-8")
+                results[query_id] = _aligned_fasta_to_a3m(
+                    result_path.read_text(encoding="utf-8"),
+                    query_ids[query_id],
+                )
         for query_id, sequence in query_ids.items():
             results.setdefault(query_id, f">query\n{sequence}\n")
         return results
@@ -516,7 +521,7 @@ class FeatureBatch:
             }
 
         return {
-            "schema_version": 2,
+            "schema_version": 3,
             "mmseqs_identity": self._process_identity(),
             "sensitivity": self._settings.sensitivity,
             "e_value": self._settings.e_value,
@@ -558,11 +563,11 @@ class FeatureBatch:
             temporary_path.unlink(missing_ok=True)
 
 
-def _a3m_records(a3m: str) -> list[tuple[str, str]]:
+def _fasta_records(fasta: str) -> list[tuple[str, str]]:
     records = []
     description = None
     sequence_parts = []
-    for line in a3m.splitlines():
+    for line in fasta.splitlines():
         if line.startswith(">"):
             if description is not None:
                 records.append((description, "".join(sequence_parts)))
@@ -575,8 +580,32 @@ def _a3m_records(a3m: str) -> list[tuple[str, str]]:
     return records
 
 
+def _aligned_fasta_to_a3m(aligned_fasta: str, query_sequence: str) -> str:
+    """Remove query-gap columns while retaining insertions and full headers."""
+    from alphafold3.cpp import msa_conversion
+
+    records = _fasta_records(aligned_fasta)
+    if not records:
+        return f">query\n{query_sequence}\n"
+    query_alignment = records[0][1]
+    if (
+        query_alignment.replace("-", "").replace(".", "").upper()
+        != query_sequence.upper()
+    ):
+        raise ValueError("MMseqs2 aligned FASTA query does not match its input sequence")
+
+    converted = []
+    for description, sequence in records:
+        a3m_sequence = msa_conversion.align_sequence_to_gapless_query(
+            sequence=sequence,
+            query_sequence=query_alignment,
+        ).replace(".", "")
+        converted.append(f">{description}\n{a3m_sequence}\n")
+    return "".join(converted)
+
+
 def _normalise_query(a3m: str, query_sequence: str) -> str:
-    records = _a3m_records(a3m)
+    records = _fasta_records(a3m)
     if not records:
         return f">query\n{query_sequence}\n"
     records[0] = ("query", query_sequence)
@@ -587,7 +616,7 @@ def _merge_a3ms(query_sequence: str, a3ms: Sequence[str]) -> str:
     rows = [("query", query_sequence)]
     seen = {query_sequence}
     for a3m in a3ms:
-        for _, (description, sequence) in enumerate(_a3m_records(a3m)):
+        for _, (description, sequence) in enumerate(_fasta_records(a3m)):
             if sequence in seen:
                 continue
             seen.add(sequence)

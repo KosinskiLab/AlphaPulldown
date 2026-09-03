@@ -25,7 +25,7 @@ The command-line script and workflow are adapters to this seam. Existing AlphaFo
 5. Pack unique sequences without exceeding either configured sequence count or configured total residues. A single sequence larger than the residue limit runs alone.
 6. For each chunk, create one MMseqs2 query database and reuse it for all four searches.
 7. Search UniRef90, MGnify, and small BFD for the unpaired MSA; search UniProt for the paired MSA. One GPU is used. Database discovery is forbidden.
-8. Merge the unpaired alignments without duplicate rows and retain the query as the first row. Preserve UniProt headers in the paired alignment.
+8. Request aligned FASTA from MMseqs2 and convert query-gap columns to valid A3M insertions. Merge the unpaired alignments without duplicate rows, retain the query as the first row, and preserve complete UniProt descriptions (including taxon metadata) for species-aware pairing.
 9. Pass both MSAs to the native AlphaFold 3 data pipeline with templates unset so its existing template search remains authoritative.
 10. Persist each completed artifact atomically. A killed or failed write must not leave a cacheable partial artifact.
 11. Continue after failures that are isolated to one sequence. Requests sharing a failed sequence fail together; unrelated sequences continue. Batch-wide MMseqs process failures fail only the affected chunk, then later chunks continue.

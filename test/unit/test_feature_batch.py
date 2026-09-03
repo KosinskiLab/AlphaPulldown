@@ -10,6 +10,7 @@ import pytest
 
 _REAL_FOLDING_INPUT = pytest.importorskip("alphafold3.common.folding_input")
 _REAL_AF3_PIPELINE = pytest.importorskip("alphafold3.data.pipeline")
+_REAL_MSA_CONVERSION = pytest.importorskip("alphafold3.cpp.msa_conversion")
 
 from alphapulldown.feature_batch import (
     DatabaseSpec,
@@ -18,21 +19,32 @@ from alphapulldown.feature_batch import (
     FeatureRequest,
     SubprocessMmseqsProcess,
 )
+from alphapulldown.utils.feature_metadata import (
+    embed_metadata_in_af3_json,
+    extract_metadata_from_af3_json,
+)
 
 
 @pytest.fixture(autouse=True)
 def _use_real_af3_modules(monkeypatch):
     """Insulate these integration tests from another module's AF3 stubs."""
     common_package = sys.modules["alphafold3.common"]
+    cpp_package = sys.modules["alphafold3.cpp"]
     data_package = sys.modules["alphafold3.data"]
     monkeypatch.setitem(
         sys.modules, "alphafold3.common.folding_input", _REAL_FOLDING_INPUT
     )
     monkeypatch.setitem(sys.modules, "alphafold3.data.pipeline", _REAL_AF3_PIPELINE)
+    monkeypatch.setitem(
+        sys.modules, "alphafold3.cpp.msa_conversion", _REAL_MSA_CONVERSION
+    )
     monkeypatch.setattr(
         common_package, "folding_input", _REAL_FOLDING_INPUT, raising=False
     )
     monkeypatch.setattr(data_package, "pipeline", _REAL_AF3_PIPELINE, raising=False)
+    monkeypatch.setattr(
+        cpp_package, "msa_conversion", _REAL_MSA_CONVERSION, raising=False
+    )
 
 
 class FakeMmseqsProcess:
@@ -122,6 +134,22 @@ class FirstSequenceFailsMmseqs(FakeMmseqsProcess):
         super().search(query_db, database, result_db, work_dir, settings)
 
 
+class FullHeaderAlignedFastaMmseqs(FakeMmseqsProcess):
+    def unpack_msa(self, query_db: Path, msa_db: Path, output_dir: Path) -> None:
+        del msa_db
+        output_dir.mkdir(parents=True, exist_ok=True)
+        for index, (query_id, sequence) in enumerate(self._queries[query_db]):
+            assert sequence == "ACDE"
+            (output_dir / f"{index}.fasta").write_text(
+                f">{query_id} query description\n"
+                "AC-DE\n"
+                ">sp|P12345|KINASE_HUMAN Protein kinase OS=Homo sapiens "
+                "OX=9606 GN=KIN1\n"
+                "ACXDE\n",
+                encoding="utf-8",
+            )
+
+
 class PassthroughAf3Pipeline:
     def process(self, fold_input):
         return fold_input
@@ -141,6 +169,31 @@ def test_subprocess_adapter_identity_comes_from_mmseqs_version(tmp_path):
         SubprocessMmseqsProcess(binary).identity()
         == "MMseqs2 Version: gpu-build-18"
     )
+
+
+def test_subprocess_adapter_requests_aligned_fasta_output(tmp_path):
+    binary = tmp_path / "mmseqs"
+    arguments = Path(f"{binary}.arguments")
+    binary.write_text(
+        "#!/bin/sh\n"
+        "printf '%s\\n' \"$@\" > \"${0}.arguments\"\n",
+        encoding="utf-8",
+    )
+    binary.chmod(0o755)
+    database = DatabaseSpec(
+        name="uniprot", path=tmp_path / "uniprot", identifier="fixture"
+    )
+
+    SubprocessMmseqsProcess(binary).result_to_msa(
+        tmp_path / "query",
+        database,
+        tmp_path / "result",
+        tmp_path / "msa",
+    )
+
+    command = arguments.read_text(encoding="utf-8").splitlines()
+    assert command[0] == "result2msa"
+    assert command[command.index("--msa-format-mode") + 1] == "2"
 
 
 def _native_pipeline_with_no_template_hits(tmp_path: Path):
@@ -235,6 +288,29 @@ def test_duplicate_sequences_are_searched_once_and_create_standard_artifacts(tmp
         assert protein["unpairedMsa"].count(">query") == 1
         assert ">uniprot_hit" in protein["pairedMsa"]
         assert protein["templates"] == []
+
+
+def test_aligned_fasta_conversion_preserves_taxon_header_and_insertions(tmp_path):
+    batch = FeatureBatch(
+        settings=_settings(tmp_path),
+        mmseqs_process=FullHeaderAlignedFastaMmseqs(),
+        af3_pipeline=PassthroughAf3Pipeline(),
+    )
+
+    result = batch.generate([FeatureRequest(name="alpha", sequence="ACDE")])
+
+    assert result.failures == ()
+    payload = json.loads(
+        (tmp_path / "features" / "alpha_af3_input.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    paired_msa = payload["sequences"][0]["protein"]["pairedMsa"]
+    assert (
+        ">sp|P12345|KINASE_HUMAN Protein kinase OS=Homo sapiens "
+        "OX=9606 GN=KIN1\n" in paired_msa
+    )
+    assert "\nACxDE\n" in paired_msa
 
 
 def test_matching_artifact_is_reused_without_external_search(tmp_path):
@@ -438,6 +514,35 @@ def test_changed_mmseqs_identity_regenerates_cached_sequence(tmp_path):
     assert [artifact.name for artifact in second.written] == ["alpha"]
     assert len(second_process._queries) == 1
     assert second_process.identity_calls == 1
+
+
+def test_legacy_alignment_schema_regenerates_cached_sequence(tmp_path):
+    settings = _settings(tmp_path)
+    request = FeatureRequest(name="alpha", sequence="ACDE")
+    FeatureBatch(
+        settings=settings,
+        mmseqs_process=FakeMmseqsProcess(),
+        af3_pipeline=PassthroughAf3Pipeline(),
+    ).generate([request])
+    artifact = settings.output_dir / "alpha_af3_input.json"
+    payload = json.loads(artifact.read_text(encoding="utf-8"))
+    metadata = extract_metadata_from_af3_json(payload)[0]
+    metadata["other"]["mmseqs2_gpu"]["schema_version"] = 2
+    artifact.write_text(
+        json.dumps(embed_metadata_in_af3_json(payload, metadata)),
+        encoding="utf-8",
+    )
+    process = FakeMmseqsProcess()
+
+    result = FeatureBatch(
+        settings=settings,
+        mmseqs_process=process,
+        af3_pipeline=PassthroughAf3Pipeline(),
+    ).generate([request])
+
+    assert result.reused == ()
+    assert [item.name for item in result.written] == ["alpha"]
+    assert len(process._queries) == 1
 
 
 def test_cached_sequence_supplies_another_name_without_external_search(tmp_path):
