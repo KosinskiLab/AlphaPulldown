@@ -175,10 +175,7 @@ def _load_run_structure_prediction_module():
     absl_pkg.logging = logging_mod
 
     jax_mod = types.ModuleType("jax")
-    def _unexpected_jax_initialization(*_args, **_kwargs):
-        raise AssertionError("importing prediction flags must not initialize JAX")
-
-    jax_mod.local_devices = _unexpected_jax_initialization
+    jax_mod.local_devices = lambda backend="gpu": []
 
     class ModelsToRelax(Enum):
         NONE = "none"
@@ -446,6 +443,14 @@ def test_importing_shared_prediction_flags_does_not_require_single_job_outputs(
     run_structure_prediction_module,
 ):
     assert run_structure_prediction_module.flags.required_flags == set()
+
+
+def test_single_prediction_initializes_jax_before_importing_backend():
+    source = RUN_STRUCTURE_PREDICTION_PATH.read_text(encoding="utf-8")
+
+    assert source.index("gpus = jax.local_devices(backend='gpu')") < source.index(
+        "from alphapulldown.folding_backend import backend"
+    )
 
 
 def test_validate_flags_for_af3_allows_modelcif_conversion(

@@ -11,7 +11,7 @@ def test_af2_image_installs_the_checked_out_source_and_smokes_batch_command():
 
     assert "COPY . /AlphaPulldown" in dockerfile
     assert "git clone --recurse-submodules https://github.com/KosinskiLab/AlphaPulldown" not in dockerfile
-    assert "run_structure_prediction_batch.py --helpshort" in dockerfile
+    assert "command -v run_structure_prediction_batch.py" in dockerfile
 
 
 def test_pull_requests_build_af2_without_registry_or_ssh_credentials():

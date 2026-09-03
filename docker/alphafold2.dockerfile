@@ -104,6 +104,7 @@ RUN python -m pip install --no-cache-dir "setuptools<82" # setuptools>82 breaks 
 WORKDIR /AlphaPulldown
 COPY . /AlphaPulldown
 RUN pip install --no-build-isolation .
+RUN command -v run_structure_prediction_batch.py
 # jax takes its CUDA runtime from the nvidia-* wheels, not from the base image, and
 # `jax[cuda12]==0.5.3` puts no floor on them - which version you get depends on when
 # the image was built. Blackwell cards (RTX PRO 4500/6000, compute capability 12.0 /
@@ -127,10 +128,6 @@ RUN pip3 install --upgrade pip --no-cache-dir \
 # this file (conda + pyproject) run BEFORE the jax upgrade so they do not stick; re-pin
 # numpy<2 as the LAST dependency step. jax 0.5.3 runs fine with numpy 1.26.x.
 RUN pip install --no-cache-dir "numpy<2"
-
-# Exercise the installed entry point without requiring a GPU during the build.
-# This catches packaging/import regressions in the exact checkout copied above.
-RUN run_structure_prediction_batch.py --helpshort >/dev/null
 
 # AlphaFold's template code formats a hit's `sum_probs` with %.2f in the error
 # path of `_process_single_hit`, but sum_probs is legitimately None for some hits

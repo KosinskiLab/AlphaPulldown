@@ -9,6 +9,8 @@
 """
 import pickle
 
+import jax
+gpus = jax.local_devices(backend='gpu')
 from absl import flags, app
 import os
 from os import makedirs
