@@ -78,6 +78,8 @@ class FeatureBatchResult:
 class MmseqsProcess(Protocol):
     """Process operations performed by the external MMseqs2 executable."""
 
+    def identity(self) -> str: ...
+
     def create_query_database(self, query_fasta: Path, query_db: Path) -> None: ...
 
     def search(
@@ -106,9 +108,9 @@ class SubprocessMmseqsProcess:
     def __init__(self, binary_path: str | Path):
         self._binary_path = str(binary_path)
 
-    def _run(self, command: Sequence[str]) -> None:
+    def _run(self, command: Sequence[str]) -> str:
         try:
-            subprocess.run(
+            completed = subprocess.run(
                 [self._binary_path, *command],
                 check=True,
                 stdout=subprocess.PIPE,
@@ -120,6 +122,14 @@ class SubprocessMmseqsProcess:
             raise RuntimeError(
                 f"MMseqs2 command failed: {' '.join(command)}\n{stderr.strip()}"
             ) from exc
+        return completed.stdout.strip()
+
+    def identity(self) -> str:
+        """Return the executable version used to validate persisted artifacts."""
+        version = " ".join(self._run(("version",)).split())
+        if not version:
+            raise RuntimeError("MMseqs2 version command returned no identity")
+        return version
 
     def create_query_database(self, query_fasta: Path, query_db: Path) -> None:
         self._run(("createdb", str(query_fasta), str(query_db)))
@@ -210,6 +220,7 @@ class FeatureBatch:
         self._settings = settings
         self._mmseqs = mmseqs_process
         self._af3_pipeline = af3_pipeline
+        self._mmseqs_identity: str | None = None
 
     def generate(self, requests: Sequence[FeatureRequest]) -> FeatureBatchResult:
         requests = tuple(requests)
@@ -505,7 +516,8 @@ class FeatureBatch:
             }
 
         return {
-            "schema_version": 1,
+            "schema_version": 2,
+            "mmseqs_identity": self._process_identity(),
             "sensitivity": self._settings.sensitivity,
             "e_value": self._settings.e_value,
             "unpaired_databases": [
@@ -514,6 +526,14 @@ class FeatureBatch:
             ],
             "paired_database": database_value(self._settings.paired_database),
         }
+
+    def _process_identity(self) -> str:
+        if self._mmseqs_identity is None:
+            identity = self._mmseqs.identity().strip()
+            if not identity:
+                raise ValueError("MMseqs2 process identity must not be empty")
+            self._mmseqs_identity = identity
+        return self._mmseqs_identity
 
     def _artifact_path(self, name: str) -> Path:
         suffix = "_af3_input.json.xz" if self._settings.compress else "_af3_input.json"

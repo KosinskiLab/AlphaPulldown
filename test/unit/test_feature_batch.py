@@ -16,6 +16,7 @@ from alphapulldown.feature_batch import (
     FeatureBatch,
     FeatureBatchSettings,
     FeatureRequest,
+    SubprocessMmseqsProcess,
 )
 
 
@@ -37,8 +38,14 @@ def _use_real_af3_modules(monkeypatch):
 class FakeMmseqsProcess:
     """Deterministic stand-in for the external MMseqs2 process."""
 
-    def __init__(self) -> None:
+    def __init__(self, identity: str = "mmseqs-fixture-1") -> None:
+        self._identity = identity
+        self.identity_calls = 0
         self._queries: dict[Path, list[tuple[str, str]]] = {}
+
+    def identity(self) -> str:
+        self.identity_calls += 1
+        return self._identity
 
     def create_query_database(self, query_fasta: Path, query_db: Path) -> None:
         records = []
@@ -94,6 +101,9 @@ class FakeMmseqsProcess:
 
 
 class ForbiddenMmseqsProcess:
+    def identity(self) -> str:
+        return "mmseqs-fixture-1"
+
     def __getattr__(self, operation):
         raise AssertionError(f"cache hit unexpectedly launched MMseqs2: {operation}")
 
@@ -115,6 +125,22 @@ class FirstSequenceFailsMmseqs(FakeMmseqsProcess):
 class PassthroughAf3Pipeline:
     def process(self, fold_input):
         return fold_input
+
+
+def test_subprocess_adapter_identity_comes_from_mmseqs_version(tmp_path):
+    binary = tmp_path / "mmseqs"
+    binary.write_text(
+        "#!/bin/sh\n"
+        "test \"$1\" = version\n"
+        "printf 'MMseqs2 Version: gpu-build-18\\n'\n",
+        encoding="utf-8",
+    )
+    binary.chmod(0o755)
+
+    assert (
+        SubprocessMmseqsProcess(binary).identity()
+        == "MMseqs2 Version: gpu-build-18"
+    )
 
 
 def _native_pipeline_with_no_template_hits(tmp_path: Path):
@@ -388,6 +414,30 @@ def test_changed_database_identifier_regenerates_cached_sequence(tmp_path):
     assert second.reused == ()
     assert [artifact.name for artifact in second.written] == ["alpha"]
     assert len(process._queries) == 1
+
+
+def test_changed_mmseqs_identity_regenerates_cached_sequence(tmp_path):
+    settings = _settings(tmp_path)
+    request = FeatureRequest(name="alpha", sequence="ACDE")
+    first_process = FakeMmseqsProcess(identity="mmseqs-gpu-17")
+    first = FeatureBatch(
+        settings=settings,
+        mmseqs_process=first_process,
+        af3_pipeline=PassthroughAf3Pipeline(),
+    ).generate([request])
+    assert [artifact.name for artifact in first.written] == ["alpha"]
+
+    second_process = FakeMmseqsProcess(identity="mmseqs-gpu-18")
+    second = FeatureBatch(
+        settings=settings,
+        mmseqs_process=second_process,
+        af3_pipeline=PassthroughAf3Pipeline(),
+    ).generate([request])
+
+    assert second.reused == ()
+    assert [artifact.name for artifact in second.written] == ["alpha"]
+    assert len(second_process._queries) == 1
+    assert second_process.identity_calls == 1
 
 
 def test_cached_sequence_supplies_another_name_without_external_search(tmp_path):

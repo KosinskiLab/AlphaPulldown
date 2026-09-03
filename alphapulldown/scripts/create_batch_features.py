@@ -3,8 +3,14 @@
 
 from __future__ import annotations
 
+import os
+
+# AF3's data pipeline imports JAX even though feature generation does not use its
+# accelerator backend.  Reserve the GPU for the external MMseqs2 process without
+# changing CUDA visibility for that process.
+os.environ["JAX_PLATFORMS"] = "cpu"
+
 from pathlib import Path
-import shutil
 from typing import Sequence
 
 from absl import app, flags, logging
@@ -21,7 +27,9 @@ from alphapulldown.utils.file_handling import iter_seqs
 
 
 flags.DEFINE_string(
-    "mmseqs_binary_path", shutil.which("mmseqs"), "Path to the MMseqs2 executable."
+    "mmseqs_binary_path",
+    "/opt/mmseqs/bin/mmseqs",
+    "Path to a GPU-capable MMseqs2 executable.",
 )
 flags.DEFINE_string(
     "mmseqs_temp_dir", None, "Fast local directory for temporary MMseqs2 files."

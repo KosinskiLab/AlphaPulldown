@@ -3,6 +3,8 @@
 # Global build args must be declared before the first FROM so that every stage's
 # FROM line can interpolate them.
 ARG CUDA=12.2.2
+ARG MMSEQS_VERSION=18-8cc5c
+ARG MMSEQS_GPU_SHA256=83969dd5c7d4c32858c2fc9a4d1024c15e8fe5da768ce76e787ab0195ffd64e7
 
 # ---------------------------------------------------------------------------
 # Patched HHblits, built in a throwaway stage so the runtime image never gains
@@ -39,6 +41,8 @@ RUN set -eux; \
 
 FROM nvidia/cuda:${CUDA}-cudnn8-runtime-ubuntu20.04
 ARG CUDA
+ARG MMSEQS_VERSION
+ARG MMSEQS_GPU_SHA256
 
 SHELL ["/bin/bash","-o","pipefail","-c"]
 
@@ -59,6 +63,19 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       ca-certificates curl bzip2 tzdata openssh-client; \
     rm -rf /var/lib/apt/lists/*
 
+# Keep MMseqs2 outside the Python environment: the GPU release is a standalone
+# executable used by AF3 feature batches and is also present in the AF2 image so
+# both prediction images expose the same verified runtime toolchain.
+RUN set -eux; \
+    archive=/tmp/mmseqs-linux-gpu.tar.gz; \
+    curl -fsSL \
+      "https://github.com/soedinglab/MMseqs2/releases/download/${MMSEQS_VERSION}/mmseqs-linux-gpu.tar.gz" \
+      -o "${archive}"; \
+    echo "${MMSEQS_GPU_SHA256}  ${archive}" | sha256sum -c -; \
+    tar -xzf "${archive}" -C /opt; \
+    rm -f "${archive}"; \
+    test "$(/opt/mmseqs/bin/mmseqs version)" = "${MMSEQS_VERSION}"
+
 # Micromamba bootstrap (smaller than Miniforge)
 ENV MAMBA_ROOT_PREFIX=/opt/conda
 RUN set -eux; \
@@ -66,7 +83,7 @@ RUN set -eux; \
     curl -k -L https://micro.mamba.pm/api/micromamba/linux-64/latest \
       | tar -xj -C /usr/local/bin --strip-components=1 bin/micromamba
 
-ENV PATH="/opt/conda/bin:${PATH}"
+ENV PATH="/opt/mmseqs/bin:/opt/conda/bin:${PATH}"
 ENV LD_LIBRARY_PATH="/opt/conda/lib:${LD_LIBRARY_PATH}"
 
 RUN set -eux; \

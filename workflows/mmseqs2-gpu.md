@@ -9,7 +9,7 @@ Generate standard per-protein AlphaFold 3 JSON feature artifacts while amortisin
 `FeatureBatch.generate(requests)` is the behavioral test seam.
 
 - A `FeatureRequest` contains a unique output name and one protein sequence.
-- The batch is configured with explicit UniRef90, MGnify, small-BFD, and paired UniProt database paths and caller-supplied database identifiers.
+- The batch is configured with a GPU-capable MMseqs2 process adapter plus explicit UniRef90, MGnify, small-BFD, and paired UniProt GPU-compatible database paths and caller-supplied database identifiers. AlphaPulldown's AF2 and AF3 images bundle the same verified MMseqs2-GPU release, while this feature interface remains AF3-protein-only.
 - The batch also receives the MMseqs2 settings, sequence-count and total-residue chunk limits, output directory, temporary directory, compression choice, native AlphaFold 3 data pipeline, and an MMseqs process adapter.
 - The result identifies written artifacts, reused artifacts, and per-request failures. If any request failed, the caller raises a single nonzero summary after all recoverable work finishes.
 - The observable outputs are standard `<name>_af3_input.json[.xz]` artifacts. MMseqs2 provenance is embedded in each artifact.
@@ -19,7 +19,7 @@ The command-line script and workflow are adapters to this seam. Existing AlphaFo
 ## Required behavior
 
 1. Validate requests before launching MMseqs2. Only protein sequences are accepted; output names must be unique.
-2. Reuse an existing artifact only when its sequence, MMseqs2 settings, and every database identifier match. A stale or unreadable artifact is regenerated.
+2. Reuse an existing artifact only when its sequence, MMseqs2 executable version, settings, and every database identifier match. A stale or unreadable artifact is regenerated.
 3. Reuse a valid cached sequence across another missing request with the same sequence.
 4. Deduplicate remaining work by sequence content and preserve first-seen order.
 5. Pack unique sequences without exceeding either configured sequence count or configured total residues. A single sequence larger than the residue limit runs alone.
