@@ -312,6 +312,132 @@ def test_heterogeneous_batch_is_rejected_before_backend_setup(tmp_path):
     assert adapter.setup_calls == 0
 
 
+def test_manifest_command_returns_a_concise_rejection_for_malformed_json(tmp_path):
+    from alphapulldown.prediction_batch import execute_prediction_manifest
+
+    manifest = tmp_path / "jobs.jsonl"
+    manifest.write_text("{not-json}\n", encoding="utf-8")
+
+    outcome = execute_prediction_manifest(manifest, adapter=object())
+
+    assert outcome.exit_code == 2
+    assert outcome.summary_message == (
+        "Prediction batch summary: 0 completed, batch rejected"
+    )
+    assert outcome.rejection == (
+        "Invalid JSON on manifest line 1: "
+        "Expecting property name enclosed in double quotes"
+    )
+
+
+def test_manifest_command_returns_a_concise_rejection_when_file_is_missing(tmp_path):
+    from alphapulldown.prediction_batch import execute_prediction_manifest
+
+    missing_manifest = tmp_path / "missing.jsonl"
+
+    outcome = execute_prediction_manifest(missing_manifest, adapter=object())
+
+    assert outcome.exit_code == 2
+    assert outcome.rejection.startswith("Cannot read prediction batch manifest ")
+    assert str(missing_manifest) in outcome.rejection
+
+
+def test_manifest_command_returns_a_concise_rejection_for_mixed_configurations(
+    tmp_path,
+):
+    from alphapulldown.prediction_batch import execute_prediction_manifest
+
+    manifest = tmp_path / "jobs.jsonl"
+    manifest.write_text(
+        "\n".join(
+            json.dumps(
+                {
+                    "job_id": job_id,
+                    "input": input_value,
+                    "output_directory": output_directory,
+                }
+            )
+            for job_id, input_value, output_directory in (
+                ("monomer", "A", "monomer-output"),
+                ("multimer", "A+B", "multimer-output"),
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    class MixedConfigurationAdapter:
+        def configuration_for(self, job):
+            return "multimer" if "+" in job.input else "monomer"
+
+        def setup(self, configuration):
+            raise AssertionError("backend setup must not run")
+
+        def predict(self, session, job):
+            raise AssertionError("prediction must not run")
+
+    outcome = execute_prediction_manifest(
+        manifest, adapter=MixedConfigurationAdapter()
+    )
+
+    assert outcome.exit_code == 2
+    assert outcome.summary_message == (
+        "Prediction batch summary: 0 completed, batch rejected"
+    )
+    assert outcome.rejection == (
+        "Prediction batch contains heterogeneous backend/model configurations"
+    )
+
+
+def test_manifest_command_does_not_misreport_backend_setup_errors_as_read_errors(
+    tmp_path,
+):
+    from alphapulldown.prediction_batch import execute_prediction_manifest
+
+    manifest = tmp_path / "jobs.jsonl"
+    manifest.write_text(
+        json.dumps(
+            {
+                "job_id": "fold",
+                "input": "A",
+                "output_directory": "output",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    class MissingModelAdapter:
+        def configuration_for(self, job):
+            return "shared-configuration"
+
+        def setup(self, configuration):
+            raise FileNotFoundError("/models/params")
+
+        def predict(self, session, job):
+            raise AssertionError("prediction must not run")
+
+    with pytest.raises(FileNotFoundError, match="/models/params"):
+        execute_prediction_manifest(manifest, adapter=MissingModelAdapter())
+
+
+@pytest.mark.parametrize(
+    "outcome_kwargs",
+    [
+        {},
+        {
+            "summary": SimpleNamespace(exit_code=0),
+            "rejection": "invalid manifest",
+        },
+    ],
+)
+def test_batch_outcome_requires_exactly_one_result(outcome_kwargs):
+    from alphapulldown.prediction_batch import PredictionBatchOutcome
+
+    with pytest.raises(ValueError, match="exactly one"):
+        PredictionBatchOutcome(**outcome_kwargs)
+
+
 def test_alphapulldown_adapter_keeps_af3_jobs_independent_with_one_setup(tmp_path):
     from alphapulldown.prediction_batch import (
         AlphaPulldownPredictionAdapter,
@@ -424,6 +550,42 @@ def test_alphapulldown_adapter_reuses_af2_runners_across_jobs(tmp_path):
     assert len(backend.setup_calls) == 1
     assert backend.setup_calls[0]["model_name"] == "monomer_ptm"
     assert backend.predicted == ["A", "B"]
+
+
+@pytest.mark.parametrize(
+    ("backend_name", "fold_specification", "expected_model_name"),
+    [
+        ("alphafold2", "A", "monomer_ptm"),
+        ("alphafold2", "A+B", "multimer"),
+        ("alphafold2", "A:2", "multimer"),
+        ("alphafold2", "A:1-3", "monomer_ptm"),
+        ("alphafold3", "fold.json", "monomer_ptm"),
+    ],
+)
+def test_adapter_configuration_matches_the_shared_parser_contract(
+    tmp_path, backend_name, fold_specification, expected_model_name
+):
+    from alphapulldown.prediction_batch import (
+        AlphaPulldownPredictionAdapter,
+        PredictionJob,
+    )
+
+    for name in ("A", "B"):
+        (tmp_path / f"{name}.pkl").touch()
+    (tmp_path / "fold.json").write_text(
+        json.dumps({"name": "fold", "sequences": [], "modelSeeds": [1]}),
+        encoding="utf-8",
+    )
+    adapter = AlphaPulldownPredictionAdapter(
+        _prediction_flags(tmp_path, backend_name), backend=object()
+    )
+    job = PredictionJob(
+        "contract-case", fold_specification, tmp_path / "prediction"
+    )
+
+    configuration = adapter.configuration_for(job)
+
+    assert configuration["model_name"] == expected_model_name
 
 
 def test_batch_command_is_in_the_installed_script_interface():

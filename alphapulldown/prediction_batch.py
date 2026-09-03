@@ -12,7 +12,7 @@ import pickle
 import random
 import shutil
 import sys
-from typing import Any, Dict, Protocol, Tuple, Union
+from typing import Any, Dict, Optional, Protocol, Tuple, Union
 
 
 PathLike = Union[str, Path]
@@ -50,6 +50,40 @@ class PredictionBatchSummary:
     @property
     def exit_code(self) -> int:
         return 1 if self.failures else 0
+
+
+@dataclass(frozen=True)
+class PredictionBatchOutcome:
+    """Command-level result, including errors that reject the whole batch."""
+
+    summary: Optional[PredictionBatchSummary] = None
+    rejection: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        if (self.summary is None) == (self.rejection is None):
+            raise ValueError(
+                "PredictionBatchOutcome requires exactly one of summary or rejection"
+            )
+
+    @property
+    def exit_code(self) -> int:
+        if self.rejection is not None:
+            return 2
+        if self.summary is None:
+            raise RuntimeError("Prediction batch outcome has no result")
+        return self.summary.exit_code
+
+    @property
+    def summary_message(self) -> str:
+        if self.rejection is not None:
+            return "Prediction batch summary: 0 completed, batch rejected"
+        if self.summary is None:
+            raise RuntimeError("Prediction batch outcome has no result")
+        return (
+            "Prediction batch summary: "
+            f"{len(self.summary.completed_job_ids)} completed, "
+            f"{len(self.summary.failures)} failed"
+        )
 
 
 class PredictionAdapter(Protocol):
@@ -181,6 +215,26 @@ class PredictionBatch:
                     )
                 )
         return cls(tuple(jobs))
+
+
+def execute_prediction_manifest(
+    manifest_path: PathLike, adapter: PredictionAdapter
+) -> PredictionBatchOutcome:
+    """Execute a manifest, representing contract violations without a traceback."""
+    try:
+        batch = PredictionBatch.from_jsonl(manifest_path)
+    except PredictionBatchError as exc:
+        return PredictionBatchOutcome(rejection=str(exc))
+    except (OSError, UnicodeError) as exc:
+        manifest = Path(manifest_path).expanduser().resolve()
+        return PredictionBatchOutcome(
+            rejection=f"Cannot read prediction batch manifest {manifest}: {exc}"
+        )
+    try:
+        summary = batch.run(adapter)
+    except PredictionBatchError as exc:
+        return PredictionBatchOutcome(rejection=str(exc))
+    return PredictionBatchOutcome(summary=summary)
 
 
 @dataclass(frozen=True)

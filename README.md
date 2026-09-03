@@ -606,10 +606,12 @@ batch_max_tokens: 0    # optional cap on summed residues per batch (0 = no cap)
 - Analysis and reports are unaffected — `alphajudge` still runs per fold (one
   `interfaces.csv` + `report.pdf` each) and the recursive summary still aggregates them.
 - **Trade-off:** a batch is one SLURM job, so a failure reruns the whole batch (minus the
-  folds resume can skip), although the resident command attempts the remaining folds
-  before returning a failure summary. The allocation is sized for the batch's largest
-  fold. Keep `batch_size` modest and pair it with `batch_max_tokens` for heterogeneous
-  fold sizes.
+  folds resume can skip). The resident command catches ordinary Python exceptions and
+  attempts the remaining folds before returning a failure summary. A native CUDA/XLA
+  abort, process termination, or backend left unusable after an error cannot be isolated
+  and may stop or poison the rest of the batch. The allocation is sized for the batch's
+  largest fold. Keep `batch_size` modest and pair it with `batch_max_tokens` for
+  heterogeneous fold sizes.
 
 > [!NOTE]
 > **AlphaFold3 batching depends on your container + shared filesystem.** A batched AF3 job

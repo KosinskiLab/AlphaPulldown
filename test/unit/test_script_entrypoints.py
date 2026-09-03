@@ -93,6 +93,7 @@ class _FakeFlagsModule(types.ModuleType):
     def __init__(self):
         super().__init__("absl.flags")
         self.FLAGS = _FakeFlags()
+        self.required_flags = set()
 
     def DEFINE_string(self, name, default, *_args, **_kwargs):
         return self.FLAGS.define(name, default)
@@ -117,11 +118,11 @@ class _FakeFlagsModule(types.ModuleType):
     def DEFINE_enum_class(self, name, default, *_args, **_kwargs):
         return self.FLAGS.define(name, default)
 
-    def mark_flag_as_required(self, *_args, **_kwargs):
-        return None
+    def mark_flag_as_required(self, name, *_args, **_kwargs):
+        self.required_flags.add(name)
 
-    def mark_flags_as_required(self, *_args, **_kwargs):
-        return None
+    def mark_flags_as_required(self, names, *_args, **_kwargs):
+        self.required_flags.update(names)
 
 
 def _restore_modules(saved_modules: dict[str, types.ModuleType | None]) -> None:
@@ -174,7 +175,10 @@ def _load_run_structure_prediction_module():
     absl_pkg.logging = logging_mod
 
     jax_mod = types.ModuleType("jax")
-    jax_mod.local_devices = lambda backend="gpu": []
+    def _unexpected_jax_initialization(*_args, **_kwargs):
+        raise AssertionError("importing prediction flags must not initialize JAX")
+
+    jax_mod.local_devices = _unexpected_jax_initialization
 
     class ModelsToRelax(Enum):
         NONE = "none"
@@ -436,6 +440,12 @@ def test_validate_flags_for_backend_rejects_disallowed_flags(run_structure_predi
 
     with pytest.raises(ValueError, match="num_cycle"):
         run_structure_prediction_module._validate_flags_for_backend("alphafold3")
+
+
+def test_importing_shared_prediction_flags_does_not_require_single_job_outputs(
+    run_structure_prediction_module,
+):
+    assert run_structure_prediction_module.flags.required_flags == set()
 
 
 def test_validate_flags_for_af3_allows_modelcif_conversion(

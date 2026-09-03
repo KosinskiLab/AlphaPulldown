@@ -40,10 +40,16 @@ Each line is one JSON object:
 1. Validate the complete manifest.
 2. Select one backend adapter and initialize its runners exactly once.
 3. Parse and execute jobs in manifest order, one at a time.
-4. Release the completed job before preparing the next one.
-5. Record ordinary per-job exceptions and continue; setup failures and process
-   interrupts remain fatal.
-6. Print one final summary. Exit nonzero after the summary if any job failed.
+4. Drop references to completed job-local inputs before preparing the next one.
+   Model runners and JAX/XLA allocator state remain resident; this does not imply
+   that host or device memory is returned to the operating system.
+5. Record ordinary Python per-job exceptions and continue. Setup failures and
+   process interrupts remain fatal. Native CUDA/XLA aborts, process termination,
+   or a backend left unusable after an error cannot be isolated: they may stop the
+   batch or cause its remaining jobs to fail.
+6. Print one final summary for completed execution and rejected manifests. Native
+   process termination cannot produce a Python-level summary. Exit nonzero after
+   the summary if any job failed or the manifest was rejected.
 
 The existing command preserves its current `--input` and `--output_directory`
 semantics while delegating runner lifecycle and execution to the same module.

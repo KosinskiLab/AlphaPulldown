@@ -5,7 +5,7 @@ from absl import app, flags, logging
 
 from alphapulldown.prediction_batch import (
     AlphaPulldownPredictionAdapter,
-    PredictionBatch,
+    execute_prediction_manifest,
 )
 from alphapulldown.scripts import run_structure_prediction as prediction_command
 
@@ -22,20 +22,21 @@ FLAGS = flags.FLAGS
 def main(argv) -> None:
     del argv
     prediction_command._validate_flags_for_backend(FLAGS.fold_backend)
-    batch = PredictionBatch.from_jsonl(FLAGS.manifest)
-    summary = batch.run(
-        AlphaPulldownPredictionAdapter(FLAGS, backend=prediction_command.backend)
+    outcome = execute_prediction_manifest(
+        FLAGS.manifest,
+        AlphaPulldownPredictionAdapter(FLAGS, backend=prediction_command.backend),
     )
 
-    logging.info(
-        "Prediction batch summary: %d completed, %d failed",
-        len(summary.completed_job_ids),
-        len(summary.failures),
-    )
-    for failure in summary.failures:
-        logging.error("Prediction job %s failed: %s", failure.job_id, failure.message)
-    if summary.failures:
-        raise SystemExit(summary.exit_code)
+    if outcome.rejection is not None:
+        logging.error("Prediction batch rejected: %s", outcome.rejection)
+    if outcome.summary is not None:
+        for failure in outcome.summary.failures:
+            logging.error(
+                "Prediction job %s failed: %s", failure.job_id, failure.message
+            )
+    logging.info(outcome.summary_message)
+    if outcome.exit_code:
+        raise SystemExit(outcome.exit_code)
 
 
 if __name__ == "__main__":

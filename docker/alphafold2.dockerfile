@@ -56,7 +56,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     set -eux; \
     apt-get update; \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-      ca-certificates curl bzip2 tzdata openssh-client; \
+      ca-certificates curl bzip2 tzdata; \
     rm -rf /var/lib/apt/lists/*
 
 # Micromamba bootstrap (smaller than Miniforge)
@@ -98,15 +98,11 @@ RUN set -eux; \
 #RUN micromamba run -n base python -m pip install --no-cache-dir "openmm==8.1.1"
 RUN python -m pip install --no-cache-dir "setuptools<82" # setuptools>82 breaks pdbfixer at relaxation
 
-# Clone from repo
-RUN mkdir -p /root/.ssh && chmod 700 /root/.ssh
-RUN ssh-keyscan github.com >> /root/.ssh/known_hosts
-RUN  git clone --recurse-submodules https://github.com/KosinskiLab/AlphaPulldown.git
-WORKDIR AlphaPulldown
-
-#DEBUG
-#WORKDIR /AlphaPulldown
-#COPY . /AlphaPulldown
+# Install the exact checkout supplied as the Docker build context. In particular,
+# pull-request image builds must test the submitted code rather than repository
+# main.
+WORKDIR /AlphaPulldown
+COPY . /AlphaPulldown
 RUN pip install --no-build-isolation .
 # jax takes its CUDA runtime from the nvidia-* wheels, not from the base image, and
 # `jax[cuda12]==0.5.3` puts no floor on them - which version you get depends on when
@@ -131,6 +127,10 @@ RUN pip3 install --upgrade pip --no-cache-dir \
 # this file (conda + pyproject) run BEFORE the jax upgrade so they do not stick; re-pin
 # numpy<2 as the LAST dependency step. jax 0.5.3 runs fine with numpy 1.26.x.
 RUN pip install --no-cache-dir "numpy<2"
+
+# Exercise the installed entry point without requiring a GPU during the build.
+# This catches packaging/import regressions in the exact checkout copied above.
+RUN run_structure_prediction_batch.py --helpshort >/dev/null
 
 # AlphaFold's template code formats a hit's `sum_probs` with %.2f in the error
 # path of `_process_single_hit`, but sum_probs is legitimately None for some hits
