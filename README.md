@@ -580,7 +580,10 @@ length_filter_fetch_uniprot: true     # set false for fully offline runs
 Many short, inference-only predictions can spend more time waiting in the SLURM queue
 than running. To amortise that wait, several folds can share a single
 `structure_inference` job: the job runs `run_structure_prediction.py` once per fold in a
-loop, so the folds queue **once** between them instead of once each.
+loop, so the folds queue **once** between them instead of once each. With a current
+AlphaPulldown container, batches of two or more instead use
+`run_structure_prediction_batch.py`: one resident process loads the model once and keeps
+the folds independent.
 
 ```yaml
 batch_size: 4          # max folds per inference job (1 = one job per fold, the default)
@@ -593,19 +596,20 @@ batch_max_tokens: 0    # optional cap on summed residues per batch (0 = no cap)
 - Folds are grouped **by size**, so a batch's memory tracks its largest fold and its
   walltime scales with the number of folds. `batch_max_tokens` keeps a batch's total
   work within the partition's `MaxTime`; a single oversized fold always runs alone.
-- Works with both AlphaFold2 and AlphaFold3. Each fold is predicted by its own CLI call
-  (a single call with several folds would be **merged into one complex** by the AF3
-  backend), so the per-fold model load is paid each time; a shared
-  `--jax_compilation_cache_dir` is set automatically so later folds reuse earlier
-  compilations (especially AF3 buckets), recovering most of the compile cost.
+- Works with both AlphaFold2 and AlphaFold3. A JSONL manifest distinguishes independent
+  folds from the chains inside each fold, so AF3 does not merge separate folds. The
+  backend and model runners are initialized once per batch. Containers predating the
+  batch command automatically fall back to the per-fold loop.
 - For AlphaFold2 batches, `--allow_resume` is enabled automatically, so if a job is
   interrupted a rerun skips folds whose outputs already exist (AlphaFold3 does not accept
   that flag, so its batches recompute the unfinished folds on rerun).
 - Analysis and reports are unaffected — `alphajudge` still runs per fold (one
   `interfaces.csv` + `report.pdf` each) and the recursive summary still aggregates them.
 - **Trade-off:** a batch is one SLURM job, so a failure reruns the whole batch (minus the
-  folds resume can skip) and the allocation is sized for the batch's largest fold. Keep
-  `batch_size` modest and pair it with `batch_max_tokens` for heterogeneous fold sizes.
+  folds resume can skip), although the resident command attempts the remaining folds
+  before returning a failure summary. The allocation is sized for the batch's largest
+  fold. Keep `batch_size` modest and pair it with `batch_max_tokens` for heterogeneous
+  fold sizes.
 
 > [!NOTE]
 > **AlphaFold3 batching depends on your container + shared filesystem.** A batched AF3 job

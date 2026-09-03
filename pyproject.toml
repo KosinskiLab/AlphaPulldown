@@ -116,6 +116,7 @@ script-files = [
   "./alphapulldown/scripts/generate_crosslink_pickle.py",
   "./alphapulldown/scripts/convert_to_modelcif.py",
   "./alphapulldown/scripts/run_structure_prediction.py",
+  "./alphapulldown/scripts/run_structure_prediction_batch.py",
   "./alphapulldown/scripts/truncate_pickles.py",
   "./alphafold/run_alphafold.py",
 ]

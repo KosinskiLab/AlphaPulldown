@@ -313,37 +313,29 @@ def predict_structure(
     fold_backend : str, optional
         Backend used for folding, defaults to alphafold2.
     """
-    backend.change_backend(backend_name=fold_backend)
-    model_runners_and_configs = backend.setup(**model_flags)
-    if FLAGS.random_seed is not None:
-        random_seed = FLAGS.random_seed
-    else:
-        if fold_backend == 'alphafold2':
-            random_seed = random.randrange(sys.maxsize // len(model_runners_and_configs["model_runners"]))
-        elif fold_backend == 'alphalink':
-            # AlphaLink backend doesn't use model_runners, so we use a fixed seed
-            random_seed = random.randrange(sys.maxsize)
-        elif fold_backend=='alphafold3':
-            random_seed = random.randrange(2**32 - 1)
-        else:
-            random_seed = random.randrange(sys.maxsize)
-    predicted_jobs = backend.predict(
-        **model_runners_and_configs,
-        objects_to_model=objects_to_model,
-        random_seed=random_seed,
-        **model_flags
+    from pathlib import Path
+
+    from alphapulldown.prediction_batch import (
+        PredictionBatch,
+        PredictionJob,
+        PreparedPredictionAdapter,
     )
 
-    for predicted_job in predicted_jobs:
-        object_to_model = predicted_job['object']
-        prediction_results = predicted_job['prediction_results']
-        output_dir = predicted_job['output_dir']
-        backend.postprocess(
-            **postprocess_flags,
-            multimeric_object=object_to_model,
-            prediction_results=prediction_results,
-            output_dir=output_dir
+    output_hint = objects_to_model[0]["output_dir"] if objects_to_model else "."
+    summary = PredictionBatch(
+        (PredictionJob("legacy-invocation", "", Path(output_hint)),)
+    ).run(
+        PreparedPredictionAdapter(
+            backend=backend,
+            fold_backend=fold_backend,
+            objects_to_model=objects_to_model,
+            model_flags=model_flags,
+            postprocess_flags=postprocess_flags,
+            random_seed=FLAGS.random_seed,
         )
+    )
+    if summary.failures:
+        raise summary.failures[0].exception
 
 def pre_modelling_setup(
     interactors : List[Union[MonomericObject, ChoppedObject]], output_dir) -> Tuple[Union[MultimericObject,MonomericObject, ChoppedObject], str]:

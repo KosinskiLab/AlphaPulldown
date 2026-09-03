@@ -182,6 +182,7 @@ def _load_run_structure_prediction_module():
         BEST = "best"
 
     root_pkg = _package("alphapulldown")
+    root_pkg.__path__ = [str(RUN_STRUCTURE_PREDICTION_PATH.parents[1])]
     folding_backend_mod = types.ModuleType("alphapulldown.folding_backend")
     folding_backend_mod.backend = SimpleNamespace()
     af2_backend_mod = types.ModuleType(
