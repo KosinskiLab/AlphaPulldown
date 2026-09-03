@@ -4,6 +4,7 @@ from pathlib import Path
 import re
 
 import pytest
+import yaml
 
 
 REPOSITORY = Path(__file__).resolve().parents[2]
@@ -14,6 +15,7 @@ DOCKERFILES = (
 EXPECTED_VERSION = "18-8cc5c"
 EXPECTED_COMMIT = "8cc5ce367b5638c4306c2d7cfc652dd099a4643f"
 EXPECTED_SHA256 = "83969dd5c7d4c32858c2fc9a4d1024c15e8fe5da768ce76e787ab0195ffd64e7"
+WORKFLOW = REPOSITORY / ".github" / "workflows" / "github_actions.yml"
 
 
 def _build_argument(source: str, name: str) -> str:
@@ -38,3 +40,40 @@ def test_prediction_images_install_the_same_verified_mmseqs2_gpu_release(dockerf
         'test "$(/opt/mmseqs/bin/mmseqs version)" = "${MMSEQS_COMMIT}"'
         in source
     )
+
+
+def test_alphafold2_container_builds_on_pull_requests_without_secrets():
+    workflow = yaml.load(WORKFLOW.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
+    steps = workflow["jobs"]["build-alphafold2-container"]["steps"]
+
+    ssh_agent = next(
+        step
+        for step in steps
+        if step.get("uses", "").startswith("webfactory/ssh-agent@")
+    )
+    registry_login = next(
+        step
+        for step in steps
+        if step.get("uses", "").startswith("docker/login-action@")
+    )
+    pull_request_build = next(
+        step for step in steps if step.get("name") == "Build alphafold2 container"
+    )
+
+    assert ssh_agent["if"] == "github.event_name != 'pull_request'"
+    assert registry_login["if"] == "github.event_name != 'pull_request'"
+    assert pull_request_build["if"] == "github.event_name == 'pull_request'"
+    assert pull_request_build["uses"].startswith("docker/build-push-action@")
+    assert pull_request_build["with"]["context"] == "."
+    assert pull_request_build["with"]["file"] == "./docker/alphafold2.dockerfile"
+    assert pull_request_build["with"]["push"] == "false"
+    assert "ssh" not in pull_request_build["with"]
+
+    publish_steps = [
+        step for step in steps if step.get("with", {}).get("push") == "true"
+    ]
+    assert {step["if"] for step in publish_steps} == {
+        "github.event_name == 'push'",
+        "github.event_name == 'release' && github.event.action == 'published'",
+    }
+    assert all(step["with"]["ssh"] == "default" for step in publish_steps)
