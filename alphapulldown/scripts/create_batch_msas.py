@@ -15,8 +15,7 @@ from alphapulldown.feature_batch import (
     write_batch_summary,
 )
 from alphapulldown.scripts._mmseqs2_cli import (
-    DATABASE_NAMES,
-    database_spec,
+    database_selection,
     define_msa_search_flags,
     required_msa_flag_names,
 )
@@ -32,13 +31,12 @@ def main(argv) -> None:
     summary_path = Path(FLAGS.summary_path)
     summary_path.unlink(missing_ok=True)
     requests = protein_requests_from_fastas(FLAGS.fasta_paths)
+    databases = database_selection(FLAGS)
     settings = MsaBatchSettings(
         output_dir=Path(FLAGS.msa_output_dir),
         temp_dir=Path(FLAGS.mmseqs_temp_dir),
-        unpaired_databases=tuple(
-            database_spec(FLAGS, name) for name in DATABASE_NAMES[:3]
-        ),
-        paired_database=database_spec(FLAGS, "uniprot"),
+        unpaired_databases=databases.unpaired,
+        paired_database=databases.paired,
         max_sequences_per_batch=FLAGS.mmseqs_batch_max_sequences,
         max_residues_per_batch=FLAGS.mmseqs_batch_max_residues,
         threads=FLAGS.mmseqs_threads,

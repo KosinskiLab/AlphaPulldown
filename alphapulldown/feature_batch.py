@@ -23,6 +23,22 @@ from alphapulldown.utils.feature_metadata import (
 
 _PROTEIN_RESIDUES = frozenset("ACDEFGHIKLMNPQRSTVWYX")
 
+# The two database roles. Unpaired hits are merged into one MSA; paired hits keep their
+# UniProt taxon headers so AlphaFold 3 can pair chains by species. Getting these the
+# wrong way round produces a plausible-looking MSA and silently wrong pairing, so the
+# roles are named here rather than recovered from a position in a tuple.
+UNPAIRED_DATABASE_NAMES = ("uniref90", "mgnify", "small_bfd")
+PAIRED_DATABASE_NAME = "uniprot"
+DATABASE_NAMES = (*UNPAIRED_DATABASE_NAMES, PAIRED_DATABASE_NAME)
+
+DEFAULT_MAX_SEQUENCES = {
+    "uniref90": 10_000,
+    "mgnify": 5_000,
+    "small_bfd": 5_000,
+    "uniprot": 50_000,
+}
+_FALLBACK_MAX_SEQUENCES = 5_000
+
 
 def _validate_feature_requests(requests: Sequence[FeatureRequest]) -> None:
     names = [request.name for request in requests]
@@ -72,6 +88,14 @@ class DatabaseSpec:
     path: Path
     identifier: str
     max_sequences: int | None = None
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class DatabaseSelection:
+    """The configured databases with their roles named."""
+
+    unpaired: tuple[DatabaseSpec, ...]
+    paired: DatabaseSpec
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -327,12 +351,7 @@ class SubprocessMmseqsProcess:
 
 
 def _default_max_sequences(database_name: str) -> int:
-    return {
-        "uniref90": 10_000,
-        "mgnify": 5_000,
-        "small_bfd": 5_000,
-        "uniprot": 50_000,
-    }.get(database_name, 5_000)
+    return DEFAULT_MAX_SEQUENCES.get(database_name, _FALLBACK_MAX_SEQUENCES)
 
 
 class MsaBatch:
@@ -510,13 +529,15 @@ class MsaBatch:
         unpaired_names = tuple(
             database.name for database in self._settings.unpaired_databases
         )
-        if unpaired_names != ("uniref90", "mgnify", "small_bfd"):
+        if unpaired_names != UNPAIRED_DATABASE_NAMES:
             raise ValueError(
-                "unpaired_databases must explicitly provide uniref90, mgnify, "
-                "and small_bfd in that order"
+                "unpaired_databases must explicitly provide "
+                f"{', '.join(UNPAIRED_DATABASE_NAMES)} in that order"
             )
-        if self._settings.paired_database.name != "uniprot":
-            raise ValueError("paired_database must explicitly provide uniprot")
+        if self._settings.paired_database.name != PAIRED_DATABASE_NAME:
+            raise ValueError(
+                f"paired_database must explicitly provide {PAIRED_DATABASE_NAME}"
+            )
         for database in (
             *self._settings.unpaired_databases,
             self._settings.paired_database,

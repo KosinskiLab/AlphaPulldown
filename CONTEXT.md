@@ -10,3 +10,7 @@
 - **MSA cache hit**: an existing MSA bundle whose sequence, MMseqs2 executable version, search settings, and database identifiers match the request.
 - **Feature cache hit**: an existing feature artifact whose MSA provenance, maximum template date, PDB seqres identity, and mmCIF identity match the request.
 - **Recoverable failure**: a failure isolated to one sequence; remaining requests continue and the batch reports a nonzero summary after writing successful artifacts.
+- **Database role**: whether a configured MMseqs2 database supplies unpaired hits
+  (uniref90, mgnify, small_bfd, merged into one MSA) or paired hits (uniprot, whose
+  UniProt taxon headers let AlphaFold 3 pair chains by species). Roles are named, not
+  inferred from a position in the configured list.

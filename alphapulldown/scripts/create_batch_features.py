@@ -22,8 +22,7 @@ from alphapulldown.feature_batch import (
 )
 from alphapulldown.scripts import create_individual_features as legacy_features
 from alphapulldown.scripts._mmseqs2_cli import (
-    DATABASE_NAMES,
-    database_spec,
+    database_selection,
     define_msa_search_flags,
     define_template_provenance_flags,
     required_msa_flag_names,
@@ -57,15 +56,14 @@ def main(argv) -> None:
     pipeline = legacy_features.create_pipeline_af3()
     metadata = legacy_features.get_af3_feature_metadata({"protein"}, skip_msa=True)
     requests = _feature_requests(FLAGS.fasta_paths)
+    databases = database_selection(FLAGS)
     result = FeatureBatch(
         settings=FeatureBatchSettings(
             output_dir=Path(FLAGS.output_dir),
             msa_output_dir=Path(FLAGS.msa_output_dir),
             temp_dir=Path(FLAGS.mmseqs_temp_dir),
-            unpaired_databases=tuple(
-                database_spec(FLAGS, name) for name in DATABASE_NAMES[:3]
-            ),
-            paired_database=database_spec(FLAGS, "uniprot"),
+            unpaired_databases=databases.unpaired,
+            paired_database=databases.paired,
             max_sequences_per_batch=FLAGS.mmseqs_batch_max_sequences,
             max_residues_per_batch=FLAGS.mmseqs_batch_max_residues,
             threads=FLAGS.mmseqs_threads,

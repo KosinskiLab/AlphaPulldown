@@ -7,16 +7,14 @@ from typing import Callable
 
 from absl import flags
 
-from alphapulldown.feature_batch import DatabaseSpec
-
-
-DATABASE_NAMES = ("uniref90", "mgnify", "small_bfd", "uniprot")
-DEFAULT_MAX_SEQUENCES = {
-    "uniref90": 10_000,
-    "mgnify": 5_000,
-    "small_bfd": 5_000,
-    "uniprot": 50_000,
-}
+from alphapulldown.feature_batch import (
+    DATABASE_NAMES,
+    DEFAULT_MAX_SEQUENCES,
+    PAIRED_DATABASE_NAME,
+    UNPAIRED_DATABASE_NAMES,
+    DatabaseSelection,
+    DatabaseSpec,
+)
 
 
 def _define_once(name: str, define: Callable, default, help_text: str) -> None:
@@ -126,6 +124,16 @@ def database_spec(flag_values: flags.FlagValues, name: str) -> DatabaseSpec:
         path=Path(flag_values[f"mmseqs_{name}_database_path"].value),
         identifier=flag_values[f"mmseqs_{name}_database_id"].value,
         max_sequences=flag_values[f"mmseqs_{name}_max_sequences"].value,
+    )
+
+
+def database_selection(flag_values: flags.FlagValues) -> DatabaseSelection:
+    """Configured databases with their roles named, rather than sliced by position."""
+    return DatabaseSelection(
+        unpaired=tuple(
+            database_spec(flag_values, name) for name in UNPAIRED_DATABASE_NAMES
+        ),
+        paired=database_spec(flag_values, PAIRED_DATABASE_NAME),
     )
 
 

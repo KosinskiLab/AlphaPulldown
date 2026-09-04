@@ -650,7 +650,7 @@ def test_all_native_af3_msa_databases_must_be_explicit(tmp_path):
 
     with pytest.raises(
         ValueError,
-        match="uniref90, mgnify, and small_bfd",
+        match="uniref90, mgnify, small_bfd",
     ):
         batch.generate([FeatureRequest(name="alpha", sequence="ACDE")])
 
@@ -951,3 +951,33 @@ def test_database_rebuild_invalidates_cache_even_with_same_identifier(tmp_path: 
     result = MsaBatch(settings=settings, mmseqs_process=second).generate((request,))
     assert [artifact.name for artifact in result.written] == ["alpha"]
     assert not result.reused
+
+
+def test_database_roles_are_named_not_positional():
+    """A reordered name tuple must not be able to swap paired for unpaired."""
+    from alphapulldown import feature_batch as fb
+
+    assert fb.DATABASE_NAMES == (*fb.UNPAIRED_DATABASE_NAMES, fb.PAIRED_DATABASE_NAME)
+    assert fb.PAIRED_DATABASE_NAME not in fb.UNPAIRED_DATABASE_NAMES
+    assert set(fb.DEFAULT_MAX_SEQUENCES) == set(fb.DATABASE_NAMES)
+
+
+def test_database_selection_assigns_roles_from_flags():
+    from types import SimpleNamespace
+
+    from alphapulldown import feature_batch as fb
+    from alphapulldown.scripts._mmseqs2_cli import database_selection
+
+    class _Flag:
+        def __init__(self, value):
+            self.value = value
+
+    values = {}
+    for name in fb.DATABASE_NAMES:
+        values[f"mmseqs_{name}_database_path"] = _Flag(f"/db/{name}")
+        values[f"mmseqs_{name}_database_id"] = _Flag(f"{name}-id")
+        values[f"mmseqs_{name}_max_sequences"] = _Flag(None)
+
+    selection = database_selection(values)
+    assert [db.name for db in selection.unpaired] == list(fb.UNPAIRED_DATABASE_NAMES)
+    assert selection.paired.name == fb.PAIRED_DATABASE_NAME
