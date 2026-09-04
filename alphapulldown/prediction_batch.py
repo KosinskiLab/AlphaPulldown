@@ -264,6 +264,9 @@ class PreparedPredictionAdapter:
         return self._model_flags
 
     def setup(self, configuration: Dict[str, Any]) -> _AlphaPulldownSession:
+        from alphapulldown.inference_flags import validate_model_configuration
+
+        validate_model_configuration(configuration)
         self._backend.change_backend(backend_name=self._fold_backend)
         return _AlphaPulldownSession(
             dict(configuration), self._backend.setup(**configuration)
@@ -305,30 +308,67 @@ class AlphaPulldownPredictionAdapter:
         self._parsed_jobs: Dict[str, Tuple[list, Tuple[str, ...]]] = {}
 
     def _base_model_flags(self) -> Dict[str, Any]:
-        flags = self._flags
-        return {
-            "model_name": "monomer_ptm",
-            "num_cycle": flags.num_cycle,
-            "model_dir": flags.data_directory,
-            "num_predictions_per_model": flags.num_predictions_per_model,
-            "crosslinks": flags.crosslinks,
-            "desired_num_res": flags.desired_num_res,
-            "desired_num_msa": flags.desired_num_msa,
-            "skip_templates": flags.skip_templates,
-            "allow_resume": flags.allow_resume,
-            "num_diffusion_samples": flags.num_diffusion_samples,
-            "num_recycles": flags.num_recycles,
-            "return_embeddings": flags.save_embeddings,
-            "return_distogram": flags.save_distogram,
-            "flash_attention_implementation": flags.flash_attention_implementation,
-            "buckets": flags.buckets,
-            "jax_compilation_cache_dir": flags.jax_compilation_cache_dir,
-            "features_directory": flags.features_directory,
-            "num_seeds": flags.num_seeds,
-            "debug_templates": flags.debug_templates,
-            "debug_msas": flags.debug_msas,
-            "dropout": flags.dropout,
-        }
+        from alphapulldown.inference_flags import model_flags
+
+        return model_flags(self._flags)
+
+    def _postprocess_flags(self) -> Dict[str, Any]:
+        from alphapulldown.inference_flags import postprocess_flags
+
+        return postprocess_flags(self._flags)
+
+    def configuration_for(self, job: PredictionJob) -> Dict[str, Any]:
+        del job
+        return self._model_flags
+
+    def setup(self, configuration: Dict[str, Any]) -> _AlphaPulldownSession:
+        from alphapulldown.inference_flags import validate_model_configuration
+
+        validate_model_configuration(configuration)
+        self._backend.change_backend(backend_name=self._fold_backend)
+        return _AlphaPulldownSession(
+            dict(configuration), self._backend.setup(**configuration)
+        )
+
+    def _random_seed(self, session: _AlphaPulldownSession) -> int:
+        if self._requested_random_seed is not None:
+            return self._requested_random_seed
+        if self._fold_backend == "alphafold2":
+            count = len(session.backend_values["model_runners"])
+            return random.randrange(sys.maxsize // count)
+        if self._fold_backend == "alphafold3":
+            return random.randrange(2**32 - 1)
+        return random.randrange(sys.maxsize)
+
+    def predict(self, session: _AlphaPulldownSession, job: PredictionJob) -> None:
+        del job
+        predicted_jobs = self._backend.predict(
+            **session.backend_values,
+            objects_to_model=self._objects_to_model,
+            random_seed=self._random_seed(session),
+            **session.configuration,
+        )
+        for predicted_job in predicted_jobs:
+            self._backend.postprocess(
+                **self._postprocess_flags,
+                multimeric_object=predicted_job["object"],
+                prediction_results=predicted_job["prediction_results"],
+                output_dir=predicted_job["output_dir"],
+            )
+
+
+class AlphaPulldownPredictionAdapter:
+    """Adapter from prediction jobs to AlphaPulldown's folding backends."""
+
+    def __init__(self, prediction_flags: Any, *, backend: Any) -> None:
+        self._flags = prediction_flags
+        self._backend = backend
+        self._parsed_jobs: Dict[str, Tuple[list, Tuple[str, ...]]] = {}
+
+    def _base_model_flags(self) -> Dict[str, Any]:
+        from alphapulldown.inference_flags import model_flags
+
+        return model_flags(self._flags)
 
     def _postprocess_flags(self) -> Dict[str, Any]:
         flags = self._flags
@@ -382,6 +422,9 @@ class AlphaPulldownPredictionAdapter:
         return model_flags
 
     def setup(self, configuration: Dict[str, Any]) -> _AlphaPulldownSession:
+        from alphapulldown.inference_flags import validate_model_configuration
+
+        validate_model_configuration(configuration)
         self._backend.change_backend(backend_name=self._flags.fold_backend)
         backend_values = self._backend.setup(**configuration)
         return _AlphaPulldownSession(dict(configuration), backend_values)
