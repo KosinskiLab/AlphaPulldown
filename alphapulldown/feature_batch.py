@@ -110,6 +110,11 @@ class MsaBatchSettings:
     max_residues_per_batch: int
     threads: int
     e_value: float = 1e-4
+    # MMseqs2 sizes its database splits from 90% of the PHYSICAL node memory
+    # (sysconf(_SC_PHYS_PAGES)), which ignores the cgroup a batch scheduler puts it in.
+    # On a large node with a small allocation it therefore declines to split and is
+    # OOM-killed instead. Pass the allocation explicitly, e.g. "150G".
+    split_memory_limit: str | None = None
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -138,6 +143,7 @@ class FeatureBatchSettings:
     threads: int
     msa_output_dir: Path | None = None
     e_value: float = 1e-4
+    split_memory_limit: str | None = None
     compress: bool = False
     base_metadata: Mapping[str, Any] = dataclasses.field(default_factory=dict)
     max_template_date: str = ""
@@ -315,6 +321,11 @@ class SubprocessMmseqsProcess:
                 str(max_sequences),
                 "--gpu",
                 "1" if self._gpu else "0",
+            )
+            + (
+                ("--split-memory-limit", settings.split_memory_limit)
+                if settings.split_memory_limit
+                else ()
             )
         )
 
@@ -920,6 +931,7 @@ class FeatureBatch:
                 max_residues_per_batch=settings.max_residues_per_batch,
                 threads=settings.threads,
                 e_value=settings.e_value,
+                split_memory_limit=settings.split_memory_limit,
             ),
             mmseqs_process=mmseqs_process,
         )

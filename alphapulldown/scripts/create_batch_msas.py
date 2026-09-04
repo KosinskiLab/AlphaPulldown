@@ -41,6 +41,7 @@ def main(argv) -> None:
         max_residues_per_batch=FLAGS.mmseqs_batch_max_residues,
         threads=FLAGS.mmseqs_threads,
         e_value=FLAGS.mmseqs_e_value,
+        split_memory_limit=FLAGS.mmseqs_split_memory_limit,
     )
     result = MsaBatch(
         settings=settings,

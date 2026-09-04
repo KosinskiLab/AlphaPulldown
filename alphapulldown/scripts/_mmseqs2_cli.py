@@ -77,6 +77,14 @@ def define_msa_search_flags(
         "MMseqs2 search E-value cutoff.",
     )
     _define_once(
+        "mmseqs_split_memory_limit",
+        flags.DEFINE_string,
+        None,
+        "Memory MMseqs2 may use before splitting the target database, e.g. '150G'. "
+        "Leave unset and MMseqs2 assumes 90% of the physical node memory, which "
+        "ignores any cgroup limit a batch scheduler applied.",
+    )
+    _define_once(
         "mmseqs_use_gpu",
         flags.DEFINE_bool,
         True,

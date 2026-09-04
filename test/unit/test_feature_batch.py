@@ -989,3 +989,43 @@ def test_cpu_and_gpu_search_are_distinct_cache_identities():
 
     assert SubprocessMmseqsProcess("/bin/mmseqs", gpu=True).search_mode() == "gpu"
     assert SubprocessMmseqsProcess("/bin/mmseqs", gpu=False).search_mode() == "cpu"
+
+
+def test_split_memory_limit_is_passed_to_the_search(tmp_path: Path):
+    """MMseqs2 otherwise sizes its splits from physical node memory, ignoring the
+    cgroup a batch scheduler applied, and is OOM-killed instead of splitting."""
+    import dataclasses as _dc
+
+    binary = tmp_path / "mmseqs"
+    arguments = Path(f"{binary}.arguments")
+    binary.write_text(
+        '#!/bin/sh\nprintf \'%s\\n\' "$@" > "${0}.arguments"\n', encoding="utf-8"
+    )
+    binary.chmod(0o755)
+    database = DatabaseSpec(
+        name="uniref90", path=tmp_path / "uniref90", identifier="fixture"
+    )
+    settings = _dc.replace(_settings(tmp_path), split_memory_limit="150G")
+
+    SubprocessMmseqsProcess(binary).search(
+        tmp_path / "query", database, tmp_path / "result", tmp_path / "work", settings
+    )
+    command = arguments.read_text(encoding="utf-8").splitlines()
+    assert command[command.index("--split-memory-limit") + 1] == "150G"
+
+
+def test_search_omits_the_limit_when_unset(tmp_path: Path):
+    binary = tmp_path / "mmseqs"
+    arguments = Path(f"{binary}.arguments")
+    binary.write_text(
+        '#!/bin/sh\nprintf \'%s\\n\' "$@" > "${0}.arguments"\n', encoding="utf-8"
+    )
+    binary.chmod(0o755)
+    database = DatabaseSpec(
+        name="uniref90", path=tmp_path / "uniref90", identifier="fixture"
+    )
+    SubprocessMmseqsProcess(binary).search(
+        tmp_path / "query", database, tmp_path / "result", tmp_path / "work",
+        _settings(tmp_path),
+    )
+    assert "--split-memory-limit" not in arguments.read_text().splitlines()
