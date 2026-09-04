@@ -10,3 +10,6 @@
   it does not change fold composition semantics.
 - **Job failure**: a recoverable exception associated with one prediction job.
   It is reported after remaining jobs have been attempted.
+- **Fold preparation**: building the object to model for one prediction job and its
+  output directory, including AlphaPulldown-style naming and feature-metadata copying.
+  Shared by the single-fold command and the resident batch so the two cannot diverge.
