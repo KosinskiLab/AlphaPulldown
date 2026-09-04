@@ -160,6 +160,7 @@ class FeatureBatchResult:
     written: tuple[FeatureArtifact, ...]
     reused: tuple[FeatureArtifact, ...]
     failures: tuple[FeatureFailure, ...]
+    query_only: tuple[str, ...] = ()
 
 
 class _InvalidMsaBundle(ValueError):
@@ -921,6 +922,7 @@ class FeatureBatch:
         return FeatureBatchResult(
             written=final_result.written,
             reused=final_result.reused,
+            query_only=msa_result.query_only,
             failures=(
                 *(
                     FeatureFailure(name=failure.name, error=failure.error)

@@ -85,6 +85,13 @@ def main(argv) -> None:
         len(result.reused),
         len(result.failures),
     )
+    produced = len(result.written) + len(result.reused)
+    if produced and len(result.query_only) == produced:
+        raise RuntimeError(
+            "Every MSA in this batch contains only the query sequence; check that the "
+            f"configured MMseqs2 databases exist and are searchable "
+            f"({', '.join(result.query_only)})"
+        )
     if result.failures:
         detail = ", ".join(f"{item.name} ({item.error})" for item in result.failures)
         raise RuntimeError(
