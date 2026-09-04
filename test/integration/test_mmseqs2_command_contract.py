@@ -84,5 +84,5 @@ def test_real_createdb_padded_search_result2msa_and_unpack_contract(tmp_path):
     assert "target_hit expected description OX=9606" in payload["unpairedMsa"]
     assert "target_hit expected description OX=9606" in payload["pairedMsa"]
     assert payload["provenance"]["search_mode"] == (
-        "gpu" if use_gpu else "cpu-contract"
+        "gpu" if use_gpu else "cpu"
     )

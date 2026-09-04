@@ -77,6 +77,13 @@ def define_msa_search_flags(
         "MMseqs2 search E-value cutoff.",
     )
     _define_once(
+        "mmseqs_use_gpu",
+        flags.DEFINE_bool,
+        True,
+        "Run the MMseqs2 search on a GPU (requires GPU-padded databases and a GPU "
+        "allocation). Set false to search on CPU instead.",
+    )
+    _define_once(
         "mmseqs_threads",
         flags.DEFINE_integer,
         8,

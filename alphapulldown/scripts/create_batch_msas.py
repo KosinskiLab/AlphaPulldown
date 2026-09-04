@@ -44,7 +44,9 @@ def main(argv) -> None:
     )
     result = MsaBatch(
         settings=settings,
-        mmseqs_process=SubprocessMmseqsProcess(FLAGS.mmseqs_binary_path),
+        mmseqs_process=SubprocessMmseqsProcess(
+            FLAGS.mmseqs_binary_path, gpu=FLAGS.mmseqs_use_gpu
+        ),
     ).generate(requests)
     logging.info(
         "MMseqs2-GPU MSA stage: %d written, %d reused, %d failed, %d query-only",

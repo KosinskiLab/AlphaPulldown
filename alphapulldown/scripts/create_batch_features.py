@@ -74,7 +74,9 @@ def main(argv) -> None:
             template_seqres_database_id=FLAGS.template_seqres_database_id,
             template_mmcif_database_id=FLAGS.template_mmcif_database_id,
         ),
-        mmseqs_process=SubprocessMmseqsProcess(FLAGS.mmseqs_binary_path),
+        mmseqs_process=SubprocessMmseqsProcess(
+            FLAGS.mmseqs_binary_path, gpu=FLAGS.mmseqs_use_gpu
+        ),
         af3_pipeline=pipeline,
     ).generate(requests)
     logging.info(

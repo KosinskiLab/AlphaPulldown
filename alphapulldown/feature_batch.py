@@ -283,7 +283,9 @@ class SubprocessMmseqsProcess:
         return version
 
     def search_mode(self) -> str:
-        return "gpu" if self._gpu else "cpu-contract"
+        # Recorded in each bundle's provenance: CPU and GPU search are both supported and
+        # a cached result should not be reused across the two.
+        return "gpu" if self._gpu else "cpu"
 
     def create_query_database(self, query_fasta: Path, query_db: Path) -> None:
         self._run(("createdb", str(query_fasta), str(query_db)))

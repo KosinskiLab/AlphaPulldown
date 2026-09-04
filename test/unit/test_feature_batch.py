@@ -981,3 +981,11 @@ def test_database_selection_assigns_roles_from_flags():
     selection = database_selection(values)
     assert [db.name for db in selection.unpaired] == list(fb.UNPAIRED_DATABASE_NAMES)
     assert selection.paired.name == fb.PAIRED_DATABASE_NAME
+
+
+def test_cpu_and_gpu_search_are_distinct_cache_identities():
+    """A bundle searched on CPU must not be reused for a GPU run, or vice versa."""
+    from alphapulldown.feature_batch import SubprocessMmseqsProcess
+
+    assert SubprocessMmseqsProcess("/bin/mmseqs", gpu=True).search_mode() == "gpu"
+    assert SubprocessMmseqsProcess("/bin/mmseqs", gpu=False).search_mode() == "cpu"
