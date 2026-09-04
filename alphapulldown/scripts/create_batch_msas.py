@@ -49,11 +49,19 @@ def main(argv) -> None:
         mmseqs_process=SubprocessMmseqsProcess(FLAGS.mmseqs_binary_path),
     ).generate(requests)
     logging.info(
-        "MMseqs2-GPU MSA stage: %d written, %d reused, %d failed",
+        "MMseqs2-GPU MSA stage: %d written, %d reused, %d failed, %d query-only",
         len(result.written),
         len(result.reused),
         len(result.failures),
+        len(result.query_only),
     )
+    produced = len(result.written) + len(result.reused)
+    if produced and len(result.query_only) == produced:
+        raise RuntimeError(
+            "Every MSA in this shard contains only the query sequence. A whole shard of "
+            "orphan proteins is not plausible; check that the configured MMseqs2 "
+            f"databases exist and are searchable ({', '.join(result.query_only)})"
+        )
     if result.failures:
         detail = ", ".join(
             f"{failure.name} ({failure.error})" for failure in result.failures

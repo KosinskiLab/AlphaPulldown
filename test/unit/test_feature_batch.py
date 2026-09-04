@@ -911,3 +911,43 @@ def test_compressed_artifact_uses_existing_af3_filename_and_is_cacheable(tmp_pat
         af3_pipeline=PassthroughAf3Pipeline(),
     ).generate([request])
     assert [item.path for item in reused.reused] == [artifact]
+
+
+class NoHitMmseqsProcess(FakeMmseqsProcess):
+    """A database that is valid and searchable but contains nothing relevant."""
+
+    def unpack_msa(self, query_db: Path, msa_db: Path, output_dir: Path) -> None:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        for index, (query_id, sequence) in enumerate(self._queries[query_db]):
+            (output_dir / f"{index}.a3m").write_text(
+                f">{query_id}\n{sequence}\n", encoding="utf-8"
+            )
+
+
+def test_zero_hit_search_is_recorded_as_query_only(tmp_path: Path):
+    settings = _msa_settings(_settings(tmp_path))
+    result = MsaBatch(
+        settings=settings, mmseqs_process=NoHitMmseqsProcess()
+    ).generate((FeatureRequest(name="orphan", sequence="MKVLA"),))
+
+    assert not result.failures
+    assert result.query_only == ("orphan",)
+    payload = json.loads((settings.output_dir / "orphan_mmseqs_msa.json").read_text())
+    assert payload["unpairedDepth"] == 1
+    assert payload["pairedDepth"] == 1
+
+
+def test_database_rebuild_invalidates_cache_even_with_same_identifier(tmp_path: Path):
+    settings = _msa_settings(_settings(tmp_path))
+    request = FeatureRequest(name="alpha", sequence="MKVLA")
+    process = FakeMmseqsProcess()
+    MsaBatch(settings=settings, mmseqs_process=process).generate((request,))
+
+    # Same configured identifier, different database content on disk.
+    Path(f"{settings.unpaired_databases[0].path}.index").write_text(
+        "rebuilt", encoding="utf-8"
+    )
+    second = FakeMmseqsProcess()
+    result = MsaBatch(settings=settings, mmseqs_process=second).generate((request,))
+    assert [artifact.name for artifact in result.written] == ["alpha"]
+    assert not result.reused

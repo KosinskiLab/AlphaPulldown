@@ -13,6 +13,8 @@ import subprocess
 import tempfile
 from typing import Any, Mapping, Protocol, Sequence
 
+from absl import logging
+
 from alphapulldown.utils.feature_metadata import (
     embed_metadata_in_af3_json,
     extract_metadata_from_af3_json,
@@ -138,6 +140,7 @@ class MsaBatchResult:
     written: tuple[MsaArtifact, ...]
     reused: tuple[MsaArtifact, ...]
     failures: tuple[MsaFailure, ...]
+    query_only: tuple[str, ...] = ()
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -428,8 +431,41 @@ class MsaBatch:
                 for request in sequence_to_requests[sequence]
             )
 
+        # A search that returned nothing yields a query-only MSA. That is legitimate for
+        # an orphan sequence but is also exactly what a misconfigured or half-built
+        # database produces, and the two are indistinguishable from provenance alone -
+        # so make it visible instead of recording it as an ordinary success.
+        query_only = []
+        for artifact in (*written, *reused):
+            depths = self._artifact_depths(artifact.path)
+            if depths is not None and max(depths) <= 1:
+                query_only.append(artifact.name)
+                logging.warning(
+                    "MMseqs2 returned no hits for %s: the MSA contains only the query. "
+                    "Check the configured databases before using this artifact.",
+                    artifact.name,
+                )
         return MsaBatchResult(
-            written=tuple(written), reused=tuple(reused), failures=tuple(failures)
+            written=tuple(written),
+            reused=tuple(reused),
+            failures=tuple(failures),
+            query_only=tuple(query_only),
+        )
+
+    @staticmethod
+    def _artifact_depths(path: Path) -> tuple[int, int] | None:
+        try:
+            with open(path, "rt", encoding="utf-8") as handle:
+                payload = json.load(handle)
+        except (OSError, ValueError):
+            return None
+        unpaired = payload.get("unpairedDepth")
+        paired = payload.get("pairedDepth")
+        if isinstance(unpaired, int) and isinstance(paired, int):
+            return unpaired, paired
+        return (
+            _msa_depth(payload.get("unpairedMsa", "")),
+            _msa_depth(payload.get("pairedMsa", "")),
         )
 
     def _read_matching_msa(
@@ -626,11 +662,13 @@ class MsaBatch:
         self, request: FeatureRequest, unpaired_msa: str, paired_msa: str
     ) -> dict[str, Any]:
         return {
-            "schemaVersion": 1,
+            "schemaVersion": 2,
             "name": request.name,
             "sequence": request.sequence,
             "unpairedMsa": unpaired_msa,
             "pairedMsa": paired_msa,
+            "unpairedDepth": _msa_depth(unpaired_msa),
+            "pairedDepth": _msa_depth(paired_msa),
             "provenance": self._cache_signature(),
         }
 
@@ -641,6 +679,10 @@ class MsaBatch:
                 "identifier": database.identifier,
                 "max_sequences": database.max_sequences
                 or _default_max_sequences(database.name),
+                # `identifier` is operator-supplied, so it cannot detect a database that
+                # was rebuilt, truncated or half-copied under the same name. The index
+                # size is a cheap content-derived witness that changes when it does.
+                "index_size": _database_index_size(database.path),
             }
 
         return {
@@ -913,6 +955,19 @@ def _write_atomic(path: Path, payload: Mapping[str, Any]) -> None:
             os.close(directory_fd)
     finally:
         temporary_path.unlink(missing_ok=True)
+
+
+def _database_index_size(path: Path) -> int:
+    """Size of an MMseqs2 database index, or 0 when it cannot be read."""
+    try:
+        return Path(f"{path}.index").stat().st_size
+    except OSError:
+        return 0
+
+
+def _msa_depth(a3m: str) -> int:
+    """Number of alignment rows, including the query."""
+    return sum(1 for line in a3m.splitlines() if line.startswith(">"))
 
 
 def _fasta_records(fasta: str) -> list[tuple[str, str]]:
