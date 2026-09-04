@@ -252,6 +252,7 @@ def _validate_flags_for_backend(backend_name: str) -> None:
         'description_file', 'path_to_mmt', 'threshold_clashes', 'hb_allowance',
         'plddt_threshold', 'desired_num_res', 'desired_num_msa',
         'benchmark', 'model_preset', 'use_ap_style', 'use_gpu_relax', 'dropout',
+        'jax_compilation_cache_dir',
     }
     alphalink_extra = {'crosslinks'}
     af3_flags = {
