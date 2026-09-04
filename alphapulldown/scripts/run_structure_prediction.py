@@ -339,109 +339,17 @@ def predict_structure(
         raise summary.failures[0].exception
 
 def pre_modelling_setup(
-    interactors : List[Union[MonomericObject, ChoppedObject]], output_dir) -> Tuple[Union[MultimericObject,MonomericObject, ChoppedObject], str]:
+    interactors: List[Union[MonomericObject, ChoppedObject]], output_dir
+) -> Tuple[Union[MultimericObject, MonomericObject, ChoppedObject], str]:
+    """Build the object to model for one fold and prepare its output directory.
+
+    Delegates to the shared fold-preparation module so this command and the resident
+    batch command cannot drift apart.
     """
-    A function that sets up objects to be modelled and handles output directory preparation.
+    from alphapulldown.fold_preparation import prepare_fold
 
-    Args:
-    interactors: A list of MonomericObject or ChoppedObject. If len(interactors) == 1, 
-    that means a monomeric modelling job should be done. Otherwise, it will be a multimeric modelling job
-    output_dir: base output directory
+    return prepare_fold(interactors, output_dir, FLAGS)
 
-    Return:
-    A MultimericObject or MonomericObject
-    output_directory for this particular modelling job
-    """
-    if (
-        len(interactors) > 1
-        and FLAGS.pair_msa
-        and any(getattr(interactor, "skip_msa", False) for interactor in interactors)
-    ):
-        raise ValueError(
-            "--skip_msa generates query-only MSAs and cannot be combined with "
-            "--pair_msa=True. Re-run structure prediction with --pair_msa=False."
-        )
-
-    if len(interactors) > 1:
-        # this means it's going to be a MultimericObject
-        object_to_model = MultimericObject(
-            interactors=interactors,
-            pair_msa=FLAGS.pair_msa,
-            multimeric_template=FLAGS.multimeric_template,
-            multimeric_template_meta_data=FLAGS.description_file,
-            multimeric_template_dir=FLAGS.path_to_mmt,
-            threshold_clashes=FLAGS.threshold_clashes,
-            hb_allowance=FLAGS.hb_allowance,
-            plddt_threshold=FLAGS.plddt_threshold,
-        )
-        if FLAGS.save_features_for_multimeric_object:
-            pickle.dump(MultimericObject.feature_dict, open(join(output_dir, "multimeric_object_features.pkl"), "wb"))
-    else:
-        # means it's going to be a MonomericObject or a ChoppedObject
-        object_to_model= interactors[0]
-        object_to_model.input_seqs = [object_to_model.sequence]
-
-    if FLAGS.use_ap_style:
-        list_oligo = object_to_model.description.split("_and_")
-        if len(list_oligo) == len(set(list_oligo)) : #no homo-oligomer
-           output_dir = join(output_dir, object_to_model.description)
-        else :
-            old_output_dir = output_dir
-            for oligo in list(dict.fromkeys(list_oligo)) :
-                number_oligo = list_oligo.count(oligo)
-                if output_dir == old_output_dir :
-                    if number_oligo != 1 :
-                        output_dir += f"/{oligo}_homo_{number_oligo}er"
-                    else :
-                        output_dir += f"/{oligo}"
-                else :
-                    if number_oligo != 1 :
-                        output_dir += f"_and_{oligo}_homo_{number_oligo}er"
-                    else :
-                        output_dir += f"_and_{oligo}"
-    if len(output_dir) > 4096: #max path length for most filesystems
-        logging.warning(f"Output directory path is too long: {output_dir}."
-                        "Please use a shorter path with --output_directory.")
-    
-    # Create parent directories first
-    parent_dir = os.path.dirname(output_dir)
-    if parent_dir:
-        os.makedirs(parent_dir, exist_ok=True)
-    os.makedirs(output_dir, exist_ok=True)
-    
-    # Copy features metadata to output directory
-    for interactor in interactors:
-        for feature_dir in FLAGS.features_directory:
-            # meta.json is named the same way as the pickle file
-            if isinstance(interactor, ChoppedObject):
-                description = interactor.monomeric_description
-            elif isinstance(interactor, MonomericObject):
-                description = interactor.description
-            meta_json = glob.glob(
-                join(feature_dir, f"{description}_feature_metadata_*.json*")
-            )
-        if meta_json:
-            # sort by modification time to take the latest
-            meta_json.sort(key=os.path.getmtime, reverse=True)
-
-            for feature_json in meta_json:
-                output_path = join(output_dir, basename(feature_json))
-
-                if feature_json.endswith(".json.xz"):
-                    # Decompress before copying
-                    decompressed_path = output_path.rstrip(".xz")
-                    logging.info(f"Decompressing {feature_json} to {decompressed_path}")
-
-                    with lzma.open(feature_json, "rb") as xz_file, open(decompressed_path, "wb") as json_file:
-                        json_file.write(xz_file.read())
-                else:
-                    # Copy without decompression
-                    logging.info(f"Copying {feature_json} to {output_dir}")
-                    shutil.copyfile(feature_json, output_path)
-        else:
-            logging.warning(f"No feature metadata found for {interactor.description} in {feature_dir}")
-
-    return object_to_model, output_dir
 
 def main(argv):
     _validate_flags_for_backend(FLAGS.fold_backend)

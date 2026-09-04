@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 import pickle
 from types import SimpleNamespace
@@ -596,3 +597,26 @@ def test_batch_command_is_in_the_installed_script_interface():
     assert "./alphapulldown/scripts/run_structure_prediction_batch.py" in (
         repository / "pyproject.toml"
     ).read_text(encoding="utf-8")
+
+
+def test_metadata_is_taken_from_every_feature_directory(tmp_path):
+    """The old single-fold copy only ever saw the LAST feature directory."""
+    from alphapulldown import fold_preparation
+    from alphapulldown.objects import MonomericObject
+
+    first, second, out = tmp_path / "f1", tmp_path / "f2", tmp_path / "out"
+    for d in (first, second, out):
+        d.mkdir()
+    old = first / "P1_feature_metadata_2024-01-01.json"
+    old.write_text("{}", encoding="utf-8")
+    os.utime(old, (1_000_000, 1_000_000))
+    newer = second / "P1_feature_metadata_2025-01-01.json"
+    newer.write_text('{"newer": true}', encoding="utf-8")
+    os.utime(newer, (2_000_000, 2_000_000))
+
+    interactor = MonomericObject("P1", "MKV")
+    flags = SimpleNamespace(features_directory=[str(first), str(second)])
+    fold_preparation._copy_feature_metadata([interactor], flags, str(out))
+
+    copied = sorted(p.name for p in out.iterdir())
+    assert copied == ["P1_feature_metadata_2025-01-01.json"]

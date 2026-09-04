@@ -152,6 +152,9 @@ def _load_run_structure_prediction_module():
         "alphapulldown.folding_backend",
         "alphapulldown.folding_backend.alphafold2_backend",
         "alphapulldown.objects",
+        # fold_preparation binds the object classes at import time, so it has to be
+        # evicted too or a cached copy keeps the real ones.
+        "alphapulldown.fold_preparation",
         "alphapulldown.utils",
         "alphapulldown.utils.modelling_setup",
         "alphapulldown.utils.output_paths",
@@ -263,6 +266,9 @@ def _load_run_structure_prediction_module():
     }
     for name, module in modules.items():
         sys.modules[name] = module
+    # fold_preparation binds the object classes at import time. If another test file
+    # already imported it against the real ones, drop it so it re-imports against these.
+    sys.modules.pop("alphapulldown.fold_preparation", None)
 
     root_pkg.folding_backend = folding_backend_mod
     root_pkg.objects = objects_mod
@@ -778,21 +784,23 @@ def test_pre_modelling_setup_warns_for_long_paths_and_uses_chopped_metadata_name
     )
     _set_flag(run_structure_prediction_module.FLAGS, "use_ap_style", False)
 
+    import alphapulldown.fold_preparation as fold_preparation
+
     warnings = []
     glob_patterns = []
     created_dirs = []
     monkeypatch.setattr(
-        run_structure_prediction_module.glob,
+        fold_preparation.glob,
         "glob",
         lambda pattern: glob_patterns.append(pattern) or [],
     )
     monkeypatch.setattr(
-        run_structure_prediction_module.logging,
+        fold_preparation.logging,
         "warning",
-        lambda message: warnings.append(message),
+        lambda message, *args: warnings.append(message % args if args else message),
     )
     monkeypatch.setattr(
-        run_structure_prediction_module.os,
+        fold_preparation.os,
         "makedirs",
         lambda path, exist_ok=True: created_dirs.append(path),
     )
@@ -813,7 +821,7 @@ def test_pre_modelling_setup_warns_for_long_paths_and_uses_chopped_metadata_name
     assert glob_patterns == ["/features/protA_feature_metadata_*.json*"]
     assert created_dirs == [long_output_dir]
     assert any("Output directory path is too long" in message for message in warnings)
-    assert any("No feature metadata found for fragmentA" in message for message in warnings)
+    assert any("No feature metadata found for protA" in message for message in warnings)
 
 
 def test_pre_modelling_setup_allows_skip_msa_monomers_with_default_pair_flag(

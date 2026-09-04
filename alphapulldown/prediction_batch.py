@@ -3,14 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import glob
 import json
-import lzma
 import os
 from pathlib import Path
-import pickle
 import random
-import shutil
 import sys
 from typing import Any, Dict, Optional, Protocol, Tuple, Union
 
@@ -401,87 +397,9 @@ class AlphaPulldownPredictionAdapter:
         return random.randrange(sys.maxsize)
 
     def _prepare_protein_object(self, interactors: list, output_dir: str):
-        from alphapulldown.objects import ChoppedObject, MonomericObject, MultimericObject
+        from alphapulldown.fold_preparation import prepare_fold
 
-        flags = self._flags
-        if (
-            len(interactors) > 1
-            and flags.pair_msa
-            and any(getattr(interactor, "skip_msa", False) for interactor in interactors)
-        ):
-            raise ValueError(
-                "--skip_msa generates query-only MSAs and cannot be combined with "
-                "--pair_msa=True. Re-run structure prediction with --pair_msa=False."
-            )
-
-        if len(interactors) > 1:
-            object_to_model = MultimericObject(
-                interactors=interactors,
-                pair_msa=flags.pair_msa,
-                multimeric_template=flags.multimeric_template,
-                multimeric_template_meta_data=flags.description_file,
-                multimeric_template_dir=flags.path_to_mmt,
-                threshold_clashes=flags.threshold_clashes,
-                hb_allowance=flags.hb_allowance,
-                plddt_threshold=flags.plddt_threshold,
-            )
-            if flags.save_features_for_multimeric_object:
-                with open(
-                    os.path.join(output_dir, "multimeric_object_features.pkl"), "wb"
-                ) as handle:
-                    pickle.dump(MultimericObject.feature_dict, handle)
-        else:
-            object_to_model = interactors[0]
-            object_to_model.input_seqs = [object_to_model.sequence]
-
-        if flags.use_ap_style:
-            oligos = object_to_model.description.split("_and_")
-            if len(oligos) == len(set(oligos)):
-                output_dir = os.path.join(output_dir, object_to_model.description)
-            else:
-                fragments = []
-                for oligo in dict.fromkeys(oligos):
-                    count = oligos.count(oligo)
-                    fragments.append(oligo if count == 1 else f"{oligo}_homo_{count}er")
-                output_dir = os.path.join(output_dir, "_and_".join(fragments))
-
-        if len(output_dir) > 4096:
-            from absl import logging
-
-            logging.warning(
-                f"Output directory path is too long: {output_dir}."
-                "Please use a shorter path with --output_directory."
-            )
-        os.makedirs(output_dir, exist_ok=True)
-
-        for interactor in interactors:
-            metadata_files = []
-            if isinstance(interactor, ChoppedObject):
-                description = interactor.monomeric_description
-            elif isinstance(interactor, MonomericObject):
-                description = interactor.description
-            else:
-                continue
-            for feature_dir in flags.features_directory:
-                metadata_files.extend(
-                    glob.glob(
-                        os.path.join(
-                            feature_dir, f"{description}_feature_metadata_*.json*"
-                        )
-                    )
-                )
-            if not metadata_files:
-                continue
-            latest = max(metadata_files, key=os.path.getmtime)
-            destination = os.path.join(output_dir, os.path.basename(latest))
-            if latest.endswith(".json.xz"):
-                with lzma.open(latest, "rb") as source, open(
-                    destination[:-3], "wb"
-                ) as target:
-                    target.write(source.read())
-            else:
-                shutil.copyfile(latest, destination)
-        return object_to_model, output_dir
+        return prepare_fold(interactors, output_dir, self._flags)
 
     def _objects_to_model(self, job: PredictionJob) -> list:
         from alphapulldown.utils.modelling_setup import (
