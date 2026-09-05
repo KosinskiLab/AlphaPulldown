@@ -134,6 +134,22 @@ input_files:
   - "config/sample_sheet.csv"
 ```
 
+### Setting up databases
+
+If you do not already have the AlphaFold databases, `scripts/setup_databases.sh`
+fetches them and builds the MMseqs2 versions:
+
+```bash
+git submodule update --init          # AlphaFold 2 and 3 ship their own downloaders
+./scripts/setup_databases.sh --dest /path/to/databases --all
+```
+
+Pick what you need with `--alphafold2`, `--alphafold3` and `--mmseqs`; add
+`--reduced` for AlphaFold 2's `reduced_dbs` mode. `--mmseqs` builds the GPU-padded
+databases the local MMseqs2 feature stage needs and prints the config block to paste
+in. Existing databases are skipped, so it is safe to re-run. `--dry-run` shows what
+would happen, and `--help` lists measured sizes and build times.
+
 ### Database configuration
 
 Set the paths to the AlphaFold databases and to the backend weights:
