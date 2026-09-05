@@ -22,6 +22,7 @@ import shutil
 import lzma
 import random
 import sys
+from alphapulldown import inference_flags
 from alphapulldown.folding_backend import backend
 from alphapulldown.folding_backend.alphafold2_backend import ModelsToRelax
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
@@ -232,64 +233,26 @@ flags.DEFINE_boolean(
 FLAGS = flags.FLAGS
 
 def _validate_flags_for_backend(backend_name: str) -> None:
-    """
-    Fail fast if user passed flags not supported by the selected backend.
-    """
-    # Flags common to all backends
-    common_flags = {
-        'input', 'output_directory', 'data_directory', 'features_directory',
-        'protein_delimiter', 'fold_backend', 'random_seed', 'storage_mode',
-    }
+    """Fail fast if the user passed flags the selected backend does not accept."""
+    from alphapulldown.inference_flags import unsupported_flags
 
-    # Backend-specific flags
-    af2_like_flags = {
-        'compress_result_pickles', 'remove_result_pickles', 'models_to_relax',
-        'relax_best_score_threshold', 'remove_keys_from_pickles',
-        'convert_to_modelcif', 'allow_resume',
-        'num_cycle', 'num_predictions_per_model', 'pair_msa',
-        'save_features_for_multimeric_object', 'skip_templates',
-        'msa_depth_scan', 'multimeric_template', 'model_names', 'msa_depth',
-        'description_file', 'path_to_mmt', 'threshold_clashes', 'hb_allowance',
-        'plddt_threshold', 'desired_num_res', 'desired_num_msa',
-        'benchmark', 'model_preset', 'use_ap_style', 'use_gpu_relax', 'dropout',
-    }
-    alphalink_extra = {'crosslinks'}
-    af3_flags = {
-        'jax_compilation_cache_dir', 'buckets', 'flash_attention_implementation',
-        'num_diffusion_samples', 'num_seeds', 'debug_templates', 'debug_msas',
-        'num_recycles', 'save_embeddings', 'save_distogram', 'use_ap_style',
-        'convert_to_modelcif',
-    }
-
-    allowed_by_backend = {
-        'alphafold2': common_flags | af2_like_flags,
-        'alphalink': common_flags | af2_like_flags | alphalink_extra,
-        'alphafold3': common_flags | af3_flags,
-    }
-
-    allowed = allowed_by_backend.get(backend_name)
-    if allowed is None:
-        return
-
-    # Consider only flags defined in this module
     try:
         key_flags = FLAGS.get_key_flags_for_module(_sys.modules[__name__])
         module_flag_names = {kf.name for kf in key_flags}
     except Exception:
-        # Fallback: include all flags; still safe, but may include ABSL built-ins
         module_flag_names = set(FLAGS)
 
     explicitly_set = {
         name for name in module_flag_names
         if name in FLAGS and FLAGS[name].present
     }
-
-    disallowed = explicitly_set - allowed
+    disallowed = unsupported_flags(backend_name, explicitly_set)
     if disallowed:
         raise ValueError(
             f"The following flags are not supported by backend '{backend_name}': "
-            f"{sorted(disallowed)}"
+            f"{disallowed}"
         )
+
 
 def predict_structure(
     objects_to_model: List[Dict[str, Union[MultimericObject, MonomericObject, ChoppedObject, str]]],
@@ -313,142 +276,42 @@ def predict_structure(
     fold_backend : str, optional
         Backend used for folding, defaults to alphafold2.
     """
-    backend.change_backend(backend_name=fold_backend)
-    model_runners_and_configs = backend.setup(**model_flags)
-    if FLAGS.random_seed is not None:
-        random_seed = FLAGS.random_seed
-    else:
-        if fold_backend == 'alphafold2':
-            random_seed = random.randrange(sys.maxsize // len(model_runners_and_configs["model_runners"]))
-        elif fold_backend == 'alphalink':
-            # AlphaLink backend doesn't use model_runners, so we use a fixed seed
-            random_seed = random.randrange(sys.maxsize)
-        elif fold_backend=='alphafold3':
-            random_seed = random.randrange(2**32 - 1)
-        else:
-            random_seed = random.randrange(sys.maxsize)
-    predicted_jobs = backend.predict(
-        **model_runners_and_configs,
-        objects_to_model=objects_to_model,
-        random_seed=random_seed,
-        **model_flags
+    from pathlib import Path
+
+    from alphapulldown.prediction_batch import (
+        PredictionBatch,
+        PredictionJob,
+        PreparedPredictionAdapter,
     )
 
-    for predicted_job in predicted_jobs:
-        object_to_model = predicted_job['object']
-        prediction_results = predicted_job['prediction_results']
-        output_dir = predicted_job['output_dir']
-        backend.postprocess(
-            **postprocess_flags,
-            multimeric_object=object_to_model,
-            prediction_results=prediction_results,
-            output_dir=output_dir
+    output_hint = objects_to_model[0]["output_dir"] if objects_to_model else "."
+    summary = PredictionBatch(
+        (PredictionJob("legacy-invocation", "", Path(output_hint)),)
+    ).run(
+        PreparedPredictionAdapter(
+            backend=backend,
+            fold_backend=fold_backend,
+            objects_to_model=objects_to_model,
+            model_flags=model_flags,
+            postprocess_flags=postprocess_flags,
+            random_seed=FLAGS.random_seed,
         )
+    )
+    if summary.failures:
+        raise summary.failures[0].exception
 
 def pre_modelling_setup(
-    interactors : List[Union[MonomericObject, ChoppedObject]], output_dir) -> Tuple[Union[MultimericObject,MonomericObject, ChoppedObject], str]:
+    interactors: List[Union[MonomericObject, ChoppedObject]], output_dir
+) -> Tuple[Union[MultimericObject, MonomericObject, ChoppedObject], str]:
+    """Build the object to model for one fold and prepare its output directory.
+
+    Delegates to the shared fold-preparation module so this command and the resident
+    batch command cannot drift apart.
     """
-    A function that sets up objects to be modelled and handles output directory preparation.
+    from alphapulldown.fold_preparation import prepare_fold
 
-    Args:
-    interactors: A list of MonomericObject or ChoppedObject. If len(interactors) == 1, 
-    that means a monomeric modelling job should be done. Otherwise, it will be a multimeric modelling job
-    output_dir: base output directory
+    return prepare_fold(interactors, output_dir, FLAGS)
 
-    Return:
-    A MultimericObject or MonomericObject
-    output_directory for this particular modelling job
-    """
-    if (
-        len(interactors) > 1
-        and FLAGS.pair_msa
-        and any(getattr(interactor, "skip_msa", False) for interactor in interactors)
-    ):
-        raise ValueError(
-            "--skip_msa generates query-only MSAs and cannot be combined with "
-            "--pair_msa=True. Re-run structure prediction with --pair_msa=False."
-        )
-
-    if len(interactors) > 1:
-        # this means it's going to be a MultimericObject
-        object_to_model = MultimericObject(
-            interactors=interactors,
-            pair_msa=FLAGS.pair_msa,
-            multimeric_template=FLAGS.multimeric_template,
-            multimeric_template_meta_data=FLAGS.description_file,
-            multimeric_template_dir=FLAGS.path_to_mmt,
-            threshold_clashes=FLAGS.threshold_clashes,
-            hb_allowance=FLAGS.hb_allowance,
-            plddt_threshold=FLAGS.plddt_threshold,
-        )
-        if FLAGS.save_features_for_multimeric_object:
-            pickle.dump(MultimericObject.feature_dict, open(join(output_dir, "multimeric_object_features.pkl"), "wb"))
-    else:
-        # means it's going to be a MonomericObject or a ChoppedObject
-        object_to_model= interactors[0]
-        object_to_model.input_seqs = [object_to_model.sequence]
-
-    if FLAGS.use_ap_style:
-        list_oligo = object_to_model.description.split("_and_")
-        if len(list_oligo) == len(set(list_oligo)) : #no homo-oligomer
-           output_dir = join(output_dir, object_to_model.description)
-        else :
-            old_output_dir = output_dir
-            for oligo in list(dict.fromkeys(list_oligo)) :
-                number_oligo = list_oligo.count(oligo)
-                if output_dir == old_output_dir :
-                    if number_oligo != 1 :
-                        output_dir += f"/{oligo}_homo_{number_oligo}er"
-                    else :
-                        output_dir += f"/{oligo}"
-                else :
-                    if number_oligo != 1 :
-                        output_dir += f"_and_{oligo}_homo_{number_oligo}er"
-                    else :
-                        output_dir += f"_and_{oligo}"
-    if len(output_dir) > 4096: #max path length for most filesystems
-        logging.warning(f"Output directory path is too long: {output_dir}."
-                        "Please use a shorter path with --output_directory.")
-    
-    # Create parent directories first
-    parent_dir = os.path.dirname(output_dir)
-    if parent_dir:
-        os.makedirs(parent_dir, exist_ok=True)
-    os.makedirs(output_dir, exist_ok=True)
-    
-    # Copy features metadata to output directory
-    for interactor in interactors:
-        for feature_dir in FLAGS.features_directory:
-            # meta.json is named the same way as the pickle file
-            if isinstance(interactor, ChoppedObject):
-                description = interactor.monomeric_description
-            elif isinstance(interactor, MonomericObject):
-                description = interactor.description
-            meta_json = glob.glob(
-                join(feature_dir, f"{description}_feature_metadata_*.json*")
-            )
-        if meta_json:
-            # sort by modification time to take the latest
-            meta_json.sort(key=os.path.getmtime, reverse=True)
-
-            for feature_json in meta_json:
-                output_path = join(output_dir, basename(feature_json))
-
-                if feature_json.endswith(".json.xz"):
-                    # Decompress before copying
-                    decompressed_path = output_path.rstrip(".xz")
-                    logging.info(f"Decompressing {feature_json} to {decompressed_path}")
-
-                    with lzma.open(feature_json, "rb") as xz_file, open(decompressed_path, "wb") as json_file:
-                        json_file.write(xz_file.read())
-                else:
-                    # Copy without decompression
-                    logging.info(f"Copying {feature_json} to {output_dir}")
-                    shutil.copyfile(feature_json, output_path)
-        else:
-            logging.warning(f"No feature metadata found for {interactor.description} in {feature_dir}")
-
-    return object_to_model, output_dir
 
 def main(argv):
     _validate_flags_for_backend(FLAGS.fold_backend)
@@ -469,45 +332,13 @@ def main(argv):
     shared_output_root = len(FLAGS.output_directory) == 1 and n > 1
 
     # Define default model and postprocess flags
-    default_model_flags = {
-        "model_name": "monomer_ptm",
-        "num_cycle": FLAGS.num_cycle,
-        "model_dir": FLAGS.data_directory,
-        "num_predictions_per_model": FLAGS.num_predictions_per_model,
-        "crosslinks": FLAGS.crosslinks,
-        "desired_num_res": FLAGS.desired_num_res,
-        "desired_num_msa": FLAGS.desired_num_msa,
-        "skip_templates": FLAGS.skip_templates,
-        "allow_resume": FLAGS.allow_resume,
-        "num_diffusion_samples": FLAGS.num_diffusion_samples,
-        "num_recycles": FLAGS.num_recycles,
-        "return_embeddings": FLAGS.save_embeddings,
-        "return_distogram": FLAGS.save_distogram,
-        "flash_attention_implementation": FLAGS.flash_attention_implementation,
-        "buckets": FLAGS.buckets,
-        "jax_compilation_cache_dir": FLAGS.jax_compilation_cache_dir,
-        "features_directory": FLAGS.features_directory,
-        "num_seeds": FLAGS.num_seeds,
-        "debug_templates": FLAGS.debug_templates,
-        "debug_msas": FLAGS.debug_msas,
-        "dropout": FLAGS.dropout,
-    }
-    
+    default_model_flags = inference_flags.model_flags(FLAGS)
+
     # Override model name for AlphaLink backend
     if FLAGS.fold_backend == "alphalink":
         default_model_flags["model_name"] = "multimer_af2_crop"
 
-    default_postprocess_flags = {
-        "compress_pickles": FLAGS.compress_result_pickles,
-        "remove_pickles": FLAGS.remove_result_pickles,
-        "remove_keys_from_pickles": FLAGS.remove_keys_from_pickles,
-        "storage_mode": FLAGS.storage_mode,
-        "use_gpu_relax": FLAGS.use_gpu_relax,
-        "models_to_relax": FLAGS.models_to_relax,
-        "relax_best_score_threshold": FLAGS.relax_best_score_threshold,
-        "features_directory": FLAGS.features_directory,
-        "convert_to_modelcif": FLAGS.convert_to_modelcif
-    }
+    default_postprocess_flags = inference_flags.postprocess_flags(FLAGS)
 
     # Prepare the list of jobs
     objects_to_model = []

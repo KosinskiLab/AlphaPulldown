@@ -507,6 +507,18 @@ class AlphaFold2Backend(FoldingBackend):
         from alphafold.model import config
         from alphafold.model import data, model
 
+        # AlphaFold2 inference is JAX-compiled, and a fresh process recompiles every
+        # model runner. Honour a persistent on-disk compile cache when one is given.
+        jax_compilation_cache_dir = kwargs.get("jax_compilation_cache_dir")
+        if jax_compilation_cache_dir:
+            import jax
+
+            jax.config.update(
+                "jax_compilation_cache_dir", str(jax_compilation_cache_dir)
+            )
+            jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
+            jax.config.update("jax_persistent_cache_min_entry_size_bytes", 0)
+
         num_ensemble = 1
         model_runners = {}
         model_names = config.MODEL_PRESETS[model_name]
@@ -686,9 +698,15 @@ class AlphaFold2Backend(FoldingBackend):
         # first check whether the desired num_res and num_msa are specified for padding
         desired_num_res, desired_num_msa = kwargs.get(
             "desired_num_res", None), kwargs.get("desired_num_msa", None)
-        if ((desired_num_res is not None) and (desired_num_msa is not None) and
+        if (desired_num_res is not None and
                 type(multimeric_object) == MultimericObject):
-            # This means padding is required to speed up the process
+            # Padding every fold in a batch to one shape lets a resident session compile
+            # once instead of once per fold. num_res is the dimension that varies between
+            # folds; the MSA dimension is fixed by the model config during
+            # process_features, so default it to this fold's own depth (a no-op pad) when
+            # a batch-wide bound was not supplied.
+            if desired_num_msa is None:
+                desired_num_msa = int(original_feature_dict['msa'].shape[0])
             pad_input_features(feature_dict=original_feature_dict,
                                desired_num_msa=desired_num_msa, desired_num_res=desired_num_res)
             original_feature_dict['num_alignments'] = np.array([desired_num_msa])
