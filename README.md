@@ -140,9 +140,15 @@ If you do not already have the AlphaFold databases, `scripts/setup_databases.sh`
 fetches them and builds the MMseqs2 versions:
 
 ```bash
-git submodule update --init          # AlphaFold 2 and 3 ship their own downloaders
-./scripts/setup_databases.sh --dest /path/to/databases --all
+curl -O https://raw.githubusercontent.com/KosinskiLab/AlphaPulldown/main/scripts/setup_databases.sh
+bash setup_databases.sh --dest /path/to/databases --alphafold3 --mmseqs
 ```
+
+No checkout is needed: the work runs inside the prediction container, which already
+carries the AlphaFold downloaders and a pinned MMseqs2. `--alphafold2` is the
+exception, because AlphaFold 2's downloader needs `aria2c` and `rsync`, which the
+container does not ship; the script extracts it and runs it on the host, and tells you
+if those are missing.
 
 Pick what you need with `--alphafold2`, `--alphafold3` and `--mmseqs`; add
 `--reduced` for AlphaFold 2's `reduced_dbs` mode. `--mmseqs` builds the GPU-padded
