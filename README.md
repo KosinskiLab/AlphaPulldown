@@ -144,17 +144,23 @@ curl -O https://raw.githubusercontent.com/KosinskiLab/AlphaPulldown/main/scripts
 bash setup_databases.sh --dest /path/to/databases --alphafold3 --mmseqs
 ```
 
+Pick what you need with `--alphafold2`, `--alphafold3` and `--mmseqs`. Existing
+databases are skipped, so it is safe to re-run; `--dry-run` shows what would happen
+and `--help` lists the sizes.
+
+<details>
+<summary>Options and requirements</summary>
+
 No checkout is needed: the work runs inside the prediction container, which already
 carries the AlphaFold downloaders and a pinned MMseqs2. `--alphafold2` is the
 exception, because AlphaFold 2's downloader needs `aria2c` and `rsync`, which the
 container does not ship; the script extracts it and runs it on the host, and tells you
 if those are missing.
 
-Pick what you need with `--alphafold2`, `--alphafold3` and `--mmseqs`; add
-`--reduced` for AlphaFold 2's `reduced_dbs` mode. `--mmseqs` builds the GPU-padded
-databases the local MMseqs2 feature stage needs and prints the config block to paste
-in. Existing databases are skipped, so it is safe to re-run. `--dry-run` shows what
-would happen, and `--help` lists measured sizes and build times.
+Add `--reduced` for AlphaFold 2's `reduced_dbs` mode. `--mmseqs` builds the GPU-padded
+databases the local MMseqs2 feature stage needs and prints the config block to paste in.
+
+</details>
 
 ### Database configuration
 
@@ -641,11 +647,9 @@ batch_max_tokens: 0    # optional cap on summed residues per batch (0 = no cap)
   folds from the chains inside each fold, so AF3 does not merge separate folds. The
   backend and model runners are initialized once per batch. Containers predating the
   batch command automatically fall back to the per-fold loop.
-- **The two backends gain very differently.** Compared inside one allocation, so queue
-  wait is excluded: AF2 same-shape batches ran **3.18x** faster, but four ~100-residue
-  AF3 monomers batched together ran only **1.16x** faster (362 s vs 421 s). For AF3 the
-  real benefit is queueing once instead of once per fold, not per-fold compute — so
-  batch AF3 for queue amortisation, and do not expect the AF2 speedup.
+- The two backends benefit differently: AlphaFold2 batches gain most when the folds
+  share a shape, whereas for AlphaFold3 the point is queueing once instead of once
+  per fold.
 - For AlphaFold2 batches, `--allow_resume` is enabled automatically, so if a job is
   interrupted a rerun skips folds whose outputs already exist (AlphaFold3 does not accept
   that flag, so its batches recompute the unfinished folds on rerun).
@@ -947,108 +951,6 @@ manually).
 - `--path_to_mmt`, `--description_file`, `--multiple_mmts` – enable TrueMultimer CSV-driven feature sets.
 - `--max_template_date YYYY-MM-DD` – required cutoff for template structures; keeps runs reproducible.
 
-</details>
-
-
-### Structure analysis & reporting
-
-Post-inference analysis is enabled by default. You can disable it or add a project-wide summary in `config/config.yaml`:
-
-```yaml
-enable_structure_analysis: true             # skip alphaJudge if set to false
-generate_recursive_report: true             # disable if you do not need all_interfaces.csv
-recursive_report_arguments:                 # optional extra CLI flags for alphajudge
-  --models_to_analyse: best
-```
-
-### Changing folding backends
-
-To use AlphaFold3 or other backends:
-
-```yaml
-structure_inference_arguments:
-  --fold_backend: alphafold3
-  --<other-flags>
-```
-
-> **Note**: AlphaPulldown supports: `alphafold2`, `alphafold3`, and `alphalink` backends.
-
-### Backend-specific flags
-
-You can pass backend CLI switches through `structure_inference_arguments`. Common options are listed below; keep or remove lines based on your needs.
-
-> [!IMPORTANT]
-> **These flags are backend-exclusive.** `run_structure_prediction.py` validates every flag
-> against the selected `--fold_backend` and aborts the job with
-> `ValueError: The following flags are not supported by backend '<name>'` if you pass one the
-> backend does not accept. Only use flags from **your** backend's list below — e.g.
-> `--allow_resume` is AlphaFold2-only and `--jax_compilation_cache_dir` is AlphaFold3-only.
-> A single wrong flag fails the job immediately (before any prediction runs).
->
-> When **batching** (`batch_size > 1`) the workflow adds the correct one for you —
-> `--allow_resume` for AlphaFold2, `--jax_compilation_cache_dir` for AlphaFold3 — so you don't
-> set them yourself.
->
-> The authoritative, always-current list for your image is the backend validation inside the
-> container. Print it with:
-> ```bash
-> singularity exec <prediction_container> run_structure_prediction.py --help
-> ```
-> (`alphalink` accepts the AlphaFold2 flags plus `--crosslinks`.)
-
-<details>
-<summary>AlphaFold2 flags</summary>
-
-```yaml
-structure_inference_arguments:
-  --compress_result_pickles: False        # gzip AF2 result pickles
-  --remove_result_pickles: False          # delete pickles after summary is created
-  --models_to_relax: None                 # all | best | none
-  --remove_keys_from_pickles: True        # strip large tensors from pickle outputs
-  --convert_to_modelcif: True             # additionally write ModelCIF files
-  --allow_resume: True                    # resume from partial runs (auto-added when batching)
-  --relax_best_score_threshold: null      # only relax models above this score
-  --threshold_clashes: null               # clash threshold for relaxation
-  --hb_allowance: null                    # H-bond allowance for relaxation
-  --plddt_threshold: null                 # pLDDT cutoff for relaxation
-  --num_cycle: 3
-  --num_predictions_per_model: 1
-  --pair_msa: True
-  --save_features_for_multimeric_object: False
-  --skip_templates: False
-  --msa_depth_scan: False
-  --multimeric_template: False
-  --model_names: None
-  --msa_depth: None
-  --description_file: None
-  --path_to_mmt: None
-  --desired_num_res: None
-  --desired_num_msa: None
-  --benchmark: False
-  --model_preset: monomer
-  --use_ap_style: False
-  --use_gpu_relax: True
-  --dropout: False
-```
-</details>
-
-<details>
-<summary>AlphaFold3 flags</summary>
-
-```yaml
-structure_inference_arguments:
-  --jax_compilation_cache_dir: null       # AF3-only; auto-added when batching
-  --buckets: ['64','128','256','512','768','1024','1280','1536','2048','2560','3072','3584','4096','4608','5120']
-  --flash_attention_implementation: triton
-  --num_diffusion_samples: 5
-  --num_seeds: null
-  --debug_templates: False
-  --debug_msas: False
-  --num_recycles: 10
-  --save_embeddings: False
-  --save_distogram: False
-  --use_ap_style: False                   # shared with AlphaFold2
-```
 </details>
 
 ---
