@@ -86,3 +86,63 @@ def test_real_createdb_padded_search_result2msa_and_unpack_contract(tmp_path):
     assert payload["provenance"]["search_mode"] == (
         "gpu" if use_gpu else "cpu"
     )
+
+
+def test_real_nucleotide_createdb_search_and_unpack_contract(tmp_path):
+    """The same contract for RNA: a nucleotide database, searched on CPU."""
+    configured_binary = os.environ.get("MMSEQS_INTEGRATION_BINARY")
+    if not configured_binary:
+        pytest.skip("set MMSEQS_INTEGRATION_BINARY to run the real command contract")
+    binary = Path(configured_binary)
+    if not binary.is_file():
+        pytest.fail(f"MMSEQS_INTEGRATION_BINARY does not exist: {binary}")
+
+    query_sequence = (
+        "GGCUAUAGCUCAGUUGGUUAGAGCACAUCACUCAUAAUGAUGGGGUCACAGGUUCGAAUCCUGUUAGCCUAA"
+    )
+    # A hit written in the DNA alphabet, as an RNA reference FASTA may well be.
+    target_sequence = query_sequence.replace("U", "T")[:-1] + "G"
+    target_fasta = tmp_path / "target.fasta"
+    target_fasta.write_text(
+        f">rna_target_hit tRNA-like\n{target_sequence}\n", encoding="utf-8"
+    )
+    target_db = tmp_path / "rna_target"
+    _run(binary, "createdb", str(target_fasta), str(target_db), "--threads", "1")
+
+    databases = tuple(
+        DatabaseSpec(
+            name=name,
+            path=target_db,
+            identifier="tiny-nucleotide-v1",
+            molecule_type="rna",
+        )
+        for name in ("rfam", "rnacentral", "nt_rna")
+    )
+    settings = MsaBatchSettings(
+        output_dir=tmp_path / "msas",
+        temp_dir=tmp_path / "work",
+        unpaired_databases=(),
+        paired_database=None,
+        max_sequences_per_batch=8,
+        max_residues_per_batch=1_000,
+        threads=2,
+        rna_databases=databases,
+    )
+
+    result = MsaBatch(
+        settings=settings,
+        mmseqs_process=SubprocessMmseqsProcess(binary, gpu=False),
+    ).generate(
+        [FeatureRequest(name="query", sequence=query_sequence, molecule_type="rna")]
+    )
+
+    assert result.failures == ()
+    payload = json.loads(
+        (settings.output_dir / "query_mmseqs_msa.json").read_text(encoding="utf-8")
+    )
+    assert payload["moleculeType"] == "rna"
+    # RNA chains have no paired MSA, and nothing reaches AlphaFold 3 spelled with T.
+    assert payload["pairedMsa"] == ""
+    assert "T" not in payload["unpairedMsa"]
+    assert "rna_target_hit tRNA-like" in payload["unpairedMsa"]
+    assert payload["provenance"]["search_mode"] == "cpu"
