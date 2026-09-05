@@ -67,6 +67,17 @@ images are still shared across projects. See
 
 ## 2. Configuration
 
+`config/config.yaml` is organised in three sections:
+
+| section | what it holds |
+| --- | --- |
+| **REQUIRED** | inputs, output directory, databases, weights, prediction container |
+| **COMMON** | features, backend flags, analysis, batching, SLURM partition |
+| **ADVANCED** | memory sizing, length filtering, GPU routing, spilling, CPU partitions |
+
+Each key carries a one-line comment naming the section below that documents it in full.
+A first run normally only needs the REQUIRED section.
+
 ### Setup protein folding jobs
 
 Create or edit the sample sheet `config/sample_sheet.csv` listing the proteins you want to fold. The simplest format uses one folding specification per line, for example UniProt IDs:
@@ -593,9 +604,17 @@ batch_max_tokens: 0    # optional cap on summed residues per batch (0 = no cap)
 <details>
 <summary>What batching changes, and when not to use it</summary>
 
-- Folds are grouped **by size**, so a batch's memory tracks its largest fold and its
+- Folds are grouped **by size**. Because folds execute sequentially, the workflow
+  requests memory from the largest member's existing per-fold estimate, while
   walltime scales with the number of folds. `batch_max_tokens` keeps a batch's total
   work within the partition's `MaxTime`; a single oversized fold always runs alone.
+  AlphaFold2 monomers and multimers are grouped separately because they use different
+  model runners; AlphaFold3 retains size-only grouping.
+- **AlphaFold2 compiles per input shape**, so a batch whose folds differ in length
+  would recompile for each one and save nothing. For AF2 multimer batches the workflow
+  therefore adds `--desired_num_res`, sized from the batch's largest fold, so every
+  fold shares one shape and the batch compiles once. Padding applies to multimers
+  only; a batch of AF2 monomers of differing lengths gains little.
 - Works with both AlphaFold2 and AlphaFold3. A JSONL manifest distinguishes independent
   folds from the chains inside each fold, so AF3 does not merge separate folds. The
   backend and model runners are initialized once per batch. Containers predating the
@@ -606,25 +625,262 @@ batch_max_tokens: 0    # optional cap on summed residues per batch (0 = no cap)
 - Analysis and reports are unaffected — `alphajudge` still runs per fold (one
   `interfaces.csv` + `report.pdf` each) and the recursive summary still aggregates them.
 - **Trade-off:** a batch is one SLURM job, so a failure reruns the whole batch (minus the
-  folds resume can skip). The resident command catches ordinary Python exceptions and
-  attempts the remaining folds before returning a failure summary. A native CUDA/XLA
-  abort, process termination, or backend left unusable after an error cannot be isolated
-  and may stop or poison the rest of the batch. The allocation is sized for the batch's
-  largest fold. Keep `batch_size` modest and pair it with `batch_max_tokens` for
+  folds resume can skip), although the resident command attempts the remaining folds
+  before returning a failure summary. A native CUDA/XLA abort, process termination,
+  or a backend left unusable after an error cannot be isolated and may stop the rest
+  of the batch. Keep `batch_size` modest and pair it with `batch_max_tokens` for
   heterogeneous fold sizes.
+- Resident batch manifests and completion sentinels include a digest of the complete
+  ordered membership. Changing a batch therefore schedules the new composition even
+  when Snakemake uses `rerun-triggers: mtime`; single-fold paths remain unchanged.
 
 > [!NOTE]
-> **AlphaFold3 batching depends on your container + shared filesystem.** A batched AF3 job
-> shares one `--jax_compilation_cache_dir` under `output_directory`. With recent
-> tokamax-based AF3 images this can fail on some cluster setups: the XLA autotune cache
-> write may return `Device or resource busy` on network filesystems (e.g. BeeGFS), and on
-> **H100** the image's bundled tokamax autotuning cache can abort at load. If AF3 jobs
-> crash during compilation, run AF3 with `batch_size: 1` (AlphaFold2 batching is
-> unaffected, and single-fold AF3 avoids the shared cache entirely).
+> **`--jax_compilation_cache_dir` and network filesystems.** XLA's autotune cache write
+> can fail with `Device or resource busy` on some network filesystems (BeeGFS in
+> particular), which aborts the process during compilation. A resident batch compiles
+> once in memory and is not given the flag at all, so batches are unaffected. If you set
+> it yourself, point it at node-local storage rather than `output_directory` when that
+> lives on such a filesystem.
 
 `batch_size: 1` (the default) is exactly the original one-job-per-fold behaviour.
 
 </details>
+
+### Batched local MMseqs2-GPU features (AlphaFold 3)
+
+Set `mmseqs2_features.enabled: true` to split missing proteins into bounded
+GPU MSA shards. Each shard performs exactly one AlphaPulldown MSA batch and then
+releases its GPU. Independent CPU jobs run native AlphaFold 3 template search and
+finalize one standard AF3 JSON per protein, so template work can use the CPU and
+big-memory partitions in parallel. Existing AF2 feature generation and the remote
+`--use_mmseqs2` path are unchanged.
+
+The AlphaFold 3 prediction image bundles the verified MMseqs2-GPU `18-8cc5c`
+release at `/opt/mmseqs/bin/mmseqs`, which is the default `binary_path`; it is a
+standalone executable rather than a Python/PyPI dependency. The AlphaFold 2
+image carries the identical pinned binary so both maintained prediction images
+have one reproducible runtime toolchain, as explicitly supported by the project,
+although the workflow adapter remains AF3-only until AF2 feature-pickle and
+multimer-pairing semantics have a separate interface. The adapter accepts only
+the bundled path; arbitrary host executables are not visible inside the image.
+
+```yaml
+mmseqs2_features:
+  enabled: true
+  # binary_path: /opt/mmseqs/bin/mmseqs  # only supported path
+  binary_id: 8cc5ce367b5638c4306c2d7cfc652dd099a4643f
+  temp_dir: /local-fast-scratch/mmseqs
+  batch_max_sequences: 256
+  batch_max_residues: 100000
+  e_value: 0.0001
+  # Size one GPU shard from database footprint plus a modest query term.
+  gpu_database_ram_mb: 64000
+  gpu_chunk_ram_per_residue_mb: 0.02
+  gpu_ram_scaling: 1.1
+  gpu_runtime_base_minutes: 15
+  gpu_runtime_per_sequence_minutes: 0.5
+  gpu_runtime_per_1000_residues: 1.0
+  template_database_ids:
+    pdb_seqres: pdb-seqres-2026-08
+    mmcif: pdb-mmcif-2026-08
+  databases:
+    uniref90: {path: /db/mmseqs/uniref90, identifier: uniref90-2026-08, max_sequences: 10000}
+    mgnify: {path: /db/mmseqs/mgnify, identifier: mgnify-2026-08, max_sequences: 5000}
+    small_bfd: {path: /db/mmseqs/small_bfd, identifier: small-bfd-2026-08, max_sequences: 5000}
+    uniprot: {path: /db/mmseqs/uniprot, identifier: uniprot-2026-08, max_sequences: 50000}
+```
+
+#### How the MSAs compare to the native pipeline
+
+MMseqs2 has been used to build AlphaFold MSAs for years (ColabFold does exactly
+this), so this is an established approach rather than a new one. It is not, however,
+the *same* search as the jackhmmer pipeline AlphaFold 3 ships with, and the
+difference is worth seeing before you switch.
+
+Measured on eight *B. subtilis* proteins, searching the **same four databases** as the
+native pipeline, counting unique sequences:
+
+| protein | unpaired recall | paired recall |
+| --- | --- | --- |
+| P0CI78 | 99.2% | 98.8% |
+| O32142 | 98.5% | 99.6% |
+| O30472 | 99.5% | 101.3% |
+| P80870 | 86.0% | 103.2% |
+| O31537 | 83.8% | 81.7% |
+| O31843 | 82.8% | 87.1% |
+| O07542 | 68.1% | 78.3% |
+| O31580 | 53.7% | 61.5% |
+| **overall** | **90.2%** | **98.0%** |
+
+Template counts were identical (32 vs 32). Paired MSAs, which drive species pairing
+for complexes, are essentially equivalent. Unpaired recall is close to complete on
+well-populated families and falls off on shallow ones, which is the expected shape for
+a single-pass search against jackhmmer's iterative profile search.
+
+What this does *not* tell you is whether that costs prediction accuracy; that needs
+matched inference and DockQ against experimental structures. Treat the table as a
+reason to spot-check your own targets, not as a verdict either way.
+
+MMseqs2 GPU search always runs at its maximum sensitivity, so there is no
+`sensitivity` setting. Each configured path must name a padded target database;
+prepare all four from existing MMseqs2 databases as follows:
+
+```bash
+mmseqs makepaddedseqdb /source/uniref90  /db/mmseqs/uniref90
+mmseqs makepaddedseqdb /source/mgnify    /db/mmseqs/mgnify
+mmseqs makepaddedseqdb /source/small_bfd /db/mmseqs/small_bfd
+mmseqs makepaddedseqdb /source/uniprot   /db/mmseqs/uniprot
+```
+
+Keep the source and destination prefixes different. A padded database consists
+of several files sharing that prefix; allocate storage for all of them and set
+`gpu_database_ram_mb` from the largest database footprint plus site-specific
+overhead. Ampere or newer GPUs give full performance; Turing is supported at
+reduced speed. A database larger than VRAM can stream from host RAM, but requires
+enough node RAM and is slower. Put database prefixes and `temp_dir` on fast local
+storage where possible.
+
+For repeated searches on a dedicated GPU node, MMseqs2 recommends an index made
+with `createindex --index-subset 2` and a same-node `gpuserver`, followed by
+searches using `--gpu-server 1 --db-load-mode 2`. The server and client must use
+the same GPU visibility, prefilter mode, and `--max-seqs`. This distributed Slurm
+adapter does not start a persistent server because separate shards can land on
+different nodes; each shard therefore loads its databases once. Pinning shards
+to a resident service is an advanced site-specific optimization.
+
+The default `binary_id` is the exact MMseqs commit bundled by the current images;
+update it when deliberately changing that binary. Database identifiers, hit
+limits, E-value, container identity, template cutoff,
+and explicit PDB-seqres/mmCIF identifiers namespace the caches. Changing
+scientific provenance schedules fresh outputs even with `rerun-triggers: mtime`.
+Partial per-protein MSA bundles are deliberately not Snakemake outputs: a failed
+shard loses only its completion summary, and a retry validates and reuses finished
+bundles. Completion summaries record each expected bundle's byte size,
+nanosecond mtime, and SHA-256. DAG construction uses the stat fields as its fast
+path and streams the digest only when metadata changed. If a bundle is missing,
+corrupt, or replaced after completion, a fresh repair summary reruns only that
+shard; intact bundles are reused. The CPU finalizer also validates bundle
+semantics and discards only an invalid bundle so the following Snakemake run can
+repair it automatically. AlphaFold 3 finalization retains its native merged
+unpaired-MSA template search. The complete native AF3 database tree under `databases_directory`
+(including PDB seqres, mmCIF, RNA and other configured databases) is still
+required; the four MMseqs2 databases are additive, not a replacement.
+
+Container binds are merged with existing `APPTAINER_BINDPATH` and
+`SINGULARITY_BINDPATH` values rather than replacing them. This applies to all
+workflow modes, including AF2; MMseqs database and scratch directories add exact
+binds while existing user binds are preserved.
+
+
+### Structure analysis & reporting
+
+Post-inference analysis is enabled by default. You can disable it or add a project-wide summary in `config/config.yaml`:
+
+```yaml
+enable_structure_analysis: true             # skip alphaJudge if set to false
+generate_recursive_report: true             # disable if you do not need all_interfaces.csv
+recursive_report_arguments:                 # optional extra CLI flags for alphajudge
+  --models_to_analyse: best
+```
+
+### Changing folding backends
+
+To use AlphaFold3 or other backends:
+
+```yaml
+structure_inference_arguments:
+  --fold_backend: alphafold3
+  --<other-flags>
+```
+
+> **Note**: AlphaPulldown supports: `alphafold2`, `alphafold3`, and `alphalink` backends.
+
+### Backend-specific flags
+
+You can pass backend CLI switches through `structure_inference_arguments`. Common options are listed below; keep or remove lines based on your needs.
+
+> [!IMPORTANT]
+> **These flags are backend-exclusive.** `run_structure_prediction.py` validates every flag
+> against the selected `--fold_backend` and aborts the job with
+> `ValueError: The following flags are not supported by backend '<name>'` if you pass one the
+> backend does not accept. Only use flags from **your** backend's list below — e.g.
+> `--allow_resume` is AlphaFold2-only. A single wrong flag fails the job immediately
+> (before any prediction runs).
+>
+> When **batching** (`batch_size > 1`) the workflow adds what each backend needs —
+> `--allow_resume` for AlphaFold2, and `--desired_num_res` for AlphaFold2 multimer
+> batches — so you don't set them yourself.
+>
+> `--jax_compilation_cache_dir` is accepted by **both** backends: AlphaFold2 inference is
+> JAX-compiled too, and a persistent cache removes most of the per-process compilation
+> cost even at `batch_size: 1`. Older prediction images accept it for AlphaFold3 only, so
+> the workflow does not add it for AlphaFold2 automatically — set it yourself once your
+> image supports it, pointing at node-local storage.
+>
+> The authoritative, always-current list for your image is the backend validation inside the
+> container. Print it with:
+> ```bash
+> singularity exec <prediction_container> run_structure_prediction.py --help
+> ```
+> (`alphalink` accepts the AlphaFold2 flags plus `--crosslinks`.)
+
+<details>
+<summary>AlphaFold2 flags</summary>
+
+```yaml
+structure_inference_arguments:
+  --compress_result_pickles: False        # gzip AF2 result pickles
+  --remove_result_pickles: False          # delete pickles after summary is created
+  --models_to_relax: None                 # all | best | none
+  --remove_keys_from_pickles: True        # strip large tensors from pickle outputs
+  --convert_to_modelcif: True             # additionally write ModelCIF files
+  --allow_resume: True                    # resume from partial runs (auto-added when batching)
+  --relax_best_score_threshold: null      # only relax models above this score
+  --threshold_clashes: null               # clash threshold for relaxation
+  --hb_allowance: null                    # H-bond allowance for relaxation
+  --plddt_threshold: null                 # pLDDT cutoff for relaxation
+  --num_cycle: 3
+  --num_predictions_per_model: 1
+  --pair_msa: True
+  --save_features_for_multimeric_object: False
+  --skip_templates: False
+  --msa_depth_scan: False
+  --multimeric_template: False
+  --model_names: None
+  --msa_depth: None
+  --description_file: None
+  --path_to_mmt: None
+  --desired_num_res: None          # pad every fold in a batch to this many residues
+  --desired_num_msa: None          # optional; defaults to the fold's own MSA depth
+  --jax_compilation_cache_dir: None
+  --benchmark: False
+  --model_preset: monomer
+  --use_ap_style: False
+  --use_gpu_relax: True
+  --dropout: False
+```
+</details>
+
+<details>
+<summary>AlphaFold3 flags</summary>
+
+```yaml
+structure_inference_arguments:
+  --jax_compilation_cache_dir: null       # AF3-only; auto-added when batching
+  --buckets: ['64','128','256','512','768','1024','1280','1536','2048','2560','3072','3584','4096','4608','5120']
+  --flash_attention_implementation: triton
+  --num_diffusion_samples: 5
+  --num_seeds: null
+  --debug_templates: False
+  --debug_msas: False
+  --num_recycles: 10
+  --save_embeddings: False
+  --save_distogram: False
+  --use_ap_style: False                   # shared with AlphaFold2
+```
+</details>
+
+---
 
 ### Using precomputed features
 
