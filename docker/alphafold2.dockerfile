@@ -62,7 +62,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     set -eux; \
     apt-get update; \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-      ca-certificates curl bzip2 tzdata openssh-client; \
+      ca-certificates curl bzip2 tzdata; \
     rm -rf /var/lib/apt/lists/*
 
 # Keep MMseqs2 outside the Python environment: the GPU release is a standalone
@@ -117,16 +117,13 @@ RUN set -eux; \
 #RUN micromamba run -n base python -m pip install --no-cache-dir "openmm==8.1.1"
 RUN python -m pip install --no-cache-dir "setuptools<82" # setuptools>82 breaks pdbfixer at relaxation
 
-# Clone from repo
-RUN mkdir -p /root/.ssh && chmod 700 /root/.ssh
-RUN ssh-keyscan github.com >> /root/.ssh/known_hosts
-RUN  git clone --recurse-submodules https://github.com/KosinskiLab/AlphaPulldown.git
-WORKDIR AlphaPulldown
-
-#DEBUG
-#WORKDIR /AlphaPulldown
-#COPY . /AlphaPulldown
+# Install the exact checkout supplied as the Docker build context. In particular,
+# pull-request image builds must test the submitted code rather than repository
+# main.
+WORKDIR /AlphaPulldown
+COPY . /AlphaPulldown
 RUN pip install --no-build-isolation .
+RUN command -v run_structure_prediction_batch.py
 # jax takes its CUDA runtime from the nvidia-* wheels, not from the base image, and
 # `jax[cuda12]==0.5.3` puts no floor on them - which version you get depends on when
 # the image was built. Blackwell cards (RTX PRO 4500/6000, compute capability 12.0 /

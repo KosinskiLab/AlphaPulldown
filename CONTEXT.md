@@ -1,5 +1,18 @@
-# Domain language
+# Domain glossary
 
+- **Prediction job**: one independent fold request, including all chains that
+  compose that fold and its output directory.
+- **Prediction batch**: an ordered set of independent prediction jobs that share
+  one homogeneous backend and model configuration.
+- **Resident inference**: executing a prediction batch while keeping one set of
+  model runners initialized for the lifetime of the batch.
+- **Batch manifest**: a JSONL description of prediction jobs. It describes work;
+  it does not change fold composition semantics.
+- **Job failure**: a recoverable exception associated with one prediction job.
+  It is reported after remaining jobs have been attempted.
+- **Fold preparation**: building the object to model for one prediction job and its
+  output directory, including AlphaPulldown-style naming and feature-metadata copying.
+  Shared by the single-fold command and the resident batch so the two cannot diverge.
 - **Feature request**: one named protein sequence requiring an AlphaFold 3 feature artifact.
 - **Feature batch**: an ordered collection of feature requests handled as one operation.
 - **MSA batch**: the GPU stage that searches MMseqs2 and durably publishes one reusable MSA bundle per feature request.
@@ -14,3 +27,4 @@
   (uniref90, mgnify, small_bfd, merged into one MSA) or paired hits (uniprot, whose
   UniProt taxon headers let AlphaFold 3 pair chains by species). Roles are named, not
   inferred from a position in the configured list.
+
