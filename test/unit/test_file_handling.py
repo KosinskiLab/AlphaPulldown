@@ -1,3 +1,5 @@
+import json
+import lzma
 from pathlib import Path
 
 import pytest
@@ -116,3 +118,31 @@ def test_parse_csv_file_clusters_multiple_templates_per_protein(tmp_path):
             "chains": ["A", "B"],
         }
     ]
+
+
+def test_write_atomic_json_publishes_readable_json(tmp_path):
+    path = tmp_path / "bundle.json"
+
+    file_handling.write_atomic_json(path, {"sequence": "ACDE", "depth": 2})
+
+    assert json.loads(path.read_text(encoding="utf-8")) == {
+        "sequence": "ACDE",
+        "depth": 2,
+    }
+
+
+def test_write_atomic_json_compresses_when_the_suffix_asks_for_it(tmp_path):
+    path = tmp_path / "bundle.json.xz"
+
+    file_handling.write_atomic_json(path, {"sequence": "ACDE"})
+
+    with lzma.open(path, "rt", encoding="utf-8") as handle:
+        assert json.load(handle) == {"sequence": "ACDE"}
+
+
+def test_write_atomic_json_leaves_no_temporary_file_behind(tmp_path):
+    file_handling.write_atomic_json(tmp_path / "bundle.json", {"a": 1})
+    file_handling.write_atomic_json(tmp_path / "bundle.json", {"a": 2})
+
+    assert [path.name for path in tmp_path.iterdir()] == ["bundle.json"]
+    assert json.loads((tmp_path / "bundle.json").read_text()) == {"a": 2}
