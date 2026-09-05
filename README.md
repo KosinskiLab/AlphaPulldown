@@ -641,6 +641,11 @@ batch_max_tokens: 0    # optional cap on summed residues per batch (0 = no cap)
   folds from the chains inside each fold, so AF3 does not merge separate folds. The
   backend and model runners are initialized once per batch. Containers predating the
   batch command automatically fall back to the per-fold loop.
+- **The two backends gain very differently.** Compared inside one allocation, so queue
+  wait is excluded: AF2 same-shape batches ran **3.18x** faster, but four ~100-residue
+  AF3 monomers batched together ran only **1.16x** faster (362 s vs 421 s). For AF3 the
+  real benefit is queueing once instead of once per fold, not per-fold compute — so
+  batch AF3 for queue amortisation, and do not expect the AF2 speedup.
 - For AlphaFold2 batches, `--allow_resume` is enabled automatically, so if a job is
   interrupted a rerun skips folds whose outputs already exist (AlphaFold3 does not accept
   that flag, so its batches recompute the unfinished folds on rerun).
