@@ -45,6 +45,12 @@ from alphapulldown.utils.template_reuse import (
     search_templates,
 )
 from alphapulldown.utils.sequence_types import get_af3_chain_kind
+from alphapulldown.scripts._foldseek_cli import (
+    build_foldseek_template_searcher,
+    define_structural_template_flags,
+    structural_template_metadata_flags,
+    validate_structural_template_flags,
+)
 
 # Try to import AlphaFold3, but it's optional
 AF3_IMPORT_ERROR = None
@@ -180,6 +186,9 @@ flags.DEFINE_float("hb_allowance", 0.4, "")
 flags.DEFINE_float("plddt_threshold", 0, "")
 flags.DEFINE_boolean("multiple_mmts", False, "")
 
+# Optional structural template search (ESMFold + Foldseek), off by default.
+define_structural_template_flags()
+
 FLAGS = flags.FLAGS
 
 AF3_PROTEIN_MSA_DATABASE_FLAGS = frozenset({
@@ -231,6 +240,7 @@ def validate_data_pipeline_flags():
             "--keep_msas cannot be combined with --skip_msa: there are no MSAs "
             "to keep when MSA generation is skipped."
         )
+    validate_structural_template_flags(FLAGS)
 
 def get_database_path(key):
     """Return the absolute path for a given database key, depending on pipeline."""
@@ -373,7 +383,9 @@ def filter_af3_metadata_flags(flag_dict, chain_kinds, *, skip_msa):
 def get_af3_feature_metadata(chain_kinds, *, skip_msa):
     """Collect provenance for resources the AF3 pipeline actually uses."""
     metadata_flags = filter_af3_metadata_flags(
-        FLAGS.flag_values_dict(), chain_kinds, skip_msa=skip_msa
+        structural_template_metadata_flags(FLAGS.flag_values_dict()),
+        chain_kinds,
+        skip_msa=skip_msa,
     )
     metadata = save_meta_data.get_meta_dict(metadata_flags)
     try:
@@ -390,6 +402,20 @@ def get_af3_feature_metadata(chain_kinds, *, skip_msa):
 
 def _create_af2_template_stack():
     """Create the AF2 template searcher and featurizer."""
+    if FLAGS.use_foldseek_templates:
+        # A different way of finding hits, not a different way of featurising
+        # them: the hits go to AlphaFold 2's own hit featuriser, which still
+        # reads each template out of --template_mmcif_dir and still applies the
+        # release-date and coverage prefilters.
+        template_searcher = build_foldseek_template_searcher(
+            FLAGS, output_dir=FLAGS.output_dir
+        )
+        template_featuriser = templates.HhsearchHitFeaturizer(
+            mmcif_dir=FLAGS.template_mmcif_dir, max_template_date=FLAGS.max_template_date,
+            max_hits=20, kalign_binary_path=FLAGS.kalign_binary_path,
+            release_dates_path=None, obsolete_pdbs_path=FLAGS.obsolete_pdbs_path
+        )
+        return template_searcher, template_featuriser
     if FLAGS.use_hhsearch:
         template_searcher = hhsearch.HHSearch(
             binary_path=FLAGS.hhsearch_binary_path, databases=[FLAGS.pdb70_database_path]
@@ -493,7 +519,9 @@ def _should_skip_monomer_output(description):
 
 
 def _persist_monomer_outputs(monomer):
-    meta_dict = save_meta_data.get_meta_dict(FLAGS.flag_values_dict())
+    meta_dict = save_meta_data.get_meta_dict(
+        structural_template_metadata_flags(FLAGS.flag_values_dict())
+    )
     metadata_output_path = _metadata_output_path(monomer.description)
     if FLAGS.compress_features:
         with lzma.open(str(metadata_output_path) + ".xz", "wt") as meta_data_outfile:
