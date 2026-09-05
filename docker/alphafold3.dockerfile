@@ -1,11 +1,18 @@
+ARG MMSEQS_VERSION=18-8cc5c
+ARG MMSEQS_COMMIT=8cc5ce367b5638c4306c2d7cfc652dd099a4643f
+ARG MMSEQS_GPU_SHA256=83969dd5c7d4c32858c2fc9a4d1024c15e8fe5da768ce76e787ab0195ffd64e7
+
 FROM nvidia/cuda:12.6.3-base-ubuntu24.04 AS base
+ARG MMSEQS_VERSION
+ARG MMSEQS_COMMIT
+ARG MMSEQS_GPU_SHA256
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV VIRTUAL_ENV=/opt/venv
 ENV UV_PROJECT_ENVIRONMENT=${VIRTUAL_ENV}
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
-ENV PATH="/hmmer/bin:${VIRTUAL_ENV}/bin:${PATH}"
+ENV PATH="/opt/mmseqs/bin:/hmmer/bin:${VIRTUAL_ENV}/bin:${PATH}"
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 
 # ---------------------------------------------------------------------
@@ -30,6 +37,17 @@ RUN apt-get update && \
         zlib1g-dev \
         zstd \
     && rm -rf /var/lib/apt/lists/*
+
+# Install the standalone GPU release, verified independently of Python/PyPI.
+RUN set -eux; \
+    archive=/tmp/mmseqs-linux-gpu.tar.gz; \
+    wget -q \
+      "https://github.com/soedinglab/MMseqs2/releases/download/${MMSEQS_VERSION}/mmseqs-linux-gpu.tar.gz" \
+      -O "${archive}"; \
+    echo "${MMSEQS_GPU_SHA256}  ${archive}" | sha256sum -c -; \
+    tar -xzf "${archive}" -C /opt; \
+    rm -f "${archive}"; \
+    test "$(/opt/mmseqs/bin/mmseqs version)" = "${MMSEQS_COMMIT}"
 
 # Force gcc-12 (avoid gcc-13 ICE on 24.04)
 ENV CC=gcc-12
@@ -129,9 +147,14 @@ WORKDIR /app/AlphaPulldown
 RUN uv pip install --no-cache "modelcif>=1.6" && \
     python -c "from alphafold3.common import folding_input; import alphafold3.structure.mmcif; import ihm; import modelcif.reader" && \
     python -m pytest -q \
+      test/unit/test_feature_batch.py \
+      test/unit/test_create_batch_features.py \
       test/unit/test_feature_metadata.py::test_embedded_json_is_accepted_and_round_tripped_by_vanilla_alphafold3 \
       test/unit/test_af3_modelcif.py::test_augment_real_af3_modelcif_preserves_comments_and_is_modelcif_readable \
       test/unit/test_convert_to_modelcif_helpers.py && \
+    MMSEQS_INTEGRATION_BINARY=/opt/mmseqs/bin/mmseqs \
+      python -m pytest -q -o addopts="-ra --strict-markers" \
+      test/integration/test_mmseqs2_command_contract.py && \
     touch /tmp/af3-compatibility-tests-passed
 
 FROM base AS runtime

@@ -105,6 +105,10 @@ packages = [
 ]
 script-files = [
   "./alphapulldown/scripts/create_individual_features.py",
+  "./alphapulldown/scripts/create_batch_features.py",
+  "./alphapulldown/scripts/create_batch_msas.py",
+  "./alphapulldown/scripts/finalize_batch_features.py",
+  "./alphapulldown/scripts/compare_msa_backends.py",
   "./alphapulldown/scripts/run_multimer_jobs.py",
   "./alphapulldown/scripts/generate_alphafold_server_json.py",
   "./alphapulldown/analysis_pipeline/create_notebook.py",
