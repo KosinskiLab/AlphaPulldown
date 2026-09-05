@@ -54,7 +54,10 @@ def test_alphafold2_container_builds_on_pull_requests_without_secrets():
         if step.get("uses", "").startswith("docker/login-action@")
     )
     pull_request_build = next(
-        step for step in steps if step.get("name") == "Build alphafold2 container"
+        step
+        for step in steps
+        if step.get("name", "").startswith("Build alphafold2 container")
+        and "push" not in step.get("name", "")
     )
 
     assert ssh_agent["if"] == "github.event_name != 'pull_request'"
