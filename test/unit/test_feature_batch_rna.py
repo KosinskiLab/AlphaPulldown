@@ -14,6 +14,7 @@ import sys
 
 import pytest
 
+import alphapulldown.feature_batch as feature_batch_module
 from alphapulldown.feature_batch import (
     DEFAULT_RNA_E_VALUE,
     DEFAULT_RNA_MAX_SEQUENCES,
@@ -744,3 +745,44 @@ def test_the_same_letters_as_protein_and_as_rna_are_two_different_searches(
     assert protein["provenance"] != rna["provenance"]
     assert ">uniref90_hit" in protein["unpairedMsa"]
     assert ">rfam_hit" in rna["unpairedMsa"]
+
+
+def test_an_rna_query_reaches_mmseqs_spelled_as_dna(tmp_path, monkeypatch):
+    """A, C, G and U are all amino acids, so a U-spelled query is read as protein.
+
+    MMseqs2 then maps every uracil to X and the query returns from result2msa with
+    its bases destroyed, which no normalisation can undo. Measured against real
+    Rfam: a U-spelled query came back as GCGGAXXXAGCXCAG..., and the same query
+    spelled with T came back intact. So what reaches createdb must be DNA.
+    """
+    process = FakeMmseqsProcess()
+    settings = _msa_settings(_settings(tmp_path))
+    settings.temp_dir.mkdir(parents=True, exist_ok=True)
+    batch = MsaBatch(settings=settings, mmseqs_process=process)
+
+    monkeypatch.setattr(
+        feature_batch_module, "_aligned_fasta_to_a3m", lambda fasta, query, kind: fasta
+    )
+
+    batch._search_chunk(["ACGUUU"], RNA)
+
+    written = [sequence for records in process._queries.values() for _, sequence in records]
+    assert written == ["ACGTTT"], written
+    assert "U" not in "".join(written)
+
+
+def test_a_protein_query_is_handed_to_mmseqs_unchanged(tmp_path, monkeypatch):
+    """The respelling is nucleotide-only: U is a real residue in a protein."""
+    process = FakeMmseqsProcess()
+    settings = _msa_settings(_settings(tmp_path))
+    settings.temp_dir.mkdir(parents=True, exist_ok=True)
+    batch = MsaBatch(settings=settings, mmseqs_process=process)
+
+    monkeypatch.setattr(
+        feature_batch_module, "_aligned_fasta_to_a3m", lambda fasta, query, kind: fasta
+    )
+
+    batch._search_chunk(["ACDEFGU"], PROTEIN)
+
+    written = [sequence for records in process._queries.values() for _, sequence in records]
+    assert written == ["ACDEFGU"], written

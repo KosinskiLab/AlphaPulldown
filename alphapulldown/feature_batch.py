@@ -726,9 +726,14 @@ class MsaBatch:
             query_ids = {
                 f"query_{index}": sequence for index, sequence in enumerate(sequences)
             }
+            # query_ids keeps the sequence as the caller spelled it; only what
+            # MMseqs2 reads is respelled.
+            as_query = (
+                _reverse_transcribe if molecule_type == RNA else (lambda s: s)
+            )
             query_fasta.write_text(
                 "".join(
-                    f">{query_id}\n{sequence}\n"
+                    f">{query_id}\n{as_query(sequence)}\n"
                     for query_id, sequence in query_ids.items()
                 ),
                 encoding="utf-8",
@@ -1205,6 +1210,19 @@ def _fasta_records(fasta: str) -> list[tuple[str, str]]:
     if description is not None:
         records.append((description, "".join(sequence_parts)))
     return records
+
+
+def _reverse_transcribe(sequence: str) -> str:
+    """Spell an RNA query as DNA before it reaches ``mmseqs createdb``.
+
+    A, C, G and U are all valid amino-acid codes -- U is selenocysteine -- so
+    MMseqs2 reads a U-spelled RNA as a protein and maps every U to X, the unknown
+    residue. The query then returns from ``result2msa`` with its uracils
+    destroyed, and no normalisation can recover them. Spelling uracil as T keeps
+    the query in the nucleotide alphabet; :func:`_transcribe` puts the U back on
+    the way out.
+    """
+    return sequence.replace("U", "T").replace("u", "t")
 
 
 def _transcribe(sequence: str) -> str:
