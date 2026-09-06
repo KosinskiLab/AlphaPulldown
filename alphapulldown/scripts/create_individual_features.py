@@ -38,6 +38,7 @@ from alphapulldown.utils.modelling_setup import create_uniprot_runner
 from alphapulldown.utils.multimeric_template_utils import (
     extract_multimeric_template_features_for_single_chain,
 )
+from alphapulldown import af3_pipeline
 from alphapulldown.utils import save_meta_data
 from alphapulldown.utils.feature_metadata import embed_metadata_in_af3_json
 from alphapulldown.utils.template_reuse import (
@@ -370,10 +371,16 @@ def filter_af3_metadata_flags(flag_dict, chain_kinds, *, skip_msa):
     return filtered
 
 
-def get_af3_feature_metadata(chain_kinds, *, skip_msa):
-    """Collect provenance for resources the AF3 pipeline actually uses."""
+def get_af3_feature_metadata(chain_kinds, *, skip_msa, flag_values=None):
+    """Collect provenance for resources the AF3 pipeline actually uses.
+
+    ``flag_values`` lets a caller pass the paths this run resolved, instead of
+    relying on ``create_arguments()`` having rewritten the global FLAGS first.
+    """
+    if flag_values is None:
+        flag_values = FLAGS.flag_values_dict()
     metadata_flags = filter_af3_metadata_flags(
-        FLAGS.flag_values_dict(), chain_kinds, skip_msa=skip_msa
+        flag_values, chain_kinds, skip_msa=skip_msa
     )
     metadata = save_meta_data.get_meta_dict(metadata_flags)
     try:
@@ -765,10 +772,14 @@ def create_custom_db(temp_dir, protein, template_paths, chains):
 
 # =================== AlphaFold 3 Feature Creation ===================
 
+def af3_pipeline_settings():
+    """Resolve the AlphaFold 3 pipeline settings from FLAGS, mutating nothing."""
+    validate_data_pipeline_flags()
+    return af3_pipeline.AF3PipelineSettings.from_flags(FLAGS, get_database_path)
+
+
 def create_pipeline_af3():
     """Create the AlphaFold3 pipeline. Raises if AF3 not available."""
-    validate_data_pipeline_flags()
-
     if AF3DataPipeline is None or AF3DataPipelineConfig is None:
         raise ImportError(
             "AlphaFold3 is not installed correctly. "
@@ -777,34 +788,11 @@ def create_pipeline_af3():
             "vendored package with 'pip install -r alphafold3/dev-requirements.txt', "
             "'pip install --no-deps -e ./alphafold3', and 'build_data'."
         ) from AF3_IMPORT_ERROR
-    
-    # Convert max_template_date string to datetime.date object
-    import datetime
-    max_template_date = datetime.date.fromisoformat(FLAGS.max_template_date)
-    def _ovr(attr, key):
-        v = getattr(FLAGS, attr, None)
-        return v or get_database_path(key)
-    
-    config = AF3DataPipelineConfig(
-        jackhmmer_binary_path=FLAGS.jackhmmer_binary_path,
-        nhmmer_binary_path=FLAGS.nhmmer_binary_path,
-        hmmalign_binary_path=FLAGS.hmmalign_binary_path,
-        hmmsearch_binary_path=FLAGS.hmmsearch_binary_path,
-        hmmbuild_binary_path=FLAGS.hmmbuild_binary_path,
-        small_bfd_database_path=_ovr("small_bfd_database_path", "small_bfd"),
-        mgnify_database_path=_ovr("mgnify_database_path", "mgnify"),
-        uniprot_cluster_annot_database_path=_ovr("uniprot_database_path", "uniprot"),
-        uniref90_database_path=_ovr("uniref90_database_path", "uniref90"),
-        ntrna_database_path=_ovr("ntrna_database_path", "ntrna"),
-        rfam_database_path=_ovr("rfam_database_path", "rfam"),
-        rna_central_database_path=_ovr("rna_central_database_path", "rna_central"),
-        pdb_database_path=_ovr("template_mmcif_dir", "template_mmcif_dir"),
-        seqres_database_path=_ovr("pdb_seqres_database_path", "pdb_seqres"),
-        jackhmmer_n_cpu=8,
-        nhmmer_n_cpu=8,
-        max_template_date=max_template_date
+    return af3_pipeline.build_pipeline(
+        af3_pipeline_settings(),
+        pipeline_cls=AF3DataPipeline,
+        config_cls=AF3DataPipelineConfig,
     )
-    return AF3DataPipeline(config)
 
 def _af3_chain_without_templates(chain):
     """Copy a protein chain keeping its MSAs but clearing its templates.

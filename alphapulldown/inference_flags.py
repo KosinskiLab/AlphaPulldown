@@ -10,7 +10,7 @@ silence rather than reported.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, Mapping
+from typing import Any, Dict, Iterable, List, Mapping, Sequence, Tuple
 
 
 # Accepted by every backend.
@@ -139,3 +139,29 @@ def validate_model_configuration(configuration: Mapping[str, Any]) -> None:
             f"Unknown model configuration key(s): {unknown}. "
             "Backends ignore keys they do not use, so this would otherwise be silent."
         )
+
+
+def group_by_model_flags(
+    jobs: Sequence[Tuple[Dict[str, Any], Dict[str, Any]]],
+) -> List[Tuple[Dict[str, Any], List[Dict[str, Any]]]]:
+    """Group ``(job, model_flags)`` pairs into one batch per distinct flag set.
+
+    ``predict_structure`` takes a single ``model_flags`` for every object it is
+    given, so objects needing different flags -- an AlphaFold 2 monomer and a
+    multimer, say -- cannot share a call. Grouping keeps like folds together while
+    letting unlike ones through, rather than applying one fold's flags to all.
+
+    Order is preserved: groups appear in the order their first job appeared, and
+    jobs keep their order within a group.
+    """
+    grouped: Dict[str, List[Dict[str, Any]]] = {}
+    flags_by_key: Dict[str, Dict[str, Any]] = {}
+    for job, model_flags in jobs:
+        # Values include enums and None, so compare on a stable repr rather than
+        # requiring the flag values themselves to be hashable.
+        key = repr(sorted(model_flags.items(), key=lambda item: item[0]))
+        if key not in grouped:
+            grouped[key] = []
+            flags_by_key[key] = model_flags
+        grouped[key].append(job)
+    return [(flags_by_key[key], jobs_) for key, jobs_ in grouped.items()]

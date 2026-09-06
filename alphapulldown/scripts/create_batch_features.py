@@ -52,9 +52,16 @@ def main(argv) -> None:
             "--use_mmseqs2, --keep_msas, --skip_msa, or --path_to_mmt"
         )
 
-    legacy_features.create_arguments()
+    # No create_arguments() here: it worked by mutating the global FLAGS and the two
+    # calls below then read that mutation back, so this stage depended on call order
+    # across a script boundary. The settings resolve the same paths explicitly.
+    settings = legacy_features.af3_pipeline_settings()
     pipeline = legacy_features.create_pipeline_af3()
-    metadata = legacy_features.get_af3_feature_metadata({"protein"}, skip_msa=True)
+    metadata = legacy_features.get_af3_feature_metadata(
+        {"protein"},
+        skip_msa=True,
+        flag_values=settings.flag_values_with_resolved_paths(FLAGS.flag_values_dict()),
+    )
     requests = _feature_requests(FLAGS.fasta_paths)
     databases = database_selection(FLAGS)
     result = FeatureBatch(

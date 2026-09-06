@@ -1008,14 +1008,23 @@ def test_main_routes_protein_and_json_jobs_to_predict_structure(
 
     run_structure_prediction_module.main([])
 
-    assert len(captured_calls) == 1
-    call = captured_calls[0]
-    assert call["fold_backend"] == "alphafold3"
-    assert call["objects_to_model"] == [
+    # Two calls, not one. This used to assert a single call in which the AlphaFold 3
+    # JSON input inherited model_name "multimer" from the protein fold beside it --
+    # the last-fold-wins bug, pinned as an expectation. The multimer keeps its own
+    # flags; the JSON input takes the defaults.
+    assert len(captured_calls) == 2
+    assert {call["fold_backend"] for call in captured_calls} == {"alphafold3"}
+
+    multimer_call, json_call = captured_calls
+    assert multimer_call["objects_to_model"] == [
         {"object": multimer_obj, "output_dir": f"{tmp_path / 'shared-output'}/protein"},
+    ]
+    assert multimer_call["model_flags"]["model_name"] == "multimer"
+
+    assert json_call["objects_to_model"] == [
         {"object": {"json_input": "/tmp/job.json"}, "output_dir": f"{tmp_path / 'shared-output'}/json"},
     ]
-    assert call["model_flags"]["model_name"] == "multimer"
+    assert json_call["model_flags"]["model_name"] != "multimer"
 
 
 def test_main_sets_multimer_model_flags_for_multimer_jobs(
