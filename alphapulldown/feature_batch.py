@@ -1083,12 +1083,25 @@ class FeatureFinalizer:
         other["af3_templates"] = self._template_signature()
         return embed_metadata_in_af3_json(payload, metadata)
 
-    def _template_signature(self) -> dict[str, str | int]:
+    def _template_signature(self) -> dict[str, Any]:
+        """Cache identity for a finalized artifact.
+
+        The MSA stage keys its cache on the mmseqs2 binary's own identity, so an
+        upgraded binary invalidates the MSAs it produced. This stage is the same
+        shape of problem -- AlphaFold 3, hmmsearch and hmmbuild all shape the
+        templates and features written here -- so it is keyed the same way. Without
+        the software block, upgrading any of them silently reuses artifacts built
+        by the older implementation.
+
+        Only the software versions are included. ``base_metadata`` also carries a
+        wall-clock ``date``, which would miss on every run.
+        """
         return {
-            "schema_version": 1,
+            "schema_version": 2,
             "max_template_date": self._settings.max_template_date,
             "pdb_seqres_database_id": self._settings.template_seqres_database_id,
             "mmcif_database_id": self._settings.template_mmcif_database_id,
+            "software": dict(self._settings.base_metadata.get("software", {})),
         }
 
     def _artifact_path(self, name: str) -> Path:

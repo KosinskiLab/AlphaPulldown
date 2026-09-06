@@ -16,6 +16,8 @@ import pytest
 
 import alphapulldown.feature_batch as feature_batch_module
 from alphapulldown.feature_batch import (
+    FeatureFinalizationSettings,
+    FeatureFinalizer,
     DEFAULT_RNA_E_VALUE,
     DEFAULT_RNA_MAX_SEQUENCES,
     PROTEIN,
@@ -786,3 +788,58 @@ def test_a_protein_query_is_handed_to_mmseqs_unchanged(tmp_path, monkeypatch):
 
     written = [sequence for records in process._queries.values() for _, sequence in records]
     assert written == ["ACDEFGU"], written
+
+
+# --------------------------------------------------------------------------------
+# Finalization cache identity
+# --------------------------------------------------------------------------------
+
+
+def _finalizer(tmp_path, software):
+    return FeatureFinalizer(
+        settings=FeatureFinalizationSettings(
+            output_dir=tmp_path / "features",
+            msa_input_dir=tmp_path / "msas",
+            max_template_date="2050-01-01",
+            template_seqres_database_id="seqres-1",
+            template_mmcif_database_id="mmcif-1",
+            base_metadata={"software": software, "date": "2026-01-01 00:00:00"},
+        ),
+        af3_pipeline=None,
+    )
+
+
+def test_upgrading_the_finalizer_software_invalidates_its_artifacts(tmp_path):
+    """The MSA stage keys on the mmseqs2 binary; this stage must key on its own tools.
+
+    AlphaFold 3, hmmsearch and hmmbuild all shape what is written here, so reusing an
+    artifact across an upgrade silently keeps features built by the older one.
+    """
+    before = _finalizer(tmp_path, {"AlphaFold": {"version": "3.0.0"}})._template_signature()
+    after = _finalizer(tmp_path, {"AlphaFold": {"version": "3.0.1"}})._template_signature()
+
+    assert before != after
+    assert before["software"] == {"AlphaFold": {"version": "3.0.0"}}
+
+
+def test_the_volatile_date_is_kept_out_of_the_cache_identity(tmp_path):
+    """base_metadata carries a wall-clock date; including it would miss on every run."""
+    signature = _finalizer(tmp_path, {"AlphaFold": {"version": "3.0.0"}})._template_signature()
+
+    assert "date" not in signature
+    assert set(signature) == {
+        "schema_version",
+        "max_template_date",
+        "pdb_seqres_database_id",
+        "mmcif_database_id",
+        "software",
+    }
+
+
+def test_identical_software_still_matches(tmp_path):
+    software = {"AlphaFold": {"version": "3.0.0"}, "hmmsearch": {"version": "3.4"}}
+
+    a = _finalizer(tmp_path, software)._template_signature()
+    b = _finalizer(tmp_path, dict(software))._template_signature()
+
+    assert a == b
