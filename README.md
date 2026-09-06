@@ -721,6 +721,12 @@ mmseqs2_features:
     uniprot: {path: /db/mmseqs/uniprot, identifier: uniprot-2026-08, max_sequences: 50000}
 ```
 
+#### RNA chains
+
+RNA chains can use this path too, once the three AlphaFold 3 RNA databases (Rfam,
+RNAcentral, NT-RNA) are built and configured. Leave them unset and the stage stays
+protein-only and unchanged. See [docs/mmseqs2_rna.md](docs/mmseqs2_rna.md).
+
 #### How the MSAs compare to the native pipeline
 
 MMseqs2 has been used to build AlphaFold MSAs for years (ColabFold does exactly
