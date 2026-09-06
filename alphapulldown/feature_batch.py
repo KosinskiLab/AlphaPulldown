@@ -65,6 +65,41 @@ _FALLBACK_MAX_SEQUENCES = 5_000
 NUCLEOTIDE_SEARCH_MODE = "cpu"
 
 
+def _describe_exit(returncode) -> str:
+    """Say what an MMseqs2 exit code means, especially when it died on a signal.
+
+    A crash leaves stderr EMPTY, so the bare message "MMseqs2 command failed" told the
+    user nothing and looked like a configuration error. Measured: mmseqs result2msa
+    segfaults on a specific RNA query against the 37M-entry nt_rna database, while the
+    same command succeeds for other queries on that same database and for this query on
+    the smaller ones. That is an upstream crash, not something to fix by reconfiguring.
+    """
+    if returncode is None:
+        return "MMseqs2 could not be executed."
+    # Python reports a signal death as a negative code; a shell in between turns the
+    # same event into 128+N. Recognise both.
+    signal_number = None
+    if returncode < 0:
+        signal_number = -returncode
+    elif returncode > 128:
+        signal_number = returncode - 128
+    if signal_number is None:
+        return f"MMseqs2 exited with status {returncode}."
+    try:
+        import signal as _signal
+
+        name = _signal.Signals(signal_number).name
+    except (ImportError, ValueError):
+        name = f"signal {signal_number}"
+    detail = (
+        "MMseqs2 crashed rather than reporting an error, so it wrote nothing to stderr. "
+        "This is a fault inside MMseqs2, not a configuration problem: the same command "
+        "succeeds for other queries against the same database. Retrying will not help; "
+        "exclude the sequence, or search it against the smaller databases."
+    )
+    return f"MMseqs2 was killed by {name} ({signal_number}). {detail}"
+
+
 def _validate_feature_requests(requests: Sequence[FeatureRequest]) -> None:
     names = [request.name for request in requests]
     if len(set(names)) != len(names):
@@ -350,9 +385,11 @@ class SubprocessMmseqsProcess:
                 text=True,
             )
         except (OSError, subprocess.CalledProcessError) as exc:
-            stderr = getattr(exc, "stderr", "") or ""
+            stderr = (getattr(exc, "stderr", "") or "").strip()
             raise RuntimeError(
-                f"MMseqs2 command failed: {' '.join(command)}\n{stderr.strip()}"
+                f"MMseqs2 command failed: {' '.join(command)}\n"
+                f"{_describe_exit(getattr(exc, 'returncode', None))}"
+                + (f"\n{stderr}" if stderr else "")
             ) from exc
         return completed.stdout.strip()
 
