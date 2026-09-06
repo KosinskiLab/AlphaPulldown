@@ -27,4 +27,14 @@
   (uniref90, mgnify, small_bfd, merged into one MSA) or paired hits (uniprot, whose
   UniProt taxon headers let AlphaFold 3 pair chains by species). Roles are named, not
   inferred from a position in the configured list.
+- **Structural template search**: finding AlphaFold 2 template hits by predicting the
+  query's fold and searching it against a structure database, in place of searching a
+  sequence profile against a sequence database. It replaces the source of the hits
+  only; featurization stays with AlphaFold 2's own hit featurizer.
+- **Predicted structure cache**: durably published predicted structures, keyed by
+  sequence and valid only for the checkpoint that produced them. Separate from the
+  alignment cache so a refreshed structure database costs a search, not a fold.
+- **Structural template hit**: one structure-to-structure alignment expressed in the
+  terms AlphaFold 2's featurizer needs -- a `<pdbid>_<chain>` name, both aligned rows,
+  and per-column residue indices.
 

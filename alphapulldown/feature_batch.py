@@ -7,7 +7,6 @@ import dataclasses
 import hashlib
 import json
 import lzma
-import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -19,6 +18,7 @@ from alphapulldown.utils.feature_metadata import (
     embed_metadata_in_af3_json,
     extract_metadata_from_af3_json,
 )
+from alphapulldown.utils.file_handling import write_atomic_json as _write_atomic
 
 
 _PROTEIN_RESIDUES = frozenset("ACDEFGHIKLMNPQRSTVWYX")
@@ -966,32 +966,6 @@ class FeatureBatch:
                 *final_result.failures,
             ),
         )
-
-
-def _write_atomic(path: Path, payload: Mapping[str, Any]) -> None:
-    """Durably publish JSON so completed cache entries survive worker failure."""
-    text = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
-    descriptor, temporary_name = tempfile.mkstemp(
-        prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
-    )
-    temporary_path = Path(temporary_name)
-    try:
-        with os.fdopen(descriptor, "wb") as raw_handle:
-            if path.suffix == ".xz":
-                with lzma.open(raw_handle, "wt", encoding="utf-8") as handle:
-                    handle.write(text)
-            else:
-                raw_handle.write(text.encode("utf-8"))
-            raw_handle.flush()
-            os.fsync(raw_handle.fileno())
-        os.replace(temporary_path, path)
-        directory_fd = os.open(path.parent, os.O_RDONLY)
-        try:
-            os.fsync(directory_fd)
-        finally:
-            os.close(directory_fd)
-    finally:
-        temporary_path.unlink(missing_ok=True)
 
 
 def _database_index_size(path: Path) -> int:

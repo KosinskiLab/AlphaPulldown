@@ -2,11 +2,47 @@ import os
 from absl import logging
 import csv
 import contextlib
+import json
 import lzma
 import tempfile
 from pathlib import Path
+from typing import Any, Mapping
 
 AF3_INPUT_SUFFIX = "_af3_input.json"
+
+
+def write_atomic_json(path, payload: Mapping[str, Any]) -> None:
+    """Durably publish JSON so a completed cache entry survives worker failure.
+
+    Writes to a temporary file in the destination directory, fsyncs it, renames
+    it into place and fsyncs the directory. A reader therefore sees either the
+    previous content or the complete new content, never a half-written file --
+    which matters because everything written this way is a cache entry that a
+    later run will trust. A ``.xz`` suffix selects lzma compression.
+    """
+    path = Path(path)
+    text = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
+    )
+    temporary_path = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "wb") as raw_handle:
+            if path.suffix == ".xz":
+                with lzma.open(raw_handle, "wt", encoding="utf-8") as handle:
+                    handle.write(text)
+            else:
+                raw_handle.write(text.encode("utf-8"))
+            raw_handle.flush()
+            os.fsync(raw_handle.fileno())
+        os.replace(temporary_path, path)
+        directory_fd = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    finally:
+        temporary_path.unlink(missing_ok=True)
 
 def read_maybe_xz(path) -> str:
     """Read a text file that may be lzma-compressed, chosen by its suffix."""
