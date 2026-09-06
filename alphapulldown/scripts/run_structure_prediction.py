@@ -14,7 +14,7 @@ gpus = jax.local_devices(backend='gpu')
 from absl import flags, app
 import os
 from os import makedirs
-from typing import Dict, List, Union, Tuple
+from typing import Any, Dict, List, Union, Tuple
 from os.path import join, basename
 from absl import logging
 import glob
@@ -340,11 +340,12 @@ def main(argv):
 
     default_postprocess_flags = inference_flags.postprocess_flags(FLAGS)
 
-    # Prepare the list of jobs
-    objects_to_model = []
-    final_model_flags = default_model_flags
-    final_postprocess_flags = default_postprocess_flags
-    
+    # Prepare the list of jobs, each carrying the model flags it needs. Deciding the
+    # flags inside the loop below and reading them after it applied the LAST fold's
+    # flags to every object, so a monomer queued behind a multimer was predicted with
+    # model_name "multimer". Postprocess flags do not vary by object.
+    jobs: List[Tuple[Dict[str, Any], Dict[str, Any]]] = []
+
     for interactors, out_dir in zip(all_interactors, out_dirs):
         if not interactors:
             continue
@@ -365,20 +366,20 @@ def main(argv):
             obj, real_out = pre_modelling_setup(
                 prot_objs, output_dir=out_dir
             )
-            objects_to_model.append({'object': obj, 'output_dir': real_out})
             json_output_dir = real_out
-            
-            # Update final flags based on object type
-            final_model_flags = default_model_flags.copy()
-            final_postprocess_flags = default_postprocess_flags.copy()
-            
+
+            # Flags for THIS object, not for whichever fold happens to come last.
+            object_model_flags = default_model_flags.copy()
             if isinstance(obj, MultimericObject):
-                final_model_flags.update({
+                object_model_flags.update({
                     "model_name": "multimer",
                     "msa_depth_scan": FLAGS.msa_depth_scan,
                     "model_names_custom": FLAGS.model_names,
                     "msa_depth": FLAGS.msa_depth
                 })
+            jobs.append(
+                ({'object': obj, 'output_dir': real_out}, object_model_flags)
+            )
         elif len(json_dicts) > 1:
             json_output_dir = resolve_af3_combined_json_output_dir(
                 json_dicts,
@@ -397,15 +398,21 @@ def main(argv):
                     use_ap_style=FLAGS.use_ap_style,
                     shared_output_root=shared_output_root,
                 )
-            objects_to_model.append(
-                {'object': json_dict, 'output_dir': current_json_output_dir}
-            )
+            # An AlphaFold 3 JSON input is not an AlphaFold 2 multimer, so it takes the
+            # defaults rather than inheriting a neighbouring fold's multimer flags.
+            jobs.append((
+                {'object': json_dict, 'output_dir': current_json_output_dir},
+                default_model_flags,
+            ))
 
-    if objects_to_model:
+    # One call per distinct model-flag set. Objects that need the same flags still
+    # share a call, so a batch of like folds is unchanged; objects that need
+    # different flags are no longer forced to share the last fold's.
+    for model_flags, grouped in inference_flags.group_by_model_flags(jobs):
         predict_structure(
-            objects_to_model=objects_to_model,
-            model_flags=final_model_flags,
-            postprocess_flags=final_postprocess_flags,
+            objects_to_model=grouped,
+            model_flags=model_flags,
+            postprocess_flags=default_postprocess_flags,
             fold_backend=FLAGS.fold_backend
         )
 
