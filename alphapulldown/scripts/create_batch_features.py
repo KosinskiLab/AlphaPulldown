@@ -14,18 +14,21 @@ from typing import Sequence
 from absl import app, flags, logging
 
 from alphapulldown.feature_batch import (
+    PROTEIN,
     FeatureBatch,
     FeatureBatchSettings,
     FeatureRequest,
     SubprocessMmseqsProcess,
-    protein_requests_from_fastas,
+    feature_requests_from_fastas,
 )
 from alphapulldown.scripts import create_individual_features as legacy_features
 from alphapulldown.scripts._mmseqs2_cli import (
+    accepted_molecule_types,
+    always_required_msa_flag_names,
     database_selection,
     define_msa_search_flags,
     define_template_provenance_flags,
-    required_msa_flag_names,
+    require_msa_flags,
     required_template_flag_names,
 )
 
@@ -37,7 +40,9 @@ FLAGS = flags.FLAGS
 
 
 def _feature_requests(fasta_paths: Sequence[str]) -> tuple[FeatureRequest, ...]:
-    return protein_requests_from_fastas(fasta_paths)
+    return feature_requests_from_fastas(
+        fasta_paths, molecule_types=accepted_molecule_types(FLAGS)
+    )
 
 
 def main(argv) -> None:
@@ -57,12 +62,14 @@ def main(argv) -> None:
     # across a script boundary. The settings resolve the same paths explicitly.
     settings = legacy_features.af3_pipeline_settings()
     pipeline = legacy_features.create_pipeline_af3()
+    requests = _feature_requests(FLAGS.fasta_paths)
+    chain_kinds = {request.molecule_type for request in requests} or {PROTEIN}
+    require_msa_flags(FLAGS, chain_kinds)
     metadata = legacy_features.get_af3_feature_metadata(
-        {"protein"},
+        chain_kinds,
         skip_msa=True,
         flag_values=settings.flag_values_with_resolved_paths(FLAGS.flag_values_dict()),
     )
-    requests = _feature_requests(FLAGS.fasta_paths)
     databases = database_selection(FLAGS)
     result = FeatureBatch(
         settings=FeatureBatchSettings(
@@ -75,7 +82,9 @@ def main(argv) -> None:
             max_residues_per_batch=FLAGS.mmseqs_batch_max_residues,
             threads=FLAGS.mmseqs_threads,
             e_value=FLAGS.mmseqs_e_value,
-        split_memory_limit=FLAGS.mmseqs_split_memory_limit,
+            split_memory_limit=FLAGS.mmseqs_split_memory_limit,
+            rna_databases=databases.rna,
+            rna_e_value=FLAGS.mmseqs_rna_e_value,
             compress=FLAGS.compress_features,
             base_metadata=metadata,
             max_template_date=FLAGS.max_template_date,
@@ -108,6 +117,8 @@ def main(argv) -> None:
 
 
 if __name__ == "__main__":
+    # The database flags a run needs depend on the molecule types in its FASTA, which
+    # absl cannot see at parse time; require_msa_flags finishes the check in main().
     flags.mark_flags_as_required(
         [
             "fasta_paths",
@@ -115,7 +126,7 @@ if __name__ == "__main__":
             "output_dir",
             "max_template_date",
             *required_template_flag_names(),
-            *required_msa_flag_names(),
+            *always_required_msa_flag_names(),
         ]
     )
     app.run(main)

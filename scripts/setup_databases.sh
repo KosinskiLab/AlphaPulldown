@@ -37,17 +37,28 @@ readonly MMSEQS_DATABASES=(
   "uniprot:uniprot_all_2021_04.fa"
 )
 
+# The three RNA databases AlphaFold 3 searches. These are nucleotide databases: they
+# get plain createdb and no makepaddedseqdb, because the GPU prefilter is protein-only
+# and a padded database would simply never be used.
+readonly MMSEQS_RNA_DATABASES=(
+  "rfam:rfam_14_9_clust_seq_id_90_cov_80_rep_seq.fasta"
+  "rnacentral:rnacentral_active_seq_id_90_cov_80_linclust.fasta"
+  "nt_rna:nt_rna_2023_02_23_clust_seq_id_90_cov_80_rep_seq.fasta"
+)
+
 usage() {
   cat <<EOF
 Usage: $PROGRAM --dest DIR [--alphafold2] [--alphafold3] [--mmseqs] [options]
 
-At least one of --alphafold2, --alphafold3, --mmseqs (or --all).
+At least one of --alphafold2, --alphafold3, --mmseqs, --mmseqs-rna (or --all).
 
   --dest DIR           where databases live. Required.
   --all                everything below
   --alphafold2         AlphaFold 2 databases (~2.6 TB, or ~600 GB with --reduced)
   --alphafold3         AlphaFold 3 databases (~630 GB)
   --mmseqs             GPU-padded MMseqs2 databases built from the AF3 FASTAs
+  --mmseqs-rna         MMseqs2 nucleotide databases for RNA chains (Rfam, RNAcentral,
+                       NT-RNA), built from the same AF3 FASTAs
   --reduced            AlphaFold 2 in reduced_dbs mode (small_bfd instead of BFD)
   --mmseqs-source DIR  AF3 FASTAs to build from (default: DIR passed to --dest)
   --container URI      prediction container providing the downloaders and MMseqs2
@@ -66,6 +77,9 @@ Sizes, measured on the AlphaFold 3 database set:
   small_bfd    17 GB     22 GB      ~16 min
   uniprot     102 GB    117 GB      ~55 min
 
+The RNA databases are far smaller and are not padded; rnacentral is the largest of
+the three at roughly 20 GB of FASTA.
+
 Peak host RAM when searching tracks the LARGEST database rather than their total,
 because they are searched one after another: budget about 0.85x the padded size of
 the biggest one. Building needs far less; ~120 GB is comfortable.
@@ -78,16 +92,17 @@ EOF
 log() { printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*" >&2; }
 die() { printf '%s: %s\n' "$PROGRAM" "$*" >&2; exit 1; }
 
-DEST=""; DO_AF2=0; DO_AF3=0; DO_MMSEQS=0; REDUCED=0; DRY_RUN=0
+DEST=""; DO_AF2=0; DO_AF3=0; DO_MMSEQS=0; DO_MMSEQS_RNA=0; REDUCED=0; DRY_RUN=0
 MMSEQS_SOURCE=""; MMSEQS_BINARY=""; THREADS=""; KEEP_UNPADDED=0; CONTAINER="$CONTAINER_DEFAULT"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --dest) DEST=${2:?--dest needs a directory}; shift 2 ;;
-    --all) DO_AF2=1; DO_AF3=1; DO_MMSEQS=1; shift ;;
+    --all) DO_AF2=1; DO_AF3=1; DO_MMSEQS=1; DO_MMSEQS_RNA=1; shift ;;
     --alphafold2) DO_AF2=1; shift ;;
     --alphafold3) DO_AF3=1; shift ;;
     --mmseqs) DO_MMSEQS=1; shift ;;
+    --mmseqs-rna) DO_MMSEQS_RNA=1; shift ;;
     --reduced) REDUCED=1; shift ;;
     --mmseqs-source) MMSEQS_SOURCE=${2:?}; shift 2 ;;
     --container) CONTAINER=${2:?}; shift 2 ;;
@@ -101,7 +116,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ -n "$DEST" ]] || { usage >&2; die "--dest is required"; }
-(( DO_AF2 || DO_AF3 || DO_MMSEQS )) || { usage >&2; die "nothing to do"; }
+(( DO_AF2 || DO_AF3 || DO_MMSEQS || DO_MMSEQS_RNA )) || { usage >&2; die "nothing to do"; }
 : "${MMSEQS_SOURCE:=$DEST}"
 : "${THREADS:=$(nproc 2>/dev/null || echo 8)}"
 
@@ -236,7 +251,57 @@ serves stale MSAs.
 EOF
 }
 
+setup_mmseqs_rna() {
+  ensure_mmseqs
+  local out="$DEST/mmseqs"
+  run mkdir -p "$out"
+  log "building MMseqs2 nucleotide databases -> $out (threads=$THREADS)"
+
+  local entry name fasta src plain
+  for entry in "${MMSEQS_RNA_DATABASES[@]}"; do
+    name=${entry%%:*}; fasta=${entry#*:}
+    src="$MMSEQS_SOURCE/$fasta"
+    plain="$out/$name"
+
+    if [[ -e "${plain}.dbtype" ]]; then
+      log "$name: already built, skipping"
+      continue
+    fi
+    if [[ ! -f "$src" ]] && (( ! DRY_RUN )); then
+      log "$name: SKIPPED, no source FASTA at $src"
+      continue
+    fi
+
+    # No makepaddedseqdb here: padding exists for the GPU prefilter, which does not
+    # handle nucleotide databases, so RNA searches run on CPU against a plain database.
+    log "$name: createdb"
+    mmseqs_run createdb "$src" "$plain" --threads "$THREADS"
+    if (( ! DRY_RUN )) && [[ ! -e "${plain}.dbtype" ]]; then
+      die "$name: createdb produced no ${plain}.dbtype - the build failed"
+    fi
+    log "$name: done ($(du -shc "${plain}"* 2>/dev/null | tail -1 | cut -f1))"
+  done
+
+  cat <<EOF
+
+Pass these to create_batch_msas.py (or the equivalent config.yaml keys) to let RNA
+chains use the local MMseqs2 path. Leave them unset and it stays protein-only:
+
+EOF
+  for entry in "${MMSEQS_RNA_DATABASES[@]}"; do
+    name=${entry%%:*}
+    printf '  --mmseqs_%s_database_path %s/%s --mmseqs_%s_database_id %s-CHANGE_ME\n' \
+      "$name" "$out" "$name" "$name" "$name"
+  done
+  cat <<EOF
+
+All three are required together: AlphaFold 3 merges them into one RNA MSA, so a
+subset would quietly produce a shallower alignment than the same run elsewhere.
+EOF
+}
+
 (( DO_AF2 )) && setup_alphafold2
 (( DO_AF3 )) && setup_alphafold3
 (( DO_MMSEQS )) && setup_mmseqs
+(( DO_MMSEQS_RNA )) && setup_mmseqs_rna
 log "done"

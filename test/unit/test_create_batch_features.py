@@ -137,5 +137,25 @@ def test_cli_adapter_rejects_non_protein_af3_fasta(tmp_path: Path):
         _feature_requests([str(fasta)])
 
 
+def test_cli_adapter_accepts_rna_once_the_rna_databases_are_configured(
+    tmp_path: Path, monkeypatch
+):
+    fasta = tmp_path / "rna.fasta"
+    fasta.write_text(">rna_chain\nACGUACGU\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="mmseqs_rfam_database_path"):
+        _feature_requests([str(fasta)])
+
+    for name in ("rfam", "rnacentral", "nt_rna"):
+        monkeypatch.setattr(
+            FLAGS[f"mmseqs_{name}_database_path"], "value", f"/db/{name}"
+        )
+
+    assert [
+        (request.name, request.molecule_type)
+        for request in _feature_requests([str(fasta)])
+    ] == [("rna_chain", "rna")]
+
+
 def test_cli_defaults_to_the_binary_bundled_in_prediction_images():
     assert FLAGS["mmseqs_binary_path"].default == "/opt/mmseqs/bin/mmseqs"

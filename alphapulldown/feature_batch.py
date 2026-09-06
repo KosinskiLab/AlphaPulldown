@@ -1,4 +1,4 @@
-"""Batched local MMseqs2-GPU feature generation for AlphaFold 3 proteins."""
+"""Batched local MMseqs2 feature generation for AlphaFold 3 proteins and RNA."""
 
 from __future__ import annotations
 
@@ -21,15 +21,32 @@ from alphapulldown.utils.feature_metadata import (
 )
 
 
-_PROTEIN_RESIDUES = frozenset("ACDEFGHIKLMNPQRSTVWYX")
+PROTEIN = "protein"
+RNA = "rna"
+# Molecule types in the order they are searched. Protein comes first so that a
+# protein-only batch issues exactly the same MMseqs2 calls, in the same order, as
+# it did before RNA existed.
+MOLECULE_TYPES = (PROTEIN, RNA)
 
-# The two database roles. Unpaired hits are merged into one MSA; paired hits keep their
-# UniProt taxon headers so AlphaFold 3 can pair chains by species. Getting these the
-# wrong way round produces a plausible-looking MSA and silently wrong pairing, so the
-# roles are named here rather than recovered from a position in a tuple.
+_PROTEIN_RESIDUES = frozenset("ACDEFGHIKLMNPQRSTVWYX")
+# AlphaFold 3 tokenises an RNA MSA over A/C/G/U and maps every other letter to the
+# unknown nucleotide, so a T here would be silently discarded rather than read as U.
+_RNA_RESIDUES = frozenset("ACGUN")
+_RESIDUES = {PROTEIN: _PROTEIN_RESIDUES, RNA: _RNA_RESIDUES}
+_MOLECULE_NOUNS = {PROTEIN: "proteins", RNA: "RNA chains"}
+
+# The two protein database roles. Unpaired hits are merged into one MSA; paired hits
+# keep their UniProt taxon headers so AlphaFold 3 can pair chains by species. Getting
+# these the wrong way round produces a plausible-looking MSA and silently wrong
+# pairing, so the roles are named here rather than recovered from a position in a tuple.
 UNPAIRED_DATABASE_NAMES = ("uniref90", "mgnify", "small_bfd")
 PAIRED_DATABASE_NAME = "uniprot"
 DATABASE_NAMES = (*UNPAIRED_DATABASE_NAMES, PAIRED_DATABASE_NAME)
+
+# AlphaFold 3 searches three RNA databases and merges them into one unpaired MSA, in
+# this order (alphafold3.data.pipeline._get_rna_msa). RNA chains have no paired MSA and
+# no templates at all, so there is no RNA counterpart to PAIRED_DATABASE_NAME.
+RNA_DATABASE_NAMES = ("rfam", "rnacentral", "nt_rna")
 
 DEFAULT_MAX_SEQUENCES = {
     "uniref90": 10_000,
@@ -37,7 +54,15 @@ DEFAULT_MAX_SEQUENCES = {
     "small_bfd": 5_000,
     "uniprot": 50_000,
 }
+# AlphaFold 3 caps every RNA database at 10,000 hits and searches them at 1e-3.
+DEFAULT_RNA_MAX_SEQUENCES = {name: 10_000 for name in RNA_DATABASE_NAMES}
+DEFAULT_RNA_E_VALUE = 1e-3
 _FALLBACK_MAX_SEQUENCES = 5_000
+
+# MMseqs2's GPU prefilter needs a padded protein database, so a nucleotide search runs
+# on CPU however the process was configured. Recorded in RNA provenance so that a
+# future GPU-capable nucleotide search does not silently reuse these bundles.
+NUCLEOTIDE_SEARCH_MODE = "cpu"
 
 
 def _validate_feature_requests(requests: Sequence[FeatureRequest]) -> None:
@@ -47,37 +72,78 @@ def _validate_feature_requests(requests: Sequence[FeatureRequest]) -> None:
     for request in requests:
         if not request.name or Path(request.name).name != request.name:
             raise ValueError(f"Invalid feature request name: {request.name!r}")
-        sequence = request.sequence.upper()
-        if not sequence or set(sequence) - _PROTEIN_RESIDUES:
+        residues = _RESIDUES.get(request.molecule_type)
+        if residues is None:
             raise ValueError(
-                f"Feature request {request.name!r} is not a protein sequence"
+                f"Feature request {request.name!r} has an unsupported molecule "
+                f"type: {request.molecule_type!r}"
+            )
+        sequence = request.sequence.upper()
+        if not sequence or set(sequence) - residues:
+            raise ValueError(
+                f"Feature request {request.name!r} is not a "
+                f"{request.molecule_type} sequence"
             )
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class FeatureRequest:
-    """One named protein sequence requiring an AF3 feature artifact."""
+    """One named sequence requiring an AF3 feature artifact."""
 
     name: str
     sequence: str
+    molecule_type: str = PROTEIN
+
+
+def feature_requests_from_fastas(
+    fasta_paths: Sequence[str | Path],
+    *,
+    molecule_types: Sequence[str] = (PROTEIN,),
+) -> tuple[FeatureRequest, ...]:
+    """Read requests of the accepted molecule types without importing AlphaFold."""
+    from alphapulldown.utils.file_handling import iter_seqs
+    from alphapulldown.utils.sequence_types import get_af3_chain_kind
+
+    accepted = frozenset(molecule_types)
+    unsupported = accepted - frozenset(MOLECULE_TYPES)
+    if unsupported:
+        raise ValueError(
+            "Unsupported molecule types: " + ", ".join(sorted(unsupported))
+        )
+    ordered = tuple(kind for kind in MOLECULE_TYPES if kind in accepted)
+    nouns = " and ".join(_MOLECULE_NOUNS[kind] for kind in ordered)
+    rejection = (
+        f"is not a {ordered[0]}" if len(ordered) == 1 else "is neither of those"
+    )
+
+    requests = []
+    for sequence, description in iter_seqs([str(path) for path in fasta_paths]):
+        chain_kind = get_af3_chain_kind(description, sequence)
+        if chain_kind not in accepted:
+            message = (
+                f"Batched local MMseqs2-GPU features accept {nouns} only; "
+                f"{description!r} {rejection}"
+            )
+            if chain_kind == RNA and RNA not in accepted:
+                message += (
+                    ". Configure the RNA databases (--mmseqs_rfam_database_path, "
+                    "--mmseqs_rnacentral_database_path, "
+                    "--mmseqs_nt_rna_database_path) to search RNA chains too"
+                )
+            raise ValueError(message)
+        requests.append(
+            FeatureRequest(
+                name=description, sequence=sequence, molecule_type=chain_kind
+            )
+        )
+    return tuple(requests)
 
 
 def protein_requests_from_fastas(
     fasta_paths: Sequence[str | Path],
 ) -> tuple[FeatureRequest, ...]:
     """Read protein requests without importing AlphaFold or JAX."""
-    from alphapulldown.utils.file_handling import iter_seqs
-    from alphapulldown.utils.sequence_types import get_af3_chain_kind
-
-    requests = []
-    for sequence, description in iter_seqs([str(path) for path in fasta_paths]):
-        if get_af3_chain_kind(description, sequence) != "protein":
-            raise ValueError(
-                "Batched local MMseqs2-GPU features accept proteins only; "
-                f"{description!r} is not a protein"
-            )
-        requests.append(FeatureRequest(name=description, sequence=sequence))
-    return tuple(requests)
+    return feature_requests_from_fastas(fasta_paths)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -88,6 +154,7 @@ class DatabaseSpec:
     path: Path
     identifier: str
     max_sequences: int | None = None
+    molecule_type: str = PROTEIN
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -95,17 +162,20 @@ class DatabaseSelection:
     """The configured databases with their roles named."""
 
     unpaired: tuple[DatabaseSpec, ...]
-    paired: DatabaseSpec
+    paired: DatabaseSpec | None
+    # All three RNA databases are unpaired; empty when RNA is not configured.
+    rna: tuple[DatabaseSpec, ...] = ()
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class MsaBatchSettings:
-    """GPU MSA-stage settings; no AlphaFold/JAX configuration belongs here."""
+    """MSA-stage settings; no AlphaFold/JAX configuration belongs here."""
 
     output_dir: Path
     temp_dir: Path
+    # Both may be empty/None when the batch contains no protein requests.
     unpaired_databases: tuple[DatabaseSpec, ...]
-    paired_database: DatabaseSpec
+    paired_database: DatabaseSpec | None
     max_sequences_per_batch: int
     max_residues_per_batch: int
     threads: int
@@ -115,6 +185,9 @@ class MsaBatchSettings:
     # On a large node with a small allocation it therefore declines to split and is
     # OOM-killed instead. Pass the allocation explicitly, e.g. "150G".
     split_memory_limit: str | None = None
+    # Empty unless RNA is configured; a protein-only batch never reads these.
+    rna_databases: tuple[DatabaseSpec, ...] = ()
+    rna_e_value: float = DEFAULT_RNA_E_VALUE
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -137,13 +210,15 @@ class FeatureBatchSettings:
     output_dir: Path
     temp_dir: Path
     unpaired_databases: tuple[DatabaseSpec, ...]
-    paired_database: DatabaseSpec
+    paired_database: DatabaseSpec | None
     max_sequences_per_batch: int
     max_residues_per_batch: int
     threads: int
     msa_output_dir: Path | None = None
     e_value: float = 1e-4
     split_memory_limit: str | None = None
+    rna_databases: tuple[DatabaseSpec, ...] = ()
+    rna_e_value: float = DEFAULT_RNA_E_VALUE
     compress: bool = False
     base_metadata: Mapping[str, Any] = dataclasses.field(default_factory=dict)
     max_template_date: str = ""
@@ -305,6 +380,12 @@ class SubprocessMmseqsProcess:
         settings: MsaBatchSettings,
     ) -> None:
         max_sequences = database.max_sequences or _default_max_sequences(database.name)
+        nucleotide = database.molecule_type == RNA
+        # A nucleotide search cannot use the GPU prefilter (it needs a padded protein
+        # database), and it needs the nucleotide scoring model stated explicitly rather
+        # than left to auto-detection.
+        gpu = self._gpu and not nucleotide
+        e_value = settings.rna_e_value if nucleotide else settings.e_value
         self._run(
             (
                 "search",
@@ -314,14 +395,15 @@ class SubprocessMmseqsProcess:
                 str(work_dir),
                 "-a",
                 "-e",
-                str(settings.e_value),
+                str(e_value),
                 "--threads",
                 str(settings.threads),
                 "--max-seqs",
                 str(max_sequences),
                 "--gpu",
-                "1" if self._gpu else "0",
+                "1" if gpu else "0",
             )
+            + (("--search-type", "3") if nucleotide else ())
             + (
                 ("--split-memory-limit", settings.split_memory_limit)
                 if settings.split_memory_limit
@@ -364,11 +446,18 @@ class SubprocessMmseqsProcess:
 
 
 def _default_max_sequences(database_name: str) -> int:
+    if database_name in DEFAULT_RNA_MAX_SEQUENCES:
+        return DEFAULT_RNA_MAX_SEQUENCES[database_name]
     return DEFAULT_MAX_SEQUENCES.get(database_name, _FALLBACK_MAX_SEQUENCES)
 
 
+def _request_key(request: FeatureRequest) -> tuple[str, str]:
+    """Identity of the search one request needs: its molecule type and sequence."""
+    return (request.molecule_type, request.sequence)
+
+
 class MsaBatch:
-    """Search and persist reusable per-protein MMseqs2 MSA bundles."""
+    """Search and persist reusable per-chain MMseqs2 MSA bundles."""
 
     def __init__(
         self,
@@ -390,7 +479,9 @@ class MsaBatch:
 
         reused = []
         missing_requests = []
-        msa_by_sequence: dict[str, tuple[str, str]] = {}
+        # Keyed by molecule type as well as sequence: the same letters searched as a
+        # protein and as RNA are two different searches with two different answers.
+        msa_by_sequence: dict[tuple[str, str], tuple[str, str]] = {}
         for request in requests:
             cached = self._read_matching_msa(request)
             if cached is None:
@@ -399,19 +490,19 @@ class MsaBatch:
             path, payload = cached
             reused.append(MsaArtifact(name=request.name, path=path))
             msa_by_sequence.setdefault(
-                request.sequence,
+                _request_key(request),
                 (payload["unpairedMsa"], payload["pairedMsa"]),
             )
 
-        sequence_to_requests: dict[str, list[FeatureRequest]] = {}
+        sequence_to_requests: dict[tuple[str, str], list[FeatureRequest]] = {}
         for request in missing_requests:
-            sequence_to_requests.setdefault(request.sequence, []).append(request)
+            sequence_to_requests.setdefault(_request_key(request), []).append(request)
 
         written = []
         failures = []
         # A cached sequence can satisfy another name without a new search.
-        for sequence, matching_requests in sequence_to_requests.items():
-            cached_msas = msa_by_sequence.get(sequence)
+        for key, matching_requests in sequence_to_requests.items():
+            cached_msas = msa_by_sequence.get(key)
             if cached_msas is None:
                 continue
             for request in matching_requests:
@@ -423,45 +514,48 @@ class MsaBatch:
                 except Exception as exc:
                     failures.append(MsaFailure(name=request.name, error=str(exc)))
 
-        sequences_to_search = tuple(
-            sequence
-            for sequence in sequence_to_requests
-            if sequence not in msa_by_sequence
+        keys_to_search = tuple(
+            key for key in sequence_to_requests if key not in msa_by_sequence
         )
-        search_errors: dict[str, str] = {}
-        if sequences_to_search:
+        search_errors: dict[tuple[str, str], str] = {}
+        if keys_to_search:
             try:
                 self._process_identity()
             except Exception as exc:
-                search_errors.update(
-                    (sequence, str(exc)) for sequence in sequences_to_search
-                )
-        for chunk in self._pack(sequences_to_search):
-            if any(sequence in search_errors for sequence in chunk):
-                continue
-            try:
-                chunk_msas = self._search_chunk(chunk)
-            except Exception as exc:
-                for sequence in chunk:
-                    search_errors[sequence] = str(exc)
-                continue
-            # Publish each completed chunk before starting the next expensive search.
-            for sequence, msas in chunk_msas.items():
-                for request in sequence_to_requests[sequence]:
-                    try:
-                        payload = self._msa_payload(request, *msas)
-                        path = self._msa_path(request.name)
-                        _write_atomic(path, payload)
-                        written.append(MsaArtifact(name=request.name, path=path))
-                    except Exception as exc:
-                        failures.append(
-                            MsaFailure(name=request.name, error=str(exc))
-                        )
+                search_errors.update((key, str(exc)) for key in keys_to_search)
+        for molecule_type in MOLECULE_TYPES:
+            sequences_to_search = tuple(
+                sequence
+                for kind, sequence in keys_to_search
+                if kind == molecule_type
+            )
+            for chunk in self._pack(sequences_to_search):
+                chunk_keys = tuple((molecule_type, sequence) for sequence in chunk)
+                if any(key in search_errors for key in chunk_keys):
+                    continue
+                try:
+                    chunk_msas = self._search_chunk(chunk, molecule_type)
+                except Exception as exc:
+                    for key in chunk_keys:
+                        search_errors[key] = str(exc)
+                    continue
+                # Publish each completed chunk before the next expensive search.
+                for sequence, msas in chunk_msas.items():
+                    for request in sequence_to_requests[(molecule_type, sequence)]:
+                        try:
+                            payload = self._msa_payload(request, *msas)
+                            path = self._msa_path(request.name)
+                            _write_atomic(path, payload)
+                            written.append(MsaArtifact(name=request.name, path=path))
+                        except Exception as exc:
+                            failures.append(
+                                MsaFailure(name=request.name, error=str(exc))
+                            )
 
-        for sequence, error in search_errors.items():
+        for key, error in search_errors.items():
             failures.extend(
                 MsaFailure(name=request.name, error=error)
-                for request in sequence_to_requests[sequence]
+                for request in sequence_to_requests[key]
             )
 
         # A search that returned nothing yields a query-only MSA. That is legitimate for
@@ -512,7 +606,12 @@ class MsaBatch:
                 payload = json.load(handle)
             if payload.get("sequence") != request.sequence:
                 return None
-            if payload.get("provenance") != self._cache_signature():
+            # Bundles written before RNA existed carry no molecule type and are protein.
+            if payload.get("moleculeType", PROTEIN) != request.molecule_type:
+                return None
+            if payload.get("provenance") != self._cache_signature(
+                request.molecule_type
+            ):
                 return None
             if not isinstance(payload.get("unpairedMsa"), str) or not isinstance(
                 payload.get("pairedMsa"), str
@@ -539,22 +638,41 @@ class MsaBatch:
             raise ValueError("threads must be at least 1")
         if self._settings.e_value <= 0:
             raise ValueError("e_value must be greater than 0")
-        unpaired_names = tuple(
-            database.name for database in self._settings.unpaired_databases
-        )
-        if unpaired_names != UNPAIRED_DATABASE_NAMES:
-            raise ValueError(
-                "unpaired_databases must explicitly provide "
-                f"{', '.join(UNPAIRED_DATABASE_NAMES)} in that order"
+
+        # Only the database sets this batch will actually search have to be configured,
+        # so an RNA-only batch does not need the protein databases and vice versa. An
+        # empty batch is validated as protein, as it always has been.
+        molecule_types = {request.molecule_type for request in requests} or {PROTEIN}
+        databases: list[DatabaseSpec] = []
+        if PROTEIN in molecule_types:
+            unpaired_names = tuple(
+                database.name for database in self._settings.unpaired_databases
             )
-        if self._settings.paired_database.name != PAIRED_DATABASE_NAME:
-            raise ValueError(
-                f"paired_database must explicitly provide {PAIRED_DATABASE_NAME}"
+            if unpaired_names != UNPAIRED_DATABASE_NAMES:
+                raise ValueError(
+                    "unpaired_databases must explicitly provide "
+                    f"{', '.join(UNPAIRED_DATABASE_NAMES)} in that order"
+                )
+            paired = self._settings.paired_database
+            if paired is None or paired.name != PAIRED_DATABASE_NAME:
+                raise ValueError(
+                    f"paired_database must explicitly provide {PAIRED_DATABASE_NAME}"
+                )
+            databases.extend((*self._settings.unpaired_databases, paired))
+        if RNA in molecule_types:
+            if self._settings.rna_e_value <= 0:
+                raise ValueError("rna_e_value must be greater than 0")
+            rna_names = tuple(
+                database.name for database in self._settings.rna_databases
             )
-        for database in (
-            *self._settings.unpaired_databases,
-            self._settings.paired_database,
-        ):
+            if rna_names != RNA_DATABASE_NAMES:
+                raise ValueError(
+                    "rna_databases must explicitly provide "
+                    f"{', '.join(RNA_DATABASE_NAMES)} in that order"
+                )
+            databases.extend(self._settings.rna_databases)
+
+        for database in databases:
             if database.path == Path("."):
                 raise ValueError(
                     f"Database {database.name!r} requires an explicit path"
@@ -567,6 +685,15 @@ class MsaBatch:
                 raise ValueError(
                     f"Database {database.name!r} max_sequences must be at least 1"
                 )
+
+    def _databases(
+        self, molecule_type: str
+    ) -> tuple[tuple[DatabaseSpec, ...], DatabaseSpec | None]:
+        """The unpaired databases and the paired one, if the molecule type has one."""
+        if molecule_type == RNA:
+            # AlphaFold 3 does not pair RNA chains, so all three are unpaired.
+            return self._settings.rna_databases, None
+        return self._settings.unpaired_databases, self._settings.paired_database
 
     def _pack(self, sequences: Sequence[str]) -> tuple[tuple[str, ...], ...]:
         chunks: list[tuple[str, ...]] = []
@@ -587,7 +714,10 @@ class MsaBatch:
             chunks.append(tuple(current))
         return tuple(chunks)
 
-    def _search_chunk(self, sequences: Sequence[str]) -> dict[str, tuple[str, str]]:
+    def _search_chunk(
+        self, sequences: Sequence[str], molecule_type: str = PROTEIN
+    ) -> dict[str, tuple[str, str]]:
+        unpaired_databases, paired_database = self._databases(molecule_type)
         with tempfile.TemporaryDirectory(
             prefix="alphapulldown_mmseqs_", dir=self._settings.temp_dir
         ) as temporary_directory:
@@ -596,9 +726,14 @@ class MsaBatch:
             query_ids = {
                 f"query_{index}": sequence for index, sequence in enumerate(sequences)
             }
+            # query_ids keeps the sequence as the caller spelled it; only what
+            # MMseqs2 reads is respelled.
+            as_query = (
+                _reverse_transcribe if molecule_type == RNA else (lambda s: s)
+            )
             query_fasta.write_text(
                 "".join(
-                    f">{query_id}\n{sequence}\n"
+                    f">{query_id}\n{as_query(sequence)}\n"
                     for query_id, sequence in query_ids.items()
                 ),
                 encoding="utf-8",
@@ -608,8 +743,8 @@ class MsaBatch:
 
             by_database: dict[str, dict[str, str]] = {}
             for database in (
-                *self._settings.unpaired_databases,
-                self._settings.paired_database,
+                *unpaired_databases,
+                *((paired_database,) if paired_database is not None else ()),
             ):
                 database_root = root / database.name
                 database_root.mkdir()
@@ -625,7 +760,7 @@ class MsaBatch:
                 self._mmseqs.result_to_msa(query_db, database, result_db, msa_db)
                 self._mmseqs.unpack_msa(query_db, msa_db, output_dir)
                 by_database[database.name] = self._read_results(
-                    query_db, output_dir, query_ids
+                    query_db, output_dir, query_ids, molecule_type
                 )
 
             results = {}
@@ -634,18 +769,25 @@ class MsaBatch:
                     sequence,
                     [
                         by_database[database.name][query_id]
-                        for database in self._settings.unpaired_databases
+                        for database in unpaired_databases
                     ],
                 )
-                paired = _normalise_query(
-                    by_database[self._settings.paired_database.name][query_id], sequence
+                paired = (
+                    _normalise_query(
+                        by_database[paired_database.name][query_id], sequence
+                    )
+                    if paired_database is not None
+                    else ""
                 )
                 results[sequence] = (unpaired, paired)
             return results
 
     @staticmethod
     def _read_results(
-        query_db: Path, output_dir: Path, query_ids: Mapping[str, str]
+        query_db: Path,
+        output_dir: Path,
+        query_ids: Mapping[str, str],
+        molecule_type: str = PROTEIN,
     ) -> dict[str, str]:
         index_to_query = {}
         lookup_path = Path(f"{query_db}.lookup")
@@ -683,7 +825,7 @@ class MsaBatch:
                     f"{query_id!r} in {output_dir.parent.name!r}"
                 )
             results[query_id] = _aligned_fasta_to_a3m(
-                aligned_fasta, query_ids[query_id]
+                aligned_fasta, query_ids[query_id], molecule_type
             )
         missing_queries = set(query_ids) - set(results)
         if missing_queries:
@@ -696,7 +838,7 @@ class MsaBatch:
     def _msa_payload(
         self, request: FeatureRequest, unpaired_msa: str, paired_msa: str
     ) -> dict[str, Any]:
-        return {
+        payload = {
             "schemaVersion": 2,
             "name": request.name,
             "sequence": request.sequence,
@@ -704,10 +846,16 @@ class MsaBatch:
             "pairedMsa": paired_msa,
             "unpairedDepth": _msa_depth(unpaired_msa),
             "pairedDepth": _msa_depth(paired_msa),
-            "provenance": self._cache_signature(),
+            "provenance": self._cache_signature(request.molecule_type),
         }
+        # Only non-protein bundles record their molecule type, so a protein bundle is
+        # byte-for-byte what this stage wrote before RNA existed and every already
+        # cached protein MSA stays valid.
+        if request.molecule_type != PROTEIN:
+            payload["moleculeType"] = request.molecule_type
+        return payload
 
-    def _cache_signature(self) -> dict[str, Any]:
+    def _cache_signature(self, molecule_type: str = PROTEIN) -> dict[str, Any]:
         def database_value(database: DatabaseSpec) -> dict[str, Any]:
             return {
                 "name": database.name,
@@ -718,6 +866,19 @@ class MsaBatch:
                 # was rebuilt, truncated or half-copied under the same name. The index
                 # size is a cheap content-derived witness that changes when it does.
                 "index_size": _database_index_size(database.path),
+            }
+
+        if molecule_type == RNA:
+            return {
+                "schema_version": 1,
+                "molecule_type": RNA,
+                "mmseqs_identity": self._process_identity(),
+                "search_mode": NUCLEOTIDE_SEARCH_MODE,
+                "e_value": self._settings.rna_e_value,
+                "unpaired_databases": [
+                    database_value(database)
+                    for database in self._settings.rna_databases
+                ],
             }
 
         return {
@@ -796,6 +957,13 @@ class FeatureFinalizer:
 
     def _validate(self, requests: Sequence[FeatureRequest]) -> None:
         _validate_feature_requests(requests)
+        # AlphaFold 3 searches templates for protein chains only, so template
+        # provenance is required exactly when this batch contains one. An empty batch
+        # is treated as protein, as it always has been.
+        if requests and not any(
+            request.molecule_type == PROTEIN for request in requests
+        ):
+            return
         for field_name in (
             "max_template_date",
             "template_seqres_database_id",
@@ -825,6 +993,11 @@ class FeatureFinalizer:
                 raise _InvalidMsaBundle(
                     f"MMseqs2 MSA bundle sequence does not match {request.name!r}"
                 )
+            if payload.get("moleculeType", PROTEIN) != request.molecule_type:
+                raise _InvalidMsaBundle(
+                    "MMseqs2 MSA bundle molecule type does not match "
+                    f"{request.name!r}"
+                )
             if not isinstance(payload.get("provenance"), dict):
                 raise _InvalidMsaBundle(
                     f"MMseqs2 MSA bundle lacks provenance for {request.name!r}"
@@ -849,9 +1022,11 @@ class FeatureFinalizer:
             opener = lzma.open if path.suffix == ".xz" else open
             with opener(path, "rt", encoding="utf-8") as handle:
                 payload = json.load(handle)
-            protein = payload["sequences"][0]["protein"]
+            # An artifact written for a different molecule type has a different chain
+            # key, so this raises KeyError and is treated as a miss.
+            chain = payload["sequences"][0][request.molecule_type]
             metadata = extract_metadata_from_af3_json(payload)
-            if protein.get("sequence") != request.sequence or not metadata:
+            if chain.get("sequence") != request.sequence or not metadata:
                 return None
             other = metadata[0].get("other", {})
             if other.get("mmseqs2_gpu") != msa_payload["provenance"]:
@@ -867,22 +1042,33 @@ class FeatureFinalizer:
     ) -> dict[str, Any]:
         from alphafold3.common import folding_input
 
+        if request.molecule_type == RNA:
+            # An AF3 RNA chain carries one unpaired MSA and nothing else: RNA chains
+            # are never paired by species and never get templates.
+            chain = {
+                "rna": {
+                    "id": "A",
+                    "sequence": request.sequence,
+                    "description": request.name,
+                    "unpairedMsa": msa_payload["unpairedMsa"],
+                }
+            }
+        else:
+            chain = {
+                "protein": {
+                    "id": "A",
+                    "sequence": request.sequence,
+                    "description": request.name,
+                    "unpairedMsa": msa_payload["unpairedMsa"],
+                    "pairedMsa": msa_payload["pairedMsa"],
+                    # Native AF3 searches templates from the merged unpaired MSA.
+                    "templates": None,
+                }
+            }
         source_payload = {
             "name": request.name,
             "modelSeeds": [42],
-            "sequences": [
-                {
-                    "protein": {
-                        "id": "A",
-                        "sequence": request.sequence,
-                        "description": request.name,
-                        "unpairedMsa": msa_payload["unpairedMsa"],
-                        "pairedMsa": msa_payload["pairedMsa"],
-                        # Native AF3 searches templates from the merged unpaired MSA.
-                        "templates": None,
-                    }
-                }
-            ],
+            "sequences": [chain],
             "dialect": "alphafold3",
             "version": 1,
         }
@@ -897,12 +1083,25 @@ class FeatureFinalizer:
         other["af3_templates"] = self._template_signature()
         return embed_metadata_in_af3_json(payload, metadata)
 
-    def _template_signature(self) -> dict[str, str | int]:
+    def _template_signature(self) -> dict[str, Any]:
+        """Cache identity for a finalized artifact.
+
+        The MSA stage keys its cache on the mmseqs2 binary's own identity, so an
+        upgraded binary invalidates the MSAs it produced. This stage is the same
+        shape of problem -- AlphaFold 3, hmmsearch and hmmbuild all shape the
+        templates and features written here -- so it is keyed the same way. Without
+        the software block, upgrading any of them silently reuses artifacts built
+        by the older implementation.
+
+        Only the software versions are included. ``base_metadata`` also carries a
+        wall-clock ``date``, which would miss on every run.
+        """
         return {
-            "schema_version": 1,
+            "schema_version": 2,
             "max_template_date": self._settings.max_template_date,
             "pdb_seqres_database_id": self._settings.template_seqres_database_id,
             "mmcif_database_id": self._settings.template_mmcif_database_id,
+            "software": dict(self._settings.base_metadata.get("software", {})),
         }
 
     def _artifact_path(self, name: str) -> Path:
@@ -932,6 +1131,8 @@ class FeatureBatch:
                 threads=settings.threads,
                 e_value=settings.e_value,
                 split_memory_limit=settings.split_memory_limit,
+                rna_databases=settings.rna_databases,
+                rna_e_value=settings.rna_e_value,
             ),
             mmseqs_process=mmseqs_process,
         )
@@ -1024,7 +1225,33 @@ def _fasta_records(fasta: str) -> list[tuple[str, str]]:
     return records
 
 
-def _aligned_fasta_to_a3m(aligned_fasta: str, query_sequence: str) -> str:
+def _reverse_transcribe(sequence: str) -> str:
+    """Spell an RNA query as DNA before it reaches ``mmseqs createdb``.
+
+    A, C, G and U are all valid amino-acid codes -- U is selenocysteine -- so
+    MMseqs2 reads a U-spelled RNA as a protein and maps every U to X, the unknown
+    residue. The query then returns from ``result2msa`` with its uracils
+    destroyed, and no normalisation can recover them. Spelling uracil as T keeps
+    the query in the nucleotide alphabet; :func:`_transcribe` puts the U back on
+    the way out.
+    """
+    return sequence.replace("U", "T").replace("u", "t")
+
+
+def _transcribe(sequence: str) -> str:
+    """Read a nucleotide sequence as RNA, whichever alphabet it was written in.
+
+    MMseqs2 nucleotide databases are built from FASTAs that may spell uracil as T, but
+    AlphaFold 3 tokenises an RNA MSA over A/C/G/U and turns every other letter into the
+    unknown nucleotide. Left alone, a hit from a DNA-alphabet database would therefore
+    reach the model as a row of unknowns rather than as a homologue.
+    """
+    return sequence.replace("T", "U").replace("t", "u")
+
+
+def _aligned_fasta_to_a3m(
+    aligned_fasta: str, query_sequence: str, molecule_type: str = PROTEIN
+) -> str:
     """Remove query-gap columns while retaining insertions and full headers."""
     from alphafold3.cpp import msa_conversion
 
@@ -1032,10 +1259,10 @@ def _aligned_fasta_to_a3m(aligned_fasta: str, query_sequence: str) -> str:
     if not records:
         raise ValueError("MMseqs2 aligned FASTA contains no records")
     query_alignment = records[0][1]
-    if (
+    normalise = _transcribe if molecule_type == RNA else (lambda sequence: sequence)
+    if normalise(
         query_alignment.replace("-", "").replace(".", "").upper()
-        != query_sequence.upper()
-    ):
+    ) != normalise(query_sequence.upper()):
         raise ValueError(
             "MMseqs2 aligned FASTA query does not match its input sequence"
         )
@@ -1046,6 +1273,8 @@ def _aligned_fasta_to_a3m(aligned_fasta: str, query_sequence: str) -> str:
             sequence=sequence,
             query_sequence=query_alignment,
         ).replace(".", "")
+        if molecule_type == RNA:
+            a3m_sequence = _transcribe(a3m_sequence)
         converted.append(f">{description}\n{a3m_sequence}\n")
     return "".join(converted)
 

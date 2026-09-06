@@ -13,7 +13,10 @@
 - **Fold preparation**: building the object to model for one prediction job and its
   output directory, including AlphaPulldown-style naming and feature-metadata copying.
   Shared by the single-fold command and the resident batch so the two cannot diverge.
-- **Feature request**: one named protein sequence requiring an AlphaFold 3 feature artifact.
+- **Feature request**: one named sequence, of a stated molecule type, requiring an AlphaFold 3 feature artifact.
+- **Molecule type**: whether a feature request is a protein or an RNA chain. It decides
+  which databases are searched, whether a paired MSA exists at all, and which AlphaFold 3
+  chain the finalized artifact carries. DNA has no MSA and is not handled by this path.
 - **Feature batch**: an ordered collection of feature requests handled as one operation.
 - **MSA batch**: the GPU stage that searches MMseqs2 and durably publishes one reusable MSA bundle per feature request.
 - **Feature finalization**: the CPU stage that reads an MSA bundle, performs native AF3 template search, and publishes the standard AF3 feature artifact.
@@ -27,4 +30,7 @@
   (uniref90, mgnify, small_bfd, merged into one MSA) or paired hits (uniprot, whose
   UniProt taxon headers let AlphaFold 3 pair chains by species). Roles are named, not
   inferred from a position in the configured list.
+- **RNA database set**: the three nucleotide databases AlphaFold 3 merges into one
+  unpaired RNA MSA (rfam, rnacentral, nt_rna). All unpaired - AlphaFold 3 never pairs
+  RNA chains - and configured as a set, because a subset silently shallows the MSA.
 

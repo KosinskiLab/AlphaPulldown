@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""GPU-only MMseqs2 MSA stage; intentionally imports neither AlphaFold nor JAX."""
+"""Local MMseqs2 MSA stage; intentionally imports neither AlphaFold nor JAX."""
 
 from __future__ import annotations
 
@@ -8,16 +8,19 @@ from pathlib import Path
 from absl import app, flags, logging
 
 from alphapulldown.feature_batch import (
+    PROTEIN,
     MsaBatch,
     MsaBatchSettings,
     SubprocessMmseqsProcess,
-    protein_requests_from_fastas,
+    feature_requests_from_fastas,
     write_batch_summary,
 )
 from alphapulldown.scripts._mmseqs2_cli import (
+    accepted_molecule_types,
+    always_required_msa_flag_names,
     database_selection,
     define_msa_search_flags,
-    required_msa_flag_names,
+    require_msa_flags,
 )
 
 
@@ -30,7 +33,12 @@ def main(argv) -> None:
     del argv
     summary_path = Path(FLAGS.summary_path)
     summary_path.unlink(missing_ok=True)
-    requests = protein_requests_from_fastas(FLAGS.fasta_paths)
+    requests = feature_requests_from_fastas(
+        FLAGS.fasta_paths, molecule_types=accepted_molecule_types(FLAGS)
+    )
+    require_msa_flags(
+        FLAGS, {request.molecule_type for request in requests} or {PROTEIN}
+    )
     databases = database_selection(FLAGS)
     settings = MsaBatchSettings(
         output_dir=Path(FLAGS.msa_output_dir),
@@ -42,6 +50,8 @@ def main(argv) -> None:
         threads=FLAGS.mmseqs_threads,
         e_value=FLAGS.mmseqs_e_value,
         split_memory_limit=FLAGS.mmseqs_split_memory_limit,
+        rna_databases=databases.rna,
+        rna_e_value=FLAGS.mmseqs_rna_e_value,
     )
     result = MsaBatch(
         settings=settings,
@@ -50,7 +60,7 @@ def main(argv) -> None:
         ),
     ).generate(requests)
     logging.info(
-        "MMseqs2-GPU MSA stage: %d written, %d reused, %d failed, %d query-only",
+        "MMseqs2 MSA stage: %d written, %d reused, %d failed, %d query-only",
         len(result.written),
         len(result.reused),
         len(result.failures),
@@ -60,7 +70,7 @@ def main(argv) -> None:
     if produced and len(result.query_only) == produced:
         raise RuntimeError(
             "Every MSA in this shard contains only the query sequence. A whole shard of "
-            "orphan proteins is not plausible; check that the configured MMseqs2 "
+            "orphan chains is not plausible; check that the configured MMseqs2 "
             f"databases exist and are searchable ({', '.join(result.query_only)})"
         )
     if result.failures:
@@ -68,17 +78,20 @@ def main(argv) -> None:
             f"{failure.name} ({failure.error})" for failure in result.failures
         )
         raise RuntimeError(
-            f"MMseqs2-GPU MSA stage failed for {len(result.failures)} protein(s): {detail}"
+            f"MMseqs2 MSA stage failed for {len(result.failures)} chain(s): {detail}"
         )
     write_batch_summary(summary_path, result)
 
 
 if __name__ == "__main__":
+    # Which database flags are required depends on the molecule types this shard turns
+    # out to contain, which is only known once the FASTA has been read; require_msa_flags
+    # completes the check inside main().
     flags.mark_flags_as_required(
         [
             "fasta_paths",
             "summary_path",
-            *required_msa_flag_names(),
+            *always_required_msa_flag_names(),
         ]
     )
     app.run(main)

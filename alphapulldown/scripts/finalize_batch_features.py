@@ -13,9 +13,11 @@ from pathlib import Path
 from absl import app, flags, logging
 
 from alphapulldown.feature_batch import (
+    MOLECULE_TYPES,
+    PROTEIN,
     FeatureFinalizationSettings,
     FeatureFinalizer,
-    protein_requests_from_fastas,
+    feature_requests_from_fastas,
 )
 from alphapulldown.scripts import create_individual_features as legacy_features
 from alphapulldown.scripts._mmseqs2_cli import (
@@ -45,12 +47,18 @@ def main(argv) -> None:
     # across a script boundary. The settings resolve the same paths explicitly.
     settings = legacy_features.af3_pipeline_settings()
     pipeline = legacy_features.create_pipeline_af3()
+    # This stage reads whatever the MSA stage produced, so it accepts every molecule
+    # type that stage can search; a chain whose MSA was never generated fails here
+    # with the missing bundle named.
+    requests = feature_requests_from_fastas(
+        FLAGS.fasta_paths, molecule_types=MOLECULE_TYPES
+    )
+    chain_kinds = {request.molecule_type for request in requests} or {PROTEIN}
     metadata = legacy_features.get_af3_feature_metadata(
-        {"protein"},
+        chain_kinds,
         skip_msa=True,
         flag_values=settings.flag_values_with_resolved_paths(FLAGS.flag_values_dict()),
     )
-    requests = protein_requests_from_fastas(FLAGS.fasta_paths)
     result = FeatureFinalizer(
         settings=FeatureFinalizationSettings(
             output_dir=Path(FLAGS.output_dir),
@@ -74,7 +82,7 @@ def main(argv) -> None:
             f"{failure.name} ({failure.error})" for failure in result.failures
         )
         raise RuntimeError(
-            f"AF3 feature finalization failed for {len(result.failures)} protein(s): {detail}"
+            f"AF3 feature finalization failed for {len(result.failures)} chain(s): {detail}"
         )
 
 
