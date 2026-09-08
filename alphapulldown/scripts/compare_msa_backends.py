@@ -9,7 +9,7 @@ from pathlib import Path
 
 from absl import app, flags
 
-from alphapulldown.utils.msa_quality import measure_a3m
+from alphapulldown.utils.msa_quality import compare_a3m, measure_a3m, neff
 
 
 flags.DEFINE_string(
@@ -76,6 +76,16 @@ def compare_directories(reference_dir: Path, candidate_dir: Path) -> list[dict]:
                 "candidate_paired": measure_a3m(
                     candidate_protein["pairedMsa"], query_length=length
                 ),
+                # Depth ratios alone cannot say whether the two backends found the
+                # SAME sequences; these do.
+                "unpaired_overlap": compare_a3m(
+                    reference_protein["unpairedMsa"], candidate_protein["unpairedMsa"]
+                ),
+                "paired_overlap": compare_a3m(
+                    reference_protein["pairedMsa"], candidate_protein["pairedMsa"]
+                ),
+                "reference_unpaired_neff": neff(reference_protein["unpairedMsa"]),
+                "candidate_unpaired_neff": neff(candidate_protein["unpairedMsa"]),
                 "reference_template_count": len(
                     reference_protein.get("templates") or []
                 ),
@@ -101,6 +111,23 @@ def summarize(rows: list[dict]) -> dict:
         "mean_candidate_unpaired_depth": mean("unpaired", "candidate"),
         "mean_reference_paired_depth": mean("paired", "reference"),
         "mean_candidate_paired_depth": mean("paired", "candidate"),
+        # The headline numbers. Recall is what "did MMseqs2 find what jackhmmer
+        # found" actually means; the depth ratio it replaces could exceed 1.
+        "mean_unpaired_recall": sum(
+            row["unpaired_overlap"]["recall"] for row in rows
+        ) / len(rows),
+        "mean_paired_recall": sum(
+            row["paired_overlap"]["recall"] for row in rows
+        ) / len(rows),
+        "mean_unpaired_jaccard": sum(
+            row["unpaired_overlap"]["jaccard"] for row in rows
+        ) / len(rows),
+        "mean_reference_unpaired_neff": sum(
+            row["reference_unpaired_neff"] for row in rows
+        ) / len(rows),
+        "mean_candidate_unpaired_neff": sum(
+            row["candidate_unpaired_neff"] for row in rows
+        ) / len(rows),
         "total_reference_templates": sum(
             row["reference_template_count"] for row in rows
         ),
