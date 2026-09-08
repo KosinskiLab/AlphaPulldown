@@ -247,6 +247,10 @@ def _normalize_asym_id(feature_dict: Dict, fallback_feature_dict: Dict = None) -
     these values can change across model seeds. ``protein.to_pdb`` interprets those
     integers directly as chain indices, so we remap unique IDs to ``0..N-1`` in
     first-appearance order to keep chain IDs stable (A, B, C, ...).
+
+    ``pad_input_features`` zero-pads ``asym_id`` to the batch-wide residue bound.
+    Those trailing zeros are padding rather than a chain, so they rank after every
+    real chain instead of displacing them.
     """
     asym_id = feature_dict.get("asym_id")
     if asym_id is None and fallback_feature_dict is not None:
@@ -256,16 +260,24 @@ def _normalize_asym_id(feature_dict: Dict, fallback_feature_dict: Dict = None) -
 
     asym_id = np.asarray(asym_id).reshape(-1)
 
-    # Handle both 1-based and 0-based encodings safely.
-    if asym_id.size and asym_id.min() == 1:
-        asym_id = asym_id - 1
+    # AlphaFold numbers multimer chains from 1, so a genuinely 0-based encoding
+    # starts at 0 rather than ending there.
+    padding_mask = np.zeros(asym_id.shape, dtype=bool)
+    if asym_id.size and asym_id[0] != 0:
+        non_padding = np.flatnonzero(asym_id != 0)
+        padding_mask[(non_padding[-1] + 1) if non_padding.size else 0:] = True
 
     # Deterministic contiguous remapping in first-appearance order.
-    _, first_indices, inverse_indices = np.unique(
-        asym_id, return_index=True, return_inverse=True
+    unique_ids, first_indices, inverse_indices = np.unique(
+        asym_id[~padding_mask], return_index=True, return_inverse=True
     )
     appearance_order = np.argsort(first_indices)
-    remapped_indices = appearance_order[inverse_indices].astype(np.int32)
+    ranks = np.empty_like(appearance_order)
+    ranks[appearance_order] = np.arange(appearance_order.size)
+
+    remapped_indices = np.empty(asym_id.shape, dtype=np.int32)
+    remapped_indices[~padding_mask] = ranks[inverse_indices.reshape(-1)]
+    remapped_indices[padding_mask] = unique_ids.size
 
     normalized_feature_dict = dict(feature_dict)
     normalized_feature_dict["asym_id"] = remapped_indices
