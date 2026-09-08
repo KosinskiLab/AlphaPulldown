@@ -370,6 +370,60 @@ def test_resolve_gpu_relax_falls_back_when_cuda_is_missing(
     assert "falling back to CPU relax" in caplog.text
 
 
+# alphafold.common.protein.PDB_CHAIN_IDS, which to_pdb indexes with chain_index.
+PDB_CHAIN_IDS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+
+
+def _chain_letters(chain_index):
+    return [PDB_CHAIN_IDS[int(i)] for i in np.asarray(chain_index)]
+
+
+def test_normalize_asym_id_is_stable_across_models_sharing_one_feature_dict(
+    af2_backend_module,
+):
+    # In multimer mode process_features returns the same dict for every model, so
+    # normalizing must neither mutate it nor drift across the five calls.
+    feature_dict = {"asym_id": np.array([1, 1, 1, 2, 2], dtype=np.int32)}
+    original = feature_dict["asym_id"].copy()
+
+    for _ in range(5):
+        normalized = af2_backend_module._normalize_asym_id(
+            feature_dict, fallback_feature_dict=feature_dict
+        )
+        assert _chain_letters(normalized["asym_id"]) == ["A", "A", "A", "B", "B"]
+
+    np.testing.assert_array_equal(feature_dict["asym_id"], original)
+
+
+def test_normalize_asym_id_ranks_padding_after_real_chains(af2_backend_module):
+    # pad_input_features zero-pads asym_id to the batch-wide residue bound.
+    padded = np.concatenate(
+        [np.ones(3, dtype=np.int32), np.full(2, 2, dtype=np.int32), np.zeros(4, np.int32)]
+    )
+
+    normalized = af2_backend_module._normalize_asym_id({"asym_id": padded})
+
+    assert _chain_letters(normalized["asym_id"]) == list("AAABBCCCC")
+
+
+def test_normalize_asym_id_keeps_zero_based_encodings(af2_backend_module):
+    normalized = af2_backend_module._normalize_asym_id(
+        {"asym_id": np.array([0, 0, 1, 1], dtype=np.int32)}
+    )
+
+    assert _chain_letters(normalized["asym_id"]) == list("AABB")
+
+
+def test_normalize_asym_id_ranks_out_of_order_chains_by_first_appearance(
+    af2_backend_module,
+):
+    out_of_order = np.array([3, 3, 1, 1, 2, 2], dtype=np.int32)
+
+    normalized = af2_backend_module._normalize_asym_id({"asym_id": out_of_order})
+
+    assert _chain_letters(normalized["asym_id"]) == list("AABBCC")
+
+
 def test_asym_query_and_msa_debug_helpers(af2_backend_module, tmp_path):
     normalized = af2_backend_module._normalize_asym_id(
         {"asym_id": np.array([5, 5, 2, 9], dtype=np.int32)}
