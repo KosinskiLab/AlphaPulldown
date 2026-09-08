@@ -4,6 +4,10 @@ __pycache__*
 .idea*
 .ipynb_checkpoints*
 .vscode*
+.claude/
+.cursor/
+.codex
+*.code-workspace
 .coverage*
 .pytest_cache/
 coverage.json
@@ -11,6 +15,11 @@ coverage.xml
 htmlcov/
 test/test_data/predictions/af*
 build/
+dist/
 *.egg-info/
 tmp/
+tmp_*/
 test_logs/
+ctx_corpora/
+# stray MSAs dropped at the repo root; test/test_data keeps its own .a3m files
+/*.a3m
