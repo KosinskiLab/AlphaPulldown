@@ -1,42 +1,26 @@
-# RNA MSAs through the local MMseqs2 path
+# Local MMseqs2 features (AlphaFold 3)
 
-The local MMseqs2 feature stage was protein-only. It can now also build the unpaired
-MSA that AlphaFold 3 expects for an RNA chain, so a fold containing RNA no longer has
-to fall back to the native AlphaFold 3 data pipeline for that chain.
+An alternative to the per-protein jackhmmer/HHblits MSA search: proteins are split into
+bounded shards searched with MMseqs2, and a separate CPU stage runs AlphaFold 3's own
+template search and writes one standard AF3 JSON per chain. Off by default. Existing
+AlphaFold 2 feature generation and the remote `--use_mmseqs2` path are untouched.
 
-RNA is **off** unless you configure the three RNA databases. A run that configures
-none of them behaves exactly as it did before, down to the cache signature written
-into every MSA bundle, so nothing already cached is invalidated.
-
-## What AlphaFold 3 expects for RNA
-
-An AlphaFold 3 RNA chain carries one field this stage has to produce:
-
-```json
-{"rna": {"id": "A", "sequence": "GGCUAUAGCUCAG...", "unpairedMsa": "..."}}
-```
-
-There is no paired MSA and no template search: AlphaFold 3 pairs protein chains by
-UniProt taxon and searches templates for protein only. RNA gets a single unpaired A3M
-and nothing else. The bundle this stage writes therefore has an empty `pairedMsa`.
-
-Two consequences worth knowing:
-
-- **The alphabet matters.** AlphaFold 3 tokenises an RNA MSA over `A/C/G/U` and maps
-  every other letter to the unknown nucleotide. A hit spelled with `T` would reach the
-  model as a row of unknowns, so nucleotide hits are transcribed to the RNA alphabet
-  on the way out. Query sequences must be given as RNA (`U`, not `T`); a `T` in an
-  input RNA sequence is rejected rather than guessed at.
-- **RNA searches run on CPU.** MMseqs2's GPU prefilter needs a padded protein
-  database, so the nucleotide searches are issued with `--gpu 0 --search-type 3`
-  regardless of `--mmseqs_use_gpu`. The RNA databases are correspondingly built with
-  plain `createdb` and no `makepaddedseqdb`.
+RNA chains can use the same path once the RNA databases are configured; see
+[RNA chains](#rna-chains) below.
 
 ## Databases
 
-AlphaFold 3 searches three RNA databases with `nhmmer` and merges them into one
-unpaired MSA, in this order: Rfam, RNAcentral, NT-RNA. This stage searches the same
-three, in the same order, so the merged MSA has the same composition.
+**Protein — four, all padded.** The GPU prefilter needs `makepaddedseqdb` output, so
+each configured path must name a padded database. Build them from ordinary MMseqs2
+databases, keeping source and destination prefixes different:
+
+```bash
+mmseqs makepaddedseqdb /source/uniref90 /db/mmseqs/uniref90
+```
+
+**RNA — three, not padded.** AlphaFold 3 searches Rfam, RNAcentral and NT-RNA with
+`nhmmer` and merges them into one unpaired MSA; this stage searches the same three in
+the same order.
 
 | identifier | AlphaFold 3 FASTA |
 | --- | --- |
@@ -44,28 +28,91 @@ three, in the same order, so the merged MSA has the same composition.
 | `rnacentral` | `rnacentral_active_seq_id_90_cov_80_linclust.fasta` |
 | `nt_rna` | `nt_rna_2023_02_23_clust_seq_id_90_cov_80_rep_seq.fasta` |
 
-All three come with the standard AlphaFold 3 database download, so if you already ran
-`fetch_databases.sh` (or `scripts/setup_databases.sh --alphafold3`) the FASTAs are on
-disk already and only need converting:
+All three ship with the standard AlphaFold 3 download, so they usually only need
+converting, and a nucleotide search cannot use the GPU prefilter anyway — plain
+`createdb` is enough, and padding them would cost hours for something never read:
 
 ```bash
-bash scripts/setup_databases.sh --dest /path/to/databases --mmseqs-rna
+bash scripts/setup_databases.sh --dest /path/to/databases --mmseqs --mmseqs-rna
 ```
 
-All three are required together. Configuring a subset is an error rather than a
-partial opt-in, because AlphaFold 3 merges all three: a subset would quietly produce a
-shallower alignment than the same input run elsewhere.
+All three are required together. A subset is an error, not a partial opt-in: AlphaFold 3
+merges all three, so a missing one silently yields a shallower alignment than the same
+input run elsewhere.
 
-## Running it
+The four MMseqs2 protein databases are **additive**. The complete native AlphaFold 3
+database tree is still required, since finalization keeps AF3's own template search.
 
-Add the RNA flags to the ordinary MSA stage invocation. Everything else - the batch
-limits, the scratch directory, the binary - is shared with the protein search.
+## How the MSAs compare to the native pipeline
+
+MMseqs2 has been used to build AlphaFold MSAs for years — ColabFold does exactly this —
+so the approach is established. It is not the *same* search as jackhmmer, and the
+difference is worth seeing before switching.
+
+Eight *B. subtilis* proteins, same four databases, counting unique sequences. The
+figure is a **depth ratio**: MMseqs2 sequence count divided by the native pipeline's,
+not an overlap measure.
+
+| protein | unpaired | paired |
+| --- | --- | --- |
+| P0CI78 | 99.2% | 98.8% |
+| O32142 | 98.5% | 99.6% |
+| O30472 | 99.5% | 101.3% |
+| P80870 | 86.0% | 103.2% |
+| O31537 | 83.8% | 81.7% |
+| O31843 | 82.8% | 87.1% |
+| O07542 | 68.1% | 78.3% |
+| O31580 | 53.7% | 61.5% |
+| **overall** | **90.2%** | **98.0%** |
+
+**Read this carefully.** Values above 100% are not "better than complete" — they mean
+MMseqs2 returned *more* sequences than jackhmmer for that chain. And because it counts
+sequences rather than comparing sets, a ratio near 100% does **not** prove the two found
+the *same* sequences: an entirely different set of equal size would also score 100%. Use
+the table to see where depth collapses (shallow families), not as an equivalence claim.
+
+Template counts were identical (32 vs 32). Depth is close to complete on well-populated
+families and falls off on shallow ones — the expected shape for a single-pass search
+against an iterative profile search.
+
+What none of this tells you is whether the difference costs prediction accuracy; that
+needs matched inference and DockQ against experimental structures. Treat it as a reason
+to spot-check your own targets, not as a verdict.
+
+## RNA chains
+
+An AlphaFold 3 RNA chain needs one field this stage produces:
+
+```json
+{"rna": {"id": "A", "sequence": "GGCUAUAGCUCAG...", "unpairedMsa": "..."}}
+```
+
+There is no paired MSA and no template search — AlphaFold 3 pairs protein chains by
+UniProt taxon and searches templates for protein only — so the bundle's `pairedMsa` is
+empty.
+
+- **The alphabet matters.** AlphaFold 3 tokenises RNA over `A/C/G/U` and maps every
+  other letter to the unknown nucleotide, so hits are transcribed to the RNA alphabet on
+  the way out. Queries must be given as RNA (`U`, not `T`); a `T` is rejected rather
+  than guessed at. Internally the query is respelled as DNA before `createdb`, because
+  `A/C/G/U` are also valid amino-acid codes and MMseqs2 would otherwise read a U-spelled
+  RNA as a protein and map every uracil to `X`.
+- **RNA searches run on CPU** (`--gpu 0 --search-type 3`) regardless of
+  `--mmseqs_use_gpu`, for the prefilter reason above.
+
+FASTA entries are classified as elsewhere in AlphaPulldown: a sequence over `ACGUN`
+containing `U` is RNA; an ambiguous one needs `RNA` or `protein` in its description. DNA
+is not supported by this path.
+
+## Running it directly
+
+The workflow normally drives this, but the stages are ordinary scripts. Which database
+flags are required depends on what the FASTA contains, so an RNA-only shard need not
+point at the protein databases, or vice versa.
 
 ```bash
 python -m alphapulldown.scripts.create_batch_msas \
-  --fasta_paths complex.fasta \
-  --summary_path shard.json \
-  --msa_output_dir msas/ \
+  --fasta_paths complex.fasta --summary_path shard.json --msa_output_dir msas/ \
   --mmseqs_temp_dir /local-fast-scratch/mmseqs \
   --mmseqs_batch_max_sequences 64 --mmseqs_batch_max_residues 40000 \
   --mmseqs_uniref90_database_path  /db/mmseqs/uniref90_gpu  --mmseqs_uniref90_database_id  uniref90-2026-08 \
@@ -77,39 +124,63 @@ python -m alphapulldown.scripts.create_batch_msas \
   --mmseqs_nt_rna_database_path     /db/mmseqs/nt_rna     --mmseqs_nt_rna_database_id     nt-rna-2023-02-23
 ```
 
-Then `finalize_batch_features.py` as usual; it reads whatever the MSA stage produced
-and needs no RNA configuration of its own.
+Then `finalize_batch_features.py` as usual; it reads whatever the MSA stage produced and
+needs no RNA configuration of its own.
 
-FASTA entries are classified the way the rest of AlphaPulldown classifies them: a
-sequence over `ACGUN` containing `U` is RNA, and an ambiguous one needs `RNA` or
-`protein` in its description. DNA is still not supported by this path.
+Useful flags: `--mmseqs_rna_e_value` (default `1e-3`) and
+`--mmseqs_<database>_max_sequences` (default `10000` per RNA database), both matching
+AlphaFold 3's own settings.
 
-Which database flags are required now depends on what is in the FASTA, so an RNA-only
-shard does not have to point at the protein databases, and a protein-only shard does
-not have to point at the RNA ones.
+## The binary
 
-Additional flags:
+Both maintained prediction images bundle the same pinned MMseqs2-GPU build at
+`/opt/mmseqs/bin/mmseqs`, which is the only supported `binary_path` — arbitrary host
+executables are not visible inside the image. `binary_id` records that exact commit;
+update it only when deliberately changing the binary.
 
-- `--mmseqs_rna_e_value` (default `1e-3`, matching AlphaFold 3's own RNA searches).
-- `--mmseqs_<database>_max_sequences` (default `10000` per RNA database, again
-  matching AlphaFold 3).
+## Caching and provenance
 
-## Caching
+Cache identity covers the binary, database identifiers and hit limits, E-value,
+container identity and the template cutoff, so changing scientific provenance schedules
+fresh outputs even with `rerun-triggers: mtime`.
 
-RNA bundles carry their own provenance: molecule type, MMseqs2 version, search mode,
-E-value and the identity of all three RNA databases. Changing any of them regenerates
-the RNA MSA and leaves protein bundles alone, and vice versa. The same letters
-submitted once as protein and once as RNA are two different searches with two
-different bundles.
+Partial per-protein MSA bundles are deliberately **not** Snakemake outputs: a failed
+shard loses only its completion summary, and a retry validates and reuses finished
+bundles. Summaries record each bundle's size, mtime and SHA-256; DAG construction uses
+the stat fields and streams the digest only when metadata changed. A missing, corrupt or
+replaced bundle triggers a repair that reruns only that shard.
 
-A protein bundle records no molecule type at all, which is exactly what bundles
-written before RNA support looked like, so every cached protein MSA still matches.
+RNA bundles additionally record molecule type, search mode and the three RNA database
+identities. A protein bundle records no molecule type at all — exactly what bundles
+written before RNA support looked like — so every previously cached protein MSA still
+matches.
 
-## Caveat
+## Tuning
 
-MMseqs2's nucleotide search is a sequence-sequence search. AlphaFold 3 builds its RNA
-MSAs with `nhmmer`, which is profile-based and finds remote RNA homologues that a
-sequence-sequence search does not. For an RNA family with close relatives in the
-databases the two will look similar; for a divergent one the MMseqs2 MSA will be
-shallower. If RNA MSA depth matters for your target, compare against the native
-AlphaFold 3 pipeline before committing to this path.
+Ampere or newer GPUs give full performance; Turing works at reduced speed. A database
+larger than VRAM can stream from host RAM but needs enough node RAM and is slower. Put
+database prefixes and `temp_dir` on fast local storage. GPU search always runs at
+maximum sensitivity, so there is no `sensitivity` setting.
+
+For repeated searches on a dedicated node, MMseqs2 recommends `createindex
+--index-subset 2` with a same-node `gpuserver` and `--gpu-server 1 --db-load-mode 2`.
+This adapter does not start one, because shards can land on different nodes; each shard
+loads its databases once. Pinning shards to a resident service is a site-specific
+optimisation.
+
+Container binds are merged with existing `APPTAINER_BINDPATH`/`SINGULARITY_BINDPATH`
+rather than replacing them, in all workflow modes including AF2.
+
+## Caveats
+
+- **Protein**: depth falls off on shallow families (see the table above).
+- **RNA**: MMseqs2's nucleotide search is sequence-sequence, while AlphaFold 3 uses
+  `nhmmer`, which is profile-based and finds remote homologues a sequence-sequence
+  search does not. Close relatives look similar; divergent families will be shallower.
+- **RNA, nt_rna**: MMseqs2 can crash (SIGSEGV) on particular queries against nt_rna
+  while succeeding for the same query on the smaller databases and for other queries on
+  nt_rna. That is a fault inside MMseqs2; the failure names the chain and says retrying
+  will not help.
+
+If MSA depth matters for your target, compare against the native pipeline before
+committing to this path.

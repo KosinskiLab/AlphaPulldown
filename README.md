@@ -679,135 +679,38 @@ batch_max_tokens: 0    # optional cap on summed residues per batch (0 = no cap)
 
 ### Batched local MMseqs2-GPU features (AlphaFold 3)
 
-Set `mmseqs2_features.enabled: true` to split missing proteins into bounded
-GPU MSA shards. Each shard performs exactly one AlphaPulldown MSA batch and then
-releases its GPU. Independent CPU jobs run native AlphaFold 3 template search and
-finalize one standard AF3 JSON per protein, so template work can use the CPU and
-big-memory partitions in parallel. Existing AF2 feature generation and the remote
-`--use_mmseqs2` path are unchanged.
+<details>
+<summary>Faster AlphaFold 3 MSAs using local MMseqs2 instead of jackhmmer/HHblits</summary>
 
-The AlphaFold 3 prediction image bundles the verified MMseqs2-GPU `18-8cc5c`
-release at `/opt/mmseqs/bin/mmseqs`, which is the default `binary_path`; it is a
-standalone executable rather than a Python/PyPI dependency. The AlphaFold 2
-image carries the identical pinned binary so both maintained prediction images
-have one reproducible runtime toolchain, as explicitly supported by the project,
-although the workflow adapter remains AF3-only until AF2 feature-pickle and
-multimer-pairing semantics have a separate interface. The adapter accepts only
-the bundled path; arbitrary host executables are not visible inside the image.
+Off by default. Proteins are split into bounded GPU shards searched with MMseqs2, and a
+separate CPU stage runs AlphaFold 3's own template search and writes one standard AF3
+JSON per chain — so template work can use CPU and big-memory partitions in parallel.
+AlphaFold 2 feature generation and the remote `--use_mmseqs2` path are unchanged. RNA
+chains are supported once the RNA databases are configured.
 
 ```yaml
 mmseqs2_features:
   enabled: true
-  # binary_path: /opt/mmseqs/bin/mmseqs  # only supported path
-  binary_id: 8cc5ce367b5638c4306c2d7cfc652dd099a4643f
   temp_dir: /local-fast-scratch/mmseqs
-  batch_max_sequences: 256
-  batch_max_residues: 100000
-  e_value: 0.0001
-  # Size one GPU shard from database footprint plus a modest query term.
-  gpu_database_ram_mb: 64000
-  gpu_chunk_ram_per_residue_mb: 0.02
-  gpu_ram_scaling: 1.1
-  gpu_runtime_base_minutes: 15
-  gpu_runtime_per_sequence_minutes: 0.5
-  gpu_runtime_per_1000_residues: 1.0
-  template_database_ids:
-    pdb_seqres: pdb-seqres-2026-08
-    mmcif: pdb-mmcif-2026-08
   databases:
-    uniref90: {path: /db/mmseqs/uniref90, identifier: uniref90-2026-08, max_sequences: 10000}
-    mgnify: {path: /db/mmseqs/mgnify, identifier: mgnify-2026-08, max_sequences: 5000}
+    uniref90:  {path: /db/mmseqs/uniref90,  identifier: uniref90-2026-08,  max_sequences: 10000}
+    mgnify:    {path: /db/mmseqs/mgnify,    identifier: mgnify-2026-08,    max_sequences: 5000}
     small_bfd: {path: /db/mmseqs/small_bfd, identifier: small-bfd-2026-08, max_sequences: 5000}
-    uniprot: {path: /db/mmseqs/uniprot, identifier: uniprot-2026-08, max_sequences: 50000}
+    uniprot:   {path: /db/mmseqs/uniprot,   identifier: uniprot-2026-08,   max_sequences: 50000}
 ```
 
-#### RNA chains
+The protein databases must be padded (`makepaddedseqdb`); the RNA ones must not be.
+`scripts/setup_databases.sh --mmseqs` builds them. The native AlphaFold 3 database tree
+is still required — these are additive, not a replacement.
 
-RNA chains can use this path too, once the three AlphaFold 3 RNA databases (Rfam,
-RNAcentral, NT-RNA) are built and configured. Leave them unset and the stage stays
-protein-only and unchanged. See [docs/mmseqs2_rna.md](docs/mmseqs2_rna.md).
+**Depth is not identical to the native pipeline.** Measured on eight *B. subtilis*
+proteins it was ~90% of jackhmmer's unpaired depth overall, but only 54–68% on the
+shallowest families. Whether that costs accuracy is untested, so treat it as opt-in and
+spot-check your own targets.
 
-#### How the MSAs compare to the native pipeline
+Databases, RNA, tuning, caching and caveats: [docs/mmseqs2_rna.md](docs/mmseqs2_rna.md).
 
-MMseqs2 has been used to build AlphaFold MSAs for years (ColabFold does exactly
-this), so this is an established approach rather than a new one. It is not, however,
-the *same* search as the jackhmmer pipeline AlphaFold 3 ships with, and the
-difference is worth seeing before you switch.
-
-Measured on eight *B. subtilis* proteins, searching the **same four databases** as the
-native pipeline, counting unique sequences:
-
-| protein | unpaired recall | paired recall |
-| --- | --- | --- |
-| P0CI78 | 99.2% | 98.8% |
-| O32142 | 98.5% | 99.6% |
-| O30472 | 99.5% | 101.3% |
-| P80870 | 86.0% | 103.2% |
-| O31537 | 83.8% | 81.7% |
-| O31843 | 82.8% | 87.1% |
-| O07542 | 68.1% | 78.3% |
-| O31580 | 53.7% | 61.5% |
-| **overall** | **90.2%** | **98.0%** |
-
-Template counts were identical (32 vs 32). Paired MSAs, which drive species pairing
-for complexes, are essentially equivalent. Unpaired recall is close to complete on
-well-populated families and falls off on shallow ones, which is the expected shape for
-a single-pass search against jackhmmer's iterative profile search.
-
-What this does *not* tell you is whether that costs prediction accuracy; that needs
-matched inference and DockQ against experimental structures. Treat the table as a
-reason to spot-check your own targets, not as a verdict either way.
-
-MMseqs2 GPU search always runs at its maximum sensitivity, so there is no
-`sensitivity` setting. Each configured path must name a padded target database;
-prepare all four from existing MMseqs2 databases as follows:
-
-```bash
-mmseqs makepaddedseqdb /source/uniref90  /db/mmseqs/uniref90
-mmseqs makepaddedseqdb /source/mgnify    /db/mmseqs/mgnify
-mmseqs makepaddedseqdb /source/small_bfd /db/mmseqs/small_bfd
-mmseqs makepaddedseqdb /source/uniprot   /db/mmseqs/uniprot
-```
-
-Keep the source and destination prefixes different. A padded database consists
-of several files sharing that prefix; allocate storage for all of them and set
-`gpu_database_ram_mb` from the largest database footprint plus site-specific
-overhead. Ampere or newer GPUs give full performance; Turing is supported at
-reduced speed. A database larger than VRAM can stream from host RAM, but requires
-enough node RAM and is slower. Put database prefixes and `temp_dir` on fast local
-storage where possible.
-
-For repeated searches on a dedicated GPU node, MMseqs2 recommends an index made
-with `createindex --index-subset 2` and a same-node `gpuserver`, followed by
-searches using `--gpu-server 1 --db-load-mode 2`. The server and client must use
-the same GPU visibility, prefilter mode, and `--max-seqs`. This distributed Slurm
-adapter does not start a persistent server because separate shards can land on
-different nodes; each shard therefore loads its databases once. Pinning shards
-to a resident service is an advanced site-specific optimization.
-
-The default `binary_id` is the exact MMseqs commit bundled by the current images;
-update it when deliberately changing that binary. Database identifiers, hit
-limits, E-value, container identity, template cutoff,
-and explicit PDB-seqres/mmCIF identifiers namespace the caches. Changing
-scientific provenance schedules fresh outputs even with `rerun-triggers: mtime`.
-Partial per-protein MSA bundles are deliberately not Snakemake outputs: a failed
-shard loses only its completion summary, and a retry validates and reuses finished
-bundles. Completion summaries record each expected bundle's byte size,
-nanosecond mtime, and SHA-256. DAG construction uses the stat fields as its fast
-path and streams the digest only when metadata changed. If a bundle is missing,
-corrupt, or replaced after completion, a fresh repair summary reruns only that
-shard; intact bundles are reused. The CPU finalizer also validates bundle
-semantics and discards only an invalid bundle so the following Snakemake run can
-repair it automatically. AlphaFold 3 finalization retains its native merged
-unpaired-MSA template search. The complete native AF3 database tree under `databases_directory`
-(including PDB seqres, mmCIF, RNA and other configured databases) is still
-required; the four MMseqs2 databases are additive, not a replacement.
-
-Container binds are merged with existing `APPTAINER_BINDPATH` and
-`SINGULARITY_BINDPATH` values rather than replacing them. This applies to all
-workflow modes, including AF2; MMseqs database and scratch directories add exact
-binds while existing user binds are preserved.
-
+</details>
 
 ### Structure analysis & reporting
 
