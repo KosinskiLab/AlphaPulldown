@@ -215,6 +215,13 @@ class MsaBatchSettings:
     max_residues_per_batch: int
     threads: int
     e_value: float = 1e-4
+    # Iterative profile search, as jackhmmer does. AlphaFold 3 runs jackhmmer with
+    # n_iter=3: it builds a profile from the hits and searches again, which is what
+    # reaches remote homologues. MMseqs2 defaults to 1 -- a plain sequence-sequence
+    # search -- so leaving this alone compares a single pass against three profile
+    # iterations. Raising it costs time and recovers sensitivity on shallow families;
+    # ColabFold uses 3 for UniRef for the same reason.
+    num_iterations: int = 1
     # MMseqs2 sizes its database splits from 90% of the PHYSICAL node memory
     # (sysconf(_SC_PHYS_PAGES)), which ignores the cgroup a batch scheduler puts it in.
     # On a large node with a small allocation it therefore declines to split and is
@@ -251,6 +258,7 @@ class FeatureBatchSettings:
     threads: int
     msa_output_dir: Path | None = None
     e_value: float = 1e-4
+    num_iterations: int = 1
     split_memory_limit: str | None = None
     rna_databases: tuple[DatabaseSpec, ...] = ()
     rna_e_value: float = DEFAULT_RNA_E_VALUE
@@ -439,6 +447,11 @@ class SubprocessMmseqsProcess:
                 str(max_sequences),
                 "--gpu",
                 "1" if gpu else "0",
+            )
+            + (
+                ("--num-iterations", str(settings.num_iterations))
+                if settings.num_iterations and settings.num_iterations > 1
+                else ()
             )
             + (("--search-type", "3") if nucleotide else ())
             + (
@@ -918,7 +931,7 @@ class MsaBatch:
                 ],
             }
 
-        return {
+        signature = {
             "schema_version": 4,
             "mmseqs_identity": self._process_identity(),
             "search_mode": self._search_mode(),
@@ -929,6 +942,12 @@ class MsaBatch:
             ],
             "paired_database": database_value(self._settings.paired_database),
         }
+        # Only recorded when raised, so every MSA cached at the default stays valid.
+        # It must be recorded though: three profile iterations find sequences one pass
+        # does not, so the same databases produce a different alignment.
+        if self._settings.num_iterations > 1:
+            signature["num_iterations"] = self._settings.num_iterations
+        return signature
 
     def _search_mode(self) -> str:
         operation = getattr(self._mmseqs, "search_mode", None)
@@ -1167,6 +1186,7 @@ class FeatureBatch:
                 max_residues_per_batch=settings.max_residues_per_batch,
                 threads=settings.threads,
                 e_value=settings.e_value,
+            num_iterations=settings.num_iterations,
                 split_memory_limit=settings.split_memory_limit,
                 rna_databases=settings.rna_databases,
                 rna_e_value=settings.rna_e_value,

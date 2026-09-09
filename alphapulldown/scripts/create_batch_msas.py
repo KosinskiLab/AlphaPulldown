@@ -49,6 +49,7 @@ def main(argv) -> None:
         max_residues_per_batch=FLAGS.mmseqs_batch_max_residues,
         threads=FLAGS.mmseqs_threads,
         e_value=FLAGS.mmseqs_e_value,
+        num_iterations=FLAGS.mmseqs_num_iterations,
         split_memory_limit=FLAGS.mmseqs_split_memory_limit,
         rna_databases=databases.rna,
         rna_e_value=FLAGS.mmseqs_rna_e_value,

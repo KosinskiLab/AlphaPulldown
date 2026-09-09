@@ -76,6 +76,14 @@ def define_msa_search_flags(
         "Maximum residues per query database.",
     )
     _define_once(
+        "mmseqs_num_iterations",
+        flags.DEFINE_integer,
+        1,
+        "Iterative profile search iterations, as jackhmmer's n_iter. AlphaFold 3 uses "
+        "3; MMseqs2 defaults to 1, a plain sequence-sequence search. Raising it costs "
+        "time and recovers sensitivity on shallow families.",
+    )
+    _define_once(
         "mmseqs_e_value",
         flags.DEFINE_float,
         1e-4,

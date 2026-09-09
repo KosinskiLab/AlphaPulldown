@@ -843,3 +843,46 @@ def test_identical_software_still_matches(tmp_path):
     b = _finalizer(tmp_path, dict(software))._template_signature()
 
     assert a == b
+
+
+def test_iterative_profile_search_is_off_by_default(tmp_path):
+    """One iteration is sequence-sequence; AlphaFold 3's jackhmmer runs three.
+
+    That default is the whole reason a single-pass MMseqs2 search recovers less than
+    jackhmmer on shallow families. Off by default, so the shipped command line and
+    every MSA cached under it stay unchanged.
+    """
+    binary, arguments = _mmseqs_binary(tmp_path)
+    database = DatabaseSpec(name="uniref90", path=tmp_path / "u", identifier="fix")
+
+    SubprocessMmseqsProcess(binary, gpu=True).search(
+        tmp_path / "q", database, tmp_path / "r", tmp_path / "w", _settings(tmp_path)
+    )
+
+    assert "--num-iterations" not in arguments.read_text(encoding="utf-8")
+
+
+def test_raising_iterations_reaches_the_command_and_the_cache_identity(tmp_path):
+    """Three iterations find sequences one pass does not, so cached MSAs must differ."""
+    binary, arguments = _mmseqs_binary(tmp_path)
+    database = DatabaseSpec(name="uniref90", path=tmp_path / "u", identifier="fix")
+    settings = dataclasses.replace(_settings(tmp_path), num_iterations=3)
+
+    SubprocessMmseqsProcess(binary, gpu=True).search(
+        tmp_path / "q", database, tmp_path / "r", tmp_path / "w", settings
+    )
+    command = arguments.read_text(encoding="utf-8").splitlines()
+
+    assert command[command.index("--num-iterations") + 1] == "3"
+
+    default = MsaBatch(
+        settings=_msa_settings(_settings(tmp_path)), mmseqs_process=FakeMmseqsProcess()
+    )._cache_signature(PROTEIN)
+    raised = MsaBatch(
+        settings=dataclasses.replace(_msa_settings(_settings(tmp_path)), num_iterations=3),
+        mmseqs_process=FakeMmseqsProcess(),
+    )._cache_signature(PROTEIN)
+
+    assert "num_iterations" not in default          # unchanged for existing caches
+    assert raised["num_iterations"] == 3
+    assert default != raised
