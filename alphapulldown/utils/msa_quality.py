@@ -40,22 +40,48 @@ def measure_a3m(a3m: str, *, query_length: int) -> dict[str, Any]:
     }
 
 
-def _homologs(a3m: str) -> list[str]:
-    """Sequences reduced to the homolog itself, so two backends are comparable.
+def _accession(header: str) -> str:
+    """Database accession for one A3M header, ignoring how it was aligned.
 
-    An A3M encodes alignment to ITS OWN query: gaps and lowercase insertion columns
-    differ between backends even when the underlying hit is the same sequence.
-    Stripping both leaves the residue string that was actually found, which is what
-    a set comparison has to be built on. The query row is dropped.
+    Backends describe the same hit differently: jackhmmer writes
+    ``UniRef90_A0A837XVS7/4-106 [subseq from] ...`` while MMseqs2 writes
+    ``UniRef90_A0A837XVS7 ...``. The trailing ``/start-end`` is the aligned RANGE,
+    not part of the identity, so it is dropped.
+    """
+    token = header.split()[0] if header.split() else ""
+    base, slash, span = token.rpartition("/")
+    if slash and span and all(c.isdigit() or c == "-" for c in span):
+        token = base
+    return token
+
+
+def _homologs(a3m: str) -> list[str]:
+    """The hits an alignment contains, keyed so two backends can be compared.
+
+    Keyed by accession, NOT by residue string. Two backends align the same homolog
+    over slightly different extents -- one row may start a residue earlier -- so
+    stripping gaps yields different strings for the same sequence and a set
+    comparison would report near-zero overlap between alignments that are in fact
+    largely the same. Falls back to the residue string when a header carries no
+    usable accession. The query row is dropped.
     """
     out = []
-    for sequence in _sequences(a3m)[1:]:
-        residues = "".join(
-            residue for residue in sequence if residue.isupper() and residue != "-"
-        )
-        if residues:
-            out.append(residues)
-    return out
+    header = None
+    for line in a3m.splitlines():
+        if line.startswith(">"):
+            header = line[1:]
+            continue
+        if header is None or not line.strip():
+            continue
+        accession = _accession(header)
+        if accession:
+            out.append(accession)
+        else:
+            residues = "".join(r for r in line if r.isupper() and r != "-")
+            if residues:
+                out.append(residues)
+        header = None
+    return out[1:] if out else out
 
 
 def neff(a3m: str, *, identity: float = 0.8, sample: int = 2000) -> float:

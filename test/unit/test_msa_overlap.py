@@ -12,7 +12,8 @@ from alphapulldown.utils.msa_quality import compare_a3m, neff
 
 
 def _a3m(*sequences):
-    return "".join(f">s{i}\n{s}\n" for i, s in enumerate(sequences))
+    """Header carries the accession, since that is what identifies a hit."""
+    return "".join(f">{s}_acc\n{s}\n" for s in sequences)
 
 
 def test_identical_counts_but_different_sequences_score_zero_recall():
@@ -41,8 +42,8 @@ def test_recall_cannot_exceed_one_even_when_the_candidate_finds_more():
 
 def test_alignment_differences_do_not_hide_a_shared_sequence():
     """Backends gap and lowercase against their own query; the homolog is the same."""
-    reference = _a3m("QUERY", "AC-DEF")
-    candidate = _a3m("QUERY", "ACqDEF")
+    reference = ">query\nQUERY\n>UniRef90_A d\nAC-DEF\n"
+    candidate = ">query\nQUERY\n>UniRef90_A d\nACqDEF\n"
 
     assert compare_a3m(reference, candidate)["recall"] == 1.0
 
@@ -66,3 +67,25 @@ def test_neff_discounts_redundancy_that_raw_depth_rewards():
 
     assert neff(redundant) < neff(diverse)
     assert neff(redundant) < 10
+
+
+def test_the_same_homolog_aligned_differently_still_matches():
+    """The bug this metric shipped with, pinned.
+
+    jackhmmer writes `UniRef90_X/4-106 [subseq from] ...` and MMseqs2 writes
+    `UniRef90_X ...`, and the two align the hit over slightly different extents. Keyed
+    on residue string, identical alignments scored ~15% overlap; keyed on accession
+    they score what they are.
+    """
+    reference = ">query\nAAAA\n>UniRef90_X/4-106 [subseq from] p\n-PLSV\n"
+    candidate = ">query\nAAAA\n>UniRef90_X p\n--LSV\n"
+
+    assert compare_a3m(reference, candidate)["recall"] == 1.0
+
+
+def test_a_range_suffix_is_stripped_but_a_real_identifier_is_not():
+    from alphapulldown.utils.msa_quality import _accession
+
+    assert _accession("UniRef90_X/4-106 [subseq from] d") == "UniRef90_X"
+    assert _accession("sp|P12345|NAME_HUMAN d") == "sp|P12345|NAME_HUMAN"
+    assert _accession("UniRef90_X d") == "UniRef90_X"
