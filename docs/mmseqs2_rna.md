@@ -175,8 +175,32 @@ What differs, and why:
 
 The pickles carry the same feature keys as native ones plus those two accession arrays,
 and assemble into multimers alongside pickles from other sources. RNA and DNA chains are
-refused: AlphaFold 2 has no MSA features for them. These features have not yet been
-benchmarked against native AlphaFold 2 features.
+refused: AlphaFold 2 has no MSA features for them.
+
+### Measured against native AlphaFold 2
+
+32 monomers spread over the quartiles of their native MSA depth, plus 12 heterodimers
+released after AF2-multimer's training cutoff, featurized natively with `reduced_dbs` and
+through this path, with the same databases and templates up to 2021-09-30:
+
+| median, unless stated | native | local, GPU search | local, CPU search |
+|---|---|---|---|
+| MSA depth, shallowest quartile | 52 | 29 | 28 |
+| MSA depth, deepest quartile | 12 247 | 11 756 | 5 181 |
+| Neff, all monomers | 778 | 627 | 572 |
+| templates per chain | 16 | 16 | 15 |
+| AF2-multimer DockQ, top-ranked, mean of 12 | 0.59 | 0.56 | 0.56 |
+| acceptable interfaces (DockQ ≥ 0.23) | 9 / 12 | 9 / 12 | 9 / 12 |
+
+- The MSAs are shallower, most on the shallowest families, as for AlphaFold 3. A GPU
+  search recovers about three quarters of native's unpaired hits.
+- A CPU search, at MMseqs2's default sensitivity, finds far fewer distant hits than the
+  GPU prefilter on deep families, without changing DockQ here.
+- One interface (9HMX) lost about 0.3 DockQ against native; the other eleven moved by
+  less than 0.1.
+- Finalization is dominated by template featurization: median ~1 GB and 2 min per chain,
+  but up to 19 GB and 90 min, set by which structures the templates come from rather
+  than by chain length or MSA depth.
 
 ## The binary
 

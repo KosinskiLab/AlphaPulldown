@@ -713,7 +713,10 @@ spot-check your own targets.
 UniProt, with no BFD/UniRef30 HHblits arm — built the way native AF2 builds features:
 its per-database caps and merge order, templates searched from UniRef90 alone, and
 species pairing from an independent UniProt search. The pickles carry the same feature
-keys as native ones. They have not been benchmarked against native AF2 features yet.
+keys as native ones. Against native `reduced_dbs` features on 12 heterodimers released
+after AF2-multimer's training cutoff, top-ranked DockQ averaged 0.56 against 0.59, with 9
+of 12 interfaces acceptable either way; the MSAs are somewhat shallower (numbers in the
+docs below).
 
 Alignments now keep their insertions. MSA bundles written before this change carried
 none, so AlphaFold saw an all-zero deletion matrix; they are searched again rather than
