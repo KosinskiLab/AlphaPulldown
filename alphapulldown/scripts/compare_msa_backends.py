@@ -13,10 +13,17 @@ from alphapulldown.utils.msa_quality import compare_a3m, measure_a3m, neff
 
 
 flags.DEFINE_string(
-    "reference_dir", None, "Directory of native/jackhmmer AF3 JSON artifacts."
+    "reference_dir", None, "Directory of native/jackhmmer feature artifacts."
 )
-flags.DEFINE_string("candidate_dir", None, "Directory of MMseqs2 AF3 JSON artifacts.")
+flags.DEFINE_string("candidate_dir", None, "Directory of MMseqs2 feature artifacts.")
 flags.DEFINE_string("output_path", None, "JSON report path.")
+flags.DEFINE_enum(
+    "artifact_format",
+    "af3_json",
+    ["af3_json", "af2_pickle"],
+    "af3_json: <name>_af3_input.json[.xz]. af2_pickle: <name>.pkl[.xz], the "
+    "MonomericObject pickles AlphaFold 2 reads.",
+)
 FLAGS = flags.FLAGS
 
 
@@ -137,16 +144,138 @@ def summarize(rows: list[dict]) -> dict:
     }
 
 
+def _af2_artifacts(directory: Path) -> dict[str, Path]:
+    result = {}
+    for path in sorted(directory.glob("*.pkl*")):
+        filename = path.name
+        for suffix in (".pkl.xz", ".pkl"):
+            if filename.endswith(suffix):
+                result[filename[: -len(suffix)]] = path
+                break
+    return result
+
+
+def _af2_side(features: dict) -> dict:
+    """What one AlphaFold 2 feature set offers the model, measured."""
+    import numpy as np
+
+    # The alphabet AlphaFold 2 encodes MSAs in, spelled out without importing it.
+    from alphapulldown.utils.af2_to_af3_msa import AF2_ID_TO_A3M
+
+    msa = np.asarray(features["msa"])
+    length = int(msa.shape[1])
+    unpaired = "".join(
+        f">row{index}\n{''.join(AF2_ID_TO_A3M[int(i)] for i in row)}\n"
+        for index, row in enumerate(msa)
+    )
+    deletions = np.asarray(features["deletion_matrix_int"])
+    species = {
+        value.decode() if isinstance(value, bytes) else str(value)
+        for value in features.get("msa_species_identifiers_all_seq", [])
+    }
+    species.discard("")
+    templates = [
+        name for name in features.get("template_domain_names", [])
+        if (name.decode() if isinstance(name, bytes) else str(name))
+    ]
+    return {
+        "unpaired": measure_a3m(unpaired, query_length=length),
+        "unpaired_neff": neff(unpaired),
+        # Rows carrying at least one insertion: all zero for a local MMseqs2
+        # alignment built from result2msa mode 2 alone.
+        "rows_with_insertions": int((deletions.sum(axis=1) > 0).sum()),
+        "paired_depth": int(np.asarray(features.get("msa_all_seq", msa[:1])).shape[0]),
+        # Pairing needs a species in common; distinct labels are what it has to use.
+        "paired_species": len(species),
+        "template_count": len(templates),
+    }
+
+
+def compare_af2_directories(reference_dir: Path, candidate_dir: Path) -> list[dict]:
+    """Paired measurements of two directories of AlphaFold 2 feature pickles.
+
+    No homolog overlap: a pickle stores its alignment as integer rows without the
+    sequence headers, so there is no accession to match on, and residue strings
+    are not a substitute -- two backends align the same homolog over different
+    extents. Compare the raw alignments for overlap; this compares what the
+    model is given.
+    """
+    from alphapulldown.utils.lightweight_pickles import (
+        extract_feature_dict,
+        load_lightweight_pickle,
+    )
+
+    references = _af2_artifacts(reference_dir)
+    candidates = _af2_artifacts(candidate_dir)
+    missing = sorted(references.keys() ^ candidates.keys())
+    if missing:
+        raise ValueError("Artifact sets differ: " + ", ".join(missing))
+    rows = []
+    for name in sorted(references):
+        reference = load_lightweight_pickle(references[name])
+        candidate = load_lightweight_pickle(candidates[name])
+        if reference.sequence != candidate.sequence:
+            raise ValueError(f"Sequence mismatch for {name!r}")
+        rows.append(
+            {
+                "name": name,
+                "reference_path": str(references[name]),
+                "candidate_path": str(candidates[name]),
+                "reference": _af2_side(extract_feature_dict(reference)),
+                "candidate": _af2_side(extract_feature_dict(candidate)),
+            }
+        )
+    return rows
+
+
+def summarize_af2(rows: list[dict]) -> dict:
+    if not rows:
+        return {"protein_count": 0}
+
+    def mean(side: str, *path: str) -> float:
+        total = 0.0
+        for row in rows:
+            value = row[side]
+            for key in path:
+                value = value[key]
+            total += value
+        return total / len(rows)
+
+    summary = {"protein_count": len(rows)}
+    for side in ("reference", "candidate"):
+        summary.update(
+            {
+                f"mean_{side}_unpaired_depth": mean(side, "unpaired", "depth"),
+                f"mean_{side}_unpaired_neff": mean(side, "unpaired_neff"),
+                f"mean_{side}_rows_with_insertions": mean(side, "rows_with_insertions"),
+                f"mean_{side}_paired_depth": mean(side, "paired_depth"),
+                f"mean_{side}_paired_species": mean(side, "paired_species"),
+                f"mean_{side}_template_count": mean(side, "template_count"),
+            }
+        )
+    return summary
+
+
 def main(argv) -> None:
     del argv
-    proteins = compare_directories(Path(FLAGS.reference_dir), Path(FLAGS.candidate_dir))
+    if FLAGS.artifact_format == "af2_pickle":
+        proteins = compare_af2_directories(
+            Path(FLAGS.reference_dir), Path(FLAGS.candidate_dir)
+        )
+        summary = summarize_af2(proteins)
+    else:
+        proteins = compare_directories(
+            Path(FLAGS.reference_dir), Path(FLAGS.candidate_dir)
+        )
+        summary = summarize(proteins)
     report = {
         "schemaVersion": 1,
         "warning": (
             "MSA/template metrics are diagnostic only; run matched inference and "
             "DockQ against experimental references before claiming accuracy equivalence."
         ),
-        "summary": summarize(proteins),
+        "artifactFormat": FLAGS.artifact_format,
+        "summary": summary,
         "proteins": proteins,
     }
     Path(FLAGS.output_path).write_text(

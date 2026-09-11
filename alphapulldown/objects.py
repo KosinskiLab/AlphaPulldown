@@ -44,6 +44,22 @@ def _query_only_stockholm(sequence: str, query_id: str = "query") -> str:
     )
 
 
+def add_template_feature_defaults(
+    feature_dict: Dict[str, Any], sequence: str
+) -> None:
+    """Fill the two template features native AlphaFold 2 features lack.
+
+    The mmseqs2 path produces ``template_confidence_scores`` and
+    ``template_release_date``; jackhmmer features do not. Every AlphaFold 2
+    feature source adds them here, so pickles from any source carry the same
+    keys and a multimer built from mixed sources does not fail on a missing one.
+    """
+    if feature_dict.get("template_confidence_scores") is None:
+        feature_dict["template_confidence_scores"] = np.array([[1] * len(sequence)])
+    if feature_dict.get("template_release_date") is None:
+        feature_dict["template_release_date"] = np.array(["none"])
+
+
 def _ensure_identifier_feature_arrays(
     feature_dict: Dict[str, np.ndarray],
     feature_groups: Tuple[Tuple[str, Tuple[str, ...]], ...],
@@ -226,16 +242,8 @@ class MonomericObject:
                     fasta_file, self._uniprot_runner, msa_output_dir, use_precomputed_msa
                 )
                 self.feature_dict.update(pairing_results)
-        
-        # Add extra features to make it compatible with pickle features obtaiend from mmseqs2
-        template_confidence_scores = self.feature_dict.get('template_confidence_scores', None)
-        template_release_date = self.feature_dict.get('template_release_date', None)
-        if template_confidence_scores is None:
-            self.feature_dict.update(
-                {'template_confidence_scores': np.array([[1] * len(self.sequence)])}
-            )
-        if template_release_date is None:
-            self.feature_dict.update({"template_release_date" : np.array(['none'])})
+
+        add_template_feature_defaults(self.feature_dict, self.sequence)
 
         # post processing
         if (not save_msa) and (not use_precomputed_msa):

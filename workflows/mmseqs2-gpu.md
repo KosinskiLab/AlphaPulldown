@@ -70,9 +70,23 @@ knob and does not include one in cache provenance.
 ## MSA and template behavior
 
 For each chunk, one query database is reused for UniRef90, MGnify, small BFD,
-and paired UniProt searches. Aligned FASTA is converted to A3M while retaining
-insertions and complete UniProt descriptions, including taxonomy metadata.
-Unpaired hits from all three databases are merged and deduplicated.
+and paired UniProt searches. Each search result is formatted twice, because no
+single `result2msa` format carries both things an alignment needs: mode 2 keeps
+complete UniProt descriptions, including the species AlphaFold pairs chains by,
+but drops every insertion; mode 5 keeps the insertions but cuts the header to
+the accession. The two are joined row by row, and the join is verified on every
+row rather than trusted. The second pass costs about 16 ms per hit.
+
+MSA bundles written before this (bundle schema 2, provenance schema 4) came
+from mode 2 alone and carry no insertions, so the deletion matrix AlphaFold
+derived from them was all zeros; against a real query, 81.7% of small BFD hits
+and 86.4% of UniProt hits had insertions that were lost. The provenance change
+means such bundles are never reused: they are searched again.
+
+Unpaired hits from all three databases are merged and deduplicated, and the
+bundle records how many rows each database contributed. AlphaFold 3 does not
+need that, but an AlphaFold 2 consumer does: it builds its template profile from
+UniRef90 alone and caps each database separately.
 
 The finalizer passes that merged unpaired MSA to native AF3 with `templates`
 unset. This matches AF3's own pipeline: it merges UniRef90, small-BFD, and MGnify

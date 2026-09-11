@@ -677,16 +677,17 @@ batch_max_tokens: 0    # optional cap on summed residues per batch (0 = no cap)
 
 </details>
 
-### Batched local MMseqs2-GPU features (AlphaFold 3)
+### Batched local MMseqs2 features (AlphaFold 2 and 3)
 
 <details>
-<summary>Faster AlphaFold 3 MSAs using local MMseqs2 instead of jackhmmer/HHblits</summary>
+<summary>Faster MSAs using local MMseqs2 instead of jackhmmer/HHblits</summary>
 
-Off by default. Proteins are split into bounded GPU shards searched with MMseqs2, and a
-separate CPU stage runs AlphaFold 3's own template search and writes one standard AF3
-JSON per chain — so template work can use CPU and big-memory partitions in parallel.
-AlphaFold 2 feature generation and the remote `--use_mmseqs2` path are unchanged. RNA
-chains are supported once the RNA databases are configured.
+Off by default. Proteins are split into bounded shards searched with MMseqs2, on GPU or
+CPU, and a separate CPU stage turns each chain's alignment into standard features: an
+AF3 JSON, or an AF2 `MonomericObject` pickle with `--data_pipeline alphafold2`. The
+search is shared, so template work can use CPU and big-memory partitions in parallel.
+The remote `--use_mmseqs2` path is unchanged. RNA chains are supported for AlphaFold 3
+once the RNA databases are configured.
 
 ```yaml
 mmseqs2_features:
@@ -708,7 +709,21 @@ proteins it was ~90% of jackhmmer's unpaired depth overall, but only 54–68% on
 shallowest families. Whether that costs accuracy is untested, so treat it as opt-in and
 spot-check your own targets.
 
-Databases, RNA, tuning, caching and caveats: [docs/mmseqs2_rna.md](docs/mmseqs2_rna.md).
+**For AlphaFold 2 this is the `reduced_dbs` recipe** — UniRef90, MGnify, small BFD and
+UniProt, with no BFD/UniRef30 HHblits arm — built the way native AF2 builds features:
+its per-database caps and merge order, templates searched from UniRef90 alone, and
+species pairing from an independent UniProt search. The pickles carry the same feature
+keys as native ones. Against native `reduced_dbs` features on 12 heterodimers released
+after AF2-multimer's training cutoff, top-ranked DockQ averaged 0.56 against 0.59, with 9
+of 12 interfaces acceptable either way; the MSAs are somewhat shallower (numbers in the
+docs below).
+
+Alignments now keep their insertions. MSA bundles written before this change carried
+none, so AlphaFold saw an all-zero deletion matrix; they are searched again rather than
+reused.
+
+Databases, RNA, AlphaFold 2, tuning, caching and caveats:
+[docs/mmseqs2_rna.md](docs/mmseqs2_rna.md).
 
 </details>
 
