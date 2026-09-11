@@ -872,7 +872,18 @@ class TestLocalMmseqsAgainstRemote(_TestBase):
         return Path(binary)
 
     def _run_step(self, label: str, args: list[str]) -> None:
-        res = self._run_prediction_subprocess([sys.executable, *args])
+        env = _af2_subprocess_env()
+        # The scripts default their template tools (kalign, hmmsearch, hmmbuild) to
+        # whatever is first on PATH. Put this interpreter's environment first, so a
+        # job launched from another environment's shell still gets the tools installed
+        # alongside AlphaPulldown; otherwise kalign resolves to None and every chain
+        # fails at template realignment.
+        env["PATH"] = os.pathsep.join(
+            [str(Path(sys.executable).parent), env.get("PATH", "")]
+        )
+        res = subprocess.run(
+            [sys.executable, *args], capture_output=True, text=True, env=env
+        )
         self.assertEqual(
             res.returncode,
             0,
