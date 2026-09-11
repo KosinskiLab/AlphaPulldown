@@ -379,9 +379,26 @@ class MmseqsProcess(Protocol):
 class SubprocessMmseqsProcess:
     """Production adapter for one local MMseqs2 executable."""
 
-    def __init__(self, binary_path: str | Path, *, gpu: bool = True):
+    def __init__(
+        self,
+        binary_path: str | Path,
+        *,
+        gpu: bool = True,
+        db_load_mode: int | None = None,
+    ):
         self._binary_path = str(binary_path)
         self._gpu = gpu
+        # How MMseqs2 reads the target database (0 auto, 1 fread, 2 mmap,
+        # 3 mmap+touch). Deliberately a process-level setting rather than part of
+        # MsaBatchSettings: it changes memory behaviour and nothing else, so it
+        # must never reach the cache signature. Two runs that differ only here
+        # produce the same alignment and must keep reusing each other's bundles.
+        self._db_load_mode = db_load_mode
+
+    def _db_load_mode_option(self) -> tuple[str, ...]:
+        if self._db_load_mode is None:
+            return ()
+        return ("--db-load-mode", str(self._db_load_mode))
 
     def _run(self, command: Sequence[str]) -> str:
         try:
@@ -459,6 +476,7 @@ class SubprocessMmseqsProcess:
                 if settings.split_memory_limit
                 else ()
             )
+            + self._db_load_mode_option()
         )
 
     def result_to_msa(
@@ -478,6 +496,7 @@ class SubprocessMmseqsProcess:
                 "--msa-format-mode",
                 "2",
             )
+            + self._db_load_mode_option()
         )
 
     def unpack_msa(self, query_db: Path, msa_db: Path, output_dir: Path) -> None:

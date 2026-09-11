@@ -111,6 +111,16 @@ def define_msa_search_flags(
         "CPU threads for MMseqs2 operations.",
     )
     _define_once(
+        "mmseqs_db_load_mode",
+        flags.DEFINE_integer,
+        None,
+        "How MMseqs2 reads the target database: 0 auto, 1 fread, 2 mmap, "
+        "3 mmap+touch. Left unset MMseqs2 chooses, which reads the whole target "
+        "database into RSS; 2 memory-maps it instead and lowers peak memory. It "
+        "changes memory behaviour only, never the alignment, so it is not part of "
+        "the MSA cache identity and switching it reuses existing bundles.",
+    )
+    _define_once(
         "mmseqs_rna_e_value",
         flags.DEFINE_float,
         DEFAULT_RNA_E_VALUE,
