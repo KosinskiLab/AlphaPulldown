@@ -19,6 +19,11 @@ from alphapulldown.utils.feature_metadata import (
     embed_metadata_in_af3_json,
     extract_metadata_from_af3_json,
 )
+from alphapulldown.utils.msa_formats import (
+    StitchMismatch,
+    stitch_headers_and_insertions,
+    strip_insertions,
+)
 
 
 PROTEIN = "protein"
@@ -63,6 +68,12 @@ _FALLBACK_MAX_SEQUENCES = 5_000
 # on CPU however the process was configured. Recorded in RNA provenance so that a
 # future GPU-capable nucleotide search does not silently reuse these bundles.
 NUCLEOTIDE_SEARCH_MODE = "cpu"
+
+# How the alignment text was produced, recorded in every bundle's provenance.
+# Bundles written before insertions were recovered came from mode 2 alone and carry
+# none -- 81.7% of small_bfd hits and 86.4% of uniprot hits lost theirs, measured on
+# a real 586-residue query -- so they must never satisfy a request made now.
+_MSA_FORMAT = {"headers": "result2msa mode 2", "sequences": "result2msa mode 5"}
 
 
 def _describe_exit(returncode) -> str:
@@ -284,6 +295,19 @@ class MsaFailure:
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
+class SearchedMsas:
+    """What one search produced for one sequence, before it becomes a bundle."""
+
+    unpaired: str
+    paired: str
+    # How many rows of ``unpaired`` each database contributed, in merge order and
+    # after deduplication. The query row belongs to none of them. AlphaFold 2 builds
+    # its template profile from uniref90 ALONE and caps each database separately, so
+    # the merged alignment is unusable to it unless these boundaries are kept.
+    unpaired_rows: tuple[tuple[str, int], ...] = ()
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
 class MsaBatchResult:
     written: tuple[MsaArtifact, ...]
     reused: tuple[MsaArtifact, ...]
@@ -371,7 +395,19 @@ class MmseqsProcess(Protocol):
         database: DatabaseSpec,
         result_db: Path,
         msa_db: Path,
-    ) -> None: ...
+    ) -> None:
+        """Format the hits with their full database headers and no insertions."""
+        ...
+
+    def result_to_a3m(
+        self,
+        query_db: Path,
+        database: DatabaseSpec,
+        result_db: Path,
+        msa_db: Path,
+    ) -> None:
+        """Format the same hits as A3M: insertions kept, headers cut to one token."""
+        ...
 
     def unpack_msa(self, query_db: Path, msa_db: Path, output_dir: Path) -> None: ...
 
@@ -499,6 +535,30 @@ class SubprocessMmseqsProcess:
             + self._db_load_mode_option()
         )
 
+    def result_to_a3m(
+        self,
+        query_db: Path,
+        database: DatabaseSpec,
+        result_db: Path,
+        msa_db: Path,
+    ) -> None:
+        # Mode 5 is the only format that keeps insertions, and it keeps nothing of
+        # the header but the database key -- so it is run alongside mode 2, not
+        # instead of it. Measured at 2 s against a 947 s search on small_bfd and
+        # 13 s against 3739 s on uniprot, roughly 16 ms per hit.
+        self._run(
+            (
+                "result2msa",
+                str(query_db),
+                str(database.path),
+                str(result_db),
+                str(msa_db),
+                "--msa-format-mode",
+                "5",
+            )
+            + self._db_load_mode_option()
+        )
+
     def unpack_msa(self, query_db: Path, msa_db: Path, output_dir: Path) -> None:
         del query_db
         self._run(
@@ -550,7 +610,7 @@ class MsaBatch:
         missing_requests = []
         # Keyed by molecule type as well as sequence: the same letters searched as a
         # protein and as RNA are two different searches with two different answers.
-        msa_by_sequence: dict[tuple[str, str], tuple[str, str]] = {}
+        msa_by_sequence: dict[tuple[str, str], SearchedMsas] = {}
         for request in requests:
             cached = self._read_matching_msa(request)
             if cached is None:
@@ -559,8 +619,7 @@ class MsaBatch:
             path, payload = cached
             reused.append(MsaArtifact(name=request.name, path=path))
             msa_by_sequence.setdefault(
-                _request_key(request),
-                (payload["unpairedMsa"], payload["pairedMsa"]),
+                _request_key(request), _searched_msas_from_payload(payload)
             )
 
         sequence_to_requests: dict[tuple[str, str], list[FeatureRequest]] = {}
@@ -576,7 +635,7 @@ class MsaBatch:
                 continue
             for request in matching_requests:
                 try:
-                    payload = self._msa_payload(request, *cached_msas)
+                    payload = self._msa_payload(request, cached_msas)
                     path = self._msa_path(request.name)
                     _write_atomic(path, payload)
                     written.append(MsaArtifact(name=request.name, path=path))
@@ -612,7 +671,7 @@ class MsaBatch:
                 for sequence, msas in chunk_msas.items():
                     for request in sequence_to_requests[(molecule_type, sequence)]:
                         try:
-                            payload = self._msa_payload(request, *msas)
+                            payload = self._msa_payload(request, msas)
                             path = self._msa_path(request.name)
                             _write_atomic(path, payload)
                             written.append(MsaArtifact(name=request.name, path=path))
@@ -686,6 +745,10 @@ class MsaBatch:
                 payload.get("pairedMsa"), str
             ):
                 return None
+            # Raises on a bundle whose row spans are missing or do not add up, so a
+            # damaged one is re-searched instead of handed on to a consumer that
+            # would slice it at the wrong rows.
+            _searched_msas_from_payload(payload)
             return path, payload
         except (
             KeyError,
@@ -785,7 +848,7 @@ class MsaBatch:
 
     def _search_chunk(
         self, sequences: Sequence[str], molecule_type: str = PROTEIN
-    ) -> dict[str, tuple[str, str]]:
+    ) -> dict[str, SearchedMsas]:
         unpaired_databases, paired_database = self._databases(molecule_type)
         with tempfile.TemporaryDirectory(
             prefix="alphapulldown_mmseqs_", dir=self._settings.temp_dir
@@ -820,24 +883,33 @@ class MsaBatch:
                 result_db = database_root / "result_db"
                 work_dir = database_root / "work"
                 work_dir.mkdir()
-                msa_db = database_root / "msa_db"
-                output_dir = database_root / "a3m"
-                output_dir.mkdir()
                 self._mmseqs.search(
                     query_db, database, result_db, work_dir, self._settings
                 )
-                self._mmseqs.result_to_msa(query_db, database, result_db, msa_db)
-                self._mmseqs.unpack_msa(query_db, msa_db, output_dir)
+                # One search, formatted twice: headers from one pass, insertions
+                # from the other. See msa_formats for why neither alone will do.
+                headers_db = database_root / "headers_db"
+                headers_dir = database_root / "headers"
+                headers_dir.mkdir()
+                self._mmseqs.result_to_msa(query_db, database, result_db, headers_db)
+                self._mmseqs.unpack_msa(query_db, headers_db, headers_dir)
+                insertions_db = database_root / "insertions_db"
+                insertions_dir = database_root / "insertions"
+                insertions_dir.mkdir()
+                self._mmseqs.result_to_a3m(
+                    query_db, database, result_db, insertions_db
+                )
+                self._mmseqs.unpack_msa(query_db, insertions_db, insertions_dir)
                 by_database[database.name] = self._read_results(
-                    query_db, output_dir, query_ids, molecule_type
+                    query_db, headers_dir, insertions_dir, query_ids, molecule_type
                 )
 
             results = {}
             for query_id, sequence in query_ids.items():
-                unpaired = _merge_a3ms(
+                unpaired, unpaired_rows = _merge_a3ms(
                     sequence,
                     [
-                        by_database[database.name][query_id]
+                        (database.name, by_database[database.name][query_id])
                         for database in unpaired_databases
                     ],
                 )
@@ -848,13 +920,16 @@ class MsaBatch:
                     if paired_database is not None
                     else ""
                 )
-                results[sequence] = (unpaired, paired)
+                results[sequence] = SearchedMsas(
+                    unpaired=unpaired, paired=paired, unpaired_rows=unpaired_rows
+                )
             return results
 
     @staticmethod
     def _read_results(
         query_db: Path,
-        output_dir: Path,
+        headers_dir: Path,
+        insertions_dir: Path,
         query_ids: Mapping[str, str],
         molecule_type: str = PROTEIN,
     ) -> dict[str, str]:
@@ -870,10 +945,7 @@ class MsaBatch:
                 str(index): query_id for index, query_id in enumerate(query_ids)
             }
 
-        results = {}
-        for index, query_id in index_to_query.items():
-            if query_id not in query_ids:
-                continue
+        def unpacked_records(output_dir: Path, index: str, query_id: str):
             candidates = (
                 output_dir / f"{index}.fasta",
                 output_dir / f"{index}.a3m",
@@ -887,14 +959,29 @@ class MsaBatch:
                     "MMseqs2 unpackdb did not produce an alignment for "
                     f"{query_id!r} in {output_dir.parent.name!r}"
                 )
-            aligned_fasta = result_path.read_text(encoding="utf-8")
-            if not _fasta_records(aligned_fasta):
+            records = _fasta_records(result_path.read_text(encoding="utf-8"))
+            if not records:
                 raise RuntimeError(
                     "MMseqs2 unpackdb produced no FASTA records for "
                     f"{query_id!r} in {output_dir.parent.name!r}"
                 )
-            results[query_id] = _aligned_fasta_to_a3m(
-                aligned_fasta, query_ids[query_id], molecule_type
+            return records
+
+        results = {}
+        for index, query_id in index_to_query.items():
+            if query_id not in query_ids:
+                continue
+            try:
+                stitched = stitch_headers_and_insertions(
+                    unpacked_records(headers_dir, index, query_id),
+                    unpacked_records(insertions_dir, index, query_id),
+                )
+            except StitchMismatch as exc:
+                raise RuntimeError(
+                    f"{query_id!r} in {headers_dir.parent.name!r}: {exc}"
+                ) from exc
+            results[query_id] = _stitched_to_a3m(
+                stitched, query_ids[query_id], molecule_type
             )
         missing_queries = set(query_ids) - set(results)
         if missing_queries:
@@ -905,16 +992,19 @@ class MsaBatch:
         return results
 
     def _msa_payload(
-        self, request: FeatureRequest, unpaired_msa: str, paired_msa: str
+        self, request: FeatureRequest, msas: SearchedMsas
     ) -> dict[str, Any]:
         payload = {
-            "schemaVersion": 2,
+            "schemaVersion": 3,
             "name": request.name,
             "sequence": request.sequence,
-            "unpairedMsa": unpaired_msa,
-            "pairedMsa": paired_msa,
-            "unpairedDepth": _msa_depth(unpaired_msa),
-            "pairedDepth": _msa_depth(paired_msa),
+            "unpairedMsa": msas.unpaired,
+            "pairedMsa": msas.paired,
+            "unpairedDepth": _msa_depth(msas.unpaired),
+            "pairedDepth": _msa_depth(msas.paired),
+            "unpairedDatabaseRows": [
+                {"name": name, "rows": rows} for name, rows in msas.unpaired_rows
+            ],
             "provenance": self._cache_signature(request.molecule_type),
         }
         # Only non-protein bundles record their molecule type, so a protein bundle is
@@ -939,10 +1029,11 @@ class MsaBatch:
 
         if molecule_type == RNA:
             return {
-                "schema_version": 1,
+                "schema_version": 2,
                 "molecule_type": RNA,
                 "mmseqs_identity": self._process_identity(),
                 "search_mode": NUCLEOTIDE_SEARCH_MODE,
+                "msa_format": _MSA_FORMAT,
                 "e_value": self._settings.rna_e_value,
                 "unpaired_databases": [
                     database_value(database)
@@ -951,9 +1042,10 @@ class MsaBatch:
             }
 
         signature = {
-            "schema_version": 4,
+            "schema_version": 5,
             "mmseqs_identity": self._process_identity(),
             "search_mode": self._search_mode(),
+            "msa_format": _MSA_FORMAT,
             "e_value": self._settings.e_value,
             "unpaired_databases": [
                 database_value(database)
@@ -1325,33 +1417,40 @@ def _transcribe(sequence: str) -> str:
     return sequence.replace("T", "U").replace("t", "u")
 
 
-def _aligned_fasta_to_a3m(
-    aligned_fasta: str, query_sequence: str, molecule_type: str = PROTEIN
+def _stitched_to_a3m(
+    records: Sequence[tuple[str, str]],
+    query_sequence: str,
+    molecule_type: str = PROTEIN,
 ) -> str:
-    """Remove query-gap columns while retaining insertions and full headers."""
-    from alphafold3.cpp import msa_conversion
+    """Validate stitched A3M records against the query and write them out.
 
-    records = _fasta_records(aligned_fasta)
+    The mode-5 sequences are already A3M against the gapless query, so nothing is
+    rewritten. What is checked is that every row spans exactly the query: a row
+    whose match columns number anything else would silently shift every residue
+    after the discrepancy once AlphaFold reads it as a table. The stitch already
+    implies this -- mode 2 rows equal mode 5 rows minus insertions -- but a
+    malformed row should fail here with the query named, not deep in a parser.
+    """
     if not records:
-        raise ValueError("MMseqs2 aligned FASTA contains no records")
-    query_alignment = records[0][1]
+        raise ValueError("MMseqs2 alignment contains no records")
     normalise = _transcribe if molecule_type == RNA else (lambda sequence: sequence)
-    if normalise(
-        query_alignment.replace("-", "").replace(".", "").upper()
-    ) != normalise(query_sequence.upper()):
-        raise ValueError(
-            "MMseqs2 aligned FASTA query does not match its input sequence"
-        )
+    query_row = strip_insertions(records[0][1])
+    if normalise(query_row.replace("-", "").upper()) != normalise(
+        query_sequence.upper()
+    ):
+        raise ValueError("MMseqs2 alignment query does not match its input sequence")
 
     converted = []
     for description, sequence in records:
-        a3m_sequence = msa_conversion.align_sequence_to_gapless_query(
-            sequence=sequence,
-            query_sequence=query_alignment,
-        ).replace(".", "")
+        if len(strip_insertions(sequence)) != len(query_sequence):
+            raise ValueError(
+                f"MMseqs2 row {description.split()[0]!r} spans "
+                f"{len(strip_insertions(sequence))} query positions, not "
+                f"{len(query_sequence)}"
+            )
         if molecule_type == RNA:
-            a3m_sequence = _transcribe(a3m_sequence)
-        converted.append(f">{description}\n{a3m_sequence}\n")
+            sequence = _transcribe(sequence)
+        converted.append(f">{description}\n{sequence}\n")
     return "".join(converted)
 
 
@@ -1363,13 +1462,65 @@ def _normalise_query(a3m: str, query_sequence: str) -> str:
     return "".join(f">{description}\n{sequence}\n" for description, sequence in records)
 
 
-def _merge_a3ms(query_sequence: str, a3ms: Sequence[str]) -> str:
+def _merge_a3ms(
+    query_sequence: str, a3ms: Sequence[tuple[str, str]]
+) -> tuple[str, tuple[tuple[str, int], ...]]:
+    """Merge per-database A3Ms in order, and say how many rows each contributed.
+
+    Rows are deduplicated on their aligned residues with the insertions removed.
+    That is the key this stage used before insertions were recovered, when the two
+    were the same string, so a merged alignment keeps exactly the rows it kept
+    then and only their content grows. Keying on the full row instead would keep a
+    second copy of every hit that two databases aligned with different insertions.
+
+    Databases are appended whole, one after another, so each one's rows are
+    contiguous and a count is enough to recover them.
+    """
     rows = [("query", query_sequence)]
     seen = {query_sequence}
-    for a3m in a3ms:
-        for _, (description, sequence) in enumerate(_fasta_records(a3m)):
-            if sequence in seen:
+    contributed = []
+    for database_name, a3m in a3ms:
+        added = 0
+        for description, sequence in _fasta_records(a3m):
+            key = strip_insertions(sequence)
+            if key in seen:
                 continue
-            seen.add(sequence)
+            seen.add(key)
             rows.append((description, sequence))
-    return "".join(f">{description}\n{sequence}\n" for description, sequence in rows)
+            added += 1
+        contributed.append((database_name, added))
+    text = "".join(f">{description}\n{sequence}\n" for description, sequence in rows)
+    return text, tuple(contributed)
+
+
+def _searched_msas_from_payload(payload: Mapping[str, Any]) -> SearchedMsas:
+    """Read a bundle back, refusing row spans that do not describe its alignment.
+
+    The spans are what a consumer slices by, so a wrong count does not fail -- it
+    hands AlphaFold 2 the wrong database's rows as uniref90. Check that they add up.
+    """
+    unpaired = payload["unpairedMsa"]
+    raw_rows = payload.get("unpairedDatabaseRows")
+    if not isinstance(raw_rows, list):
+        raise ValueError("MSA bundle lacks unpairedDatabaseRows")
+    rows = []
+    for entry in raw_rows:
+        if (
+            not isinstance(entry, Mapping)
+            or not isinstance(entry.get("name"), str)
+            or not isinstance(entry.get("rows"), int)
+            or isinstance(entry.get("rows"), bool)
+            or entry["rows"] < 0
+        ):
+            raise ValueError(f"MSA bundle has a malformed row span: {entry!r}")
+        rows.append((entry["name"], entry["rows"]))
+    # The query row belongs to no database.
+    if unpaired and sum(count for _, count in rows) != _msa_depth(unpaired) - 1:
+        raise ValueError(
+            "MSA bundle row spans account for "
+            f"{sum(count for _, count in rows)} rows but the alignment has "
+            f"{_msa_depth(unpaired) - 1} besides the query"
+        )
+    return SearchedMsas(
+        unpaired=unpaired, paired=payload["pairedMsa"], unpaired_rows=tuple(rows)
+    )

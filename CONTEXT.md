@@ -20,7 +20,8 @@
 - **Feature batch**: an ordered collection of feature requests handled as one operation.
 - **MSA batch**: the GPU stage that searches MMseqs2 and durably publishes one reusable MSA bundle per feature request.
 - **Feature finalization**: the CPU stage that reads an MSA bundle, performs native AF3 template search, and publishes the standard AF3 feature artifact.
-- **MSA bundle**: an atomic intermediate JSON containing one sequence, merged unpaired A3M, paired A3M, and complete MMseqs/database provenance.
+- **MSA bundle**: an atomic intermediate JSON containing one sequence, merged unpaired A3M, paired A3M, how many unpaired rows each database contributed, and complete MMseqs/database provenance. Its A3Ms carry both full database headers and insertions.
+- **Two-pass format**: formatting one MMseqs2 search result twice and joining the passes row by row, because the format with full headers drops insertions and the format with insertions drops the headers.
 - **Database identifier**: the caller-supplied immutable identity of one MMseqs2 database build; cache validity depends on it, not only its filesystem path.
 - **Feature artifact**: the standard AlphaFold 3 JSON (optionally LZMA-compressed) produced for one feature request.
 - **MSA cache hit**: an existing MSA bundle whose sequence, MMseqs2 executable version, search settings, and database identifiers match the request.
