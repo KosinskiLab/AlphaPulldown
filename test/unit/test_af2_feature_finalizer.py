@@ -353,3 +353,57 @@ def test_two_local_chains_pair_the_species_they_share(tmp_path):
     # And a hit present in only one chain's alignment is never paired.
     unpaired_hit_a = [to_id[r] for r in _mutate(QUERY, 3, "W") + second_sequence]
     assert unpaired_hit_a not in rows
+
+
+def test_a_homomer_of_a_local_chain_assembles(tmp_path):
+    """Two copies of one chain: AF2 merges identical entities into a dense MSA
+    instead of pairing them, a different code path from the heteromer."""
+    from alphapulldown.objects import MultimericObject
+
+    first = _local_monomer(tmp_path, "alpha", QUERY)
+    with open(tmp_path / "features" / "alpha.pkl", "rb") as handle:
+        second = pickle.load(handle)
+
+    merged = MultimericObject(interactors=[first, second], pair_msa=True).feature_dict
+
+    assert merged["aatype"].shape == (2 * len(QUERY),)
+    assert merged["msa"].shape[1] == 2 * len(QUERY)
+
+
+def test_local_chains_assemble_without_pairing(tmp_path):
+    """pair_msa=False skips species pairing and block-diagonalises the MSAs."""
+    from alphapulldown.objects import MultimericObject
+
+    first = _local_monomer(tmp_path, "alpha", QUERY)
+    second = _local_monomer(tmp_path, "beta", _mutate(QUERY, 12, "L"))
+
+    merged = MultimericObject(interactors=[first, second], pair_msa=False).feature_dict
+
+    to_id = residue_constants.restype_order_with_x
+    # Unpaired, a HUMAN hit shares a row with no other chain's residues.
+    human_row = [to_id[r] for r in _mutate(QUERY, 2, "V") + _mutate(QUERY, 2, "V")]
+    assert human_row not in [list(row) for row in merged["msa"]]
+    assert merged["msa"].shape[1] == 2 * len(QUERY)
+
+
+def test_a_chopped_local_chain_pairs_with_a_full_one(tmp_path):
+    """Issue #619's shape: a full chain first, a chopped chain second. The chopped
+    chain must keep the accession identifiers, row-aligned, or pairing crashes."""
+    from alphapulldown.objects import ChoppedObject, MultimericObject
+
+    full = _local_monomer(tmp_path, "alpha", QUERY)
+    source = _local_monomer(tmp_path, "beta", _mutate(QUERY, 12, "L"))
+    region = (3, 15)
+    chopped = ChoppedObject(
+        source.description, source.sequence, source.feature_dict, [region]
+    )
+    chopped.prepare_final_sliced_feature_dict()
+    assert (
+        chopped.feature_dict["msa_uniprot_accession_identifiers_all_seq"].shape[0]
+        == chopped.feature_dict["msa_all_seq"].shape[0]
+    )
+
+    merged = MultimericObject(interactors=[full, chopped], pair_msa=True).feature_dict
+
+    region_length = region[1] - region[0] + 1
+    assert merged["aatype"].shape == (len(QUERY) + region_length,)
