@@ -1,9 +1,10 @@
-# Local MMseqs2 features (AlphaFold 3)
+# Local MMseqs2 features (AlphaFold 2 and 3)
 
 An alternative to the per-protein jackhmmer/HHblits MSA search: proteins are split into
-bounded shards searched with MMseqs2, and a separate CPU stage runs AlphaFold 3's own
-template search and writes one standard AF3 JSON per chain. Off by default. Existing
-AlphaFold 2 feature generation and the remote `--use_mmseqs2` path are untouched.
+bounded shards searched with MMseqs2, and a separate CPU stage turns each chain's
+alignment into standard features — an AF3 JSON with AlphaFold 3's own template search,
+or an AF2 `MonomericObject` pickle; see [AlphaFold 2](#alphafold-2) below. Off by
+default. Native feature generation and the remote `--use_mmseqs2` path are untouched.
 
 RNA chains can use the same path once the RNA databases are configured; see
 [RNA chains](#rna-chains) below.
@@ -130,6 +131,52 @@ needs no RNA configuration of its own.
 Useful flags: `--mmseqs_rna_e_value` (default `1e-3`) and
 `--mmseqs_<database>_max_sequences` (default `10000` per RNA database), both matching
 AlphaFold 3's own settings.
+
+## AlphaFold 2
+
+The search is the same; only finalization differs. Pass `--data_pipeline alphafold2` to
+`finalize_batch_features.py` and it writes `<name>.pkl` (or `.pkl.xz` with
+`--compress_features`), the pickle the AlphaFold 2 backend reads:
+
+```bash
+python -m alphapulldown.scripts.finalize_batch_features \
+  --data_pipeline alphafold2 --fasta_paths complex.fasta \
+  --msa_input_dir msas/ --output_dir features/ --data_dir /db/alphafold2 \
+  --max_template_date 2026-08-01 \
+  --template_seqres_database_id pdb-seqres-2026-08 --template_mmcif_database_id pdb-mmcif-2026-08
+```
+
+Templates come from the AlphaFold 2 database tree under `--data_dir` (`pdb_seqres`,
+`pdb_mmcif`), searched with hmmsearch, or with hhsearch against PDB70 under
+`--use_hhsearch`. The MSA databases are the MMseqs2 ones the search stage used.
+
+The features are built the way native AlphaFold 2 builds them from jackhmmer:
+
+- uniref90 capped at 10 000 rows and MGnify at 501, counting the query as AlphaFold 2
+  does; small BFD uncapped
+- merged in AlphaFold 2's order, UniRef90, BFD, MGnify — row order matters, since it
+  samples its MSA from the top
+- templates searched from UniRef90 **alone**, never from the merged alignment; the
+  bundle records which rows each database contributed so this is possible
+- pairing features (`*_all_seq`) from the separate UniProt search, whose headers carry
+  the species AlphaFold 2 pairs chains by
+
+What differs, and why:
+
+- **The recipe is `reduced_dbs`.** There is no BFD/UniRef30 HHblits arm, so compare
+  against `--db_preset reduced_dbs`, not `full_dbs`.
+- **Caps apply after cross-database deduplication**, where native AlphaFold 2 caps raw
+  hits first. This only affects rows two databases both found.
+- **The template profile has no insert columns.** A3M insertions are per row and not
+  aligned to each other, so they cannot be turned back into Stockholm columns; the match
+  columns, which decide the profile's states, are the same.
+- **Accession identifiers are filled in** from the UniProt headers, where native
+  features leave them empty. Nothing on this path queries UniProt over the network.
+
+The pickles carry the same feature keys as native ones plus those two accession arrays,
+and assemble into multimers alongside pickles from other sources. RNA and DNA chains are
+refused: AlphaFold 2 has no MSA features for them. These features have not yet been
+benchmarked against native AlphaFold 2 features.
 
 ## The binary
 
