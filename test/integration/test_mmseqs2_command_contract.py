@@ -118,8 +118,13 @@ def test_real_createdb_padded_search_result2msa_and_unpack_contract(tmp_path):
     )
 
 
-def test_real_nucleotide_createdb_search_and_unpack_contract(tmp_path):
-    """The same contract for RNA: a nucleotide database, searched on CPU."""
+@pytest.mark.parametrize("num_iterations", (1, 3))
+def test_real_nucleotide_createdb_search_and_unpack_contract(tmp_path, num_iterations):
+    """The same contract for RNA: a nucleotide database, searched on CPU.
+
+    Also with the protein-only iterative search raised, which must not reach the
+    nucleotide search: there the pinned build exits 1.
+    """
     configured_binary = os.environ.get("MMSEQS_INTEGRATION_BINARY")
     if not configured_binary:
         pytest.skip("set MMSEQS_INTEGRATION_BINARY to run the real command contract")
@@ -157,6 +162,7 @@ def test_real_nucleotide_createdb_search_and_unpack_contract(tmp_path):
         max_residues_per_batch=1_000,
         threads=2,
         rna_databases=databases,
+        num_iterations=num_iterations,
     )
 
     result = MsaBatch(

@@ -522,8 +522,14 @@ class SubprocessMmseqsProcess:
                 "1" if gpu else "0",
             )
             + (
+                # Iterative profile search is protein-only: measured on the pinned
+                # build, --num-iterations 3 on a nucleotide search exits 1 ("Alignment
+                # died", or "no diagonal information" on a one-sequence database).
+                # RNA provenance correctly never records it.
                 ("--num-iterations", str(settings.num_iterations))
-                if settings.num_iterations and settings.num_iterations > 1
+                if settings.num_iterations
+                and settings.num_iterations > 1
+                and not nucleotide
                 else ()
             )
             + (("--search-type", "3") if nucleotide else ())

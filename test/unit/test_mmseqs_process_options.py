@@ -8,6 +8,7 @@ cannot run in that image because that module needs AlphaFold 3 for the finalizer
 
 from __future__ import annotations
 
+import dataclasses
 from pathlib import Path
 
 import pytest
@@ -139,3 +140,35 @@ def test_db_load_mode_stays_out_of_the_cache_signature(tmp_path: Path):
         mmseqs_process=SubprocessMmseqsProcess(binary, gpu=False),
     )
     assert plain._cache_signature() != on_cpu._cache_signature()
+
+
+def test_iterations_reach_protein_searches_but_never_nucleotide_ones(
+    tmp_path: Path, recording_binary
+):
+    """Iterative profile search is protein-only. Measured on the pinned build,
+    --num-iterations 3 on a nucleotide search exits 1, so raising the setting
+    used to fail every RNA shard."""
+    binary, arguments = recording_binary
+    settings = dataclasses.replace(_settings(tmp_path), num_iterations=3)
+    process = SubprocessMmseqsProcess(binary)
+
+    process.search(
+        tmp_path / "query",
+        _database(tmp_path),
+        tmp_path / "result",
+        tmp_path / "work",
+        settings,
+    )
+    protein = arguments.read_text(encoding="utf-8").splitlines()
+    assert protein[protein.index("--num-iterations") + 1] == "3"
+
+    rfam = DatabaseSpec(
+        name="rfam", path=tmp_path / "rfam", identifier="rfam-fixture",
+        molecule_type="rna",
+    )
+    process.search(
+        tmp_path / "query", rfam, tmp_path / "result", tmp_path / "work", settings
+    )
+    nucleotide = arguments.read_text(encoding="utf-8").splitlines()
+    assert "--num-iterations" not in nucleotide
+    assert nucleotide[nucleotide.index("--search-type") + 1] == "3"
