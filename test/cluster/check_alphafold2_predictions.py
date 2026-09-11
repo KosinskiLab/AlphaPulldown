@@ -923,6 +923,9 @@ class TestLocalMmseqsAgainstRemote(_TestBase):
                 f"--mmseqs_temp_dir={self.output_dir / 'mmseqs_tmp'}",
                 f"--mmseqs_use_gpu={'true' if _has_nvidia_gpu() else 'false'}",
                 "--mmseqs_threads=8",
+                # One shard for all three chains, as the workflow would batch them.
+                "--mmseqs_batch_max_sequences=8",
+                "--mmseqs_batch_max_residues=100000",
                 *(
                     argument
                     for name, identifier in LOCAL_MMSEQS_DATABASE_IDS.items()
