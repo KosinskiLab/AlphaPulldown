@@ -1482,10 +1482,19 @@ def _merge_a3ms(
     return text, tuple(contributed)
 
 
-def read_msa_bundle(msa_input_dir: Path, request: FeatureRequest) -> dict[str, Any]:
+def read_msa_bundle(
+    msa_input_dir: Path, request: FeatureRequest, *, require_row_spans: bool = False
+) -> dict[str, Any]:
     """Read one request's MSA bundle, deleting it if it is unsafe to use.
 
     Shared by every finalizer, so each backend refuses the same damaged bundles.
+    Deleting is what gets a bundle rebuilt: the workflow's Shard completion then no
+    longer validates, and a repair shard is scheduled. A bundle that is merely
+    rejected, and left in place, fails the same finalization on every retry.
+
+    ``require_row_spans`` is for consumers that slice the unpaired alignment by
+    database -- AlphaFold 2 does. A bundle without usable spans is unusable to them,
+    so it is treated as damaged, not as a failure to report and keep.
     """
     path = msa_input_dir / f"{request.name}_mmseqs_msa.json"
     try:
@@ -1521,6 +1530,14 @@ def read_msa_bundle(msa_input_dir: Path, request: FeatureRequest) -> dict[str, A
                 raise _InvalidMsaBundle(
                     f"MMseqs2 MSA bundle lacks {key} for {request.name!r}"
                 )
+        if require_row_spans:
+            try:
+                searched_msas_from_payload(payload)
+            except (KeyError, TypeError, ValueError) as exc:
+                raise _InvalidMsaBundle(
+                    f"MMseqs2 MSA bundle {path} has no usable per-database row "
+                    f"spans: {exc}"
+                ) from exc
         return payload
     except _InvalidMsaBundle:
         path.unlink(missing_ok=True)

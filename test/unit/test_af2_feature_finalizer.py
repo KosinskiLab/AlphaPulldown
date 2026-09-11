@@ -407,3 +407,25 @@ def test_a_chopped_local_chain_pairs_with_a_full_one(tmp_path):
 
     region_length = region[1] - region[0] + 1
     assert merged["aatype"].shape == (len(QUERY) + region_length,)
+
+
+@pytest.mark.parametrize("damage", ("spans_do_not_add_up", "no_spans"))
+def test_a_bundle_unusable_to_alphafold2_is_deleted_so_it_is_rebuilt(tmp_path, damage):
+    """Rejecting such a bundle and leaving it in place fails the same finalization on
+    every retry: its Shard completion still validates, so no repair is scheduled.
+    Deleting it is what gets it rebuilt."""
+    _standard_bundle(tmp_path / "msas")
+    bundle_path = tmp_path / "msas" / "alpha_mmseqs_msa.json"
+    bundle = json.loads(bundle_path.read_text())
+    if damage == "no_spans":
+        del bundle["unpairedDatabaseRows"]
+    else:
+        bundle["unpairedDatabaseRows"][0]["rows"] += 1
+    bundle_path.write_text(json.dumps(bundle))
+
+    finalizer, _ = _finalizer(tmp_path)
+    result = finalizer.generate([FeatureRequest(name="alpha", sequence=QUERY)])
+
+    assert [failure.name for failure in result.failures] == ["alpha"]
+    assert "row spans" in result.failures[0].error
+    assert not bundle_path.exists()

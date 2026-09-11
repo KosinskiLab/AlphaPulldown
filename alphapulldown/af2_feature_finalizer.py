@@ -267,7 +267,9 @@ class Af2FeatureFinalizer:
                         f"{request.name!r} is {request.molecule_type}: AlphaFold 2 "
                         "has no MSA features for anything but protein chains"
                     )
-                payload = read_msa_bundle(self._settings.msa_input_dir, request)
+                payload = read_msa_bundle(
+                    self._settings.msa_input_dir, request, require_row_spans=True
+                )
                 msas = searched_msas_from_payload(payload)
                 provenance = self._provenance(payload)
                 cached = self._read_matching_artifact(request, provenance)
