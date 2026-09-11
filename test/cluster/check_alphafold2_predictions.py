@@ -810,5 +810,181 @@ class TestMmseqsIssue588Inference(_TestBase):
             f"Expected AF2 ipTM > 0.6 from precomputed MMseq features, got {result_payload['iptm']}",
         )
 
+
+MMSEQS_DATABASE_DIR = Path(
+    os.getenv("MMSEQS_DATABASE_DIR", "/g/alphafold/AlphaFold_DBs/mmseqs")
+)
+# GPU-padded builds of the AlphaFold 3.0.0 FASTAs (scripts/setup_databases.sh --mmseqs),
+# each named <database>_gpu, with the identifiers the AlphaFold 2 benchmark used.
+LOCAL_MMSEQS_DATABASE_IDS = {
+    "uniref90": "uniref90-2022_05-padded",
+    "mgnify": "mgy_clusters-2022_05-padded",
+    "small_bfd": "small-bfd-padded",
+    "uniprot": "uniprot_all-2021_04-padded",
+}
+# A seeded random 90-mer with no homologs anywhere. In the Snakemake end-to-end run the
+# local path returned only the query for it.
+ORPHAN_SEQUENCE = (
+    "MYNARDGTQMSKFWKTDQPEWVTSYVYMRCQGQFWPAKCVIWGGAYNDV"
+    "HSGVVSGENWKIGSTWMNISMVDQDMITGQAMWSVRNVLFC"
+)
+
+
+class TestLocalMmseqsAgainstRemote(_TestBase):
+    """Opt-in: AF2 features from the local MMseqs2 path against the remote ColabFold API.
+
+    The two search different databases -- ColabFold's UniRef30 and environmental sets
+    remotely; UniRef90, MGnify, small BFD and UniProt locally -- so this asserts
+    agreement, not equality. The bands come from a 32-monomer benchmark: on families
+    with hundreds of hits or more, local over remote depth ran 0.26-3.7 (one outlier at
+    0.03), and Neff alike. Needs network access to the ColabFold API, a GPU-capable
+    MMseqs2 build, and ~200 GB of host RAM, because the search reads every padded
+    database in full:
+
+        RUN_MMSEQS_FUNCTIONAL_TESTS=1 MMSEQS_INTEGRATION_BINARY=/path/to/mmseqs \\
+        python test/cluster/run_alphafold2_predictions.py \\
+            -k TestLocalMmseqsAgainstRemote --constraint "" --mem 200G --time 06:00:00
+    """
+
+    # A deep family with hundreds of structures, and a moderate one from the
+    # benchmark (1517 rows remotely, 1264 locally).
+    FAMILY_CHAINS = ("P61626", "O31718")
+    MAX_TEMPLATE_DATE = "2024-05-02"
+    RATIO_BAND = (0.2, 5.0)
+
+    def _require_local_mmseqs_environment(self) -> Path:
+        skip_reason = _mmseqs_functional_test_skip_reason()
+        if skip_reason:
+            self.skipTest(skip_reason)
+        binary = os.getenv("MMSEQS_INTEGRATION_BINARY")
+        if not binary or not Path(binary).is_file():
+            self.skipTest("Set MMSEQS_INTEGRATION_BINARY to a GPU-capable MMseqs2 build.")
+        missing = [
+            name
+            for name in LOCAL_MMSEQS_DATABASE_IDS
+            if not (MMSEQS_DATABASE_DIR / f"{name}_gpu.dbtype").is_file()
+        ]
+        if missing:
+            self.skipTest(
+                f"Padded MMseqs2 databases missing under {MMSEQS_DATABASE_DIR}: "
+                + ", ".join(missing)
+            )
+        return Path(binary)
+
+    def _run_step(self, label: str, args: list[str]) -> None:
+        res = self._run_prediction_subprocess([sys.executable, *args])
+        self.assertEqual(
+            res.returncode,
+            0,
+            f"{label} failed.\nSTDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}",
+        )
+
+    def test_local_mmseqs_features_agree_with_remote(self):
+        binary = self._require_local_mmseqs_environment()
+        orphan = self.output_dir / "orphan.fasta"
+        orphan.write_text(f">orphan\n{ORPHAN_SEQUENCE}\n", encoding="utf-8")
+        fasta_paths = ",".join(
+            [
+                str(self.test_data_dir / "fastas" / f"{name}.fasta")
+                for name in self.FAMILY_CHAINS
+            ]
+            + [str(orphan)]
+        )
+        remote_dir = self.output_dir / "remote"
+        local_dir = self.output_dir / "local"
+        msa_dir = self.output_dir / "msas"
+        scripts = self.script_create_features.parent
+        shared = [
+            f"--fasta_paths={fasta_paths}",
+            f"--data_dir={DATA_DIR}",
+            f"--max_template_date={self.MAX_TEMPLATE_DATE}",
+            "--compress_features=True",
+        ]
+
+        self._run_step(
+            "Remote MMseqs2 features",
+            [
+                str(self.script_create_features),
+                *shared,
+                f"--output_dir={remote_dir}",
+                "--use_mmseqs2=True",
+                "--data_pipeline=alphafold2",
+                "--skip_existing=False",
+            ],
+        )
+        self._run_step(
+            "Local MMseqs2 search",
+            [
+                str(scripts / "create_batch_msas.py"),
+                f"--fasta_paths={fasta_paths}",
+                f"--msa_output_dir={msa_dir}",
+                f"--summary_path={self.output_dir / 'msa_summary.json'}",
+                f"--mmseqs_binary_path={binary}",
+                f"--mmseqs_temp_dir={self.output_dir / 'mmseqs_tmp'}",
+                f"--mmseqs_use_gpu={'true' if _has_nvidia_gpu() else 'false'}",
+                "--mmseqs_threads=8",
+                *(
+                    argument
+                    for name, identifier in LOCAL_MMSEQS_DATABASE_IDS.items()
+                    for argument in (
+                        f"--mmseqs_{name}_database_path={MMSEQS_DATABASE_DIR / f'{name}_gpu'}",
+                        f"--mmseqs_{name}_database_id={identifier}",
+                    )
+                ),
+            ],
+        )
+        self._run_step(
+            "Local AlphaFold 2 finalization",
+            [
+                str(scripts / "finalize_batch_features.py"),
+                *shared,
+                "--data_pipeline=alphafold2",
+                f"--msa_input_dir={msa_dir}",
+                f"--output_dir={local_dir}",
+                "--template_seqres_database_id=pdb-seqres-cluster-check",
+                "--template_mmcif_database_id=pdb-mmcif-cluster-check",
+            ],
+        )
+
+        from alphapulldown.scripts.compare_msa_backends import (
+            compare_af2_directories,
+            summarize_af2,
+        )
+
+        # Raises on a missing artifact or a sequence mismatch between the two sides.
+        rows = compare_af2_directories(remote_dir, local_dir)
+        # The measured numbers, for the job log: the assertions below are loose.
+        print(
+            json.dumps(
+                {"summary": summarize_af2(rows), "rows": rows}, indent=1, default=str
+            )
+        )
+        by_name = {row["name"]: row for row in rows}
+        self.assertEqual(set(by_name), {*self.FAMILY_CHAINS, "orphan"})
+
+        low, high = self.RATIO_BAND
+        for name in self.FAMILY_CHAINS:
+            remote = by_name[name]["reference"]
+            local = by_name[name]["candidate"]
+            with self.subTest(chain=name):
+                remote_depth = remote["unpaired"]["depth"]
+                local_depth = local["unpaired"]["depth"]
+                self.assertGreaterEqual(min(remote_depth, local_depth), 100)
+                self.assertBetween(local_depth / remote_depth, low, high)
+                self.assertBetween(
+                    local["unpaired_neff"] / remote["unpaired_neff"], low, high
+                )
+                # An all-zero deletion matrix is the defect the two-pass format fixed.
+                self.assertGreater(local["rows_with_insertions"], 0)
+                self.assertGreater(remote["rows_with_insertions"], 0)
+                # Local pairing comes from its own UniProt search, which carries species.
+                self.assertGreaterEqual(local["paired_species"], 5)
+        self.assertGreaterEqual(by_name["P61626"]["candidate"]["template_count"], 1)
+        # Neither backend may invent a family for a sequence that has none.
+        for side in ("reference", "candidate"):
+            with self.subTest(orphan=side):
+                self.assertLessEqual(by_name["orphan"][side]["unpaired"]["depth"], 20)
+
+
 if __name__ == "__main__":
     absltest.main()
