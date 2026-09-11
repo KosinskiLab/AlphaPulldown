@@ -306,6 +306,26 @@ class SearchedMsas:
     # the merged alignment is unusable to it unless these boundaries are kept.
     unpaired_rows: tuple[tuple[str, int], ...] = ()
 
+    def rows_by_database(
+        self,
+    ) -> tuple[tuple[str, str], dict[str, list[tuple[str, str]]]]:
+        """The query record, and each database's own rows, recovered from the spans."""
+        records = _fasta_records(self.unpaired)
+        if not records:
+            raise ValueError("MSA bundle has an empty unpaired alignment")
+        query, hits = records[0], records[1:]
+        by_database: dict[str, list[tuple[str, str]]] = {}
+        start = 0
+        for name, count in self.unpaired_rows:
+            by_database[name] = hits[start : start + count]
+            start += count
+        if start != len(hits):
+            raise ValueError(
+                f"MSA bundle row spans cover {start} rows but the alignment has "
+                f"{len(hits)} besides the query"
+            )
+        return query, by_database
+
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class MsaBatchResult:
@@ -619,7 +639,7 @@ class MsaBatch:
             path, payload = cached
             reused.append(MsaArtifact(name=request.name, path=path))
             msa_by_sequence.setdefault(
-                _request_key(request), _searched_msas_from_payload(payload)
+                _request_key(request), searched_msas_from_payload(payload)
             )
 
         sequence_to_requests: dict[tuple[str, str], list[FeatureRequest]] = {}
@@ -748,7 +768,7 @@ class MsaBatch:
             # Raises on a bundle whose row spans are missing or do not add up, so a
             # damaged one is re-searched instead of handed on to a consumer that
             # would slice it at the wrong rows.
-            _searched_msas_from_payload(payload)
+            searched_msas_from_payload(payload)
             return path, payload
         except (
             KeyError,
@@ -1140,44 +1160,7 @@ class FeatureFinalizer:
                 raise ValueError(f"{field_name} requires a non-empty value")
 
     def _read_msa(self, request: FeatureRequest) -> dict[str, Any]:
-        path = self._settings.msa_input_dir / f"{request.name}_mmseqs_msa.json"
-        try:
-            encoded = path.read_text(encoding="utf-8")
-        except OSError as exc:
-            raise RuntimeError(f"Cannot read MMseqs2 MSA bundle {path}: {exc}") from exc
-        try:
-            try:
-                payload = json.loads(encoded)
-            except (TypeError, ValueError, json.JSONDecodeError) as exc:
-                raise _InvalidMsaBundle(
-                    f"Cannot parse MMseqs2 MSA bundle {path}: {exc}"
-                ) from exc
-            if not isinstance(payload, dict):
-                raise _InvalidMsaBundle(
-                    f"MMseqs2 MSA bundle {path} is not a JSON object"
-                )
-            if payload.get("sequence") != request.sequence:
-                raise _InvalidMsaBundle(
-                    f"MMseqs2 MSA bundle sequence does not match {request.name!r}"
-                )
-            if payload.get("moleculeType", PROTEIN) != request.molecule_type:
-                raise _InvalidMsaBundle(
-                    "MMseqs2 MSA bundle molecule type does not match "
-                    f"{request.name!r}"
-                )
-            if not isinstance(payload.get("provenance"), dict):
-                raise _InvalidMsaBundle(
-                    f"MMseqs2 MSA bundle lacks provenance for {request.name!r}"
-                )
-            for key in ("unpairedMsa", "pairedMsa"):
-                if not isinstance(payload.get(key), str):
-                    raise _InvalidMsaBundle(
-                        f"MMseqs2 MSA bundle lacks {key} for {request.name!r}"
-                    )
-            return payload
-        except _InvalidMsaBundle:
-            path.unlink(missing_ok=True)
-            raise
+        return read_msa_bundle(self._settings.msa_input_dir, request)
 
     def _read_matching_artifact(
         self, request: FeatureRequest, msa_payload: Mapping[str, Any]
@@ -1493,7 +1476,52 @@ def _merge_a3ms(
     return text, tuple(contributed)
 
 
-def _searched_msas_from_payload(payload: Mapping[str, Any]) -> SearchedMsas:
+def read_msa_bundle(msa_input_dir: Path, request: FeatureRequest) -> dict[str, Any]:
+    """Read one request's MSA bundle, deleting it if it is unsafe to use.
+
+    Shared by every finalizer, so each backend refuses the same damaged bundles.
+    """
+    path = msa_input_dir / f"{request.name}_mmseqs_msa.json"
+    try:
+        encoded = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise RuntimeError(f"Cannot read MMseqs2 MSA bundle {path}: {exc}") from exc
+    try:
+        try:
+            payload = json.loads(encoded)
+        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise _InvalidMsaBundle(
+                f"Cannot parse MMseqs2 MSA bundle {path}: {exc}"
+            ) from exc
+        if not isinstance(payload, dict):
+            raise _InvalidMsaBundle(
+                f"MMseqs2 MSA bundle {path} is not a JSON object"
+            )
+        if payload.get("sequence") != request.sequence:
+            raise _InvalidMsaBundle(
+                f"MMseqs2 MSA bundle sequence does not match {request.name!r}"
+            )
+        if payload.get("moleculeType", PROTEIN) != request.molecule_type:
+            raise _InvalidMsaBundle(
+                "MMseqs2 MSA bundle molecule type does not match "
+                f"{request.name!r}"
+            )
+        if not isinstance(payload.get("provenance"), dict):
+            raise _InvalidMsaBundle(
+                f"MMseqs2 MSA bundle lacks provenance for {request.name!r}"
+            )
+        for key in ("unpairedMsa", "pairedMsa"):
+            if not isinstance(payload.get(key), str):
+                raise _InvalidMsaBundle(
+                    f"MMseqs2 MSA bundle lacks {key} for {request.name!r}"
+                )
+        return payload
+    except _InvalidMsaBundle:
+        path.unlink(missing_ok=True)
+        raise
+
+
+def searched_msas_from_payload(payload: Mapping[str, Any]) -> SearchedMsas:
     """Read a bundle back, refusing row spans that do not describe its alignment.
 
     The spans are what a consumer slices by, so a wrong count does not fail -- it
