@@ -22,7 +22,7 @@ import shutil
 import lzma
 import random
 import sys
-from alphapulldown import inference_flags
+from alphapulldown.prediction import inference_flags
 from alphapulldown.folding_backend import backend
 from alphapulldown.folding_backend.alphafold2_backend import ModelsToRelax
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
@@ -234,7 +234,7 @@ FLAGS = flags.FLAGS
 
 def _validate_flags_for_backend(backend_name: str) -> None:
     """Fail fast if the user passed flags the selected backend does not accept."""
-    from alphapulldown.inference_flags import unsupported_flags
+    from alphapulldown.prediction.inference_flags import unsupported_flags
 
     try:
         key_flags = FLAGS.get_key_flags_for_module(_sys.modules[__name__])
@@ -278,7 +278,7 @@ def predict_structure(
     """
     from pathlib import Path
 
-    from alphapulldown.prediction_batch import (
+    from alphapulldown.prediction.prediction_batch import (
         PredictionBatch,
         PredictionJob,
         PreparedPredictionAdapter,
@@ -308,7 +308,7 @@ def pre_modelling_setup(
     Delegates to the shared fold-preparation module so this command and the resident
     batch command cannot drift apart.
     """
-    from alphapulldown.fold_preparation import prepare_fold
+    from alphapulldown.prediction.fold_preparation import prepare_fold
 
     return prepare_fold(interactors, output_dir, FLAGS)
 

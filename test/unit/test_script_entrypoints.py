@@ -149,12 +149,13 @@ def _load_run_structure_prediction_module():
         "absl.logging",
         "jax",
         "alphapulldown",
+        "alphapulldown.prediction",
         "alphapulldown.folding_backend",
         "alphapulldown.folding_backend.alphafold2_backend",
         "alphapulldown.objects",
         # fold_preparation binds the object classes at import time, so it has to be
         # evicted too or a cached copy keeps the real ones.
-        "alphapulldown.fold_preparation",
+        "alphapulldown.prediction.fold_preparation",
         "alphapulldown.utils",
         "alphapulldown.utils.modelling_setup",
         "alphapulldown.utils.output_paths",
@@ -187,6 +188,8 @@ def _load_run_structure_prediction_module():
 
     root_pkg = _package("alphapulldown")
     root_pkg.__path__ = [str(RUN_STRUCTURE_PREDICTION_PATH.parents[1])]
+    prediction_pkg = _package("alphapulldown.prediction")
+    prediction_pkg.__path__ = [str(RUN_STRUCTURE_PREDICTION_PATH.parents[1] / "prediction")]
     folding_backend_mod = types.ModuleType("alphapulldown.folding_backend")
     folding_backend_mod.backend = SimpleNamespace()
     af2_backend_mod = types.ModuleType(
@@ -257,6 +260,7 @@ def _load_run_structure_prediction_module():
         "absl.logging": logging_mod,
         "jax": jax_mod,
         "alphapulldown": root_pkg,
+        "alphapulldown.prediction": prediction_pkg,
         "alphapulldown.folding_backend": folding_backend_mod,
         "alphapulldown.folding_backend.alphafold2_backend": af2_backend_mod,
         "alphapulldown.objects": objects_mod,
@@ -268,9 +272,10 @@ def _load_run_structure_prediction_module():
         sys.modules[name] = module
     # fold_preparation binds the object classes at import time. If another test file
     # already imported it against the real ones, drop it so it re-imports against these.
-    sys.modules.pop("alphapulldown.fold_preparation", None)
+    sys.modules.pop("alphapulldown.prediction.fold_preparation", None)
 
     root_pkg.folding_backend = folding_backend_mod
+    root_pkg.prediction = prediction_pkg
     root_pkg.objects = objects_mod
     root_pkg.utils = utils_pkg
     utils_pkg.modelling_setup = modelling_setup_mod
@@ -784,7 +789,7 @@ def test_pre_modelling_setup_warns_for_long_paths_and_uses_chopped_metadata_name
     )
     _set_flag(run_structure_prediction_module.FLAGS, "use_ap_style", False)
 
-    import alphapulldown.fold_preparation as fold_preparation
+    import alphapulldown.prediction.fold_preparation as fold_preparation
 
     warnings = []
     glob_patterns = []

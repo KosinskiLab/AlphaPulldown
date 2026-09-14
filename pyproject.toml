@@ -78,6 +78,8 @@ Homepage = "https://github.com/KosinskiLab/AlphaPulldown"
 include-package-data = true
 packages = [
   "alphapulldown",
+  "alphapulldown.features",
+  "alphapulldown.prediction",
   "alphapulldown.utils",
   "alphapulldown.folding_backend",
   "alphapulldown.analysis_pipeline",

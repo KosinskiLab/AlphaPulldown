@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import pytest
 
-from alphapulldown import af2_feature_finalizer
-from alphapulldown.af2_feature_finalizer import af2_msa_inputs
-from alphapulldown.feature_batch import SearchedMsas
+from alphapulldown.features import af2_feature_finalizer
+from alphapulldown.features.af2_feature_finalizer import af2_msa_inputs
+from alphapulldown.features.feature_batch import SearchedMsas
 
 
 QUERY = "MKTAYI"

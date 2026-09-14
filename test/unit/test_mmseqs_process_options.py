@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from alphapulldown.feature_batch import (
+from alphapulldown.features.feature_batch import (
     DatabaseSpec,
     MsaBatch,
     MsaBatchSettings,

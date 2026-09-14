@@ -9,7 +9,7 @@ which is the same failure `fold_preparation.py` was extracted to fix.
 
 from __future__ import annotations
 
-from alphapulldown.inference_flags import group_by_model_flags
+from alphapulldown.prediction.inference_flags import group_by_model_flags
 
 
 def _job(name):

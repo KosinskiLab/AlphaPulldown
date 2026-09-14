@@ -16,7 +16,7 @@ pytestmark = [pytest.mark.integration, pytest.mark.external_tools]
 # AlphaFold 3 at all. Skipping the whole module on its absence meant an AlphaFold 2
 # environment reported success while silently skipping the one test that runs a
 # real MMseqs2 search end to end.
-from alphapulldown.feature_batch import (
+from alphapulldown.features.feature_batch import (
     DatabaseSpec,
     FeatureRequest,
     MsaBatch,

@@ -56,7 +56,7 @@ def _prediction_flags(tmp_path, backend):
 
 
 def test_manifest_loads_jobs_in_order_and_resolves_output_paths(tmp_path):
-    from alphapulldown.prediction_batch import PredictionBatch
+    from alphapulldown.prediction.prediction_batch import PredictionBatch
 
     manifest = tmp_path / "batches" / "small.jsonl"
     manifest.parent.mkdir()
@@ -88,7 +88,7 @@ def test_manifest_loads_jobs_in_order_and_resolves_output_paths(tmp_path):
 
 
 def test_manifest_resolves_relative_file_input_from_its_parent(tmp_path):
-    from alphapulldown.prediction_batch import PredictionBatch
+    from alphapulldown.prediction.prediction_batch import PredictionBatch
 
     manifest = tmp_path / "batch" / "jobs.jsonl"
     input_path = manifest.parent / "inputs" / "fold.json"
@@ -112,7 +112,7 @@ def test_manifest_resolves_relative_file_input_from_its_parent(tmp_path):
 
 
 def test_manifest_relative_json_is_available_to_the_parser_adapter(tmp_path):
-    from alphapulldown.prediction_batch import (
+    from alphapulldown.prediction.prediction_batch import (
         AlphaPulldownPredictionAdapter,
         PredictionBatch,
     )
@@ -165,7 +165,7 @@ def test_manifest_relative_json_is_available_to_the_parser_adapter(tmp_path):
 
 @pytest.mark.parametrize("duplicate", ["job_id", "output_directory"])
 def test_invalid_batch_is_rejected_before_backend_setup(tmp_path, duplicate):
-    from alphapulldown.prediction_batch import (
+    from alphapulldown.prediction.prediction_batch import (
         PredictionBatch,
         PredictionBatchError,
         PredictionJob,
@@ -201,7 +201,7 @@ def test_invalid_batch_is_rejected_before_backend_setup(tmp_path, duplicate):
 
 
 def test_batch_sets_up_once_and_reports_failures_after_running_remaining_jobs(tmp_path):
-    from alphapulldown.prediction_batch import PredictionBatch, PredictionJob
+    from alphapulldown.prediction.prediction_batch import PredictionBatch, PredictionJob
 
     jobs = tuple(
         PredictionJob(job_id, fold, (tmp_path / job_id).resolve())
@@ -244,7 +244,7 @@ def test_batch_sets_up_once_and_reports_failures_after_running_remaining_jobs(tm
 
 
 def test_batch_continues_after_a_recoverable_job_preparation_failure(tmp_path):
-    from alphapulldown.prediction_batch import PredictionBatch, PredictionJob
+    from alphapulldown.prediction.prediction_batch import PredictionBatch, PredictionJob
 
     jobs = (
         PredictionJob("invalid", "missing.json", tmp_path / "invalid"),
@@ -282,7 +282,7 @@ def test_batch_continues_after_a_recoverable_job_preparation_failure(tmp_path):
 
 
 def test_heterogeneous_batch_is_rejected_before_backend_setup(tmp_path):
-    from alphapulldown.prediction_batch import (
+    from alphapulldown.prediction.prediction_batch import (
         PredictionBatch,
         PredictionBatchError,
         PredictionJob,
@@ -314,7 +314,7 @@ def test_heterogeneous_batch_is_rejected_before_backend_setup(tmp_path):
 
 
 def test_manifest_command_returns_a_concise_rejection_for_malformed_json(tmp_path):
-    from alphapulldown.prediction_batch import execute_prediction_manifest
+    from alphapulldown.prediction.prediction_batch import execute_prediction_manifest
 
     manifest = tmp_path / "jobs.jsonl"
     manifest.write_text("{not-json}\n", encoding="utf-8")
@@ -332,7 +332,7 @@ def test_manifest_command_returns_a_concise_rejection_for_malformed_json(tmp_pat
 
 
 def test_manifest_command_returns_a_concise_rejection_when_file_is_missing(tmp_path):
-    from alphapulldown.prediction_batch import execute_prediction_manifest
+    from alphapulldown.prediction.prediction_batch import execute_prediction_manifest
 
     missing_manifest = tmp_path / "missing.jsonl"
 
@@ -346,7 +346,7 @@ def test_manifest_command_returns_a_concise_rejection_when_file_is_missing(tmp_p
 def test_manifest_command_returns_a_concise_rejection_for_mixed_configurations(
     tmp_path,
 ):
-    from alphapulldown.prediction_batch import execute_prediction_manifest
+    from alphapulldown.prediction.prediction_batch import execute_prediction_manifest
 
     manifest = tmp_path / "jobs.jsonl"
     manifest.write_text(
@@ -393,7 +393,7 @@ def test_manifest_command_returns_a_concise_rejection_for_mixed_configurations(
 def test_manifest_command_does_not_misreport_backend_setup_errors_as_read_errors(
     tmp_path,
 ):
-    from alphapulldown.prediction_batch import execute_prediction_manifest
+    from alphapulldown.prediction.prediction_batch import execute_prediction_manifest
 
     manifest = tmp_path / "jobs.jsonl"
     manifest.write_text(
@@ -433,14 +433,14 @@ def test_manifest_command_does_not_misreport_backend_setup_errors_as_read_errors
     ],
 )
 def test_batch_outcome_requires_exactly_one_result(outcome_kwargs):
-    from alphapulldown.prediction_batch import PredictionBatchOutcome
+    from alphapulldown.prediction.prediction_batch import PredictionBatchOutcome
 
     with pytest.raises(ValueError, match="exactly one"):
         PredictionBatchOutcome(**outcome_kwargs)
 
 
 def test_alphapulldown_adapter_keeps_af3_jobs_independent_with_one_setup(tmp_path):
-    from alphapulldown.prediction_batch import (
+    from alphapulldown.prediction.prediction_batch import (
         AlphaPulldownPredictionAdapter,
         PredictionBatch,
         PredictionJob,
@@ -499,7 +499,7 @@ def test_alphapulldown_adapter_keeps_af3_jobs_independent_with_one_setup(tmp_pat
 
 def test_alphapulldown_adapter_reuses_af2_runners_across_jobs(tmp_path):
     from alphapulldown.objects import MonomericObject
-    from alphapulldown.prediction_batch import (
+    from alphapulldown.prediction.prediction_batch import (
         AlphaPulldownPredictionAdapter,
         PredictionBatch,
         PredictionJob,
@@ -566,7 +566,7 @@ def test_alphapulldown_adapter_reuses_af2_runners_across_jobs(tmp_path):
 def test_adapter_configuration_matches_the_shared_parser_contract(
     tmp_path, backend_name, fold_specification, expected_model_name
 ):
-    from alphapulldown.prediction_batch import (
+    from alphapulldown.prediction.prediction_batch import (
         AlphaPulldownPredictionAdapter,
         PredictionJob,
     )
@@ -601,7 +601,7 @@ def test_batch_command_is_in_the_installed_script_interface():
 
 def test_metadata_is_taken_from_every_feature_directory(tmp_path):
     """The old single-fold copy only ever saw the LAST feature directory."""
-    from alphapulldown import fold_preparation
+    from alphapulldown.prediction import fold_preparation
     from alphapulldown.objects import MonomericObject
 
     first, second, out = tmp_path / "f1", tmp_path / "f2", tmp_path / "out"

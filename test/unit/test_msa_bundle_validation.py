@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from alphapulldown.feature_batch import (
+from alphapulldown.features.feature_batch import (
     FeatureRequest,
     RNA,
     RNA_DATABASE_NAMES,
@@ -87,7 +87,7 @@ def test_rna_bundle_has_no_paired_alignment_and_uses_its_own_database_roles(bund
 
 def test_template_search_failure_preserves_a_valid_af2_msa_bundle(bundle):
     pytest.importorskip("alphafold.data.pipeline", reason="needs AlphaFold 2")
-    from alphapulldown.af2_feature_finalizer import (
+    from alphapulldown.features.af2_feature_finalizer import (
         Af2FeatureFinalizationSettings,
         Af2FeatureFinalizer,
     )

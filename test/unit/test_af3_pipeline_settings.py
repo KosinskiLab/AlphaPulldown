@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import dataclasses
 
-from alphapulldown.af3_pipeline import (
+from alphapulldown.features.af3_pipeline import (
     BINARY_FIELDS,
     DATABASE_FIELDS,
     AF3PipelineSettings,

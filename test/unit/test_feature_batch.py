@@ -18,7 +18,7 @@ except ImportError as exc:
         allow_module_level=True,
     )
 
-from alphapulldown.feature_batch import (
+from alphapulldown.features.feature_batch import (
     DatabaseSpec,
     FeatureBatch,
     FeatureBatchSettings,
@@ -1095,7 +1095,7 @@ def test_database_rebuild_invalidates_cache_even_with_same_identifier(tmp_path: 
 
 def test_database_roles_are_named_not_positional():
     """A reordered name tuple must not be able to swap paired for unpaired."""
-    from alphapulldown import feature_batch as fb
+    from alphapulldown.features import feature_batch as fb
 
     assert fb.DATABASE_NAMES == (*fb.UNPAIRED_DATABASE_NAMES, fb.PAIRED_DATABASE_NAME)
     assert fb.PAIRED_DATABASE_NAME not in fb.UNPAIRED_DATABASE_NAMES
@@ -1105,7 +1105,7 @@ def test_database_roles_are_named_not_positional():
 def test_database_selection_assigns_roles_from_flags():
     from types import SimpleNamespace
 
-    from alphapulldown import feature_batch as fb
+    from alphapulldown.features import feature_batch as fb
     from alphapulldown.scripts._mmseqs2_cli import database_selection
 
     class _Flag:
@@ -1125,7 +1125,7 @@ def test_database_selection_assigns_roles_from_flags():
 
 def test_cpu_and_gpu_search_are_distinct_cache_identities():
     """A bundle searched on CPU must not be reused for a GPU run, or vice versa."""
-    from alphapulldown.feature_batch import SubprocessMmseqsProcess
+    from alphapulldown.features.feature_batch import SubprocessMmseqsProcess
 
     assert SubprocessMmseqsProcess("/bin/mmseqs", gpu=True).search_mode() == "gpu"
     assert SubprocessMmseqsProcess("/bin/mmseqs", gpu=False).search_mode() == "cpu"

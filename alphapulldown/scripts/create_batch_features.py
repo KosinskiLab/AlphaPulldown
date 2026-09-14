@@ -13,7 +13,7 @@ from typing import Sequence
 
 from absl import app, flags, logging
 
-from alphapulldown.feature_batch import (
+from alphapulldown.features.feature_batch import (
     PROTEIN,
     FeatureBatch,
     FeatureBatchSettings,

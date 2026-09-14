@@ -17,12 +17,12 @@ from pathlib import Path
 
 from absl import app, flags, logging
 
-from alphapulldown.af2_feature_finalizer import (
+from alphapulldown.features.af2_feature_finalizer import (
     Af2FeatureFinalizationSettings,
     Af2FeatureFinalizer,
     build_af2_template_stack,
 )
-from alphapulldown.feature_batch import (
+from alphapulldown.features.feature_batch import (
     MOLECULE_TYPES,
     PROTEIN,
     FeatureFinalizationSettings,

@@ -7,7 +7,7 @@ from typing import Callable, Sequence
 
 from absl import flags
 
-from alphapulldown.feature_batch import (
+from alphapulldown.features.feature_batch import (
     DATABASE_NAMES,
     DEFAULT_MAX_SEQUENCES,
     DEFAULT_RNA_E_VALUE,

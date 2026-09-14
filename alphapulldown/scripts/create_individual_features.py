@@ -26,7 +26,7 @@ from alphafold.data.pipeline import DataPipeline as AF2DataPipeline
 # AlphaPulldown helpers
 from alphapulldown.utils.create_custom_template_db import create_db
 from alphapulldown.objects import MonomericObject
-from alphapulldown.af2_feature_finalizer import (
+from alphapulldown.features.af2_feature_finalizer import (
     Af2TemplateStackSettings,
     build_af2_template_stack,
 )
@@ -40,7 +40,7 @@ from alphapulldown.utils.modelling_setup import create_uniprot_runner
 from alphapulldown.utils.multimeric_template_utils import (
     extract_multimeric_template_features_for_single_chain,
 )
-from alphapulldown import af3_pipeline
+from alphapulldown.features import af3_pipeline
 from alphapulldown.utils import save_meta_data
 from alphapulldown.utils.feature_metadata import embed_metadata_in_af3_json
 from alphapulldown.utils.template_reuse import (

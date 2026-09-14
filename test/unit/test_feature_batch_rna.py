@@ -14,8 +14,8 @@ import sys
 
 import pytest
 
-import alphapulldown.feature_batch as feature_batch_module
-from alphapulldown.feature_batch import (
+import alphapulldown.features.feature_batch as feature_batch_module
+from alphapulldown.features.feature_batch import (
     FeatureFinalizationSettings,
     FeatureFinalizer,
     DEFAULT_RNA_E_VALUE,
@@ -528,7 +528,7 @@ class _Flag:
 
 
 def _flag_dict(*, rna_paths: bool) -> dict:
-    from alphapulldown import feature_batch as fb
+    from alphapulldown.features import feature_batch as fb
 
     values = {}
     for name in fb.DATABASE_NAMES:

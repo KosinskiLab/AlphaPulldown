@@ -2,7 +2,7 @@
 
 import pytest
 
-from alphapulldown import inference_flags
+from alphapulldown.prediction import inference_flags
 
 
 class _Flags:

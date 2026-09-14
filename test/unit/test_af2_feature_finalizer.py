@@ -20,11 +20,11 @@ pipeline = pytest.importorskip(
 )
 from alphafold.common import residue_constants  # noqa: E402
 
-from alphapulldown.af2_feature_finalizer import (  # noqa: E402
+from alphapulldown.features.af2_feature_finalizer import (  # noqa: E402
     Af2FeatureFinalizationSettings,
     Af2FeatureFinalizer,
 )
-from alphapulldown.feature_batch import PROTEIN, RNA, FeatureRequest  # noqa: E402
+from alphapulldown.features.feature_batch import PROTEIN, RNA, FeatureRequest  # noqa: E402
 
 
 FIXTURES = Path(__file__).resolve().parents[1] / "test_data" / "features" / "af2_features"

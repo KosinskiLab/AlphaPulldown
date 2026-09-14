@@ -3,7 +3,7 @@
 
 from absl import app, flags, logging
 
-from alphapulldown.prediction_batch import (
+from alphapulldown.prediction.prediction_batch import (
     AlphaPulldownPredictionAdapter,
     execute_prediction_manifest,
 )

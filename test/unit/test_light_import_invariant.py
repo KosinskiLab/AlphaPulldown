@@ -19,14 +19,25 @@ import pytest
 
 # Heavy in different ways: jax and torch claim GPU memory, alphafold and
 # tensorflow are slow and pull the rest of the stack behind them.
-FORBIDDEN = ("jax", "jaxlib", "alphafold", "torch", "tensorflow")
+FORBIDDEN = ("jax", "jaxlib", "alphafold", "alphafold3", "torch", "tensorflow")
 
 LIGHT_MODULES = (
+    "alphapulldown.features",
+    "alphapulldown.prediction",
     # The script the Snakemake GPU rule actually runs.
     "alphapulldown.scripts.create_batch_msas",
-    "alphapulldown.feature_batch",
+    "alphapulldown.features.feature_batch",
     "alphapulldown.scripts._mmseqs2_cli",
+    "alphapulldown.prediction.inference_flags",
+    # Compatibility paths must retain the same lightweight behavior.
+    "alphapulldown.feature_batch",
+    "alphapulldown.af2_feature_finalizer",
+    "alphapulldown.af3_pipeline",
     "alphapulldown.inference_flags",
+    "alphapulldown.prediction_batch",
+    "alphapulldown.features.af2_feature_finalizer",
+    "alphapulldown.features.af3_pipeline",
+    "alphapulldown.prediction.prediction_batch",
 )
 
 PROBE = """
@@ -62,7 +73,7 @@ def test_the_light_path_pulls_in_neither_alphafold_nor_jax(module):
 # died on the first result. Exercise the conversion itself, not just the import.
 RESULT_PROBE = """
 import importlib, sys
-feature_batch = importlib.import_module("alphapulldown.feature_batch")
+feature_batch = importlib.import_module("alphapulldown.features.feature_batch")
 from alphapulldown.utils.msa_formats import stitch_headers_and_insertions
 headers = [
     ("query_0", "MKTAYIAKQRQ"),

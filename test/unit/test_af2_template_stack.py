@@ -3,7 +3,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from alphapulldown.af2_feature_finalizer import build_af2_template_stack
+from alphapulldown.features.af2_feature_finalizer import build_af2_template_stack
 from alphapulldown.scripts import create_individual_features as legacy
 from alphapulldown.scripts import finalize_batch_features as cli
 from alphapulldown.scripts._mmseqs2_cli import (

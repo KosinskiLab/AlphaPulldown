@@ -17,7 +17,7 @@ import subprocess
 
 import pytest
 
-from alphapulldown.feature_batch import SubprocessMmseqsProcess, _describe_exit
+from alphapulldown.features.feature_batch import SubprocessMmseqsProcess, _describe_exit
 
 
 def test_a_segfault_is_named_not_left_blank():
