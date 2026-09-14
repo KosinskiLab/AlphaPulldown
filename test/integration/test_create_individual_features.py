@@ -1369,8 +1369,8 @@ def test_create_pipeline_af2_uses_hhsearch_template_stack(tmp_flags):
     create_features.FLAGS.kalign_binary_path = "/bin/kalign"
     create_features.FLAGS.obsolete_pdbs_path = "/db/obsolete.dat"
 
-    with patch.object(create_features.hhsearch, "HHSearch", return_value="searcher") as mock_searcher, \
-         patch.object(create_features.templates, "HhsearchHitFeaturizer", return_value="featurizer") as mock_featurizer, \
+    with patch("alphafold.data.tools.hhsearch.HHSearch", return_value="searcher") as mock_searcher, \
+         patch("alphafold.data.templates.HhsearchHitFeaturizer", return_value="featurizer") as mock_featurizer, \
          patch.object(create_features, "AF2DataPipeline", return_value="pipeline") as mock_pipeline:
         pipeline = create_features.create_pipeline_af2()
 
@@ -1402,8 +1402,8 @@ def test_create_pipeline_af2_uses_hmmsearch_template_stack(tmp_flags):
     create_features.FLAGS.kalign_binary_path = "/bin/kalign"
     create_features.FLAGS.obsolete_pdbs_path = "/db/obsolete.dat"
 
-    with patch.object(create_features.hmmsearch, "Hmmsearch", return_value="searcher") as mock_searcher, \
-         patch.object(create_features.templates, "HmmsearchHitFeaturizer", return_value="featurizer") as mock_featurizer, \
+    with patch("alphafold.data.tools.hmmsearch.Hmmsearch", return_value="searcher") as mock_searcher, \
+         patch("alphafold.data.templates.HmmsearchHitFeaturizer", return_value="featurizer") as mock_featurizer, \
          patch.object(create_features, "AF2DataPipeline", return_value="pipeline") as mock_pipeline:
         pipeline = create_features.create_pipeline_af2()
 
@@ -1437,8 +1437,8 @@ def test_create_pipeline_af2_skip_msa_returns_template_only_pipeline(tmp_flags):
     create_features.FLAGS.kalign_binary_path = "/bin/kalign"
     create_features.FLAGS.obsolete_pdbs_path = "/db/obsolete.dat"
 
-    with patch.object(create_features.hmmsearch, "Hmmsearch", return_value="searcher") as mock_searcher, \
-         patch.object(create_features.templates, "HmmsearchHitFeaturizer", return_value="featurizer") as mock_featurizer, \
+    with patch("alphafold.data.tools.hmmsearch.Hmmsearch", return_value="searcher") as mock_searcher, \
+         patch("alphafold.data.templates.HmmsearchHitFeaturizer", return_value="featurizer") as mock_featurizer, \
          patch.object(create_features, "AF2DataPipeline") as mock_pipeline:
         pipeline = create_features.create_pipeline_af2()
 

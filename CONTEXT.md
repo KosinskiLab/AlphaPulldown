@@ -13,22 +13,24 @@
 - **Fold preparation**: building the object to model for one prediction job and its
   output directory, including AlphaPulldown-style naming and feature-metadata copying.
   Shared by the single-fold command and the resident batch so the two cannot diverge.
-- **Feature request**: one named sequence, of a stated molecule type, requiring an AlphaFold 3 feature artifact.
+- **Feature request**: one named sequence, of a stated molecule type, requiring a feature artifact.
 - **Molecule type**: whether a feature request is a protein or an RNA chain. It decides
   which databases are searched, whether a paired MSA exists at all, and which AlphaFold 3
-  chain the finalized artifact carries. DNA has no MSA and is not handled by this path.
+  chain the finalized artifact carries. RNA is AlphaFold 3 only, and DNA has no MSA and
+  is not handled by this path.
 - **Feature batch**: an ordered collection of feature requests handled as one operation.
 - **MSA batch**: the GPU stage that searches MMseqs2 and durably publishes one reusable MSA bundle per feature request.
-- **Feature finalization**: the CPU stage that reads an MSA bundle, performs native AF3 template search, and publishes the standard AF3 feature artifact.
-- **MSA bundle**: an atomic intermediate JSON containing one sequence, merged unpaired A3M, paired A3M, and complete MMseqs/database provenance.
+- **Feature finalization**: the CPU stage that reads an MSA bundle, performs the backend's native template search (AF3's, or AF2's hmmsearch/hhsearch), and publishes that backend's standard feature artifact.
+- **MSA bundle**: an atomic intermediate JSON containing one sequence, merged unpaired A3M, paired A3M, how many unpaired rows each database contributed, and complete MMseqs/database provenance. Its A3Ms carry both full database headers and insertions.
+- **Two-pass format**: formatting one MMseqs2 search result twice and joining the passes row by row, because the format with full headers drops insertions and the format with insertions drops the headers.
 - **Database identifier**: the caller-supplied immutable identity of one MMseqs2 database build; cache validity depends on it, not only its filesystem path.
-- **Feature artifact**: the standard AlphaFold 3 JSON (optionally LZMA-compressed) produced for one feature request.
+- **Feature artifact**: the standard features one backend consumes for one feature request: an AlphaFold 3 JSON, or an AlphaFold 2 MonomericObject pickle (either optionally LZMA-compressed).
 - **MSA cache hit**: an existing MSA bundle whose sequence, MMseqs2 executable version, search settings, and database identifiers match the request.
-- **Feature cache hit**: an existing feature artifact whose MSA provenance, maximum template date, PDB seqres identity, and mmCIF identity match the request.
+- **Feature cache hit**: an existing feature artifact whose MSA provenance, maximum template date, PDB seqres identity, and mmCIF identity match the request (for AlphaFold 2, also the template searcher).
 - **Recoverable failure**: a failure isolated to one sequence; remaining requests continue and the batch reports a nonzero summary after writing successful artifacts.
 - **Database role**: whether a configured MMseqs2 database supplies unpaired hits
   (uniref90, mgnify, small_bfd, merged into one MSA) or paired hits (uniprot, whose
-  UniProt taxon headers let AlphaFold 3 pair chains by species). Roles are named, not
+  UniProt taxon headers let AlphaFold pair chains by species). Roles are named, not
   inferred from a position in the configured list.
 - **RNA database set**: the three nucleotide databases AlphaFold 3 merges into one
   unpaired RNA MSA (rfam, rnacentral, nt_rna). All unpaired - AlphaFold 3 never pairs

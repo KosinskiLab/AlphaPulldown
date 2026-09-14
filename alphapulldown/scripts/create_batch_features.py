@@ -93,7 +93,9 @@ def main(argv) -> None:
             template_mmcif_database_id=FLAGS.template_mmcif_database_id,
         ),
         mmseqs_process=SubprocessMmseqsProcess(
-            FLAGS.mmseqs_binary_path, gpu=FLAGS.mmseqs_use_gpu
+            FLAGS.mmseqs_binary_path,
+            gpu=FLAGS.mmseqs_use_gpu,
+            db_load_mode=FLAGS.mmseqs_db_load_mode,
         ),
         af3_pipeline=pipeline,
     ).generate(requests)

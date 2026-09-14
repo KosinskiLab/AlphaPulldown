@@ -21,13 +21,15 @@ from absl import logging, app, flags
 from colabfold.utils import DEFAULT_API_SERVER
 
 # AlphaFold2 imports
-from alphafold.data import templates
 from alphafold.data.pipeline import DataPipeline as AF2DataPipeline
-from alphafold.data.tools import hmmsearch, hhsearch
 
 # AlphaPulldown helpers
 from alphapulldown.utils.create_custom_template_db import create_db
 from alphapulldown.objects import MonomericObject
+from alphapulldown.af2_feature_finalizer import (
+    Af2TemplateStackSettings,
+    build_af2_template_stack,
+)
 from alphapulldown.utils.file_handling import (
     iter_seqs,
     parse_csv_file,
@@ -395,29 +397,35 @@ def get_af3_feature_metadata(chain_kinds, *, skip_msa, flag_values=None):
 
 # =================== AlphaFold 2 Feature Creation ===================
 
+def af2_template_stack_settings():
+    """The AF2 template stack as this run's flags describe it, mutating nothing.
+
+    Paths not given explicitly come from --data_dir, the same defaults
+    create_arguments() would have written into FLAGS.
+    """
+    def path(flag_name, database_key):
+        explicit = getattr(FLAGS, flag_name)
+        if explicit:
+            return explicit
+        return get_database_path(database_key) if FLAGS.data_dir else None
+
+    return Af2TemplateStackSettings(
+        template_mmcif_dir=path("template_mmcif_dir", "template_mmcif_dir"),
+        max_template_date=FLAGS.max_template_date,
+        kalign_binary_path=FLAGS.kalign_binary_path,
+        obsolete_pdbs_path=path("obsolete_pdbs_path", "obsolete_pdbs"),
+        use_hhsearch=FLAGS.use_hhsearch,
+        hmmsearch_binary_path=FLAGS.hmmsearch_binary_path,
+        hmmbuild_binary_path=FLAGS.hmmbuild_binary_path,
+        pdb_seqres_database_path=path("pdb_seqres_database_path", "pdb_seqres"),
+        hhsearch_binary_path=FLAGS.hhsearch_binary_path,
+        pdb70_database_path=path("pdb70_database_path", "pdb70"),
+    )
+
+
 def _create_af2_template_stack():
     """Create the AF2 template searcher and featurizer."""
-    if FLAGS.use_hhsearch:
-        template_searcher = hhsearch.HHSearch(
-            binary_path=FLAGS.hhsearch_binary_path, databases=[FLAGS.pdb70_database_path]
-        )
-        template_featuriser = templates.HhsearchHitFeaturizer(
-            mmcif_dir=FLAGS.template_mmcif_dir, max_template_date=FLAGS.max_template_date,
-            max_hits=20, kalign_binary_path=FLAGS.kalign_binary_path,
-            release_dates_path=None, obsolete_pdbs_path=FLAGS.obsolete_pdbs_path
-        )
-    else:
-        template_featuriser = templates.HmmsearchHitFeaturizer(
-            mmcif_dir=FLAGS.template_mmcif_dir, max_template_date=FLAGS.max_template_date,
-            max_hits=20, kalign_binary_path=FLAGS.kalign_binary_path,
-            obsolete_pdbs_path=FLAGS.obsolete_pdbs_path, release_dates_path=None
-        )
-        template_searcher = hmmsearch.Hmmsearch(
-            binary_path=FLAGS.hmmsearch_binary_path,
-            hmmbuild_binary_path=FLAGS.hmmbuild_binary_path,
-            database_path=FLAGS.pdb_seqres_database_path
-        )
-    return template_searcher, template_featuriser
+    return build_af2_template_stack(af2_template_stack_settings())
 
 
 def create_pipeline_af2():

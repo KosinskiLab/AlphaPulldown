@@ -9,7 +9,7 @@
 ### Quick install (recommended)
 
 ```bash
-curl -O https://raw.githubusercontent.com/KosinskiLab/AlphaPulldownSnakemake/2.8.0/install.sh
+curl -O https://raw.githubusercontent.com/KosinskiLab/AlphaPulldownSnakemake/2.9.0/install.sh
 bash install.sh
 conda activate snake
 cd AlphaPulldownSnakemake
@@ -25,7 +25,7 @@ Useful options:
 | Option | Meaning |
 | --- | --- |
 | `-d, --dest DIR` | working directory to deploy into (default `AlphaPulldownSnakemake`) |
-| `-v, --version TAG` | workflow version to deploy (default `2.8.0`) |
+| `-v, --version TAG` | workflow version to deploy (default `2.9.0`) |
 | `-i, --image-dir DIR` | shared container image directory |
 | `-n, --env-name NAME` | conda environment name (default `snake`) |
 | `--no-pull` | skip container pre-fetch (Snakemake will fetch on first run) |
@@ -43,7 +43,7 @@ Create and activate the conda environment:
 ```bash
 conda env create \
   -n snake \
-  -f https://raw.githubusercontent.com/KosinskiLab/AlphaPulldownSnakemake/2.8.0/workflow/envs/alphapulldown.yaml
+  -f https://raw.githubusercontent.com/KosinskiLab/AlphaPulldownSnakemake/2.9.0/workflow/envs/alphapulldown.yaml
 conda activate snake
 ```
 
@@ -55,7 +55,7 @@ Then deploy the workflow into a new processing directory for your project:
 snakedeploy deploy-workflow \
   https://github.com/KosinskiLab/AlphaPulldownSnakemake \
   AlphaPulldownSnakemake \
-  --tag 2.8.0
+  --tag 2.9.0
 cd AlphaPulldownSnakemake
 ```
 
@@ -71,12 +71,13 @@ images are still shared across projects. See
 
 | section | what it holds |
 | --- | --- |
-| **REQUIRED** | inputs, output directory, databases, weights, prediction container |
-| **COMMON** | features, backend flags, analysis, batching, SLURM partition |
-| **ADVANCED** | memory sizing, length filtering, GPU routing, spilling, CPU partitions |
+| **REQUIRED** | inputs, output directory, databases, weights, matching backend settings, SLURM partitions |
+| **COMMON** | precomputed features, feature-only runs, analysis, duplicate complexes |
+| **ADVANCED** | batching, resource limits, GPU selection, local MMseqs2, detailed report options |
 
-Each key carries a one-line comment naming the section below that documents it in full.
-A first run normally only needs the REQUIRED section.
+The comments explain each group and point to the relevant section below. A first run
+normally only needs REQUIRED. Desktop runs ignore the SLURM settings. Local MMseqs2
+is off by default; its complete configuration is kept together under ADVANCED.
 
 ### Setup protein folding jobs
 
@@ -104,24 +105,25 @@ You can also specify:
 - **Combinations**: `Q8I2G6:2:1-100+Q8I5K4` (dimer of residues 1-100 plus another protein)
 - **Copies plus discontinuous regions**: `Q8I2G6:2:1-100:150-200+Q8I5K4`
 
-The same copy/range syntax also works with AlphaFold 3 JSON features
-(`--data_pipeline: alphafold3`). Examples:
+The same copy/range syntax also works when the workflow generates AlphaFold 3
+JSON features (`--data_pipeline: alphafold3`). Examples:
 
 - `Q8I2G6_af3_input.json:1-100`
 - `Q8I2G6_af3_input.json:1-100:150-200`
 - `Q8I2G6_af3_input.json:2:1-100:150-200+Q8I5K4_af3_input.json`
 
-When a workflow or wrapper maps a logical token such as `Q8I2G6:1-100:150-200`
-to `Q8I2G6_af3_input.json:1-100:150-200`, AlphaPulldown preserves the region
-selection and keeps the AF3 JSON feature input as one discontinuous polymer
-chain with preserved residue-number gaps, so chopped regions stay intra-chain
-and template contacts between retained fragments are not masked as inter-chain
-interactions. The original residue IDs are written to the mmCIF author-numbering
-fields (`auth_seq_id` and `pdbx_PDB_ins_code`); overlapping IDs are disambiguated
-with insertion codes such as `2A`, `2B`, and so on.
-This syntax is parsed by the shared `alphapulldown-input-parser` package used by
-both AlphaPulldown and AlphaPulldownSnakemake; make sure the execution
-environment carries `alphapulldown-input-parser>=0.5.1`.
+In that mode the Snakefile rewrites logical inputs such as
+`Q8I2G6:1-100:150-200` to the corresponding
+`Q8I2G6_af3_input.json:1-100:150-200` feature reference automatically.
+AlphaPulldown preserves those discontinuous regions as one gapped polymer
+chain with preserved residue-number gaps.
+This keeps retained fragments intra-chain, so template contacts between those
+fragments are not masked as inter-chain interactions.
+The original residue IDs are written to the mmCIF author-numbering fields
+(`auth_seq_id` and `pdbx_PDB_ins_code`); overlapping IDs are disambiguated with
+insertion codes such as `2A`, `2B`, and so on.
+Make sure the prediction container or runtime environment includes a matching
+AlphaPulldown build together with `alphapulldown-input-parser>=0.5.1`.
 
 </details>
 
@@ -136,7 +138,7 @@ input_files:
 
 ### Setting up databases
 
-If you do not already have the AlphaFold databases, `scripts/setup_databases.sh`
+If you do not already have the AlphaFold databases, `scripts/setup_databases.sh` from AlphaPulldown
 fetches them and builds the MMseqs2 versions:
 
 ```bash
@@ -335,18 +337,18 @@ prediction_container: "/path/to/images/alphafold3-2.5.0.sif"
 ### GPU compatibility
 
 The containers carry their own CUDA runtime (pip `nvidia-*` wheels), so GPU support depends on the
-image tag, not on the driver installed on the node. Releases 2.5.0 and newer run on every GPU in the
-EMBL cluster, with both AlphaFold 2 and AlphaFold 3:
+image tag, not on the driver installed on the node. Releases 2.5.0 and newer have been tested on
+the following GPUs, with both AlphaFold 2 and AlphaFold 3:
 
-- RTX 3090, 24 GB, sm_86 (`gpu21-22`, `gpu29-37`)
-- A100, 40 GB, sm_80 (`gpu25-28`)
-- A40, 48 GB, sm_86 (`sb03-05` to `sb03-20`)
-- L40S, 48 GB, sm_89 (`gpu40-48`)
-- H100, 80 GB, sm_90 (`gpu38-39`, and `hgx2-3` in `gpu-training`)
-- H200, 141 GB, sm_90 (`hgx4-5` in `gpu-training`)
-- B200, 180 GB, sm_100 (`bgx1` in `gpu-training`)
-- RTX PRO 4500 Blackwell, 16 GB MIG slices, sm_120 (`gpu60-68`)
-- RTX PRO 6000 Blackwell, 96 GB, sm_120 (`gpu51-53`)
+- RTX 3090, 24 GB, sm_86
+- A100, 40 GB, sm_80
+- A40, 48 GB, sm_86
+- L40S, 48 GB, sm_89
+- H100, 80 GB, sm_90
+- H200, 141 GB, sm_90
+- B200, 180 GB, sm_100
+- RTX PRO 4500 Blackwell, 16 GB MIG slices, sm_120
+- RTX PRO 6000 Blackwell, 96 GB, sm_120
 
 On other clusters the same rule applies by compute capability: sm_80 (Ampere) through sm_120
 (Blackwell) all work with a 2.5.0 or newer image.
@@ -375,7 +377,7 @@ While you are still on an older image, keep inference off those nodes with `slur
 </details>
 
 <details>
-<summary>MIG slices (<code>gpu60-68</code>)</summary>
+<summary>MIG slices</summary>
 
 Those nodes are RTX PRO 4500 cards split into 16 GB `1g.16gb` MIG instances. They need no special
 `slurm_gres`: a plain `gpu:1` request lands on one slice and SLURM sets
@@ -450,15 +452,15 @@ you hit these.
   uses the biggest tier and spills to host RAM via unified memory.
 
   ```yaml
-  # Example for the EMBL GPU pool; replace nodes with your cluster's (nothing is hard-coded):
+  # Example GPU tiers; replace these node names with your cluster's:
   structure_inference_gpu_vram_headroom: 1.0   # <1.0 tolerates that fraction of host spill
   structure_inference_gpu_tiers:
-    - {min_vram_gb: 16, nodes: "gpu60,gpu61,gpu62,gpu63,gpu64,gpu65,gpu66,gpu67,gpu68"}  # RTX PRO 4500, 16GB MIG
-    - {min_vram_gb: 24, nodes: "gpu21,gpu22,gpu29,gpu30,gpu31,gpu32,gpu33,gpu34,gpu35,gpu36,gpu37"}
-    - {min_vram_gb: 40, nodes: "gpu25,gpu26,gpu27,gpu28"}
-    - {min_vram_gb: 48, nodes: "gpu40,gpu41,gpu42,gpu43,gpu44,gpu45,gpu46,gpu47,gpu48"}
-    - {min_vram_gb: 80, nodes: "gpu38,gpu39"}
-    - {min_vram_gb: 96, nodes: "gpu51,gpu52,gpu53"}  # RTX PRO 6000 Blackwell
+    - {min_vram_gb: 16, nodes: "gpu-16gb-01,gpu-16gb-02"}  # RTX PRO 4500, 16GB MIG
+    - {min_vram_gb: 24, nodes: "gpu-24gb-01,gpu-24gb-02"}
+    - {min_vram_gb: 40, nodes: "gpu-40gb-01,gpu-40gb-02"}
+    - {min_vram_gb: 48, nodes: "gpu-48gb-01,gpu-48gb-02"}
+    - {min_vram_gb: 80, nodes: "gpu-80gb-01,gpu-80gb-02"}
+    - {min_vram_gb: 96, nodes: "gpu-96gb-01,gpu-96gb-02"}  # RTX PRO 6000 Blackwell
   ```
 
   When set this drives `--exclude` per job and **overrides** `structure_inference_gpu_model` (the two
@@ -468,7 +470,7 @@ you hit these.
   partition(s); it excludes nodes by name, so if you span **multiple partitions** (see above) make
   sure the tier node lists cover every partition you submit to.
 - **Exclude specific nodes** with `slurm_exclude_nodes`, passed verbatim to `sbatch --exclude`
-  (e.g. `"gpu51,gpu52"`). `--exclude` is allowed in `slurm_extra` whereas
+  (e.g. `"gpu-96gb-01,gpu-96gb-02"`). `--exclude` is allowed in `slurm_extra` whereas
   `--constraint`/`--gres`/`--gpus` are not, so it is the supported way to drop a few nodes while
   keeping the rest of the partition. The usual reason to need it is a GPU the container image is too
   old for; see [GPU compatibility](#gpu-compatibility).
@@ -512,8 +514,7 @@ read with `nvidia-smi` once the job lands on a node, and the host RAM is the job
 ceiling within the SLURM allocation so XLA cannot oversubscribe host RAM beyond what the
 job requested — which would otherwise get the job OOM-killed. The chosen fraction is
 logged as a `[unified-memory]` line at the top of the job log. Pin a number instead if
-you want a fixed multiplier regardless of GPU/RAM (mirrors the EMBL `run_AF_multimer.sh`
-convention).
+you want a fixed multiplier regardless of GPU/RAM.
 
 > The fraction is computed in the job shell rather than via the SLURM executor: the
 > executor passes the submit environment through with `--export=ALL` but offers no
@@ -542,7 +543,8 @@ structure_inference  mem = safety * (structure_inference_ram_bytes + per_token_s
 ```
 
 - `seq_len` is the query length; `N` is the **total residues of the complex** (the
-  AlphaFold token count, summed over chains and copy numbers). AlphaFold's pair
+  AlphaFold token count, summed over chains and copy numbers). For AlphaFold 3, `N` is
+  rounded up to the `--buckets` size the model pads to. AlphaFold's pair
   representation is `O(N^2)`, hence the quadratic inference term.
 - **The coefficients default by backend** (selected from `--data_pipeline` / `--fold_backend`).
   AlphaFold-Multimer (AF2) is heavier than AlphaFold 3 — measured AF2 inference host RSS was
@@ -677,38 +679,117 @@ batch_max_tokens: 0    # optional cap on summed residues per batch (0 = no cap)
 
 </details>
 
-### Batched local MMseqs2-GPU features (AlphaFold 3)
+### Using precomputed features
+
+If you have precomputed protein features, specify the directory:
+
+```yaml
+feature_directory:
+  - "/path/to/directory/with/features/"
+```
+
+> **Note**: If your features are compressed, set `compress-features: True` in the config.
+
+### Feature generation flags (`create_individual_features.py`)
+
+Tweak the feature-generation step by editing `create_feature_arguments` (or by running the script
+manually).
 
 <details>
-<summary>Faster AlphaFold 3 MSAs using local MMseqs2 instead of jackhmmer/HHblits</summary>
+<summary>Commonly used flags</summary>
 
-Off by default. Proteins are split into bounded GPU shards searched with MMseqs2, and a
-separate CPU stage runs AlphaFold 3's own template search and writes one standard AF3
-JSON per chain — so template work can use CPU and big-memory partitions in parallel.
-AlphaFold 2 feature generation and the remote `--use_mmseqs2` path are unchanged. RNA
-chains are supported once the RNA databases are configured.
+- `--data_pipeline {alphafold2,alphafold3}` – choose the feature format to emit.
+- `--db_preset {full_dbs,reduced_dbs}` – switch between the full BFD stack or the reduced databases.
+- `--use_mmseqs2` – rely on the remote MMseqs2 API; skips local jackhmmer/HHsearch database lookups.
+  To reuse a3m files generated locally with `colabfold_search`, also set `--use_precomputed_msas=True`
+  (see the [mmseqs2 manual](https://github.com/KosinskiLab/AlphaPulldown/blob/main/manuals/mmseqs2_manual.md));
+  otherwise the remote API is contacted again and your a3m files are overwritten.
+- `--skip_msa` – generate query-only single-sequence features instead of running bulk MSA searches.
+  Use those feature pickles with `run_structure_prediction.py --pair_msa=False`.
+- `--use_precomputed_msas` / `--save_msa_files` – reuse stored MSAs (`<output_dir>/<protein>.a3m`) or
+  keep new ones for later runs. Required to reuse precomputed MMseqs2/ColabFold a3m files rather
+  than regenerating them.
+- `--compress_features` – compress the generated features to save space: `*.pkl.xz` for the AlphaFold2 pipeline, `*_af3_input.json.xz` for AlphaFold3. Both are read back transparently, so compressed feature sets can be used directly (this is how the [features database](https://alphapulldown.s3.embl.de) ships them).
+- `--skip_existing` – leave existing feature files untouched (safe for reruns).
+- `--keep_msas` – refresh **templates only** in features that already exist in `--output_dir`, keeping their MSAs. Use it when the template database or `--max_template_date` has moved but the alignments are still valid: it costs a template search (minutes) instead of a full MSA run (hours). Works for both pipelines — AlphaFold2 features get their `template_*` block replaced, AlphaFold3 features are re-processed through AF3's "search for templates only" path. Proteins with no stored features are generated normally, and it takes precedence over `--skip_existing`. Cannot be combined with `--use_mmseqs2` (which fetches MSAs and templates together) or `--skip_msa` (no MSAs to keep).
+- `--seq_index N` – only process the N‑th sequence from the FASTA list.
+- `--use_hhsearch`, `--re_search_templates_mmseqs2` – toggle template search implementations.
+- `--path_to_mmt`, `--description_file`, `--multiple_mmts` – enable TrueMultimer CSV-driven feature sets.
+- `--max_template_date YYYY-MM-DD` – required cutoff for template structures; keeps runs reproducible.
+
+</details>
+
+### Batched local MMseqs2 features (AlphaFold 2 and 3)
+
+<details>
+<summary>Faster MSAs using local MMseqs2 instead of jackhmmer/HHblits</summary>
+
+Off by default. Missing proteins are split into bounded shards searched with MMseqs2 —
+as GPU jobs, or CPU jobs with `use_gpu: false` — and a separate CPU stage turns each
+chain's alignment into standard features, so template work can use CPU and big-memory
+partitions in parallel. Which features follows `--data_pipeline` in
+`create_feature_arguments`: an AF3 JSON per chain, or an AF2 pickle. The remote
+`--use_mmseqs2` path is unchanged. RNA chains are supported for AlphaFold 3 once the RNA
+databases are configured.
 
 ```yaml
 mmseqs2_features:
   enabled: true
+  use_gpu: true
   temp_dir: /local-fast-scratch/mmseqs
+  template_database_ids:
+    pdb_seqres: pdb-seqres-2026-08
+    mmcif: pdb-mmcif-2026-08
+    # pdb70: pdb70-2026-08  # required for AF2 --use_hhsearch
   databases:
-    uniref90:  {path: /db/mmseqs/uniref90,  identifier: uniref90-2026-08,  max_sequences: 10000}
-    mgnify:    {path: /db/mmseqs/mgnify,    identifier: mgnify-2026-08,    max_sequences: 5000}
-    small_bfd: {path: /db/mmseqs/small_bfd, identifier: small-bfd-2026-08, max_sequences: 5000}
-    uniprot:   {path: /db/mmseqs/uniprot,   identifier: uniprot-2026-08,   max_sequences: 50000}
+    uniref90:  {path: /db/mmseqs/uniref90_gpu,  identifier: uniref90-2026-08,  max_sequences: 10000}
+    mgnify:    {path: /db/mmseqs/mgnify_gpu,    identifier: mgnify-2026-08,    max_sequences: 5000}
+    small_bfd: {path: /db/mmseqs/small_bfd_gpu, identifier: small-bfd-2026-08, max_sequences: 5000}
+    uniprot:   {path: /db/mmseqs/uniprot_gpu,   identifier: uniprot-2026-08,   max_sequences: 50000}
 ```
 
 The protein databases must be padded (`makepaddedseqdb`); the RNA ones must not be.
 `scripts/setup_databases.sh --mmseqs` builds them. The native AlphaFold 3 database tree
-is still required — these are additive, not a replacement.
+is still required — these are additive, not a replacement. Memory and walltime for both
+stages are derived from the configured databases; the remaining knobs live in the
+ADVANCED section of `config/config.yaml`.
+
+**The GPU search reads every padded database in full**, about 375 GB for the four
+protein ones. On network storage a cold first attempt is bound by that read, not by the
+GPU: measured ~150 MB/s from NFS with the GPU idle, about an hour per shard, against
+minutes once the node's page cache holds the databases. If first attempts time out,
+raise `search_runtime_base_minutes` or stage the databases on local disk; the retry,
+with twice the walltime, recovers either way.
 
 **Depth is not identical to the native pipeline.** Measured on eight *B. subtilis*
 proteins it was ~90% of jackhmmer's unpaired depth overall, but only 54–68% on the
 shallowest families. Whether that costs accuracy is untested, so treat it as opt-in and
 spot-check your own targets.
 
-Databases, RNA, tuning, caching and caveats: [docs/mmseqs2_rna.md](docs/mmseqs2_rna.md).
+**For AlphaFold 2** set `--data_pipeline: alphafold2` and enable the block above. The
+MSA recipe is AlphaFold 2's `reduced_dbs` set (no BFD/UniRef30 HHblits arm); templates
+come from the AlphaFold 2 database tree, and `--use_hhsearch` and any explicit template
+paths in `create_feature_arguments` reach the finalization stage. The MSA cache
+remains reusable when only the template database changes. With
+`--use_hhsearch: true`, set `mmseqs2_features.template_database_ids.pdb70` to the
+immutable PDB70 build identity; `pdb_seqres` is then unused. Other template searches
+require `pdb_seqres`, and every search requires `mmcif`. Update the relevant ID when
+rebuilding a database, even at the same path; this invalidates finalized features.
+The native MSA arguments do not reach finalization because this stage replaces
+that search. Use a matching prediction image, such as
+`docker://kosinskilab/alphafold2:2.9.0`, for AlphaFold 2. AlphaFold 2 finalization is
+heavier than AlphaFold 3's because template featurization dominates it — median ~1 GB and 2 min, but up to
+19 GB and 90 min, set by which structures the templates come from rather than by length
+— so its defaults request 16 GB (times the safety factor) and 60 min. Against native
+`reduced_dbs` features on 12 heterodimers released after AF2-multimer's training cutoff,
+top-ranked DockQ averaged 0.56 against 0.59, with 9 of 12 interfaces acceptable either
+way.
+
+Alignments preserve insertions for both backends. Older MSA bundles that lost
+insertions are regenerated automatically.
+
+Databases, RNA, AlphaFold 2, tuning, caching and caveats:
+[AlphaPulldown docs/mmseqs2_rna.md](https://github.com/KosinskiLab/AlphaPulldown/blob/main/docs/mmseqs2_rna.md).
 
 </details>
 
@@ -822,51 +903,9 @@ structure_inference_arguments:
 
 ---
 
-### Using precomputed features
+## How to cite
 
-If you have precomputed protein features, specify the directory:
-
-```yaml
-feature_directory:
-  - "/path/to/directory/with/features/"
-```
-
-> **Note**: If your features are compressed, set `compress-features: True` in the config.
-
-### Feature generation flags (`create_individual_features.py`)
-
-Tweak the feature-generation step by editing `create_feature_arguments` (or by running the script
-manually).
-
-<details>
-<summary>Commonly used flags</summary>
-
-- `--data_pipeline {alphafold2,alphafold3}` – choose the feature format to emit.
-- `--db_preset {full_dbs,reduced_dbs}` – switch between the full BFD stack or the reduced databases.
-- `--use_mmseqs2` – rely on the remote MMseqs2 API; skips local jackhmmer/HHsearch database lookups.
-  To reuse a3m files generated locally with `colabfold_search`, also set `--use_precomputed_msas=True`
-  (see the [mmseqs2 manual](https://github.com/KosinskiLab/AlphaPulldown/blob/main/manuals/mmseqs2_manual.md));
-  otherwise the remote API is contacted again and your a3m files are overwritten.
-- `--skip_msa` – generate query-only single-sequence features instead of running bulk MSA searches.
-  Use those feature pickles with `run_structure_prediction.py --pair_msa=False`.
-- `--use_precomputed_msas` / `--save_msa_files` – reuse stored MSAs (`<output_dir>/<protein>.a3m`) or
-  keep new ones for later runs. Required to reuse precomputed MMseqs2/ColabFold a3m files rather
-  than regenerating them.
-- `--compress_features` – compress the generated features to save space: `*.pkl.xz` for the AlphaFold2 pipeline, `*_af3_input.json.xz` for AlphaFold3. Both are read back transparently, so compressed feature sets can be used directly (this is how the [features database](https://alphapulldown.s3.embl.de) ships them).
-- `--skip_existing` – leave existing feature files untouched (safe for reruns).
-- `--keep_msas` – refresh **templates only** in features that already exist in `--output_dir`, keeping their MSAs. Use it when the template database or `--max_template_date` has moved but the alignments are still valid: it costs a template search (minutes) instead of a full MSA run (hours). Works for both pipelines — AlphaFold2 features get their `template_*` block replaced, AlphaFold3 features are re-processed through AF3's "search for templates only" path. Proteins with no stored features are generated normally, and it takes precedence over `--skip_existing`. Cannot be combined with `--use_mmseqs2` (which fetches MSAs and templates together) or `--skip_msa` (no MSAs to keep).
-- `--seq_index N` – only process the N‑th sequence from the FASTA list.
-- `--use_hhsearch`, `--re_search_templates_mmseqs2` – toggle template search implementations.
-- `--path_to_mmt`, `--description_file`, `--multiple_mmts` – enable TrueMultimer CSV-driven feature sets.
-- `--max_template_date YYYY-MM-DD` – required cutoff for template structures; keeps runs reproducible.
-
-</details>
-
----
-
-## How to Cite
-
-If AlphaPulldown contributed significantly to your research, please cite [the corresponding publication](https://doi.org/10.1093/bioinformatics/btaf115) in *Bioinformatics*:
+If AlphaPulldown (or this workflow) contributed to your research, please cite [Molodenskiy et al., 2025](https://doi.org/10.1093/bioinformatics/btaf115):
 
 ```bibtex
 @article{Molodenskiy2025AlphaPulldown2,

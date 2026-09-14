@@ -29,6 +29,7 @@ from alphapulldown.feature_batch import (
     FeatureRequest,
     MsaBatch,
     MsaBatchSettings,
+    SearchedMsas,
     SubprocessMmseqsProcess,
     feature_requests_from_fastas,
 )
@@ -136,6 +137,10 @@ class FakeMmseqsProcess:
     def result_to_msa(self, query_db, database, result_db, msa_db) -> None:
         del query_db, result_db
         msa_db.write_text(database.name, encoding="utf-8")
+
+    # The fixture's hits carry no insertions and single-token headers, so both
+    # result2msa passes format them identically and the stitch is a no-op.
+    result_to_a3m = result_to_msa
 
     def unpack_msa(self, query_db: Path, msa_db: Path, output_dir: Path) -> None:
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -245,17 +250,28 @@ def test_rna_databases_are_the_three_alphafold3_searches_in_its_merge_order():
 # --------------------------------------------------------------------------------
 
 
-def test_protein_cache_signature_is_exactly_what_it_was_before_rna_existed(tmp_path):
-    """Pinned literally: changing it silently invalidates every cached protein MSA."""
+def test_protein_cache_signature_is_pinned(tmp_path):
+    """Pinned literally: changing it silently invalidates every cached protein MSA.
+
+    It last moved, deliberately, when insertions were recovered (schema 4 -> 5,
+    and ``msa_format`` added). Bundles written before that came from mode 2 alone
+    and carry no insertions -- 86% of uniprot hits lost theirs on a real query --
+    so reusing them would have kept the defect. The only cache that existed at
+    the time was two bundles of e2e test data. Move it again only as deliberately.
+    """
     batch = MsaBatch(
         settings=_msa_settings(_settings(tmp_path)),
         mmseqs_process=FakeMmseqsProcess(),
     )
 
     assert batch._cache_signature(PROTEIN) == {
-        "schema_version": 4,
+        "schema_version": 5,
         "mmseqs_identity": "mmseqs-fixture-1",
         "search_mode": "gpu",
+        "msa_format": {
+            "headers": "result2msa mode 2",
+            "sequences": "result2msa mode 5",
+        },
         "e_value": 1e-4,
         "unpaired_databases": [
             {
@@ -306,12 +322,12 @@ def test_a_protein_bundle_records_no_molecule_type_so_old_bundles_still_match(tm
     )
 
     protein = batch._msa_payload(
-        FeatureRequest(name="alpha", sequence="ACDE"), ">query\nACDE\n", ">query\nACDE\n"
+        FeatureRequest(name="alpha", sequence="ACDE"),
+        SearchedMsas(unpaired=">query\nACDE\n", paired=">query\nACDE\n"),
     )
     rna = batch._msa_payload(
         FeatureRequest(name="beta", sequence="ACGU", molecule_type=RNA),
-        ">query\nACGU\n",
-        "",
+        SearchedMsas(unpaired=">query\nACGU\n", paired=""),
     )
 
     assert "moleculeType" not in protein
@@ -323,6 +339,7 @@ def test_a_protein_bundle_records_no_molecule_type_so_old_bundles_still_match(tm
         "pairedMsa",
         "unpairedDepth",
         "pairedDepth",
+        "unpairedDatabaseRows",
         "provenance",
     ]
     assert rna["moleculeType"] == RNA
@@ -763,7 +780,9 @@ def test_an_rna_query_reaches_mmseqs_spelled_as_dna(tmp_path, monkeypatch):
     batch = MsaBatch(settings=settings, mmseqs_process=process)
 
     monkeypatch.setattr(
-        feature_batch_module, "_aligned_fasta_to_a3m", lambda fasta, query, kind: fasta
+        feature_batch_module,
+        "_stitched_to_a3m",
+        lambda records, query, kind: "".join(f">{d}\n{s}\n" for d, s in records),
     )
 
     batch._search_chunk(["ACGUUU"], RNA)
@@ -781,7 +800,9 @@ def test_a_protein_query_is_handed_to_mmseqs_unchanged(tmp_path, monkeypatch):
     batch = MsaBatch(settings=settings, mmseqs_process=process)
 
     monkeypatch.setattr(
-        feature_batch_module, "_aligned_fasta_to_a3m", lambda fasta, query, kind: fasta
+        feature_batch_module,
+        "_stitched_to_a3m",
+        lambda records, query, kind: "".join(f">{d}\n{s}\n" for d, s in records),
     )
 
     batch._search_chunk(["ACDEFGU"], PROTEIN)

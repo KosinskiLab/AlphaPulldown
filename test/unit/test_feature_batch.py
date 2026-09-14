@@ -119,6 +119,10 @@ class FakeMmseqsProcess:
         del query_db, result_db
         msa_db.write_text(database.name, encoding="utf-8")
 
+    # The fixture's hits carry no insertions and single-token headers, so both
+    # result2msa passes format them identically and the stitch is a no-op.
+    result_to_a3m = result_to_msa
+
     def unpack_msa(self, query_db: Path, msa_db: Path, output_dir: Path) -> None:
         output_dir.mkdir(parents=True, exist_ok=True)
         database_name = msa_db.read_text(encoding="utf-8")
@@ -176,18 +180,52 @@ class FirstSequenceFailsMmseqs(FakeMmseqsProcess):
         super().search(query_db, database, result_db, work_dir, settings)
 
 
-class FullHeaderAlignedFastaMmseqs(FakeMmseqsProcess):
+class TwoPassMmseqs(FakeMmseqsProcess):
+    """Formats one hit the way the real pinned MMseqs2 build does, in both passes.
+
+    The hit carries a one-residue insertion (X, between C and D). Mode 2 keeps the
+    full UniProt header and drops the insertion; mode 5 keeps the insertion and cuts
+    the header to the accession. Measured, not assumed: see msa_formats.
+
+    This replaces a fixture that fed mode 2 a query row WITH a gap column, on the
+    belief that mode 2 carries insertions that way. The real build never emits one
+    -- every row comes back at query width -- so that path never ran on real data.
+    """
+
+    def result_to_msa(self, query_db, database, result_db, msa_db) -> None:
+        del query_db, database, result_db
+        msa_db.write_text("headers", encoding="utf-8")
+
+    def result_to_a3m(self, query_db, database, result_db, msa_db) -> None:
+        del query_db, database, result_db
+        msa_db.write_text("insertions", encoding="utf-8")
+
     def unpack_msa(self, query_db: Path, msa_db: Path, output_dir: Path) -> None:
-        del msa_db
         output_dir.mkdir(parents=True, exist_ok=True)
+        insertions = msa_db.read_text(encoding="utf-8") == "insertions"
         for index, (query_id, sequence) in enumerate(self._queries[query_db]):
             assert sequence == "ACDE"
+            hit = (
+                ">P12345\nACxDE\n"
+                if insertions
+                else ">sp|P12345|KINASE_HUMAN Protein kinase OS=Homo sapiens "
+                "OX=9606 GN=KIN1\nACDE\n"
+            )
             (output_dir / f"{index}.fasta").write_text(
-                f">{query_id} query description\n"
-                "AC-DE\n"
-                ">sp|P12345|KINASE_HUMAN Protein kinase OS=Homo sapiens "
-                "OX=9606 GN=KIN1\n"
-                "ACXDE\n",
+                f">{query_id}\nACDE\n{hit}", encoding="utf-8"
+            )
+
+
+class ReorderedPassesMmseqs(TwoPassMmseqs):
+    """The two passes disagree about which hit is which, as a future MMseqs2 might."""
+
+    def unpack_msa(self, query_db: Path, msa_db: Path, output_dir: Path) -> None:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        insertions = msa_db.read_text(encoding="utf-8") == "insertions"
+        for index, (query_id, _) in enumerate(self._queries[query_db]):
+            first, second = ("ACDE", "ACDQ") if insertions else ("ACDQ", "ACDE")
+            (output_dir / f"{index}.fasta").write_text(
+                f">{query_id}\nACDE\n>sp|P1|A_HUMAN\n{first}\n>sp|P2|B_YEAST\n{second}\n",
                 encoding="utf-8",
             )
 
@@ -245,6 +283,31 @@ def test_subprocess_adapter_requests_aligned_fasta_output(tmp_path):
     command = arguments.read_text(encoding="utf-8").splitlines()
     assert command[0] == "result2msa"
     assert command[command.index("--msa-format-mode") + 1] == "2"
+
+
+def test_subprocess_adapter_requests_a3m_for_the_insertion_pass(tmp_path):
+    # Mode 5 is the only result2msa format that keeps insertions.
+    binary = tmp_path / "mmseqs"
+    arguments = Path(f"{binary}.arguments")
+    binary.write_text(
+        '#!/bin/sh\nprintf \'%s\\n\' "$@" > "${0}.arguments"\n',
+        encoding="utf-8",
+    )
+    binary.chmod(0o755)
+    database = DatabaseSpec(
+        name="uniprot", path=tmp_path / "uniprot", identifier="fixture"
+    )
+
+    SubprocessMmseqsProcess(binary).result_to_a3m(
+        tmp_path / "query",
+        database,
+        tmp_path / "result",
+        tmp_path / "msa",
+    )
+
+    command = arguments.read_text(encoding="utf-8").splitlines()
+    assert command[0] == "result2msa"
+    assert command[command.index("--msa-format-mode") + 1] == "5"
 
 
 def test_gpu_search_does_not_pass_ignored_sensitivity_option(tmp_path):
@@ -570,10 +633,15 @@ def test_downstream_af3_failure_preserves_a_valid_msa_bundle(tmp_path):
     assert bundle.exists()
 
 
-def test_aligned_fasta_conversion_preserves_taxon_header_and_insertions(tmp_path):
+def test_stitched_alignment_keeps_taxon_header_and_insertions(tmp_path):
+    """Both halves reach AlphaFold 3 -- which neither result2msa pass gives alone.
+
+    The header decides species pairing; the insertion is what mode 2 used to
+    discard for 86% of real uniprot hits.
+    """
     batch = FeatureBatch(
         settings=_settings(tmp_path),
-        mmseqs_process=FullHeaderAlignedFastaMmseqs(),
+        mmseqs_process=TwoPassMmseqs(),
         af3_pipeline=PassthroughAf3Pipeline(),
     )
 
@@ -589,6 +657,78 @@ def test_aligned_fasta_conversion_preserves_taxon_header_and_insertions(tmp_path
         "OX=9606 GN=KIN1\n" in paired_msa
     )
     assert "\nACxDE\n" in paired_msa
+
+
+def test_passes_that_disagree_fail_the_request_rather_than_mislabel_hits(tmp_path):
+    """A positional join that silently went wrong would label P1's sequence as P2's.
+
+    On the paired database that means pairing chains by the wrong species: a wrong
+    answer that looks entirely plausible. It has to fail, loudly and per request,
+    and publish nothing.
+    """
+    settings = _settings(tmp_path)
+    batch = FeatureBatch(
+        settings=settings,
+        mmseqs_process=ReorderedPassesMmseqs(),
+        af3_pipeline=PassthroughAf3Pipeline(),
+    )
+
+    result = batch.generate([FeatureRequest(name="alpha", sequence="ACDE")])
+
+    assert [failure.name for failure in result.failures] == ["alpha"]
+    assert "no longer in the same order" in result.failures[0].error
+    assert not (settings.msa_output_dir / "alpha_mmseqs_msa.json").exists()
+    assert not (tmp_path / "features" / "alpha_af3_input.json").exists()
+
+
+def test_bundle_records_how_many_rows_each_database_contributed(tmp_path):
+    """AlphaFold 2 searches templates from uniref90 alone and caps each database
+    separately, so the merged alignment is only usable if its boundaries survive."""
+    settings = _settings(tmp_path)
+    FeatureBatch(
+        settings=settings,
+        mmseqs_process=FakeMmseqsProcess(),
+        af3_pipeline=PassthroughAf3Pipeline(),
+    ).generate([FeatureRequest(name="alpha", sequence="ACDEFG")])
+
+    bundle = json.loads(
+        (settings.msa_output_dir / "alpha_mmseqs_msa.json").read_text(encoding="utf-8")
+    )
+    assert bundle["schemaVersion"] == 3
+    spans = bundle["unpairedDatabaseRows"]
+    assert [span["name"] for span in spans] == ["uniref90", "mgnify", "small_bfd"]
+    # The fixture gives each database one distinct hit, and the spans must account
+    # for every row of the merged alignment except the query.
+    assert [span["rows"] for span in spans] == [1, 1, 1]
+    assert sum(span["rows"] for span in spans) == bundle["unpairedDepth"] - 1
+
+    # And each span really is that database's rows, in order.
+    rows = bundle["unpairedMsa"].splitlines()[3::2]
+    assert [row[0] for row in rows] == ["V", "R", "N"]
+
+
+def test_bundle_whose_row_spans_do_not_add_up_is_searched_again(tmp_path):
+    """A wrong count does not fail when sliced -- it hands AlphaFold 2 another
+    database's rows as uniref90. So a bundle that does not add up is not reused."""
+    settings = _settings(tmp_path)
+    request = FeatureRequest(name="alpha", sequence="ACDEFG")
+    FeatureBatch(
+        settings=settings,
+        mmseqs_process=FakeMmseqsProcess(),
+        af3_pipeline=PassthroughAf3Pipeline(),
+    ).generate([request])
+    bundle_path = settings.msa_output_dir / "alpha_mmseqs_msa.json"
+    bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
+    bundle["unpairedDatabaseRows"][0]["rows"] += 1
+    bundle_path.write_text(json.dumps(bundle), encoding="utf-8")
+
+    searching = FakeMmseqsProcess()
+    result = MsaBatch(
+        settings=_msa_settings(settings), mmseqs_process=searching
+    ).generate([request])
+
+    assert [artifact.name for artifact in result.written] == ["alpha"]
+    assert result.reused == ()
 
 
 def test_matching_artifact_is_reused_without_external_search(tmp_path):

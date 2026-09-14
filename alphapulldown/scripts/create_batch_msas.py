@@ -57,7 +57,9 @@ def main(argv) -> None:
     result = MsaBatch(
         settings=settings,
         mmseqs_process=SubprocessMmseqsProcess(
-            FLAGS.mmseqs_binary_path, gpu=FLAGS.mmseqs_use_gpu
+            FLAGS.mmseqs_binary_path,
+            gpu=FLAGS.mmseqs_use_gpu,
+            db_load_mode=FLAGS.mmseqs_db_load_mode,
         ),
     ).generate(requests)
     logging.info(

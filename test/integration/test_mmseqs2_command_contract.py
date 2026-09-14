@@ -11,14 +11,12 @@ import pytest
 
 pytestmark = [pytest.mark.integration, pytest.mark.external_tools]
 
-try:
-    from alphafold3.cpp import msa_conversion as _msa_conversion  # noqa: F401
-except ImportError as exc:
-    pytest.skip(
-        f"AlphaFold 3 MSA conversion is unavailable: {exc}", allow_module_level=True
-    )
-
-from alphapulldown.feature_batch import (  # noqa: E402
+# No AlphaFold 3 skip here any more. This module exercises the shared protein
+# search, which the AlphaFold 2 image has to run too -- and that image has no
+# AlphaFold 3 at all. Skipping the whole module on its absence meant an AlphaFold 2
+# environment reported success while silently skipping the one test that runs a
+# real MMseqs2 search end to end.
+from alphapulldown.feature_batch import (
     DatabaseSpec,
     FeatureRequest,
     MsaBatch,
@@ -47,9 +45,15 @@ def test_real_createdb_padded_search_result2msa_and_unpack_contract(tmp_path):
 
     query_sequence = "MKTAYIAKQRQISFVKSHFSRQDILDLWIYHTQGYFPQYQKVEKLLKQGADVVVT"
     target_sequence = query_sequence[:-1] + "A"
+    # A UniProt-headed hit with a four-residue insertion. result2msa mode 2 keeps
+    # this header and drops the insertion; mode 5 keeps the insertion and cuts the
+    # header to "P0CTR1". The bundle has to carry both, on the same row.
+    inserted_sequence = query_sequence[:20] + "WWWW" + query_sequence[20:]
     target_fasta = tmp_path / "target.fasta"
     target_fasta.write_text(
-        f">target_hit expected description OX=9606\n{target_sequence}\n",
+        f">target_hit expected description OX=9606\n{target_sequence}\n"
+        f">sp|P0CTR1|INSRT_HUMAN inserted OS=Homo sapiens OX=9606\n"
+        f"{inserted_sequence}\n",
         encoding="utf-8",
     )
     target_db = tmp_path / "target"
@@ -87,9 +91,40 @@ def test_real_createdb_padded_search_result2msa_and_unpack_contract(tmp_path):
         "gpu" if use_gpu else "cpu"
     )
 
+    # The point of the two-pass format, against the real binary: the species
+    # header and the insertion arrive together, on one row, in the paired MSA
+    # AlphaFold pairs chains from.
+    paired = payload["pairedMsa"].splitlines()
+    header_index = next(
+        index for index, line in enumerate(paired) if line.startswith(">sp|P0CTR1|")
+    )
+    assert paired[header_index] == (
+        ">sp|P0CTR1|INSRT_HUMAN inserted OS=Homo sapiens OX=9606"
+    )
+    assert "wwww" in paired[header_index + 1], paired[header_index + 1]
+    assert (
+        paired[header_index + 1].replace("wwww", "").upper() == query_sequence
+    ), "removing the insertion must leave the row aligned to the query"
 
-def test_real_nucleotide_createdb_search_and_unpack_contract(tmp_path):
-    """The same contract for RNA: a nucleotide database, searched on CPU."""
+    # And the bundle says which database contributed which unpaired rows.
+    assert [span["name"] for span in payload["unpairedDatabaseRows"]] == [
+        "uniref90",
+        "mgnify",
+        "small_bfd",
+    ]
+    assert (
+        sum(span["rows"] for span in payload["unpairedDatabaseRows"])
+        == payload["unpairedDepth"] - 1
+    )
+
+
+@pytest.mark.parametrize("num_iterations", (1, 3))
+def test_real_nucleotide_createdb_search_and_unpack_contract(tmp_path, num_iterations):
+    """The same contract for RNA: a nucleotide database, searched on CPU.
+
+    Also with the protein-only iterative search raised, which must not reach the
+    nucleotide search: there the pinned build exits 1.
+    """
     configured_binary = os.environ.get("MMSEQS_INTEGRATION_BINARY")
     if not configured_binary:
         pytest.skip("set MMSEQS_INTEGRATION_BINARY to run the real command contract")
@@ -127,6 +162,7 @@ def test_real_nucleotide_createdb_search_and_unpack_contract(tmp_path):
         max_residues_per_batch=1_000,
         threads=2,
         rna_databases=databases,
+        num_iterations=num_iterations,
     )
 
     result = MsaBatch(
