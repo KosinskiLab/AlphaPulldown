@@ -71,12 +71,13 @@ images are still shared across projects. See
 
 | section | what it holds |
 | --- | --- |
-| **REQUIRED** | inputs, output directory, databases, weights, prediction container |
-| **COMMON** | features, backend flags, analysis, batching, SLURM partition |
-| **ADVANCED** | memory sizing, length filtering, GPU routing, spilling, CPU partitions |
+| **REQUIRED** | inputs, output directory, databases, weights, matching backend settings, SLURM partitions |
+| **COMMON** | precomputed features, feature-only runs, analysis, duplicate complexes |
+| **ADVANCED** | batching, resource limits, GPU selection, local MMseqs2, detailed report options |
 
-Each key carries a one-line comment naming the section below that documents it in full.
-A first run normally only needs the REQUIRED section.
+The comments explain each group and point to the relevant section below. A first run
+normally only needs REQUIRED. Desktop runs ignore the SLURM settings. Local MMseqs2
+is off by default; its complete configuration is kept together under ADVANCED.
 
 ### Setup protein folding jobs
 
