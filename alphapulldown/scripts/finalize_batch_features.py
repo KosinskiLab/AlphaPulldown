@@ -32,7 +32,7 @@ from alphapulldown.feature_batch import (
 from alphapulldown.scripts import create_individual_features as legacy_features
 from alphapulldown.scripts._mmseqs2_cli import (
     define_template_provenance_flags,
-    required_template_flag_names,
+    require_template_flags,
 )
 from alphapulldown.utils import save_meta_data
 
@@ -50,6 +50,7 @@ def main(argv) -> None:
             "MMseqs2 MSA finalization cannot be combined with --keep_msas, "
             "--skip_msa, --path_to_mmt, or --use_mmseqs2"
         )
+    require_template_flags(FLAGS)
     if FLAGS.data_pipeline == "alphafold2":
         result = _finalize_alphafold2()
         backend = "AF2"
@@ -116,6 +117,7 @@ def _finalize_alphafold2():
             template_seqres_database_id=FLAGS.template_seqres_database_id,
             template_mmcif_database_id=FLAGS.template_mmcif_database_id,
             template_searcher=stack.searcher_name,
+            template_pdb70_database_id=FLAGS.template_pdb70_database_id,
             compress=FLAGS.compress_features,
             base_metadata=af2_template_metadata(stack),
         ),
@@ -164,7 +166,7 @@ if __name__ == "__main__":
             "output_dir",
             "data_dir",
             "max_template_date",
-            *required_template_flag_names(),
+            "template_mmcif_database_id",
         ]
     )
     app.run(main)

@@ -171,6 +171,13 @@ def define_msa_search_flags(
 
 def define_template_provenance_flags() -> None:
     _define_once(
+        "template_pdb70_database_id",
+        flags.DEFINE_string,
+        None,
+        "Immutable identity of the PDB70 build used with AF2 --use_hhsearch. "
+        "Change this identity whenever PDB70 is rebuilt, even at the same path.",
+    )
+    _define_once(
         "template_seqres_database_id",
         flags.DEFINE_string,
         None,
@@ -310,5 +317,23 @@ def always_required_msa_flag_names() -> tuple[str, ...]:
     return required_msa_flag_names(molecule_types=())
 
 
-def required_template_flag_names() -> tuple[str, ...]:
-    return ("template_seqres_database_id", "template_mmcif_database_id")
+def required_template_flag_names(
+    *, data_pipeline: str = "alphafold3", use_hhsearch: bool = False
+) -> tuple[str, ...]:
+    database = (
+        "template_pdb70_database_id"
+        if data_pipeline == "alphafold2" and use_hhsearch
+        else "template_seqres_database_id"
+    )
+    return (database, "template_mmcif_database_id")
+
+
+def require_template_flags(flag_values: flags.FlagValues) -> None:
+    """Validate identities for the databases the selected template search reads."""
+    required = required_template_flag_names(
+        data_pipeline=_flag_value(flag_values, "data_pipeline"),
+        use_hhsearch=bool(_flag_value(flag_values, "use_hhsearch")),
+    )
+    missing = [name for name in required if not str(_flag_value(flag_values, name) or "").strip()]
+    if missing:
+        raise ValueError("Template finalization requires " + ", ".join(f"--{name}" for name in missing))

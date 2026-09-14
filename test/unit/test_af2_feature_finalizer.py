@@ -281,6 +281,61 @@ def test_changed_template_settings_are_not_served_from_cache(tmp_path):
     assert [artifact.name for artifact in moved.written] == ["alpha"]
 
 
+def test_hhsearch_cache_tracks_pdb70_without_rebuilding_the_msa(tmp_path):
+    _standard_bundle(tmp_path / "msas")
+    bundle = tmp_path / "msas" / "alpha_mmseqs_msa.json"
+    original_bundle = bundle.read_bytes()
+    options = dict(template_searcher="hhsearch", template_pdb70_database_id="pdb70-v1")
+    first, _ = _generate(tmp_path, **options)
+    assert [artifact.name for artifact in first.written] == ["alpha"]
+    again, searcher = _generate(tmp_path, **options)
+    assert [artifact.name for artifact in again.reused] == ["alpha"]
+    assert searcher.queries == []
+
+    changed, searcher = _generate(
+        tmp_path, **{**options, "template_pdb70_database_id": "pdb70-v2"}
+    )
+    assert [artifact.name for artifact in changed.written] == ["alpha"]
+    assert len(searcher.queries) == 1
+    assert bundle.read_bytes() == original_bundle
+    with open(tmp_path / "features" / "alpha.pkl", "rb") as handle:
+        provenance = pickle.load(handle).local_msa_provenance["af2_templates"]
+    assert provenance["pdb70_database_id"] == "pdb70-v2"
+    assert "pdb_seqres_database_id" not in provenance
+
+
+@pytest.mark.parametrize("searcher,unused_id", [
+    ("hmmsearch", "template_pdb70_database_id"),
+    ("hhsearch", "template_seqres_database_id"),
+])
+def test_unused_template_database_does_not_invalidate_features(tmp_path, searcher, unused_id):
+    _standard_bundle(tmp_path / "msas")
+    options = dict(template_searcher=searcher, template_pdb70_database_id="pdb70-v1")
+    _generate(tmp_path, **options)
+    options[unused_id] = "unused-database-v2"
+    result, recording = _generate(tmp_path, **options)
+    assert [artifact.name for artifact in result.reused] == ["alpha"]
+    assert recording.queries == []
+
+
+@pytest.mark.parametrize("missing", [None, "", "  "])
+def test_hhsearch_requires_a_pdb70_identity(tmp_path, missing):
+    finalizer, _ = _finalizer(
+        tmp_path, template_searcher="hhsearch", template_pdb70_database_id=missing
+    )
+    with pytest.raises(ValueError, match="template_pdb70_database_id"):
+        finalizer.generate([])
+
+
+def test_hhsearch_does_not_require_an_unused_seqres_identity(tmp_path):
+    _standard_bundle(tmp_path / "msas")
+    result, _ = _generate(
+        tmp_path, template_searcher="hhsearch", template_seqres_database_id=None,
+        template_pdb70_database_id="pdb70-v1",
+    )
+    assert [artifact.name for artifact in result.written] == ["alpha"]
+
+
 def test_compressed_output_round_trips(tmp_path):
     import lzma
 

@@ -226,11 +226,12 @@ class Af2FeatureFinalizationSettings:
     output_dir: Path
     msa_input_dir: Path
     max_template_date: str
-    template_seqres_database_id: str
+    template_seqres_database_id: str | None
     template_mmcif_database_id: str
     # hmmsearch against PDB seqres, or hhsearch against PDB70 (--use_hhsearch).
     # The two find different templates, so which one ran is part of the identity.
     template_searcher: str = "hmmsearch"
+    template_pdb70_database_id: str | None = None
     compress: bool = False
     base_metadata: Mapping[str, Any] = dataclasses.field(default_factory=dict)
 
@@ -287,19 +288,21 @@ class Af2FeatureFinalizer:
 
     def _validate(self, requests: Sequence[FeatureRequest]) -> None:
         _validate_feature_requests(requests)
-        for field_name in (
-            "max_template_date",
-            "template_seqres_database_id",
-            "template_mmcif_database_id",
-        ):
-            if not str(getattr(self._settings, field_name)).strip():
-                raise ValueError(f"{field_name} requires a non-empty value")
         if self._settings.template_searcher not in TEMPLATE_SEARCHERS:
             raise ValueError(
                 "template_searcher must be one of "
                 f"{', '.join(TEMPLATE_SEARCHERS)}, not "
                 f"{self._settings.template_searcher!r}"
             )
+        for field_name in (
+            "max_template_date",
+            "template_mmcif_database_id",
+            "template_pdb70_database_id" if self._settings.template_searcher == "hhsearch"
+            else "template_seqres_database_id",
+        ):
+            value = getattr(self._settings, field_name)
+            if value is None or not str(value).strip():
+                raise ValueError(f"{field_name} requires a non-empty value")
 
     def _feature_dict(
         self, request: FeatureRequest, inputs: Af2MsaInputs
@@ -363,9 +366,14 @@ class Af2FeatureFinalizer:
     def _template_signature(self) -> dict[str, Any]:
         # Software versions, not base_metadata's wall-clock date, which would miss
         # on every run -- the same choice the AlphaFold 3 finalizer makes.
+        database = (
+            {"pdb70_database_id": self._settings.template_pdb70_database_id}
+            if self._settings.template_searcher == "hhsearch"
+            else {"pdb_seqres_database_id": self._settings.template_seqres_database_id}
+        )
         return {
             "max_template_date": self._settings.max_template_date,
-            "pdb_seqres_database_id": self._settings.template_seqres_database_id,
+            **database,
             "mmcif_database_id": self._settings.template_mmcif_database_id,
             "template_searcher": self._settings.template_searcher,
             "software": dict(self._settings.base_metadata.get("software", {})),

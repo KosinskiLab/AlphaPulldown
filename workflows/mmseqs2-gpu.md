@@ -52,6 +52,11 @@ RNA databases from `--data_dir`. Final artifact provenance therefore also
 includes `--max_template_date`, `--template_seqres_database_id`, and
 `--template_mmcif_database_id`.
 
+AF2 finalization with `--use_hhsearch` requires `--template_pdb70_database_id`
+instead of the unused seqres identity. Update the selected immutable identity
+when its database is rebuilt, including rebuilds at the same path. Only features
+are invalidated; the search-stage MSA bundles remain reusable.
+
 GPU database memory can be substantial. Prefer fast node-local storage and an
 Ampere-or-newer GPU. A database larger than VRAM can stream from host RAM, but
 requires enough host memory and runs below peak throughput.

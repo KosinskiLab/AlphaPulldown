@@ -150,6 +150,14 @@ Templates come from the AlphaFold 2 database tree under `--data_dir` (`pdb_seqre
 `pdb_mmcif`), searched with hmmsearch, or with hhsearch against PDB70 under
 `--use_hhsearch`. The MSA databases are the MMseqs2 ones the search stage used.
 
+For HHsearch, replace `--template_seqres_database_id` in the example with
+`--template_pdb70_database_id pdb70-2026-08`. The selected database identity and
+the mmCIF identity are required. Change the relevant identity whenever that
+database is rebuilt, even if its path stays the same. This regenerates features
+while reusing the existing MSA bundle; changing an unused database does not
+invalidate features. Existing HHsearch pickles without a PDB70 identity are
+regenerated once. The hmmsearch and AF3 cache identities are unchanged.
+
 The features are built the way native AlphaFold 2 builds them from jackhmmer:
 
 - uniref90 capped at 10 000 rows and MGnify at 501, counting the query as AlphaFold 2

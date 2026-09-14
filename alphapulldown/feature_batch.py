@@ -1565,8 +1565,24 @@ def searched_msas_from_payload(payload: Mapping[str, Any]) -> SearchedMsas:
         ):
             raise ValueError(f"MSA bundle has a malformed row span: {entry!r}")
         rows.append((entry["name"], entry["rows"]))
-    # The query row belongs to no database.
-    if unpaired and sum(count for _, count in rows) != _msa_depth(unpaired) - 1:
+    # The producer always searches the complete named recipe. Counts alone do
+    # not detect a missing database or a duplicate name that would overwrite an
+    # earlier span in rows_by_database(). Validate before any finalizer uses it.
+    molecule_type = payload.get("moleculeType", PROTEIN)
+    required_names = (
+        RNA_DATABASE_NAMES if molecule_type == RNA else UNPAIRED_DATABASE_NAMES
+    )
+    names = tuple(name for name, _ in rows)
+    if len(names) != len(required_names) or set(names) != set(required_names):
+        raise ValueError(
+            "MSA bundle database row spans must name each of "
+            f"{', '.join(required_names)} exactly once"
+        )
+    if molecule_type == PROTEIN and _msa_depth(payload["pairedMsa"]) == 0:
+        raise ValueError("Protein MSA bundle has no paired UniProt alignment")
+    # The query row belongs to no database. An empty alignment is invalid too:
+    # its depth is zero, so no nonnegative span total can account for its query.
+    if sum(count for _, count in rows) != _msa_depth(unpaired) - 1:
         raise ValueError(
             "MSA bundle row spans account for "
             f"{sum(count for _, count in rows)} rows but the alignment has "
