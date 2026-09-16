@@ -9,7 +9,7 @@
 ### Quick install (recommended)
 
 ```bash
-curl -O https://raw.githubusercontent.com/KosinskiLab/AlphaPulldownSnakemake/2.9.0/install.sh
+curl -O https://raw.githubusercontent.com/KosinskiLab/AlphaPulldownSnakemake/2.9.1/install.sh
 bash install.sh
 conda activate snake
 cd AlphaPulldownSnakemake
@@ -25,7 +25,7 @@ Useful options:
 | Option | Meaning |
 | --- | --- |
 | `-d, --dest DIR` | working directory to deploy into (default `AlphaPulldownSnakemake`) |
-| `-v, --version TAG` | workflow version to deploy (default `2.9.0`) |
+| `-v, --version TAG` | workflow version to deploy (default `2.9.1`) |
 | `-i, --image-dir DIR` | shared container image directory |
 | `-n, --env-name NAME` | conda environment name (default `snake`) |
 | `--no-pull` | skip container pre-fetch (Snakemake will fetch on first run) |
@@ -43,7 +43,7 @@ Create and activate the conda environment:
 ```bash
 conda env create \
   -n snake \
-  -f https://raw.githubusercontent.com/KosinskiLab/AlphaPulldownSnakemake/2.9.0/workflow/envs/alphapulldown.yaml
+  -f https://raw.githubusercontent.com/KosinskiLab/AlphaPulldownSnakemake/2.9.1/workflow/envs/alphapulldown.yaml
 conda activate snake
 ```
 
@@ -55,7 +55,7 @@ Then deploy the workflow into a new processing directory for your project:
 snakedeploy deploy-workflow \
   https://github.com/KosinskiLab/AlphaPulldownSnakemake \
   AlphaPulldownSnakemake \
-  --tag 2.9.0
+  --tag 2.9.1
 cd AlphaPulldownSnakemake
 ```
 
@@ -217,6 +217,12 @@ Run the pipeline locally:
 snakemake --profile config/profiles/desktop --cores 8
 ```
 
+Both shipped profiles show job status and workflow progress without dumping shell
+scripts. Add `--printshellcmds` (or `-p`) when you need the full commands for debugging.
+The SLURM profile retains logs for successful and failed jobs under `slurm-logs/`
+(override with `--slurm-logdir`). Both successful-job deletion and age-based log
+cleanup are disabled; setting only the age cutoff to zero does not retain successful logs.
+
 <details>
 <summary>Cluster execution</summary>
 
@@ -240,7 +246,7 @@ snakemake \
 
 Detach with `Ctrl + A` then `D`. Reattach later with `screen -r snakemake_session`.
 
-Job specific logs are created automatically and stored in your `AlphaPulldownSnakemake/slurm_logs` directory.
+Job specific logs are created automatically and stored in your `AlphaPulldownSnakemake/slurm-logs` directory.
 
 </details>
 
@@ -608,6 +614,24 @@ length_filter_fetch_uniprot: true     # set false for fully offline runs
   UniProt outage never silently drops work.
 - First parse of a large all-UniProt sheet will fetch each unique length once (cached
   afterwards); already-downloaded inputs and local FASTAs are read without any network call.
+- Startup logs announce length resolution, report checked/total proteins, elapsed time and
+  the current protein roughly every 30 seconds between lookups, then summarize resolved/
+  unknown lengths and kept/skipped folds. The same progress reporting covers local MMseqs2
+  planning when length filtering is disabled.
+- Successful lengths are saved atomically to `.sequence_lengths.tsv` at progress checkpoints,
+  on completion and on a Python-handled interruption. Restarting can reuse those lengths;
+  a forced kill can lose work since the last checkpoint. Cache-write failures are logged.
+- `[uniprot]` warnings summarize failed length lookups at those checkpoints: timeouts,
+  missing accessions (HTTP 404/410), and other errors (including server/network failures),
+  with at most three example IDs per category. Counts are cumulative for this initialization;
+  repeated cached lookups do not inflate them. Unknown lengths still fail open.
+- `[features]` messages announce scans of configured feature directories and report how many
+  required files are available for reuse. Missing directories produce a warning; an unreadable
+  directory logs its path and error before failing. The summary counts distinct required files,
+  not duplicate copies across stores; features already in the output directory can also be reused.
+- `[mmseqs2-registry]` warnings identify unreadable/corrupt or unwritable shard registries and
+  explain the fallback and potential for differing assignments across processes. An absent registry
+  on a first run is normal and does not warn. These warnings do not change scheduling behavior.
 - **Applies to every profile, including local/workstation runs** (it runs during workflow
   parsing, not in the executor). It's the only length-aware feature that does — the memory
   and GPU-routing settings are SLURM resources that local runs ignore. To attempt a complex
