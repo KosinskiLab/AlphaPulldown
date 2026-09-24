@@ -733,7 +733,7 @@ manually).
 - `--use_precomputed_msas` / `--save_msa_files` – reuse stored MSAs (`<output_dir>/<protein>.a3m`) or
   keep new ones for later runs. Required to reuse precomputed MMseqs2/ColabFold a3m files rather
   than regenerating them.
-- `--compress_features` – compress the generated features to save space: `*.pkl.xz` for the AlphaFold2 pipeline, `*_af3_input.json.xz` for AlphaFold3. Both are read back transparently, so compressed feature sets can be used directly (this is how the [features database](https://alphapulldown.s3.embl.de) ships them).
+- `--compress_features` – compress the generated features to save space: `*.pkl.xz` for the AlphaFold2 pipeline, `*_af3_input.json.xz` for AlphaFold3. Both are read back transparently, so compressed feature sets can be used directly (this is how the [features database](https://s3.embl.de/alphapulldown/index.html) ships them).
 - `--skip_existing` – leave existing feature files untouched (safe for reruns).
 - `--keep_msas` – refresh **templates only** in features that already exist in `--output_dir`, keeping their MSAs. Use it when the template database or `--max_template_date` has moved but the alignments are still valid: it costs a template search (minutes) instead of a full MSA run (hours). Works for both pipelines — AlphaFold2 features get their `template_*` block replaced, AlphaFold3 features are re-processed through AF3's "search for templates only" path. Proteins with no stored features are generated normally, and it takes precedence over `--skip_existing`. Cannot be combined with `--use_mmseqs2` (which fetches MSAs and templates together) or `--skip_msa` (no MSAs to keep).
 - `--seq_index N` – only process the N‑th sequence from the FASTA list.
