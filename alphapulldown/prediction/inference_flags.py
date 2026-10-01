@@ -36,9 +36,11 @@ AF2_LIKE_FLAGS = frozenset({
 
 ALPHALINK_EXTRA_FLAGS = frozenset({"crosslinks"})
 
-# UniFold picks its model configuration by name; it serves monomers and multimers alike.
-UNIFOLD_EXTRA_FLAGS = frozenset({"unifold_model_name"})
-DEFAULT_UNIFOLD_MODEL_NAME = "multimer_af2"
+UNIFOLD_UNAVAILABLE_REASON = (
+    "UniFold is unavailable in this release: the bundled runtime is an AlphaLink "
+    "fork, not a supported UniFold inference runtime. Use --fold_backend=alphafold2 "
+    "or --fold_backend=alphafold3; use --fold_backend=alphalink only with AlphaLink weights."
+)
 
 AF3_FLAGS = frozenset({
     "jax_compilation_cache_dir", "buckets", "flash_attention_implementation",
@@ -50,13 +52,19 @@ AF3_FLAGS = frozenset({
 FLAGS_BY_BACKEND: Mapping[str, frozenset] = {
     "alphafold2": COMMON_FLAGS | AF2_LIKE_FLAGS,
     "alphalink": COMMON_FLAGS | AF2_LIKE_FLAGS | ALPHALINK_EXTRA_FLAGS,
-    "unifold": COMMON_FLAGS | AF2_LIKE_FLAGS | UNIFOLD_EXTRA_FLAGS,
     "alphafold3": COMMON_FLAGS | AF3_FLAGS,
 }
 
 
+def validate_backend_availability(backend_name: str) -> None:
+    """Reject the legacy UniFold selector before reading inputs or model weights."""
+    if backend_name == "unifold":
+        raise ValueError(UNIFOLD_UNAVAILABLE_REASON)
+
+
 def unsupported_flags(backend_name: str, present: Iterable[str]) -> list[str]:
     """Flag names the named backend does not accept. Unknown backend: nothing to say."""
+    validate_backend_availability(backend_name)
     allowed = FLAGS_BY_BACKEND.get(backend_name)
     if allowed is None:
         return []
@@ -115,13 +123,10 @@ def model_name_for_backend(flags: Any) -> str:
     """The model configuration a backend starts from.
 
     AlphaFold 2 multimers are switched to ``multimer`` by the caller, per object.
-    UniFold has one model for monomers and multimers, chosen by
-    ``--unifold_model_name``, so the caller must leave it alone.
     """
+    validate_backend_availability(flags.fold_backend)
     if flags.fold_backend == "alphalink":
         return "multimer_af2_crop"
-    if flags.fold_backend == "unifold":
-        return getattr(flags, "unifold_model_name", None) or DEFAULT_UNIFOLD_MODEL_NAME
     return "monomer_ptm"
 
 

@@ -75,9 +75,12 @@ class distogram_parser:
 
         distance = np.clip(distance, 3, 20)
 
-        bin_idx=np.max(np.where(bin_edges<distance))
-
-        below_dist_pbty = np.sum(probs, axis=2, where=(np.arange(probs.shape[-1])<bin_idx))
+        # AF2 emits N probabilities and N-1 separating edges. Each edge is
+        # the upper bound of the bin at the same index; count every complete
+        # bin below the cutoff, including a bin ending exactly at the cutoff.
+        # Using the last edge's index as a count dropped one whole bin.
+        num_bins_below = np.searchsorted(bin_edges, distance, side="right")
+        below_dist_pbty = np.sum(probs[..., :num_bins_below], axis=-1)
 
         requested_contacts=[]
 
@@ -107,5 +110,4 @@ if __name__=="__main__":
 
     do=distogram_parser()
     contacts=do.get_contacts(directory='.', verbose=0)
-
 

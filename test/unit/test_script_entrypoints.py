@@ -1408,38 +1408,19 @@ def test_run_multimer_jobs_forwards_relax_best_score_threshold(
     assert calls[0][calls[0].index("--relax_best_score_threshold") + 1] == "0.6"
 
 
-def test_run_multimer_jobs_forwards_the_unifold_backend_and_model_name(
-    run_multimer_jobs_module,
-    monkeypatch,
+@pytest.mark.parametrize("legacy_switch", [True, False])
+def test_run_multimer_jobs_rejects_unifold_before_reading_inputs(
+    run_multimer_jobs_module, monkeypatch, legacy_switch,
 ):
-    calls = []
     monkeypatch.setattr(
-        run_multimer_jobs_module.subprocess,
-        "run",
-        lambda command, check, env: calls.append(command),
+        run_multimer_jobs_module, "generate_fold_specifications",
+        lambda **kwargs: pytest.fail("must reject UniFold before reading inputs"),
     )
-    run_multimer_jobs_module.generate_fold_specifications = (
-        lambda input_files, delimiter, exclude_permutations: ["A,B"]
-    )
-
-    _set_flag(run_multimer_jobs_module.FLAGS, "mode", "custom")
-    _set_flag(run_multimer_jobs_module.FLAGS, "protein_lists", ["proteins.txt"])
-    _set_flag(run_multimer_jobs_module.FLAGS, "dry_run", False)
-    _set_flag(run_multimer_jobs_module.FLAGS, "fold_backend", "alphafold2")
-    _set_flag(run_multimer_jobs_module.FLAGS, "output_path", "/tmp/output")
-    _set_flag(run_multimer_jobs_module.FLAGS, "data_dir", "/tmp/models")
-    _set_flag(run_multimer_jobs_module.FLAGS, "monomer_objects_dir", ["/tmp/features"])
-    _set_flag(run_multimer_jobs_module.FLAGS, "use_unifold", True)
-    _set_flag(run_multimer_jobs_module.FLAGS, "unifold_param", "/tmp/unifold-params")
-    _set_flag(run_multimer_jobs_module.FLAGS, "unifold_model_name", "multimer_ft")
-
-    run_multimer_jobs_module.main(["prog"])
-
-    assert len(calls) == 1
-    command = calls[0]
-    assert command[command.index("--fold_backend") + 1] == "unifold"
-    assert command[command.index("--data_directory") + 1] == "/tmp/unifold-params"
-    assert command[command.index("--unifold_model_name") + 1] == "multimer_ft"
+    _set_flag(run_multimer_jobs_module.FLAGS, "use_unifold", legacy_switch)
+    _set_flag(run_multimer_jobs_module.FLAGS, "fold_backend",
+              "alphafold2" if legacy_switch else "unifold")
+    with pytest.raises(ValueError, match="UniFold.*unavailable"):
+        run_multimer_jobs_module.main(["prog"])
 
 
 def test_run_multimer_jobs_does_not_forward_the_unifold_model_name_to_other_backends(
@@ -1472,60 +1453,13 @@ def test_run_multimer_jobs_does_not_forward_the_unifold_model_name_to_other_back
     assert calls[0][calls[0].index("--fold_backend") + 1] == "alphafold2"
 
 
-def test_main_keeps_the_unifold_model_name_for_multimers(
-    run_structure_prediction_module,
-    monkeypatch,
-    tmp_path,
+def test_main_rejects_unifold_before_reading_inputs(
+    run_structure_prediction_module, monkeypatch, tmp_path,
 ):
-    """The multimer override to model_name "multimer" is an AlphaFold 2 preset; UniFold
-    has one model for monomers and multimers, chosen by --unifold_model_name."""
-    captured_calls = []
-    protein_obj = run_structure_prediction_module.MonomericObject("protA", "AC")
-    multimer_obj = run_structure_prediction_module.MultimericObject(
-        [protein_obj, protein_obj],
-        pair_msa=True,
-        multimeric_template=False,
-        multimeric_template_meta_data=None,
-        multimeric_template_dir=None,
-    )
-
     _set_flag(run_structure_prediction_module.FLAGS, "fold_backend", "unifold")
-    _set_flag(run_structure_prediction_module.FLAGS, "unifold_model_name", "multimer_ft")
-    _set_flag(run_structure_prediction_module.FLAGS, "input", ["job1"])
-    _set_flag(
-        run_structure_prediction_module.FLAGS,
-        "output_directory",
-        [str(tmp_path / "shared-output")],
-    )
-    _set_flag(
-        run_structure_prediction_module.FLAGS,
-        "features_directory",
-        [str(tmp_path / "features")],
-    )
-    _set_flag(run_structure_prediction_module.FLAGS, "protein_delimiter", "+")
-    _set_flag(run_structure_prediction_module.FLAGS, "data_directory", "/unifold-params")
-
-    monkeypatch.setattr(run_structure_prediction_module, "parse_fold", lambda *args: [["parsed"]])
-    monkeypatch.setattr(run_structure_prediction_module, "create_custom_info", lambda parsed: "data")
     monkeypatch.setattr(
-        run_structure_prediction_module,
-        "create_interactors",
-        lambda data, features_directory: [[protein_obj, protein_obj]],
+        run_structure_prediction_module, "parse_fold",
+        lambda *args: pytest.fail("must reject UniFold before reading inputs"),
     )
-    monkeypatch.setattr(
-        run_structure_prediction_module,
-        "pre_modelling_setup",
-        lambda prot_objs, output_dir: (multimer_obj, str(tmp_path / "protein")),
-    )
-    monkeypatch.setattr(
-        run_structure_prediction_module,
-        "predict_structure",
-        lambda **kwargs: captured_calls.append(kwargs),
-    )
-
-    run_structure_prediction_module.main([])
-
-    assert len(captured_calls) == 1
-    assert captured_calls[0]["fold_backend"] == "unifold"
-    assert captured_calls[0]["model_flags"]["model_name"] == "multimer_ft"
-    assert captured_calls[0]["model_flags"]["model_dir"] == "/unifold-params"
+    with pytest.raises(ValueError, match="UniFold.*unavailable"):
+        run_structure_prediction_module.main([])

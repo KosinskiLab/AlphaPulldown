@@ -2,6 +2,18 @@
 
 This branch has broad maintained test coverage, but the protection is layered.
 
+## UniFold availability
+
+UniFold is disabled in this release. `--fold_backend=unifold` and the legacy
+`--use_unifold` switch fail before reading input features or model weights, with
+an error explaining supported alternatives. The packaged `unifold` namespace
+belongs to the AlphaLink2 fork: its inference API and network are not a validated
+native UniFold runtime. The old mocked adapter tests did not establish that
+compatibility. AlphaLink remains a separate backend requiring AlphaLink weights.
+
+Restoring UniFold requires a compatible runtime, tests against its real feature
+processing and checkpoint-loading APIs, and inference with native UniFold weights.
+
 ## Always-on CI
 
 GitHub Actions runs:

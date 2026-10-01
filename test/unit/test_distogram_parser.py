@@ -8,12 +8,13 @@ re-read whichever file the scan had visited LAST.
 import pickle
 
 import numpy as np
+import pytest
 
 from alphapulldown.utils.distogram_parser import distogram_parser
 
 
 def _payload(ranking_confidence, *, contact):
-    logits = np.full((4, 4, 3), -10.0, dtype=np.float32)
+    logits = np.full((4, 4, 4), -10.0, dtype=np.float32)
     if contact:
         logits[0, 2, 0] = 10.0
         logits[2, 0, 0] = 10.0
@@ -66,3 +67,28 @@ def test_select_top_ranked_pickle_needs_a_positive_ranking_confidence(tmp_path):
     _write(tmp_path / "result_model_2.pkl", {"seqs": []})
 
     assert distogram_parser.select_top_ranked_pickle(str(tmp_path)) == (None, 0.0)
+
+
+@pytest.mark.parametrize("cutoff, contact_bin, expected", [
+    (8.0, 18, True),   # The entire 7.625--7.9375 A bin is below the cutoff.
+    (8.0, 19, False),  # The bin crossing the cutoff is not wholly below it.
+    (7.9375, 18, True),
+    (3.0, 0, True),
+])
+def test_contacts_sum_all_bins_wholly_below_cutoff(tmp_path, cutoff, contact_bin, expected):
+    # Match real AF2 output: 64 probability bins separated by 63 boundaries.
+    edges = np.linspace(2.3125, 21.6875, 63)
+    logits = np.full((2, 2, 64), -30.0)
+    logits[:, :, contact_bin] = 30.0
+    _write(tmp_path / "result_model.pkl", {
+        "ranking_confidence": 0.9,
+        "seqs": ["A", "B"],
+        "distogram": {"bin_edges": edges, "logits": logits},
+    })
+
+    contacts = distogram_parser().get_contacts(str(tmp_path), distance=cutoff)
+
+    assert bool(contacts) is expected
+    if expected:
+        assert len(contacts) == 1
+        assert contacts[0][2] == pytest.approx(1.0)

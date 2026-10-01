@@ -136,11 +136,10 @@ flags.DEFINE_boolean('dropout', False,
 # AlphaLink2 settings
 flags.DEFINE_string('crosslinks', None, 'Path to crosslink information pickle for AlphaLink.')
 
-# UniFold settings
-flags.DEFINE_enum(
+# Keep the legacy flag parseable so old invocations get the backend's actionable error.
+flags.DEFINE_string(
     'unifold_model_name', 'multimer_af2',
-    ['multimer_af2', 'multimer_ft', 'multimer', 'multimer_af2_v3', 'multimer_af2_model45_v3'],
-    'UniFold model configuration used with --fold_backend=unifold.')
+    'Legacy option. UniFold is unavailable in this release.')
 
 # AlphaFold3 settings
 # JAX inference performance tuning.
@@ -228,7 +227,7 @@ flags.DEFINE_boolean('use_gpu_relax', True,
 # Global settings
 flags.DEFINE_string('protein_delimiter', '+', 'Delimiter for proteins of a single fold.')
 flags.DEFINE_string('fold_backend', 'alphafold2',
-                    'Folding backend that should be used for structure prediction.')
+                    'Folding backend: alphafold2, alphafold3, or alphalink. UniFold is unavailable.')
 flags.DEFINE_boolean(
     'debug_templates', False,
     'If set, save backend-specific template debug artifacts. AF3 writes generated'
@@ -379,10 +378,8 @@ def main(argv):
             json_output_dir = real_out
 
             # Flags for THIS object, not for whichever fold happens to come last.
-            # UniFold's model is chosen by --unifold_model_name and serves monomers
-            # and multimers alike, so it keeps the name the flags resolved.
             object_model_flags = default_model_flags.copy()
-            if isinstance(obj, MultimericObject) and FLAGS.fold_backend != "unifold":
+            if isinstance(obj, MultimericObject):
                 object_model_flags.update({
                     "model_name": "multimer",
                     "msa_depth_scan": FLAGS.msa_depth_scan,

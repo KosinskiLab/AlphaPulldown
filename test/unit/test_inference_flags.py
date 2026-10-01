@@ -88,20 +88,14 @@ def test_postprocess_flags_are_built_from_the_invocation():
     assert built["compress_pickles"] is False
 
 
-def test_model_flags_name_the_unifold_model_from_its_own_flag():
-    """UniFold has one model for monomers and multimers, chosen by --unifold_model_name."""
-    chosen = inference_flags.model_flags(
-        _Flags(fold_backend="unifold", unifold_model_name="multimer_ft")
-    )
-    assert chosen["model_name"] == "multimer_ft"
-    default = inference_flags.model_flags(_Flags(fold_backend="unifold"))
-    assert default["model_name"] == inference_flags.DEFAULT_UNIFOLD_MODEL_NAME == "multimer_af2"
+def test_unifold_model_flags_fail_with_the_release_limitation():
+    with pytest.raises(ValueError, match="UniFold.*unavailable"):
+        inference_flags.model_flags(_Flags(fold_backend="unifold"))
 
 
-def test_unifold_accepts_its_model_name_flag_and_the_af2_like_flags():
-    assert inference_flags.unsupported_flags(
-        "unifold", ["unifold_model_name", "allow_resume", "num_cycle"]
-    ) == []
+def test_unifold_validation_rejects_the_backend_before_checking_flags():
+    with pytest.raises(ValueError, match="UniFold.*unavailable"):
+        inference_flags.unsupported_flags("unifold", ["unifold_model_name"])
     assert inference_flags.unsupported_flags("alphafold2", ["unifold_model_name"]) == [
         "unifold_model_name"
     ]
