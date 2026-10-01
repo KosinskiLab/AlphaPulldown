@@ -207,6 +207,7 @@ def speed_section(rows):
     lines.append("| comparison | " + " | ".join(gpus) + " |")
     lines.append("|---|" + "---|" * len(gpus))
     ratios_out = []
+    mixed_models = 0
     for label, base, arm in COMPARISONS:
         cells = []
         for gpu in gpus:
@@ -214,12 +215,17 @@ def speed_section(rows):
             for (g, a, fold), r in by.items():
                 b = by.get((g, base, fold))
                 if g == gpu and a == arm and b and r.get("fwd_s") and b.get("fwd_s") and r["status"] == b["status"] == "ok":
+                    if r["gpu_name"] != b["gpu_name"]:  # e.g. H100 SXM vs PCIe from different partitions
+                        mixed_models += 1
+                        continue
                     ratios.append(b["fwd_s"] / r["fwd_s"])
                     ratios_out.append({"gpu": g, "comparison": label, "baseline": base, "arm": arm, "fold": fold,
                                        "tokens": r["tokens"], "ratio": b["fwd_s"] / r["fwd_s"]})
             gm = geomean(ratios)
             cells.append(f"{gm:.2f}× (n={len(ratios)})" if gm else "–")
         lines.append(f"| {label} | " + " | ".join(cells) + " |")
+    if mixed_models:
+        lines += ["", f"{mixed_models} fold pair(s) left out: the two arms ran on different GPU models."]
     lines += ["", "### Largest fold completed (tokens) and its peak GPU memory (MiB above idle)", ""]
     arms = [a for a in ARM_ORDER if any(r["arm"] == a for r in speed)]
     lines.append("| gpu | " + " | ".join(arms) + " |")
@@ -329,8 +335,11 @@ def main():
     missing = []
     if args.expected and args.expected.exists():
         for job in read_tsv(args.expected):
-            if not (bench / "runs" / job["suite"] / job["gpu"] / job["arm"] / "RESULT.txt").exists():
+            result = bench / "runs" / job["suite"] / job["gpu"] / job["arm"] / "RESULT.txt"
+            if not result.exists():
                 missing.append(job)
+            elif result.read_text().startswith("node_unusable"):
+                missing.append({**job, "job": f"{job['job']}, {result.read_text().split(':')[0]}"})
     statuses = defaultdict(int)
     for r in rows:
         statuses[r["status"].split(":")[0]] += 1

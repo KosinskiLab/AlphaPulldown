@@ -18,6 +18,10 @@ RUN=$BENCH/runs/$SUITE/$GPU/$ARM
 mkdir -p "$RUN/logs" "$RUN/out" "$RUN/in" "$RUN/jax"
 cd "$RUN" || exit 1
 
+if ! nvidia-smi -L > /dev/null 2>&1; then   # a broken driver must not produce numbers
+  echo "node_unusable node=$(hostname) job=${SLURM_JOB_ID:-none}: $(nvidia-smi 2>&1 | head -1)" | tee RESULT.txt
+  exit 3
+fi
 GPU_UUID=$(nvidia-smi --query-gpu=uuid --format=csv,noheader -i "${CUDA_VISIBLE_DEVICES%%,*}" 2>/dev/null \
            || nvidia-smi --query-gpu=uuid --format=csv,noheader | head -1)
 nvidia-smi --query-gpu=name,uuid,compute_cap,driver_version,memory.total,power.limit,clocks.max.sm \

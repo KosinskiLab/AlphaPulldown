@@ -27,6 +27,12 @@ case $SUITE in
   *) echo "unknown SUITE $SUITE"; exit 2 ;;
 esac
 
+# A node whose driver is broken must not produce numbers: stop before running anything.
+if ! nvidia-smi -L > /dev/null 2>&1; then
+  echo "node_unusable node=$(hostname) job=${SLURM_JOB_ID:-none}: $(nvidia-smi 2>&1 | head -1)" | tee RESULT.txt
+  exit 3
+fi
+
 # The card, recorded once; memory sampled for this card only, every 500 ms.
 GPU_UUID=$(nvidia-smi --query-gpu=uuid --format=csv,noheader -i "${CUDA_VISIBLE_DEVICES%%,*}" 2>/dev/null \
            || nvidia-smi --query-gpu=uuid --format=csv,noheader | head -1)
@@ -65,7 +71,8 @@ predict() {  # $1 fold  $2 seed  $3 tag ; writes logs/$tag.log, out/$tag/
         colabfold_batch "$in" "$out" "${CF_ARGS[@]}" --random-seed "$seed" "${extra[@]}" ;;
     kit_off|kit_exact|kit_fast)
       for r in $(seq 1 "$REPS"); do ln -s "$BENCH/inputs/a3m/$fold.a3m" "$in/${fold}_r$r.a3m"; done
-      apptainer run --nv --cleanenv "${RUNENV[@]}" --env "COLABFOLD_OPT_JIT_ROOT=$RUN/jax" "${BINDS[@]}" "$SIF_KIT" \
+      apptainer run --nv --cleanenv "${RUNENV[@]}" --env "COLABFOLD_OPT_JIT_ROOT=$RUN/jax" \
+        --env "COLABFOLD_OPT_DATA_DIR=$BENCH/params_cf" "${BINDS[@]}" "$SIF_KIT" \
         pred --config "$(kit_config "$GPU")" --mode "${ARM#kit_}" "$in" "$out" "${CF_ARGS[@]}" --random-seed "$seed" ;;
     *) echo "unknown ARM $ARM"; return 2 ;;
   esac

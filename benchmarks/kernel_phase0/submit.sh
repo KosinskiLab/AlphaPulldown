@@ -40,7 +40,7 @@ prepare() {
 gpu_job() {  # suite gpu arm partition walltime [seeds]
   local suite=$1 gpu=$2 arm=$3 part=$4 wall=$5 seeds=${6:-$SEED} script=$CODE/run_af2_arm.sbatch jid
   [ "$arm" = ap_af3 ] && script=$CODE/run_af3_baseline.sbatch
-  jid=$(sb ${dep:+--dependency=afterok:$dep} -p "$part" --gres="$(gpu_gres "$gpu")" -t "$wall" \
+  jid=$(sb ${dep:+--dependency=afterok:$dep} ${EXCLUDE_NODES:+--exclude=$EXCLUDE_NODES} -p "$part" --gres="$(gpu_gres "$gpu")" -t "$wall" \
         -J "kb0-$suite-$gpu-$arm" -o "$BENCH/logs/${suite}_${gpu}_${arm}_%j.out" \
         --export=ALL,CODE="$CODE",SUITE="$suite",GPU="$gpu",ARM="$arm",SEEDS="$seeds" "$script")
   printf "%s\t%s\t%s\t%s\n" "$jid" "$suite" "$gpu" "$arm" >> "$JOBS"
@@ -57,19 +57,21 @@ collect() {
 case $MODE in
   smoke)
     prepare
-    for arm in $AF2_ARMS ap_af3; do gpu_job smoke h100 "$arm" "$(gpu_partition h100)" 00:45:00; done
+    for arm in $AF2_ARMS ap_af3; do gpu_job smoke "${SMOKE_GPU:-3090}" "$arm" "$(gpu_partition "${SMOKE_GPU:-3090}")" 00:45:00; done
     collect ;;
   full)
     prepare
     for gpu in $GPUS; do
       for arm in $AF2_ARMS ap_af3; do gpu_job speed "$gpu" "$arm" "$(gpu_partition "$gpu")" "$(gpu_walltime "$gpu")"; done
     done
-    # Accuracy on one card, in the first wave only: stock arms twice (seed 0 and 1) for the
-    # seed-to-seed spread every other difference is judged against.
-    if [[ " $GPUS " == *" h100 "* ]]; then
+    # Accuracy on one card (ACCURACY_GPU, default a40), only when that card is in this wave:
+    # stock arms twice (seed 0 and 1) for the seed-to-seed spread every other difference is
+    # judged against. Every accuracy fold is <= 896 tokens, so any card here holds it.
+    acc_gpu=${ACCURACY_GPU:-a40}
+    if [[ " $GPUS " == *" $acc_gpu "* ]]; then
       for arm in $AF2_ARMS; do
         seeds=$SEED; case $arm in ap_stock|cf163_stock|kit_off) seeds="0:1" ;; esac
-        gpu_job accuracy h100 "$arm" "$(gpu_partition h100)" 03:00:00 "$seeds"
+        gpu_job accuracy "$acc_gpu" "$arm" "$(gpu_partition "$acc_gpu")" 05:00:00 "$seeds"
       done
     fi
     collect ;;
