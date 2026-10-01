@@ -67,18 +67,21 @@ def build(spec: str, features_dir: str):
     return obj, [i.sequence for i in interactors], chains, paired
 
 
-def to_colabfold_a3m(sequences, chains, paired) -> tuple[str, dict]:
+def to_colabfold_a3m(input_sequences, chains, paired) -> tuple[str, dict]:
     if not paired:
         raise RuntimeError("AlphaPulldown did not pair this fold; the a3m export covers heteromers only")
+    # AlphaFold-Multimer groups identical chains into entities (add_assembly_features), so
+    # B+A+B+A is merged, and folded, as B,B,A,A. Write chains in that merged order; each
+    # chain's paired row 0 is its query.
+    sequences = ["".join(AF2_ID_TO_A3M[int(t)] for t in c["msa_all_seq"][0]) for c in chains]
+    if sorted(sequences) != sorted(input_sequences):
+        raise RuntimeError("paired row 0 of the merged chains is not the set of input queries")
     lengths = [len(s) for s in sequences]
     gaps = ["-" * n for n in lengths]
     n_paired = {int(c["msa_all_seq"].shape[0]) for c in chains}
     if len(n_paired) != 1:
         raise RuntimeError(f"paired MSAs differ in depth across chains: {n_paired}")
     n_paired = n_paired.pop()
-    for k, (seq, chain) in enumerate(zip(sequences, chains)):
-        if "".join(AF2_ID_TO_A3M[int(t)] for t in chain["msa_all_seq"][0]) != seq:
-            raise RuntimeError(f"paired row 0 of chain {k} is not the query")
 
     # Row 0 of the paired block (all queries) is the header entry; ColabFold reads it as the
     # first paired row. Every row gets a unique header: ColabFold drops repeated (header, row).
@@ -95,7 +98,8 @@ def to_colabfold_a3m(sequences, chains, paired) -> tuple[str, dict]:
         for r in range(chain["msa"].shape[0]):
             body = row_to_a3m(chain["msa"][r], chain["deletion_matrix"][r])
             lines += [f">u{k}_{r}", "".join(body if j == k else gaps[j] for j in range(len(chains)))]
-    stats = {"paired_rows": n_paired, "unpaired_rows": [int(c["msa"].shape[0]) for c in chains]}
+    stats = {"paired_rows": n_paired, "unpaired_rows": [int(c["msa"].shape[0]) for c in chains],
+             "merged_chain_lengths": lengths}
     return "\n".join(lines) + "\n", stats
 
 
