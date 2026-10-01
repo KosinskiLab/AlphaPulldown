@@ -48,14 +48,14 @@ trap 'kill $SAMPLER 2>/dev/null' EXIT
 sleep 2
 
 BINDS=(--bind "$BENCH" --bind "$CODE" --bind /g/alphafold)
-RUNENV=($MEM_ENV --env "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}")
+RUNENV=($MEM_ENV_AF3 --env "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}")
 
 printf "fold\tseed\ttag\trc\tstart\tend\tstatus\n" > runs.tsv
 oom_at=""
 for fold in $FOLDS; do
   tag=${fold}_s$SEED in=$RUN/in/${fold}_s$SEED out=$RUN/out/${fold}_s$SEED
   if [ -n "$oom_at" ]; then
-    printf "%s\t%s\t%s\tNA\tNA\tNA\tskipped_after_oom:%s\n" "$fold" "$SEED" "$tag" "$oom_at" >> runs.tsv; continue
+    printf "%s\t%s\t%s\tNA\tNA\tNA\tskipped_after:%s\n" "$fold" "$SEED" "$tag" "$oom_at" >> runs.tsv; continue
   fi
   rm -rf "$in" "$out"; mkdir -p "$in" "$out"
   spec=$("$HOST_PY" -c "import json;print(next(x['fold'] for x in json.load(open('$BENCH/inputs/folds.json')) if x['name']=='$fold'))")
@@ -73,6 +73,8 @@ for fold in $FOLDS; do
   if grep -qE 'RESOURCE_EXHAUSTED|[Oo]ut of memory|OOM when allocating' "logs/$tag.log"; then status=oom; oom_at=$fold
   elif [ $rc -ne 0 ]; then status=failed; fi
   printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\n" "$fold" "$SEED" "$tag" "$rc" "$t0" "$t1" "$status" | tee -a runs.tsv
+  # A setup failure on the smallest fold will fail every fold: stop instead of burning the allocation.
+  if [ "$status" = failed ] && ! grep -q '	ok$' runs.tsv; then oom_at="setup_failure:$fold"; fi
 done
 
 kill $SAMPLER 2>/dev/null

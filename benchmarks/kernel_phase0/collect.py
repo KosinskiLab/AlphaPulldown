@@ -117,7 +117,15 @@ def parse_kit(log: str):
     levers = {}
     for m in KIT_LEVER.finditer(log):
         fields = dict(kv.split("=", 1) for kv in m.group(3).split() if "=" in kv)
-        levers[m.group(1)] = {"state": m.group(2), **{k: fields[k] for k in ("calls", "served", "fallbacks", "reason") if k in fields}}
+        lever = {"state": m.group(2), **{k: fields[k] for k in ("calls", "served", "rows", "fallbacks", "reason") if k in fields}}
+        # A kernel lever can be "on" yet serve every call with the stock XLA op (no kernel table
+        # for this card), either as fallbacks or as rows/served entries naming xla only.
+        served = ",".join(lever.get(k, "") for k in ("served", "rows")).strip(",")
+        impls = {part.split(":")[-2] for part in served.split(",") if part.count(":") >= 1 and part.split(":")[-1].isdigit()}
+        calls, fallbacks = fields.get("calls", ""), fields.get("fallbacks", "0")
+        lever["stock_only"] = (impls == {"xla"}) or (calls.isdigit() and int(calls) > 0 and fallbacks == calls) \
+            or (calls == "0" and fallbacks.isdigit() and int(fallbacks) > 0)
+        levers[m.group(1)] = lever
     return {"active": active[-1] if active else None, "levers": levers}
 
 
@@ -295,16 +303,23 @@ def kit_section(kits):
     if not kits:
         return []
     lines = ["## Kit activation (did the optimizations actually run?)", "",
-             "| gpu | arm | folds | ACTIVE line (last fold) | levers on / reported | levers that fell back |", "|---|---|---|---|---|---|"]
+             "A lever can be on yet serve every call with the stock XLA op when the card has no kernel table; "
+             "those are listed as stock-only. Per-lever counters: `report/kit_levers.json`.", "",
+             "| gpu | arm | folds | ACTIVE (mode) | levers on / reported | stock-only on every fold | some fallbacks |",
+             "|---|---|---|---|---|---|---|"]
     grouped = defaultdict(list)
     for k in kits:
         grouped[(k["gpu"], k["arm"], k["suite"])].append(k)
     for (gpu, arm, suite), ks in sorted(grouped.items()):
         last = ks[-1]
         on = sum(v["state"] == "on" for v in last["levers"].values())
-        fell = sorted({name for k in ks for name, v in k["levers"].items() if v.get("fallbacks", "0") not in ("0", "")})
-        active = (last["active"] or "–")[:90]
-        lines.append(f"| {gpu} | {arm} ({suite}) | {len(ks)} | {active} | {on}/{len(last['levers'])} | {', '.join(fell) or '–'} |")
+        names = {n for k in ks for n in k["levers"]}
+        stock_only = sorted(n for n in names if all(k["levers"].get(n, {}).get("stock_only") for k in ks))
+        fell = sorted({n for k in ks for n, v in k["levers"].items()
+                       if v.get("fallbacks", "0") not in ("0", "") and n not in stock_only})
+        active = (last["active"] or "–").split(" levers=")[0][:40]
+        lines.append(f"| {gpu} | {arm} ({suite}) | {len(ks)} | {active} | {on}/{len(last['levers'])} | "
+                     f"{', '.join(stock_only) or '–'} | {', '.join(fell) or '–'} |")
     return lines + [""]
 
 
