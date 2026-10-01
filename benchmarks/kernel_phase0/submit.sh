@@ -48,6 +48,17 @@ gpu_job() {  # suite gpu arm partition walltime [seeds]
   all="$all:$jid"
 }
 
+chunk_job() {  # gpu arm tag folds(colon-sep) reps walltime — one short piece of an arm's speed ladder
+  local gpu=$1 arm=$2 tag=$3 folds=$4 reps=$5 wall=$6 jid
+  jid=$(sb ${EXCLUDE_NODES:+--exclude=$EXCLUDE_NODES} -p "$(gpu_partition "$gpu")" --gres="$(gpu_gres "$gpu")" -t "$wall" \
+        -c 4 --mem=32G -J "kb0-speed-$gpu-$arm-$tag" -o "$BENCH/logs/speed_${gpu}_${arm}_${tag}_%j.out" \
+        --export=ALL,CODE="$CODE",SUITE=speed,GPU="$gpu",ARM="$arm",SEEDS="$SEED",RUN_TAG="$tag",FOLD_SUBSET="$folds",REPS="$reps" \
+        "$CODE/run_af2_arm.sbatch")
+  printf "%s\t%s\t%s\t%s\n" "$jid" speed "$gpu" "$arm#$tag" >> "$JOBS"
+  echo "speed/$gpu/$arm#$tag  $jid"
+  all="$all:$jid"
+}
+
 collect() {
   local jid
   jid=$(sb ${all:+--dependency=afterany${all}} --export=ALL,CODE="$CODE" -o "$BENCH/logs/collect_%j.out" "$CODE/collect.sbatch")
@@ -79,6 +90,19 @@ case $MODE in
         gpu_job accuracy "$acc_gpu" "$arm" "$(gpu_partition "$acc_gpu")" 05:00:00 "$seeds"
       done
     fi
+    collect ;;
+  chunked)
+    # The AF2 speed ladder per arm in two jobs short enough for a partition that only backfills
+    # short work (test's single 3090 node, 2026-10-01): small rungs, then the two largest with
+    # one timed rep. Arms named after the card, e.g. `submit.sh chunked 3090 cf163_stock kit_fast`.
+    prepare
+    gpu=${1:?usage: submit.sh chunked <gpu> [arm ...]}; shift
+    arms=${*:-$AF2_ARMS}
+    all=""
+    for arm in $arms; do
+      chunk_job "$gpu" "$arm" c1 s0164:s0357:s0599:s0896:s1309 3 02:00:00
+      chunk_job "$gpu" "$arm" c2 s1792:s2546 2 02:00:00
+    done
     collect ;;
   collect)
     collect ;;

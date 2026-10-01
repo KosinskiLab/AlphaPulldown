@@ -20,7 +20,9 @@ source "${CODE:?}/bench.env"
 : "${ARM:?}" "${GPU:?}" "${SUITE:?}"
 SEEDS=${SEEDS:-$SEED}
 SEEDS=${SEEDS//:/ }   # colon-separated in --export, which reserves commas
-RUN=$BENCH/runs/$SUITE/$GPU/$ARM
+# RUN_TAG splits one arm into chunks that fit short backfill windows: each chunk gets its own
+# run directory (<arm>#<tag>) and FOLD_SUBSET (colon-separated fold names) picks its folds.
+RUN=$BENCH/runs/$SUITE/$GPU/$ARM${RUN_TAG:+#$RUN_TAG}
 mkdir -p "$RUN/logs" "$RUN/out" "$RUN/in" "$RUN/jax"
 cd "$RUN" || exit 1
 
@@ -30,6 +32,7 @@ case $SUITE in
   smoke) FOLDS=s0164; REPS=2 ;;
   *) echo "unknown SUITE $SUITE"; exit 2 ;;
 esac
+[ -n "${FOLD_SUBSET:-}" ] && FOLDS=${FOLD_SUBSET//:/ }
 
 # A node whose driver is broken must not produce numbers: stop before running anything.
 if ! nvidia-smi -L > /dev/null 2>&1; then

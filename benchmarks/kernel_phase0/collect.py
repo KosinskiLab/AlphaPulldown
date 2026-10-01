@@ -135,6 +135,7 @@ def collect_runs(bench: Path, folds: dict):
         if not (run / "runs.tsv").exists():
             continue
         suite, gpu, arm = run.parts[-3:]
+        arm = arm.split("#")[0]  # chunked arms run as <arm>#<tag>, one directory per chunk
         samples = gpu_memory(run)
         gpu_name = (run / "gpu.txt").read_text().split(",")[0].strip() if (run / "gpu.txt").exists() else gpu
         for r in read_tsv(run / "runs.tsv"):
