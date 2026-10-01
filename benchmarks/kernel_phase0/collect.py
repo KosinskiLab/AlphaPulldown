@@ -309,7 +309,10 @@ def main():
     ap.add_argument("--expected", type=Path, help="jobs.tsv from submit.sh, to report missing runs")
     args = ap.parse_args()
     bench = args.bench
-    folds = {f["name"]: f for f in json.loads((bench / "inputs" / "folds.json").read_text())}
+    folds_json = bench / "inputs" / "folds.json"
+    folds = {f["name"]: f for f in json.loads(folds_json.read_text())} if folds_json.exists() else {}
+    if not folds:
+        print(f"no inputs: {folds_json} is missing; see {bench}/inputs/RESULT.txt")
     rows, kits = collect_runs(bench, folds)
     report = bench / "report"
     report.mkdir(exist_ok=True)

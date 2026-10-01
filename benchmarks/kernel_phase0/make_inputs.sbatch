@@ -18,12 +18,13 @@ mkdir -p "$IN/features" "$IN/natives" "$BENCH/params_cf/params"
 echo "node=$(hostname) start=$(date -Iseconds)"
 status=0
 
-chains=$( { grep -v '^#' "$CODE/folds.tsv" | cut -f3; cat "$SRC_ACCURACY_FOLDS"; } | tr '+ ' '\n\n' | grep . | sort -u)
+cp "$SRC_ACCURACY_FOLDS" "$IN/accuracy_folds.txt" || status=1   # the container sees $BENCH, not the source tree
+chains=$( { grep -v '^#' "$CODE/folds.tsv" | cut -f3; cat "$IN/accuracy_folds.txt"; } | tr '+ ' '\n\n' | grep . | sort -u)
 for chain in $chains; do
   cp -n "$SRC_FEATURES/$chain".pkl* "$IN/features/" || { echo "missing features for $chain"; status=1; }
   cp -n "$SRC_FEATURES/${chain}"_feature_metadata_*.json* "$IN/features/" 2>/dev/null || true
 done
-for pdb in $(tr '+ ' '\n\n' < "$SRC_ACCURACY_FOLDS" | grep . | cut -d_ -f1 | sort -u); do
+for pdb in $(tr '+ ' '\n\n' < "$IN/accuracy_folds.txt" | grep . | cut -d_ -f1 | sort -u); do
   cp -n "$SRC_NATIVES/$pdb.cif" "$IN/natives/" || { echo "missing native $pdb"; status=1; }
 done
 (cd "$IN" && sha256sum features/* natives/* > SHA256SUMS)
@@ -35,7 +36,7 @@ touch "$BENCH/params_cf/params/download_complexes_multimer_v3_finished.txt"
 
 binds=(--bind "$BENCH" --bind "$CODE" --bind /g/alphafold)
 apptainer exec --cleanenv --env JAX_PLATFORMS=cpu "${binds[@]}" "$SIF_AP_AF2" \
-  python "$CODE/make_inputs.py" --folds-tsv "$CODE/folds.tsv" --accuracy-folds "$SRC_ACCURACY_FOLDS" \
+  python "$CODE/make_inputs.py" --folds-tsv "$CODE/folds.tsv" --accuracy-folds "$IN/accuracy_folds.txt" \
   --features "$IN/features" --out "$IN" > "$IN/make_inputs.log" 2>&1 || status=1
 tail -3 "$IN/make_inputs.log"
 
