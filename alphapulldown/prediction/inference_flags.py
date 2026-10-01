@@ -36,6 +36,12 @@ AF2_LIKE_FLAGS = frozenset({
 
 ALPHALINK_EXTRA_FLAGS = frozenset({"crosslinks"})
 
+UNIFOLD_UNAVAILABLE_REASON = (
+    "UniFold is unavailable in this release: the bundled runtime is an AlphaLink "
+    "fork, not a supported UniFold inference runtime. Use --fold_backend=alphafold2 "
+    "or --fold_backend=alphafold3; use --fold_backend=alphalink only with AlphaLink weights."
+)
+
 AF3_FLAGS = frozenset({
     "jax_compilation_cache_dir", "buckets", "flash_attention_implementation",
     "num_diffusion_samples", "num_seeds", "debug_templates", "debug_msas",
@@ -50,8 +56,15 @@ FLAGS_BY_BACKEND: Mapping[str, frozenset] = {
 }
 
 
+def validate_backend_availability(backend_name: str) -> None:
+    """Reject the legacy UniFold selector before reading inputs or model weights."""
+    if backend_name == "unifold":
+        raise ValueError(UNIFOLD_UNAVAILABLE_REASON)
+
+
 def unsupported_flags(backend_name: str, present: Iterable[str]) -> list[str]:
     """Flag names the named backend does not accept. Unknown backend: nothing to say."""
+    validate_backend_availability(backend_name)
     allowed = FLAGS_BY_BACKEND.get(backend_name)
     if allowed is None:
         return []
@@ -106,15 +119,24 @@ MODEL_CONFIGURATION_KEYS = frozenset(_MODEL_FLAG_SOURCES) | {
 }
 
 
+def model_name_for_backend(flags: Any) -> str:
+    """The model configuration a backend starts from.
+
+    AlphaFold 2 multimers are switched to ``multimer`` by the caller, per object.
+    """
+    validate_backend_availability(flags.fold_backend)
+    if flags.fold_backend == "alphalink":
+        return "multimer_af2_crop"
+    return "monomer_ptm"
+
+
 def model_flags(flags: Any) -> Dict[str, Any]:
     """Configuration for ``backend.setup`` built from the parsed invocation."""
     configuration = {
         key: getattr(flags, attribute)
         for key, attribute in _MODEL_FLAG_SOURCES.items()
     }
-    configuration["model_name"] = (
-        "multimer_af2_crop" if flags.fold_backend == "alphalink" else "monomer_ptm"
-    )
+    configuration["model_name"] = model_name_for_backend(flags)
     return configuration
 
 

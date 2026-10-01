@@ -2,6 +2,18 @@
 
 This branch has broad maintained test coverage, but the protection is layered.
 
+## UniFold availability
+
+UniFold is disabled in this release. `--fold_backend=unifold` and the legacy
+`--use_unifold` switch fail before reading input features or model weights, with
+an error explaining supported alternatives. The packaged `unifold` namespace
+belongs to the AlphaLink2 fork: its inference API and network are not a validated
+native UniFold runtime. The old mocked adapter tests did not establish that
+compatibility. AlphaLink remains a separate backend requiring AlphaLink weights.
+
+Restoring UniFold requires a compatible runtime, tests against its real feature
+processing and checkpoint-loading APIs, and inference with native UniFold weights.
+
 ## Always-on CI
 
 GitHub Actions runs:
@@ -45,7 +57,7 @@ The following areas are only partially protected, optional, or report-only:
 - `test/alphalink` workflows beyond CPU-safe helper tests
 - legacy scenarios still parked under `test/outdated`
 - analysis-pipeline utilities and some deeper ModelCIF internals
-- Python `3.8`, which is still advertised in packaging but is not exercised by GitHub Actions
+- Python `3.12`, which packaging allows (`requires-python >= 3.10`) but GitHub Actions does not exercise
 
 The coverage artifact is useful as an audit input, but it does not prove workflow correctness by itself. In particular, `python test/tools/check_function_coverage.py --report-only` highlights functions that were never executed in CI and should be treated as follow-up audit items, not automatic release blockers.
 

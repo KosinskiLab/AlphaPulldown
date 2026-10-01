@@ -29,6 +29,8 @@ LIGHT_MODULES = (
     "alphapulldown.features.feature_batch",
     "alphapulldown.scripts._mmseqs2_cli",
     "alphapulldown.prediction.inference_flags",
+    # Probes JAX only when called, so importing it costs nothing on a login node.
+    "alphapulldown.prediction.jax_devices",
     # Compatibility paths must retain the same lightweight behavior.
     "alphapulldown.feature_batch",
     "alphapulldown.af2_feature_finalizer",

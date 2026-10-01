@@ -86,3 +86,19 @@ def test_postprocess_flags_are_built_from_the_invocation():
     built = inference_flags.postprocess_flags(_Flags(use_gpu_relax=False))
     assert built["use_gpu_relax"] is False
     assert built["compress_pickles"] is False
+
+
+def test_unifold_model_flags_fail_with_the_release_limitation():
+    with pytest.raises(ValueError, match="UniFold.*unavailable"):
+        inference_flags.model_flags(_Flags(fold_backend="unifold"))
+
+
+def test_unifold_validation_rejects_the_backend_before_checking_flags():
+    with pytest.raises(ValueError, match="UniFold.*unavailable"):
+        inference_flags.unsupported_flags("unifold", ["unifold_model_name"])
+    assert inference_flags.unsupported_flags("alphafold2", ["unifold_model_name"]) == [
+        "unifold_model_name"
+    ]
+    assert inference_flags.unsupported_flags("alphafold3", ["unifold_model_name"]) == [
+        "unifold_model_name"
+    ]

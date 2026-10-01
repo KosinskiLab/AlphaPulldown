@@ -140,7 +140,7 @@ def _set_flag(flags_obj, name, value, *, present=True, using_default_value=False
     flag.using_default_value = using_default_value
 
 
-def _load_run_structure_prediction_module():
+def _load_run_structure_prediction_module(jax_local_devices=None):
     module_name = "test_run_structure_prediction_module"
     names_to_replace = [
         "absl",
@@ -179,7 +179,7 @@ def _load_run_structure_prediction_module():
     absl_pkg.logging = logging_mod
 
     jax_mod = types.ModuleType("jax")
-    jax_mod.local_devices = lambda backend="gpu": []
+    jax_mod.local_devices = jax_local_devices or (lambda backend="gpu": [])
 
     class ModelsToRelax(Enum):
         NONE = "none"
@@ -234,6 +234,7 @@ def _load_run_structure_prediction_module():
             self.description = "_and_".join(interactor.description for interactor in interactors)
             self.input_seqs = [interactor.sequence for interactor in interactors]
             self.multimeric_mode = True
+            self.feature_dict = {"merged": [interactor.description for interactor in interactors]}
 
     objects_mod.MonomericObject = MonomericObject
     objects_mod.ChoppedObject = ChoppedObject
@@ -363,6 +364,7 @@ def _load_run_multimer_jobs_module():
         "debug_templates": False,
         "debug_msas": False,
         "job_index": None,
+        "unifold_model_name": "multimer_af2",
     }
     for name, default in shared_flag_defaults.items():
         flags_mod.FLAGS.define(name, default)
@@ -459,9 +461,30 @@ def test_importing_shared_prediction_flags_does_not_require_single_job_outputs(
 def test_single_prediction_initializes_jax_before_importing_backend():
     source = RUN_STRUCTURE_PREDICTION_PATH.read_text(encoding="utf-8")
 
-    assert source.index("gpus = jax.local_devices(backend='gpu')") < source.index(
-        "from alphapulldown.folding_backend import backend"
+    probe = source.index("gpus = initialise_jax_gpu_backend()")
+    assert probe < source.index("from alphapulldown.folding_backend import backend")
+    assert probe < source.index("from alphapulldown.objects import")
+
+
+def _raise_no_gpu_backend(backend="gpu"):
+    raise RuntimeError(
+        "Unknown backend: 'gpu' requested, but no platforms that are instances of "
+        "gpu are present. Platforms present are: cpu"
     )
+
+
+def test_single_prediction_imports_without_a_gpu_backend():
+    """The import-time probe raised on any machine without a GPU, so --help and
+    the head-node flag validation the workflow recommends both failed."""
+    module, saved_modules = _load_run_structure_prediction_module(
+        jax_local_devices=_raise_no_gpu_backend
+    )
+    try:
+        assert module.gpus == []
+        assert "unifold_model_name" in module.FLAGS
+    finally:
+        sys.modules.pop(module.__name__, None)
+        _restore_modules(saved_modules)
 
 
 def test_validate_flags_for_af3_allows_modelcif_conversion(
@@ -691,10 +714,13 @@ def test_pre_modelling_setup_saves_multimer_features_and_builds_unique_ap_style_
 
     assert isinstance(returned_object, run_structure_prediction_module.MultimericObject)
     assert returned_output_dir.endswith("protA_and_protB")
+    # The features of the object that was built, written into the fold's own
+    # directory once it exists. The old code read them off the class and wrote
+    # one level up, before the directory was created.
     assert dumped == [
         (
-            run_structure_prediction_module.MultimericObject.feature_dict,
-            str(tmp_path / "outputs" / "multimeric_object_features.pkl"),
+            {"merged": ["protA", "protB"]},
+            str(tmp_path / "outputs" / "protA_and_protB" / "multimeric_object_features.pkl"),
         )
     ]
 
@@ -1380,3 +1406,60 @@ def test_run_multimer_jobs_forwards_relax_best_score_threshold(
     assert len(calls) == 1
     assert "--relax_best_score_threshold" in calls[0]
     assert calls[0][calls[0].index("--relax_best_score_threshold") + 1] == "0.6"
+
+
+@pytest.mark.parametrize("legacy_switch", [True, False])
+def test_run_multimer_jobs_rejects_unifold_before_reading_inputs(
+    run_multimer_jobs_module, monkeypatch, legacy_switch,
+):
+    monkeypatch.setattr(
+        run_multimer_jobs_module, "generate_fold_specifications",
+        lambda **kwargs: pytest.fail("must reject UniFold before reading inputs"),
+    )
+    _set_flag(run_multimer_jobs_module.FLAGS, "use_unifold", legacy_switch)
+    _set_flag(run_multimer_jobs_module.FLAGS, "fold_backend",
+              "alphafold2" if legacy_switch else "unifold")
+    with pytest.raises(ValueError, match="UniFold.*unavailable"):
+        run_multimer_jobs_module.main(["prog"])
+
+
+def test_run_multimer_jobs_does_not_forward_the_unifold_model_name_to_other_backends(
+    run_multimer_jobs_module,
+    monkeypatch,
+):
+    calls = []
+    monkeypatch.setattr(
+        run_multimer_jobs_module.subprocess,
+        "run",
+        lambda command, check, env: calls.append(command),
+    )
+    run_multimer_jobs_module.generate_fold_specifications = (
+        lambda input_files, delimiter, exclude_permutations: ["A,B"]
+    )
+
+    _set_flag(run_multimer_jobs_module.FLAGS, "mode", "custom")
+    _set_flag(run_multimer_jobs_module.FLAGS, "protein_lists", ["proteins.txt"])
+    _set_flag(run_multimer_jobs_module.FLAGS, "dry_run", False)
+    _set_flag(run_multimer_jobs_module.FLAGS, "fold_backend", "alphafold2")
+    _set_flag(run_multimer_jobs_module.FLAGS, "output_path", "/tmp/output")
+    _set_flag(run_multimer_jobs_module.FLAGS, "data_dir", "/tmp/models")
+    _set_flag(run_multimer_jobs_module.FLAGS, "monomer_objects_dir", ["/tmp/features"])
+    _set_flag(run_multimer_jobs_module.FLAGS, "use_unifold", False)
+
+    run_multimer_jobs_module.main(["prog"])
+
+    assert len(calls) == 1
+    assert "--unifold_model_name" not in calls[0]
+    assert calls[0][calls[0].index("--fold_backend") + 1] == "alphafold2"
+
+
+def test_main_rejects_unifold_before_reading_inputs(
+    run_structure_prediction_module, monkeypatch, tmp_path,
+):
+    _set_flag(run_structure_prediction_module.FLAGS, "fold_backend", "unifold")
+    monkeypatch.setattr(
+        run_structure_prediction_module, "parse_fold",
+        lambda *args: pytest.fail("must reject UniFold before reading inputs"),
+    )
+    with pytest.raises(ValueError, match="UniFold.*unavailable"):
+        run_structure_prediction_module.main([])

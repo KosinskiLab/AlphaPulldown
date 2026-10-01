@@ -1839,3 +1839,46 @@ def test_create_all_chain_features_skips_multimeric_template_postprocessing_when
 
     assert multimer.feature_dict["template_sequence"] == ["kept"]
     assert "multichain_mask" not in multimer.feature_dict
+
+
+def test_concatenate_sliced_feature_dict_joins_template_sequences_across_regions():
+    """template_sequence sat in the skip set, so a multi-region chop kept the FIRST
+    region's fragment only, shorter than the chain the template arrays describe."""
+    chopped = ChoppedObject(
+        "proteinA", "ABCDEFGHIJ", _feature_dict(template_count=2), [(1, 2), (5, 7)]
+    )
+    slice_a = chopped.prepare_individual_sliced_feature_dict(chopped.feature_dict, 1, 2)
+    slice_b = chopped.prepare_individual_sliced_feature_dict(chopped.feature_dict, 5, 7)
+
+    merged = chopped.concatenate_sliced_feature_dict([slice_a, slice_b])
+
+    assert merged["template_sequence"].tolist() == [b"ABEFG", b"ABEFG"]
+    assert merged["template_aatype"].shape == (2, 5, 22)
+
+
+def test_prepare_final_sliced_feature_dict_keeps_template_sequences_at_chain_length():
+    chopped = ChoppedObject("proteinA", "ABCDEFGHIJ", _feature_dict(), [(1, 2), (5, 7)])
+
+    chopped.prepare_final_sliced_feature_dict()
+
+    assert chopped.sequence == "ABEFG"
+    assert chopped.feature_dict["template_sequence"].tolist() == [b"ABEFG"]
+    assert chopped.feature_dict["template_sequence"].dtype == object
+
+
+def test_concatenate_sliced_feature_dict_without_templates_keeps_no_template_sequence():
+    chopped = ChoppedObject(
+        "proteinA", "ABCDEFGHIJ", _feature_dict(template_count=0), [(1, 2), (3, 4)]
+    )
+    slice_a = chopped.prepare_individual_sliced_feature_dict(chopped.feature_dict, 1, 2)
+    slice_b = chopped.prepare_individual_sliced_feature_dict(chopped.feature_dict, 3, 4)
+
+    merged = chopped.concatenate_sliced_feature_dict([slice_a, slice_b])
+
+    assert merged["template_sequence"].shape == (0,)
+    assert merged["template_aatype"].shape == (0, 4, 22)
+
+
+def test_join_template_sequences_refuses_slices_with_different_template_counts():
+    with pytest.raises(ValueError, match="number of templates"):
+        objects_mod._join_template_sequences([[b"AB"], [b"CD", b"EF"]])

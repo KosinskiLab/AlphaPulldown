@@ -38,7 +38,8 @@ jobs:
           use-mamba: true
 
       - run: |
-          pip install -e .[test]
+          # Fresh-interpreter compatibility tests import AF2's real JAX tree API.
+          pip install -e .[test] 'jax==0.5.3'
 
       - run: |
           pytest -n auto --dist loadfile test/unit
@@ -70,7 +71,8 @@ jobs:
           use-mamba: true
 
       - run: |
-          pip install -e .[test]
+          # Match the CPU runtime used by the smoke-test matrix.
+          pip install -e .[test] 'jax==0.5.3'
 
       - run: |
           pytest -n auto --dist loadfile test/unit \

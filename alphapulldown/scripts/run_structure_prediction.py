@@ -9,8 +9,12 @@
 """
 import pickle
 
-import jax
-gpus = jax.local_devices(backend='gpu')
+from alphapulldown.prediction.jax_devices import initialise_jax_gpu_backend
+
+# Initialise JAX's GPU backend before the folding backends import TensorFlow and
+# OpenMM, so JAX claims the device first. Tolerates a machine without a GPU, so
+# --help and flag validation work on a login node.
+gpus = initialise_jax_gpu_backend()
 from absl import flags, app
 import os
 from os import makedirs
@@ -132,6 +136,11 @@ flags.DEFINE_boolean('dropout', False,
 # AlphaLink2 settings
 flags.DEFINE_string('crosslinks', None, 'Path to crosslink information pickle for AlphaLink.')
 
+# Keep the legacy flag parseable so old invocations get the backend's actionable error.
+flags.DEFINE_string(
+    'unifold_model_name', 'multimer_af2',
+    'Legacy option. UniFold is unavailable in this release.')
+
 # AlphaFold3 settings
 # JAX inference performance tuning.
 flags.DEFINE_string(
@@ -218,7 +227,7 @@ flags.DEFINE_boolean('use_gpu_relax', True,
 # Global settings
 flags.DEFINE_string('protein_delimiter', '+', 'Delimiter for proteins of a single fold.')
 flags.DEFINE_string('fold_backend', 'alphafold2',
-                    'Folding backend that should be used for structure prediction.')
+                    'Folding backend: alphafold2, alphafold3, or alphalink. UniFold is unavailable.')
 flags.DEFINE_boolean(
     'debug_templates', False,
     'If set, save backend-specific template debug artifacts. AF3 writes generated'

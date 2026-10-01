@@ -152,18 +152,6 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(pytest.mark.cluster)
 
 
-@pytest.hookimpl(tryfirst=True)
-def pytest_itemcollected(item):
-    try:
-        par = getattr(item.parent, "obj", None)
-        node = getattr(item, "obj", None)
-        pref = (par.__doc__.strip() if getattr(par, "__doc__", None) else par.__class__.__name__) if par else ""
-        suf = (node.__doc__.strip() if getattr(node, "__doc__", None) else node.__name__) if node else ""
-        if pref or suf:
-            item._nodeid = " ".join(x for x in (pref, suf) if x)
-    except Exception:
-        pass
-
 @pytest.fixture
 def tmp_flags(monkeypatch, tmp_path):
     """

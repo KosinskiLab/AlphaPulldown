@@ -10,8 +10,8 @@ import subprocess
 from absl import app, logging, flags
 import os
 import sys
-import jax
-gpus = jax.local_devices(backend='gpu')
+# Importing the prediction command initialises JAX's GPU backend first, tolerating
+# a machine without a GPU; see alphapulldown.prediction.jax_devices.
 from alphapulldown.scripts.run_structure_prediction import FLAGS
 from alphapulldown.utils.modelling_setup import parse_fold
 from alphapulldown.utils.output_paths import derive_af3_job_name_from_json
@@ -27,12 +27,10 @@ flags.DEFINE_list("protein_lists", None, "protein list files")
 flags.DEFINE_string("alphalink_weight", None, "Path to AlphaLink neural network weights")
 flags.DEFINE_string("unifold_param", None, "Path to UniFold neural network weights")
 flags.DEFINE_boolean("use_unifold", False,
-                     "Whether unifold models are going to be used. Default it False")
+                     "Legacy option. UniFold is unavailable in this release.")
 flags.DEFINE_boolean("use_alphalink", False,
                      "Whether alphalink models are going to be used. Default it False")
-flags.DEFINE_enum("unifold_model_name", "multimer_af2",
-                  ["multimer_af2", "multimer_ft", "multimer", "multimer_af2_v3", "multimer_af2_model45_v3"],
-                  "choose unifold model structure")
+# --unifold_model_name is defined by run_structure_prediction and shared here.
 flags.DEFINE_integer("job_index", None, "index of sequence in the fasta file, starting from 1")
 flags.DEFINE_boolean("dry_run", False, "Report number of jobs that would be run and exit without running them")
 
@@ -76,6 +74,9 @@ flags.DEFINE_enum("models_to_relax",'None',['None','All','Best'],
 
 def main(argv):
     FLAGS(argv)
+    from alphapulldown.prediction.inference_flags import validate_backend_availability
+
+    validate_backend_availability("unifold" if FLAGS.use_unifold else FLAGS.fold_backend)
     protein_lists = FLAGS.protein_lists
     if FLAGS.mode == "all_vs_all":
         protein_lists = [FLAGS.protein_lists[0], FLAGS.protein_lists[0]]
@@ -99,13 +100,11 @@ def main(argv):
     script_path = os.path.join(parent_dir, "run_structure_prediction.py")
     base_command = [sys.executable, script_path]
 
-    # Use the specified fold_backend, only override for alphalink/unifold
+    # Use the specified fold_backend, only override for AlphaLink.
     fold_backend = FLAGS.fold_backend
     model_dir = FLAGS.data_dir
     if FLAGS.use_alphalink:
         fold_backend, model_dir = "alphalink", FLAGS.alphalink_weight
-    elif FLAGS.use_unifold:
-        fold_backend, model_dir = "unifold", FLAGS.unifold_param
 
     af3_use_ap_style = FLAGS.use_ap_style
     if fold_backend == "alphafold3" and FLAGS["use_ap_style"].using_default_value:

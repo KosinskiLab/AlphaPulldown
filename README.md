@@ -840,6 +840,10 @@ structure_inference_arguments:
 
 > **Note**: AlphaPulldown supports: `alphafold2`, `alphafold3`, and `alphalink` backends.
 
+The legacy `--fold_backend=unifold` and `--use_unifold` options are disabled in
+this release. The bundled runtime is the AlphaLink2 fork and does not provide
+validated native UniFold inference. AlphaLink requires its own model weights.
+
 ### Backend-specific flags
 
 You can pass backend CLI switches through `structure_inference_arguments`. Common options are listed below; keep or remove lines based on your needs.

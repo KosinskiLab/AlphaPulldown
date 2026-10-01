@@ -31,7 +31,6 @@ class FoldingBackendManager:
             {
                 "alphafold2": "alphapulldown.folding_backend.alphafold2_backend:AlphaFold2Backend",
                 "alphafold3": "alphapulldown.folding_backend.alphafold3_backend:AlphaFold3Backend",
-                "unifold": "alphapulldown.folding_backend.unifold_backend:UnifoldBackend",
                 "alphalink": "alphapulldown.folding_backend.alphalink_backend:AlphaLinkBackend",
             }
         )
@@ -73,6 +72,9 @@ class FoldingBackendManager:
         return sorted(ok)
 
     def _load_backend_class(self, backend_name: str) -> Type:
+        from alphapulldown.prediction.inference_flags import validate_backend_availability
+
+        validate_backend_availability(backend_name)
         if backend_name not in self._BACKEND_REGISTRY:
             available = ", ".join(sorted(self._BACKEND_REGISTRY.keys()))
             raise NotImplementedError(
@@ -132,4 +134,3 @@ def change_backend(backend_name: str, **backend_kwargs) -> None:
     """Change the backend for structure prediction."""
     mgr = _get_manager()
     mgr.change_backend(backend_name, **backend_kwargs)
-

@@ -21,28 +21,39 @@ class distogram_parser:
     def __init__(self):
         pass
 
+    @staticmethod
+    def select_top_ranked_pickle(directory):
+        """Path of the result pickle in ``directory`` with the highest ranking confidence.
+
+        Returns ``(path, ranking_confidence)``, or ``(None, 0.0)`` when the directory
+        holds no pickle with a positive ranking confidence. Only the path and the
+        score are kept while scanning, so the pickles are not all held in memory.
+        """
+        top_ranked = (None, 0.0)
+        for fn in sorted(glob.glob(os.path.join(directory, "*.pkl"))):
+            with open(fn, 'rb') as ifile:
+                d = pickle.load(ifile)
+            ranking_confidence = d.get('ranking_confidence', 0)
+            if ranking_confidence > top_ranked[-1]:
+                top_ranked = (fn, ranking_confidence)
+        return top_ranked
+
     def get_contacts(self, directory, distance=8, pbtycutoff=0.8, cross_only=True, verbose=False):
         """
-            selects from datadir a pkl/distogram corresponding to a top-ranked model 
+            selects from directory a pkl/distogram corresponding to a top-ranked model
         """
 
-        top_ranked_dgram = (None, None, 0.0)
-        for fn in glob.glob(os.path.join(datadir, "*.pkl")):
-            with open(fn, 'rb') as ifile:
-                d=pickle.load(ifile)
-            if d.get('ranking_confidence',0)>top_ranked_dgram[-1]:
-                top_ranked_dgram = (fn, d, d.get('ranking_confidence',0))
+        top_ranked_fn, top_ranked_confidence = self.select_top_ranked_pickle(directory)
 
-        if top_ranked_dgram[0] is None: return []
+        if top_ranked_fn is None: return []
 
         if verbose:
-            print(f"Selected {os.path.basename(top_ranked_dgram[0])} with ranking confidence {top_ranked_drgam[-1]:.2f}")
+            print(f"Selected {os.path.basename(top_ranked_fn)} with ranking confidence {top_ranked_confidence:.2f}")
 
-        d = top_ranked_dgram[1]
-
-        # reparse top ditogram; avoids storing all pickles in memory         
-        with open(fn, 'rb') as ifile:
-            d=pickle.load(ifile)   
+        # Re-read the SELECTED pickle. This used to re-read whichever file the
+        # scan visited last, which is the top-ranked one only by coincidence.
+        with open(top_ranked_fn, 'rb') as ifile:
+            d = pickle.load(ifile)
         chain_ids = string.ascii_uppercase
         asym_id=[]
         chain_lens = []
@@ -50,8 +61,6 @@ class distogram_parser:
             asym_id.extend([_idx+1]*len(_seq))
             chain_lens.append(len(_seq))
         chain_lens = np.array(chain_lens)
-
-        assembly_num_chains = len(d['seqs'])
 
         bin_edges = d['distogram']['bin_edges']
 
@@ -66,9 +75,12 @@ class distogram_parser:
 
         distance = np.clip(distance, 3, 20)
 
-        bin_idx=np.max(np.where(bin_edges<distance))
-
-        below_dist_pbty = np.sum(probs, axis=2, where=(np.arange(probs.shape[-1])<bin_idx))
+        # AF2 emits N probabilities and N-1 separating edges. Each edge is
+        # the upper bound of the bin at the same index; count every complete
+        # bin below the cutoff, including a bin ending exactly at the cutoff.
+        # Using the last edge's index as a count dropped one whole bin.
+        num_bins_below = np.searchsorted(bin_edges, distance, side="right")
+        below_dist_pbty = np.sum(probs[..., :num_bins_below], axis=-1)
 
         requested_contacts=[]
 
@@ -97,6 +109,5 @@ class distogram_parser:
 if __name__=="__main__":
 
     do=distogram_parser()
-    contacts=do.get_contacts(datadir='.', verbose=0)
-
+    contacts=do.get_contacts(directory='.', verbose=0)
 
