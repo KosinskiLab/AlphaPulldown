@@ -39,8 +39,8 @@ def main() -> int:
     ap.add_argument("--inputs", type=Path, required=True)
     ap.add_argument("--label", required=True)
     args = ap.parse_args()
-    import colabfold
-    version = getattr(colabfold, "__version__", "unknown")
+    from importlib.metadata import version as dist_version
+    version = f"colabfold {dist_version('colabfold')} / alphafold-colabfold {dist_version('alphafold-colabfold')}"
     failed = 0
     for record in json.loads((args.inputs / "folds.json").read_text()):
         problems = compare(record["name"], args.inputs)

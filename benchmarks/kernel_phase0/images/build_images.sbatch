@@ -1,8 +1,10 @@
 #!/bin/bash
 # Build or pull the four images the benchmark runs. Idempotent: an image already present is
 # kept, so a rerun only fills what is missing. Writes $BENCH/images/RESULT.txt last.
+# build-el8 only: --fakeroot injects the HOST's faked into the image, and a Rocky 10 host's
+# needs glibc 2.38, which the kit's Ubuntu 22.04 base lacks (%post dies with GLIBC_2.38 not found).
 #SBATCH -J kb0-images
-#SBATCH -p build-el8,build-el10
+#SBATCH -p build-el8
 #SBATCH -c 8
 #SBATCH --mem=32G
 #SBATCH -t 03:00:00
