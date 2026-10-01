@@ -5,6 +5,7 @@ import sys
 import types
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -31,7 +32,7 @@ def _package(name: str) -> types.ModuleType:
     return module
 
 
-def _install_alphafold3_backend_stubs(tmp_path: Path) -> None:
+def _install_alphafold3_backend_stubs(tmp_path: Path, monkeypatch) -> None:
     for module_name in list(sys.modules):
         if module_name == "alphafold3" or module_name.startswith("alphafold3."):
             sys.modules.pop(module_name, None)
@@ -40,15 +41,21 @@ def _install_alphafold3_backend_stubs(tmp_path: Path) -> None:
         import jax  # type: ignore
 
         if not hasattr(jax, "Device"):
-            jax.Device = type("Device", (), {})
+            monkeypatch.setattr(jax, "Device", type("Device", (), {}), raising=False)
         if not hasattr(jax, "tree_map"):
-            jax.tree_map = jax.tree_util.tree_map
+            monkeypatch.setattr(jax, "tree_map", jax.tree_util.tree_map, raising=False)
         if not hasattr(jax, "device_put"):
-            jax.device_put = lambda value, device=None: value
+            monkeypatch.setattr(
+                jax, "device_put", lambda value, device=None: value, raising=False
+            )
         if not hasattr(jax, "jit"):
-            jax.jit = lambda func, device=None: func
+            monkeypatch.setattr(
+                jax, "jit", lambda func, device=None: func, raising=False
+            )
         if not hasattr(jax, "random"):
-            jax.random = SimpleNamespace(PRNGKey=lambda seed: seed)
+            monkeypatch.setattr(
+                jax, "random", SimpleNamespace(PRNGKey=lambda seed: seed), raising=False
+            )
     except Exception:  # pragma: no cover - conftest already installs a stub
         pass
 
@@ -394,17 +401,20 @@ def _install_alphafold3_backend_stubs(tmp_path: Path) -> None:
 @pytest.fixture(scope="module")
 def af3_backend_module(tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp("af3_backend_stubs")
-    _install_alphafold3_backend_stubs(tmp_path)
-    sys.modules.pop("alphapulldown.folding_backend.alphafold3_backend", None)
-    spec = importlib.util.spec_from_file_location(
-        "alphapulldown.folding_backend.alphafold3_backend",
-        MODULE_PATH,
-    )
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    assert spec.loader is not None
-    spec.loader.exec_module(module)
-    return module
+    # Other modules exercise the real AF3 parser. Restore imports and JAX
+    # attributes even if loading the backend or one of its tests fails.
+    with patch.dict(sys.modules), pytest.MonkeyPatch.context() as monkeypatch:
+        _install_alphafold3_backend_stubs(tmp_path, monkeypatch)
+        sys.modules.pop("alphapulldown.folding_backend.alphafold3_backend", None)
+        spec = importlib.util.spec_from_file_location(
+            "alphapulldown.folding_backend.alphafold3_backend",
+            MODULE_PATH,
+        )
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        assert spec.loader is not None
+        spec.loader.exec_module(module)
+        yield module
 
 
 class FakeChainsTable:
