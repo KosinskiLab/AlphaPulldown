@@ -11,6 +11,10 @@
 #SBATCH --mem=96G
 
 set -uo pipefail
+# Jobs can queue for days: run the script as it is in $CODE when the job starts, not the copy
+# sbatch took at submission, so fixes committed meanwhile apply. meta.txt records the commit.
+if [ -z "${KB0_INNER:-}" ]; then KB0_INNER=1 exec bash "${CODE:?}/run_af3_baseline.sbatch" "$@"; fi
+CODE_REV=$(git -C "$CODE" rev-parse --short HEAD 2>/dev/null)$(git -C "$CODE" diff --quiet HEAD -- . 2>/dev/null || echo -dirty)
 source "${CODE:?}/bench.env"
 : "${GPU:?}" "${SUITE:?}"
 ARM=ap_af3
@@ -36,7 +40,7 @@ FOLDS=$("$HOST_PY" -c "
 import json; r = json.load(open('$BENCH/inputs/folds.json')); want = '$suites'.split()
 pick = [x for x in r if any(s in x['suites'] for s in want)] if want != ['smoke'] else [x for x in r if x['name'] == 's0164']
 print(' '.join(x['name'] for x in sorted(pick, key=lambda x: x['tokens'])))")
-echo "node=$(hostname) job=${SLURM_JOB_ID:-none} arm=$ARM gpu=$GPU suite=$SUITE folds=[$FOLDS] reps=$REPS seed=$SEED" | tee meta.txt
+echo "node=$(hostname) job=${SLURM_JOB_ID:-none} arm=$ARM gpu=$GPU suite=$SUITE folds=[$FOLDS] reps=$REPS seed=$SEED code=$CODE_REV" | tee meta.txt
 cat gpu.txt
 nvidia-smi --query-gpu=timestamp,memory.used --format=csv,noheader,nounits -i "$GPU_UUID" -lms 500 > gpu_mem.csv 2>/dev/null &
 SAMPLER=$!

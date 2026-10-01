@@ -64,11 +64,18 @@ Everything is a SLURM job chained by dependencies, so the submitting shell can b
 
 ```bash
 cd benchmarks/kernel_phase0
-./submit.sh smoke                    # every arm + AF3 on the 164-token fold, one H100: ~1 h incl. queue
-./submit.sh full                     # H100, L40S, A40 (gpu-el10): speed ladder, AF3 baseline, accuracy on H100
-./submit.sh full 3090 a100 rtx6000   # second wave on gpu-el8 (queues for weeks as of 2026-10-01)
+./submit.sh smoke                    # every arm + AF3 on the 164-token fold, one 3090 (SMOKE_GPU)
+./submit.sh full                     # A40, 3090, H100: speed ladder + AF3 baseline per card, accuracy on the A40
+./submit.sh full l40s a100 rtx6000   # second wave on gpu-el8 (queues for weeks as of 2026-10-01)
 ./submit.sh collect                  # rebuild the report from whatever has finished
 ```
+
+Card routing and its reasons are in `bench.env`. As of 2026-10-01:
+- gpu-el10's H100 and L40S nodes have a driver mismatch and are excluded (`EXCLUDE_NODES`).
+- H100 runs on gpu-training only, about 11 days' queue.
+- A job waiting in the queue runs the scripts as they are in the worktree when it starts, and
+  records that commit in its `meta.txt`.
+- One collector per card refreshes `REPORT.md` as each card finishes.
 
 `submit.sh` first builds or pulls the four images (`images/`) and the inputs when they are
 missing. Every job ID lands in `$BENCH/jobs.tsv`.

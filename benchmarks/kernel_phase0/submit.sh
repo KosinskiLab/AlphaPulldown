@@ -61,9 +61,14 @@ case $MODE in
     collect ;;
   full)
     prepare
+    # One collector per card (and one for accuracy), each rebuilding the whole report, so the
+    # report fills in as each card finishes instead of waiting for the slowest queue.
     for gpu in $GPUS; do
+      all=""
       for arm in $AF2_ARMS ap_af3; do gpu_job speed "$gpu" "$arm" "$(gpu_partition "$gpu")" "$(gpu_walltime "$gpu")"; done
+      collect
     done
+    all=""
     # Accuracy on one card (ACCURACY_GPU, default a40), only when that card is in this wave:
     # stock arms twice (seed 0 and 1) for the seed-to-seed spread every other difference is
     # judged against. Every accuracy fold is <= 896 tokens, so any card here holds it.
