@@ -1,0 +1,16 @@
+# name	suites	fold (AlphaPulldown syntax, delimiter +)
+# Speed ladder: real chains with real MSAs; the large rungs stack copies of the same
+# heterodimers so every rung keeps a deep, paired MSA. Token counts are filled in by
+# make_inputs.py from the features themselves.
+s0164	speed,af3	8B2R_B+8B2R_A
+s0357	speed,af3	9I1L_B+9I1L_A
+s0599	speed,af3	7YLS_B+7YLS_A
+s0896	speed,af3	8SH7_B+8SH7_A
+s1309	speed,af3	7YLS_B+7YLS_A+7MSR_B+7MSR_A
+s1792	speed,af3	8SH7_B+8SH7_A+8SH7_B+8SH7_A
+s2546	speed,af3	8SH7_B+8SH7_A+8SH7_B+8SH7_A+8VGT_B+8VGT_A
+# AF3 reach probes, run only on cards with >= 40 GB.
+r3584	af3reach	8SH7_B+8SH7_A+8SH7_B+8SH7_A+8SH7_B+8SH7_A+8SH7_B+8SH7_A
+r5376	af3reach	8SH7_B+8SH7_A+8SH7_B+8SH7_A+8SH7_B+8SH7_A+8SH7_B+8SH7_A+8SH7_B+8SH7_A+8SH7_B+8SH7_A
+# Accuracy set (suite "accuracy") is read from SRC_ACCURACY_FOLDS: 12 heterodimers released
+# after AF2-multimer's training cutoff, each with an experimental structure for DockQ.

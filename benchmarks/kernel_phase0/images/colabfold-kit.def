@@ -1,0 +1,56 @@
+Bootstrap: docker
+From: nvidia/cuda:12.4.1-runtime-ubuntu22.04
+
+# Anthropic's ColabFold optimization kit (uplifting-biomolecular-modeling, colabfold/), as an
+# Apptainer image built without Docker. Every step mirrors colabfold/environment/Dockerfile at
+# the pinned commit: the same base, the same digest-checked Python 3.11.5, the pinned lock, the
+# two stock wheels (colabfold 1.6.1, alphafold-colabfold 2.3.13), then `run.sh install`.
+# The kit's own apptainer.def bootstraps from a local Docker daemon, which this cluster lacks.
+# Build: apptainer build --fakeroot --build-arg UBM=<checkout at the pinned commit> \
+#          colabfold_kit.sif colabfold-kit.def
+
+%arguments
+    UBM=/nonexistent
+
+%labels
+    bench.component colabfold-kit
+
+%files
+    {{ UBM }}/colabfold /kit/colabfold
+    {{ UBM }}/common/opt_core /kit/common/opt_core
+
+%environment
+    export PYTHONNOUSERSITE=1
+    export JAX_PLATFORMS=cuda
+    export XLA_PYTHON_CLIENT_MEM_FRACTION=0.95
+    export TF_FORCE_UNIFIED_MEMORY=0
+    export PYTHONHASHSEED=0
+    export CFLAGS=-g0
+    if [ -z "${TRITON_LIBCUDA_PATH:-}" ] && [ -e /opt/culib/libcuda.so ]; then export TRITON_LIBCUDA_PATH=/opt/culib; fi
+
+%post
+    set -e
+    apt-get update
+    apt-get install -y --no-install-recommends ca-certificates curl hhsuite kalign
+    rm -rf /var/lib/apt/lists/*
+    curl -fsSL -o /tmp/python.tar.gz "https://github.com/indygreg/python-build-standalone/releases/download/20230826/cpython-3.11.5+20230826-x86_64-unknown-linux-gnu-install_only.tar.gz"
+    echo "fbed6f7694b2faae5d7c401a856219c945397f772eea5ca50c6eb825cbc9d1e1  /tmp/python.tar.gz" | sha256sum -c -
+    tar -xzf /tmp/python.tar.gz -C /tmp
+    cp -RL --preserve=mode,timestamps /tmp/python/. /usr/local/
+    rm -rf /tmp/python /tmp/python.tar.gz
+    ln -sf /usr/local/bin/python3 /usr/local/bin/python
+    python -V
+    grep -v -E '^(#|colabfold==|alphafold-colabfold==)' /kit/colabfold/environment/requirements.lock > /tmp/stack.txt
+    python -m pip install --no-cache-dir --no-deps -r /tmp/stack.txt
+    python -m pip install --no-cache-dir --no-deps /kit/colabfold/stock/*.whl
+    python -m pip check
+    rm -f /tmp/stack.txt
+    cd /kit/colabfold
+    bash run.sh install
+    python -m pip freeze > /opt/pip-freeze.txt
+    mkdir -p /opt/culib
+    ln -s /.singularity.d/libs/libcuda.so.1 /opt/culib/libcuda.so
+    ln -s /.singularity.d/libs/libcuda.so.1 /opt/culib/libcuda.so.1
+
+%runscript
+    cd /kit/colabfold && exec bash /kit/colabfold/run.sh "$@"

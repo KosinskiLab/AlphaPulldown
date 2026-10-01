@@ -1,0 +1,34 @@
+Bootstrap: docker
+From: debian:trixie-slim
+
+# Stock ColabFold 1.6.3 from PyPI (alphafold-colabfold 2.3.20, with the optional fused
+# Pallas/Triton Evoformer kernels behind --use-fast-kernels). No published image exists for
+# 1.6.3; this mirrors ColabFold's own Dockerfile (debian trixie, venv, jax[cuda12] wheels)
+# without MMseqs2 and OpenMM, which a template-free, relax-free benchmark never calls.
+# Build: apptainer build --fakeroot colabfold_1.6.3.sif colabfold-1.6.3.def
+
+%labels
+    bench.component colabfold-1.6.3
+    bench.jax 0.11.2
+
+%environment
+    export PATH=/opt/venv/bin:$PATH
+    export PYTHONNOUSERSITE=1
+    export MPLBACKEND=Agg
+    # Triton links its launcher stub with -lcuda; offer the unversioned name when --nv binds only libcuda.so.1
+    if [ -z "${TRITON_LIBCUDA_PATH:-}" ] && [ -e /opt/culib/libcuda.so ]; then export TRITON_LIBCUDA_PATH=/opt/culib; fi
+
+%post
+    set -e
+    apt-get update
+    apt-get install -y --no-install-recommends python3 python3-venv ca-certificates
+    rm -rf /var/lib/apt/lists/*
+    python3 -m venv /opt/venv
+    /opt/venv/bin/pip install --no-cache-dir "colabfold[alphafold]==1.6.3" "jax[cuda12]==0.11.2"
+    /opt/venv/bin/pip freeze > /opt/pip-freeze.txt
+    mkdir -p /opt/culib
+    ln -s /.singularity.d/libs/libcuda.so.1 /opt/culib/libcuda.so
+    ln -s /.singularity.d/libs/libcuda.so.1 /opt/culib/libcuda.so.1
+
+%test
+    /opt/venv/bin/python -c "import colabfold.batch, alphafold.model.fused_ops; print('colabfold ok')"
