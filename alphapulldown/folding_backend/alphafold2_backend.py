@@ -461,6 +461,36 @@ def _write_processed_template_debug_artifacts(
             )
 
 
+def _msa_depths(
+    evoformer_config: Mapping,
+    num_predictions: int,
+    *,
+    msa_depth=None,
+    msa_depth_scan: bool = False,
+) -> list[tuple[int, int]]:
+    """``(num_msa, num_extra_msa)`` for each prediction of one model.
+
+    A fixed ``--msa_depth`` applies to every prediction, with the extra MSA at
+    about four times the depth, as in the AlphaFold 2 configs. A scan spaces the
+    depths logarithmically from 16 (32 for the extra MSA) up to the model's own
+    defaults, which are read from ``evoformer_config`` before anything is changed.
+    """
+    if msa_depth:
+        num_msa = int(msa_depth)
+        return [(num_msa, num_msa * 4)] * num_predictions
+    if not msa_depth_scan:
+        raise ValueError("either msa_depth or msa_depth_scan must be set")
+    msa_ranges = np.rint(
+        np.logspace(np.log10(16), np.log10(evoformer_config["num_msa"]), num_predictions)
+    ).astype(int)
+    extra_msa_ranges = np.rint(
+        np.logspace(
+            np.log10(32), np.log10(evoformer_config["num_extra_msa"]), num_predictions
+        )
+    ).astype(int)
+    return [(int(num_msa), int(num_extra)) for num_msa, num_extra in zip(msa_ranges, extra_msa_ranges)]
+
+
 class AlphaFold2Backend(FoldingBackend):
     """
     A backend to perform structure prediction using AlphaFold.
@@ -496,7 +526,9 @@ class AlphaFold2Backend(FoldingBackend):
         model_names_custom : list, optional
             A list of strings that specify which models to run, default is None, meaning all 5 models will be used
         msa_depth : int or None, optional
-            A specific MSA depth to use, default is None.
+            A specific MSA depth to use, default is None. With either MSA depth
+            option every distinct depth gets its own model runner and config;
+            the model parameters are loaded once per model name and shared.
         allow_resume : bool, optional
             If set to True, resumes prediction from partially completed runs, default is True.
         dropout : bool, optional
@@ -556,59 +588,56 @@ class AlphaFold2Backend(FoldingBackend):
                     f"Provided model names {model_names_custom} not part of available {model_names + old_model_names}"
                 )
 
-        for model_name in model_names:
-            model_config = config.model_config(model_name)
+        def configured_model(name: str, num_msa=None, num_extra_msa=None):
+            """A fresh model config for one runner.
+
+            ``RunModel`` keeps a reference to the config it is given and traces
+            the network from it on first use, so every runner needs its own copy.
+            This used to build one config per model name, register the same
+            runner once per MSA depth, and rewrite the shared config in place on
+            each iteration: every registered runner ended up pointing at one
+            object holding the LAST depth, so an ``--msa_depth_scan`` produced N
+            predictions at a single depth that differed only by seed.
+            """
+            model_config = config.model_config(name)
             model_config.model.num_ensemble_eval = num_ensemble
             model_config["model"].update({"num_recycle": num_cycle})
             if dropout:
                 model_config.model.global_config.eval_dropout = True
+            if num_msa is not None:
+                model_config["model"]["embeddings_and_evoformer"].update(
+                    {"num_msa": int(num_msa), "num_extra_msa": int(num_extra_msa)}
+                )
+            return model_config
 
+        for model_name in model_names:
+            # The parameters are immutable and large: load them once per model
+            # name and share them between the runners built from it.
             model_params = data.get_model_haiku_params(
                 model_name=model_name, data_dir=model_dir
             )
-            model_runner = model.RunModel(model_config, model_params)
 
-            if msa_depth_scan or msa_depth:
-                embeddings_and_evo = model_config["model"]["embeddings_and_evoformer"]
-                num_msa = embeddings_and_evo["num_msa"]
-                num_extra_msa = embeddings_and_evo["num_extra_msa"]
-
-                msa_ranges = np.rint(
-                    np.logspace(
-                        np.log10(16),
-                        np.log10(num_msa),
-                        num_predictions_per_model,
-                    )
-                ).astype(int)
-
-                extra_msa_ranges = np.rint(
-                    np.logspace(
-                        np.log10(32),
-                        np.log10(num_extra_msa),
-                        num_predictions_per_model,
-                    )
-                ).astype(int)
-
-            for i in range(num_predictions_per_model):
-                logging.debug(f"msa_depth is type : {type(msa_depth)} value: {msa_depth}")
-                logging.debug(f"msa_depth_scan is type: {type(msa_depth_scan)} value: {msa_depth_scan}")
-                if msa_depth or msa_depth_scan:
-                    if msa_depth:
-                        num_msa = int(msa_depth)
-                        # approx. 4x the number of msa, as in the AF2 config file
-                        num_extra_msa = int(num_msa * 4)
-                    elif msa_depth_scan:
-                        num_msa = int(msa_ranges[i])
-                        num_extra_msa = int(extra_msa_ranges[i])
-
-                    # Conversion to int before because num_msa could be None
-                    embeddings_and_evo.update(
-                        {"num_msa": num_msa, "num_extra_msa": num_extra_msa}
-                    )
-
-                    model_runners[f"{model_name}_pred_{i}_msa_{num_msa}"] = model_runner
-                else:
+            if not (msa_depth or msa_depth_scan):
+                model_runner = model.RunModel(configured_model(model_name), model_params)
+                for i in range(num_predictions_per_model):
                     model_runners[f"{model_name}_pred_{i}"] = model_runner
+                continue
+
+            depths = _msa_depths(
+                configured_model(model_name)["model"]["embeddings_and_evoformer"],
+                num_predictions_per_model,
+                msa_depth=msa_depth,
+                msa_depth_scan=msa_depth_scan,
+            )
+            runners_by_depth: Dict[tuple[int, int], Any] = {}
+            for i, depth in enumerate(depths):
+                if depth not in runners_by_depth:
+                    runners_by_depth[depth] = model.RunModel(
+                        configured_model(model_name, *depth), model_params
+                    )
+                model_runners[f"{model_name}_pred_{i}_msa_{depth[0]}"] = (
+                    runners_by_depth[depth]
+                )
 
         return {"model_runners": model_runners}
 

@@ -434,6 +434,32 @@ class MonomericObject:
             MonomericObject.zip_msa_files(output_dir)
 
 
+def _join_template_sequences(slices: List[Any]) -> np.ndarray:
+    """Join each template's region fragments, in region order, into one sequence.
+
+    ``template_sequence`` holds one string per template, sliced per region like the
+    template arrays are. Unlike those arrays there is no residue axis to
+    concatenate along, so the fragments are joined per template here.
+    """
+    counts = {len(fragments) for fragments in slices}
+    if len(counts) > 1:
+        raise ValueError(
+            "Region slices disagree on the number of templates: "
+            + ", ".join(str(len(fragments)) for fragments in slices)
+        )
+
+    def as_bytes(fragment: Any) -> bytes:
+        if isinstance(fragment, (bytes, bytearray)):
+            return bytes(fragment)
+        return str(fragment).encode("utf-8")
+
+    joined = [
+        b"".join(as_bytes(fragment) for fragment in fragments)
+        for fragments in zip(*slices)
+    ]
+    return np.array(joined, dtype=object)
+
+
 class ChoppedObject(MonomericObject):
     """A monomeric object chopped into specified regions."""
 
@@ -604,6 +630,15 @@ class ChoppedObject(MonomericObject):
             out["template_confidence_scores"] = np.concatenate(
                 [sd["template_confidence_scores"] for sd in slice_dicts],
                 axis=axis_map["template_confidence_scores"],
+            )
+
+        # Template sequences are sliced per region like the template arrays, so
+        # they have to be joined per template too. They used to sit in the skip
+        # set below, which kept the FIRST region's fragment only: a multi-region
+        # chop then carried a template_sequence as long as its first region.
+        if "template_sequence" in out:
+            out["template_sequence"] = _join_template_sequences(
+                [sd["template_sequence"] for sd in slice_dicts]
             )
 
         skip = {

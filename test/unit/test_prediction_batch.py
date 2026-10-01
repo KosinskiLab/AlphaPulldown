@@ -620,3 +620,63 @@ def test_metadata_is_taken_from_every_feature_directory(tmp_path):
 
     copied = sorted(p.name for p in out.iterdir())
     assert copied == ["P1_feature_metadata_2025-01-01.json"]
+
+
+def test_prepare_fold_saves_the_merged_features_of_the_object_it_built(tmp_path, monkeypatch):
+    """`--save_features_for_multimeric_object` never worked.
+
+    It read `feature_dict` off the MultimericObject CLASS (AttributeError on every
+    run), and did so before the fold directory existed and before --use_ap_style
+    had chosen it.
+    """
+    from alphapulldown.prediction import fold_preparation
+
+    class FakeMultimer:
+        def __init__(self, interactors, **_kwargs):
+            self.description = "_and_".join(i.description for i in interactors)
+            self.feature_dict = {"msa": [[1, 2], [3, 4]], "asym_id": [1, 2]}
+
+    monkeypatch.setattr(fold_preparation, "MultimericObject", FakeMultimer)
+    flags = SimpleNamespace(
+        pair_msa=False, multimeric_template=False, description_file=None,
+        path_to_mmt=None, threshold_clashes=1000, hb_allowance=0.4,
+        plddt_threshold=0, save_features_for_multimeric_object=True,
+        use_ap_style=True, features_directory=[],
+    )
+    interactors = [
+        SimpleNamespace(description="A", sequence="AC", skip_msa=False),
+        SimpleNamespace(description="B", sequence="DE", skip_msa=False),
+    ]
+    output_root = tmp_path / "predictions"  # created by prepare_fold itself
+
+    fold, output_dir = fold_preparation.prepare_fold(interactors, str(output_root), flags)
+
+    assert Path(output_dir) == output_root / "A_and_B"
+    saved = Path(output_dir) / fold_preparation.MULTIMERIC_FEATURES_FILENAME
+    with saved.open("rb") as handle:
+        assert pickle.load(handle) == fold.feature_dict
+
+
+def test_prepare_fold_does_not_save_features_unless_asked(tmp_path, monkeypatch):
+    from alphapulldown.prediction import fold_preparation
+
+    class FakeMultimer:
+        def __init__(self, interactors, **_kwargs):
+            self.description = "A_and_B"
+            self.feature_dict = {"msa": []}
+
+    monkeypatch.setattr(fold_preparation, "MultimericObject", FakeMultimer)
+    flags = SimpleNamespace(
+        pair_msa=False, multimeric_template=False, description_file=None,
+        path_to_mmt=None, threshold_clashes=1000, hb_allowance=0.4,
+        plddt_threshold=0, save_features_for_multimeric_object=False,
+        use_ap_style=False, features_directory=[],
+    )
+    interactors = [
+        SimpleNamespace(description="A", sequence="AC", skip_msa=False),
+        SimpleNamespace(description="B", sequence="DE", skip_msa=False),
+    ]
+
+    _, output_dir = fold_preparation.prepare_fold(interactors, str(tmp_path / "out"), flags)
+
+    assert not (Path(output_dir) / fold_preparation.MULTIMERIC_FEATURES_FILENAME).exists()

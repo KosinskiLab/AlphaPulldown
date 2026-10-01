@@ -10,8 +10,8 @@ import subprocess
 from absl import app, logging, flags
 import os
 import sys
-import jax
-gpus = jax.local_devices(backend='gpu')
+# Importing the prediction command initialises JAX's GPU backend first, tolerating
+# a machine without a GPU; see alphapulldown.prediction.jax_devices.
 from alphapulldown.scripts.run_structure_prediction import FLAGS
 from alphapulldown.utils.modelling_setup import parse_fold
 from alphapulldown.utils.output_paths import derive_af3_job_name_from_json
@@ -30,9 +30,7 @@ flags.DEFINE_boolean("use_unifold", False,
                      "Whether unifold models are going to be used. Default it False")
 flags.DEFINE_boolean("use_alphalink", False,
                      "Whether alphalink models are going to be used. Default it False")
-flags.DEFINE_enum("unifold_model_name", "multimer_af2",
-                  ["multimer_af2", "multimer_ft", "multimer", "multimer_af2_v3", "multimer_af2_model45_v3"],
-                  "choose unifold model structure")
+# --unifold_model_name is defined by run_structure_prediction and shared here.
 flags.DEFINE_integer("job_index", None, "index of sequence in the fasta file, starting from 1")
 flags.DEFINE_boolean("dry_run", False, "Report number of jobs that would be run and exit without running them")
 
@@ -153,6 +151,7 @@ def main(argv):
             "--msa_depth": FLAGS.msa_depth,
             "--crosslinks": FLAGS.crosslinks,
             "--fold_backend": fold_backend,
+            "--unifold_model_name": FLAGS.unifold_model_name if FLAGS.use_unifold else None,
             "--description_file": FLAGS.description_file,
             "--path_to_mmt": FLAGS.path_to_mmt,
             "--compress_result_pickles": FLAGS.compress_result_pickles,

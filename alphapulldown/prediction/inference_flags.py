@@ -36,6 +36,10 @@ AF2_LIKE_FLAGS = frozenset({
 
 ALPHALINK_EXTRA_FLAGS = frozenset({"crosslinks"})
 
+# UniFold picks its model configuration by name; it serves monomers and multimers alike.
+UNIFOLD_EXTRA_FLAGS = frozenset({"unifold_model_name"})
+DEFAULT_UNIFOLD_MODEL_NAME = "multimer_af2"
+
 AF3_FLAGS = frozenset({
     "jax_compilation_cache_dir", "buckets", "flash_attention_implementation",
     "num_diffusion_samples", "num_seeds", "debug_templates", "debug_msas",
@@ -46,6 +50,7 @@ AF3_FLAGS = frozenset({
 FLAGS_BY_BACKEND: Mapping[str, frozenset] = {
     "alphafold2": COMMON_FLAGS | AF2_LIKE_FLAGS,
     "alphalink": COMMON_FLAGS | AF2_LIKE_FLAGS | ALPHALINK_EXTRA_FLAGS,
+    "unifold": COMMON_FLAGS | AF2_LIKE_FLAGS | UNIFOLD_EXTRA_FLAGS,
     "alphafold3": COMMON_FLAGS | AF3_FLAGS,
 }
 
@@ -106,15 +111,27 @@ MODEL_CONFIGURATION_KEYS = frozenset(_MODEL_FLAG_SOURCES) | {
 }
 
 
+def model_name_for_backend(flags: Any) -> str:
+    """The model configuration a backend starts from.
+
+    AlphaFold 2 multimers are switched to ``multimer`` by the caller, per object.
+    UniFold has one model for monomers and multimers, chosen by
+    ``--unifold_model_name``, so the caller must leave it alone.
+    """
+    if flags.fold_backend == "alphalink":
+        return "multimer_af2_crop"
+    if flags.fold_backend == "unifold":
+        return getattr(flags, "unifold_model_name", None) or DEFAULT_UNIFOLD_MODEL_NAME
+    return "monomer_ptm"
+
+
 def model_flags(flags: Any) -> Dict[str, Any]:
     """Configuration for ``backend.setup`` built from the parsed invocation."""
     configuration = {
         key: getattr(flags, attribute)
         for key, attribute in _MODEL_FLAG_SOURCES.items()
     }
-    configuration["model_name"] = (
-        "multimer_af2_crop" if flags.fold_backend == "alphalink" else "monomer_ptm"
-    )
+    configuration["model_name"] = model_name_for_backend(flags)
     return configuration
 
 

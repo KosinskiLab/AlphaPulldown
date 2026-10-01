@@ -535,6 +535,11 @@ def test_setup_configures_model_runners_and_validates_custom_names(af2_backend_m
     assert runner.config["model"]["num_recycle"] == 5
     assert runner.config.model.global_config.eval_dropout is True
     assert runner.params["data_dir"] == "/models"
+    # Each depth is its own runner with its own config; the two must not share.
+    deeper = runners["model_1_multimer_pred_1_msa_64"]
+    assert deeper is not runner
+    assert runner.config["model"]["embeddings_and_evoformer"]["num_msa"] == 16
+    assert deeper.config["model"]["embeddings_and_evoformer"]["num_msa"] == 64
 
     with pytest.raises(Exception, match="Provided model names"):
         af2_backend_module.AlphaFold2Backend.setup(
@@ -1191,3 +1196,103 @@ def test_postprocess_uses_ptm_threshold_for_best_monomer_relaxation(
 
     assert (tmp_path / "relaxed_modelA.pdb").read_text(encoding="utf-8") == "RELAXED:mono"
     assert (tmp_path / "ranked_0.pdb").read_text(encoding="utf-8") == "RELAXED:mono"
+
+
+def test_msa_depth_scan_gives_every_depth_its_own_runner_and_config(
+    af2_backend_module, monkeypatch
+):
+    """One RunModel was registered under every depth while its single config was
+    rewritten in place, so a scan ran N predictions at the LAST depth and differed
+    only by seed. The parameters are still loaded once per model name."""
+    data_mod = sys.modules["alphafold.model.data"]
+    loads = []
+
+    def counting_params(model_name, data_dir):
+        loads.append(model_name)
+        return {"model_name": model_name, "data_dir": data_dir}
+
+    monkeypatch.setattr(data_mod, "get_model_haiku_params", counting_params)
+
+    configured = af2_backend_module.AlphaFold2Backend.setup(
+        model_name="multimer",
+        num_cycle=3,
+        model_dir="/models",
+        num_predictions_per_model=3,
+        msa_depth_scan=True,
+        model_names_custom=["model_1_multimer"],
+    )
+
+    runners = configured["model_runners"]
+    depths = {
+        name: (
+            runner.config["model"]["embeddings_and_evoformer"]["num_msa"],
+            runner.config["model"]["embeddings_and_evoformer"]["num_extra_msa"],
+        )
+        for name, runner in runners.items()
+    }
+    assert depths == {
+        "model_1_multimer_pred_0_msa_16": (16, 32),
+        "model_1_multimer_pred_1_msa_32": (32, 91),
+        "model_1_multimer_pred_2_msa_64": (64, 256),
+    }
+    assert len({id(runner) for runner in runners.values()}) == 3
+    assert loads == ["model_1_multimer"]
+    assert all(
+        runner.params == {"model_name": "model_1_multimer", "data_dir": "/models"}
+        for runner in runners.values()
+    )
+
+
+def test_fixed_msa_depth_shares_one_runner_at_that_depth(af2_backend_module):
+    configured = af2_backend_module.AlphaFold2Backend.setup(
+        model_name="multimer",
+        num_cycle=3,
+        model_dir="/models",
+        num_predictions_per_model=2,
+        msa_depth=48,
+        model_names_custom=["model_1_multimer"],
+    )
+
+    runners = configured["model_runners"]
+    assert sorted(runners) == [
+        "model_1_multimer_pred_0_msa_48",
+        "model_1_multimer_pred_1_msa_48",
+    ]
+    first, second = runners.values()
+    assert first is second
+    evoformer = first.config["model"]["embeddings_and_evoformer"]
+    assert (evoformer["num_msa"], evoformer["num_extra_msa"]) == (48, 192)
+
+
+def test_setup_without_msa_depth_options_shares_one_runner_per_model(af2_backend_module):
+    configured = af2_backend_module.AlphaFold2Backend.setup(
+        model_name="multimer",
+        num_cycle=3,
+        model_dir="/models",
+        num_predictions_per_model=2,
+    )
+
+    runners = configured["model_runners"]
+    assert sorted(runners) == [
+        "model_1_multimer_v3_pred_0",
+        "model_1_multimer_v3_pred_1",
+        "model_2_multimer_v3_pred_0",
+        "model_2_multimer_v3_pred_1",
+    ]
+    assert runners["model_1_multimer_v3_pred_0"] is runners["model_1_multimer_v3_pred_1"]
+    assert runners["model_1_multimer_v3_pred_0"] is not runners["model_2_multimer_v3_pred_0"]
+    evoformer = runners["model_1_multimer_v3_pred_0"].config["model"]["embeddings_and_evoformer"]
+    assert (evoformer["num_msa"], evoformer["num_extra_msa"]) == (64, 256)
+
+
+def test_msa_depths_follow_the_fixed_depth_or_the_logarithmic_scan(af2_backend_module):
+    evoformer = {"num_msa": 64, "num_extra_msa": 256}
+
+    assert af2_backend_module._msa_depths(evoformer, 2, msa_depth=48) == [(48, 192), (48, 192)]
+    assert af2_backend_module._msa_depths(evoformer, 3, msa_depth_scan=True) == [
+        (16, 32),
+        (32, 91),
+        (64, 256),
+    ]
+    with pytest.raises(ValueError):
+        af2_backend_module._msa_depths(evoformer, 2)

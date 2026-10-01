@@ -24,6 +24,10 @@ from alphapulldown.objects import ChoppedObject, MonomericObject, MultimericObje
 # Most filesystems reject paths longer than this.
 _MAX_PATH_LENGTH = 4096
 
+# Where --save_features_for_multimeric_object writes the merged features, inside
+# the fold's own output directory.
+MULTIMERIC_FEATURES_FILENAME = "multimeric_object_features.pkl"
+
 
 def _interactor_description(interactor: Any) -> str | None:
     """Name under which this interactor's feature metadata was written, if any."""
@@ -44,6 +48,23 @@ def _output_directory_for(description: str, output_dir: str) -> str:
         count = oligomers.count(oligomer)
         fragments.append(oligomer if count == 1 else f"{oligomer}_homo_{count}er")
     return os.path.join(output_dir, "_and_".join(fragments))
+
+
+def _save_multimeric_features(object_to_model: Any, output_dir: str) -> str:
+    """Pickle the merged multimer features next to the fold's outputs.
+
+    The features are read off the object that was just built. This used to read
+    ``feature_dict`` off the ``MultimericObject`` *class*, where no such attribute
+    exists, so ``--save_features_for_multimeric_object`` raised ``AttributeError``
+    on every run. It also ran before the output directory was created, and before
+    ``--use_ap_style`` had chosen the fold's directory, so even a correct lookup
+    would have failed on a fresh output tree or written one level too high.
+    """
+    destination = os.path.join(output_dir, MULTIMERIC_FEATURES_FILENAME)
+    with open(destination, "wb") as handle:
+        pickle.dump(object_to_model.feature_dict, handle)
+    logging.info("Saved multimeric object features to %s", destination)
+    return destination
 
 
 def _copy_feature_metadata(interactors: List[Any], flags: Any, output_dir: str) -> None:
@@ -116,11 +137,6 @@ def prepare_fold(
             hb_allowance=flags.hb_allowance,
             plddt_threshold=flags.plddt_threshold,
         )
-        if flags.save_features_for_multimeric_object:
-            with open(
-                os.path.join(output_dir, "multimeric_object_features.pkl"), "wb"
-            ) as handle:
-                pickle.dump(MultimericObject.feature_dict, handle)
     else:
         object_to_model = interactors[0]
         object_to_model.input_seqs = [object_to_model.sequence]
@@ -135,6 +151,9 @@ def prepare_fold(
             output_dir,
         )
     os.makedirs(output_dir, exist_ok=True)
+
+    if len(interactors) > 1 and flags.save_features_for_multimeric_object:
+        _save_multimeric_features(object_to_model, output_dir)
 
     _copy_feature_metadata(interactors, flags, output_dir)
     return object_to_model, output_dir

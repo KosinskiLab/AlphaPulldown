@@ -9,8 +9,12 @@
 """
 import pickle
 
-import jax
-gpus = jax.local_devices(backend='gpu')
+from alphapulldown.prediction.jax_devices import initialise_jax_gpu_backend
+
+# Initialise JAX's GPU backend before the folding backends import TensorFlow and
+# OpenMM, so JAX claims the device first. Tolerates a machine without a GPU, so
+# --help and flag validation work on a login node.
+gpus = initialise_jax_gpu_backend()
 from absl import flags, app
 import os
 from os import makedirs
@@ -131,6 +135,12 @@ flags.DEFINE_boolean('dropout', False,
                      'Whether to use dropout when inferring for more diverse predictions. Default False.')
 # AlphaLink2 settings
 flags.DEFINE_string('crosslinks', None, 'Path to crosslink information pickle for AlphaLink.')
+
+# UniFold settings
+flags.DEFINE_enum(
+    'unifold_model_name', 'multimer_af2',
+    ['multimer_af2', 'multimer_ft', 'multimer', 'multimer_af2_v3', 'multimer_af2_model45_v3'],
+    'UniFold model configuration used with --fold_backend=unifold.')
 
 # AlphaFold3 settings
 # JAX inference performance tuning.
@@ -369,8 +379,10 @@ def main(argv):
             json_output_dir = real_out
 
             # Flags for THIS object, not for whichever fold happens to come last.
+            # UniFold's model is chosen by --unifold_model_name and serves monomers
+            # and multimers alike, so it keeps the name the flags resolved.
             object_model_flags = default_model_flags.copy()
-            if isinstance(obj, MultimericObject):
+            if isinstance(obj, MultimericObject) and FLAGS.fold_backend != "unifold":
                 object_model_flags.update({
                     "model_name": "multimer",
                     "msa_depth_scan": FLAGS.msa_depth_scan,
