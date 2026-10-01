@@ -48,7 +48,10 @@ trap 'kill $SAMPLER 2>/dev/null' EXIT
 sleep 2
 
 BINDS=(--bind "$BENCH" --bind "$CODE" --bind /g/alphafold)
-RUNENV=($MEM_ENV_AF3 --env "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}")
+RUNENV=($MEM_ENV_AF3 --env "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}" --env "MPLCONFIGDIR=$RUN/mpl")
+# No persistent compilation cache (AlphaPulldown's default): with one on /scratch, jax 0.9.1
+# failed to write XLA's per-fusion autotune cache there and then segfaulted while compiling.
+# Rep 1 compiles and rep 2 is timed within one process, so the cache would save nothing.
 
 printf "fold\tseed\ttag\trc\tstart\tend\tstatus\n" > runs.tsv
 oom_at=""
@@ -66,7 +69,7 @@ for fold in $FOLDS; do
   apptainer exec --nv --cleanenv "${RUNENV[@]}" "${BINDS[@]}" "$SIF_AP_AF3" \
     python -m alphapulldown.scripts.run_structure_prediction_batch --manifest "$in/manifest.jsonl" \
     --data_directory "$AF3_WEIGHTS" --features_directory "$BENCH/inputs/features" --fold_backend alphafold3 \
-    --random_seed "$SEED" --protein_delimiter + --jax_compilation_cache_dir "$RUN/jax" > "logs/$tag.log" 2>&1
+    --random_seed "$SEED" --protein_delimiter + > "logs/$tag.log" 2>&1
   rc=$?
   t1=$(date +%s.%N)
   status=ok
