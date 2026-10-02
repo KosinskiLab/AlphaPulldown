@@ -42,7 +42,7 @@ prepare() {
 
 gpu_job() {  # suite gpu arm partition walltime [seeds]
   local suite=$1 gpu=$2 arm=$3 part=$4 wall=$5 seeds=${6:-$SEED} script=$CODE/run_af2_arm.sbatch jid
-  [ "$arm" = ap_af3 ] && script=$CODE/run_af3_baseline.sbatch
+  case $arm in ap_af3*) script=$CODE/run_af3_baseline.sbatch ;; esac
   jid=$(sb ${dep:+--dependency=afterok:$dep} ${EXCLUDE_NODES:+--exclude=$EXCLUDE_NODES} -p "$part" --gres="$(gpu_gres "$gpu")" -t "$wall" \
         -J "kb0-$suite-$gpu-$arm" -o "$BENCH/logs/${suite}_${gpu}_${arm}_%j.out" \
         --export=ALL,CODE="$CODE",SUITE="$suite",GPU="$gpu",ARM="$arm",SEEDS="$seeds" "$script")
@@ -79,7 +79,7 @@ collect() {
 case $MODE in
   smoke)
     prepare
-    for arm in $AF2_ARMS ap_af3; do gpu_job smoke "${SMOKE_GPU:-3090}" "$arm" "$(gpu_partition "${SMOKE_GPU:-3090}")" 00:45:00; done
+    for arm in $AF2_ARMS $AF3_ARMS; do gpu_job smoke "${SMOKE_GPU:-3090}" "$arm" "$(gpu_partition "${SMOKE_GPU:-3090}")" 00:45:00; done
     collect ;;
   full)
     prepare
@@ -87,7 +87,7 @@ case $MODE in
     # report fills in as each card finishes instead of waiting for the slowest queue.
     for gpu in $GPUS; do
       all=""
-      for arm in ${ARMS:-$AF2_ARMS ap_af3}; do gpu_job speed "$gpu" "$arm" "$(gpu_partition "$gpu")" "${WALLTIME:-$(gpu_walltime "$gpu")}"; done
+      for arm in ${ARMS:-$AF2_ARMS $AF3_ARMS}; do gpu_job speed "$gpu" "$arm" "$(gpu_partition "$gpu")" "${WALLTIME:-$(gpu_walltime "$gpu")}"; done
       collect
     done
     all=""

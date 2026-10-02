@@ -40,7 +40,21 @@ COMPARISONS = [  # (label, baseline arm, arm): ratio = baseline time / arm time,
     ("Anthropic kit fast vs AlphaPulldown stock", "ap_stock", "kit_fast"),
 ]
 SAME_TOOL_STOCK = {"cf163_fast": "cf163_stock", "kit_exact": "kit_off", "kit_fast": "kit_off"}
-ARM_ORDER = ["ap_stock", "cf163_stock", "cf163_fast", "kit_off", "kit_exact", "kit_fast", "ap_af3"]
+ARM_ORDER = ["ap_stock", "cf163_stock", "cf163_fast", "kit_off", "kit_exact", "kit_fast", "ap_af3", "ap_af3_cache"]
+# Every CUDA GPU type the cluster offers for compute (V100 and MI210 sit only in build-el10), in
+# the order of the summary table: label as in bench.env, name, compute capability.
+CLUSTER_GPUS = [("3090", "RTX 3090", "sm_86"), ("a40", "A40", "sm_86"), ("l40s", "L40S", "sm_89"),
+                ("a100", "A100", "sm_80"), ("h100", "H100", "sm_90"), ("h200", "H200", "sm_90"),
+                ("b200", "B200", "sm_100"), ("rtx6000", "RTX Pro 6000 Blackwell", "sm_120"),
+                ("b4500", "RTX Pro 4500 Blackwell (MIG half, 16 GB)", "sm_120")]
+NOT_TESTABLE = {"b200": "reserved"}  # bgx1, B200's only node: reservation vLLMs for another user until 2026-12-31
+AF3_CACHE_LABEL = "AF3 persistent compilation cache vs AlphaPulldown default (per prediction call)"
+SUMMARY_ROWS = [  # (row label, comparison label in speedups.tsv)
+    ("AF2: ColabFold 1.6.3 fused kernels vs AlphaPulldown stock", "ColabFold 1.6.3 fast kernels vs AlphaPulldown stock"),
+    ("AF2: Anthropic kit fast vs AlphaPulldown stock", "Anthropic kit fast vs AlphaPulldown stock"),
+    ("AF2: Anthropic kit fast vs ColabFold 1.6.3 fused kernels", "Anthropic kit fast vs ColabFold 1.6.3 fast"),
+    ("AF3: persistent compilation cache vs AlphaPulldown default", AF3_CACHE_LABEL),
+]
 
 
 def read_tsv(path: Path):
@@ -135,6 +149,14 @@ def parse_af3(log: str):
     return reps
 
 
+def af3_reps_identical(out: Path, fold: str):
+    """True when rep 2 (served from the persistent cache) ranks its samples exactly as rep 1 did."""
+    scores = [next((out / f"{fold}_r{i}").rglob("*ranking_scores.csv"), None) for i in (1, 2)]
+    if not all(scores):
+        return None
+    return scores[0].read_text() == scores[1].read_text()
+
+
 def parse_kit(log: str):
     active = [f"{m.group(1)}{m.group(2)}".strip() for m in KIT_ACTIVE.finditer(log)]
     levers = {}
@@ -161,6 +183,8 @@ def collect_runs(bench: Path, folds: dict):
         arm = arm.split("#")[0]  # chunked arms run as <arm>#<tag>, one directory per chunk
         samples = gpu_memory(run)
         gpu_name = (run / "gpu.txt").read_text().split(",")[0].strip() if (run / "gpu.txt").exists() else gpu
+        if not gpu_name.startswith("NVIDIA"):  # MIG runs before the label fix wrote "No devices were found"
+            gpu_name = next((name for label, name, _ in CLUSTER_GPUS if label == gpu), gpu)
         for r in read_tsv(run / "runs.tsv"):
             fold, tag = r["fold"], r["tag"]
             log_path = run / "logs" / f"{tag}.log"
@@ -168,7 +192,7 @@ def collect_runs(bench: Path, folds: dict):
             out = run / "out" / tag
             if arm.startswith(("cf163", "kit")):
                 reps = parse_colabfold(log, out)
-            elif arm == "ap_af3":
+            elif arm.startswith("ap_af3"):
                 reps = parse_af3(log)
             else:
                 reps = parse_alphapulldown(log, out, fold)
@@ -180,13 +204,16 @@ def collect_runs(bench: Path, folds: dict):
                    "recycles": reps[-1].get("recycles") if reps else None,
                    "peak_mib": peak_mib(samples, r["start"], r["end"]),
                    "wall_s": float(r["end"]) - float(r["start"]) if r["start"] != "NA" else None}
-            if arm == "ap_af3":  # compile is measured per call, not as first rep minus the rest
+            if arm.startswith("ap_af3"):  # compile is measured per call, not as first rep minus the rest
                 row["call_s"] = statistics.median([x["call_s"] for x in reps[1:]]) if len(reps) > 1 else None
                 row["first_s"] = reps[0]["call_s"] if reps else None
-                jit = [x["jit_s"] for x in reps if x["jit_logged"]]
+                # Timed reps only: for the cache arm rep 1 compiles and rep 2 loads from the cache.
+                jit = [x["jit_s"] for x in reps[1:] if x["jit_logged"]]
                 row["compile_s"] = statistics.median(jit) if jit else None
-                if row["status"] == "ok" and reps and not jit:
+                if row["status"] == "ok" and reps and not any(x["jit_logged"] for x in reps):
                     row["status"] = "ok_no_jit_log"
+                if arm == "ap_af3_cache":
+                    row["outputs_identical"] = af3_reps_identical(out, fold)
             elif row["fwd_s"] is not None:
                 row["compile_s"] = row["first_s"] - row["fwd_s"]
                 if row["recycles"] is not None:
@@ -238,7 +265,7 @@ def write_tsv(path: Path, rows, columns):
 
 
 def speed_section(rows):
-    speed = [r for r in rows if r["suite"] == "speed" and r["arm"] != "ap_af3"]
+    speed = [r for r in rows if r["suite"] == "speed" and not r["arm"].startswith("ap_af3")]
     by = {(r["gpu"], r["arm"], r["fold"]): r for r in speed}
     gpus = sorted({r["gpu"] for r in speed})
     lines = ["## AF2-Multimer speed (forward call, compile excluded)", "",
@@ -290,22 +317,75 @@ def speed_section(rows):
     return lines, ratios_out
 
 
+def af3_ratios(rows):
+    """Per fold: default call time / cached call time, both second reps on the same GPU model."""
+    by = {(r["gpu"], r["arm"], r["fold"]): r for r in rows if r["suite"] == "speed"}
+    out = []
+    for (gpu, arm, fold), c in by.items():
+        d = by.get((gpu, "ap_af3", fold))
+        if arm == "ap_af3_cache" and d and c["status"] == d["status"] == "ok" and c.get("call_s") and d.get("call_s") \
+                and c["gpu_name"] == d["gpu_name"]:
+            out.append({"gpu": gpu, "comparison": AF3_CACHE_LABEL, "baseline": "ap_af3", "arm": arm, "fold": fold,
+                        "tokens": c["tokens"], "ratio": d["call_s"] / c["call_s"]})
+    return out
+
+
 def af3_section(rows):
-    af3 = [r for r in rows if r["arm"] == "ap_af3" and r["suite"] == "speed"]
+    af3 = [r for r in rows if r["arm"].startswith("ap_af3") and r["suite"] == "speed"]
     if not af3:
         return []
-    lines = ["## AF3 baseline (AlphaPulldown, DeepMind weights, second rep)", "",
+    by = {(r["gpu"], r["arm"], r["fold"]): r for r in af3}
+    lines = ["## AF3 (AlphaPulldown, DeepMind weights, second rep of each fold)", "",
              "AlphaPulldown's AF3 backend re-traces and recompiles the model on every predict call, even for an "
-             "identical input in the same process, so every call pays the compile. `fwd s` is the call minus "
-             "the jit(apply_fn) trace, lowering and compile logged inside it (JAX_LOG_COMPILES); `call s` is "
-             "what a prediction costs today. Status `ok_no_jit_log` marks runs made before compiles were "
-             "logged: their call time includes an unknown compile, so no forward time is given.", "",
-             "| gpu | fold | tokens | status | fwd s | compile s | call s | peak MiB |",
-             "|---|---|---|---|---|---|---|---|"]
-    for r in sorted(af3, key=lambda r: (r["gpu"], r["tokens"] or 0)):
-        lines.append(f"| {r['gpu']} | {r['fold']} | {r['tokens']} | {r['status']} | {fmt(r.get('fwd_s'))} | "
-                     f"{fmt(r.get('compile_s'))} | {fmt(r.get('call_s'))} | {fmt(r.get('peak_mib'), 0)} |")
+             "identical input in the same process, so by default every call pays the compile. `fwd s` is the "
+             "default call minus the jit(apply_fn) trace, lowering and compile logged inside it "
+             "(JAX_LOG_COMPILES). `call s` is what one prediction costs: by default, and with a persistent "
+             "compilation cache (`--jax_compilation_cache_dir` plus `JAX_PERSISTENT_CACHE_ENABLE_XLA_CACHES=none`; "
+             "rep 1 compiles and stores, rep 2 is served from the cache, as every prediction after the first in "
+             "each token bucket would be). `same output` checks that the cached rep ranks its 5 samples exactly "
+             "as the compiling rep did. Status `ok_no_jit_log` marks runs made before compiles were logged.", "",
+             "| gpu | fold | tokens | status | fwd s | compile s | call s | cached: call s | cached: compile s | "
+             "speed-up | same output | peak MiB |", "|---|---|---|---|---|---|---|---|---|---|---|---|"]
+    keys = sorted({(r["gpu"], r["fold"]) for r in af3}, key=lambda k: (k[0], next(r["tokens"] or 0 for r in af3 if r["fold"] == k[1])))
+    for gpu, fold in keys:
+        d, c = by.get((gpu, "ap_af3", fold), {}), by.get((gpu, "ap_af3_cache", fold), {})
+        tokens = (d or c).get("tokens")
+        status = d.get("status", "–") if not c or c.get("status") == d.get("status") else f"{d.get('status', '–')} / cached {c.get('status')}"
+        speedup = d["call_s"] / c["call_s"] if d.get("call_s") and c.get("call_s") and d["status"] == c["status"] == "ok" else None
+        same = {True: "yes", False: "NO", None: "–"}[c.get("outputs_identical")] if c else "–"
+        lines.append(f"| {gpu} | {fold} | {tokens} | {status} | {fmt(d.get('fwd_s'))} | {fmt(d.get('compile_s'))} | "
+                     f"{fmt(d.get('call_s'))} | {fmt(c.get('call_s'))} | {fmt(c.get('compile_s'))} | "
+                     f"{fmt(speedup) + '×' if speedup else '–'} | {same} | {fmt((d or c).get('peak_mib'), 0)} |")
     return lines + [""]
+
+
+def summary_section(ratios, rows):
+    """One table over every cluster GPU type: geometric mean of the per-fold ratios, with their range."""
+    done = {r["gpu"] for r in rows if r["suite"] == "speed" and r["status"] == "ok"}
+    names = {r["gpu"]: r["gpu_name"] for r in rows if r["suite"] == "speed" and r.get("gpu_name")}
+    lines = ["## Speed-up on every GPU type in the cluster", "",
+             "Geometric mean over the folds both arms completed (164 to 2,546 tokens for AF2, 164 tokens up to "
+             "the card's limit for AF3), with the per-fold range in brackets; >1× means faster. AF2 rows compare "
+             "forward time with the model compiled; AF3 compares the whole prediction call. A kernel's gain "
+             "grows with fold size, and the AF3 cache's gain shrinks with it (the compile it saves is a fixed "
+             "~50 s): see the per-fold tables below. No AF3 kernel arm exists: Anthropic's AF3 kit runs only "
+             "sokrypton's fork with OpenFold3 weights.", ""]
+    head = [f"{name} ({cc})" for label, name, cc in CLUSTER_GPUS]
+    lines.append("| | " + " | ".join(head) + " |")
+    lines.append("|---|" + "---|" * len(CLUSTER_GPUS))
+    for row_label, comparison in SUMMARY_ROWS:
+        cells = []
+        for label, _, _ in CLUSTER_GPUS:
+            vals = [x["ratio"] for x in ratios if x["gpu"] == label and x["comparison"] == comparison]
+            if vals:
+                cells.append(f"{geomean(vals):.2f}× ({min(vals):.1f}–{max(vals):.1f})")
+            else:
+                cells.append(NOT_TESTABLE.get(label) or ("not run" if label not in done else "–"))
+        lines.append(f"| {row_label} | " + " | ".join(cells) + " |")
+    lines += ["", "Cards measured: " + (", ".join(f"{g} = {names[g]}" for g in sorted(done) if g in names) or "none") + ". "
+              "`not run`: no result yet (queued or not submitted). `reserved`: B200's only node (bgx1) is reserved "
+              "for another user until 2026-12-31.", ""]
+    return lines
 
 
 def accuracy_section(rows):
@@ -386,9 +466,10 @@ def main():
 
     columns = ["suite", "gpu", "gpu_name", "arm", "fold", "tokens", "seed", "status", "reps", "first_s", "fwd_s",
                "compile_s", "call_s", "recycles", "per_pass_s", "peak_mib", "wall_s", "ranking_confidence", "iptm", "ptm", "plddt",
-               "dockq", "kit_active", "model"]
+               "dockq", "kit_active", "outputs_identical", "model"]
     write_tsv(report / "runs.tsv", rows, columns)
     speed_lines, ratios = speed_section(rows)
+    ratios += af3_ratios(rows)
     write_tsv(report / "speedups.tsv", ratios, ["gpu", "comparison", "baseline", "arm", "fold", "tokens", "ratio"])
     (report / "kit_levers.json").write_text(json.dumps(kits, indent=1))
 
@@ -410,7 +491,7 @@ def main():
           "Every AF2 arm folds the same MSA (verified per fold, `inputs/verify_*.tsv`), with model_1_multimer_v3, "
           "a fixed number of recycles (early stopping off), no templates, no relaxation, no unified memory.", "",
           f"Fold outcomes: {dict(statuses)}. Runs not finished: {len(missing)}.", ""]
-    md += speed_lines + af3_section(rows) + accuracy_section(rows) + kit_section(kits)
+    md += summary_section(ratios, rows) + speed_lines + af3_section(rows) + accuracy_section(rows) + kit_section(kits)
     if missing:
         md += ["## Runs without a RESULT.txt", ""] + [f"- {m['suite']}/{m['gpu']}/{m['arm']} (job {m['job']})" for m in missing] + [""]
     (bench / "REPORT.md").write_text("\n".join(md))

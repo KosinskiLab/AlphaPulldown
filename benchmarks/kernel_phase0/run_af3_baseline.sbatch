@@ -2,11 +2,16 @@
 # AF3 baseline on one card: AlphaPulldown's AF3 backend with DeepMind's weights, stock
 # settings (10 recycles, 5 diffusion samples, one seed), from the same AF2 feature pickles.
 # Forward time = inference time minus the jit work logged for that call (see RUNENV below).
-# No optimized arm exists yet; these numbers are what a Phase 2 port would be measured
-# against, and the reach probes find the largest fold the card holds without unified memory.
-# Same process-per-fold, smallest-first, stop-at-first-OOM scheme as run_af2_arm.sbatch.
+# No kernel arm exists (Anthropic's AF3 kit needs OpenFold3 weights); these numbers are what a
+# Phase 2 port would be measured against, and the reach probes find the largest fold the card
+# holds without unified memory. Same process-per-fold, smallest-first, stop-at-first-OOM scheme
+# as run_af2_arm.sbatch.
+#   ARM=ap_af3        AlphaPulldown defaults (no persistent compilation cache).
+#   ARM=ap_af3_cache  plus a persistent jax cache (--jax_compilation_cache_dir, emptied when the
+#                     job starts): rep 1 compiles and stores, rep 2 is the cached call a pulldown
+#                     pays after the first prediction in each token bucket.
 #
-# Env in: CODE, GPU, SUITE (speed|smoke). Out: $BENCH/runs/$SUITE/$GPU/ap_af3/
+# Env in: CODE, GPU, SUITE (speed|smoke), ARM. Out: $BENCH/runs/$SUITE/$GPU/$ARM/
 #SBATCH -J kb0-af3
 #SBATCH -c 8
 #SBATCH --mem=96G
@@ -18,7 +23,8 @@ if [ -z "${KB0_INNER:-}" ]; then KB0_INNER=1 exec bash "${CODE:?}/run_af3_baseli
 CODE_REV=$(git -C "$CODE" rev-parse --short HEAD 2>/dev/null)$(git -C "$CODE" diff --quiet HEAD -- . 2>/dev/null || echo -dirty)
 source "${CODE:?}/bench.env"
 : "${GPU:?}" "${SUITE:?}"
-ARM=ap_af3
+ARM=${ARM:-ap_af3}
+case $ARM in ap_af3|ap_af3_cache) ;; *) echo "unknown AF3 arm $ARM"; exit 2 ;; esac
 RUN=$BENCH/runs/$SUITE/$GPU/$ARM
 mkdir -p "$RUN/logs" "$RUN/out" "$RUN/in" "$RUN/jax"
 cd "$RUN" || exit 1
@@ -56,8 +62,15 @@ BINDS=(--bind "$BENCH" --bind "$CODE" --bind /g/alphafold)
 # call at 256 tokens), so no rep is compile-free. collect.py subtracts each rep's logged
 # trace + lowering + XLA compile of jit(apply_fn) from its inference time.
 RUNENV=($MEM_ENV_AF3 --env "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}" --env "MPLCONFIGDIR=$RUN/mpl" --env JAX_LOG_COMPILES=true)
-# No persistent compilation cache (AlphaPulldown's default): jaxlib 0.9.1 fails to insert into
-# XLA's per-fusion autotune cache and then segfaults, on /scratch and on the job's TMPDIR alike.
+# No persistent compilation cache by default (AlphaPulldown's default). With one, jaxlib 0.9.1
+# fails to insert into XLA's per-fusion autotune cache and then segfaults (on /scratch and on the
+# job's TMPDIR alike) unless JAX_PERSISTENT_CACHE_ENABLE_XLA_CACHES=none keeps only jax's own.
+CACHE_ARGS=()
+if [ "$ARM" = ap_af3_cache ]; then
+  rm -rf "$RUN/jaxcache"; mkdir -p "$RUN/jaxcache"
+  RUNENV+=(--env JAX_PERSISTENT_CACHE_ENABLE_XLA_CACHES=none)
+  CACHE_ARGS=(--jax_compilation_cache_dir "$RUN/jaxcache")
+fi
 
 printf "fold\tseed\ttag\trc\tstart\tend\tstatus\n" > runs.tsv
 oom_at=""
@@ -75,7 +88,7 @@ for fold in $FOLDS; do
   apptainer exec --nv --cleanenv "${RUNENV[@]}" "${BINDS[@]}" "$SIF_AP_AF3" \
     python -m alphapulldown.scripts.run_structure_prediction_batch --manifest "$in/manifest.jsonl" \
     --data_directory "$AF3_WEIGHTS" --features_directory "$BENCH/inputs/features" --fold_backend alphafold3 \
-    --random_seed "$SEED" --protein_delimiter + > "logs/$tag.log" 2>&1
+    --random_seed "$SEED" --protein_delimiter + "${CACHE_ARGS[@]}" > "logs/$tag.log" 2>&1
   rc=$?
   t1=$(date +%s.%N)
   status=ok
