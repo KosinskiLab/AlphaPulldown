@@ -1,6 +1,7 @@
 #!/bin/bash
 # AF3 baseline on one card: AlphaPulldown's AF3 backend with DeepMind's weights, stock
 # settings (10 recycles, 5 diffusion samples, one seed), from the same AF2 feature pickles.
+# Forward time = inference time minus the jit work logged for that call (see RUNENV below).
 # No optimized arm exists yet; these numbers are what a Phase 2 port would be measured
 # against, and the reach probes find the largest fold the card holds without unified memory.
 # Same process-per-fold, smallest-first, stop-at-first-OOM scheme as run_af2_arm.sbatch.
@@ -50,10 +51,13 @@ trap 'kill $SAMPLER 2>/dev/null' EXIT
 sleep 2
 
 BINDS=(--bind "$BENCH" --bind "$CODE" --bind /g/alphafold)
-RUNENV=($MEM_ENV_AF3 --env "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}" --env "MPLCONFIGDIR=$RUN/mpl")
-# No persistent compilation cache (AlphaPulldown's default): with one on /scratch, jax 0.9.1
-# failed to write XLA's per-fusion autotune cache there and then segfaulted while compiling.
-# Rep 1 compiles and rep 2 is timed within one process, so the cache would save nothing.
+# JAX_LOG_COMPILES: AlphaPulldown's AF3 backend re-traces and recompiles the model on every
+# predict call, even for an identical input in the same process (2026-10-02, ~50 s of a 70 s
+# call at 256 tokens), so no rep is compile-free. collect.py subtracts each rep's logged
+# trace + lowering + XLA compile of jit(apply_fn) from its inference time.
+RUNENV=($MEM_ENV_AF3 --env "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}" --env "MPLCONFIGDIR=$RUN/mpl" --env JAX_LOG_COMPILES=true)
+# No persistent compilation cache (AlphaPulldown's default): jaxlib 0.9.1 fails to insert into
+# XLA's per-fusion autotune cache and then segfaults, on /scratch and on the job's TMPDIR alike.
 
 printf "fold\tseed\ttag\trc\tstart\tend\tstatus\n" > runs.tsv
 oom_at=""

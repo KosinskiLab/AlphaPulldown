@@ -20,6 +20,10 @@ CF_QUERY = re.compile(r"Query \d+/\d+: (\S+) \(length (\d+)\)")
 CF_TOOK = re.compile(r"took ([0-9.]+)s \((\d+) recycles\)")
 AP_PREDICT = re.compile(r"\[bench\] predict seconds=([0-9.]+) num_recycles=(\S+)")
 AF3_INFER = re.compile(r"Model inference for seed \d+ took ([0-9.]+) seconds")
+AF3_START = re.compile(r"Running model inference for seed \d+")
+# JAX_LOG_COMPILES lines for the model's forward function; AlphaPulldown re-jits it on every call.
+AF3_JIT = re.compile(r"Finished (?:tracing \+ transforming apply_fn for pjit|jaxpr to MLIR module conversion "
+                     r"jit\(apply_fn\)|XLA compilation of jit\(apply_fn\)) in ([0-9.]+) sec")
 KIT_ACTIVE = re.compile(r"\[colabfold-opt\] (NOT ACTIVE|ACTIVE)\b(.*)")
 KIT_LEVER = re.compile(r"LEVER name=(\S+) state=(\S+)(.*)")
 DOCKQ_SCORE = re.compile(r"DockQ:?\s+([0-9.]+)")
@@ -112,6 +116,22 @@ def parse_alphapulldown(log: str, out: Path, fold: str):
     return reps
 
 
+def parse_af3(log: str):
+    """Per inference call: total seconds, the jit(apply_fn) trace + lowering + compile logged inside
+    it, and the forward time left after removing that. jit_logged is False for runs made without
+    JAX_LOG_COMPILES, whose seconds include an unknown compile and are not a forward time."""
+    reps = []
+    for chunk in AF3_START.split(log)[1:]:
+        m = AF3_INFER.search(chunk)
+        if not m:
+            continue
+        call = float(m.group(1))
+        jit = [float(x) for x in AF3_JIT.findall(chunk[:m.start()])]
+        reps.append({"call_s": call, "jit_s": sum(jit), "jit_logged": bool(jit),
+                     "seconds": call - sum(jit) if jit else None})
+    return reps
+
+
 def parse_kit(log: str):
     active = [f"{m.group(1)}{m.group(2)}".strip() for m in KIT_ACTIVE.finditer(log)]
     levers = {}
@@ -146,10 +166,10 @@ def collect_runs(bench: Path, folds: dict):
             if arm.startswith(("cf163", "kit")):
                 reps = parse_colabfold(log, out)
             elif arm == "ap_af3":
-                reps = [{"seconds": float(m.group(1))} for m in AF3_INFER.finditer(log)]
+                reps = parse_af3(log)
             else:
                 reps = parse_alphapulldown(log, out, fold)
-            times = [x["seconds"] for x in reps]
+            times = [x["seconds"] for x in reps if x["seconds"] is not None]
             row = {"suite": suite, "gpu": gpu, "gpu_name": gpu_name, "arm": arm, "fold": fold,
                    "tokens": folds.get(fold, {}).get("tokens"), "seed": r["seed"], "status": r["status"],
                    "reps": len(times), "first_s": times[0] if times else None,
@@ -157,14 +177,21 @@ def collect_runs(bench: Path, folds: dict):
                    "recycles": reps[-1].get("recycles") if reps else None,
                    "peak_mib": peak_mib(samples, r["start"], r["end"]),
                    "wall_s": float(r["end"]) - float(r["start"]) if r["start"] != "NA" else None}
-            if row["fwd_s"] is not None:
+            if arm == "ap_af3":  # compile is measured per call, not as first rep minus the rest
+                row["call_s"] = statistics.median([x["call_s"] for x in reps[1:]]) if len(reps) > 1 else None
+                row["first_s"] = reps[0]["call_s"] if reps else None
+                jit = [x["jit_s"] for x in reps if x["jit_logged"]]
+                row["compile_s"] = statistics.median(jit) if jit else None
+                if row["status"] == "ok" and reps and not jit:
+                    row["status"] = "ok_no_jit_log"
+            elif row["fwd_s"] is not None:
                 row["compile_s"] = row["first_s"] - row["fwd_s"]
                 if row["recycles"] is not None:
                     row["per_pass_s"] = row["fwd_s"] / (row["recycles"] + 1)
             if reps:
                 for key in ("ranking_confidence", "iptm", "ptm", "plddt", "model"):
                     row[key] = reps[0].get(key)
-            if row["status"] == "ok" and not times:
+            if row["status"] == "ok" and not times and not reps:
                 row["status"] = "no_timings"
             if arm.startswith("kit"):
                 k = parse_kit(log)
@@ -264,10 +291,17 @@ def af3_section(rows):
     af3 = [r for r in rows if r["arm"] == "ap_af3" and r["suite"] == "speed"]
     if not af3:
         return []
-    lines = ["## AF3 baseline (AlphaPulldown, DeepMind weights, forward call of the second rep)", "",
-             "| gpu | fold | tokens | status | fwd s | compile s | peak MiB |", "|---|---|---|---|---|---|---|"]
+    lines = ["## AF3 baseline (AlphaPulldown, DeepMind weights, second rep)", "",
+             "AlphaPulldown's AF3 backend re-traces and recompiles the model on every predict call, even for an "
+             "identical input in the same process, so every call pays the compile. `fwd s` is the call minus "
+             "the jit(apply_fn) trace, lowering and compile logged inside it (JAX_LOG_COMPILES); `call s` is "
+             "what a prediction costs today. Status `ok_no_jit_log` marks runs made before compiles were "
+             "logged: their call time includes an unknown compile, so no forward time is given.", "",
+             "| gpu | fold | tokens | status | fwd s | compile s | call s | peak MiB |",
+             "|---|---|---|---|---|---|---|---|"]
     for r in sorted(af3, key=lambda r: (r["gpu"], r["tokens"] or 0)):
-        lines.append(f"| {r['gpu']} | {r['fold']} | {r['tokens']} | {r['status']} | {fmt(r.get('fwd_s'))} | {fmt(r.get('compile_s'))} | {fmt(r.get('peak_mib'), 0)} |")
+        lines.append(f"| {r['gpu']} | {r['fold']} | {r['tokens']} | {r['status']} | {fmt(r.get('fwd_s'))} | "
+                     f"{fmt(r.get('compile_s'))} | {fmt(r.get('call_s'))} | {fmt(r.get('peak_mib'), 0)} |")
     return lines + [""]
 
 
@@ -345,7 +379,7 @@ def main():
     score_dockq(rows, bench / "inputs" / "natives", args.dockq, report / "dockq_cache.json")
 
     columns = ["suite", "gpu", "gpu_name", "arm", "fold", "tokens", "seed", "status", "reps", "first_s", "fwd_s",
-               "compile_s", "recycles", "per_pass_s", "peak_mib", "wall_s", "ranking_confidence", "iptm", "ptm", "plddt",
+               "compile_s", "call_s", "recycles", "per_pass_s", "peak_mib", "wall_s", "ranking_confidence", "iptm", "ptm", "plddt",
                "dockq", "kit_active", "model"]
     write_tsv(report / "runs.tsv", rows, columns)
     speed_lines, ratios = speed_section(rows)

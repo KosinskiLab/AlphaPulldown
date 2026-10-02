@@ -4,7 +4,8 @@
 #
 #   ./submit.sh smoke                 every arm + AF3 on the smallest fold, one H100 (gpu-el10)
 #   ./submit.sh full [gpu ...]        speed ladder per card, accuracy on H100, AF3 baseline per card
-#                                     (ARMS="cf163_fast kit_fast" limits the speed jobs to those arms)
+#                                     (ARMS="cf163_fast kit_fast" limits the speed jobs to those arms,
+#                                     WALLTIME=04:00:00 overrides the per-card limit)
 #                                     default: h100 l40s a40 (gpu-el10, short queues); the gpu-el8
 #                                     cards (3090 a100 rtx6000) queue for weeks: submit them as a
 #                                     second wave, `submit.sh full 3090 a100 rtx6000`, then `collect`
@@ -77,7 +78,7 @@ case $MODE in
     # report fills in as each card finishes instead of waiting for the slowest queue.
     for gpu in $GPUS; do
       all=""
-      for arm in ${ARMS:-$AF2_ARMS ap_af3}; do gpu_job speed "$gpu" "$arm" "$(gpu_partition "$gpu")" "$(gpu_walltime "$gpu")"; done
+      for arm in ${ARMS:-$AF2_ARMS ap_af3}; do gpu_job speed "$gpu" "$arm" "$(gpu_partition "$gpu")" "${WALLTIME:-$(gpu_walltime "$gpu")}"; done
       collect
     done
     all=""
