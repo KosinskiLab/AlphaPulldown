@@ -312,26 +312,29 @@ def accuracy_section(rows):
     acc = [r for r in rows if r["suite"] == "accuracy"]
     if not acc:
         return []
-    by = {(r["arm"], r["seed"], r["fold"]): r for r in acc}
+    by = {(r["gpu"], r["arm"], r["seed"], r["fold"]): r for r in acc}
     lines = ["## Accuracy sanity check (12 heterodimers, model_1, one seed per row)", "",
-             "Stock seed-to-seed spread is the yardstick: a kernel that changes results by much more than a seed does is broken.", "",
-             "| arm | seed | folds | mean DockQ | DockQ ≥ 0.23 | mean ranking conf. | mean \\|Δ ranking conf.\\| vs stock seed 0 | mean \\|Δ DockQ\\| vs stock seed 0 |",
-             "|---|---|---|---|---|---|---|---|"]
-    for arm, seed in sorted({(r["arm"], r["seed"]) for r in acc}, key=lambda x: (ARM_ORDER.index(x[0]) if x[0] in ARM_ORDER else 99, x[1])):
-        mine = [r for r in acc if r["arm"] == arm and r["seed"] == seed and r["status"] == "ok"]
+             "Stock seed-to-seed spread is the yardstick: a kernel that changes results by much more than a seed does is broken. "
+             "Each card is compared only with itself; a kit kernel is only checked on a card where it engages "
+             "(see Kit activation).", "",
+             "| gpu | arm | seed | folds | mean DockQ | DockQ ≥ 0.23 | mean ranking conf. | mean \\|Δ ranking conf.\\| vs stock seed 0 | mean \\|Δ DockQ\\| vs stock seed 0 |",
+             "|---|---|---|---|---|---|---|---|---|"]
+    order = lambda x: (x[0], ARM_ORDER.index(x[1]) if x[1] in ARM_ORDER else 99, x[2])
+    for gpu, arm, seed in sorted({(r["gpu"], r["arm"], r["seed"]) for r in acc}, key=order):
+        mine = [r for r in acc if r["gpu"] == gpu and r["arm"] == arm and r["seed"] == seed and r["status"] == "ok"]
         stock = SAME_TOOL_STOCK.get(arm, arm)
         ref_seed = "0" if (stock != arm or seed != "0") else None
         d_conf, d_dockq = [], []
         if ref_seed is not None:
             for r in mine:
-                b = by.get((stock, ref_seed, r["fold"]))
+                b = by.get((gpu, stock, ref_seed, r["fold"]))
                 if b and r.get("ranking_confidence") is not None and b.get("ranking_confidence") is not None:
                     d_conf.append(abs(r["ranking_confidence"] - b["ranking_confidence"]))
                 if b and r.get("dockq") is not None and b.get("dockq") is not None:
                     d_dockq.append(abs(r["dockq"] - b["dockq"]))
         dq = [r["dockq"] for r in mine if r.get("dockq") is not None]
         rc = [r["ranking_confidence"] for r in mine if r.get("ranking_confidence") is not None]
-        lines.append(f"| {arm} | {seed} | {len(mine)} | {fmt(statistics.fmean(dq) if dq else None, 3)} | "
+        lines.append(f"| {gpu} | {arm} | {seed} | {len(mine)} | {fmt(statistics.fmean(dq) if dq else None, 3)} | "
                      f"{sum(d >= 0.23 for d in dq)}/{len(dq)} | {fmt(statistics.fmean(rc) if rc else None, 3)} | "
                      f"{fmt(statistics.fmean(d_conf) if d_conf else None, 3)} | {fmt(statistics.fmean(d_dockq) if d_dockq else None, 3)} |")
     return lines + [""]
