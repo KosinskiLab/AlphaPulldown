@@ -82,11 +82,11 @@ case $MODE in
       collect
     done
     all=""
-    # Accuracy on one card (ACCURACY_GPU, default a40), only when that card is in this wave:
+    # Accuracy on one card (ACCURACY_GPU, default a40), only when that card is in this wave and no ARMS subset is given:
     # stock arms twice (seed 0 and 1) for the seed-to-seed spread every other difference is
     # judged against. Every accuracy fold is <= 896 tokens, so any card here holds it.
     acc_gpu=${ACCURACY_GPU:-a40}
-    if [[ " $GPUS " == *" $acc_gpu "* ]]; then
+    if [[ " $GPUS " == *" $acc_gpu "* ]] && [ -z "${ARMS:-}" ]; then
       for arm in $AF2_ARMS; do
         seeds=$SEED; case $arm in ap_stock|cf163_stock|kit_off) seeds="0:1" ;; esac
         gpu_job accuracy "$acc_gpu" "$arm" "$(gpu_partition "$acc_gpu")" 05:00:00 "$seeds"
