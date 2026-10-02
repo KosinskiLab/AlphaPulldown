@@ -44,7 +44,8 @@ ARM_ORDER = ["ap_stock", "cf163_stock", "cf163_fast", "kit_off", "kit_exact", "k
 # Every CUDA GPU type the cluster offers for compute (V100 and MI210 sit only in build-el10), in
 # the order of the summary table: label as in bench.env, name, compute capability.
 CLUSTER_GPUS = [("3090", "RTX 3090", "sm_86"), ("a40", "A40", "sm_86"), ("l40s", "L40S", "sm_89"),
-                ("a100", "A100", "sm_80"), ("h100", "H100", "sm_90"), ("h200", "H200", "sm_90"),
+                ("a100", "A100", "sm_80"), ("h100pcie", "H100 PCIe", "sm_90"), ("h100", "H100 SXM", "sm_90"),
+                ("h200", "H200", "sm_90"),
                 ("b200", "B200", "sm_100"), ("rtx6000", "RTX Pro 6000 Blackwell", "sm_120"),
                 ("b4500", "RTX Pro 4500 Blackwell (MIG half, 16 GB)", "sm_120")]
 NOT_TESTABLE = {"b200": "reserved"}  # bgx1, B200's only node: reservation vLLMs for another user until 2026-12-31
