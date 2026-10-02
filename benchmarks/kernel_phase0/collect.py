@@ -37,6 +37,7 @@ COMPARISONS = [  # (label, baseline arm, arm): ratio = baseline time / arm time,
     ("ColabFold 1.6.1 stock vs AlphaPulldown stock", "ap_stock", "kit_off"),
     # What a port would gain: each kernel arm against the code AlphaPulldown runs today.
     ("ColabFold 1.6.3 fast kernels vs AlphaPulldown stock", "ap_stock", "cf163_fast"),
+    ("Anthropic kit exact vs AlphaPulldown stock", "ap_stock", "kit_exact"),
     ("Anthropic kit fast vs AlphaPulldown stock", "ap_stock", "kit_fast"),
 ]
 SAME_TOOL_STOCK = {"cf163_fast": "cf163_stock", "kit_exact": "kit_off", "kit_fast": "kit_off"}
@@ -50,11 +51,13 @@ CLUSTER_GPUS = [("3090", "RTX 3090", "sm_86"), ("a40", "A40", "sm_86"), ("l40s",
                 ("b4500", "RTX Pro 4500 Blackwell (MIG half, 16 GB)", "sm_120")]
 NOT_TESTABLE = {"b200": "reserved"}  # bgx1, B200's only node: reservation vLLMs for another user until 2026-12-31
 AF3_CACHE_LABEL = "AF3 persistent compilation cache vs AlphaPulldown default (per prediction call)"
-SUMMARY_ROWS = [  # (row label, comparison label in speedups.tsv)
-    ("AF2: ColabFold 1.6.3 fused kernels vs AlphaPulldown stock", "ColabFold 1.6.3 fast kernels vs AlphaPulldown stock"),
-    ("AF2: Anthropic kit fast vs AlphaPulldown stock", "Anthropic kit fast vs AlphaPulldown stock"),
-    ("AF2: Anthropic kit fast vs ColabFold 1.6.3 fused kernels", "Anthropic kit fast vs ColabFold 1.6.3 fast"),
-    ("AF3: persistent compilation cache vs AlphaPulldown default", AF3_CACHE_LABEL),
+SUMMARY_COLUMNS = [  # (column label, comparison label in speedups.tsv); every one is against AlphaPulldown today
+    ("AF2: ColabFold 1.6.3 stock", "ColabFold 1.6.3 stock vs AlphaPulldown stock"),
+    ("AF2: ColabFold 1.6.3 fused kernels", "ColabFold 1.6.3 fast kernels vs AlphaPulldown stock"),
+    ("AF2: Anthropic kit off (ColabFold 1.6.1 stock)", "ColabFold 1.6.1 stock vs AlphaPulldown stock"),
+    ("AF2: Anthropic kit exact", "Anthropic kit exact vs AlphaPulldown stock"),
+    ("AF2: Anthropic kit fast", "Anthropic kit fast vs AlphaPulldown stock"),
+    ("AF3: AlphaPulldown + compilation cache", AF3_CACHE_LABEL),
 ]
 
 
@@ -361,31 +364,30 @@ def af3_section(rows):
 
 
 def summary_section(ratios, rows):
-    """One table over every cluster GPU type: geometric mean of the per-fold ratios, with their range."""
+    """One row per cluster GPU type, every cell relative to AlphaPulldown as it runs today."""
     done = {r["gpu"] for r in rows if r["suite"] == "speed" and r["status"] == "ok"}
-    names = {r["gpu"]: r["gpu_name"] for r in rows if r["suite"] == "speed" and r.get("gpu_name")}
-    lines = ["## Speed-up on every GPU type in the cluster", "",
-             "Geometric mean over the folds both arms completed (164 to 2,546 tokens for AF2, 164 tokens up to "
-             "the card's limit for AF3), with the per-fold range in brackets; >1× means faster. AF2 rows compare "
-             "forward time with the model compiled; AF3 compares the whole prediction call. A kernel's gain "
-             "grows with fold size, and the AF3 cache's gain shrinks with it (the compile it saves is a fixed "
-             "~50 s): see the per-fold tables below. No AF3 kernel arm exists: Anthropic's AF3 kit runs only "
-             "sokrypton's fork with OpenFold3 weights.", ""]
-    head = [f"{name} ({cc})" for label, name, cc in CLUSTER_GPUS]
-    lines.append("| | " + " | ".join(head) + " |")
-    lines.append("|---|" + "---|" * len(CLUSTER_GPUS))
-    for row_label, comparison in SUMMARY_ROWS:
+    lines = ["## Speed relative to AlphaPulldown, on every GPU type in the cluster", "",
+             "Every cell is AlphaPulldown's time divided by the method's time, on the same card and the same "
+             "fold: **above 1× is faster than AlphaPulldown today, below 1× is slower**. Geometric mean over the "
+             "folds both completed, per-fold range in brackets. AF2 columns compare the forward pass with the "
+             "model compiled, against AlphaPulldown stock (164 to 2,546 tokens). The AF3 column compares a whole "
+             "prediction call, against AlphaPulldown's default, which recompiles the model on every call (164 "
+             "tokens up to the card's limit). A kernel's gain grows with fold size and the cache's shrinks with it "
+             "(it saves a fixed ~50 s compile); the per-fold tables below have the detail. No AF3 kernel column: "
+             "Anthropic's AF3 kit runs only sokrypton's fork with OpenFold3 weights.", ""]
+    lines.append("| GPU | arch | " + " | ".join(label for label, _ in SUMMARY_COLUMNS) + " |")
+    lines.append("|---|---|" + "---|" * len(SUMMARY_COLUMNS))
+    for label, name, cc in CLUSTER_GPUS:
         cells = []
-        for label, _, _ in CLUSTER_GPUS:
+        for _, comparison in SUMMARY_COLUMNS:
             vals = [x["ratio"] for x in ratios if x["gpu"] == label and x["comparison"] == comparison]
             if vals:
                 cells.append(f"{geomean(vals):.2f}× ({min(vals):.1f}–{max(vals):.1f})")
             else:
                 cells.append(NOT_TESTABLE.get(label) or ("not run" if label not in done else "–"))
-        lines.append(f"| {row_label} | " + " | ".join(cells) + " |")
-    lines += ["", "Cards measured: " + (", ".join(f"{g} = {names[g]}" for g in sorted(done) if g in names) or "none") + ". "
-              "`not run`: no result yet (queued or not submitted). `reserved`: B200's only node (bgx1) is reserved "
-              "for another user until 2026-12-31.", ""]
+        lines.append(f"| {name} | {cc} | " + " | ".join(cells) + " |")
+    lines += ["", "`not run`: no result yet (queued or not submitted). `–`: card measured, this method not yet. "
+              "`reserved`: B200's only node (bgx1) is reserved for another user until 2026-12-31.", ""]
     return lines
 
 
