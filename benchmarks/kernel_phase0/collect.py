@@ -305,13 +305,16 @@ def kit_section(kits):
         return []
     lines = ["## Kit activation (did the optimizations actually run?)", "",
              "A lever can be on yet serve every call with the stock XLA op when the card has no kernel table; "
-             "those are listed as stock-only. Per-lever counters: `report/kit_levers.json`.", "",
+             "those are listed as stock-only. Folds that ran out of memory before any model call (the kit "
+             "then reports partial activation) are left out; `folds` counts the ones that ran. "
+             "Per-lever counters: `report/kit_levers.json`.", "",
              "| gpu | arm | folds | ACTIVE (mode) | levers on / reported | stock-only on every fold | some fallbacks |",
              "|---|---|---|---|---|---|---|"]
     grouped = defaultdict(list)
     for k in kits:
         grouped[(k["gpu"], k["arm"], k["suite"])].append(k)
-    for (gpu, arm, suite), ks in sorted(grouped.items()):
+    for (gpu, arm, suite), all_ks in sorted(grouped.items()):
+        ks = [k for k in all_ks if k["active"] and "no model call went through" not in k["active"]] or all_ks
         last = ks[-1]
         on = sum(v["state"] == "on" for v in last["levers"].values())
         names = {n for k in ks for n in k["levers"]}
@@ -319,7 +322,8 @@ def kit_section(kits):
         fell = sorted({n for k in ks for n, v in k["levers"].items()
                        if v.get("fallbacks", "0") not in ("0", "") and n not in stock_only})
         active = (last["active"] or "–").split(" levers=")[0][:40]
-        lines.append(f"| {gpu} | {arm} ({suite}) | {len(ks)} | {active} | {on}/{len(last['levers'])} | "
+        folds = str(len(ks)) if len(ks) == len(all_ks) else f"{len(ks)} of {len(all_ks)}"
+        lines.append(f"| {gpu} | {arm} ({suite}) | {folds} | {active} | {on}/{len(last['levers'])} | "
                      f"{', '.join(stock_only) or '–'} | {', '.join(fell) or '–'} |")
     return lines + [""]
 

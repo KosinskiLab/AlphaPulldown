@@ -28,6 +28,8 @@ if ! nvidia-smi -L > /dev/null 2>&1; then   # a broken driver must not produce n
 fi
 GPU_UUID=$(nvidia-smi --query-gpu=uuid --format=csv,noheader -i "${CUDA_VISIBLE_DEVICES%%,*}" 2>/dev/null \
            || nvidia-smi --query-gpu=uuid --format=csv,noheader | head -1)
+# On a MIG slice CUDA_VISIBLE_DEVICES names the slice, which --query-gpu does not accept: label the parent GPU.
+case $GPU_UUID in GPU-*) ;; *) GPU_UUID=$(nvidia-smi --query-gpu=uuid --format=csv,noheader | head -1) ;; esac
 nvidia-smi --query-gpu=name,uuid,compute_cap,driver_version,memory.total,power.limit,clocks.max.sm \
   --format=csv,noheader -i "$GPU_UUID" > gpu.txt
 mem_mib=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits -i "$GPU_UUID")
