@@ -9,6 +9,7 @@
 #                                     default: h100 l40s a40 (gpu-el10, short queues); the gpu-el8
 #                                     cards (3090 a100 rtx6000) queue for weeks: submit them as a
 #                                     second wave, `submit.sh full 3090 a100 rtx6000`, then `collect`
+#   ./submit.sh accuracy <gpu> [arm ...]   accuracy suite only, on one card
 #   ./submit.sh collect               re-run the collector only
 #
 # Images and inputs are built first when missing (images/build_images.sbatch, make_inputs.sbatch);
@@ -61,6 +62,14 @@ chunk_job() {  # gpu arm tag folds(colon-sep) reps walltime — one short piece 
   all="$all:$jid"
 }
 
+accuracy_jobs() {  # gpu [arm ...] — stock arms twice (seed 0 and 1) for the seed-to-seed spread
+  local gpu=$1 arm seeds; shift
+  for arm in ${*:-$AF2_ARMS}; do
+    seeds=$SEED; case $arm in ap_stock|cf163_stock|kit_off) seeds="0:1" ;; esac
+    gpu_job accuracy "$gpu" "$arm" "$(gpu_partition "$gpu")" "${WALLTIME:-05:00:00}" "$seeds"
+  done
+}
+
 collect() {
   local jid
   jid=$(sb ${all:+--dependency=afterany${all}} --export=ALL,CODE="$CODE" -o "$BENCH/logs/collect_%j.out" "$CODE/collect.sbatch")
@@ -83,15 +92,18 @@ case $MODE in
     done
     all=""
     # Accuracy on one card (ACCURACY_GPU, default a40), only when that card is in this wave and no ARMS subset is given:
-    # stock arms twice (seed 0 and 1) for the seed-to-seed spread every other difference is
-    # judged against. Every accuracy fold is <= 896 tokens, so any card here holds it.
+    # the seed-to-seed spread every other difference is judged against. Every accuracy fold is
+    # <= 896 tokens, so any card here holds it.
     acc_gpu=${ACCURACY_GPU:-a40}
-    if [[ " $GPUS " == *" $acc_gpu "* ]] && [ -z "${ARMS:-}" ]; then
-      for arm in $AF2_ARMS; do
-        seeds=$SEED; case $arm in ap_stock|cf163_stock|kit_off) seeds="0:1" ;; esac
-        gpu_job accuracy "$acc_gpu" "$arm" "$(gpu_partition "$acc_gpu")" 05:00:00 "$seeds"
-      done
-    fi
+    if [[ " $GPUS " == *" $acc_gpu "* ]] && [ -z "${ARMS:-}" ]; then accuracy_jobs "$acc_gpu"; fi
+    collect ;;
+  accuracy)
+    # The accuracy suite alone on one card, e.g. where a kernel source only engages there:
+    # `submit.sh accuracy h100` (all arms) or `submit.sh accuracy h100 kit_off kit_fast`.
+    prepare
+    gpu=${1:?usage: submit.sh accuracy <gpu> [arm ...]}; shift
+    all=""
+    accuracy_jobs "$gpu" "$@"
     collect ;;
   chunked)
     # The AF2 speed ladder per arm in two jobs short enough for a partition that only backfills

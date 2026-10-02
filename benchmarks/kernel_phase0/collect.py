@@ -35,6 +35,9 @@ COMPARISONS = [  # (label, baseline arm, arm): ratio = baseline time / arm time,
     ("Anthropic kit fast vs ColabFold 1.6.3 fast", "cf163_fast", "kit_fast"),
     ("ColabFold 1.6.3 stock vs AlphaPulldown stock", "ap_stock", "cf163_stock"),
     ("ColabFold 1.6.1 stock vs AlphaPulldown stock", "ap_stock", "kit_off"),
+    # What a port would gain: each kernel arm against the code AlphaPulldown runs today.
+    ("ColabFold 1.6.3 fast kernels vs AlphaPulldown stock", "ap_stock", "cf163_fast"),
+    ("Anthropic kit fast vs AlphaPulldown stock", "ap_stock", "kit_fast"),
 ]
 SAME_TOOL_STOCK = {"cf163_fast": "cf163_stock", "kit_exact": "kit_off", "kit_fast": "kit_off"}
 ARM_ORDER = ["ap_stock", "cf163_stock", "cf163_fast", "kit_off", "kit_exact", "kit_fast", "ap_af3"]
