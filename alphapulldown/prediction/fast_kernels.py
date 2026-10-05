@@ -28,7 +28,28 @@ from typing import Optional
 from absl import logging
 
 MODES = ("off", "on", "auto")
+# YAML 1.1 (PyYAML, so the Snakemake config) reads unquoted on/off as booleans, which
+# then arrive here as "True"/"False". Accept the boolean spellings as on/off.
+_ALIASES = {"true": "on", "yes": "on", "1": "on",
+            "false": "off", "no": "off", "0": "off", "none": "off", "": "off"}
 MIN_COMPUTE_CAPABILITY = 80
+
+
+def normalise_mode(mode) -> str:
+    """A --fast_kernels value as one of MODES; ValueError for anything else."""
+    text = "off" if mode is None else str(mode).strip().lower()
+    text = _ALIASES.get(text, text)
+    if text not in MODES:
+        raise ValueError(f"--fast_kernels must be one of {', '.join(MODES)}, not {mode!r}")
+    return text
+
+
+def is_valid_mode(mode) -> bool:
+    try:
+        normalise_mode(mode)
+    except ValueError:
+        return False
+    return True
 
 
 @dataclasses.dataclass(frozen=True)
@@ -121,9 +142,7 @@ def _requirement_problem() -> tuple[Optional[str], Optional[int]]:
 
 def resolve(mode: str) -> KernelChoice:
     """Turn a ``--fast_kernels`` value into a decision, checking requirements first."""
-    mode = str(mode or "off").strip().lower()
-    if mode not in MODES:
-        raise ValueError(f"--fast_kernels must be one of {', '.join(MODES)}, not {mode!r}")
+    mode = normalise_mode(mode)
     if mode == "off":
         return KernelChoice(False, "--fast_kernels=off")
     problem, capability = _requirement_problem()

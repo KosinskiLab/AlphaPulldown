@@ -146,3 +146,19 @@ def test_a_failing_smoke_test_is_reported(monkeypatch, packages_present):
 
     assert "test kernel failed" in problem and "sm_120" in problem
     assert capability == 120
+
+
+@pytest.mark.parametrize(
+    "value, mode",
+    [("off", "off"), ("ON", "on"), (" auto ", "auto"), (True, "on"), (False, "off"),
+     ("True", "on"), ("false", "off"), ("yes", "on"), ("0", "off"), (None, "off")],
+)
+def test_yaml_boolean_spellings_mean_on_and_off(value, mode):
+    # PyYAML reads an unquoted on/off in the workflow config as a boolean.
+    assert fast_kernels.normalise_mode(value) == mode
+    assert fast_kernels.is_valid_mode(value)
+
+
+def test_invalid_values_are_not_valid_modes():
+    assert not fast_kernels.is_valid_mode("fast")
+    assert not fast_kernels.is_valid_mode("2")
