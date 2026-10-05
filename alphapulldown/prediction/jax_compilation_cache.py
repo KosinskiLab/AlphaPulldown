@@ -1,7 +1,7 @@
 """Point JAX at a persistent on-disk compile cache that is safe on shared storage.
 
-Both folding backends are JAX-compiled, and a fresh process recompiles every model:
-about 50 s per AlphaFold 3 prediction call, and minutes per AlphaFold 2 fold. JAX's
+Both folding backends are JAX-compiled, and every new process compiles its models from
+scratch: about 50 s per AlphaFold 3 token bucket, and minutes per AlphaFold 2 fold. JAX's
 persistent compilation cache keeps the executables on disk, keyed by the GPU model and
 the JAX/XLA version, so later processes, and later folds of the same shape, load them
 instead of compiling.
