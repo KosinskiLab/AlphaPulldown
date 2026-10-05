@@ -615,6 +615,11 @@ class AlphaFold2Backend(FoldingBackend):
                 )
 
         kernels = fast_kernels_policy.resolve(fast_kernels)
+        if kernels.enabled and not any("multimer" in name for name in model_names):
+            logging.info(
+                "Fused kernels are not used here: monomer models run in fp32 and keep "
+                "the standard code."
+            )
 
         def configured_model(name: str, num_msa=None, num_extra_msa=None):
             """A fresh model config for one runner.

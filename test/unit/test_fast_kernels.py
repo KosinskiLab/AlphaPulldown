@@ -162,3 +162,13 @@ def test_yaml_boolean_spellings_mean_on_and_off(value, mode):
 def test_invalid_values_are_not_valid_modes():
     assert not fast_kernels.is_valid_mode("fast")
     assert not fast_kernels.is_valid_mode("2")
+
+
+def test_package_version_falls_back_to_the_module(monkeypatch):
+    def missing(name):
+        raise importlib.metadata.PackageNotFoundError(name)
+
+    monkeypatch.setattr(fast_kernels.importlib.metadata, "version", missing)
+    monkeypatch.setitem(sys.modules, "colabfold_kernels", types.SimpleNamespace(__version__="0.4.0"))
+
+    assert fast_kernels._package_version() == "0.4.0"

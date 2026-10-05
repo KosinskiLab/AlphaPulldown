@@ -80,7 +80,11 @@ def _package_version() -> Optional[str]:
     try:
         return importlib.metadata.version("colabfold-kernels")
     except importlib.metadata.PackageNotFoundError:
-        return None
+        # Importable without install metadata (e.g. on PYTHONPATH): ask the module.
+        try:
+            return getattr(importlib.import_module("colabfold_kernels"), "__version__", None)
+        except ImportError:
+            return None
 
 
 def _smoke_test() -> None:
