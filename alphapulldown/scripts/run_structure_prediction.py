@@ -143,6 +143,14 @@ flags.DEFINE_string(
 
 # AlphaFold3 settings
 # JAX inference performance tuning.
+flags.DEFINE_enum(
+    'fast_kernels', 'off', ['off', 'on', 'auto'],
+    'AlphaFold 2 only: fused Pallas kernels from the colabfold-kernels package '
+    '(pip install "alphapulldown[fast-kernels]"), about 2x faster AlphaFold-Multimer '
+    'inference on NVIDIA GPUs of compute capability 8.0 or newer. "on" fails if they '
+    'cannot run here, "auto" falls back to the standard code. Monomer models always use '
+    'the standard code.',
+)
 flags.DEFINE_string(
     'jax_compilation_cache_dir',
     None,

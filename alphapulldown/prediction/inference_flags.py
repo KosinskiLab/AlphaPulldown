@@ -38,6 +38,9 @@ AF2_LIKE_FLAGS = frozenset({
 
 ALPHALINK_EXTRA_FLAGS = frozenset({"crosslinks"})
 
+# AlphaFold 2 only: AlphaLink runs its own network, and AF3 has its own kernels.
+AF2_EXTRA_FLAGS = frozenset({"fast_kernels"})
+
 UNIFOLD_UNAVAILABLE_REASON = (
     "UniFold is unavailable in this release: the bundled runtime is an AlphaLink "
     "fork, not a supported UniFold inference runtime. Use --fold_backend=alphafold2 "
@@ -52,7 +55,7 @@ AF3_FLAGS = frozenset({
 })
 
 FLAGS_BY_BACKEND: Mapping[str, frozenset] = {
-    "alphafold2": COMMON_FLAGS | AF2_LIKE_FLAGS,
+    "alphafold2": COMMON_FLAGS | AF2_LIKE_FLAGS | AF2_EXTRA_FLAGS,
     "alphalink": COMMON_FLAGS | AF2_LIKE_FLAGS | ALPHALINK_EXTRA_FLAGS,
     "alphafold3": COMMON_FLAGS | AF3_FLAGS,
 }
@@ -96,6 +99,7 @@ _MODEL_FLAG_SOURCES: Mapping[str, str] = {
     "debug_templates": "debug_templates",
     "debug_msas": "debug_msas",
     "dropout": "dropout",
+    "fast_kernels": "fast_kernels",
 }
 
 _POSTPROCESS_FLAG_SOURCES: Mapping[str, str] = {

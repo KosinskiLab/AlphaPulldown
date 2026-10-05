@@ -24,6 +24,7 @@ from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObje
 from alphapulldown.utils.post_modelling import post_prediction_process
 #from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
 from alphapulldown.utils.modelling_setup import pad_input_features
+from alphapulldown.prediction import fast_kernels as fast_kernels_policy
 from alphapulldown.prediction.jax_compilation_cache import enable_persistent_compilation_cache
 from alphapulldown.utils.af2_to_af3_msa import msa_rows_and_deletions_to_a3m
 from alphafold.relax import relax
@@ -492,6 +493,34 @@ def _msa_depths(
     return [(int(num_msa), int(num_extra)) for num_msa, num_extra in zip(msa_ranges, extra_msa_ranges)]
 
 
+def _record_inference_kernels(output_dir, model_name, model_runner) -> None:
+    """Record in inference_kernels.json whether a model ran ColabFold's fused kernels.
+
+    Fast and stock predictions differ slightly in their numerics, so the record lets
+    ranking and analysis tell them apart. Read back from the runner's own config, so it
+    states what actually ran.
+    """
+    try:
+        global_config = model_runner.config.model.global_config
+    except AttributeError:  # not an AlphaFold RunModel (e.g. a test double)
+        return
+    record = {
+        "fused_kernels": bool(global_config.get("use_pallas", False)),
+        "compute_capability": global_config.get("compute_capability", None),
+    }
+    path = os.path.join(output_dir, "inference_kernels.json")
+    existing = {}
+    if os.path.exists(path):
+        try:
+            with open(path) as f:
+                existing = json.load(f)
+        except (OSError, ValueError):
+            existing = {}
+    existing[model_name] = record
+    with open(path, "w") as f:
+        json.dump(existing, f, indent=2, sort_keys=True)
+
+
 class AlphaFold2Backend(FoldingBackend):
     """
     A backend to perform structure prediction using AlphaFold.
@@ -507,6 +536,7 @@ class AlphaFold2Backend(FoldingBackend):
         model_names_custom: List[str] = None,
         msa_depth=None,
         dropout=False,
+        fast_kernels="off",
         **kwargs,
     ) -> Dict:
         """
@@ -534,6 +564,9 @@ class AlphaFold2Backend(FoldingBackend):
             If set to True, resumes prediction from partially completed runs, default is True.
         dropout : bool, optional
             If set to True, use dropout when inferring for more diverse predictions, default is False.
+        fast_kernels : str, optional
+            "off" (default), "on" or "auto": ColabFold's fused Pallas kernels for the
+            multimer models (``alphapulldown.prediction.fast_kernels``).
         **kwargs : dict
             Additional keyword arguments for model runner configuration.
 
@@ -581,6 +614,8 @@ class AlphaFold2Backend(FoldingBackend):
                     f"Provided model names {model_names_custom} not part of available {model_names + old_model_names}"
                 )
 
+        kernels = fast_kernels_policy.resolve(fast_kernels)
+
         def configured_model(name: str, num_msa=None, num_extra_msa=None):
             """A fresh model config for one runner.
 
@@ -601,6 +636,9 @@ class AlphaFold2Backend(FoldingBackend):
                 model_config["model"]["embeddings_and_evoformer"].update(
                     {"num_msa": int(num_msa), "num_extra_msa": int(num_extra_msa)}
                 )
+            # The kernels are bf16; monomer models run fp32 and keep the stock code.
+            if "multimer" in name:
+                model_config.model.global_config.update(kernels.global_config_update())
             return model_config
 
         for model_name in model_names:
@@ -836,6 +874,7 @@ class AlphaFold2Backend(FoldingBackend):
             timings_output_path = os.path.join(output_dir, "timings.json")
             with open(timings_output_path, "w") as f:
                 f.write(json.dumps(timings, indent=4))
+            _record_inference_kernels(output_dir, model_name, model_runner)
         return prediction_results
 
     @staticmethod

@@ -28,6 +28,7 @@ def _prediction_flags(tmp_path, backend):
         flash_attention_implementation="triton",
         buckets=["64", "128"],
         jax_compilation_cache_dir=None,
+        fast_kernels="off",
         num_seeds=None,
         debug_templates=False,
         debug_msas=False,

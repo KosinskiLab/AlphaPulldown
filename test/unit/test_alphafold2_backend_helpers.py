@@ -1264,6 +1264,61 @@ def test_fixed_msa_depth_shares_one_runner_at_that_depth(af2_backend_module):
     assert (evoformer["num_msa"], evoformer["num_extra_msa"]) == (48, 192)
 
 
+def test_setup_enables_fused_kernels_for_multimer_models_only(af2_backend_module, monkeypatch):
+    choice = af2_backend_module.fast_kernels_policy.KernelChoice(
+        True, "--fast_kernels=auto", compute_capability=90, package_version="0.4.0"
+    )
+    modes = []
+    monkeypatch.setattr(
+        af2_backend_module.fast_kernels_policy, "resolve", lambda mode: modes.append(mode) or choice
+    )
+    monkeypatch.setitem(
+        sys.modules["alphafold.model.config"].MODEL_PRESETS, "monomer_ptm", ("model_1_ptm",)
+    )
+
+    multimer = af2_backend_module.AlphaFold2Backend.setup(
+        model_name="multimer", num_cycle=3, model_dir="/models",
+        num_predictions_per_model=1, fast_kernels="auto",
+    )["model_runners"]["model_1_multimer_v3_pred_0"]
+    monomer = af2_backend_module.AlphaFold2Backend.setup(
+        model_name="monomer_ptm", num_cycle=3, model_dir="/models",
+        num_predictions_per_model=1, fast_kernels="auto",
+    )["model_runners"]["model_1_ptm_pred_0"]
+
+    assert modes == ["auto", "auto"]
+    assert multimer.config.model.global_config["use_pallas"] is True
+    assert multimer.config.model.global_config["compute_capability"] == 90
+    # Monomer models run fp32; the kernels are bf16.
+    assert "use_pallas" not in monomer.config.model.global_config
+
+
+def test_setup_defaults_to_the_stock_code(af2_backend_module):
+    runner = af2_backend_module.AlphaFold2Backend.setup(
+        model_name="multimer", num_cycle=3, model_dir="/models", num_predictions_per_model=1,
+    )["model_runners"]["model_1_multimer_v3_pred_0"]
+
+    assert "use_pallas" not in runner.config.model.global_config
+
+
+def test_inference_kernels_record_names_each_model(af2_backend_module, tmp_path):
+    def runner(use_pallas):
+        global_config = {"use_pallas": True, "compute_capability": 86} if use_pallas else {}
+        return SimpleNamespace(config=_ConfigNode(
+            {"model": _ConfigNode({"global_config": _ConfigNode(global_config)})}
+        ))
+
+    af2_backend_module._record_inference_kernels(tmp_path, "model_1", runner(True))
+    af2_backend_module._record_inference_kernels(tmp_path, "model_2", runner(False))
+    # Not an AlphaFold RunModel: nothing is recorded, nothing fails.
+    af2_backend_module._record_inference_kernels(tmp_path, "model_3", object())
+
+    record = json.loads((tmp_path / "inference_kernels.json").read_text())
+    assert record == {
+        "model_1": {"compute_capability": 86, "fused_kernels": True},
+        "model_2": {"compute_capability": None, "fused_kernels": False},
+    }
+
+
 def test_setup_without_msa_depth_options_shares_one_runner_per_model(af2_backend_module):
     configured = af2_backend_module.AlphaFold2Backend.setup(
         model_name="multimer",
