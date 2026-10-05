@@ -39,9 +39,15 @@ COMPARISONS = [  # (label, baseline arm, arm): ratio = baseline time / arm time,
     ("ColabFold 1.6.3 fast kernels vs AlphaPulldown stock", "ap_stock", "cf163_fast"),
     ("Anthropic kit exact vs AlphaPulldown stock", "ap_stock", "kit_exact"),
     ("Anthropic kit fast vs AlphaPulldown stock", "ap_stock", "kit_fast"),
+    # Step 1: ColabFold's kernels inside AlphaPulldown (fork branch exp/af2-fused-kernels).
+    ("AlphaPulldown fused kernels vs AlphaPulldown stock", "ap_stock", "ap_fast"),
+    ("AlphaPulldown fused kernels vs ColabFold 1.6.3 fast", "cf163_fast", "ap_fast"),
+    ("AlphaPulldown fork, kernels off vs AlphaPulldown stock", "ap_stock", "ap_fork_off"),
 ]
-SAME_TOOL_STOCK = {"cf163_fast": "cf163_stock", "kit_exact": "kit_off", "kit_fast": "kit_off"}
-ARM_ORDER = ["ap_stock", "cf163_stock", "cf163_fast", "kit_off", "kit_exact", "kit_fast", "ap_af3", "ap_af3_cache"]
+SAME_TOOL_STOCK = {"cf163_fast": "cf163_stock", "kit_exact": "kit_off", "kit_fast": "kit_off",
+                   "ap_fast": "ap_stock", "ap_fork_off": "ap_stock"}
+ARM_ORDER = ["ap_stock", "ap_fork_off", "ap_fast", "cf163_stock", "cf163_fast", "kit_off", "kit_exact", "kit_fast",
+             "ap_af3", "ap_af3_cache"]
 # Every CUDA GPU type the cluster offers for compute (V100 and MI210 sit only in build-el10), in
 # the order of the summary table: label as in bench.env, name, compute capability.
 CLUSTER_GPUS = [("3090", "RTX 3090", "sm_86"), ("a40", "A40", "sm_86"), ("l40s", "L40S", "sm_89"),
@@ -54,6 +60,7 @@ AF3_CACHE_LABEL = "AF3 persistent compilation cache vs AlphaPulldown default (pe
 SUMMARY_COLUMNS = [  # (column label, comparison label in speedups.tsv); every one is against AlphaPulldown today
     ("AF2: ColabFold 1.6.3 stock", "ColabFold 1.6.3 stock vs AlphaPulldown stock"),
     ("AF2: ColabFold 1.6.3 fused kernels", "ColabFold 1.6.3 fast kernels vs AlphaPulldown stock"),
+    ("AF2: AlphaPulldown + ColabFold kernels (Step 1)", "AlphaPulldown fused kernels vs AlphaPulldown stock"),
     ("AF2: Anthropic kit off (ColabFold 1.6.1 stock)", "ColabFold 1.6.1 stock vs AlphaPulldown stock"),
     ("AF2: Anthropic kit exact", "Anthropic kit exact vs AlphaPulldown stock"),
     ("AF2: Anthropic kit fast", "Anthropic kit fast vs AlphaPulldown stock"),

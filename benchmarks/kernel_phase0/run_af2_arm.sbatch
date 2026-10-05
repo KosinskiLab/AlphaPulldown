@@ -63,12 +63,17 @@ predict() {  # $1 fold  $2 seed  $3 tag ; writes logs/$tag.log, out/$tag/
   local fold=$1 seed=$2 tag=$3 in=$RUN/in/$3 out=$RUN/out/$3 r
   rm -rf "$in" "$out"; mkdir -p "$in" "$out"
   case $ARM in
-    ap_stock)
+    ap_stock|ap_fast|ap_fork_off)
       local spec; spec=$("$HOST_PY" -c "import json;print(next(x['fold'] for x in json.load(open('$BENCH/inputs/folds.json')) if x['name']=='$fold'))")
       for r in $(seq 1 "$REPS"); do
         printf '{"job_id": "%s_r%d", "input": "%s", "output_directory": "%s/%s_r%d"}\n' "$fold" "$r" "$spec" "$out" "$fold" "$r"
       done > "$in/manifest.jsonl"
-      apptainer exec --nv --cleanenv "${RUNENV[@]}" "${BINDS[@]}" "$SIF_AP_AF2" \
+      # ap_fast / ap_fork_off: the fork branch and colabfold_kernels ahead of the image's alphafold,
+      # with the fused kernels on / off (ap_fork_off must reproduce ap_stock).
+      local overlay=()
+      case $ARM in ap_fast|ap_fork_off) overlay=(--env "PYTHONPATH=$AF_FORK:$CFK_PKGS" --bind "$AF_FORK" --bind "$CFK_PKGS") ;; esac
+      [ "$ARM" = ap_fast ] && overlay+=(--env AP_FUSED_KERNELS=1)
+      apptainer exec --nv --cleanenv "${RUNENV[@]}" "${overlay[@]}" "${BINDS[@]}" "$SIF_AP_AF2" \
         python "$CODE/ap_fixed_recycles.py" --manifest "$in/manifest.jsonl" \
         --data_directory "$AF2_DATA" --features_directory "$BENCH/inputs/features" --fold_backend alphafold2 \
         --model_names model_1_multimer_v3 --num_cycle "$NUM_RECYCLE" --num_predictions_per_model 1 \

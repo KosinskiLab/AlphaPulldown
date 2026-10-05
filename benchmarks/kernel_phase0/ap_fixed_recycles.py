@@ -12,6 +12,7 @@ Benchmark harness only; AlphaPulldown's code is untouched. Two wrappers, both ou
   reach gigabytes at large sizes, need not be kept.
 """
 
+import os
 import runpy
 import sys
 import time
@@ -24,10 +25,24 @@ _model_config = af_config.model_config
 _predict = af_model.RunModel.predict
 
 
+# AP_FUSED_KERNELS=1 (arm ap_fast): switch on the fork's colabfold-kernels hooks, which the
+# job puts ahead of the image's alphafold on PYTHONPATH (exp/af2-fused-kernels).
+FUSED = os.environ.get("AP_FUSED_KERNELS") == "1"
+if FUSED:
+    import jax
+
+    _cc = jax.devices()[0].compute_capability
+    _cc = int(round(float(_cc) * 10)) if "." in str(_cc) else int(_cc)
+    print(f"[bench] fused_kernels=on compute_capability={_cc}", flush=True)
+
+
 def _fixed_recycles(name, *args, **kwargs):
     cfg = _model_config(name, *args, **kwargs)
     if "multimer" in name:
         cfg.model.recycle_early_stop_tolerance = 0.0
+    if FUSED:
+        cfg.model.global_config.use_pallas = True
+        cfg.model.global_config.compute_capability = _cc
     return cfg
 
 
