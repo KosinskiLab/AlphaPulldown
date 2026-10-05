@@ -340,8 +340,9 @@ def af3_section(rows):
         return []
     by = {(r["gpu"], r["arm"], r["fold"]): r for r in af3}
     lines = ["## AF3 (AlphaPulldown, DeepMind weights, second rep of each fold)", "",
-             "AlphaPulldown's AF3 backend re-traces and recompiles the model on every predict call, even for an "
-             "identical input in the same process, so by default every call pays the compile. `fwd s` is the "
+             "AlphaPulldown's AF3 backend (2.9.1 and older) compiles the model on the first predict call of a "
+             "process and again on the second (tokamax creates a JAX user context during the first trace), so "
+             "neither rep below is compile-free. `fwd s` is the "
              "default call minus the jit(apply_fn) trace, lowering and compile logged inside it "
              "(JAX_LOG_COMPILES). `call s` is what one prediction costs: by default, and with a persistent "
              "compilation cache (`--jax_compilation_cache_dir` plus `JAX_PERSISTENT_CACHE_ENABLE_XLA_CACHES=none`; "

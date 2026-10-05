@@ -57,10 +57,11 @@ trap 'kill $SAMPLER 2>/dev/null' EXIT
 sleep 2
 
 BINDS=(--bind "$BENCH" --bind "$CODE" --bind /g/alphafold)
-# JAX_LOG_COMPILES: AlphaPulldown's AF3 backend re-traces and recompiles the model on every
-# predict call, even for an identical input in the same process (2026-10-02, ~50 s of a 70 s
-# call at 256 tokens), so no rep is compile-free. collect.py subtracts each rep's logged
-# trace + lowering + XLA compile of jit(apply_fn) from its inference time.
+# JAX_LOG_COMPILES: AlphaPulldown's AF3 backend (2.9.1 and older) re-traces and recompiles
+# the model on the second predict call of a process too, because tokamax creates a JAX user
+# context during the first trace (~50 s of a 70 s call at 256 tokens), so neither rep is
+# compile-free. collect.py subtracts each rep's logged trace + lowering + XLA compile of
+# jit(apply_fn) from its inference time.
 RUNENV=($MEM_ENV_AF3 --env "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}" --env "MPLCONFIGDIR=$RUN/mpl" --env JAX_LOG_COMPILES=true)
 # No persistent compilation cache by default (AlphaPulldown's default). With one, jaxlib 0.9.1
 # fails to insert into XLA's per-fusion autotune cache and then segfaults (on /scratch and on the
