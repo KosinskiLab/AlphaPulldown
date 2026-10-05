@@ -865,8 +865,8 @@ You can pass backend CLI switches through `structure_inference_arguments`. Commo
 Every inference job shares one on-disk JAX compile cache,
 `<output_directory>/.jax_compilation_cache`, for AlphaFold2 and AlphaFold3 at every
 `batch_size`. Without it every inference process compiles its models from scratch:
-minutes per AlphaFold2 fold, and about 50 s per AlphaFold3 token bucket (twice for the
-first one). With it, a new process loads them instead: AlphaFold3 predictions in a fresh
+minutes per AlphaFold2 fold, and about 50 s per AlphaFold3 token bucket (AlphaPulldown
+2.9.1 and older compile the first one twice). With it, a new process loads them instead: AlphaFold3 predictions in a fresh
 process are 1.6–2.0× faster on average and 3–4.5× on small complexes, with identical
 outputs. Entries are keyed by GPU model and
 JAX/XLA version, so mixed-GPU clusters and image upgrades are safe. They take about
