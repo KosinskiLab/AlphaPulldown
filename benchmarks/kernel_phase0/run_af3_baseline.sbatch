@@ -19,7 +19,12 @@
 set -uo pipefail
 # Jobs can queue for days: run the script as it is in $CODE when the job starts, not the copy
 # sbatch took at submission, so fixes committed meanwhile apply. meta.txt records the commit.
-if [ -z "${KB0_INNER:-}" ]; then KB0_INNER=1 exec bash "${CODE:?}/run_af3_baseline.sbatch" "$@"; fi
+# ...and run a private copy: bash reads a running script from disk as it goes, so editing
+# the original under a running job would make it resume mid-line in the new text.
+if [ -z "${KB0_INNER:-}" ]; then
+  KB0_SCRIPT=$(mktemp "${TMPDIR:-/tmp}/kb0_run_af3_baseline.sbatch.XXXXXX") && cp "${CODE:?}/run_af3_baseline.sbatch" "$KB0_SCRIPT" || exit 1
+  KB0_INNER=1 exec bash "$KB0_SCRIPT" "$@"
+fi
 CODE_REV=$(git -C "$CODE" rev-parse --short HEAD 2>/dev/null)$(git -C "$CODE" diff --quiet HEAD -- . 2>/dev/null || echo -dirty)
 source "${CODE:?}/bench.env"
 : "${GPU:?}" "${SUITE:?}"
