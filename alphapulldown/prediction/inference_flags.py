@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List, Mapping, Sequence, Tuple
 
+from alphapulldown.prediction.jax_compilation_cache import resolve_cache_dir
+
 
 # Accepted by every backend.
 COMMON_FLAGS = frozenset({
@@ -131,11 +133,18 @@ def model_name_for_backend(flags: Any) -> str:
 
 
 def model_flags(flags: Any) -> Dict[str, Any]:
-    """Configuration for ``backend.setup`` built from the parsed invocation."""
+    """Configuration for ``backend.setup`` built from the parsed invocation.
+
+    An unset ``--jax_compilation_cache_dir`` becomes the default cache directory, so
+    command-line runs share compiled models unless the cache is turned off.
+    """
     configuration = {
         key: getattr(flags, attribute)
         for key, attribute in _MODEL_FLAG_SOURCES.items()
     }
+    configuration["jax_compilation_cache_dir"] = resolve_cache_dir(
+        configuration["jax_compilation_cache_dir"]
+    )
     configuration["model_name"] = model_name_for_backend(flags)
     return configuration
 

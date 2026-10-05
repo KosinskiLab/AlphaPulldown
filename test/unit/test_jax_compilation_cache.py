@@ -87,3 +87,63 @@ def test_user_directory_is_expanded(fake_jax, tmp_path, monkeypatch):
 
     assert used == str(tmp_path / "jax-cache")
     assert (tmp_path / "jax-cache").is_dir()
+
+
+@pytest.fixture
+def user_cache(monkeypatch, tmp_path):
+    """The per-user default directory, under a temporary XDG_CACHE_HOME."""
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "xdg"))
+    monkeypatch.delenv(jax_compilation_cache.CACHE_DIR_ENV, raising=False)
+    return tmp_path / "xdg" / "alphapulldown" / "jax_compilation_cache"
+
+
+def test_unset_flag_resolves_to_the_user_cache(user_cache):
+    assert jax_compilation_cache.resolve_cache_dir(None) == str(user_cache)
+
+
+def test_unset_flag_prefers_jax_environment_variable(user_cache, monkeypatch, tmp_path):
+    monkeypatch.setenv(jax_compilation_cache.CACHE_DIR_ENV, str(tmp_path / "site-cache"))
+
+    assert jax_compilation_cache.resolve_cache_dir(None) == str(tmp_path / "site-cache")
+
+
+@pytest.mark.parametrize("value", ["", "none", "None", "false", "off", "0"])
+def test_off_values_turn_the_cache_off(fake_jax, value):
+    assert jax_compilation_cache.resolve_cache_dir(value) is None
+    assert jax_compilation_cache.enable_persistent_compilation_cache(value) is None
+    assert fake_jax.updates == []
+
+
+def test_explicit_path_is_kept(tmp_path):
+    assert jax_compilation_cache.resolve_cache_dir(str(tmp_path)) == str(tmp_path)
+
+
+def _entry(directory, name, size, mtime):
+    path = directory / name
+    path.write_bytes(b"x" * size)
+    os.utime(path, (mtime, mtime))
+    return path
+
+
+def test_user_cache_is_pruned_oldest_first(fake_jax, user_cache, monkeypatch):
+    user_cache.mkdir(parents=True)
+    oldest = _entry(user_cache, "a-cache", 400, 1_000)
+    middle = _entry(user_cache, "b-cache", 400, 2_000)
+    newest = _entry(user_cache, "c-cache", 400, 3_000)
+    monkeypatch.setattr(jax_compilation_cache, "DEFAULT_MAX_BYTES", 900)
+
+    jax_compilation_cache.enable_persistent_compilation_cache(str(user_cache))
+
+    assert not oldest.exists()
+    assert middle.exists() and newest.exists()
+
+
+def test_chosen_directory_is_never_pruned(fake_jax, tmp_path, monkeypatch):
+    chosen = tmp_path / "chosen"
+    chosen.mkdir()
+    entries = [_entry(chosen, f"{i}-cache", 400, 1_000 + i) for i in range(3)]
+    monkeypatch.setattr(jax_compilation_cache, "DEFAULT_MAX_BYTES", 1)
+
+    jax_compilation_cache.enable_persistent_compilation_cache(str(chosen))
+
+    assert all(entry.exists() for entry in entries)

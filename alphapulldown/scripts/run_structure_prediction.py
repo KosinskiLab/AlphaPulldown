@@ -146,7 +146,10 @@ flags.DEFINE_string(
 flags.DEFINE_string(
     'jax_compilation_cache_dir',
     None,
-    'Path to a directory for the JAX compilation cache.',
+    'Directory for the persistent JAX compilation cache (AlphaFold 2 and 3), so later '
+    'runs load compiled models instead of compiling them again. Default: '
+    '$JAX_COMPILATION_CACHE_DIR, else ~/.cache/alphapulldown/jax_compilation_cache '
+    '(kept under 10 GB). Set to "none" to turn the cache off.',
 )
 flags.DEFINE_list(
     'buckets',
