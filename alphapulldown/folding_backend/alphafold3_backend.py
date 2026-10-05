@@ -10,6 +10,7 @@ import csv
 import dataclasses
 import functools
 import hashlib
+import importlib
 import inspect
 import json
 import logging
@@ -672,6 +673,24 @@ def predict_structure(
     return all_inference_results
 
 
+def _initialise_tokamax_trace_context() -> None:
+    """Create tokamax's JAX user context now, before the model is first traced.
+
+    tokamax creates it (``jax.make_user_context``) the first time an op consults its
+    autotuning cache, which is during the first trace. A new user context adds an entry
+    to JAX's trace context and so changes every jit cache key: the second prediction in a
+    process missed the cache and re-traced and recompiled the whole model (~50 s). The
+    hook is private to tokamax, so its absence is not an error.
+    """
+    try:
+        tokamax_op = importlib.import_module("tokamax._src.ops.op")
+    except ImportError:
+        return
+    initialise = getattr(tokamax_op, "get_autotuning_cache_overlay_state", None)
+    if callable(initialise):
+        initialise()
+
+
 def process_fold_input(
     fold_input: folding_input.Input,
     model_runner: ModelRunner | None,
@@ -776,6 +795,7 @@ class AlphaFold3Backend(FoldingBackend):
             return config
 
         enable_persistent_compilation_cache(jax_compilation_cache_dir)
+        _initialise_tokamax_trace_context()
 
         gpu_devices = jax.local_devices(backend='gpu')
         if gpu_devices:

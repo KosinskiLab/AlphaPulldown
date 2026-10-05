@@ -881,6 +881,13 @@ def test_af3_setup_builds_model_runner_and_validates_gpu_capability(
         lambda backend="gpu": [SimpleNamespace(compute_capability=8.0)],
     )
 
+    tokamax_context = []
+    monkeypatch.setattr(
+        af3_backend_module,
+        "_initialise_tokamax_trace_context",
+        lambda: tokamax_context.append(True),
+    )
+
     configured = af3_backend_module.AlphaFold3Backend.setup(
         num_diffusion_samples=8,
         flash_attention_implementation="triton",
@@ -908,6 +915,8 @@ def test_af3_setup_builds_model_runner_and_validates_gpu_capability(
         ("jax_persistent_cache_min_entry_size_bytes", 0),
         ("jax_persistent_cache_enable_xla_caches", "none"),
     ]
+    # Before the first trace, or the second prediction recompiles the model.
+    assert tokamax_context == [True]
 
     monkeypatch.setattr(
         af3_backend_module.jax,
@@ -922,6 +931,33 @@ def test_af3_setup_builds_model_runner_and_validates_gpu_capability(
             jax_compilation_cache_dir=None,
             model_dir=str(tmp_path / "models"),
         )
+
+
+def test_af3_tokamax_trace_context_is_created_by_its_own_hook(
+    af3_backend_module, monkeypatch
+):
+    calls = []
+    monkeypatch.setitem(
+        sys.modules,
+        "tokamax._src.ops.op",
+        SimpleNamespace(get_autotuning_cache_overlay_state=lambda: calls.append(True)),
+    )
+
+    af3_backend_module._initialise_tokamax_trace_context()
+
+    assert calls == [True]
+
+
+def test_af3_tokamax_trace_context_hook_is_optional(af3_backend_module, monkeypatch):
+    # A tokamax without the private hook, then no tokamax module at all.
+    monkeypatch.setitem(sys.modules, "tokamax._src.ops.op", SimpleNamespace())
+    af3_backend_module._initialise_tokamax_trace_context()
+
+    def missing(name):
+        raise ImportError(name)
+
+    monkeypatch.setattr(af3_backend_module.importlib, "import_module", missing)
+    af3_backend_module._initialise_tokamax_trace_context()
 
 
 def test_af3_predict_expands_num_seeds_and_calls_process_fold_input(
