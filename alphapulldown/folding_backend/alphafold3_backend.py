@@ -10,6 +10,7 @@ import csv
 import dataclasses
 import functools
 import hashlib
+import importlib
 import inspect
 import json
 import logging
@@ -41,6 +42,7 @@ from jax import numpy as jnp
 from alphafold.common import residue_constants
 from alphafold.common.protein import Protein, to_mmcif
 from alphapulldown.folding_backend.folding_backend import FoldingBackend
+from alphapulldown.prediction.jax_compilation_cache import enable_persistent_compilation_cache
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
 from alphapulldown.utils.af2_to_af3_msa import (
     Af2ToAf3TranslationResult,
@@ -671,6 +673,24 @@ def predict_structure(
     return all_inference_results
 
 
+def _initialise_tokamax_trace_context() -> None:
+    """Create tokamax's JAX user context now, before the model is first traced.
+
+    tokamax creates it (``jax.make_user_context``) the first time an op consults its
+    autotuning cache, which is during the first trace. A new user context adds an entry
+    to JAX's trace context and so changes every jit cache key: the second prediction in a
+    process missed the cache and re-traced and recompiled the whole model (~50 s). The
+    hook is private to tokamax, so its absence is not an error.
+    """
+    try:
+        tokamax_op = importlib.import_module("tokamax._src.ops.op")
+    except ImportError:
+        return
+    initialise = getattr(tokamax_op, "get_autotuning_cache_overlay_state", None)
+    if callable(initialise):
+        initialise()
+
+
 def process_fold_input(
     fold_input: folding_input.Input,
     model_runner: ModelRunner | None,
@@ -774,8 +794,8 @@ class AlphaFold3Backend(FoldingBackend):
                 config.return_distogram = return_distogram
             return config
 
-        if jax_compilation_cache_dir is not None:
-            jax.config.update('jax_compilation_cache_dir', jax_compilation_cache_dir)
+        enable_persistent_compilation_cache(jax_compilation_cache_dir)
+        _initialise_tokamax_trace_context()
 
         gpu_devices = jax.local_devices(backend='gpu')
         if gpu_devices:

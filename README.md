@@ -691,14 +691,6 @@ batch_max_tokens: 0    # optional cap on summed residues per batch (0 = no cap)
   ordered membership. Changing a batch therefore schedules the new composition even
   when Snakemake uses `rerun-triggers: mtime`; single-fold paths remain unchanged.
 
-> [!NOTE]
-> **`--jax_compilation_cache_dir` and network filesystems.** XLA's autotune cache write
-> can fail with `Device or resource busy` on some network filesystems (BeeGFS in
-> particular), which aborts the process during compilation. A resident batch compiles
-> once in memory and is not given the flag at all, so batches are unaffected. If you set
-> it yourself, point it at node-local storage rather than `output_directory` when that
-> lives on such a filesystem.
-
 `batch_size: 1` (the default) is exactly the original one-job-per-fold behaviour.
 
 </details>
@@ -860,18 +852,39 @@ You can pass backend CLI switches through `structure_inference_arguments`. Commo
 > `--allow_resume` for AlphaFold2, and `--desired_num_res` for AlphaFold2 multimer
 > batches — so you don't set them yourself.
 >
-> `--jax_compilation_cache_dir` is accepted by **both** backends: AlphaFold2 inference is
-> JAX-compiled too, and a persistent cache removes most of the per-process compilation
-> cost even at `batch_size: 1`. Older prediction images accept it for AlphaFold3 only, so
-> the workflow does not add it for AlphaFold2 automatically — set it yourself once your
-> image supports it, pointing at node-local storage.
->
 > The authoritative, always-current list for your image is the backend validation inside the
 > container. Print it with:
 > ```bash
 > singularity exec <prediction_container> run_structure_prediction.py --help
 > ```
 > (`alphalink` accepts the AlphaFold2 flags plus `--crosslinks`.)
+
+<details>
+<summary>JAX compile cache (on by default, no action needed)</summary>
+
+Every inference job shares one on-disk JAX compile cache,
+`<output_directory>/.jax_compilation_cache`, for AlphaFold2 and AlphaFold3 at every
+`batch_size`. Without it every inference process compiles its models from scratch:
+minutes per AlphaFold2 fold, and about 50 s per AlphaFold3 token bucket (AlphaPulldown
+2.9.1 and older compile the first one twice). With it, a new process loads them instead: AlphaFold3 predictions in a fresh
+process are 1.6–2.0× faster on average and 3–4.5× on small complexes, with identical
+outputs. Entries are keyed by GPU model and
+JAX/XLA version, so mixed-GPU clusters and image upgrades are safe. They take about
+3 MB per compiled shape.
+
+The cache lives on shared storage safely because the inference rule exports
+`JAX_PERSISTENT_CACHE_ENABLE_XLA_CACHES=none`. By default JAX also stores XLA's
+per-fusion autotune cache there, and writing that fails with `Device or resource busy`
+on network filesystems (BeeGFS in particular), after which XLA segfaults. To move the
+cache, set `--jax_compilation_cache_dir: /some/path` in
+`structure_inference_arguments`; to turn it off, set it to `false`. Prediction images
+older than AlphaPulldown 2.8.0 reject the flag for AlphaFold2: turn it off there.
+
+Run directly, without the workflow, AlphaPulldown uses
+`~/.cache/alphapulldown/jax_compilation_cache` (kept under 10 GB) unless
+`--jax_compilation_cache_dir` says otherwise.
+
+</details>
 
 <details>
 <summary>AlphaFold2 flags</summary>
@@ -901,7 +914,7 @@ structure_inference_arguments:
   --path_to_mmt: None
   --desired_num_res: None          # pad every fold in a batch to this many residues
   --desired_num_msa: None          # optional; defaults to the fold's own MSA depth
-  --jax_compilation_cache_dir: None
+  --jax_compilation_cache_dir: None      # auto-added; see "JAX compile cache" above
   --benchmark: False
   --model_preset: monomer
   --use_ap_style: False
@@ -915,7 +928,7 @@ structure_inference_arguments:
 
 ```yaml
 structure_inference_arguments:
-  --jax_compilation_cache_dir: null       # AF3-only; auto-added when batching
+  --jax_compilation_cache_dir: null       # auto-added; see "JAX compile cache" above
   --buckets: ['64','128','256','512','768','1024','1280','1536','2048','2560','3072','3584','4096','4608','5120']
   --flash_attention_implementation: triton
   --num_diffusion_samples: 5
