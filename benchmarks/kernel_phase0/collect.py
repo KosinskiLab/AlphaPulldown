@@ -43,10 +43,13 @@ COMPARISONS = [  # (label, baseline arm, arm): ratio = baseline time / arm time,
     ("AlphaPulldown fused kernels vs AlphaPulldown stock", "ap_stock", "ap_fast"),
     ("AlphaPulldown fused kernels vs ColabFold 1.6.3 fast", "cf163_fast", "ap_fast"),
     ("AlphaPulldown fork, kernels off vs AlphaPulldown stock", "ap_stock", "ap_fork_off"),
+    # Step 2's first lever: attention subbatch 4 -> 128 (config only).
+    ("AlphaPulldown stock, subbatch 128 vs AlphaPulldown stock", "ap_stock", "ap_stock_sb128"),
+    ("AlphaPulldown fused kernels + subbatch 128 vs AlphaPulldown fused kernels", "ap_fast", "ap_fast_sb128"),
 ]
 SAME_TOOL_STOCK = {"cf163_fast": "cf163_stock", "kit_exact": "kit_off", "kit_fast": "kit_off",
                    "ap_fast": "ap_stock", "ap_fork_off": "ap_stock"}
-ARM_ORDER = ["ap_stock", "ap_fork_off", "ap_fast", "cf163_stock", "cf163_fast", "kit_off", "kit_exact", "kit_fast",
+ARM_ORDER = ["ap_stock", "ap_fork_off", "ap_fast", "ap_stock_sb128", "ap_fast_sb128", "cf163_stock", "cf163_fast", "kit_off", "kit_exact", "kit_fast",
              "ap_af3", "ap_af3_cache"]
 # Every CUDA GPU type the cluster offers for compute (V100 and MI210 sit only in build-el10), in
 # the order of the summary table: label as in bench.env, name, compute capability.

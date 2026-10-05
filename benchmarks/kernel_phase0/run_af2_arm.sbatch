@@ -53,7 +53,7 @@ case $GPU_UUID in GPU-*) ;; *) GPU_UUID=$(nvidia-smi --query-gpu=uuid --format=c
 nvidia-smi --query-gpu=name,uuid,compute_cap,driver_version,memory.total,power.limit,clocks.max.sm \
   --format=csv,noheader -i "$GPU_UUID" > gpu.txt
 FORK_INFO=""
-case $ARM in ap_fast|ap_fork_off) FORK_INFO=" fork=$(basename "$AF_FORK") colabfold_kernels=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' "$CFK_PKGS/colabfold_kernels/__init__.py")" ;; esac
+case $ARM in ap_fast*|ap_fork_off) FORK_INFO=" fork=$(basename "$AF_FORK") colabfold_kernels=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' "$CFK_PKGS/colabfold_kernels/__init__.py")" ;; esac
 echo "node=$(hostname) job=${SLURM_JOB_ID:-none} arm=$ARM gpu=$GPU suite=$SUITE folds=[$FOLDS] reps=$REPS seeds=[$SEEDS] code=$CODE_REV$FORK_INFO" | tee meta.txt
 cat gpu.txt
 nvidia-smi --query-gpu=timestamp,memory.used --format=csv,noheader,nounits -i "$GPU_UUID" -lms 500 > gpu_mem.csv 2>/dev/null &
@@ -70,7 +70,7 @@ predict() {  # $1 fold  $2 seed  $3 tag ; writes logs/$tag.log, out/$tag/
   local fold=$1 seed=$2 tag=$3 in=$RUN/in/$3 out=$RUN/out/$3 r
   rm -rf "$in" "$out"; mkdir -p "$in" "$out"
   case $ARM in
-    ap_stock|ap_fast|ap_fork_off)
+    ap_stock|ap_fast|ap_fork_off|ap_stock_sb128|ap_fast_sb128)
       local spec; spec=$("$HOST_PY" -c "import json;print(next(x['fold'] for x in json.load(open('$BENCH/inputs/folds.json')) if x['name']=='$fold'))")
       for r in $(seq 1 "$REPS"); do
         printf '{"job_id": "%s_r%d", "input": "%s", "output_directory": "%s/%s_r%d"}\n' "$fold" "$r" "$spec" "$out" "$fold" "$r"
@@ -78,8 +78,9 @@ predict() {  # $1 fold  $2 seed  $3 tag ; writes logs/$tag.log, out/$tag/
       # ap_fast / ap_fork_off: the fork branch and colabfold_kernels ahead of the image's alphafold,
       # with the fused kernels on / off (ap_fork_off must reproduce ap_stock).
       local overlay=()
-      case $ARM in ap_fast|ap_fork_off) overlay=(--env "PYTHONPATH=$AF_FORK:$CFK_PKGS" --bind "$AF_FORK" --bind "$CFK_PKGS") ;; esac
-      [ "$ARM" = ap_fast ] && overlay+=(--env AP_FUSED_KERNELS=1)
+      case $ARM in ap_fast*|ap_fork_off) overlay=(--env "PYTHONPATH=$AF_FORK:$CFK_PKGS" --bind "$AF_FORK" --bind "$CFK_PKGS") ;; esac
+      case $ARM in ap_fast*) overlay+=(--env AP_FUSED_KERNELS=1) ;; esac
+      case $ARM in *_sb128) overlay+=(--env AP_SUBBATCH=128) ;; esac
       apptainer exec --nv --cleanenv "${RUNENV[@]}" "${overlay[@]}" "${BINDS[@]}" "$SIF_AP_AF2" \
         python "$CODE/ap_fixed_recycles.py" --manifest "$in/manifest.jsonl" \
         --data_directory "$AF2_DATA" --features_directory "$BENCH/inputs/features" --fold_backend alphafold2 \

@@ -28,6 +28,10 @@ _predict = af_model.RunModel.predict
 # AP_FUSED_KERNELS=1 (arm ap_fast): switch on the fork's colabfold-kernels hooks, which the
 # job puts ahead of the image's alphafold on PYTHONPATH (exp/af2-fused-kernels).
 FUSED = os.environ.get("AP_FUSED_KERNELS") == "1"
+# AP_SUBBATCH=N (arms *_sb128): global_config.subbatch_size, the Anthropic kit's SUBBATCH lever.
+SUBBATCH = int(os.environ["AP_SUBBATCH"]) if os.environ.get("AP_SUBBATCH") else None
+if SUBBATCH:
+    print(f"[bench] subbatch_size={SUBBATCH}", flush=True)
 if FUSED:
     import jax
 
@@ -40,6 +44,8 @@ def _fixed_recycles(name, *args, **kwargs):
     cfg = _model_config(name, *args, **kwargs)
     if "multimer" in name:
         cfg.model.recycle_early_stop_tolerance = 0.0
+    if SUBBATCH:
+        cfg.model.global_config.subbatch_size = SUBBATCH
     if FUSED:
         cfg.model.global_config.use_pallas = True
         cfg.model.global_config.compute_capability = _cc
