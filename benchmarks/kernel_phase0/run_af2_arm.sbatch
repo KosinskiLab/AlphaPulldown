@@ -47,7 +47,9 @@ GPU_UUID=$(nvidia-smi --query-gpu=uuid --format=csv,noheader -i "${CUDA_VISIBLE_
 case $GPU_UUID in GPU-*) ;; *) GPU_UUID=$(nvidia-smi --query-gpu=uuid --format=csv,noheader | head -1) ;; esac
 nvidia-smi --query-gpu=name,uuid,compute_cap,driver_version,memory.total,power.limit,clocks.max.sm \
   --format=csv,noheader -i "$GPU_UUID" > gpu.txt
-echo "node=$(hostname) job=${SLURM_JOB_ID:-none} arm=$ARM gpu=$GPU suite=$SUITE folds=[$FOLDS] reps=$REPS seeds=[$SEEDS] code=$CODE_REV" | tee meta.txt
+FORK_INFO=""
+case $ARM in ap_fast|ap_fork_off) FORK_INFO=" fork=$(basename "$AF_FORK") colabfold_kernels=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' "$CFK_PKGS/colabfold_kernels/__init__.py")" ;; esac
+echo "node=$(hostname) job=${SLURM_JOB_ID:-none} arm=$ARM gpu=$GPU suite=$SUITE folds=[$FOLDS] reps=$REPS seeds=[$SEEDS] code=$CODE_REV$FORK_INFO" | tee meta.txt
 cat gpu.txt
 nvidia-smi --query-gpu=timestamp,memory.used --format=csv,noheader,nounits -i "$GPU_UUID" -lms 500 > gpu_mem.csv 2>/dev/null &
 SAMPLER=$!
