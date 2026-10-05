@@ -41,6 +41,7 @@ from jax import numpy as jnp
 from alphafold.common import residue_constants
 from alphafold.common.protein import Protein, to_mmcif
 from alphapulldown.folding_backend.folding_backend import FoldingBackend
+from alphapulldown.prediction.jax_compilation_cache import enable_persistent_compilation_cache
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
 from alphapulldown.utils.af2_to_af3_msa import (
     Af2ToAf3TranslationResult,
@@ -774,8 +775,7 @@ class AlphaFold3Backend(FoldingBackend):
                 config.return_distogram = return_distogram
             return config
 
-        if jax_compilation_cache_dir is not None:
-            jax.config.update('jax_compilation_cache_dir', jax_compilation_cache_dir)
+        enable_persistent_compilation_cache(jax_compilation_cache_dir)
 
         gpu_devices = jax.local_devices(backend='gpu')
         if gpu_devices:

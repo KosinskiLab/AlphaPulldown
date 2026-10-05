@@ -31,6 +31,8 @@ LIGHT_MODULES = (
     "alphapulldown.prediction.inference_flags",
     # Probes JAX only when called, so importing it costs nothing on a login node.
     "alphapulldown.prediction.jax_devices",
+    # Likewise configures JAX's compile cache only when called.
+    "alphapulldown.prediction.jax_compilation_cache",
     # Compatibility paths must retain the same lightweight behavior.
     "alphapulldown.feature_batch",
     "alphapulldown.af2_feature_finalizer",

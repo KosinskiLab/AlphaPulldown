@@ -863,6 +863,7 @@ def test_af3_setup_builds_model_runner_and_validates_gpu_capability(
         Config = FakeConfig
 
     cache_updates = []
+    monkeypatch.delenv("JAX_PERSISTENT_CACHE_ENABLE_XLA_CACHES", raising=False)
     monkeypatch.setattr(
         sys.modules["alphafold3.model.model"],
         "Model",
@@ -899,7 +900,14 @@ def test_af3_setup_builds_model_runner_and_validates_gpu_capability(
     assert runner.config.num_recycles == 12
     assert runner.config.return_embeddings is True
     assert runner.config.return_distogram is True
-    assert cache_updates == [("jax_compilation_cache_dir", str(tmp_path / "jax-cache"))]
+    # The cache keeps only JAX's own entries: XLA's per-fusion autotune cache
+    # segfaults the compiler on shared filesystems.
+    assert cache_updates == [
+        ("jax_compilation_cache_dir", str(tmp_path / "jax-cache")),
+        ("jax_persistent_cache_min_compile_time_secs", 0),
+        ("jax_persistent_cache_min_entry_size_bytes", 0),
+        ("jax_persistent_cache_enable_xla_caches", "none"),
+    ]
 
     monkeypatch.setattr(
         af3_backend_module.jax,
