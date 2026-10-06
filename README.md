@@ -373,7 +373,7 @@ XlaRuntimeError: UNIMPLEMENTED: ... ptxas too old
 This cannot be patched from outside the container. jaxlib calls its own bundled `ptxas`, so
 `XLA_FLAGS=--xla_gpu_cuda_data_dir` and `PATH` have no effect, and bind-mounting a newer `ptxas`
 still leaves the CUDA runtime and cuDNN too old for the real kernels. From 2.5.0 the images ship a
-consistent CUDA >= 12.8 stack (AF3: jax 0.9.1, ptxas 12.9, cuDNN 9.17, Tokamax; AF2: jax 0.5.3,
+consistent CUDA >= 12.8 stack (AF3: jax 0.9.1, from AlphaFold 3 v3.0.4 on jax 0.10.2, ptxas 12.9, cuDNN 9.17, Tokamax; AF2: jax 0.5.3,
 ptxas 12.9, cuDNN 9.2x) and return the same confidence scores as the older cards. All three AF3
 attention implementations (`triton`/Tokamax, `cudnn`, `xla`) work, so no
 `--flash_attention_implementation` override is needed.
