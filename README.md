@@ -940,6 +940,9 @@ structure_inference_arguments:
   --save_distogram: False
   --use_ap_style: False                   # shared with AlphaFold2
 ```
+
+Experimental fused triangle kernels (`--fast_kernels`, not in released images yet):
+[AlphaPulldown docs/af3_fused_triangles.md](https://github.com/KosinskiLab/AlphaPulldown/blob/main/docs/af3_fused_triangles.md).
 </details>
 
 ---
