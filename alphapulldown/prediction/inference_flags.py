@@ -38,8 +38,10 @@ AF2_LIKE_FLAGS = frozenset({
 
 ALPHALINK_EXTRA_FLAGS = frozenset({"crosslinks"})
 
-# AlphaLink runs its own network. AF3 accepts the same flag below.
-AF2_EXTRA_FLAGS = frozenset({"fast_kernels"})
+# Fused kernels: ColabFold's for AlphaFold-Multimer, the AF3 fork's for AF3's triangle
+# layers (see alphapulldown.prediction.fast_kernels and .af3_fused_triangles). AlphaLink
+# runs its own network and has none.
+FAST_KERNEL_FLAGS = frozenset({"fast_kernels"})
 
 UNIFOLD_UNAVAILABLE_REASON = (
     "UniFold is unavailable in this release: the bundled runtime is an AlphaLink "
@@ -51,13 +53,13 @@ AF3_FLAGS = frozenset({
     "jax_compilation_cache_dir", "buckets", "flash_attention_implementation",
     "num_diffusion_samples", "num_seeds", "debug_templates", "debug_msas",
     "num_recycles", "save_embeddings", "save_distogram", "use_ap_style",
-    "convert_to_modelcif", "fast_kernels",
+    "convert_to_modelcif",
 })
 
 FLAGS_BY_BACKEND: Mapping[str, frozenset] = {
-    "alphafold2": COMMON_FLAGS | AF2_LIKE_FLAGS | AF2_EXTRA_FLAGS,
+    "alphafold2": COMMON_FLAGS | AF2_LIKE_FLAGS | FAST_KERNEL_FLAGS,
     "alphalink": COMMON_FLAGS | AF2_LIKE_FLAGS | ALPHALINK_EXTRA_FLAGS,
-    "alphafold3": COMMON_FLAGS | AF3_FLAGS,
+    "alphafold3": COMMON_FLAGS | AF3_FLAGS | FAST_KERNEL_FLAGS,
 }
 
 
