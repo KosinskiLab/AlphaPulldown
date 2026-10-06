@@ -1,4 +1,8 @@
 """Instrument the public AF3 batch CLI; no replacement model classes or kernels."""
+import jax
+# Start the backend before importing AlphaPulldown's AF3 backend: importing that module first leaves jax with only the
+# cpu/tpu backends in this image ("Backend 'cuda' is not in the list of known backends"; bisected on GPU 2026-10-06).
+jax.devices()
 import hashlib
 import importlib.metadata
 import json

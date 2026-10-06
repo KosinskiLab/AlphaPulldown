@@ -64,3 +64,5 @@ collector=$(sbatch --parsable --qos=high --dependency="afterany$all" -J af3i-col
   "$SNAPSHOT/harness/af3_integration/collect.sbatch")
 printf '%s\n' "$collector" > "$CAMPAIGN/COLLECTOR_JOB"
 printf 'campaign=%s\ncollector=%s\n' "$CAMPAIGN" "$collector" | tee "$CAMPAIGN/SUBMITTED.txt"
+# Retry infrastructure failures (broken node, NODE_FAIL, CUDA start-up, one timeout) and re-collect when everything is final.
+"$CODE/af3_integration/start_supervisor.sh" "$CAMPAIGN" | tee -a "$CAMPAIGN/SUBMITTED.txt"

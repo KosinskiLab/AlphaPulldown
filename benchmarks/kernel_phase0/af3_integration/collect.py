@@ -9,6 +9,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from collect import parse_af3, score_dockq
 
 
+def latest_attempts(rows):
+    """One row per trial (card, suite, requested arm, arm, fold, seed). A supervisor retry runs in a new job directory, so a
+    trial can appear twice: an ok row beats a failed one, then the later job wins. Superseded rows are returned apart."""
+    best = {}
+    for r in rows:
+        key = (r['gpu'], r['suite'], r['requested_arm'], r['arm'], r['fold'], r['seed'])
+        rank = (r['status'] == 'ok', int(r['job']) if r['job'].isdigit() else 0)
+        if key not in best or rank > best[key][0]:
+            best[key] = (rank, r)
+    kept = {id(r) for _, r in best.values()}
+    return [r for r in rows if id(r) in kept], [r for r in rows if id(r) not in kept]
+
+
 def collect(root, bench, dockq):
     rows = []
     for log in sorted(root.glob('runs/*/*/*/*/*/predict.log')):
@@ -37,7 +50,9 @@ def collect(root, bench, dockq):
                    peak_gpu_mib=max(memory) if memory else None,
                    dispatch=records[-1]['dispatch'] if records else None,
                    ranking=ranking, model=str(models[0]) if models else None)
+        row['requested_arm'] = requested_arm
         rows.append(row)
+    rows, superseded = latest_attempts(rows)
     score_dockq(rows, bench/'inputs/natives', dockq, root/'dockq_cache.json')
     pairs = []
     for fast in rows:
@@ -60,7 +75,7 @@ def collect(root, bench, dockq):
                 lo, hi = min(r[metric] for r in base), max(r[metric] for r in base)
                 checks[metric+'_within_seed_range'] = all(lo <= r[metric] <= hi for r in fast)
         accuracy.append(dict(gpu=gpu, fold=fold, complete=complete, **checks))
-    result = dict(rows=rows, speedups=pairs, accuracy=accuracy)
+    result = dict(rows=rows, speedups=pairs, accuracy=accuracy, superseded_attempts=superseded)
     (root/'REPORT.json').write_text(json.dumps(result, indent=2)+'\n')
     md = ['# AF3 integrated validation', '', 'Only complete, finite runs with zero warm compile time and the same GPU model form speed ratios.', '',
           '| Card | Fold | Arm | Warm speed-up |', '| --- | --- | --- | ---: |']
