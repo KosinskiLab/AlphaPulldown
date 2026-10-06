@@ -10,9 +10,10 @@ set -uo pipefail
 : "${CAMPAIGN:?}"
 H=$CAMPAIGN/supervisor/harness
 source "$H/bench.env"
+export BENCH HOST_PY DOCKQ   # the final collection (supervise.py finish) runs $HOST_PY collect.py CAMPAIGN $BENCH $DOCKQ
 export SUPERVISOR_SECONDS=$(( 3 * 86400 - 3600 ))
-# supervise.py needs only the standard library (>= 3.7): use the first interpreter this node really has, because the
-# host venv's python links into /home, which some nodes do not mount.
+# supervise.py needs only the standard library (>= 3.7): use the first interpreter this node really has. HOST_PY lives on
+# /scratch now; the system pythons remain a fallback for a node without it.
 for py in "$HOST_PY" /usr/bin/python3.12 /usr/bin/python3.11 /usr/bin/python3.9 python3; do
   "$py" -c 'import sys; sys.exit(sys.version_info < (3, 7))' 2>/dev/null && exec "$py" "$H/af3_integration/supervise.py" "$CAMPAIGN"
 done

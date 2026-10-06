@@ -27,6 +27,9 @@ from pathlib import Path
 
 MAX_ATTEMPTS = 3
 POLL_S = 300
+# supervise.sbatch exports these from the frozen bench.env; the fallbacks serve a by-hand run without it.
+ENV_DEFAULTS = dict(BENCH="/scratch/dima/kernel_bench_phase0", HOST_PY="/scratch/dima/hostpy_venv/bin/python",
+                    DOCKQ="/scratch/dima/hostpy_venv/bin/DockQ")
 INFRA_STATES = {"NODE_FAIL", "BOOT_FAIL", "PREEMPTED", "DEADLINE"}
 FINAL_STATES = {"COMPLETED", "FAILED", "CANCELLED", "TIMEOUT", "OUT_OF_MEMORY"} | INFRA_STATES
 INFRA_LOG = re.compile(r"cuInit|CUDA_ERROR_(NO_DEVICE|NOT_INITIALIZED|UNKNOWN|SYSTEM_DRIVER_MISMATCH)|Unknown CUDA error|"
@@ -212,9 +215,7 @@ class Supervisor:
             return
         (self.c / "sacct.txt").write_text(sh(["sacct", "-X", "-P", "-j", ",".join(ids),
                                               "--format=JobID,JobName%40,State,ExitCode,NodeList,Elapsed"], check=False))
-        bench = os.environ.get("BENCH", "/scratch/dima/kernel_bench_phase0")
-        py = os.environ.get("HOST_PY", "/scratch/dima/af2_mmseqs_bench/dockq_venv/bin/python")
-        dockq = os.environ.get("DOCKQ", "/scratch/dima/af2_mmseqs_bench/dockq_venv/bin/DockQ")
+        bench, py, dockq = (os.environ.get(k) or v for k, v in ENV_DEFAULTS.items())
         collector = self.dir / "harness" / "af3_integration" / "collect.py"
         if not os.path.exists(py):                                      # this node lacks the interpreter: leave it to a successor
             self.log(f"finish deferred: {py} not found on {os.uname().nodename}")

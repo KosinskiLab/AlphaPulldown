@@ -61,3 +61,24 @@ def test_latest_attempt_wins():
     kept, superseded = latest_attempts(rows)
     assert [(r["fold"], r["job"]) for r in kept] == [("s0164", "300"), ("s0357", "100")]
     assert len(superseded) == 2
+
+
+def test_finish_collects_with_the_exported_bench_env(tmp_path, monkeypatch):
+    s = make(tmp_path)
+    s.dry = False
+    calls = []
+    monkeypatch.setattr(supervise, "sh", lambda args, check=True: "")
+    monkeypatch.setattr(supervise.subprocess, "run", lambda argv, **kw: calls.append(argv) or
+                        supervise.subprocess.CompletedProcess(argv, 0, "", ""))
+    host_py = tmp_path / "python"
+    host_py.write_text("")
+    monkeypatch.setenv("BENCH", "/b")
+    monkeypatch.setenv("HOST_PY", str(host_py))
+    monkeypatch.setenv("DOCKQ", "/d/DockQ")
+    s.finish(dict(done=1, final=0, retries=0))
+    assert calls == [[str(host_py), str(s.dir / "harness" / "af3_integration" / "collect.py"), str(s.c), "/b", "/d/DockQ"]]
+    assert "collector_exit=0" in (s.c / "SUPERVISOR_RESULT.txt").read_text()
+    monkeypatch.delenv("BENCH")                                                  # by hand, without bench.env: the fallback
+    calls.clear()
+    s.finish(dict(done=1, final=0, retries=0))
+    assert calls[0][3] == supervise.ENV_DEFAULTS["BENCH"]
