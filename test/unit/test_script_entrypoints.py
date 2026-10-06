@@ -359,6 +359,7 @@ def _load_run_multimer_jobs_module():
         "flash_attention_implementation": "triton",
         "buckets": ["64", "128"],
         "jax_compilation_cache_dir": None,
+        "fast_kernels": "off",
         "save_embeddings": False,
         "save_distogram": False,
         "debug_templates": False,
@@ -1406,6 +1407,71 @@ def test_run_multimer_jobs_forwards_relax_best_score_threshold(
     assert len(calls) == 1
     assert "--relax_best_score_threshold" in calls[0]
     assert calls[0][calls[0].index("--relax_best_score_threshold") + 1] == "0.6"
+
+
+@pytest.mark.parametrize("fold_backend", ["alphafold2", "alphafold3"])
+def test_run_multimer_jobs_forwards_fast_kernels_and_compile_cache(
+    run_multimer_jobs_module,
+    monkeypatch,
+    fold_backend,
+):
+    calls = []
+    monkeypatch.setattr(
+        run_multimer_jobs_module.subprocess,
+        "run",
+        lambda command, check, env: calls.append(command),
+    )
+    run_multimer_jobs_module.generate_fold_specifications = (
+        lambda input_files, delimiter, exclude_permutations: ["job1"]
+    )
+
+    _set_flag(run_multimer_jobs_module.FLAGS, "mode", "custom")
+    _set_flag(run_multimer_jobs_module.FLAGS, "protein_lists", ["proteins.txt"])
+    _set_flag(run_multimer_jobs_module.FLAGS, "dry_run", False)
+    _set_flag(run_multimer_jobs_module.FLAGS, "fold_backend", fold_backend)
+    _set_flag(run_multimer_jobs_module.FLAGS, "output_path", "/tmp/output")
+    _set_flag(run_multimer_jobs_module.FLAGS, "data_dir", "/tmp/models")
+    _set_flag(run_multimer_jobs_module.FLAGS, "monomer_objects_dir", ["/tmp/features"])
+    _set_flag(run_multimer_jobs_module.FLAGS, "fast_kernels", "auto")
+    _set_flag(run_multimer_jobs_module.FLAGS, "jax_compilation_cache_dir", "/tmp/jax-cache")
+
+    run_multimer_jobs_module.main(["prog"])
+
+    assert len(calls) == 1
+    command = calls[0]
+    assert command[command.index("--fast_kernels") + 1] == "auto"
+    assert command[command.index("--jax_compilation_cache_dir") + 1] == "/tmp/jax-cache"
+
+
+def test_run_multimer_jobs_does_not_forward_fast_kernels_to_alphalink(
+    run_multimer_jobs_module,
+    monkeypatch,
+):
+    calls = []
+    monkeypatch.setattr(
+        run_multimer_jobs_module.subprocess,
+        "run",
+        lambda command, check, env: calls.append(command),
+    )
+    run_multimer_jobs_module.generate_fold_specifications = (
+        lambda input_files, delimiter, exclude_permutations: ["job1"]
+    )
+
+    _set_flag(run_multimer_jobs_module.FLAGS, "mode", "custom")
+    _set_flag(run_multimer_jobs_module.FLAGS, "protein_lists", ["proteins.txt"])
+    _set_flag(run_multimer_jobs_module.FLAGS, "dry_run", False)
+    _set_flag(run_multimer_jobs_module.FLAGS, "use_alphalink", True)
+    _set_flag(run_multimer_jobs_module.FLAGS, "alphalink_weight", "/tmp/alphalink.pt")
+    _set_flag(run_multimer_jobs_module.FLAGS, "output_path", "/tmp/output")
+    _set_flag(run_multimer_jobs_module.FLAGS, "monomer_objects_dir", ["/tmp/features"])
+    _set_flag(run_multimer_jobs_module.FLAGS, "fast_kernels", "auto")
+    _set_flag(run_multimer_jobs_module.FLAGS, "jax_compilation_cache_dir", "/tmp/jax-cache")
+
+    run_multimer_jobs_module.main(["prog"])
+
+    assert len(calls) == 1
+    assert "--fast_kernels" not in calls[0]
+    assert "--jax_compilation_cache_dir" not in calls[0]
 
 
 @pytest.mark.parametrize("legacy_switch", [True, False])

@@ -132,6 +132,7 @@ def main(argv):
             "--flash_attention_implementation": getattr(FLAGS, "flash_attention_implementation", None),
             "--buckets": getattr(FLAGS, "buckets", None),
             "--jax_compilation_cache_dir": getattr(FLAGS, "jax_compilation_cache_dir", None),
+            "--fast_kernels": getattr(FLAGS, "fast_kernels", None),
             "--save_embeddings": getattr(FLAGS, "save_embeddings", None),
             "--save_distogram": getattr(FLAGS, "save_distogram", None),
             "--debug_templates": getattr(FLAGS, "debug_templates", None),
@@ -169,6 +170,10 @@ def main(argv):
             "--hb_allowance": FLAGS.hb_allowance,
             "--plddt_threshold": FLAGS.plddt_threshold,
         }
+        if fold_backend == "alphafold2":
+            # AlphaLink and UniFold reject the JAX compile cache and the fused kernels.
+            constant_args["--jax_compilation_cache_dir"] = getattr(FLAGS, "jax_compilation_cache_dir", None)
+            constant_args["--fast_kernels"] = getattr(FLAGS, "fast_kernels", None)
 
     command_args = {}
     for k, v in constant_args.items():
