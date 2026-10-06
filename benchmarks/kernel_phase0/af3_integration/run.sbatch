@@ -19,9 +19,12 @@ ENV=($MEM_ENV_AF3 --env "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}" --env 
      --env JAX_LOG_COMPILES=true --env JAX_PERSISTENT_CACHE_ENABLE_XLA_CACHES=none
      --env "PYTHONPATH=$SNAPSHOT/ap:$SNAPSHOT/harness/af3_integration" --env "MPLCONFIGDIR=$RUN/mpl")
 BINDS=(--bind "$BENCH" --bind /g/alphafold --bind "$SNAPSHOT" --bind "$CAMPAIGN")
-MODEL_SITE=/opt/venv/lib/python3.12/site-packages/alphafold3/model
+# The image's alphafold3 package is the fork at 86b9ea3. An arm replaces its model/ (module hooks, adapters) and jax/ (the
+# fused_triangle kernels and dispatch) with one frozen source: the fork under test, or 86b9ea3 itself for `baseline`.
+AF3_SITE=/opt/venv/lib/python3.12/site-packages/alphafold3
 if [ "$SUITE" = layers ]; then
-  apptainer exec --nv --cleanenv "${ENV[@]}" "${BINDS[@]}" --bind "$SNAPSHOT/fork/src/alphafold3/model:$MODEL_SITE" "$SIF_AP_AF3" \
+  src=$SNAPSHOT/fork/src/alphafold3
+  apptainer exec --nv --cleanenv "${ENV[@]}" "${BINDS[@]}" --bind "$src/model:$AF3_SITE/model" --bind "$src/jax:$AF3_SITE/jax" "$SIF_AP_AF3" \
     python "$SNAPSHOT/harness/gate0/gate0_layers.py" --integrated --out "$RUN/cells.jsonl" \
     --kit "$BENCH/gate0/src/kit_f4f62fa6/common/opt_core" --tile_cc "${TILE_CC:-9.0}" \
     --sizes 256,1024 --asym_sizes 256 --dm_weights "$AF3_WEIGHTS" --dm_sizes 512 \
@@ -33,9 +36,9 @@ arms="$ARM"
 [ "$SUITE" = identity ] && arms="baseline off on"
 fail=0
 for current in $arms; do
-  model=$SNAPSHOT/fork/src/alphafold3/model
+  src=$SNAPSHOT/fork/src/alphafold3
   mode=on
-  case $current in baseline) model=$SNAPSHOT/baseline/src/alphafold3/model; mode=off ;; off) mode=off ;; auto) mode=auto ;; esac
+  case $current in baseline) src=$SNAPSHOT/baseline/src/alphafold3; mode=off ;; off) mode=off ;; auto) mode=auto ;; esac
   for seed in ${SEEDS:-0}; do
     for fold in $FOLDS; do
       tag=${current}_${fold}_s${seed}
@@ -48,7 +51,7 @@ for current in $arms; do
       [ "$SUITE" = identity ] && extra+=(--env XLA_FLAGS=--xla_gpu_deterministic_ops=true)
       nvidia-smi -i "${CUDA_VISIBLE_DEVICES%%,*}" --query-gpu=memory.used --format=csv,noheader,nounits -lms 500 > "$tag/gpu_memory_mib.txt" 2> "$tag/gpu_memory_error.txt" &
       sampler=$!
-      apptainer exec --nv --cleanenv "${ENV[@]}" "${extra[@]}" "${BINDS[@]}" --bind "$model:$MODEL_SITE" \
+      apptainer exec --nv --cleanenv "${ENV[@]}" "${extra[@]}" "${BINDS[@]}" --bind "$src/model:$AF3_SITE/model" --bind "$src/jax:$AF3_SITE/jax" \
         --env "AF3_TEST_ARM=$current" --env "AF3_TEST_RECORD=$RUN/$tag/forward.jsonl" "$SIF_AP_AF3" \
         python "$SNAPSHOT/harness/af3_integration/launch.py" --manifest "$RUN/$tag/manifest.jsonl" \
         --data_directory "$AF3_WEIGHTS" --features_directory "$BENCH/inputs/features" --fold_backend alphafold3 \
@@ -61,7 +64,8 @@ for current in $arms; do
       echo "$rc" > "$tag/exit_code"
       if [ "$rc" -ne 0 ]; then
         fail=1
-        # A failed setup or capacity probe must not consume the rest of this allocation.
+        # Stop the remaining (larger) folds of this arm and seed; the next seed or arm still runs. The ladder is ordered by
+        # size and ends with the capacity probes, so an expected OOM there costs no smaller fold.
         break
       fi
     done

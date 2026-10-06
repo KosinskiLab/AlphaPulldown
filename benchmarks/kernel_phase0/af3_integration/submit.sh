@@ -6,6 +6,9 @@ source "$CODE/bench.env"
 MODE=${1:-pilot}; shift || true
 AP_REPO=${AP_REPO:-/scratch/dima/ap-af3-fused-triangle}
 FORK_REPO=${FORK_REPO:-/scratch/dima/af3-fused-triangle}
+# The fork commit every arm is compared against: fork main updated to AlphaFold 3 v3.0.3, the parent of the fused-triangle
+# work and the alphafold3 that the AlphaPulldown 2.9.0 image ships (its model/ and jax/ are byte-identical to it).
+BASELINE_COMMIT=86b9ea3
 HROOT=$(git -C "$CODE" rev-parse --show-toplevel)
 CAMPAIGN=$BENCH/af3_integration/$(date +%Y%m%d_%H%M%S)_$MODE
 SNAPSHOT=$CAMPAIGN/source
@@ -16,12 +19,14 @@ for component in ap fork harness; do
   git -C "$repo" rev-parse HEAD > "$SNAPSHOT/${component}_COMMIT"
   case $component in
     ap) git -C "$repo" archive HEAD alphapulldown test/test_data/features/rna.json test/test_data/features/ligand.json test/test_data/features/af3_features/mixed/test_protein_1_af3_input.json | tar -x -C "$SNAPSHOT/ap" ;;
-    fork) git -C "$repo" archive HEAD src tests | tar -x -C "$SNAPSHOT/fork" ;;
+    fork) git -C "$repo" archive HEAD src | tar -x -C "$SNAPSHOT/fork" ;;
     harness) git -C "$repo" archive HEAD benchmarks/kernel_phase0 | tar -x --strip-components=2 -C "$SNAPSHOT/harness" ;;
   esac
 done
 mkdir "$SNAPSHOT/baseline"
-git -C "$FORK_REPO" archive 86b9ea3 src/alphafold3/model | tar -x -C "$SNAPSHOT/baseline"
+git -C "$FORK_REPO" rev-parse "$BASELINE_COMMIT^{commit}" > "$SNAPSHOT/baseline_COMMIT"
+# run.sbatch binds both directories for the `baseline` arm, so it runs stock code only.
+git -C "$FORK_REPO" archive "$BASELINE_COMMIT" src/alphafold3/model src/alphafold3/jax | tar -x -C "$SNAPSHOT/baseline"
 cp "$BENCH/inputs/folds.json" "$SNAPSHOT/inputs.json"
 "$HOST_PY" "$SNAPSHOT/harness/af3_integration/prepare_inputs.py" "$SNAPSHOT"
 taskset -c 0-3 apptainer exec --cleanenv --bind "$BENCH" "$SIF_AP_AF3" \
