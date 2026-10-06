@@ -811,7 +811,7 @@ class AlphaFold3Backend(FoldingBackend):
         num_recycles: int = 10,
         return_embeddings: bool = False,
         return_distogram: bool = False,
-        fast_kernels: str = 'off',
+        fast_kernels: str = "off",
         **kwargs,
     ) -> Dict:
         """Sets up the ModelRunner with the given configurations."""
