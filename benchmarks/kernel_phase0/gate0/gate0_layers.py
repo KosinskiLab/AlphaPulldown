@@ -74,6 +74,7 @@ def parse_args():
     p.add_argument("--no_timing", action="store_true")
     p.add_argument("--negative_control", action="store_true",
                    help="add arm fused_biasT on att_end: the OpenFold bias orientation, which the gate must fail")
+    p.add_argument("--integrated", action="store_true", help="Exercise the fork hooks instead of prototype classes")
     p.add_argument("--seed", type=int, default=0)
     return p.parse_args()
 
@@ -190,7 +191,7 @@ def main():
     env = dict(host=platform.node(), device=getattr(dev, "device_kind", str(dev)), cc=cc, jax=jax.__version__,
                jaxlib=_md.version("jaxlib"), tokamax=_md.version("tokamax"), mem_limit_gb=mem_limit_gb,
                xla_env={k: v for k, v in os.environ.items() if k.startswith(("XLA_", "JAX_", "TF_"))},
-               job=os.environ.get("SLURM_JOB_ID", ""), interpret=args.interpret)
+               job=os.environ.get("SLURM_JOB_ID", ""), interpret=args.interpret, integrated=args.integrated)
     try:
         tile_cc_, _, own = S.tables_for(tile_cc)
         env["tiles"] = S.tiles_label(tile_cc_, own)
@@ -272,6 +273,20 @@ def main():
 
         def fn(act, mask):
             with utils.bfloat16_context():
+                if args.integrated and arm in ('fused', 'fused_tokcore'):
+                    integrated_gc = model_config.GlobalConfig(
+                        flash_attention_implementation=attn_impl,
+                        fused_triangle_multiplication=True,
+                        fused_triangle_attention='pallas' if arm == 'fused' else 'tokamax',
+                        fused_triangle_compute_capability=cc or '9.0',
+                        fused_triangle_memory_gib=mem_limit_gb or 76)
+                    if is_tm:
+                        return modules.TriangleMultiplication(
+                            modules.TriangleMultiplication.Config(equation=EQ[variant]),
+                            integrated_gc, name='layer')(act, mask)
+                    return modules.GridSelfAttention(
+                        modules.GridSelfAttention.Config(), integrated_gc,
+                        transpose=variant == 'att_end', name='layer')(act, mask)
                 if is_tm:
                     cls = FusedTriangleMultiplication if arm == "fused" else modules.TriangleMultiplication
                     return cls(modules.TriangleMultiplication.Config(equation=EQ[variant]), gc, name="layer")(act, mask)
