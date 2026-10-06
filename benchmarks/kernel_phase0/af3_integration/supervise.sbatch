@@ -11,4 +11,9 @@ set -uo pipefail
 H=$CAMPAIGN/supervisor/harness
 source "$H/bench.env"
 export SUPERVISOR_SECONDS=$(( 3 * 86400 - 3600 ))
-exec "$HOST_PY" "$H/af3_integration/supervise.py" "$CAMPAIGN"
+# supervise.py needs only the standard library (>= 3.7): use the first interpreter this node really has, because the
+# host venv's python links into /home, which some nodes do not mount.
+for py in "$HOST_PY" /usr/bin/python3.12 /usr/bin/python3.11 /usr/bin/python3.9 python3; do
+  "$py" -c 'import sys; sys.exit(sys.version_info < (3, 7))' 2>/dev/null && exec "$py" "$H/af3_integration/supervise.py" "$CAMPAIGN"
+done
+echo "no usable python on $(hostname)"; exit 3

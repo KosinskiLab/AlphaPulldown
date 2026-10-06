@@ -49,6 +49,7 @@ def test_failure_classes(tmp_path):
     s.tasks["a40/speed/off"]["history"].append(dict(why="timeout"))
     assert s.classify("a40/speed/off", "12", acct(state="TIMEOUT", exit="0:0"))[0] == "final"  # only one timeout retry
     assert s.classify("a40/speed/off", "12", acct(state="CANCELLED", exit="0:0", node="None assigned"))[0] == "dep_cancelled"
+    assert s.classify("a40/speed/off", "12", acct(exit="127:0"))[0] == "infra"                  # /home missing on the node
     (s.c / "logs" / "af3i-speed-a40-off_12.log").write_text("RuntimeError: operation cuInit(0) failed")
     assert s.classify("a40/speed/off", "12", acct(exit="1:0"))[0] == "infra"
 

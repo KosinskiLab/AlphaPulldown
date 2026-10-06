@@ -32,7 +32,8 @@ FINAL_STATES = {"COMPLETED", "FAILED", "CANCELLED", "TIMEOUT", "OUT_OF_MEMORY"} 
 INFRA_LOG = re.compile(r"cuInit|CUDA_ERROR_(NO_DEVICE|NOT_INITIALIZED|UNKNOWN|SYSTEM_DRIVER_MISMATCH)|Unknown CUDA error|"
                        r"no CUDA-capable device|Failed to initialize CUDA|NVIDIA-SMI has failed|No devices were found|"
                        r"container creation failed|FATAL: +(?:while|container)|Transport endpoint is not connected|"
-                       r"Stale file handle|Input/output error|Unable to load CUDA|jax_plugins.xla_cuda12.initialize")
+                       r"Stale file handle|Input/output error|Unable to load CUDA|jax_plugins.xla_cuda12.initialize|"
+                       r"/bin/python[0-9.]*: No such file or directory|apptainer: command not found")
 
 
 def sh(args, check=True):
@@ -117,6 +118,8 @@ class Supervisor:
             return "infra", state
         if state == "FAILED" and code == "3":
             return "infra", "gpu_unusable(exit 3)"
+        if state == "FAILED" and code == "127":
+            return "infra", "command_not_found(exit 127)"                # e.g. /home (the host python's target) not mounted
         if state == "TIMEOUT":
             return ("infra", "timeout") if sum(h.get("why") == "timeout" for h in self.tasks[key]["history"]) == 0 else ("final", "timeout")
         if state == "CANCELLED" and self.tasks[key]["parent"] and (a["node"] in ("None assigned", "") or "Dependency" in a["reason"]):
@@ -213,6 +216,9 @@ class Supervisor:
         py = os.environ.get("HOST_PY", "/scratch/dima/af2_mmseqs_bench/dockq_venv/bin/python")
         dockq = os.environ.get("DOCKQ", "/scratch/dima/af2_mmseqs_bench/dockq_venv/bin/DockQ")
         collector = self.dir / "harness" / "af3_integration" / "collect.py"
+        if not os.path.exists(py):                                      # this node lacks the interpreter: leave it to a successor
+            self.log(f"finish deferred: {py} not found on {os.uname().nodename}")
+            sys.exit(3)
         p = subprocess.run([py, str(collector), str(self.c), bench, dockq], capture_output=True, text=True)
         (self.dir / "collect.log").write_text(p.stdout + p.stderr)
         lines = [f"supervisor_finished={time.strftime('%Y-%m-%dT%H:%M:%S')}", f"collector_exit={p.returncode}",
