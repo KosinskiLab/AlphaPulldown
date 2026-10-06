@@ -9,6 +9,9 @@ FORK_REPO=${FORK_REPO:-/scratch/dima/af3-fused-triangle}
 # The fork commit every arm is compared against: fork main updated to AlphaFold 3 v3.0.3, the parent of the fused-triangle
 # work and the alphafold3 that the AlphaPulldown 2.9.0 image ships (its model/ and jax/ are byte-identical to it).
 BASELINE_COMMIT=86b9ea3
+# The layers suite runs gate0_layers.py against the kit's frozen core; gate0/submit_gate0.sh documents the export.
+KIT=$BENCH/gate0/src/kit_f4f62fa6/common/opt_core
+[ -d "$KIT" ] || { echo "missing frozen kit core $KIT (git archive f4f62fa6 common/opt_core, see gate0/submit_gate0.sh)" >&2; exit 1; }
 HROOT=$(git -C "$CODE" rev-parse --show-toplevel)
 CAMPAIGN=$BENCH/af3_integration/$(date +%Y%m%d_%H%M%S)_$MODE
 SNAPSHOT=$CAMPAIGN/source
