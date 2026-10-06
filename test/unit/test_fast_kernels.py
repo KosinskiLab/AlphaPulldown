@@ -201,7 +201,8 @@ def test_af3_on_fails_and_auto_falls_back(monkeypatch, stage):
 def test_af3_uses_requested_device_and_smokes_before_enabling(monkeypatch):
     device = object()
     seen = []
-    settings = {'fused_triangle_multiplication': True, 'fused_triangle_attention': 'auto'}
+    settings = {'triangle_multiplication_implementation': 'pallas',
+                'triangle_attention_implementation': 'auto'}
     monkeypatch.setattr(fast_kernels, '_af3_settings', lambda d: seen.append(d) or settings)
     monkeypatch.setattr(fast_kernels, '_af3_smoke_test', lambda s: seen.append(dict(s)))
     choice = fast_kernels.resolve('on', backend='alphafold3', device=device)
@@ -219,34 +220,37 @@ def test_unknown_backend_cannot_enable_kernels():
 @pytest.fixture
 def af3_dispatch(monkeypatch):
     from pathlib import Path
-    source = Path(__file__).resolve().parents[2] / 'alphafold3/src/alphafold3/model/network/fused_triangle/fpf_pallas_serve.py'
+    source = Path(__file__).resolve().parents[2] / 'alphafold3/src/alphafold3/jax/fused_triangle/dispatch.py'
     spec = importlib.util.spec_from_file_location('af3_dispatch_test', source)
     module = importlib.util.module_from_spec(spec)
     monkeypatch.setitem(sys.modules, spec.name, module)
     spec.loader.exec_module(module)
-    package = types.ModuleType('alphafold3.model.network.fused_triangle')
-    package.fpf_pallas_serve = module
+    package = types.ModuleType('alphafold3.jax.fused_triangle')
+    package.dispatch = module
     monkeypatch.setitem(sys.modules, package.__name__, package)
     return module
 
 
 def test_af3_metadata_records_partial_fallback_on_cache_hits(af3_dispatch):
     config = types.SimpleNamespace(
-        fused_triangle_multiplication=True, fused_triangle_attention='auto',
+        triangle_multiplication_implementation='pallas',
+        triangle_attention_implementation='auto',
         fused_triangle_compute_capability='8.6', fused_triangle_memory_gib=45,
         bfloat16='all')
     first = fast_kernels.af3_metadata(config, requested_mode='auto', tokens=2560)
     assert first == fast_kernels.af3_metadata(config, requested_mode='auto', tokens=2560)
     assert first['fused_kernels']
-    assert first['operations']['trimul_c128']['backend'] == 'pallas'
-    assert first['operations']['attention_c128'] == dict(backend='stock', reason='size_limit')
+    assert first['operations']['triangle_multiplication_c128']['implementation'] == 'pallas'
+    assert first['operations']['triangle_attention_c128'] == dict(
+        implementation='default', reason='size_limit')
     config.bfloat16 = 'none'
     assert not fast_kernels.af3_metadata(config, requested_mode='auto', tokens=256)['fused_kernels']
 
 
 def test_af3_device_policy_uses_allocator_budget(af3_dispatch, monkeypatch):
     config_module = types.ModuleType('alphafold3.model.model_config')
-    config_module.GlobalConfig = lambda: types.SimpleNamespace(fused_triangle_multiplication=False)
+    config_module.GlobalConfig = lambda: types.SimpleNamespace(
+        triangle_multiplication_implementation='default')
     parent = types.ModuleType('alphafold3.model')
     parent.model_config = config_module
     monkeypatch.setitem(sys.modules, parent.__name__, parent)

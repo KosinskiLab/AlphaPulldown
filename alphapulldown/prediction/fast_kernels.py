@@ -216,18 +216,20 @@ def _af3_smoke_test(settings):
 def _af3_settings(device):
     """Inspect the fork and allocator budget; do not load model parameters."""
     from alphafold3.model import model_config
-    from alphafold3.model.network.fused_triangle import fpf_pallas_serve as dispatch
 
-    if not hasattr(model_config.GlobalConfig(), 'fused_triangle_multiplication'):
+    if not hasattr(model_config.GlobalConfig(), 'triangle_multiplication_implementation'):
         raise RuntimeError('the AlphaFold 3 fork has no fused-triangle hooks')
+    from alphafold3.jax.fused_triangle import dispatch
+
     if device is None:
         import jax
         device = jax.local_devices(backend='gpu')[0]
     memory = (device.memory_stats() or {}).get('bytes_limit', 0) / 2**30
-    policy = dispatch.card_policy(getattr(device, 'compute_capability', ''), memory)
+    policy = dispatch.device_policy(getattr(device, 'compute_capability', ''), memory)
     if not policy.enabled:
         raise RuntimeError(f'{getattr(device, "device_kind", "GPU")}: {policy.reason}')
-    return dict(fused_triangle_multiplication=True, fused_triangle_attention='auto',
+    return dict(triangle_multiplication_implementation='pallas',
+                triangle_attention_implementation='auto',
                 fused_triangle_compute_capability=policy.compute_capability,
                 fused_triangle_memory_gib=memory)
 
@@ -255,22 +257,28 @@ def af3_metadata(config, *, requested_mode, tokens, reason=''):
     Lists dispatch for AF3's standard C=128 pair and C=64 template modules.
     It is not a trace counter or a claim that populated templates exist.
     """
-    enabled = (getattr(config, 'fused_triangle_multiplication', False)
-               or getattr(config, 'fused_triangle_attention', 'off') != 'off')
+    requested = {
+        operation: getattr(config, f'{operation}_implementation', 'default')
+        for operation in ('triangle_multiplication', 'triangle_attention')
+    }
     result = dict(backend='alphafold3', requested_mode=requested_mode,
                   padded_tokens=tokens, fused_kernels=False, reason=reason)
-    if not enabled:
+    if all(value == 'default' for value in requested.values()):
         return result
-    from alphafold3.model.network.fused_triangle import fpf_pallas_serve as dispatch
+    from alphafold3.jax.fused_triangle import dispatch
+    policy = dispatch.device_policy(config.fused_triangle_compute_capability,
+                                    config.fused_triangle_memory_gib)
     dtype = 'float32' if config.bfloat16 == 'none' else 'bfloat16'
     selections = {}
     for channels in (128, 64):
-        for kind in ('trimul', 'attention'):
-            backend, fallback = dispatch.select(
-                config, kind, (tokens, tokens, channels), dtype, (tokens, tokens))
-            selections[f'{kind}_c{channels}'] = dict(backend=backend, reason=fallback)
-    result.update(fused_kernels=any(v['backend'] != 'stock' for v in selections.values()),
-                  operations=selections, source_commit=dispatch.SOURCE_COMMIT,
-                  policy_version=dispatch.POLICY_VERSION,
-                  device_policy=dataclasses.asdict(dispatch.policy_from_config(config)))
+        for operation, implementation in requested.items():
+            selected, fallback = dispatch.select_implementation(
+                operation, implementation, policy, (tokens, tokens, channels), dtype,
+                (tokens, tokens))
+            selections[f'{operation}_c{channels}'] = dict(
+                implementation=selected, reason=fallback)
+    result.update(
+        fused_kernels=any(v['implementation'] != 'default' for v in selections.values()),
+        operations=selections, policy_version=dispatch.POLICY_VERSION,
+        device_policy=dataclasses.asdict(policy))
     return result

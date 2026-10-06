@@ -927,8 +927,8 @@ def test_af3_setup_builds_model_runner_and_validates_gpu_capability(
     assert tokamax_context == [True]
 
     decisions = []
-    settings = {'fused_triangle_multiplication': True,
-                'fused_triangle_attention': 'auto',
+    settings = {'triangle_multiplication_implementation': 'pallas',
+                'triangle_attention_implementation': 'auto',
                 'fused_triangle_compute_capability': '8.0',
                 'fused_triangle_memory_gib': 38.0}
     def resolve(mode, *, backend, device):
