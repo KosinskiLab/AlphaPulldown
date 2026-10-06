@@ -145,7 +145,10 @@ def gates(root):
             job = jobs[-1]
             result = dict(line.split('=', 1) for line in (job/'RESULT.txt').read_text().splitlines() if '=' in line) \
                 if (job/'RESULT.txt').exists() else {}
-            checks = json.loads((job/name).read_text()) if (job/name).exists() and (job/name).stat().st_size else None
+            try:
+                checks = json.loads((job/name).read_text())
+            except (OSError, ValueError):                           # not written, or the check crashed mid-output
+                checks = None
             out.setdefault(card.name, {})[suite] = dict(job=job.name, exit_code=result.get('exit_code'), checks=checks,
                                                         passed=checks is not None and result.get('exit_code') == '0')
     return out
@@ -257,9 +260,9 @@ def report_md(rows, pairs, accuracy, limits, gate):
     md += ['', '## Speed', '', 'Only complete, finite runs with zero warm compile time and the same GPU model form speed ratios.', '',
            '| Card | Fold | Arm | Warm speed-up |', '| --- | --- | --- | ---: |']
     md += [f"| {r['gpu']} | {r['fold']} | {r['arm']} | {r['speedup']:.3f} |" for r in pairs]
-    oom = sum(r['oom'] for r in rows)
-    md += ['', f'{len(rows)} prediction trials; {oom} reached a capacity limit (out of memory); '
-           f'{sum(r["status"] != "ok" and not r["oom"] for r in rows)} failed or incomplete otherwise.',
+    limit = [r for r in rows if r['suite'] == 'speed' and r['oom']]          # elsewhere an OOM is an ordinary failure
+    md += ['', f'{len(rows)} prediction trials; {len(limit)} reached a capacity limit (speed ladder, out of memory); '
+           f'{sum(r["status"] != "ok" for r in rows) - len(limit)} failed or incomplete otherwise.',
            'Memory, dispatch, compilation, DockQ, per-seed pairs and gate checks are in REPORT.json.',
            'A missing comparison is not a pass. Queue state and exit codes are in sacct.txt and per-job RESULT.txt.']
     return md

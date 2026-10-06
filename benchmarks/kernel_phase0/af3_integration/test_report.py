@@ -194,7 +194,7 @@ def test_capacity_limit_is_not_a_failure(tmp_path):
     assert '- a40 on: largest completed s2546; capacity limit at r3584 (out of memory)' in md
     assert '**a40: capacity unchanged** (stock and fused both complete s2546 and run out of memory at r3584)' in md
     assert 'FAILED (not out of memory): s0357' in md and '**h100: capacity differs**' in md
-    assert '3 reached a capacity limit (out of memory); 1 failed or incomplete otherwise' in md
+    assert '3 reached a capacity limit (speed ladder, out of memory); 1 failed or incomplete otherwise' in md
 
 
 def test_gates_report_the_latest_job_per_card(tmp_path):
