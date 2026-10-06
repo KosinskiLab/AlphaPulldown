@@ -32,24 +32,59 @@ def test_speed_requires_complete_compile_free_matching_device(tmp_path):
     assert report.collect(tmp_path, bench, 'unused')['speedups'] == []
 
 
-def test_identity_requires_full_outputs_and_enabled_fused_path(tmp_path):
+def fused_dispatch(attention='pallas', fused=True):
+    """af3_fused_triangles.metadata() for a 256-token bucket."""
+    if not fused:
+        return {'fused_kernels': False}
+    ops = {f'{op}_c{c}': {'implementation': attention if op == 'triangle_attention' else 'pallas', 'reason': ''}
+           for op in ('triangle_multiplication', 'triangle_attention') for c in (128, 64)}
+    return {'fused_kernels': True, 'operations': ops}
+
+
+def identity_run(tmp_path, on_dispatch):
     for arm in ('baseline', 'off', 'on'):
         folder = tmp_path/f'{arm}_s0164_s0'
-        folder.mkdir()
-        row = dict(finite=True, hash='same' if arm != 'on' else 'fused', dispatch={'fused_kernels':arm == 'on'})
+        folder.mkdir(exist_ok=True)
+        row = dict(finite=True, hash='same' if arm != 'on' else 'fused',
+                   dispatch=on_dispatch if arm == 'on' else fused_dispatch(fused=False))
         (folder/'forward.jsonl').write_text((json.dumps(row)+'\n')*2)
-    assert subprocess.run([sys.executable, str(HERE/'check_identity.py'), str(tmp_path)], capture_output=True).returncode == 0
+    return subprocess.run([sys.executable, str(HERE/'check_identity.py'), str(tmp_path)], capture_output=True).returncode
+
+
+def test_identity_requires_full_outputs_and_enabled_fused_path(tmp_path):
+    assert identity_run(tmp_path, fused_dispatch()) == 0
+    assert identity_run(tmp_path, fused_dispatch('pallas_tokamax_core')) == 0
     (tmp_path/'on_s0164_s0/forward.jsonl').write_text('')
     assert subprocess.run([sys.executable, str(HERE/'check_identity.py'), str(tmp_path)], capture_output=True).returncode == 1
 
 
-def test_layer_gate_rejects_missing_leak_check(tmp_path):
-    row = dict(arm='fused', status='ok', gate=True, det_ok=True, real_finite=True,
-               mask='pad', pad_finite=True, leak_ok=True)
-    negative = dict(row, arm='fused_biasT', gate=False)
+def test_identity_rejects_a_partly_dispatched_fused_path(tmp_path):
+    partial = fused_dispatch()
+    partial['operations']['triangle_attention_c64'] = {'implementation': 'default', 'reason': 'size_limit'}
+    assert identity_run(tmp_path, partial) == 1
+
+
+def layer_cells(tmp_path, row, negative):
     cells = tmp_path/'cells.jsonl'
     cells.write_text((json.dumps(row)+'\n')*66+json.dumps(negative)+'\n')
-    assert subprocess.run([sys.executable, str(HERE/'check_layers.py'), str(cells)], capture_output=True).returncode == 0
+    return subprocess.run([sys.executable, str(HERE/'check_layers.py'), str(cells)], capture_output=True).returncode
+
+
+def test_layer_gate_rejects_missing_leak_check(tmp_path):
+    row = dict(arm='fused', status='ok', gate=True, det_ok=True, real_finite=True, mask='pad', pad_finite=True, leak_ok=True,
+               integrated=True, fork_requested='pallas', fork_implementation='pallas', fork_reason='')
+    negative = dict(row, arm='fused_biasT', gate=False)
+    assert layer_cells(tmp_path, row, negative) == 0
     del row['leak_ok']
-    cells.write_text((json.dumps(row)+'\n')*66+json.dumps(negative)+'\n')
-    assert subprocess.run([sys.executable, str(HERE/'check_layers.py'), str(cells)], capture_output=True).returncode == 1
+    assert layer_cells(tmp_path, row, negative) == 1
+
+
+def test_layer_gate_rejects_the_fork_falling_back_to_stock(tmp_path):
+    row = dict(arm='fused', status='ok', gate=True, det_ok=True, real_finite=True, mask='asym',
+               integrated=True, fork_requested='pallas', fork_implementation='default', fork_reason='size_limit')
+    negative = dict(row, arm='fused_biasT', gate=False)
+    assert layer_cells(tmp_path, row, negative) == 1                            # stock output passes the gate trivially
+    assert layer_cells(tmp_path, dict(row, fork_implementation='pallas', integrated=False), negative) == 1   # prototype classes
+    assert layer_cells(tmp_path, dict(row, fork_implementation='pallas'), negative) == 0
+    tokcore = dict(row, arm='fused_tokcore', fork_requested='pallas_tokamax_core', fork_implementation='pallas_tokamax_core')
+    assert layer_cells(tmp_path, tokcore, negative) == 0

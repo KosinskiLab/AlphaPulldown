@@ -30,9 +30,17 @@ Per arm and cell:
                K layers in one fori_loop (residual update) so per-call dispatch does not dominate. Compile time separate.
   memory       XLA's memory_analysis of the single-layer executable (temp / output / argument bytes)
 
+--integrated (the af3_integration layers suite): the fused and fused_tokcore arms run the fork's own modules with its
+fused-triangle GlobalConfig fields (triangle_multiplication_implementation='pallas', triangle_attention_implementation=
+'pallas' / 'pallas_tokamax_core', device from fused_triangle_compute_capability / fused_triangle_memory_gib), i.e. the
+adapters in alphafold3/model/network/fused_triangle.py and the kernels in alphafold3/jax/fused_triangle/. Each such record
+carries the fork's dispatch decision for the cell (fork_requested, fork_implementation, fork_reason): a layer the fork does
+not dispatch runs the stock body and would pass the gate trivially. fused_biasT stays the kit's class (a gate control).
+
 One JSON line per (cell, arm) to --out. A cell that runs out of memory stops that arm for larger N of the same (variant, C).
 """
 import argparse
+import dataclasses
 import functools
 import json
 import math
@@ -47,6 +55,7 @@ import numpy as np
 BUCKETS = (256, 512, 768, 1024, 1280, 1536, 2048, 2560, 3072, 3584, 4096, 4608, 5120)   # AF3's default token buckets
 EQ = {"trimul_out": "ikc,jkc->ijc", "trimul_in": "kjc,kic->ijc"}
 GATE = dict(rel_ratio=1.2, rel_floor=1e-3, max_ratio=2.0, max_floor=1e-2)
+INTEGRATED_ATTENTION = {"fused": "pallas", "fused_tokcore": "pallas_tokamax_core"}   # --integrated: arm -> the fork's field
 DM_SCOPES = {   # weights=dm:<stack>:<layer> -> the module scope prefix in af3.bin (layer = index on its stacked axis)
     "trunk": "diffuser/evoformer/__layer_stack_no_per_layer_1/trunk_pairformer/",
     "template": "diffuser/evoformer/template_embedding/single_template_embedding/__layer_stack_no_per_layer/template_embedding_iteration/",
@@ -199,6 +208,11 @@ def main():
     except S.Refusal as r:
         env["tiles"] = f"refused:{r.kind}"
         tiles_err = str(r)
+    fork_dispatch = fork_policy = None
+    if args.integrated:                                             # the fork's own device policy, as AlphaPulldown sets it
+        from alphafold3.jax.fused_triangle import dispatch as fork_dispatch
+        fork_policy = fork_dispatch.device_policy(cc or "9.0", mem_limit_gb or 76)
+        env["fork_policy"] = dataclasses.asdict(fork_policy)
     print("ENV", json.dumps(env), flush=True)
     attn_impl = "xla" if args.interpret else "triton"
     gc = model_config.GlobalConfig(flash_attention_implementation=attn_impl)
@@ -273,13 +287,13 @@ def main():
 
         def fn(act, mask):
             with utils.bfloat16_context():
-                if args.integrated and arm in ('fused', 'fused_tokcore'):
+                if args.integrated and arm in INTEGRATED_ATTENTION:
                     integrated_gc = model_config.GlobalConfig(
                         flash_attention_implementation=attn_impl,
-                        fused_triangle_multiplication=True,
-                        fused_triangle_attention='pallas' if arm == 'fused' else 'tokamax',
-                        fused_triangle_compute_capability=cc or '9.0',
-                        fused_triangle_memory_gib=mem_limit_gb or 76)
+                        triangle_multiplication_implementation='pallas',
+                        triangle_attention_implementation=INTEGRATED_ATTENTION[arm],
+                        fused_triangle_compute_capability=fork_policy.compute_capability,
+                        fused_triangle_memory_gib=fork_policy.memory_gib)
                     if is_tm:
                         return modules.TriangleMultiplication(
                             modules.TriangleMultiplication.Config(equation=EQ[variant]),
@@ -440,6 +454,11 @@ def main():
                 emit({**base, "arm": arm, "status": "skipped_after_oom", "oom_at": stopped[(variant, C, arm)]})
                 continue
             rec = recs[arm] = dict(base, arm=arm)
+            if args.integrated and arm in INTEGRATED_ATTENTION:     # what the fork's hook decides for this layer
+                op, requested = ("triangle_multiplication", "pallas") if is_tm else ("triangle_attention", INTEGRATED_ATTENTION[arm])
+                rec["fork_requested"] = requested
+                rec["fork_implementation"], rec["fork_reason"] = fork_dispatch.select_implementation(
+                    op, requested, fork_policy, (N, N, C), "bfloat16", (N, N), num_head=4)
             apply = module_fn(variant, arm).apply
             try:
                 t0 = time.perf_counter()
