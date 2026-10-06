@@ -12,23 +12,23 @@ import runpy
 import sys
 import time
 
-import jax
 import numpy as np
 from alphapulldown.folding_backend import alphafold3_backend as backend
-from alphapulldown.prediction import fast_kernels
+from alphapulldown.prediction import af3_fused_triangles
 
 arm = os.environ['AF3_TEST_ARM']
-original_settings = fast_kernels._af3_settings
+original_settings = af3_fused_triangles.device_settings
 
 def settings(device):
+    """Ablation arms: one fused operation each, the other on AF3's default implementation."""
     result = original_settings(device)
     if arm == 'trimul':
-        result['fused_triangle_attention'] = 'off'
+        result['triangle_attention_implementation'] = 'default'
     elif arm == 'attention':
-        result['fused_triangle_multiplication'] = False
+        result['triangle_multiplication_implementation'] = 'default'
     return result
 
-fast_kernels._af3_settings = settings
+af3_fused_triangles.device_settings = settings   # resolve() looks it up at call time
 original_inference = backend.ModelRunner.run_inference
 record_path = Path(os.environ['AF3_TEST_RECORD'])
 
@@ -54,8 +54,8 @@ def inference(self, example, key):
                   device=self.device.device_kind, cc=str(self.device.compute_capability),
                   memory=self.device.memory_stats(),
                   versions={p: importlib.metadata.version(p) for p in ('jax', 'jaxlib', 'tokamax')},
-                  dispatch=fast_kernels.af3_metadata(self.config.global_config,
-                      requested_mode=self.kernel_mode, tokens=tokens, reason=self.kernel_reason))
+                  dispatch=af3_fused_triangles.metadata(self.config.global_config, self.fused_triangles,
+                                                        num_tokens=tokens))
     with record_path.open('a') as stream:
         stream.write(json.dumps(record) + '\n')
     return output
