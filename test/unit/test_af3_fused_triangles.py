@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import contextlib
 import importlib.util
 import sys
 import types
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from alphapulldown.prediction import af3_fused_triangles
@@ -96,6 +98,7 @@ def test_on_fails_loudly_and_auto_falls_back(monkeypatch, stage):
     choice = af3_fused_triangles.resolve("auto", object())
     assert not choice.enabled
     assert choice.mode == "auto"
+    assert choice.reason.startswith("--fast_kernels=auto: ")
     assert "unavailable test device" in choice.reason
     assert choice.global_config_update() == {}
 
@@ -113,12 +116,66 @@ def test_checks_the_given_device_before_enabling(monkeypatch):
     choice = af3_fused_triangles.resolve("on", device)
 
     assert seen[0] is device
-    assert seen[1][0] == SETTINGS
+    assert seen[1] == (SETTINGS, device)
     assert choice.enabled and choice.mode == "on"
     assert choice.global_config_update() == SETTINGS
     # The update is a copy: changing it does not change the choice.
     choice.global_config_update().clear()
     assert choice.global_config_update() == SETTINGS
+
+
+def test_smoke_test_runs_on_the_device_it_checks(monkeypatch):
+    # Stub JAX, Haiku and the AF3 modules, recording the default device of each step.
+    device = object()
+    current = []
+    steps = []
+
+    @contextlib.contextmanager
+    def default_device(chosen):
+        current.append(chosen)
+        try:
+            yield
+        finally:
+            current.pop()
+
+    def step(name):
+        def run(*args, **kwargs):
+            steps.append((name, current[-1] if current else None))
+            return np.ones(1)
+
+        return run
+
+    jnp = types.SimpleNamespace(
+        ones=step("ones"), bfloat16="bfloat16", all=np.all, isfinite=np.isfinite
+    )
+    jax = types.SimpleNamespace(
+        numpy=jnp,
+        default_device=default_device,
+        jit=lambda function: step("jit"),
+        random=types.SimpleNamespace(PRNGKey=step("PRNGKey")),
+    )
+    transformed = types.SimpleNamespace(init=step("init"), apply=None)
+    haiku = types.SimpleNamespace(
+        transform=lambda function: transformed, without_apply_rng=lambda t: t
+    )
+    model = types.ModuleType("alphafold3.model")
+    model.model_config = types.SimpleNamespace(GlobalConfig=lambda **fields: fields)
+    model.components = types.SimpleNamespace(utils=None)
+    model.network = types.SimpleNamespace(modules=None)
+    for name, module in {
+        "jax": jax,
+        "jax.numpy": jnp,
+        "haiku": haiku,
+        "alphafold3.model": model,
+        "alphafold3.model.components": model.components,
+        "alphafold3.model.network": model.network,
+    }.items():
+        monkeypatch.setitem(sys.modules, name, module)
+
+    af3_fused_triangles.smoke_test(SETTINGS, device)
+
+    assert [name for name, _ in steps] == ["ones", "ones", "PRNGKey", "init", "jit"]
+    assert all(used is device for _, used in steps)
 
 
 def test_device_settings_use_the_allocator_budget(dispatch, model_config):

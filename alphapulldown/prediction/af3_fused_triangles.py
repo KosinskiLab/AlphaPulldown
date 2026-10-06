@@ -85,8 +85,8 @@ def device_settings(device: jax.Device) -> dict[str, Any]:
     }
 
 
-def smoke_test(settings: Mapping[str, Any]) -> None:
-    """Compile and run both fused triangle layers, without model weights.
+def smoke_test(settings: Mapping[str, Any], device: jax.Device) -> None:
+    """Compile and run both fused triangle layers on ``device``, without model weights.
 
     One 64-token, 128-channel pair goes through TriangleMultiplication and then
     GridSelfAttention, configured with ``settings``.
@@ -119,11 +119,13 @@ def smoke_test(settings: Mapping[str, Any]) -> None:
             )(act, mask)
 
     transformed = hk.without_apply_rng(hk.transform(forward))
-    act = jnp.ones((64, 64, 128), jnp.bfloat16)
-    mask = jnp.ones((64, 64), jnp.bfloat16)
-    params = transformed.init(jax.random.PRNGKey(0), act, mask)
-    output = jax.jit(transformed.apply)(params, act, mask)
-    if not bool(jnp.all(jnp.isfinite(output))):
+    with jax.default_device(device):
+        act = jnp.ones((64, 64, 128), jnp.bfloat16)
+        mask = jnp.ones((64, 64), jnp.bfloat16)
+        params = transformed.init(jax.random.PRNGKey(0), act, mask)
+        output = jax.jit(transformed.apply)(params, act, mask)
+        finite = bool(jnp.all(jnp.isfinite(output)))
+    if not finite:
         raise RuntimeError("the fused triangle layers returned non-finite values")
 
 
@@ -139,13 +141,13 @@ def resolve(mode: Any, device: jax.Device) -> FusedTriangleChoice:
         return OFF
     try:
         settings = device_settings(device)
-        smoke_test(settings)
+        smoke_test(settings, device)
     except Exception as exc:  # any failure here would recur inside the model
         problem = f"AF3 fused triangle kernels are unavailable: {exc}"
         if mode == "on":
             raise ValueError(f"--fast_kernels=on, but {problem}.") from exc
         logging.warning("Fused kernels off (--fast_kernels=auto): %s.", problem)
-        return FusedTriangleChoice(False, problem, mode)
+        return FusedTriangleChoice(False, f"--fast_kernels=auto: {problem}", mode)
     logging.info(
         "AF3 fused triangle kernels on; per-operation size limits apply: %s", settings
     )
