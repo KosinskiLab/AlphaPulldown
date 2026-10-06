@@ -796,6 +796,7 @@ def test_predict_structure_writes_final_msa_and_collects_optional_outputs(
     example = {
         "msa": np.asarray([[1, 2, 3], [4, 5, 6]], dtype=np.int32),
         "num_alignments": 1,
+        "token_index": np.arange(3),
     }
     inference_result = af3_backend_module.model.InferenceResult(
         predicted_structure=None,
@@ -814,6 +815,10 @@ def test_predict_structure_writes_final_msa_and_collects_optional_outputs(
     )
 
     class FakeRunner:
+        kernel_mode = 'off'
+        kernel_reason = '--fast_kernels=off'
+        config = SimpleNamespace(global_config=SimpleNamespace())
+
         def run_inference(self, batch, rng_key):
             return {
                 "single_embeddings": np.asarray([[1.0], [2.0], [3.0]], dtype=np.float32),
@@ -840,6 +845,9 @@ def test_predict_structure_writes_final_msa_and_collects_optional_outputs(
     assert results[0].distogram.shape == (2, 2)
     final_msa = tmp_path / "job_name_seed-7_final_complex_msa.a3m"
     assert final_msa.read_text(encoding="utf-8") == ">query\nABC\n"
+    metadata = json.loads((tmp_path / 'inference_kernels.json').read_text())
+    assert metadata['seed_7']['padded_tokens'] == 3
+    assert metadata['seed_7']['fused_kernels'] is False
 
 
 def test_af3_setup_builds_model_runner_and_validates_gpu_capability(
@@ -917,6 +925,24 @@ def test_af3_setup_builds_model_runner_and_validates_gpu_capability(
     ]
     # Before the first trace, or the second prediction recompiles the model.
     assert tokamax_context == [True]
+
+    decisions = []
+    settings = {'fused_triangle_multiplication': True,
+                'fused_triangle_attention': 'auto',
+                'fused_triangle_compute_capability': '8.0',
+                'fused_triangle_memory_gib': 38.0}
+    def resolve(mode, *, backend, device):
+        decisions.append((mode, backend, device.compute_capability))
+        return af3_backend_module.fast_kernels_policy.AF3KernelChoice(True, 'tested', settings)
+    monkeypatch.setattr(af3_backend_module.fast_kernels_policy, 'resolve', resolve)
+    fast_runner = af3_backend_module.AlphaFold3Backend.setup(
+        num_diffusion_samples=1, flash_attention_implementation='triton',
+        buckets=[128], jax_compilation_cache_dir=None,
+        model_dir=str(tmp_path / 'models'), fast_kernels='auto')['model_runner']
+    assert decisions == [('auto', 'alphafold3', 8.0)]
+    for key, value in settings.items():
+        assert getattr(fast_runner.config.global_config, key) == value
+    assert (fast_runner.kernel_mode, fast_runner.kernel_reason) == ('auto', 'tested')
 
     monkeypatch.setattr(
         af3_backend_module.jax,

@@ -145,11 +145,11 @@ flags.DEFINE_string(
 # JAX inference performance tuning.
 flags.DEFINE_string(
     'fast_kernels', 'off',
-    'off, on or auto. AlphaFold 2 only: fused Pallas kernels from the colabfold-kernels '
-    'package (pip install "alphapulldown[fast-kernels]"), about 2x faster '
-    'AlphaFold-Multimer inference on NVIDIA GPUs of compute capability 8.0 or newer. '
-    '"on" fails if they cannot run here, "auto" falls back to the standard code. '
-    'Monomer models always use the standard code. true/false are read as on/off.',
+    'off, on or auto (default off). AF2-Multimer uses colabfold-kernels '
+    '(pip install "alphapulldown[fast-kernels]"); AF3 uses the fork\'s bundled '
+    'fused triangle kernels with per-GPU and per-size fallbacks. '
+    '"on" fails if the kernel setup cannot run here; "auto" falls back. '
+    'AF2 monomers keep the standard code. true/false are read as on/off.',
 )
 flags.DEFINE_string(
     'jax_compilation_cache_dir',

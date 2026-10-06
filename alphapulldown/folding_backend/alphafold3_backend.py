@@ -43,6 +43,7 @@ from alphafold.common import residue_constants
 from alphafold.common.protein import Protein, to_mmcif
 from alphapulldown.folding_backend.folding_backend import FoldingBackend
 from alphapulldown.prediction.jax_compilation_cache import enable_persistent_compilation_cache
+from alphapulldown.prediction import fast_kernels as fast_kernels_policy
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
 from alphapulldown.utils.af2_to_af3_msa import (
     Af2ToAf3TranslationResult,
@@ -122,6 +123,8 @@ class ModelRunner:
     config: base_config.BaseConfig
     device: jax.Device
     model_dir: pathlib.Path
+    kernel_mode: str = 'off'
+    kernel_reason: str = ''
 
     @functools.cached_property
     def model_params(self) -> hk.Params:
@@ -625,6 +628,22 @@ def predict_structure(
 
         rng_key = jax.random.PRNGKey(seed)
         result = model_runner.run_inference(example, rng_key)
+        if output_dir is not None and hasattr(model_runner, 'kernel_mode'):
+            token_features = example.get('token_index', example.get('aatype'))
+            if token_features is not None:
+                record = fast_kernels_policy.af3_metadata(
+                    model_runner.config.global_config,
+                    requested_mode=model_runner.kernel_mode,
+                    tokens=int(token_features.shape[0]),
+                    reason=model_runner.kernel_reason,
+                )
+                os.makedirs(output_dir, exist_ok=True)
+                metadata_path = pathlib.Path(output_dir) / 'inference_kernels.json'
+                previous = json.loads(metadata_path.read_text()) if metadata_path.exists() else {}
+                previous[f'seed_{seed}'] = record
+                temporary = metadata_path.with_suffix('.json.tmp')
+                temporary.write_text(json.dumps(previous, indent=2, sort_keys=True) + '\n')
+                temporary.replace(metadata_path)
         logging.info(
             f'Model inference for seed {seed} took {time.time() - inference_start_time:.2f} seconds.'
         )
@@ -763,6 +782,7 @@ class AlphaFold3Backend(FoldingBackend):
         num_recycles: int = 10,
         return_embeddings: bool = False,
         return_distogram: bool = False,
+        fast_kernels: str = 'off',
         **kwargs,
     ) -> Dict:
         """Sets up the ModelRunner with the given configurations."""
@@ -783,6 +803,8 @@ class AlphaFold3Backend(FoldingBackend):
             config = model_class.Config()
             if hasattr(config, 'global_config'):
                 config.global_config.flash_attention_implementation = flash_attention_implementation
+                for key, value in kernels.global_config_update().items():
+                    setattr(config.global_config, key, value)
             if hasattr(config, 'heads') and hasattr(config.heads, 'diffusion'):
                 config.heads.diffusion.eval.num_samples = num_diffusion_samples
             # Optional overrides present in upstream AF3 runner
@@ -812,6 +834,8 @@ class AlphaFold3Backend(FoldingBackend):
                         f' include "{required_flag}".'
                     )
         logging.info(f'Found local devices: {gpu_devices}')
+        kernels = fast_kernels_policy.resolve(
+            fast_kernels, backend='alphafold3', device=gpu_devices[0])
         logging.info('Building model from scratch...')
 
         model_runner = ModelRunner(
@@ -828,6 +852,8 @@ class AlphaFold3Backend(FoldingBackend):
             ),
             device=gpu_devices[0],
             model_dir=pathlib.Path(model_dir),
+            kernel_mode=fast_kernels_policy.normalise_mode(fast_kernels),
+            kernel_reason=kernels.reason,
         )
         return {'model_runner': model_runner}
 

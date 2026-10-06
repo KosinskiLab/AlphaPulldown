@@ -38,7 +38,7 @@ AF2_LIKE_FLAGS = frozenset({
 
 ALPHALINK_EXTRA_FLAGS = frozenset({"crosslinks"})
 
-# AlphaFold 2 only: AlphaLink runs its own network, and AF3 has its own kernels.
+# AlphaLink runs its own network. AF3 accepts the same flag below.
 AF2_EXTRA_FLAGS = frozenset({"fast_kernels"})
 
 UNIFOLD_UNAVAILABLE_REASON = (
@@ -51,7 +51,7 @@ AF3_FLAGS = frozenset({
     "jax_compilation_cache_dir", "buckets", "flash_attention_implementation",
     "num_diffusion_samples", "num_seeds", "debug_templates", "debug_msas",
     "num_recycles", "save_embeddings", "save_distogram", "use_ap_style",
-    "convert_to_modelcif",
+    "convert_to_modelcif", "fast_kernels",
 })
 
 FLAGS_BY_BACKEND: Mapping[str, frozenset] = {

@@ -172,3 +172,90 @@ def test_package_version_falls_back_to_the_module(monkeypatch):
     monkeypatch.setitem(sys.modules, "colabfold_kernels", types.SimpleNamespace(__version__="0.4.0"))
 
     assert fast_kernels._package_version() == "0.4.0"
+
+
+def test_af3_off_does_not_inspect_or_import_the_fork(monkeypatch):
+    def fail(*args):
+        raise AssertionError('off must not inspect devices or import fused kernels')
+    monkeypatch.setattr(fast_kernels, '_af3_settings', fail)
+    monkeypatch.setattr(fast_kernels, '_af3_smoke_test', fail)
+    choice = fast_kernels.resolve('off', backend='alphafold3')
+    assert not choice.enabled
+    assert choice.global_config_update() == {}
+    assert fast_kernels.af3_metadata(types.SimpleNamespace(), requested_mode='off', tokens=256)['fused_kernels'] is False
+
+
+@pytest.mark.parametrize('stage', ['settings', 'smoke'])
+def test_af3_on_fails_and_auto_falls_back(monkeypatch, stage):
+    def fail(*args):
+        raise RuntimeError('unavailable test device')
+    monkeypatch.setattr(fast_kernels, '_af3_settings', lambda device: {'sentinel': True})
+    monkeypatch.setattr(fast_kernels, '_af3_smoke_test', lambda settings: None)
+    monkeypatch.setattr(fast_kernels, '_af3_' + ('settings' if stage == 'settings' else 'smoke_test'), fail)
+    with pytest.raises(ValueError, match='unavailable test device'):
+        fast_kernels.resolve('on', backend='alphafold3')
+    choice = fast_kernels.resolve('auto', backend='alphafold3')
+    assert not choice.enabled and choice.global_config_update() == {}
+
+
+def test_af3_uses_requested_device_and_smokes_before_enabling(monkeypatch):
+    device = object()
+    seen = []
+    settings = {'fused_triangle_multiplication': True, 'fused_triangle_attention': 'auto'}
+    monkeypatch.setattr(fast_kernels, '_af3_settings', lambda d: seen.append(d) or settings)
+    monkeypatch.setattr(fast_kernels, '_af3_smoke_test', lambda s: seen.append(dict(s)))
+    choice = fast_kernels.resolve('on', backend='alphafold3', device=device)
+    assert seen == [device, settings]
+    assert choice.enabled and choice.global_config_update() == settings
+    choice.global_config_update().clear()
+    assert choice.global_config_update() == settings
+
+
+def test_unknown_backend_cannot_enable_kernels():
+    with pytest.raises(ValueError, match='not supported'):
+        fast_kernels.resolve('auto', backend='alphalink')
+
+
+@pytest.fixture
+def af3_dispatch(monkeypatch):
+    from pathlib import Path
+    source = Path(__file__).resolve().parents[2] / 'alphafold3/src/alphafold3/model/network/fused_triangle/fpf_pallas_serve.py'
+    spec = importlib.util.spec_from_file_location('af3_dispatch_test', source)
+    module = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, spec.name, module)
+    spec.loader.exec_module(module)
+    package = types.ModuleType('alphafold3.model.network.fused_triangle')
+    package.fpf_pallas_serve = module
+    monkeypatch.setitem(sys.modules, package.__name__, package)
+    return module
+
+
+def test_af3_metadata_records_partial_fallback_on_cache_hits(af3_dispatch):
+    config = types.SimpleNamespace(
+        fused_triangle_multiplication=True, fused_triangle_attention='auto',
+        fused_triangle_compute_capability='8.6', fused_triangle_memory_gib=45,
+        bfloat16='all')
+    first = fast_kernels.af3_metadata(config, requested_mode='auto', tokens=2560)
+    assert first == fast_kernels.af3_metadata(config, requested_mode='auto', tokens=2560)
+    assert first['fused_kernels']
+    assert first['operations']['trimul_c128']['backend'] == 'pallas'
+    assert first['operations']['attention_c128'] == dict(backend='stock', reason='size_limit')
+    config.bfloat16 = 'none'
+    assert not fast_kernels.af3_metadata(config, requested_mode='auto', tokens=256)['fused_kernels']
+
+
+def test_af3_device_policy_uses_allocator_budget(af3_dispatch, monkeypatch):
+    config_module = types.ModuleType('alphafold3.model.model_config')
+    config_module.GlobalConfig = lambda: types.SimpleNamespace(fused_triangle_multiplication=False)
+    parent = types.ModuleType('alphafold3.model')
+    parent.model_config = config_module
+    monkeypatch.setitem(sys.modules, parent.__name__, parent)
+    monkeypatch.setitem(sys.modules, config_module.__name__, config_module)
+    device = types.SimpleNamespace(compute_capability='12.0', device_kind='Blackwell slice',
+                                   memory_stats=lambda: {'bytes_limit': 15 * 2**30})
+    result = fast_kernels._af3_settings(device)
+    assert result['fused_triangle_memory_gib'] == 15
+    assert result['fused_triangle_compute_capability'] == '12.0'
+    device.memory_stats = lambda: None
+    with pytest.raises(RuntimeError, match='unknown_memory_budget'):
+        fast_kernels._af3_settings(device)

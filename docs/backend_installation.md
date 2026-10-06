@@ -2,6 +2,9 @@
 
 This guide is for direct AlphaPulldown use without Snakemake.
 
+The experimental AF3 triangle-kernel option and its required fork revision are
+described in [AF3 fused triangles](af3_fused_triangles.md).
+
 Two points matter in practice:
 
 1. Run the install commands from the AlphaPulldown repo root.
