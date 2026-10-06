@@ -568,6 +568,50 @@ def _sequential_residue_ids_per_chain(chain_ids: Sequence[str]) -> list[int]:
     return residue_ids
 
 
+def _record_inference_kernels(
+    output_dir: os.PathLike[str] | str,
+    seed: int,
+    model_runner: ModelRunner,
+    example: features.BatchDict,
+) -> None:
+    """Record in inference_kernels.json which kernels a seed's triangle layers ran.
+
+    Fused and original layers differ slightly in their numerics, so the record lets
+    ranking and analysis tell them apart, like AlphaFold 2's. Entries are keyed
+    ``seed-N`` like AF3's other outputs and are read back from the runner's own config,
+    so they state what actually ran. The record never fails a finished prediction: an
+    unreadable file is replaced, and any other failure is logged and skipped.
+    """
+    fused_triangles = getattr(model_runner, "fused_triangles", None)
+    tokens = example.get("token_index", example.get("aatype"))
+    if fused_triangles is None or tokens is None:  # not an AF3 runner (e.g. a test double)
+        return
+    key = f"seed-{seed}"
+    try:
+        record = af3_fused_triangles.metadata(
+            model_runner.config.global_config, fused_triangles, num_tokens=int(tokens.shape[0])
+        )
+    except Exception as exc:  # provenance only; the prediction itself succeeded
+        logging.warning("Not recording the inference kernels of %s: %s", key, exc)
+        return
+    path = pathlib.Path(output_dir) / "inference_kernels.json"
+    try:
+        records = json.loads(path.read_text()) if path.exists() else {}
+        if not isinstance(records, dict):
+            raise ValueError("not a JSON object")
+    except (OSError, ValueError) as exc:
+        logging.warning("Replacing unreadable %s: %s", path, exc)
+        records = {}
+    records[key] = record
+    try:
+        os.makedirs(output_dir, exist_ok=True)
+        temporary = path.with_suffix(".json.tmp")
+        temporary.write_text(json.dumps(records, indent=2, sort_keys=True) + "\n")
+        temporary.replace(path)
+    except OSError as exc:
+        logging.warning("Not recording the inference kernels of %s: %s", key, exc)
+
+
 def predict_structure(
     fold_input: folding_input.Input,
     model_runner: ModelRunner,
@@ -627,21 +671,6 @@ def predict_structure(
 
         rng_key = jax.random.PRNGKey(seed)
         result = model_runner.run_inference(example, rng_key)
-        if output_dir is not None and hasattr(model_runner, 'fused_triangles'):
-            token_features = example.get('token_index', example.get('aatype'))
-            if token_features is not None:
-                record = af3_fused_triangles.metadata(
-                    model_runner.config.global_config,
-                    model_runner.fused_triangles,
-                    num_tokens=int(token_features.shape[0]),
-                )
-                os.makedirs(output_dir, exist_ok=True)
-                metadata_path = pathlib.Path(output_dir) / 'inference_kernels.json'
-                previous = json.loads(metadata_path.read_text()) if metadata_path.exists() else {}
-                previous[f'seed_{seed}'] = record
-                temporary = metadata_path.with_suffix('.json.tmp')
-                temporary.write_text(json.dumps(previous, indent=2, sort_keys=True) + '\n')
-                temporary.replace(metadata_path)
         logging.info(
             f'Model inference for seed {seed} took {time.time() - inference_start_time:.2f} seconds.'
         )
@@ -654,6 +683,8 @@ def predict_structure(
         logging.info(
             f'Extracting structures for seed {seed} took {time.time() - extract_start:.2f} seconds.'
         )
+        if output_dir is not None:
+            _record_inference_kernels(output_dir, seed, model_runner, example)
 
         # Optional: gather embeddings and distogram
         embeddings_out = None
@@ -796,12 +827,13 @@ class AlphaFold3Backend(FoldingBackend):
             num_recycles: int = 10,
             return_embeddings: bool = False,
             return_distogram: bool = False,
+            global_config_update: Dict[str, Any],
         ):
             # The new code approach:
             config = model_class.Config()
             if hasattr(config, 'global_config'):
                 config.global_config.flash_attention_implementation = flash_attention_implementation
-                for key, value in fused_triangles.global_config_update().items():
+                for key, value in global_config_update.items():
                     setattr(config.global_config, key, value)
             if hasattr(config, 'heads') and hasattr(config.heads, 'diffusion'):
                 config.heads.diffusion.eval.num_samples = num_diffusion_samples
@@ -846,6 +878,7 @@ class AlphaFold3Backend(FoldingBackend):
                 num_recycles=num_recycles,
                 return_embeddings=return_embeddings,
                 return_distogram=return_distogram,
+                global_config_update=fused_triangles.global_config_update(),
             ),
             device=gpu_devices[0],
             model_dir=pathlib.Path(model_dir),

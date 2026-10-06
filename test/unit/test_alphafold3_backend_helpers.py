@@ -842,43 +842,117 @@ def test_predict_structure_writes_final_msa_and_collects_optional_outputs(
     assert final_msa.read_text(encoding="utf-8") == ">query\nABC\n"
 
 
-def test_predict_structure_records_fused_triangle_kernels_per_seed(
+class FakeKernelRunner:
+    """A runner with an AF3 fused-triangle choice; logs extraction to ``events``."""
+
+    def __init__(self, af3_backend_module, events=None):
+        self.fused_triangles = af3_backend_module.af3_fused_triangles.OFF
+        self.config = SimpleNamespace(global_config=SimpleNamespace())
+        self.events = [] if events is None else events
+
+    def run_inference(self, batch, rng_key):
+        return {}
+
+    def extract_structures(self, batch, result, target_name):
+        self.events.append("extract")
+        return []
+
+
+OFF_RECORD = {
+    "backend": "alphafold3",
+    "requested_mode": "off",
+    "padded_tokens": 3,
+    "fused_kernels": False,
+    "reason": "--fast_kernels=off",
+}
+
+
+def test_predict_structure_records_kernels_per_seed_after_extraction(
     af3_backend_module,
     monkeypatch,
     tmp_path,
 ):
     fold_input = af3_backend_module.folding_input.Input(
-        name="job", chains=("A",), rng_seeds=(7,)
+        name="job", chains=("A",), rng_seeds=(7, 8)
     )
     example = {"token_index": np.arange(3)}
     monkeypatch.setattr(
-        af3_backend_module.featurisation, "featurise_input", lambda **kwargs: [example]
+        af3_backend_module.featurisation,
+        "featurise_input",
+        lambda **kwargs: [example, example],
     )
-
-    class FakeRunner:
-        fused_triangles = af3_backend_module.af3_fused_triangles.OFF
-        config = SimpleNamespace(global_config=SimpleNamespace())
-
-        def run_inference(self, batch, rng_key):
-            return {}
-
-        def extract_structures(self, batch, result, target_name):
-            return []
+    events = []
+    real_metadata = af3_backend_module.af3_fused_triangles.metadata
+    monkeypatch.setattr(
+        af3_backend_module.af3_fused_triangles,
+        "metadata",
+        lambda *args, **kwargs: events.append("record") or real_metadata(*args, **kwargs),
+    )
 
     af3_backend_module.predict_structure(
-        fold_input=fold_input, model_runner=FakeRunner(), output_dir=tmp_path
+        fold_input=fold_input,
+        model_runner=FakeKernelRunner(af3_backend_module, events),
+        output_dir=tmp_path,
     )
 
+    # After extraction, so it is not timed as model inference.
+    assert events == ["extract", "record", "extract", "record"]
     record = json.loads((tmp_path / "inference_kernels.json").read_text())
-    assert record == {
-        "seed_7": {
-            "backend": "alphafold3",
-            "requested_mode": "off",
-            "padded_tokens": 3,
-            "fused_kernels": False,
-            "reason": "--fast_kernels=off",
-        }
+    assert record == {"seed-7": OFF_RECORD, "seed-8": OFF_RECORD}
+
+
+def test_record_inference_kernels_replaces_a_corrupt_file(
+    af3_backend_module, tmp_path, caplog
+):
+    path = tmp_path / "inference_kernels.json"
+    path.write_text("{not json")
+
+    af3_backend_module._record_inference_kernels(
+        tmp_path, 7, FakeKernelRunner(af3_backend_module), {"token_index": np.arange(3)}
+    )
+
+    assert json.loads(path.read_text()) == {"seed-7": OFF_RECORD}
+    assert "Replacing unreadable" in caplog.text
+
+
+def test_record_inference_kernels_keeps_other_entries(af3_backend_module, tmp_path):
+    path = tmp_path / "inference_kernels.json"
+    path.write_text(json.dumps({"seed-1": {"fused_kernels": True}}))
+
+    af3_backend_module._record_inference_kernels(
+        tmp_path, 7, FakeKernelRunner(af3_backend_module), {"token_index": np.arange(3)}
+    )
+
+    assert json.loads(path.read_text()) == {
+        "seed-1": {"fused_kernels": True},
+        "seed-7": OFF_RECORD,
     }
+
+
+def test_record_inference_kernels_never_fails_a_prediction(
+    af3_backend_module, monkeypatch, tmp_path, caplog
+):
+    def broken(*args, **kwargs):
+        raise ImportError("no alphafold3.jax.fused_triangle")
+
+    monkeypatch.setattr(af3_backend_module.af3_fused_triangles, "metadata", broken)
+
+    af3_backend_module._record_inference_kernels(
+        tmp_path, 7, FakeKernelRunner(af3_backend_module), {"token_index": np.arange(3)}
+    )
+
+    assert not (tmp_path / "inference_kernels.json").exists()
+    assert "no alphafold3.jax.fused_triangle" in caplog.text
+
+
+def test_record_inference_kernels_skips_runners_without_a_choice(
+    af3_backend_module, tmp_path
+):
+    af3_backend_module._record_inference_kernels(
+        tmp_path, 7, SimpleNamespace(), {"token_index": np.arange(3)}
+    )
+
+    assert not (tmp_path / "inference_kernels.json").exists()
 
 
 def test_af3_setup_builds_model_runner_and_validates_gpu_capability(
