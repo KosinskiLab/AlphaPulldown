@@ -19,9 +19,12 @@ decides which fused-kernel source, if any, Phase 1 should port. The two candidat
 | Does a ColabFold speedup transfer to AlphaPulldown? | `ap_stock` vs `cf163_stock` / `kit_off` on the same input |
 | Do the fast kernels change predictions more than a seed does? | accuracy suite: DockQ and ranking confidence vs the stock arms' seed-to-seed spread |
 | What will an AF3 port (Phase 2) be measured against? | `ap_af3`: AlphaPulldown AF3 with DeepMind weights, plus the largest fold each card holds |
+| Do the kit's fused triangle kernels hold on our AF3 model? | `gate0/` layer by layer, then `af3_integration/` end to end |
 
-The AF3 side has no optimized arm. Anthropic's AF3 kit runs only sokrypton's fork with
-OpenFold3 weights, so it cannot be measured on our model.
+Anthropic's AF3 kit runs only sokrypton's fork with OpenFold3 weights, so the kit itself cannot be
+measured on our model. Its fused triangle kernels (the kit's `opt_core` at `f4f62fa6`) can: the
+AF3 optimised arm is our fork with those kernels in `alphafold3/jax/fused_triangle`, switched on
+by AlphaPulldown's `--fast_kernels` (sections below).
 
 ## What makes the comparison fair
 
@@ -88,6 +91,25 @@ Results:
 
 A run directory, `runs/<suite>/<gpu>/<arm>/`, holds `RESULT.txt`, `runs.tsv`, `gpu.txt`,
 `gpu_mem.csv`, a log per fold and the raw outputs.
+
+## AF3 fused triangle kernels
+
+These directories test the AF3 optimised arm. Each freezes its sources at submission and writes
+under `$BENCH/<directory>`.
+
+- **`gate0/`: layer-level gate.** `gate0/submit_gate0.sh [labels]` runs `gate0_layers.py` per card
+  and size range: the kit's kernels against our fork's `TriangleMultiplication` and
+  `GridSelfAttention`, one module at a time, on random and DeepMind weights. It measures error
+  against a float64 reference under a pre-registered gate, plus padding leaks, determinism,
+  speed and memory. `gate0_collect.py` writes `GATE0.md`. `--integrated` runs the fork's own
+  modules instead; the `af3_integration` layers suite uses it.
+- **`gate0b/`: superseded pilot, kept for provenance.** An end-to-end AlphaPulldown AF3 run
+  with the kit's kernels patched into AF3's modules for one process. `af3_integration/`
+  replaces it; see `gate0b/README.md`.
+- **`af3_integration/`: full validation campaigns** of the integrated fork and AlphaPulldown.
+  Each campaign runs layer gate, bit identity, the public CLI, the speed ladder with capacity
+  probes, per-operation ablations, paired-seed accuracy and input types, with a retrying
+  supervisor. `af3_integration/README.md` has the details.
 
 ## Images
 
