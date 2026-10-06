@@ -17,6 +17,7 @@ class _Flags:
             flash_attention_implementation="triton", buckets=["256"],
             jax_compilation_cache_dir=None, features_directory=["/features"],
             num_seeds=None, debug_templates=False, debug_msas=False, dropout=False,
+            fast_kernels="off",
             fold_backend="alphafold3",
             compress_result_pickles=False, remove_result_pickles=False,
             remove_keys_from_pickles=None, storage_mode="default",
@@ -50,6 +51,12 @@ def test_convert_to_modelcif_is_accepted_by_both_backends():
     # The workflow's hand-copied table omitted this and produced a false warning.
     for backend in ("alphafold2", "alphafold3"):
         assert inference_flags.unsupported_flags(backend, ["convert_to_modelcif"]) == []
+
+
+def test_fast_kernels_is_an_alphafold2_flag():
+    assert inference_flags.unsupported_flags("alphafold2", ["fast_kernels"]) == []
+    for backend in ("alphafold3", "alphalink"):
+        assert inference_flags.unsupported_flags(backend, ["fast_kernels"]) == ["fast_kernels"]
 
 
 def test_unknown_backend_reports_nothing():

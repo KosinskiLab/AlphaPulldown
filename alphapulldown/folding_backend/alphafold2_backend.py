@@ -24,6 +24,7 @@ from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObje
 from alphapulldown.utils.post_modelling import post_prediction_process
 #from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
 from alphapulldown.utils.modelling_setup import pad_input_features
+from alphapulldown.prediction import fast_kernels as fast_kernels_policy
 from alphapulldown.prediction.jax_compilation_cache import enable_persistent_compilation_cache
 from alphapulldown.utils.af2_to_af3_msa import msa_rows_and_deletions_to_a3m
 from alphafold.relax import relax
@@ -492,6 +493,34 @@ def _msa_depths(
     return [(int(num_msa), int(num_extra)) for num_msa, num_extra in zip(msa_ranges, extra_msa_ranges)]
 
 
+def _record_inference_kernels(output_dir, model_name, model_runner) -> None:
+    """Record in inference_kernels.json whether a model ran ColabFold's fused kernels.
+
+    Fast and stock predictions differ slightly in their numerics, so the record lets
+    ranking and analysis tell them apart. Read back from the runner's own config, so it
+    states what actually ran.
+    """
+    try:
+        global_config = model_runner.config.model.global_config
+    except AttributeError:  # not an AlphaFold RunModel (e.g. a test double)
+        return
+    record = {
+        "fused_kernels": bool(global_config.get("use_pallas", False)),
+        "compute_capability": global_config.get("compute_capability", None),
+    }
+    path = os.path.join(output_dir, "inference_kernels.json")
+    existing = {}
+    if os.path.exists(path):
+        try:
+            with open(path) as f:
+                existing = json.load(f)
+        except (OSError, ValueError):
+            existing = {}
+    existing[model_name] = record
+    with open(path, "w") as f:
+        json.dump(existing, f, indent=2, sort_keys=True)
+
+
 class AlphaFold2Backend(FoldingBackend):
     """
     A backend to perform structure prediction using AlphaFold.
@@ -507,6 +536,7 @@ class AlphaFold2Backend(FoldingBackend):
         model_names_custom: List[str] = None,
         msa_depth=None,
         dropout=False,
+        fast_kernels="off",
         **kwargs,
     ) -> Dict:
         """
@@ -534,6 +564,9 @@ class AlphaFold2Backend(FoldingBackend):
             If set to True, resumes prediction from partially completed runs, default is True.
         dropout : bool, optional
             If set to True, use dropout when inferring for more diverse predictions, default is False.
+        fast_kernels : str, optional
+            "off" (default), "on" or "auto": ColabFold's fused Pallas kernels for the
+            multimer models (``alphapulldown.prediction.fast_kernels``).
         **kwargs : dict
             Additional keyword arguments for model runner configuration.
 
@@ -581,6 +614,13 @@ class AlphaFold2Backend(FoldingBackend):
                     f"Provided model names {model_names_custom} not part of available {model_names + old_model_names}"
                 )
 
+        kernels = fast_kernels_policy.resolve(fast_kernels)
+        if kernels.enabled and not any("multimer" in name for name in model_names):
+            logging.info(
+                "Fused kernels are not used here: monomer models run in fp32 and keep "
+                "the standard code."
+            )
+
         def configured_model(name: str, num_msa=None, num_extra_msa=None):
             """A fresh model config for one runner.
 
@@ -601,6 +641,9 @@ class AlphaFold2Backend(FoldingBackend):
                 model_config["model"]["embeddings_and_evoformer"].update(
                     {"num_msa": int(num_msa), "num_extra_msa": int(num_extra_msa)}
                 )
+            # The kernels are bf16; monomer models run fp32 and keep the stock code.
+            if "multimer" in name:
+                model_config.model.global_config.update(kernels.global_config_update())
             return model_config
 
         for model_name in model_names:
@@ -836,6 +879,7 @@ class AlphaFold2Backend(FoldingBackend):
             timings_output_path = os.path.join(output_dir, "timings.json")
             with open(timings_output_path, "w") as f:
                 f.write(json.dumps(timings, indent=4))
+            _record_inference_kernels(output_dir, model_name, model_runner)
         return prediction_results
 
     @staticmethod
@@ -864,49 +908,76 @@ class AlphaFold2Backend(FoldingBackend):
                    'output_dir': output_dir}
             
     @staticmethod
-    def recalculate_confidence(prediction_results: Dict, multimer_mode:bool, 
-                               total_num_res: int) -> Dict[str, Any]:
-        """
-        A method that remove pae values of padded residues and recalculate iptm_ptm score again 
+    def recalculate_confidence(prediction_results: Dict, multimer_mode: bool,
+                               total_num_res: int, asym_id=None) -> Dict[str, Any]:
+        """Scores of a padded prediction (``--desired_num_res``), over its real residues only.
+
+        Padding adds masked residues after the real ones, and AlphaFold scores the whole
+        padded length: pLDDT, PAE, pTM and ipTM all count the padding. This returns the
+        entries to replace, computed for the first ``total_num_res`` residues, or an empty
+        dict when the prediction was not padded.
+
+        AlphaFold's ``RunModel`` usually returns the PAE already as an array, its logits
+        gone; pTM and ipTM are then recomputed from ``aligned_confidence_probs`` with
+        AlphaFold's own ``predicted_tm_score`` (whose softmax of ``log(probs)`` returns the
+        probabilities). ``asym_id`` gives each real residue's chain, for ipTM.
         Modified based on https://github.com/KosinskiLab/alphafold/blob/c844e1bb60a3beb50bb8d562c6be046da1e43e3d/alphafold/model/model.py#L31
         """
-        if type(prediction_results['predicted_aligned_error']) == np.ndarray:
-            return prediction_results
-        else:
-            output = {}
-            plddt = prediction_results['plddt'][:total_num_res]
-            if 'predicted_aligned_error' in prediction_results:
-                ptm = confidence.predicted_tm_score(
-                logits=prediction_results['predicted_aligned_error']['logits'][:total_num_res,:total_num_res],
-                breaks=prediction_results['predicted_aligned_error']['breaks'],
-                asym_id=None)
-                output['ptm'] = ptm
+        n = int(total_num_res)
+        plddt = np.asarray(prediction_results['plddt'])
+        if plddt.shape[0] <= n:
+            return {}
+        output = {'plddt': plddt[:n]}
+        pae_head = prediction_results.get('predicted_aligned_error')
 
-                pae = confidence.compute_predicted_aligned_error(
-                logits=prediction_results['predicted_aligned_error']['logits'],
-                breaks=prediction_results['predicted_aligned_error']['breaks'])
-                max_pae = pae.pop('max_predicted_aligned_error')
-                
-                for k,v in pae.items():
-                    output.update({k:v[:total_num_res, :total_num_res]})
-                output['max_predicted_aligned_error'] = max_pae
-                if multimer_mode:
-                # Compute the ipTM only for the multimer model.
-                    iptm = confidence.predicted_tm_score(
-                    logits=prediction_results['predicted_aligned_error']['logits'][:total_num_res,:total_num_res],
-                    breaks=prediction_results['predicted_aligned_error']['breaks'],
-                    asym_id=prediction_results['predicted_aligned_error']['asym_id'][:total_num_res],
-                    interface=True)
-                    output.update({'iptm' : iptm})
-                    ranking_confidence = 0.8 * iptm + 0.2 * ptm
-                    output.update({'ranking_confidence' : ranking_confidence})
-                if not multimer_mode:
-                    # Monomer models use mean pLDDT for model ranking.
-                    ranking_confidence =  np.mean(
-                        plddt)
-                    output.update({'ranking_confidence' : ranking_confidence})
-                
-                return output
+        if isinstance(pae_head, dict):
+            # The raw head output: logits, breaks and the padded asym_id.
+            logits = np.asarray(pae_head['logits'])[:n, :n]
+            breaks = np.asarray(pae_head['breaks'])
+            if asym_id is None and 'asym_id' in pae_head:
+                asym_id = pae_head['asym_id']
+            pae = confidence.compute_predicted_aligned_error(logits=logits, breaks=breaks)
+            output.update(pae)
+        elif 'aligned_confidence_probs' in prediction_results:
+            probs = np.asarray(prediction_results['aligned_confidence_probs'])[:n, :n]
+            num_bins = probs.shape[-1]
+            max_pae = float(prediction_results['max_predicted_aligned_error'])
+            # AlphaFold's bins: edges 0, s, 2s, ... and a catch-all bin, whose centre
+            # (the maximum predicted error) is (num_bins - 0.5) * s.
+            step = max_pae / (num_bins - 0.5)
+            breaks = np.arange(num_bins - 1) * step
+            logits = np.log(np.clip(probs, 1e-30, None))
+            output['aligned_confidence_probs'] = probs
+            if pae_head is not None:
+                output['predicted_aligned_error'] = np.asarray(pae_head)[:n, :n]
+        else:
+            logging.warning(
+                "Padded prediction without aligned_confidence_probs: pLDDT is trimmed "
+                "to the real residues, but pTM, ipTM and PAE still include the padding."
+            )
+            if not multimer_mode:
+                output['ranking_confidence'] = np.mean(output['plddt'])
+            return output
+
+        ptm = confidence.predicted_tm_score(logits=logits, breaks=breaks, asym_id=None)
+        output['ptm'] = ptm
+        if multimer_mode:
+            if asym_id is None:
+                logging.warning(
+                    "Padded multimer prediction without chain IDs: ipTM and the ranking "
+                    "confidence still include the padding."
+                )
+            else:
+                iptm = confidence.predicted_tm_score(
+                    logits=logits, breaks=breaks,
+                    asym_id=np.asarray(asym_id).reshape(-1)[:n], interface=True,
+                )
+                output['iptm'] = iptm
+                output['ranking_confidence'] = 0.8 * iptm + 0.2 * ptm
+        else:
+            # Monomer models rank by mean pLDDT.
+            output['ranking_confidence'] = np.mean(output['plddt'])
+        return output
 
     @staticmethod
     def postprocess(
@@ -976,8 +1047,10 @@ class AlphaFold2Backend(FoldingBackend):
         total_num_res = sum([len(s) for s in multimeric_object.input_seqs]) if multimer_mode else len(multimeric_object.sequence)
         # Save plddt json files.
         for model_name, prediction_result in prediction_results.items():
-            prediction_result.update(AlphaFold2Backend.recalculate_confidence(prediction_result,multimer_mode,
-                                                                         total_num_res))
+            prediction_result.update(AlphaFold2Backend.recalculate_confidence(
+                prediction_result, multimer_mode, total_num_res,
+                asym_id=getattr(multimeric_object, "feature_dict", {}).get("asym_id"),
+            ))
             unrelaxed_protein = prediction_result.get("unrelaxed_protein")
             if 'unrelaxed_protein' in prediction_result.keys():
                 unrelaxed_protein = prediction_result.pop("unrelaxed_protein")

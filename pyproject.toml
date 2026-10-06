@@ -54,6 +54,9 @@ alphafold2 = [
   "openmm>=8.2",
   "pdbfixer>=1.10",
 ]
+fast-kernels = [
+  "colabfold-kernels>=0.4.0,<0.5",
+]
 alphafold3 = [
   "dm-haiku==0.0.16",
   "jax==0.9.1",

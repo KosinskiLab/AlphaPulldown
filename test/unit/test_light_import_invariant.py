@@ -33,6 +33,8 @@ LIGHT_MODULES = (
     "alphapulldown.prediction.jax_devices",
     # Likewise configures JAX's compile cache only when called.
     "alphapulldown.prediction.jax_compilation_cache",
+    # And checks the fused-kernel requirements only when a mode other than off is resolved.
+    "alphapulldown.prediction.fast_kernels",
     # Compatibility paths must retain the same lightweight behavior.
     "alphapulldown.feature_batch",
     "alphapulldown.af2_feature_finalizer",

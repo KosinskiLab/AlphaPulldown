@@ -124,6 +124,8 @@ WORKDIR /AlphaPulldown
 COPY . /AlphaPulldown
 RUN pip install --no-build-isolation .
 RUN command -v run_structure_prediction_batch.py
+# ColabFold's fused Pallas kernels, used only with --fast_kernels=on|auto.
+RUN pip install --no-cache-dir "colabfold-kernels>=0.4.0,<0.5"
 # jax takes its CUDA runtime from the nvidia-* wheels, not from the base image, and
 # `jax[cuda12]==0.5.3` puts no floor on them - which version you get depends on when
 # the image was built. Blackwell cards (RTX PRO 4500/6000, compute capability 12.0 /

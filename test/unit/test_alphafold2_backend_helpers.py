@@ -853,16 +853,13 @@ def test_predict_yields_results_for_each_object(af2_backend_module, monkeypatch,
 
 
 def test_recalculate_confidence_handles_multimer_and_monomer_paths(af2_backend_module):
-    already_numpy = {
+    not_padded = {
         "predicted_aligned_error": np.zeros((1, 1), dtype=np.float32),
         "plddt": np.array([42.0], dtype=np.float32),
     }
-    assert (
-        af2_backend_module.AlphaFold2Backend.recalculate_confidence(
-            already_numpy, multimer_mode=False, total_num_res=1
-        )
-        is already_numpy
-    )
+    assert af2_backend_module.AlphaFold2Backend.recalculate_confidence(
+        not_padded, multimer_mode=False, total_num_res=1
+    ) == {}
 
     padded = {
         "predicted_aligned_error": {
@@ -888,6 +885,88 @@ def test_recalculate_confidence_handles_multimer_and_monomer_paths(af2_backend_m
         total_num_res=2,
     )
     assert monomer_output["ranking_confidence"] == pytest.approx(15.0)
+
+
+def _padded_run_model_result(confidence_module, n_real, n_pad, seed=0):
+    """What AlphaFold's RunModel returns for a padded multimer, and the unpadded truth."""
+    rng = np.random.default_rng(seed)
+    n = n_real + n_pad
+    logits = rng.normal(size=(n, n, 64)) * 3
+    breaks = np.linspace(0.0, 31.0, 63)
+    asym_id = np.array([1] * 3 + [2] * (n_real - 3) + [0] * n_pad)
+    plddt = rng.uniform(30, 95, size=n)
+    result = confidence_module.compute_predicted_aligned_error(logits=logits, breaks=breaks)
+    result.update({
+        "plddt": plddt,
+        "ptm": confidence_module.predicted_tm_score(logits=logits, breaks=breaks),
+        "iptm": confidence_module.predicted_tm_score(
+            logits=logits, breaks=breaks, asym_id=asym_id, interface=True
+        ),
+    })
+    real = logits[:n_real, :n_real]
+    truth = {
+        "plddt": plddt[:n_real],
+        "ptm": confidence_module.predicted_tm_score(logits=real, breaks=breaks),
+        "iptm": confidence_module.predicted_tm_score(
+            logits=real, breaks=breaks, asym_id=asym_id[:n_real], interface=True
+        ),
+        "predicted_aligned_error": confidence_module.compute_predicted_aligned_error(
+            logits=real, breaks=breaks
+        )["predicted_aligned_error"],
+    }
+    return result, truth, asym_id
+
+
+def test_padded_scores_are_recomputed_over_the_real_residues(af2_backend_module, monkeypatch):
+    # AlphaFold's own confidence module (numpy and scipy only), not the test stub.
+    path = Path(__file__).resolve().parents[2] / "alphafold/alphafold/common/confidence.py"
+    spec = importlib.util.spec_from_file_location("real_af2_confidence", path)
+    real_confidence = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(real_confidence)
+    monkeypatch.setattr(af2_backend_module, "confidence", real_confidence)
+
+    result, truth, asym_id = _padded_run_model_result(real_confidence, n_real=7, n_pad=5)
+    assert result["iptm"] != pytest.approx(truth["iptm"], abs=1e-3)  # padding does move it
+
+    fixed = af2_backend_module.AlphaFold2Backend.recalculate_confidence(
+        result, multimer_mode=True, total_num_res=7, asym_id=asym_id[:7]
+    )
+
+    assert fixed["ptm"] == pytest.approx(truth["ptm"], abs=1e-6)
+    assert fixed["iptm"] == pytest.approx(truth["iptm"], abs=1e-6)
+    assert fixed["ranking_confidence"] == pytest.approx(0.8 * truth["iptm"] + 0.2 * truth["ptm"], abs=1e-6)
+    np.testing.assert_allclose(fixed["predicted_aligned_error"], truth["predicted_aligned_error"], atol=1e-6)
+    np.testing.assert_array_equal(fixed["plddt"], truth["plddt"])
+    assert fixed["aligned_confidence_probs"].shape == (7, 7, 64)
+
+
+def test_padded_array_result_is_trimmed_with_the_given_chains(af2_backend_module, monkeypatch):
+    calls = []
+
+    def predicted_tm_score(logits, breaks, asym_id=None, interface=False):
+        calls.append((np.shape(logits), None if asym_id is None else list(asym_id), interface))
+        return 0.8 if interface else 0.5
+
+    monkeypatch.setattr(af2_backend_module.confidence, "predicted_tm_score", predicted_tm_score)
+    padded = {
+        "predicted_aligned_error": np.zeros((5, 5), dtype=np.float32),
+        "aligned_confidence_probs": np.full((5, 5, 64), 1 / 64, dtype=np.float32),
+        "max_predicted_aligned_error": 31.75,
+        "plddt": np.array([90.0, 80.0, 70.0, 1.0, 1.0], dtype=np.float32),
+    }
+
+    multimer = af2_backend_module.AlphaFold2Backend.recalculate_confidence(
+        padded, multimer_mode=True, total_num_res=3, asym_id=np.array([1, 1, 2, 0, 0])
+    )
+    monomer = af2_backend_module.AlphaFold2Backend.recalculate_confidence(
+        padded, multimer_mode=False, total_num_res=3
+    )
+
+    assert calls[:2] == [((3, 3, 64), None, False), ((3, 3, 64), [1, 1, 2], True)]
+    assert multimer["ranking_confidence"] == pytest.approx(0.74)
+    assert multimer["predicted_aligned_error"].shape == (3, 3)
+    assert monomer["ranking_confidence"] == pytest.approx(80.0)
+    assert "iptm" not in monomer
 
 
 def test_postprocess_ranks_models_relaxes_best_and_runs_cleanup(
@@ -1262,6 +1341,61 @@ def test_fixed_msa_depth_shares_one_runner_at_that_depth(af2_backend_module):
     assert first is second
     evoformer = first.config["model"]["embeddings_and_evoformer"]
     assert (evoformer["num_msa"], evoformer["num_extra_msa"]) == (48, 192)
+
+
+def test_setup_enables_fused_kernels_for_multimer_models_only(af2_backend_module, monkeypatch):
+    choice = af2_backend_module.fast_kernels_policy.KernelChoice(
+        True, "--fast_kernels=auto", compute_capability=90, package_version="0.4.0"
+    )
+    modes = []
+    monkeypatch.setattr(
+        af2_backend_module.fast_kernels_policy, "resolve", lambda mode: modes.append(mode) or choice
+    )
+    monkeypatch.setitem(
+        sys.modules["alphafold.model.config"].MODEL_PRESETS, "monomer_ptm", ("model_1_ptm",)
+    )
+
+    multimer = af2_backend_module.AlphaFold2Backend.setup(
+        model_name="multimer", num_cycle=3, model_dir="/models",
+        num_predictions_per_model=1, fast_kernels="auto",
+    )["model_runners"]["model_1_multimer_v3_pred_0"]
+    monomer = af2_backend_module.AlphaFold2Backend.setup(
+        model_name="monomer_ptm", num_cycle=3, model_dir="/models",
+        num_predictions_per_model=1, fast_kernels="auto",
+    )["model_runners"]["model_1_ptm_pred_0"]
+
+    assert modes == ["auto", "auto"]
+    assert multimer.config.model.global_config["use_pallas"] is True
+    assert multimer.config.model.global_config["compute_capability"] == 90
+    # Monomer models run fp32; the kernels are bf16.
+    assert "use_pallas" not in monomer.config.model.global_config
+
+
+def test_setup_defaults_to_the_stock_code(af2_backend_module):
+    runner = af2_backend_module.AlphaFold2Backend.setup(
+        model_name="multimer", num_cycle=3, model_dir="/models", num_predictions_per_model=1,
+    )["model_runners"]["model_1_multimer_v3_pred_0"]
+
+    assert "use_pallas" not in runner.config.model.global_config
+
+
+def test_inference_kernels_record_names_each_model(af2_backend_module, tmp_path):
+    def runner(use_pallas):
+        global_config = {"use_pallas": True, "compute_capability": 86} if use_pallas else {}
+        return SimpleNamespace(config=_ConfigNode(
+            {"model": _ConfigNode({"global_config": _ConfigNode(global_config)})}
+        ))
+
+    af2_backend_module._record_inference_kernels(tmp_path, "model_1", runner(True))
+    af2_backend_module._record_inference_kernels(tmp_path, "model_2", runner(False))
+    # Not an AlphaFold RunModel: nothing is recorded, nothing fails.
+    af2_backend_module._record_inference_kernels(tmp_path, "model_3", object())
+
+    record = json.loads((tmp_path / "inference_kernels.json").read_text())
+    assert record == {
+        "model_1": {"compute_capability": 86, "fused_kernels": True},
+        "model_2": {"compute_capability": None, "fused_kernels": False},
+    }
 
 
 def test_setup_without_msa_depth_options_shares_one_runner_per_model(af2_backend_module):
