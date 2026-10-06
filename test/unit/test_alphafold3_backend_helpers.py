@@ -796,7 +796,6 @@ def test_predict_structure_writes_final_msa_and_collects_optional_outputs(
     example = {
         "msa": np.asarray([[1, 2, 3], [4, 5, 6]], dtype=np.int32),
         "num_alignments": 1,
-        "token_index": np.arange(3),
     }
     inference_result = af3_backend_module.model.InferenceResult(
         predicted_structure=None,
@@ -815,10 +814,6 @@ def test_predict_structure_writes_final_msa_and_collects_optional_outputs(
     )
 
     class FakeRunner:
-        kernel_mode = 'off'
-        kernel_reason = '--fast_kernels=off'
-        config = SimpleNamespace(global_config=SimpleNamespace())
-
         def run_inference(self, batch, rng_key):
             return {
                 "single_embeddings": np.asarray([[1.0], [2.0], [3.0]], dtype=np.float32),
@@ -845,9 +840,45 @@ def test_predict_structure_writes_final_msa_and_collects_optional_outputs(
     assert results[0].distogram.shape == (2, 2)
     final_msa = tmp_path / "job_name_seed-7_final_complex_msa.a3m"
     assert final_msa.read_text(encoding="utf-8") == ">query\nABC\n"
-    metadata = json.loads((tmp_path / 'inference_kernels.json').read_text())
-    assert metadata['seed_7']['padded_tokens'] == 3
-    assert metadata['seed_7']['fused_kernels'] is False
+
+
+def test_predict_structure_records_fused_triangle_kernels_per_seed(
+    af3_backend_module,
+    monkeypatch,
+    tmp_path,
+):
+    fold_input = af3_backend_module.folding_input.Input(
+        name="job", chains=("A",), rng_seeds=(7,)
+    )
+    example = {"token_index": np.arange(3)}
+    monkeypatch.setattr(
+        af3_backend_module.featurisation, "featurise_input", lambda **kwargs: [example]
+    )
+
+    class FakeRunner:
+        fused_triangles = af3_backend_module.af3_fused_triangles.OFF
+        config = SimpleNamespace(global_config=SimpleNamespace())
+
+        def run_inference(self, batch, rng_key):
+            return {}
+
+        def extract_structures(self, batch, result, target_name):
+            return []
+
+    af3_backend_module.predict_structure(
+        fold_input=fold_input, model_runner=FakeRunner(), output_dir=tmp_path
+    )
+
+    record = json.loads((tmp_path / "inference_kernels.json").read_text())
+    assert record == {
+        "seed_7": {
+            "backend": "alphafold3",
+            "requested_mode": "off",
+            "padded_tokens": 3,
+            "fused_kernels": False,
+            "reason": "--fast_kernels=off",
+        }
+    }
 
 
 def test_af3_setup_builds_model_runner_and_validates_gpu_capability(
@@ -926,24 +957,6 @@ def test_af3_setup_builds_model_runner_and_validates_gpu_capability(
     # Before the first trace, or the second prediction recompiles the model.
     assert tokamax_context == [True]
 
-    decisions = []
-    settings = {'triangle_multiplication_implementation': 'pallas',
-                'triangle_attention_implementation': 'auto',
-                'fused_triangle_compute_capability': '8.0',
-                'fused_triangle_memory_gib': 38.0}
-    def resolve(mode, *, backend, device):
-        decisions.append((mode, backend, device.compute_capability))
-        return af3_backend_module.fast_kernels_policy.AF3KernelChoice(True, 'tested', settings)
-    monkeypatch.setattr(af3_backend_module.fast_kernels_policy, 'resolve', resolve)
-    fast_runner = af3_backend_module.AlphaFold3Backend.setup(
-        num_diffusion_samples=1, flash_attention_implementation='triton',
-        buckets=[128], jax_compilation_cache_dir=None,
-        model_dir=str(tmp_path / 'models'), fast_kernels='auto')['model_runner']
-    assert decisions == [('auto', 'alphafold3', 8.0)]
-    for key, value in settings.items():
-        assert getattr(fast_runner.config.global_config, key) == value
-    assert (fast_runner.kernel_mode, fast_runner.kernel_reason) == ('auto', 'tested')
-
     monkeypatch.setattr(
         af3_backend_module.jax,
         "local_devices",
@@ -957,6 +970,77 @@ def test_af3_setup_builds_model_runner_and_validates_gpu_capability(
             jax_compilation_cache_dir=None,
             model_dir=str(tmp_path / "models"),
         )
+
+
+def _stub_af3_setup(af3_backend_module, monkeypatch, device) -> None:
+    """Stub what AlphaFold3Backend.setup needs besides the fused-triangle decision."""
+
+    class FakeConfig:
+        def __init__(self):
+            self.global_config = SimpleNamespace(flash_attention_implementation=None)
+
+    monkeypatch.setattr(
+        sys.modules["alphafold3.model.model"],
+        "Model",
+        type("FakeModel", (), {"Config": FakeConfig}),
+    )
+    monkeypatch.setattr(
+        af3_backend_module.jax, "local_devices", lambda backend="gpu": [device]
+    )
+    monkeypatch.setattr(
+        af3_backend_module, "_initialise_tokamax_trace_context", lambda: None
+    )
+
+
+def _af3_setup(af3_backend_module, tmp_path, **kwargs):
+    return af3_backend_module.AlphaFold3Backend.setup(
+        num_diffusion_samples=1,
+        flash_attention_implementation="triton",
+        buckets=[128],
+        jax_compilation_cache_dir=None,
+        model_dir=str(tmp_path / "models"),
+        **kwargs,
+    )["model_runner"]
+
+
+def test_af3_setup_keeps_the_original_triangle_layers_by_default(
+    af3_backend_module, monkeypatch, tmp_path
+):
+    _stub_af3_setup(af3_backend_module, monkeypatch, SimpleNamespace(compute_capability=8.0))
+
+    runner = _af3_setup(af3_backend_module, tmp_path)
+
+    assert runner.fused_triangles == af3_backend_module.af3_fused_triangles.OFF
+    assert vars(runner.config.global_config) == {"flash_attention_implementation": "triton"}
+
+
+def test_af3_setup_applies_the_fused_triangle_choice_for_its_gpu(
+    af3_backend_module, monkeypatch, tmp_path
+):
+    device = SimpleNamespace(compute_capability=8.0)
+    _stub_af3_setup(af3_backend_module, monkeypatch, device)
+    settings = {
+        "triangle_multiplication_implementation": "pallas",
+        "triangle_attention_implementation": "auto",
+        "fused_triangle_compute_capability": "8.0",
+        "fused_triangle_memory_gib": 38.0,
+    }
+    choice = af3_backend_module.af3_fused_triangles.FusedTriangleChoice(
+        True, "--fast_kernels=auto", "auto", settings
+    )
+    decisions = []
+    monkeypatch.setattr(
+        af3_backend_module.af3_fused_triangles,
+        "resolve",
+        lambda mode, gpu: decisions.append((mode, gpu)) or choice,
+    )
+
+    runner = _af3_setup(af3_backend_module, tmp_path, fast_kernels="auto")
+
+    assert decisions == [("auto", device)]
+    assert runner.fused_triangles is choice
+    for key, value in settings.items():
+        assert getattr(runner.config.global_config, key) == value
 
 
 def test_af3_tokamax_trace_context_is_created_by_its_own_hook(

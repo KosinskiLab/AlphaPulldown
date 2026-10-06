@@ -35,6 +35,8 @@ LIGHT_MODULES = (
     "alphapulldown.prediction.jax_compilation_cache",
     # And checks the fused-kernel requirements only when a mode other than off is resolved.
     "alphapulldown.prediction.fast_kernels",
+    # The AF3 backend imports it, so it must not import JAX or the fork either.
+    "alphapulldown.prediction.af3_fused_triangles",
     # Compatibility paths must retain the same lightweight behavior.
     "alphapulldown.feature_batch",
     "alphapulldown.af2_feature_finalizer",
