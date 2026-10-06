@@ -197,7 +197,10 @@ def collect_runs(bench: Path, folds: dict):
         arm = arm.split("#")[0]  # chunked arms run as <arm>#<tag>, one directory per chunk
         samples = gpu_memory(run)
         gpu_name = (run / "gpu.txt").read_text().split(",")[0].strip() if (run / "gpu.txt").exists() else gpu
-        if not gpu_name.startswith("NVIDIA"):  # MIG runs before the label fix wrote "No devices were found"
+        if gpu == "b4500":  # MIG: runs before the label fix wrote "No devices were found", later ones
+            # the parent card's name; one canonical name keeps them comparable.
+            gpu_name = next(name for label, name, _ in CLUSTER_GPUS if label == "b4500")
+        elif not gpu_name.startswith("NVIDIA"):
             gpu_name = next((name for label, name, _ in CLUSTER_GPUS if label == gpu), gpu)
         for r in read_tsv(run / "runs.tsv"):
             fold, tag = r["fold"], r["tag"]
