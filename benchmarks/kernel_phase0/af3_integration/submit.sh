@@ -35,7 +35,10 @@ git -C "$FORK_REPO" rev-parse "$BASELINE_COMMIT^{commit}" > "$SNAPSHOT/baseline_
 git -C "$FORK_REPO" archive "$BASELINE_COMMIT" src/alphafold3/model src/alphafold3/jax | tar -x -C "$SNAPSHOT/baseline"
 cp "$BENCH/inputs/folds.json" "$SNAPSHOT/inputs.json"
 "$HOST_PY" "$SNAPSHOT/harness/af3_integration/prepare_inputs.py" "$SNAPSHOT"
-taskset -c 0-3 apptainer exec --cleanenv --bind "$BENCH" "$SIF_AP_AF3" \
+# Keep the CPU work off the login node's other users; inside a SLURM allocation CPUs 0-3 may not be ours, and the
+# allocation already confines it.
+PIN=(); taskset -c 0-3 true 2>/dev/null && PIN=(taskset -c 0-3)
+"${PIN[@]}" apptainer exec --cleanenv --bind "$BENCH" "$SIF_AP_AF3" \
   python "$SNAPSHOT/harness/af3_integration/prepare_template.py" "$SNAPSHOT" "$BENCH/inputs/natives/8B2R.cif"
 find "$SNAPSHOT" -type f -not -path '*/__pycache__/*' -exec sha256sum {} + > "$CAMPAIGN/SHA256SUMS"
 export CAMPAIGN SNAPSHOT
