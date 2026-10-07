@@ -4112,6 +4112,173 @@ class TestAlphaFold3RunModes(_TestBase):
         )
 
 
+def _non_finite_values(payload: Any, where: str = "") -> list[str]:
+    """Paths of NaN or infinite numbers in a parsed JSON payload."""
+    if isinstance(payload, dict):
+        items = ((f"{where}.{key}", value) for key, value in payload.items())
+    elif isinstance(payload, list):
+        items = ((f"{where}[{index}]", value) for index, value in enumerate(payload))
+    else:
+        items = ()
+    nested = [bad for path, value in items for bad in _non_finite_values(value, path)]
+    if nested:
+        return nested
+    if isinstance(payload, float) and not np.isfinite(payload):
+        return [where]
+    return []
+
+
+class TestAlphaFold3FastKernels(_TestBase):
+    """--fast_kernels for AF3 on a GPU, and one model compile per process.
+
+    Select with -k TestAlphaFold3FastKernels. ``on`` skips with the backend's reason on
+    a GPU the fork's policy does not enable; ``auto`` must then fall back.
+    """
+
+    FOLD = "A0A075B6L2:1"
+    UNAVAILABLE = "AF3 fused triangle kernels are unavailable"
+
+    def _fold(self, mode: str) -> subprocess.CompletedProcess:
+        self._require_af3_functional_environment()
+        return subprocess.run(
+            [
+                sys.executable,
+                str(self.script_single),
+                f"--input={self.FOLD}",
+                f"--output_directory={self.output_dir}",
+                f"--data_directory={DATA_DIR}",
+                f"--features_directory={self.test_features_dir}",
+                "--fold_backend=alphafold3",
+                f"--flash_attention_implementation={self._af3_flash_attention_impl()}",
+                "--num_diffusion_samples=1",
+                "--num_seeds=2",
+                f"--fast_kernels={mode}",
+            ],
+            capture_output=True,
+            text=True,
+            env=self._make_af3_test_env(),
+        )
+
+    def _kernel_records(self, mode: str) -> dict[str, dict[str, Any]]:
+        """inference_kernels.json of a finished fold: one record per seed, outputs finite."""
+        result_dir = self._resolve_single_af3_result_dir()
+        with (result_dir / "ranking_scores.csv").open() as handle:
+            seeds = {line.split(",")[0] for line in handle.readlines()[1:] if line.strip()}
+        records = json.loads((result_dir / "inference_kernels.json").read_text())
+        self.assertEqual(set(records), {f"seed-{seed}" for seed in seeds})
+        self.assertLen(records, 2)
+        for key, record in records.items():
+            self.assertEqual(record["backend"], "alphafold3", key)
+            self.assertEqual(record["requested_mode"], mode, key)
+            self.assertIsInstance(record["padded_tokens"], int, key)
+        confidences = sorted(result_dir.rglob("*confidences.json"))
+        self.assertTrue(confidences, f"no confidences in {result_dir}")
+        for path in confidences:
+            self.assertEqual(_non_finite_values(json.loads(path.read_text())), [], path)
+        return records
+
+    def _assert_fused(self, records: dict[str, dict[str, Any]]) -> None:
+        for key, record in records.items():
+            self.assertTrue(record["fused_kernels"], (key, record))
+            self.assertIn("policy_version", record, key)
+            self.assertEqual(
+                set(record["operations"]),
+                {
+                    f"{operation}_c{channels}"
+                    for operation in ("triangle_multiplication", "triangle_attention")
+                    for channels in (128, 64)
+                },
+                key,
+            )
+
+    def test_af3_fast_kernels_off_keeps_the_original_layers(self):
+        res = self._fold("off")
+        self._runCommonTests(res)
+
+        for key, record in self._kernel_records("off").items():
+            self.assertFalse(record["fused_kernels"], key)
+            self.assertEqual(record["reason"], "--fast_kernels=off", key)
+            self.assertNotIn("operations", record, key)
+
+    def test_af3_fast_kernels_on_runs_the_fused_layers(self):
+        res = self._fold("on")
+        log = res.stdout + res.stderr
+        if res.returncode != 0 and f"--fast_kernels=on, but {self.UNAVAILABLE}" in log:
+            reason = next(line for line in log.splitlines() if self.UNAVAILABLE in line)
+            self.skipTest(f"this GPU cannot run the fused triangles: {reason.strip()}")
+        self._runCommonTests(res)
+
+        self._assert_fused(self._kernel_records("on"))
+
+    def test_af3_fast_kernels_auto_uses_them_where_the_gpu_can(self):
+        res = self._fold("auto")
+        self._runCommonTests(res)
+
+        records = self._kernel_records("auto")
+        if any(record["fused_kernels"] for record in records.values()):
+            self._assert_fused(records)
+        else:
+            for key, record in records.items():
+                self.assertTrue(
+                    record["reason"].startswith(f"--fast_kernels=auto: {self.UNAVAILABLE}"),
+                    (key, record),
+                )
+
+    def test_af3_identical_folds_compile_the_model_once(self):
+        """Three identical folds in one process: one jit(apply_fn) compile (1afe779e)."""
+        self._require_af3_functional_environment()
+        manifest = self.output_dir / "manifest.jsonl"
+        jobs = [f"repeat_{index}" for index in range(1, 4)]
+        manifest.write_text(
+            "".join(
+                json.dumps(
+                    {
+                        "job_id": job,
+                        "input": self.FOLD,
+                        "output_directory": str(self.output_dir / job),
+                    }
+                )
+                + "\n"
+                for job in jobs
+            )
+        )
+        env = self._make_af3_test_env()
+        env["JAX_LOG_COMPILES"] = "1"
+
+        res = subprocess.run(
+            [
+                sys.executable,
+                str(self.script_single.parent / "run_structure_prediction_batch.py"),
+                f"--manifest={manifest}",
+                f"--data_directory={DATA_DIR}",
+                f"--features_directory={self.test_features_dir}",
+                "--fold_backend=alphafold3",
+                f"--flash_attention_implementation={self._af3_flash_attention_impl()}",
+                "--num_diffusion_samples=1",
+                # A cache load would hide a recompile.
+                "--jax_compilation_cache_dir=none",
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        self.assertEqual(
+            res.returncode, 0, f"batch failed.\nSTDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}"
+        )
+
+        log = res.stdout + res.stderr
+        for job in jobs:
+            self.assertTrue(
+                list((self.output_dir / job).rglob("ranking_scores.csv")),
+                f"{job} wrote no predictions",
+            )
+        self.assertEqual(log.count("Finished XLA compilation of jit(apply_fn)"), 1)
+        # "tracing + transforming apply_fn for pjit" on jax 0.9, "tracing apply_fn for jit"
+        # on jax 0.10.
+        traces = re.findall(r"Finished tracing (?:\+ transforming )?apply_fn for p?jit", log)
+        self.assertLen(traces, 1)
+
+
 # --------------------------------------------------------------------------- #
 def _parse_test_args():
     """Parse test-specific arguments that work with both absltest and pytest."""
