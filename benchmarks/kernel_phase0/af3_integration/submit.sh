@@ -8,7 +8,10 @@ AP_REPO=${AP_REPO:-/scratch/dima/ap-af3-fused-triangle}
 FORK_REPO=${FORK_REPO:-/scratch/dima/af3-fused-triangle}
 # The fork commit every arm is compared against: fork main updated to AlphaFold 3 v3.0.3, the parent of the fused-triangle
 # work and the alphafold3 that the AlphaPulldown 2.9.0 image ships (its model/ and jax/ are byte-identical to it).
-BASELINE_COMMIT=86b9ea3
+BASELINE_COMMIT=${BASELINE_COMMIT:-86b9ea3}
+# On an image with another alphafold3 (e.g. the AlphaFold 3 v3.0.4 / jax 0.10.2 image) set BASELINE_COMMIT to the fork commit
+# that image ships without the fused-triangle work (v3.0.4: 758d767, fork main after KosinskiLab/alphafold3#3), and SIF_AP_AF3
+# to that image: `baseline` must be the same alphafold3 as `off`, minus the kernels, for the identity check to mean anything.
 # The layers suite runs gate0_layers.py against the kit's frozen core; gate0/submit_gate0.sh documents the export.
 KIT=$BENCH/gate0/src/kit_f4f62fa6/common/opt_core
 [ -d "$KIT" ] || { echo "missing frozen kit core $KIT (git archive f4f62fa6 common/opt_core, see gate0/submit_gate0.sh)" >&2; exit 1; }
@@ -67,10 +70,14 @@ for gpu in ${*:-a40 h100 a100 l40s 3090 rtx6000}; do
       for arm in off on; do submit "$gpu" inputs "$arm" 'protein_rna protein_ligand populated_template' 0 2 "$pilot"; done ;;
     esac
   fi
+  if [ "$MODE" = followup ]; then                # seed sweeps of folds the paired accuracy rule flagged (both arms)
+    submit "$gpu" accuracy off "${FOLLOWUP_FOLDS:-acc_8JTK acc_9HH5}" "${FOLLOWUP_SEEDS:-0 1 2 3 4 5 6 7 8 9}" 1 "$pilot"
+    submit "$gpu" accuracy on "${FOLLOWUP_FOLDS:-acc_8JTK acc_9HH5}" "${FOLLOWUP_SEEDS:-0 1 2 3 4 5 6 7 8 9}" 1 "$pilot"
+  fi
 done
 collector=$(sbatch --parsable --qos=high --dependency="afterany$all" -J af3i-collect -o "$CAMPAIGN/logs/collect_%j.log" --export=ALL \
   "$SNAPSHOT/harness/af3_integration/collect.sbatch")
 printf '%s\n' "$collector" > "$CAMPAIGN/COLLECTOR_JOB"
-printf 'campaign=%s\ncollector=%s\n' "$CAMPAIGN" "$collector" | tee "$CAMPAIGN/SUBMITTED.txt"
+printf 'campaign=%s\ncollector=%s\nimage_af3=%s\nbaseline=%s\n' "$CAMPAIGN" "$collector" "$SIF_AP_AF3" "$BASELINE_COMMIT" | tee "$CAMPAIGN/SUBMITTED.txt"
 # Retry infrastructure failures (broken node, NODE_FAIL, CUDA start-up, one timeout) and re-collect when everything is final.
 "$CODE/af3_integration/start_supervisor.sh" "$CAMPAIGN" | tee -a "$CAMPAIGN/SUBMITTED.txt"
