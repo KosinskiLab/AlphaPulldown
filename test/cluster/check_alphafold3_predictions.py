@@ -4117,22 +4117,6 @@ class TestAlphaFold3RunModes(_TestBase):
         )
 
 
-def _non_finite_values(payload: Any, where: str = "") -> list[str]:
-    """Paths of NaN or infinite numbers in a parsed JSON payload."""
-    if isinstance(payload, dict):
-        items = ((f"{where}.{key}", value) for key, value in payload.items())
-    elif isinstance(payload, list):
-        items = ((f"{where}[{index}]", value) for index, value in enumerate(payload))
-    else:
-        items = ()
-    nested = [bad for path, value in items for bad in _non_finite_values(value, path)]
-    if nested:
-        return nested
-    if isinstance(payload, float) and not np.isfinite(payload):
-        return [where]
-    return []
-
-
 class TestAlphaFold3FastKernels(_TestBase):
     """--fast_kernels for AF3 on a GPU, and one model compile per process.
 
@@ -4186,7 +4170,7 @@ class TestAlphaFold3FastKernels(_TestBase):
         )
 
     def _kernel_records(self, mode: str) -> dict[str, dict[str, Any]]:
-        """inference_kernels.json of a finished fold: one record per seed, outputs finite."""
+        """inference_kernels.json of a finished fold: one record per seed, scores finite."""
         result_dir = self._resolve_single_af3_result_dir()
         with (result_dir / "ranking_scores.csv").open() as handle:
             seeds = {line.split(",")[0] for line in handle.readlines()[1:] if line.strip()}
@@ -4200,7 +4184,8 @@ class TestAlphaFold3FastKernels(_TestBase):
         confidences = sorted(result_dir.rglob("*confidences.json"))
         self.assertTrue(confidences, f"no confidences in {result_dir}")
         for path in confidences:
-            self.assertEqual(_non_finite_values(json.loads(path.read_text())), [], path)
+            problems = af3_gpu_checks.confidence_problems(path.name, json.loads(path.read_text()))
+            self.assertEqual(problems, [], path)
         return records
 
     def _assert_fused(self, records: dict[str, dict[str, Any]]) -> None:

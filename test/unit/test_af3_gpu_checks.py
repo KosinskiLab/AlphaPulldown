@@ -1,8 +1,9 @@
-"""The AF3 GPU tests' own checks, which must judge a GPU and its outputs without JAX."""
+"""The AF3 GPU tests' own checks, which judge a GPU and its outputs without JAX."""
 
 from __future__ import annotations
 
 import importlib.util
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -133,3 +134,123 @@ def test_the_check_reads_the_forks_policy_without_importing_jax():
     result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
 
     assert result.returncode == 0, result.stderr
+
+
+# --------------------------------------------------------------------------------------
+# Are the scores AF3 wrote real numbers? AF3 writes NaN as null.
+
+MONOMER_SUMMARY = """{
+ "chain_iptm": [null], "chain_pair_iptm": [[0.84]], "chain_pair_pae_min": [[0.76]],
+ "chain_ptm": [0.84], "fraction_disordered": 0.0, "has_clash": 0.0, "iptm": null,
+ "ptm": 0.84, "ranking_score": 0.84, "chain_ids": ["A"]
+}"""
+DIMER_SUMMARY = """{
+ "chain_iptm": [0.61, 0.61], "chain_pair_iptm": [[0.8, 0.61], [0.61, 0.79]],
+ "chain_pair_pae_min": [[0.8, 4.2], [4.3, 0.8]], "chain_ptm": [0.8, 0.79],
+ "fraction_disordered": 0.05, "has_clash": 0.0, "iptm": 0.61, "ptm": 0.7,
+ "ranking_score": 0.66
+}"""
+FULL = """{
+ "atom_chain_ids": ["A", "A"], "atom_plddts": [91.2, 88.4],
+ "contact_probs": [[1.0, 0.9], [0.9, 1.0]], "pae": [[0.8, 1.4], [1.3, 0.8]],
+ "token_chain_ids": ["A", "A"], "token_res_ids": [1, 2]
+}"""
+
+
+def _summary(text: str, **changes) -> dict:
+    payload = json.loads(text)
+    payload.update(changes)
+    return payload
+
+
+def test_a_monomer_may_have_no_iptm():
+    assert checks.confidence_problems("summary_confidences.json", _summary(MONOMER_SUMMARY)) == []
+
+
+def test_complete_dimer_and_full_confidences_pass():
+    assert checks.confidence_problems("x_summary_confidences.json", _summary(DIMER_SUMMARY)) == []
+    assert checks.confidence_problems("confidences.json", json.loads(FULL)) == []
+
+
+@pytest.mark.parametrize(
+    "changes, problem",
+    [
+        ({"ptm": None}, "ptm is null (NaN)"),
+        ({"ranking_score": None}, "ranking_score is null (NaN)"),
+        ({"chain_ptm": [None]}, "chain_ptm[0] is null (NaN)"),
+        ({"chain_pair_iptm": [[None]]}, "chain_pair_iptm[0][0] is null (NaN)"),
+        ({"ptm": float("nan")}, "ptm is nan"),
+        ({"fraction_disordered": float("inf")}, "fraction_disordered is inf"),
+        ({"ptm": True}, "ptm is a boolean, not a number"),
+        ({"ptm": "0.84"}, "ptm is not a number: '0.84'"),
+        ({"ptm": [0.84]}, "ptm is an array, not a number"),
+        ({"chain_ptm": []}, "chain_ptm is not a non-empty array: []"),
+    ],
+)
+def test_missing_or_non_finite_monomer_scores_fail(changes, problem):
+    problems = checks.confidence_problems(
+        "summary_confidences.json", _summary(MONOMER_SUMMARY, **changes)
+    )
+
+    assert problem in problems, problems
+
+
+def test_nan_written_by_python_json_fails():
+    payload = json.loads(MONOMER_SUMMARY.replace('"ptm": 0.84', '"ptm": NaN'))
+
+    assert checks.confidence_problems("summary_confidences.json", payload) == ["ptm is nan"]
+
+
+def test_a_missing_score_fails():
+    payload = _summary(MONOMER_SUMMARY)
+    del payload["ranking_score"]
+
+    assert checks.confidence_problems("summary_confidences.json", payload) == [
+        "ranking_score is missing"
+    ]
+
+
+def test_has_clash_may_be_a_boolean():
+    payload = _summary(MONOMER_SUMMARY, has_clash=False)
+
+    assert checks.confidence_problems("summary_confidences.json", payload) == []
+
+
+@pytest.mark.parametrize(
+    "changes, problem",
+    [
+        ({"iptm": None}, "iptm is null (NaN)"),
+        ({"chain_iptm": [0.61, None]}, "chain_iptm[1] is null (NaN)"),
+    ],
+)
+def test_a_complex_must_have_an_iptm(changes, problem):
+    problems = checks.confidence_problems(
+        "summary_confidences.json", _summary(DIMER_SUMMARY, **changes)
+    )
+
+    assert problems == [problem]
+
+
+@pytest.mark.parametrize(
+    "field, value, problem",
+    [
+        ("atom_plddts", [91.2, None], "atom_plddts[1] is null (NaN)"),
+        ("pae", [[0.8, float("nan")], [1.3, 0.8]], "pae[0][1] is nan"),
+        ("contact_probs", None, "contact_probs is not a non-empty array: None"),
+    ],
+)
+def test_full_confidences_need_finite_plddt_pae_and_contacts(field, value, problem):
+    payload = json.loads(FULL)
+    payload[field] = value
+
+    assert checks.confidence_problems("seed-1_sample-0/confidences.json", payload) == [problem]
+
+
+def test_an_all_nan_array_is_reported_briefly():
+    payload = json.loads(FULL)
+    payload["pae"] = [[None] * 64 for _ in range(64)]
+
+    problems = checks.confidence_problems("confidences.json", payload)
+
+    assert problems[:5] == [f"pae[0][{index}] is null (NaN)" for index in range(5)]
+    assert problems[5:] == [f"pae: {64 * 64 - 5} more"]

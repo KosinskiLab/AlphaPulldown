@@ -8,6 +8,7 @@ the fold it starts.
 from __future__ import annotations
 
 import dataclasses
+import math
 import re
 import shutil
 import subprocess
@@ -131,3 +132,94 @@ def fused_triangle_support(
     if policy.enabled:
         return Support(True, detail)
     return Support(False, f"{detail}: {policy.reason}")
+
+
+# --------------------------------------------------------------------------------------
+# Are the scores AF3 wrote real numbers?
+
+# summary_confidences.json, as confidence_types.StructureConfidenceSummary writes it:
+# field -> whether it is an array (chain_pair_* are [num_chains, num_chains]).
+_SUMMARY_FIELDS = {
+    "ptm": False,
+    "iptm": False,
+    "ranking_score": False,
+    "fraction_disordered": False,
+    "has_clash": False,
+    "chain_ptm": True,
+    "chain_iptm": True,
+    "chain_pair_iptm": True,
+    "chain_pair_pae_min": True,
+}
+# AF3 defines ipTM only between chains: with one chain, iptm and the cross-chain
+# chain_iptm are NaN (model.py, confidences.get_ranking_score). Nothing else may be.
+_SINGLE_CHAIN_NULLABLE = frozenset({"iptm", "chain_iptm"})
+# AF3 writes has_clash as 0.0 or 1.0; a boolean means the same.
+_BOOLEAN_FIELDS = frozenset({"has_clash"})
+# confidences.json (StructureConfidenceFull): per-atom pLDDT, per-token-pair PAE and
+# contact probabilities.
+_FULL_ARRAYS = ("atom_plddts", "pae", "contact_probs")
+# Problems listed per field, so that an all-NaN PAE does not flood the report.
+_MAX_PROBLEMS_PER_FIELD = 5
+
+
+def confidence_problems(name: str, payload: Any) -> list[str]:
+    """What is wrong with the scores in one AF3 confidences file; empty when nothing.
+
+    ``name`` (the file name) picks the format: ``*summary_confidences.json`` or
+    ``*confidences.json``. Every score must be present, a number and finite, and arrays
+    element by element. AF3 writes NaN as JSON null, so null counts as NaN, except
+    where AF3 defines the score as NaN: ipTM of a single-chain prediction.
+    """
+    if name.endswith("summary_confidences.json"):
+        fields = _SUMMARY_FIELDS
+    elif name.endswith("confidences.json"):
+        fields = dict.fromkeys(_FULL_ARRAYS, True)
+    else:
+        raise ValueError(f"not an AF3 confidences file: {name}")
+    if not isinstance(payload, dict):
+        return [f"not a JSON object: {type(payload).__name__}"]
+    chain_ptm = payload.get("chain_ptm")
+    single_chain = isinstance(chain_ptm, list) and len(chain_ptm) == 1
+    problems = []
+    for field, is_array in fields.items():
+        if field not in payload:
+            problems.append(f"{field} is missing")
+            continue
+        value = payload[field]
+        if is_array and not (isinstance(value, list) and value):
+            problems.append(f"{field} is not a non-empty array: {value!r:.60}")
+            continue
+        if not is_array and isinstance(value, list):
+            problems.append(f"{field} is an array, not a number")
+            continue
+        found = _number_problems(
+            field,
+            value,
+            nullable=single_chain and field in _SINGLE_CHAIN_NULLABLE,
+            boolean=field in _BOOLEAN_FIELDS,
+        )
+        if len(found) > _MAX_PROBLEMS_PER_FIELD:
+            more = len(found) - _MAX_PROBLEMS_PER_FIELD
+            found = [*found[:_MAX_PROBLEMS_PER_FIELD], f"{field}: {more} more"]
+        problems.extend(found)
+    return problems
+
+
+def _number_problems(where: str, value: Any, *, nullable: bool, boolean: bool) -> list[str]:
+    if isinstance(value, list):
+        return [
+            problem
+            for index, element in enumerate(value)
+            for problem in _number_problems(
+                f"{where}[{index}]", element, nullable=nullable, boolean=boolean
+            )
+        ]
+    if value is None:
+        return [] if nullable else [f"{where} is null (NaN)"]
+    if isinstance(value, bool):
+        return [] if boolean else [f"{where} is a boolean, not a number"]
+    if not isinstance(value, (int, float)):
+        return [f"{where} is not a number: {value!r:.60}"]
+    if not math.isfinite(value):
+        return [f"{where} is {value}"]
+    return []
