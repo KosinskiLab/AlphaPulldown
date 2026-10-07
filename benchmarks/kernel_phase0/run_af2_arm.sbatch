@@ -70,7 +70,7 @@ predict() {  # $1 fold  $2 seed  $3 tag ; writes logs/$tag.log, out/$tag/
   local fold=$1 seed=$2 tag=$3 in=$RUN/in/$3 out=$RUN/out/$3 r
   rm -rf "$in" "$out"; mkdir -p "$in" "$out"
   case $ARM in
-    ap_stock|ap_fast|ap_fork_off|ap_stock_sb128|ap_fast_sb128)
+    ap_stock|ap_fast|ap_fork_off|ap_stock_sb128|ap_fast_sb128|ap_rc_off|ap_rc_on)
       local spec; spec=$("$HOST_PY" -c "import json;print(next(x['fold'] for x in json.load(open('$BENCH/inputs/folds.json')) if x['name']=='$fold'))")
       for r in $(seq 1 "$REPS"); do
         printf '{"job_id": "%s_r%d", "input": "%s", "output_directory": "%s/%s_r%d"}\n' "$fold" "$r" "$spec" "$out" "$fold" "$r"
@@ -81,11 +81,15 @@ predict() {  # $1 fold  $2 seed  $3 tag ; writes logs/$tag.log, out/$tag/
       case $ARM in ap_fast*|ap_fork_off) overlay=(--env "PYTHONPATH=$AF_FORK:$CFK_PKGS" --bind "$AF_FORK" --bind "$CFK_PKGS") ;; esac
       case $ARM in ap_fast*) overlay+=(--env AP_FUSED_KERNELS=1) ;; esac
       case $ARM in *_sb128) overlay+=(--env AP_SUBBATCH=128) ;; esac
+      # ap_rc_off / ap_rc_on: a release-candidate image (SIF_AP_AF2) running its own code, no overlay, with the real
+      # --fast_kernels flag; the speed-up that release ships.
+      local kflag=()
+      case $ARM in ap_rc_on) kflag=(--fast_kernels on) ;; ap_rc_off) kflag=(--fast_kernels off) ;; esac
       apptainer exec --nv --cleanenv "${RUNENV[@]}" "${overlay[@]}" "${BINDS[@]}" "$SIF_AP_AF2" \
         python "$CODE/ap_fixed_recycles.py" --manifest "$in/manifest.jsonl" \
         --data_directory "$AF2_DATA" --features_directory "$BENCH/inputs/features" --fold_backend alphafold2 \
         --model_names model_1_multimer_v3 --num_cycle "$NUM_RECYCLE" --num_predictions_per_model 1 \
-        --skip_templates --random_seed "$seed" --remove_result_pickles --protein_delimiter + ;;
+        --skip_templates --random_seed "$seed" --remove_result_pickles --protein_delimiter + "${kflag[@]}" ;;
     cf163_stock|cf163_fast)
       for r in $(seq 1 "$REPS"); do ln -s "$BENCH/inputs/a3m/$fold.a3m" "$in/${fold}_r$r.a3m"; done
       local extra=(); [ "$ARM" = cf163_fast ] && extra=(--use-fast-kernels)
