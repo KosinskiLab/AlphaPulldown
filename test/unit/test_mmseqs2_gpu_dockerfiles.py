@@ -162,3 +162,17 @@ def test_alphafold2_image_checks_the_fused_kernels_import_with_its_final_jax():
     # After the last dependency change, so it checks what the image ships.
     assert kernels < jax < numpy < check
     assert "pip install" not in dockerfile[check:]
+
+
+def test_alphafold2_image_pins_openmm_to_cuda12_for_gpu_relax():
+    dockerfile = (REPOSITORY / "docker" / "alphafold2.dockerfile").read_text(
+        encoding="utf-8"
+    )
+    install = dockerfile[dockerfile.index('"openmm>=8.2"'):dockerfile.index("micromamba clean")]
+
+    # Unpinned, conda-forge OpenMM takes its CUDA 13 build, whose NVRTC 13.4 PTX the
+    # cluster's CUDA 13.1 drivers cannot load: GPU relax then fails every attempt.
+    assert '"cuda-version=12.8"' in install
+    assert "ls /opt/conda/conda-meta/cuda-nvrtc-12.*.json" in dockerfile
+    assert "! ls /opt/conda/conda-meta/cuda-nvrtc-13.*.json" in dockerfile
+    assert dockerfile.count("micromamba install") == 1
