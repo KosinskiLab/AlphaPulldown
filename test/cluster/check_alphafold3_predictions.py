@@ -4136,7 +4136,7 @@ class TestAlphaFold3FastKernels(_TestBase):
     """
 
     FOLD = "A0A075B6L2:1"
-    UNAVAILABLE = "AF3 fused triangle kernels are unavailable"
+    NOT_SUPPORTED = "AF3 fused triangle kernels are not supported here"
 
     def _fold(self, mode: str) -> subprocess.CompletedProcess:
         self._require_af3_functional_environment()
@@ -4203,8 +4203,8 @@ class TestAlphaFold3FastKernels(_TestBase):
     def test_af3_fast_kernels_on_runs_the_fused_layers(self):
         res = self._fold("on")
         log = res.stdout + res.stderr
-        if res.returncode != 0 and f"--fast_kernels=on, but {self.UNAVAILABLE}" in log:
-            reason = next(line for line in log.splitlines() if self.UNAVAILABLE in line)
+        if res.returncode != 0 and f"--fast_kernels=on, but {self.NOT_SUPPORTED}" in log:
+            reason = next(line for line in log.splitlines() if self.NOT_SUPPORTED in line)
             self.skipTest(f"this GPU cannot run the fused triangles: {reason.strip()}")
         self._runCommonTests(res)
 
@@ -4220,7 +4220,7 @@ class TestAlphaFold3FastKernels(_TestBase):
         else:
             for key, record in records.items():
                 self.assertTrue(
-                    record["reason"].startswith(f"--fast_kernels=auto: {self.UNAVAILABLE}"),
+                    record["reason"].startswith(f"--fast_kernels=auto: {self.NOT_SUPPORTED}"),
                     (key, record),
                 )
 

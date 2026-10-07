@@ -16,6 +16,12 @@ them fails now rather than in the middle of a prediction:
 * ``auto``: as ``on`` where the device can run them, the original layers (with a log
   line) elsewhere.
 
+Two reasons are told apart. The kernels are *not supported here* when the installed AF3
+has no fused-triangle hooks or the fork's policy does not enable this device; ``auto``
+then logs a warning. They *failed their self-check* when the device is supported but
+compiling or running them fails, or they return non-finite values: that is a kernel,
+driver or JAX bug, so ``auto`` logs it as an error before falling back.
+
 JAX and the fork are imported only when a mode other than ``off`` is resolved, or when
 the record of a model that requested the kernels is written.
 """
@@ -133,25 +139,52 @@ def resolve(mode: Any, device: jax.Device) -> FusedTriangleChoice:
     """Turn a ``--fast_kernels`` value into a decision for ``device``, checking it first.
 
     Raises:
-        ValueError: for an unknown mode, or for ``on`` when ``device`` cannot run the
-            kernels.
+        ValueError: for an unknown mode, or for ``on`` when the kernels are not supported
+            on ``device`` or fail their self-check there; the message says which.
     """
     mode = normalise_mode(mode)
     if mode == "off":
         return OFF
     try:
         settings = device_settings(device)
+    except Exception as exc:  # no hooks, or a device the fork's policy does not enable
+        return _fall_back(
+            mode, f"AF3 fused triangle kernels are not supported here: {exc}", exc
+        )
+    try:
         smoke_test(settings, device)
     except Exception as exc:  # any failure here would recur inside the model
-        problem = f"AF3 fused triangle kernels are unavailable: {exc}"
-        if mode == "on":
-            raise ValueError(f"--fast_kernels=on, but {problem}.") from exc
-        logging.warning("Fused kernels off (--fast_kernels=auto): %s.", problem)
-        return FusedTriangleChoice(False, f"--fast_kernels=auto: {problem}", mode)
+        return _fall_back(
+            mode,
+            f"AF3 fused triangle kernels failed their self-check: "
+            f"{type(exc).__name__}: {exc}",
+            exc,
+            self_check=True,
+        )
     logging.info(
         "AF3 fused triangle kernels on; per-operation size limits apply: %s", settings
     )
     return FusedTriangleChoice(True, f"--fast_kernels={mode}", mode, settings)
+
+
+def _fall_back(
+    mode: str, problem: str, exc: Exception, *, self_check: bool = False
+) -> FusedTriangleChoice:
+    """Raise for ``on``; for ``auto``, log ``problem`` and keep the original layers.
+
+    A device without support is expected, so it is a warning. Kernels that fail their
+    self-check on a supported device are a bug that must not pass unnoticed, so that is
+    an error, with the traceback.
+    """
+    if mode == "on":
+        raise ValueError(f"--fast_kernels=on, but {problem}.") from exc
+    if self_check:
+        logging.error(
+            "Fused kernels off (--fast_kernels=auto): %s.", problem, exc_info=exc
+        )
+    else:
+        logging.warning("Fused kernels off (--fast_kernels=auto): %s.", problem)
+    return FusedTriangleChoice(False, f"--fast_kernels=auto: {problem}", mode)
 
 
 def metadata(

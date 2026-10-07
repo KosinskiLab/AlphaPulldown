@@ -1117,6 +1117,43 @@ def test_af3_setup_applies_the_fused_triangle_choice_for_its_gpu(
         assert getattr(runner.config.global_config, key) == value
 
 
+def _raise(message):
+    def fail(*args):
+        raise RuntimeError(message)
+
+    return fail
+
+
+@pytest.mark.parametrize(
+    "stage, problem",
+    [
+        ("device_settings", "AF3 fused triangle kernels are not supported here"),
+        ("smoke_test", "AF3 fused triangle kernels failed their self-check"),
+    ],
+)
+def test_af3_setup_says_whether_the_gpu_lacks_support_or_the_kernels_failed(
+    af3_backend_module, monkeypatch, tmp_path, stage, problem
+):
+    fused_triangles = af3_backend_module.af3_fused_triangles
+    _stub_af3_setup(af3_backend_module, monkeypatch, SimpleNamespace(compute_capability=9.0))
+    monkeypatch.setattr(
+        fused_triangles,
+        "device_settings",
+        lambda device: {"triangle_multiplication_implementation": "pallas"},
+    )
+    monkeypatch.setattr(fused_triangles, "smoke_test", lambda *args: None)
+    monkeypatch.setattr(fused_triangles, stage, _raise("test device"))
+
+    with pytest.raises(ValueError, match=f"^--fast_kernels=on, but {problem}: .*test device"):
+        _af3_setup(af3_backend_module, tmp_path, fast_kernels="on")
+
+    runner = _af3_setup(af3_backend_module, tmp_path, fast_kernels="auto")
+    assert not runner.fused_triangles.enabled
+    assert runner.fused_triangles.reason.startswith(f"--fast_kernels=auto: {problem}: ")
+    # The original layers: no kernel settings reach AF3's GlobalConfig.
+    assert vars(runner.config.global_config) == {"flash_attention_implementation": "triton"}
+
+
 def test_af3_tokamax_trace_context_is_created_by_its_own_hook(
     af3_backend_module, monkeypatch
 ):

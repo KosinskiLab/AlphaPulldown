@@ -90,21 +90,71 @@ def test_unknown_mode_is_rejected():
         af3_fused_triangles.resolve("fast", object())
 
 
-@pytest.mark.parametrize("stage", ["device_settings", "smoke_test"])
-def test_on_fails_loudly_and_auto_falls_back(monkeypatch, stage):
+NOT_SUPPORTED = "AF3 fused triangle kernels are not supported here: "
+SELF_CHECK_FAILED = "AF3 fused triangle kernels failed their self-check: RuntimeError: "
+
+
+@pytest.mark.parametrize(
+    "stage, problem, level",
+    [
+        # No hooks, or a device the fork's policy does not enable: expected, a warning.
+        ("device_settings", NOT_SUPPORTED, "WARNING"),
+        # A supported device whose kernels do not compile, crash or return NaN: a bug.
+        ("smoke_test", SELF_CHECK_FAILED, "ERROR"),
+    ],
+)
+def test_on_fails_loudly_and_auto_falls_back(monkeypatch, caplog, stage, problem, level):
     monkeypatch.setattr(af3_fused_triangles, "device_settings", lambda device: SETTINGS)
     monkeypatch.setattr(af3_fused_triangles, "smoke_test", lambda *args: None)
     monkeypatch.setattr(af3_fused_triangles, stage, _unavailable)
 
-    with pytest.raises(ValueError, match="--fast_kernels=on, but .*unavailable test device"):
+    with pytest.raises(ValueError) as raised:
         af3_fused_triangles.resolve("on", object())
+    assert str(raised.value) == f"--fast_kernels=on, but {problem}unavailable test device."
 
-    choice = af3_fused_triangles.resolve("auto", object())
+    with caplog.at_level("INFO"):
+        choice = af3_fused_triangles.resolve("auto", object())
     assert not choice.enabled
     assert choice.mode == "auto"
-    assert choice.reason.startswith("--fast_kernels=auto: ")
-    assert "unavailable test device" in choice.reason
+    assert choice.reason == f"--fast_kernels=auto: {problem}unavailable test device"
     assert choice.global_config_update() == {}
+    (record,) = [r for r in caplog.records if "Fused kernels off" in r.getMessage()]
+    assert record.levelname == level
+    assert record.getMessage() == (
+        f"Fused kernels off (--fast_kernels=auto): {problem}unavailable test device."
+    )
+    # An error carries the traceback of the failed self-check; a warning needs none.
+    assert bool(record.exc_info) == (level == "ERROR")
+
+
+def test_a_device_without_support_is_not_given_a_self_check(monkeypatch):
+    monkeypatch.setattr(af3_fused_triangles, "device_settings", _unavailable)
+    monkeypatch.setattr(af3_fused_triangles, "smoke_test", _fail)
+
+    choice = af3_fused_triangles.resolve("auto", object())
+
+    assert choice.reason.startswith(f"--fast_kernels=auto: {NOT_SUPPORTED}")
+
+
+@pytest.mark.parametrize(
+    "compute_capability, memory_stats, reason",
+    [
+        ("10.0", lambda: {"bytes_limit": 80 * 2**30}, "unvalidated_compute_capability"),
+        ("8.0", lambda: {"bytes_limit": 8 * 2**30}, "memory_budget_below_12_gib"),
+    ],
+)
+def test_a_device_the_policy_refuses_is_not_supported_here(
+    dispatch, model_config, monkeypatch, compute_capability, memory_stats, reason
+):
+    monkeypatch.setattr(af3_fused_triangles, "smoke_test", _fail)
+    device = types.SimpleNamespace(
+        compute_capability=compute_capability, device_kind="GPU", memory_stats=memory_stats
+    )
+
+    with pytest.raises(ValueError) as raised:
+        af3_fused_triangles.resolve("on", device)
+
+    assert str(raised.value) == f"--fast_kernels=on, but {NOT_SUPPORTED}GPU: {reason}."
 
 
 def test_checks_the_given_device_before_enabling(monkeypatch):
