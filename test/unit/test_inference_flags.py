@@ -53,10 +53,10 @@ def test_convert_to_modelcif_is_accepted_by_both_backends():
         assert inference_flags.unsupported_flags(backend, ["convert_to_modelcif"]) == []
 
 
-def test_fast_kernels_is_an_alphafold2_flag():
-    assert inference_flags.unsupported_flags("alphafold2", ["fast_kernels"]) == []
-    for backend in ("alphafold3", "alphalink"):
-        assert inference_flags.unsupported_flags(backend, ["fast_kernels"]) == ["fast_kernels"]
+def test_fast_kernels_is_an_alphafold2_and_alphafold3_flag():
+    for backend in ("alphafold2", "alphafold3"):
+        assert inference_flags.unsupported_flags(backend, ["fast_kernels"]) == []
+    assert inference_flags.unsupported_flags("alphalink", ["fast_kernels"]) == ["fast_kernels"]
 
 
 def test_unknown_backend_reports_nothing():

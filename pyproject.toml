@@ -59,14 +59,14 @@ fast-kernels = [
 ]
 alphafold3 = [
   "dm-haiku==0.0.16",
-  "jax==0.9.1",
-  "jax[cuda12]==0.9.1; platform_system == 'Linux' and platform_machine == 'x86_64'",
+  "jax==0.10.2",
+  "jax[cuda12]==0.10.2; platform_system == 'Linux' and platform_machine == 'x86_64'",
   "modelcif>=1.6",
   "numpy",
   "openmm>=8.2",
   "pdbfixer>=1.10",
   "rdkit==2025.9.4",
-  "tokamax==0.0.11",
+  "tokamax==0.0.12",
   "zstandard",
 ]
 test = [

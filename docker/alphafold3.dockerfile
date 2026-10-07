@@ -86,7 +86,7 @@ RUN cd /hmmer_build && \
 COPY . /app/AlphaPulldown
 
 # ---------------------------------------------------------------------
-# Install AlphaFold3 from its locked v3.0.3/Tokamax environment
+# Install AlphaFold3 from its locked v3.0.4/Tokamax environment
 # ---------------------------------------------------------------------
 WORKDIR /app/AlphaPulldown/alphafold3
 
@@ -96,7 +96,7 @@ ENV PIP_INDEX_URL=${PIP_INDEX_URL} \
     PIP_RETRIES=10 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    SETUPTOOLS_SCM_PRETEND_VERSION_FOR_ALPHAFOLD3=3.0.3
+    SETUPTOOLS_SCM_PRETEND_VERSION_FOR_ALPHAFOLD3=3.0.4
 
 ENV CMAKE_BUILD_PARALLEL_LEVEL=1
 ENV CFLAGS="-O2 -pipe"
