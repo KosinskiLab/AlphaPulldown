@@ -88,6 +88,11 @@ RUN set -eux; \
 ENV PATH="/opt/mmseqs/bin:/opt/conda/bin:${PATH}"
 ENV LD_LIBRARY_PATH="/opt/conda/lib:${LD_LIBRARY_PATH}"
 
+# GPU relax: without the cuda-version pin, conda-forge OpenMM resolves to its CUDA 13 build,
+# whose NVRTC (13.4) writes PTX that CUDA 13.1 drivers cannot load
+# (CUDA_ERROR_UNSUPPORTED_PTX_VERSION, then "Minimization failed after 100 attempts").
+# 12.8 matches the image's CUDA >= 12.8 stack, so any driver that runs the image can relax;
+# the last two lines fail the build if a CUDA 13 NVRTC comes back.
 RUN set -eux; \
     micromamba install -y -r "/opt/conda" -n base \
       -c conda-forge -c bioconda \
@@ -99,9 +104,12 @@ RUN set -eux; \
       "numpy<2" \
       "openmm>=8.2" \
       "pdbfixer>=1.10" \
+      "cuda-version=12.8" \
       pip \
       git \
-    && micromamba clean -a -y
+    && micromamba clean -a -y \
+    && ls /opt/conda/conda-meta/cuda-nvrtc-12.*.json \
+    && ! ls /opt/conda/conda-meta/cuda-nvrtc-13.*.json 2>/dev/null
 
 # Overwrite conda's hhblits with the patched build (see the builder stage above).
 # The conda hhsuite package stays installed, so its shared libraries and the other
