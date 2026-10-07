@@ -2516,7 +2516,9 @@ class TestAlphaFold3MetadataEndToEnd(_TestBase):
                 "--buckets=256",
                 *self._jax_compilation_cache_args(cache_dir),
             ],
-            env=env,
+            # Upstream AF3 also writes XLA's autotune caches into the cache dir,
+            # which fails on cluster scratch; AlphaPulldown turns them off itself.
+            env={**env, "JAX_PERSISTENT_CACHE_ENABLE_XLA_CACHES": "none"},
             label="vanilla AF3 inference on AlphaPulldown AF3 features",
         )
         vanilla_inference_dir = vanilla_inference_root / self.PROTEIN_ID
