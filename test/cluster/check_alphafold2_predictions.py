@@ -6,7 +6,9 @@ Needs GPU(s) to run.
 from __future__ import annotations
 
 import os
+import importlib.util
 import json
+import math
 import pickle
 import shutil
 import subprocess
@@ -72,6 +74,43 @@ def _gpu_functional_test_skip_reason() -> str | None:
     if not _has_nvidia_gpu():
         return "GPU functional tests require an NVIDIA GPU and nvidia-smi."
     return None
+
+
+def _gpu_compute_capability() -> float | None:
+    """The first visible NVIDIA GPU's compute capability, from nvidia-smi."""
+    nvidia_smi = shutil.which("nvidia-smi")
+    if not nvidia_smi:
+        return None
+    try:
+        result = subprocess.run(
+            [nvidia_smi, "--query-gpu=compute_cap", "--format=csv,noheader"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return float(result.stdout.split()[0])
+    except (OSError, IndexError, ValueError):
+        return None
+
+
+def _fast_kernels_skip_reason() -> str | None:
+    """Why --fast_kernels cannot turn the kernels on here, or None if it should."""
+    if importlib.util.find_spec("colabfold_kernels") is None:
+        return "colabfold-kernels is not installed (pip install 'alphapulldown[fast-kernels]')"
+    capability = _gpu_compute_capability()
+    if capability is None or capability < 8.0:
+        return f"the fused kernels need compute capability 8.0 or newer, not {capability}"
+    return None
+
+
+def _af2_result_dir(root: Path) -> Path:
+    """The one directory under ``root`` holding an AF2 prediction."""
+    if (root / "ranking_debug.json").exists():
+        return root
+    candidates = sorted(path.parent for path in root.rglob("ranking_debug.json"))
+    if len(candidates) != 1:
+        raise AssertionError(f"Expected one AF2 result directory under {root}, found {candidates}")
+    return candidates[0]
 
 
 def _mmseqs_functional_test_skip_reason() -> str | None:
@@ -518,6 +557,154 @@ class TestDropoutDiversity(_TestBase):
                 logger.info("⚠ Dropout did not increase diversity in this run (this can happen due to randomness)")
 
             # The test passes if calculations succeed - the diversity check is informational
+
+
+class TestFastKernelsAndPadding(_TestBase):
+    """--fast_kernels and --desired_num_res on a GPU, against the stock unpadded fold.
+
+    Folds the TEST homodimer (2 x 64 residues) with one multimer model, so each case
+    runs a few short predictions. Select with -k TestFastKernelsAndPadding.
+    """
+
+    DIMER = "TEST+TEST"
+    NUM_REAL_RESIDUES = 128
+    PADDED_NUM_RES = 160
+    MULTIMER_MODEL = "model_1_multimer_v3"
+    # Fused and stock kernels, or padded and unpadded shapes, differ in their numerics.
+    SCORE_TOLERANCE = 0.02
+
+    def _predict(self, name: str, fold: str, *extra: str) -> Path:
+        output_dir = self.output_dir / name
+        output_dir.mkdir(parents=True, exist_ok=True)
+        res = self._run_prediction_subprocess(
+            [
+                sys.executable,
+                str(self.script_single),
+                f"--input={fold}",
+                f"--output_directory={output_dir}",
+                "--num_cycle=3",
+                "--num_predictions_per_model=1",
+                "--random_seed=42",
+                f"--data_directory={DATA_DIR}",
+                f"--features_directory={self.test_features_dir}",
+                *extra,
+            ]
+        )
+        self.assertEqual(
+            res.returncode, 0, f"{name} failed.\nSTDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}"
+        )
+        self.last_log = res.stdout + res.stderr
+        return _af2_result_dir(output_dir)
+
+    def _predict_padded_batch(self, name: str, fold: str, *extra: str) -> Path:
+        """Fold through the batch command with --desired_num_res, as the workflow does."""
+        output_dir = self.output_dir / name
+        output_dir.mkdir(parents=True, exist_ok=True)
+        manifest = self.output_dir / f"{name}.jsonl"
+        manifest.write_text(
+            json.dumps({"job_id": name, "input": fold, "output_directory": str(output_dir)})
+            + "\n",
+            encoding="utf-8",
+        )
+        res = self._run_prediction_subprocess(
+            [
+                sys.executable,
+                str(self.script_single.parent / "run_structure_prediction_batch.py"),
+                f"--manifest={manifest}",
+                "--num_cycle=3",
+                "--num_predictions_per_model=1",
+                "--random_seed=42",
+                f"--data_directory={DATA_DIR}",
+                f"--features_directory={self.test_features_dir}",
+                *extra,
+            ]
+        )
+        self.assertEqual(
+            res.returncode, 0, f"{name} failed.\nSTDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}"
+        )
+        return _af2_result_dir(output_dir)
+
+    @staticmethod
+    def _kernels(result_dir: Path) -> dict:
+        return json.loads((result_dir / "inference_kernels.json").read_text(encoding="utf-8"))
+
+    @staticmethod
+    def _scores(result_dir: Path) -> dict:
+        (pickle_path,) = sorted(result_dir.glob("result_*.pkl"))
+        with pickle_path.open("rb") as handle:
+            result = pickle.load(handle)
+        return {
+            "iptm": float(result["iptm"]),
+            "ptm": float(result["ptm"]),
+            "ranking_confidence": float(result["ranking_confidence"]),
+            "mean_plddt": float(sum(result["plddt"]) / len(result["plddt"])),
+            "num_residues": len(result["plddt"]),
+            "pae_shape": tuple(result["predicted_aligned_error"].shape),
+        }
+
+    def test_dimer_fast_kernels_match_the_stock_code(self):
+        skip_reason = _fast_kernels_skip_reason()
+        if skip_reason:
+            self.skipTest(skip_reason)
+        model = f"--model_names={self.MULTIMER_MODEL}"
+
+        stock = self._predict("stock", self.DIMER, model, "--fast_kernels=off")
+        fused = self._predict("fused", self.DIMER, model, "--fast_kernels=auto")
+
+        model_name = f"{self.MULTIMER_MODEL}_pred_0"
+        self.assertEqual(
+            self._kernels(stock),
+            {model_name: {"compute_capability": None, "fused_kernels": False}},
+        )
+        fused_record = self._kernels(fused)
+        self.assertEqual(set(fused_record), {model_name})
+        # auto would fall back silently; the requirements are met, so it must not.
+        self.assertTrue(fused_record[model_name]["fused_kernels"], fused_record)
+        self.assertGreaterEqual(fused_record[model_name]["compute_capability"], 80)
+
+        stock_scores, fused_scores = self._scores(stock), self._scores(fused)
+        logger.info("stock %s, fused %s", stock_scores, fused_scores)
+        self.assertLess(abs(fused_scores["iptm"] - stock_scores["iptm"]), self.SCORE_TOLERANCE)
+        self.assertLess(abs(fused_scores["ptm"] - stock_scores["ptm"]), self.SCORE_TOLERANCE)
+
+    def test_monomer_models_keep_the_stock_code(self):
+        skip_reason = _fast_kernels_skip_reason()
+        if skip_reason:
+            self.skipTest(skip_reason)
+
+        result_dir = self._predict(
+            "monomer", "TEST", "--model_names=model_1_ptm", "--fast_kernels=auto"
+        )
+
+        record = self._kernels(result_dir)
+        self.assertTrue(record)
+        self.assertFalse(any(entry["fused_kernels"] for entry in record.values()), record)
+        self.assertIn("monomer models run in fp32 and keep the standard code", self.last_log)
+
+    def test_padded_batch_scores_match_the_unpadded_fold(self):
+        model = f"--model_names={self.MULTIMER_MODEL}"
+
+        unpadded = self._predict("unpadded", self.DIMER, model)
+        padded = self._predict_padded_batch(
+            "padded", self.DIMER, model, f"--desired_num_res={self.PADDED_NUM_RES}"
+        )
+
+        n = self.NUM_REAL_RESIDUES
+        expected, got = self._scores(unpadded), self._scores(padded)
+        logger.info("unpadded %s, padded %s", expected, got)
+        self.assertEqual(got["num_residues"], n)
+        self.assertEqual(got["pae_shape"], (n, n))
+        for key in ("iptm", "ptm", "ranking_confidence"):
+            self.assertTrue(math.isfinite(got[key]), key)
+            self.assertLess(abs(got[key] - expected[key]), self.SCORE_TOLERANCE, key)
+        self.assertLess(abs(got["mean_plddt"] - expected["mean_plddt"]), 1.0)
+        # The JSON written for viewers and ranking covers the real residues only.
+        for pae_path in padded.glob("pae_*.json"):
+            (pae,) = json.loads(pae_path.read_text(encoding="utf-8"))
+            self.assertEqual(len(pae["predicted_aligned_error"]), n, pae_path)
+        ranking = json.loads((padded / "ranking_debug.json").read_text(encoding="utf-8"))
+        for name, score in ranking["iptm+ptm"].items():
+            self.assertLess(abs(score - expected["ranking_confidence"]), self.SCORE_TOLERANCE, name)
 
 
 class TestMmseqsIssue588Inference(_TestBase):
