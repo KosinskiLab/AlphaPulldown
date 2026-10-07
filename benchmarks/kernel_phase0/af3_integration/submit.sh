@@ -46,7 +46,7 @@ all=""
 submit() {
   local gpu=$1 suite=$2 arm=$3 folds=$4 seeds=$5 reps=$6 dep=${7:-} jid tile
   case $gpu in a100) tile=8.0 ;; a40|3090) tile=8.6 ;; l40s) tile=8.9 ;; *) tile=9.0 ;; esac
-  jid=$(sbatch --parsable --qos="${AF3I_QOS:-high}" --kill-on-invalid-dep=yes -p "$(gpu_partition "$gpu")" --gres="$(gpu_gres "$gpu")" -t "${WALLTIME:-05:00:00}" \
+  jid=$(sbatch --parsable --qos="${AF3I_QOS:-high}" ${AF3I_EXCLUDE:+--exclude=$AF3I_EXCLUDE} --kill-on-invalid-dep=yes -p "$(gpu_partition "$gpu")" --gres="$(gpu_gres "$gpu")" -t "${WALLTIME:-05:00:00}" \
     ${dep:+--dependency=afterok:$dep} -J "af3i-$suite-$gpu-$arm" -o "$CAMPAIGN/logs/%x_%j.log" \
     --export=ALL,GPU="$gpu",SUITE="$suite",ARM="$arm",FOLDS="$folds",SEEDS="$seeds",REPS="$reps",TILE_CC="$tile" \
     "$SNAPSHOT/harness/af3_integration/run.sbatch")
