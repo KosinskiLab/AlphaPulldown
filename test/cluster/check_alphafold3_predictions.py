@@ -4127,7 +4127,14 @@ class TestAlphaFold3FastKernels(_TestBase):
     """
 
     FOLD = "A0A075B6L2:1"
+    # A homodimer, so that the comparison also covers ipTM.
+    DIMER = "A0A075B6L2:2"
     NOT_SUPPORTED = "AF3 fused triangle kernels are not supported here"
+    RANDOM_SEED = 42
+    # Fused bf16 kernels change rounding, not the model: per seed, ranking score, pTM
+    # and ipTM within 0.02 of the original layers, mean pLDDT (0-100) within 1.
+    SCORE_TOLERANCE = 0.02
+    PLDDT_TOLERANCE = 1.0
 
     def _fused_triangle_support(self) -> af3_gpu_checks.Support:
         """The fork's policy for this GPU, from nvidia-smi rather than the code under test."""
@@ -4148,13 +4155,13 @@ class TestAlphaFold3FastKernels(_TestBase):
         )
         return support.detail
 
-    def _fold(self, mode: str) -> subprocess.CompletedProcess:
+    def _fold(self, mode: str, *flags: str, fold: str = FOLD) -> subprocess.CompletedProcess:
         self._require_af3_functional_environment()
         return subprocess.run(
             [
                 sys.executable,
                 str(self.script_single),
-                f"--input={self.FOLD}",
+                f"--input={fold}",
                 f"--output_directory={self.output_dir}",
                 f"--data_directory={DATA_DIR}",
                 f"--features_directory={self.test_features_dir}",
@@ -4163,6 +4170,7 @@ class TestAlphaFold3FastKernels(_TestBase):
                 "--num_diffusion_samples=1",
                 "--num_seeds=2",
                 f"--fast_kernels={mode}",
+                *flags,
             ],
             capture_output=True,
             text=True,
@@ -4187,6 +4195,25 @@ class TestAlphaFold3FastKernels(_TestBase):
             problems = af3_gpu_checks.confidence_problems(path.name, json.loads(path.read_text()))
             self.assertEqual(problems, [], path)
         return records
+
+    def _sample_scores(self) -> dict[str, dict[str, float | None]]:
+        """Ranking score, pTM, ipTM (None if undefined) and mean pLDDT of each sample."""
+        scores = {}
+        for sample_dir in sorted(self._resolve_single_af3_result_dir().glob("seed-*_sample-*")):
+            (summary_path,) = sample_dir.glob("*summary_confidences.json")
+            (full_path,) = [
+                path
+                for path in sample_dir.glob("*confidences.json")
+                if not path.name.endswith("summary_confidences.json")
+            ]
+            summary = json.loads(summary_path.read_text())
+            scores[sample_dir.name] = {
+                "ranking_score": summary["ranking_score"],
+                "ptm": summary["ptm"],
+                "iptm": summary["iptm"],
+                "mean_plddt": float(np.mean(json.loads(full_path.read_text())["atom_plddts"])),
+            }
+        return scores
 
     def _assert_fused(self, records: dict[str, dict[str, Any]]) -> None:
         for key, record in records.items():
@@ -4236,6 +4263,48 @@ class TestAlphaFold3FastKernels(_TestBase):
                     (key, record),
                 )
             self._assert_gpu_unsupported(next(iter(records.values()))["reason"])
+
+    def test_af3_fast_kernels_match_the_original_layers(self):
+        """The same dimer and seeds with --fast_kernels off and on: the scores agree."""
+        support = self._fused_triangle_support()
+        if not support.supported:
+            self.skipTest(
+                f"the fork's policy does not enable the fused triangles here ({support.detail})"
+            )
+
+        root = self.output_dir
+        runs = {}
+        for mode in ("off", "on"):
+            # _fold and the helpers that read its outputs work in self.output_dir.
+            self.output_dir = root / mode
+            self.output_dir.mkdir(parents=True, exist_ok=True)
+            self._runCommonTests(
+                self._fold(mode, f"--random_seed={self.RANDOM_SEED}", fold=self.DIMER)
+            )
+            runs[mode] = self._kernel_records(mode), self._sample_scores()
+
+        (stock_records, stock), (fused_records, fused) = runs["off"], runs["on"]
+        self.assertFalse(
+            any(record["fused_kernels"] for record in stock_records.values()), stock_records
+        )
+        self._assert_fused(fused_records)
+        print(f"original layers: {stock}\nfused kernels: {fused}")
+        self.assertEqual(set(fused), set(stock))
+        self.assertLen(stock, 2)  # two seeds, one sample each
+        for sample, expected in stock.items():
+            got = fused[sample]
+            for key in ("ranking_score", "ptm", "iptm"):
+                context = (sample, key, expected, got)
+                self.assertEqual(got[key] is None, expected[key] is None, context)
+                if expected[key] is not None:
+                    self.assertLessEqual(
+                        abs(got[key] - expected[key]), self.SCORE_TOLERANCE, context
+                    )
+            self.assertLessEqual(
+                abs(got["mean_plddt"] - expected["mean_plddt"]),
+                self.PLDDT_TOLERANCE,
+                (sample, expected, got),
+            )
 
     def test_af3_identical_folds_compile_the_model_once(self):
         """Three identical folds in one process: one jit(apply_fn) compile (1afe779e)."""
