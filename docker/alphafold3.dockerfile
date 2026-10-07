@@ -143,6 +143,9 @@ EOF
 # ---------------------------------------------------------------------
 FROM base AS af3-compatibility-tests
 
+# The fork's fused_triangle_test.py checks the triangle kernels and their dispatch in
+# Pallas interpret mode, on CPU. It runs as a script so that it imports the installed
+# AF3 (with its built CCD data) rather than the submodule's src/ tree.
 WORKDIR /app/AlphaPulldown
 RUN uv pip install --no-cache "modelcif>=1.6" && \
     python -c "from alphafold3.common import folding_input; import alphafold3.structure.mmcif; import ihm; import modelcif.reader" && \
@@ -151,7 +154,11 @@ RUN uv pip install --no-cache "modelcif>=1.6" && \
       test/unit/test_create_batch_features.py \
       test/unit/test_feature_metadata.py::test_embedded_json_is_accepted_and_round_tripped_by_vanilla_alphafold3 \
       test/unit/test_af3_modelcif.py::test_augment_real_af3_modelcif_preserves_comments_and_is_modelcif_readable \
-      test/unit/test_convert_to_modelcif_helpers.py && \
+      test/unit/test_convert_to_modelcif_helpers.py \
+      test/unit/test_af3_fused_triangles.py \
+      test/unit/test_alphafold3_backend_helpers.py \
+      test/unit/test_af3_tokamax_trace_context.py && \
+    JAX_PLATFORMS=cpu python alphafold3/src/alphafold3/model/network/fused_triangle_test.py && \
     MMSEQS_INTEGRATION_BINARY=/opt/mmseqs/bin/mmseqs \
       python -m pytest -q -o addopts="-ra --strict-markers" \
       test/integration/test_mmseqs2_command_contract.py && \
