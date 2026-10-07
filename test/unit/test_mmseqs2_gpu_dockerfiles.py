@@ -101,3 +101,64 @@ def test_alphafold3_pr_build_runs_compiled_feature_batch_contracts():
     assert "MMSEQS_INTEGRATION_BINARY=/opt/mmseqs/bin/mmseqs" in dockerfile
     assert "test/integration/test_mmseqs2_command_contract.py" in dockerfile
     assert 'addopts="-ra --strict-markers"' in dockerfile
+
+
+def test_alphafold3_image_tests_the_fused_triangles_and_one_compile_per_process():
+    dockerfile = (REPOSITORY / "docker" / "alphafold3.dockerfile").read_text(
+        encoding="utf-8"
+    )
+    stage = dockerfile.split("FROM base AS af3-compatibility-tests", 1)[1].split(
+        "FROM base AS runtime", 1
+    )[0]
+
+    for test_path in (
+        "test/unit/test_af3_fused_triangles.py",
+        "test/unit/test_alphafold3_backend_helpers.py",
+        "test/unit/test_af3_tokamax_trace_context.py",
+        "alphafold3/src/alphafold3/model/network/fused_triangle_test.py",
+    ):
+        assert test_path in stage, test_path
+        assert (REPOSITORY / test_path).is_file(), test_path
+    # As a script, so it imports the installed AF3 and its built CCD data.
+    assert (
+        "JAX_PLATFORMS=cpu python alphafold3/src/alphafold3/model/network/"
+        "fused_triangle_test.py"
+    ) in stage
+    # The runtime image cannot be built without the test stage passing.
+    assert "FROM base AS runtime" in dockerfile
+    assert "COPY --from=af3-compatibility-tests" in dockerfile.split(
+        "FROM base AS runtime", 1
+    )[1]
+
+
+def test_smoke_tests_run_the_alphafold_fork_fused_kernel_hooks():
+    # pytest.ini never collects the alphafold/ submodule; CI must name the file.
+    workflow = yaml.load(WORKFLOW.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
+    steps = workflow["jobs"]["smoke-tests"]["steps"]
+    hook_tests = [
+        step
+        for step in steps
+        if "alphafold/alphafold/model/fused_kernels_test.py" in step.get("run", "")
+    ]
+
+    assert len(hook_tests) == 1
+    assert (
+        REPOSITORY / "alphafold" / "alphafold" / "model" / "fused_kernels_test.py"
+    ).is_file()
+    # The fork needs Python 3.11's typing; the matrix's other entries must run it.
+    assert hook_tests[0]["if"] == "matrix.python-version != '3.10'"
+    assert "3.11" in workflow["jobs"]["smoke-tests"]["strategy"]["matrix"]["python-version"]
+
+
+def test_alphafold2_image_checks_the_fused_kernels_import_with_its_final_jax():
+    dockerfile = (REPOSITORY / "docker" / "alphafold2.dockerfile").read_text(
+        encoding="utf-8"
+    )
+    kernels = dockerfile.index('"colabfold-kernels>=0.4.0,<0.5"')
+    jax = dockerfile.index('"jax[cuda12]"==0.5.3')
+    numpy = dockerfile.index('RUN pip install --no-cache-dir "numpy<2"')
+    check = dockerfile.index("fused_kernels.fused_ops()")
+
+    # After the last dependency change, so it checks what the image ships.
+    assert kernels < jax < numpy < check
+    assert "pip install" not in dockerfile[check:]

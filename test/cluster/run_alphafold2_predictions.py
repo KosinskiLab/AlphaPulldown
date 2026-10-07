@@ -411,6 +411,21 @@ def _extract_reason_from_log(text: str) -> str:
     return "\n".join(non_empty_lines[-20:])
 
 
+def _pytest_summary(text: str) -> str | None:
+    """FAILED, PASSED or SKIPPED from pytest's last result line ("== 1 passed, 2 skipped in 3.4s =="), or None."""
+    lines = re.findall(r"(?m)^=+ (.+?) in [0-9.]+s(?: \([0-9:]+\))? =+\s*$", text)
+    if not lines:
+        return None
+    last = lines[-1]
+    if re.search(r"\b\d+ (failed|errors?)\b", last):
+        return "FAILED"
+    if re.search(r"\b\d+ passed\b", last):
+        return "PASSED"
+    if re.search(r"\b\d+ skipped\b", last):
+        return "SKIPPED"
+    return None
+
+
 def classify_job(job: JobSpec) -> None:
     job.slurm_state, job.exit_code = query_sacct(job.job_id or "")
     text = _combined_log_text(job)
@@ -419,6 +434,14 @@ def classify_job(job: JobSpec) -> None:
     if state in FAIL_STATES:
         job.outcome = "FAILED"
         job.reason = f"Slurm state: {state}\n{_extract_reason_from_log(text)}"
+        return
+
+    # pytest's own result line decides when it is there: logs of passing AF3 runs contain library tracebacks that are
+    # only logged (e.g. tokamax's autotuning cache), so "Traceback" alone does not mean the test failed.
+    pytest_summary = _pytest_summary(text)
+    if pytest_summary is not None:
+        job.outcome = pytest_summary
+        job.reason = _extract_reason_from_log(text)
         return
 
     if re.search(r"(?im)\bkilled\b", text):

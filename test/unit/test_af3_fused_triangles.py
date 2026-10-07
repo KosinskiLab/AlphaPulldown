@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import contextlib
 import importlib.util
 import sys
@@ -16,6 +17,9 @@ from alphapulldown.prediction import af3_fused_triangles
 DISPATCH_PATH = (
     Path(__file__).resolve().parents[2]
     / "alphafold3/src/alphafold3/jax/fused_triangle/dispatch.py"
+)
+MODEL_CONFIG_PATH = (
+    Path(__file__).resolve().parents[2] / "alphafold3/src/alphafold3/model/model_config.py"
 )
 SETTINGS = {
     "triangle_multiplication_implementation": "pallas",
@@ -86,21 +90,71 @@ def test_unknown_mode_is_rejected():
         af3_fused_triangles.resolve("fast", object())
 
 
-@pytest.mark.parametrize("stage", ["device_settings", "smoke_test"])
-def test_on_fails_loudly_and_auto_falls_back(monkeypatch, stage):
+NOT_SUPPORTED = "AF3 fused triangle kernels are not supported here: "
+SELF_CHECK_FAILED = "AF3 fused triangle kernels failed their self-check: RuntimeError: "
+
+
+@pytest.mark.parametrize(
+    "stage, problem, level",
+    [
+        # No hooks, or a device the fork's policy does not enable: expected, a warning.
+        ("device_settings", NOT_SUPPORTED, "WARNING"),
+        # A supported device whose kernels do not compile, crash or return NaN: a bug.
+        ("smoke_test", SELF_CHECK_FAILED, "ERROR"),
+    ],
+)
+def test_on_fails_loudly_and_auto_falls_back(monkeypatch, caplog, stage, problem, level):
     monkeypatch.setattr(af3_fused_triangles, "device_settings", lambda device: SETTINGS)
     monkeypatch.setattr(af3_fused_triangles, "smoke_test", lambda *args: None)
     monkeypatch.setattr(af3_fused_triangles, stage, _unavailable)
 
-    with pytest.raises(ValueError, match="--fast_kernels=on, but .*unavailable test device"):
+    with pytest.raises(ValueError) as raised:
         af3_fused_triangles.resolve("on", object())
+    assert str(raised.value) == f"--fast_kernels=on, but {problem}unavailable test device."
 
-    choice = af3_fused_triangles.resolve("auto", object())
+    with caplog.at_level("INFO"):
+        choice = af3_fused_triangles.resolve("auto", object())
     assert not choice.enabled
     assert choice.mode == "auto"
-    assert choice.reason.startswith("--fast_kernels=auto: ")
-    assert "unavailable test device" in choice.reason
+    assert choice.reason == f"--fast_kernels=auto: {problem}unavailable test device"
     assert choice.global_config_update() == {}
+    (record,) = [r for r in caplog.records if "Fused kernels off" in r.getMessage()]
+    assert record.levelname == level
+    assert record.getMessage() == (
+        f"Fused kernels off (--fast_kernels=auto): {problem}unavailable test device."
+    )
+    # An error carries the traceback of the failed self-check; a warning needs none.
+    assert bool(record.exc_info) == (level == "ERROR")
+
+
+def test_a_device_without_support_is_not_given_a_self_check(monkeypatch):
+    monkeypatch.setattr(af3_fused_triangles, "device_settings", _unavailable)
+    monkeypatch.setattr(af3_fused_triangles, "smoke_test", _fail)
+
+    choice = af3_fused_triangles.resolve("auto", object())
+
+    assert choice.reason.startswith(f"--fast_kernels=auto: {NOT_SUPPORTED}")
+
+
+@pytest.mark.parametrize(
+    "compute_capability, memory_stats, reason",
+    [
+        ("10.0", lambda: {"bytes_limit": 80 * 2**30}, "unvalidated_compute_capability"),
+        ("8.0", lambda: {"bytes_limit": 8 * 2**30}, "memory_budget_below_12_gib"),
+    ],
+)
+def test_a_device_the_policy_refuses_is_not_supported_here(
+    dispatch, model_config, monkeypatch, compute_capability, memory_stats, reason
+):
+    monkeypatch.setattr(af3_fused_triangles, "smoke_test", _fail)
+    device = types.SimpleNamespace(
+        compute_capability=compute_capability, device_kind="GPU", memory_stats=memory_stats
+    )
+
+    with pytest.raises(ValueError) as raised:
+        af3_fused_triangles.resolve("on", device)
+
+    assert str(raised.value) == f"--fast_kernels=on, but {NOT_SUPPORTED}GPU: {reason}."
 
 
 def test_checks_the_given_device_before_enabling(monkeypatch):
@@ -284,3 +338,90 @@ def test_metadata_float32_layers_run_the_original_body(dispatch):
     assert {operation["reason"] for operation in record["operations"].values()} == {
         "dtype_not_bfloat16"
     }
+
+
+def _global_config_fields() -> dict[str, tuple[ast.expr, ast.expr | None]]:
+    """GlobalConfig's annotated fields in the submodule's model_config.py, without AF3."""
+    tree = ast.parse(MODEL_CONFIG_PATH.read_text(encoding="utf-8"))
+    (global_config,) = [
+        node
+        for node in tree.body
+        if isinstance(node, ast.ClassDef) and node.name == "GlobalConfig"
+    ]
+    return {
+        node.target.id: (node.annotation, node.value)
+        for node in global_config.body
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name)
+    }
+
+
+def _literal_values(annotation: ast.expr) -> set | None:
+    """The allowed values of a ``Literal[...]`` annotation, or None for any other type."""
+    if not (
+        isinstance(annotation, ast.Subscript)
+        and isinstance(annotation.value, (ast.Name, ast.Attribute))
+        and getattr(annotation.value, "id", getattr(annotation.value, "attr", None))
+        == "Literal"
+    ):
+        return None
+    values = annotation.slice
+    elements = values.elts if isinstance(values, ast.Tuple) else [values]
+    return {ast.literal_eval(element) for element in elements}
+
+
+def _assert_declared(fields, key, value):
+    assert key in fields, f"GlobalConfig declares no {key!r}"
+    annotation, _ = fields[key]
+    allowed = _literal_values(annotation)
+    if allowed is not None:
+        assert value in allowed, f"{key}={value!r} is not one of {sorted(allowed)}"
+    elif isinstance(annotation, ast.Name) and annotation.id in ("str", "float", "int", "bool"):
+        types = {"str": str, "float": (int, float), "int": int, "bool": bool}[annotation.id]
+        assert isinstance(value, types), f"{key}={value!r} is not a {annotation.id}"
+
+
+def _measured_devices():
+    spec = importlib.util.spec_from_file_location("af3_dispatch_contract", DISPATCH_PATH)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module._MEASURED_COMPUTE_CAPABILITIES
+
+
+@pytest.mark.parametrize("compute_capability", _measured_devices())
+def test_kernel_settings_are_declared_by_the_forks_global_config(
+    dispatch, model_config, compute_capability
+):
+    # AlphaFold3Backend.setup sets every key of the choice on config.global_config, and
+    # an undeclared one would be a silent no-op. Parsed, so it needs no AF3 install.
+    fields = _global_config_fields()
+    device = types.SimpleNamespace(
+        compute_capability=compute_capability,
+        device_kind="GPU",
+        memory_stats=lambda: {"bytes_limit": 40 * 2**30},
+    )
+    settings = af3_fused_triangles.device_settings(device)
+    choice = af3_fused_triangles.FusedTriangleChoice(True, "--fast_kernels=on", "on", settings)
+
+    assert choice.global_config_update() == settings
+    for key, value in settings.items():
+        _assert_declared(fields, key, value)
+    # Off changes nothing, so the fork's defaults must be the original layers.
+    assert af3_fused_triangles.OFF.global_config_update() == {}
+    for operation in ("triangle_multiplication", "triangle_attention"):
+        _, default = fields[f"{operation}_implementation"]
+        assert ast.literal_eval(default) == "default"
+
+
+def test_kernel_record_reads_fields_the_forks_global_config_declares():
+    # metadata() reads these from the runner's config to record what ran.
+    fields = _global_config_fields()
+
+    for key in (
+        "triangle_multiplication_implementation",
+        "triangle_attention_implementation",
+        "fused_triangle_compute_capability",
+        "fused_triangle_memory_gib",
+        "bfloat16",
+    ):
+        assert key in fields, key
+    assert "none" in _literal_values(fields["bfloat16"][0])

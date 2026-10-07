@@ -42,6 +42,11 @@ from alphapulldown.utils.modelling_setup import (
 )
 from alphapulldown_input_parser import generate_fold_specifications
 
+# The sibling helper module; pytest puts this directory on sys.path, a direct load may not.
+if str(Path(__file__).resolve().parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+import af3_gpu_checks  # noqa: E402
+
 
 # --------------------------------------------------------------------------- #
 #                       configuration / environment guards                    #
@@ -4110,6 +4115,250 @@ class TestAlphaFold3RunModes(_TestBase):
             res.stderr + res.stdout,
             r"not supported by backend 'alphafold3'",
         )
+
+
+class TestAlphaFold3FastKernels(_TestBase):
+    """--fast_kernels for AF3 on a GPU, and one model compile per process.
+
+    Select with -k TestAlphaFold3FastKernels. ``on`` skips, and ``auto`` may fall back,
+    only when the backend says the kernels are not supported here and nvidia-smi, read
+    against the fork's device policy, agrees. Kernels that fail on a GPU the policy
+    enables are a failure, never a skip.
+    """
+
+    FOLD = "A0A075B6L2:1"
+    # A homodimer, so that the comparison also covers ipTM.
+    DIMER = "A0A075B6L2:2"
+    NOT_SUPPORTED = "AF3 fused triangle kernels are not supported here"
+    RANDOM_SEED = 42
+    # Fused bf16 kernels change rounding, not the model: per seed, ranking score, pTM
+    # and ipTM within 0.02 of the original layers, mean pLDDT (0-100) within 1.
+    SCORE_TOLERANCE = 0.02
+    PLDDT_TOLERANCE = 1.0
+
+    def _fused_triangle_support(self) -> af3_gpu_checks.Support:
+        """The fork's policy for this GPU, from nvidia-smi rather than the code under test."""
+        return af3_gpu_checks.fused_triangle_support(
+            af3_gpu_checks.visible_gpu(),
+            af3_gpu_checks.jax_memory_fraction(self._make_af3_test_env()),
+            af3_gpu_checks.installed_device_policy(),
+        )
+
+    def _assert_gpu_unsupported(self, backend_reason: str) -> str:
+        """The independent check's detail, once it agrees the kernels are not enabled here."""
+        support = self._fused_triangle_support()
+        self.assertIs(
+            support.supported,
+            False,
+            f"the backend says {backend_reason!r}, but nvidia-smi and the fork's policy "
+            f"say otherwise ({support.detail})",
+        )
+        return support.detail
+
+    def _fold(self, mode: str, *flags: str, fold: str = FOLD) -> subprocess.CompletedProcess:
+        self._require_af3_functional_environment()
+        return subprocess.run(
+            [
+                sys.executable,
+                str(self.script_single),
+                f"--input={fold}",
+                f"--output_directory={self.output_dir}",
+                f"--data_directory={DATA_DIR}",
+                f"--features_directory={self.test_features_dir}",
+                "--fold_backend=alphafold3",
+                f"--flash_attention_implementation={self._af3_flash_attention_impl()}",
+                "--num_diffusion_samples=1",
+                "--num_seeds=2",
+                f"--fast_kernels={mode}",
+                *flags,
+            ],
+            capture_output=True,
+            text=True,
+            env=self._make_af3_test_env(),
+        )
+
+    def _kernel_records(self, mode: str) -> dict[str, dict[str, Any]]:
+        """inference_kernels.json of a finished fold: one record per seed, scores finite."""
+        result_dir = self._resolve_single_af3_result_dir()
+        with (result_dir / "ranking_scores.csv").open() as handle:
+            seeds = {line.split(",")[0] for line in handle.readlines()[1:] if line.strip()}
+        records = json.loads((result_dir / "inference_kernels.json").read_text())
+        self.assertEqual(set(records), {f"seed-{seed}" for seed in seeds})
+        self.assertLen(records, 2)
+        for key, record in records.items():
+            self.assertEqual(record["backend"], "alphafold3", key)
+            self.assertEqual(record["requested_mode"], mode, key)
+            self.assertIsInstance(record["padded_tokens"], int, key)
+        confidences = sorted(result_dir.rglob("*confidences.json"))
+        self.assertTrue(confidences, f"no confidences in {result_dir}")
+        for path in confidences:
+            problems = af3_gpu_checks.confidence_problems(path.name, json.loads(path.read_text()))
+            self.assertEqual(problems, [], path)
+        return records
+
+    def _sample_scores(self) -> dict[str, dict[str, float | None]]:
+        """Ranking score, pTM, ipTM (None if undefined) and mean pLDDT of each sample."""
+        scores = {}
+        for sample_dir in sorted(self._resolve_single_af3_result_dir().glob("seed-*_sample-*")):
+            (summary_path,) = sample_dir.glob("*summary_confidences.json")
+            (full_path,) = [
+                path
+                for path in sample_dir.glob("*confidences.json")
+                if not path.name.endswith("summary_confidences.json")
+            ]
+            summary = json.loads(summary_path.read_text())
+            scores[sample_dir.name] = {
+                "ranking_score": summary["ranking_score"],
+                "ptm": summary["ptm"],
+                "iptm": summary["iptm"],
+                "mean_plddt": float(np.mean(json.loads(full_path.read_text())["atom_plddts"])),
+            }
+        return scores
+
+    def _assert_fused(self, records: dict[str, dict[str, Any]]) -> None:
+        for key, record in records.items():
+            self.assertTrue(record["fused_kernels"], (key, record))
+            self.assertIn("policy_version", record, key)
+            self.assertEqual(
+                set(record["operations"]),
+                {
+                    f"{operation}_c{channels}"
+                    for operation in ("triangle_multiplication", "triangle_attention")
+                    for channels in (128, 64)
+                },
+                key,
+            )
+
+    def test_af3_fast_kernels_off_keeps_the_original_layers(self):
+        res = self._fold("off")
+        self._runCommonTests(res)
+
+        for key, record in self._kernel_records("off").items():
+            self.assertFalse(record["fused_kernels"], key)
+            self.assertEqual(record["reason"], "--fast_kernels=off", key)
+            self.assertNotIn("operations", record, key)
+
+    def test_af3_fast_kernels_on_runs_the_fused_layers(self):
+        res = self._fold("on")
+        log = res.stdout + res.stderr
+        if res.returncode != 0 and f"--fast_kernels=on, but {self.NOT_SUPPORTED}" in log:
+            reason = next(line for line in log.splitlines() if self.NOT_SUPPORTED in line)
+            detail = self._assert_gpu_unsupported(reason.strip())
+            self.skipTest(f"this GPU cannot run the fused triangles: {reason.strip()} ({detail})")
+        self._runCommonTests(res)
+
+        self._assert_fused(self._kernel_records("on"))
+
+    def test_af3_fast_kernels_auto_uses_them_where_the_gpu_can(self):
+        res = self._fold("auto")
+        self._runCommonTests(res)
+
+        records = self._kernel_records("auto")
+        if any(record["fused_kernels"] for record in records.values()):
+            self._assert_fused(records)
+        else:
+            for key, record in records.items():
+                self.assertTrue(
+                    record["reason"].startswith(f"--fast_kernels=auto: {self.NOT_SUPPORTED}"),
+                    (key, record),
+                )
+            self._assert_gpu_unsupported(next(iter(records.values()))["reason"])
+
+    def test_af3_fast_kernels_match_the_original_layers(self):
+        """The same dimer and seeds with --fast_kernels off and on: the scores agree."""
+        support = self._fused_triangle_support()
+        if not support.supported:
+            self.skipTest(
+                f"the fork's policy does not enable the fused triangles here ({support.detail})"
+            )
+
+        root = self.output_dir
+        runs = {}
+        for mode in ("off", "on"):
+            # _fold and the helpers that read its outputs work in self.output_dir.
+            self.output_dir = root / mode
+            self.output_dir.mkdir(parents=True, exist_ok=True)
+            self._runCommonTests(
+                self._fold(mode, f"--random_seed={self.RANDOM_SEED}", fold=self.DIMER)
+            )
+            runs[mode] = self._kernel_records(mode), self._sample_scores()
+
+        (stock_records, stock), (fused_records, fused) = runs["off"], runs["on"]
+        self.assertFalse(
+            any(record["fused_kernels"] for record in stock_records.values()), stock_records
+        )
+        self._assert_fused(fused_records)
+        print(f"original layers: {stock}\nfused kernels: {fused}")
+        self.assertEqual(set(fused), set(stock))
+        self.assertLen(stock, 2)  # two seeds, one sample each
+        for sample, expected in stock.items():
+            got = fused[sample]
+            for key in ("ranking_score", "ptm", "iptm"):
+                context = (sample, key, expected, got)
+                self.assertEqual(got[key] is None, expected[key] is None, context)
+                if expected[key] is not None:
+                    self.assertLessEqual(
+                        abs(got[key] - expected[key]), self.SCORE_TOLERANCE, context
+                    )
+            self.assertLessEqual(
+                abs(got["mean_plddt"] - expected["mean_plddt"]),
+                self.PLDDT_TOLERANCE,
+                (sample, expected, got),
+            )
+
+    def test_af3_identical_folds_compile_the_model_once(self):
+        """Three identical folds in one process: one jit(apply_fn) compile (1afe779e)."""
+        self._require_af3_functional_environment()
+        manifest = self.output_dir / "manifest.jsonl"
+        jobs = [f"repeat_{index}" for index in range(1, 4)]
+        manifest.write_text(
+            "".join(
+                json.dumps(
+                    {
+                        "job_id": job,
+                        "input": self.FOLD,
+                        "output_directory": str(self.output_dir / job),
+                    }
+                )
+                + "\n"
+                for job in jobs
+            )
+        )
+        env = self._make_af3_test_env()
+        env["JAX_LOG_COMPILES"] = "1"
+
+        res = subprocess.run(
+            [
+                sys.executable,
+                str(self.script_single.parent / "run_structure_prediction_batch.py"),
+                f"--manifest={manifest}",
+                f"--data_directory={DATA_DIR}",
+                f"--features_directory={self.test_features_dir}",
+                "--fold_backend=alphafold3",
+                f"--flash_attention_implementation={self._af3_flash_attention_impl()}",
+                "--num_diffusion_samples=1",
+                # A cache load would hide a recompile.
+                "--jax_compilation_cache_dir=none",
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        self.assertEqual(
+            res.returncode, 0, f"batch failed.\nSTDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}"
+        )
+
+        log = res.stdout + res.stderr
+        for job in jobs:
+            self.assertTrue(
+                list((self.output_dir / job).rglob("ranking_scores.csv")),
+                f"{job} wrote no predictions",
+            )
+        self.assertEqual(log.count("Finished XLA compilation of jit(apply_fn)"), 1)
+        # "tracing + transforming apply_fn for pjit" on jax 0.9, "tracing apply_fn for jit"
+        # on jax 0.10.
+        traces = re.findall(r"Finished tracing (?:\+ transforming )?apply_fn for p?jit", log)
+        self.assertLen(traces, 1)
 
 
 # --------------------------------------------------------------------------- #

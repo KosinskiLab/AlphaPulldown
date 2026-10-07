@@ -150,6 +150,16 @@ RUN pip3 install --upgrade pip --no-cache-dir \
 # numpy<2 as the LAST dependency step. jax 0.5.3 runs fine with numpy 1.26.x.
 RUN pip install --no-cache-dir "numpy<2"
 
+# --fast_kernels reaches colabfold-kernels through the fork's hooks, which add the
+# Pallas names jax 0.5.3 lacks. Check that this package, fork and jax import together
+# (no GPU needed), so an incompatible release fails the build, not a prediction.
+RUN python -c "from alphafold.model import fused_kernels; \
+ops = fused_kernels.fused_ops(); \
+assert all(callable(getattr(ops, name)) for name in ('attention', 'layer_norm', 'gated_dual_proj')); \
+from alphapulldown.prediction import fast_kernels; \
+assert fast_kernels._package_version(), 'colabfold-kernels version unknown'; \
+print('colabfold-kernels', fast_kernels._package_version(), 'imports through alphafold.model.fused_kernels')"
+
 # AlphaFold's template code formats a hit's `sum_probs` with %.2f in the error
 # path of `_process_single_hit`, but sum_probs is legitimately None for some hits
 # - the same function's *warning* path already prints it with %s, and

@@ -138,15 +138,23 @@ logged.
 ## Troubleshooting
 
 `--fast_kernels=on` stops before loading weights and gives the reason; `auto` logs the
-same reason as `Fused kernels off (--fast_kernels=auto): ...`:
+same reason as `Fused kernels off (--fast_kernels=auto): ...` and keeps the original
+layers. The reason starts with one of two phrases:
 
-| reason contains | meaning |
-| --- | --- |
-| `no fused-triangle hooks` | the installed `alphafold3` predates the kernels; rebuild it from the submodule |
-| `unvalidated_compute_capability` | the GPU's architecture was not measured (table above) |
-| `unknown_memory_budget` | JAX reports no allocator limit for the GPU |
-| `memory_budget_below_12_gib` | JAX may allocate less than 12 GiB |
-| anything else | compiling or running the small check on this GPU failed |
+- `AF3 fused triangle kernels are not supported here: ...` (a warning under `auto`):
+  this installation or GPU is not one the kernels are enabled on.
+
+  | reason contains | meaning |
+  | --- | --- |
+  | `no fused-triangle hooks` | the installed `alphafold3` predates the kernels; rebuild it from the submodule |
+  | `unvalidated_compute_capability` | the GPU's architecture was not measured (table above) |
+  | `unknown_memory_budget` | JAX reports no allocator limit for the GPU |
+  | `memory_budget_below_12_gib` | JAX may allocate less than 12 GiB |
+
+- `AF3 fused triangle kernels failed their self-check: ...` (an error, with the
+  traceback, under `auto`): the GPU is supported, but compiling or running the small
+  check on it failed, or the kernels returned non-finite values. That points to a
+  kernel, driver or JAX problem; please report it with the log.
 
 During a prediction, a warning such as `triangle_attention_implementation='auto' was
 requested, but a layer ... runs the default implementation (size_limit)` is expected

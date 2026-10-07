@@ -9,6 +9,9 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+# The real padding, imported before af2_backend_module replaces its module with a stub.
+from alphapulldown.utils.modelling_setup import pad_input_features as real_pad_input_features
+
 
 MODULE_PATH = (
     Path(__file__).resolve().parents[2]
@@ -917,12 +920,17 @@ def _padded_run_model_result(confidence_module, n_real, n_pad, seed=0):
     return result, truth, asym_id
 
 
-def test_padded_scores_are_recomputed_over_the_real_residues(af2_backend_module, monkeypatch):
-    # AlphaFold's own confidence module (numpy and scipy only), not the test stub.
+def _real_af2_confidence():
+    """AlphaFold's own confidence module (numpy and scipy only), not the test stub."""
     path = Path(__file__).resolve().parents[2] / "alphafold/alphafold/common/confidence.py"
     spec = importlib.util.spec_from_file_location("real_af2_confidence", path)
-    real_confidence = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(real_confidence)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_padded_scores_are_recomputed_over_the_real_residues(af2_backend_module, monkeypatch):
+    real_confidence = _real_af2_confidence()
     monkeypatch.setattr(af2_backend_module, "confidence", real_confidence)
 
     result, truth, asym_id = _padded_run_model_result(real_confidence, n_real=7, n_pad=5)
@@ -967,6 +975,167 @@ def test_padded_array_result_is_trimmed_with_the_given_chains(af2_backend_module
     assert multimer["predicted_aligned_error"].shape == (3, 3)
     assert monomer["ranking_confidence"] == pytest.approx(80.0)
     assert "iptm" not in monomer
+
+
+class _PaddedRunModel:
+    """AlphaFold-Multimer's RunModel as far as scoring goes: outputs at the padded length.
+
+    It keeps fixed PAE-head logits for a padded length and returns what RunModel
+    returns for them (pLDDT, the PAE array with its bin probabilities, and pTM/ipTM
+    over every residue it was given, padding included).
+    """
+
+    multimer_mode = True
+
+    def __init__(self, confidence_module, n_padded, seed):
+        rng = np.random.default_rng(seed)
+        self.confidence = confidence_module
+        self.logits = rng.normal(size=(n_padded, n_padded, 64)) * 3
+        self.breaks = np.linspace(0.0, 31.0, 63)
+        self.plddt = rng.uniform(30, 95, size=n_padded)
+        self.seen_num_res = []
+
+    def process_features(self, feature_dict, random_seed):
+        return dict(feature_dict)  # multimer models take the features as they are
+
+    def predict(self, processed_feature_dict, random_seed):
+        n = processed_feature_dict["aatype"].shape[0]
+        self.seen_num_res.append(n)
+        logits = self.logits[:n, :n]
+        result = self.confidence.compute_predicted_aligned_error(logits=logits, breaks=self.breaks)
+        result["plddt"] = self.plddt[:n]
+        result["ptm"] = self.confidence.predicted_tm_score(logits=logits, breaks=self.breaks)
+        result["iptm"] = self.confidence.predicted_tm_score(
+            logits=logits, breaks=self.breaks,
+            asym_id=processed_feature_dict["asym_id"], interface=True,
+        )
+        result["ranking_confidence"] = 0.8 * result["iptm"] + 0.2 * result["ptm"]
+        return result
+
+    def real_scores(self, asym_id):
+        n = len(asym_id)
+        logits = self.logits[:n, :n]
+        ptm = self.confidence.predicted_tm_score(logits=logits, breaks=self.breaks)
+        iptm = self.confidence.predicted_tm_score(
+            logits=logits, breaks=self.breaks, asym_id=asym_id, interface=True
+        )
+        pae = self.confidence.compute_predicted_aligned_error(logits=logits, breaks=self.breaks)
+        return {
+            "ptm": ptm,
+            "iptm": iptm,
+            "ranking_confidence": 0.8 * iptm + 0.2 * ptm,
+            "plddt": self.plddt[:n],
+            "predicted_aligned_error": pae["predicted_aligned_error"],
+        }
+
+
+def _dimer_features(chain_lengths, num_msa):
+    """Unpadded AlphaFold-Multimer features of a heterodimer, as pad_input_features sees them."""
+    num_res = sum(chain_lengths)
+    asym_id = np.concatenate(
+        [np.full(length, chain, dtype=np.int32) for chain, length in enumerate(chain_lengths, 1)]
+    )
+    return {
+        "aatype": np.arange(num_res, dtype=np.int32) % 20,
+        "residue_index": np.concatenate([np.arange(length) for length in chain_lengths]).astype(np.int32),
+        "asym_id": asym_id,
+        "entity_id": asym_id.copy(),
+        "sym_id": np.ones(num_res, dtype=np.int32),
+        "seq_mask": np.ones(num_res, dtype=np.float32),
+        "msa": np.zeros((num_msa, num_res), dtype=np.int32),
+        "deletion_matrix": np.zeros((num_msa, num_res), dtype=np.float32),
+        "msa_mask": np.ones((num_msa, num_res), dtype=np.float32),
+        "template_aatype": np.zeros((1, num_res), dtype=np.int32),
+        "template_all_atom_positions": np.ones((1, num_res, 37, 3), dtype=np.float32),
+        "template_all_atom_mask": np.ones((1, num_res, 37), dtype=np.float32),
+        "assembly_num_chains": np.array(len(chain_lengths)),
+        "num_templates": np.array(1),
+        "seq_length": np.array(num_res),
+        "num_alignments": np.array(num_msa),
+    }
+
+
+def test_padded_prediction_reports_scores_and_pae_over_the_real_residues(
+    af2_backend_module, monkeypatch, tmp_path
+):
+    # --desired_num_res end to end: the real padding, a model that sees and scores the
+    # padded length, AlphaFold's real confidence code, then the files postprocess writes.
+    confidence = _real_af2_confidence()
+    monkeypatch.setattr(af2_backend_module, "confidence", confidence)
+    monkeypatch.setattr(af2_backend_module, "pad_input_features", real_pad_input_features)
+    plotted = []
+    monkeypatch.setattr(
+        af2_backend_module,
+        "plot_pae_from_matrix",
+        lambda **kwargs: plotted.append(np.shape(kwargs["pae_matrix"])),
+    )
+    monkeypatch.setattr(af2_backend_module, "post_prediction_process", lambda *a, **k: None)
+    monkeypatch.setattr(af2_backend_module, "_resolve_gpu_relax", lambda use_gpu: False)
+
+    chain_lengths, n_real, n_padded = (3, 4), 7, 12
+    features = _dimer_features(chain_lengths, num_msa=5)
+    dimer = af2_backend_module.MultimericObject(
+        description="dimer",
+        input_seqs=["MKV", "LLAG"],
+        feature_dict=features,
+        multimeric_mode=False,
+    )
+    runners = {
+        "model_1_multimer_v3_pred_0": _PaddedRunModel(confidence, n_padded, seed=1),
+        "model_2_multimer_v3_pred_0": _PaddedRunModel(confidence, n_padded, seed=2),
+    }
+
+    results = af2_backend_module.AlphaFold2Backend.predict_individual_job(
+        model_runners=runners,
+        multimeric_object=dimer,
+        allow_resume=False,
+        skip_templates=False,
+        output_dir=tmp_path,
+        random_seed=0,
+        desired_num_res=n_padded,
+    )
+    # The models ran padded; the object keeps its unpadded features (and chain IDs).
+    assert [runner.seen_num_res for runner in runners.values()] == [[n_padded], [n_padded]]
+    assert dimer.feature_dict["asym_id"].shape == (n_real,)
+    truth = {name: runner.real_scores(features["asym_id"]) for name, runner in runners.items()}
+    for name in runners:
+        assert results[name]["iptm"] != pytest.approx(truth[name]["iptm"], abs=1e-3)
+
+    af2_backend_module.AlphaFold2Backend.postprocess(
+        prediction_results=results,
+        multimeric_object=dimer,
+        output_dir=str(tmp_path),
+        features_directory=str(tmp_path),
+        models_to_relax=af2_backend_module.ModelsToRelax.NONE,
+        convert_to_modelcif=False,
+    )
+
+    ranking = json.loads((tmp_path / "ranking_debug.json").read_text())
+    assert ranking["order"] == sorted(
+        truth, key=lambda name: truth[name]["ranking_confidence"], reverse=True
+    )
+    assert plotted == [(n_real, n_real)] * 2
+    for name, expected in truth.items():
+        assert ranking["iptm+ptm"][name] == pytest.approx(expected["ranking_confidence"], abs=1e-6)
+        assert ranking["iptm"][name] == pytest.approx(expected["iptm"], abs=1e-6)
+
+        (pae_record,) = json.loads((tmp_path / f"pae_{name}.json").read_text())
+        pae = np.asarray(pae_record["predicted_aligned_error"])
+        assert pae.shape == (n_real, n_real)
+        np.testing.assert_allclose(pae, expected["predicted_aligned_error"], atol=0.05)
+        assert pae_record["max_predicted_aligned_error"] == pytest.approx(31.75)
+
+        plddt = json.loads((tmp_path / f"confidence_{name}.json").read_text())
+        assert plddt["residueNumber"] == list(range(1, n_real + 1))
+        np.testing.assert_allclose(plddt["confidenceScore"], expected["plddt"], atol=0.005)
+
+        with open(tmp_path / f"result_{name}.pkl", "rb") as handle:
+            saved = pickle.load(handle)
+        assert saved["iptm"] == pytest.approx(expected["iptm"], abs=1e-6)
+        assert saved["ptm"] == pytest.approx(expected["ptm"], abs=1e-6)
+        assert saved["predicted_aligned_error"].shape == (n_real, n_real)
+        assert saved["aligned_confidence_probs"].shape == (n_real, n_real, 64)
+        assert saved["plddt"].shape == (n_real,)
 
 
 def test_postprocess_ranks_models_relaxes_best_and_runs_cleanup(

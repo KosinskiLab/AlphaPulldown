@@ -52,6 +52,14 @@ jobs:
           #pytest -s test/test_pdb_analyser.py
           #pytest -s test/test_get_good_inter_pae.py
 
+      - name: AlphaFold fork fused-kernel hooks (fake ops, CPU)
+        # pytest.ini does not collect the alphafold/ submodule, so the file is named
+        # here. The fork's base_config needs typing.dataclass_transform (Python 3.11+,
+        # as in the AlphaFold 2 image); AlphaPulldown backfills it only at runtime.
+        if: matrix.python-version != '3.10'
+        run: |
+          pytest -q alphafold/alphafold/model/fused_kernels_test.py
+
   coverage:
     runs-on: ubuntu-latest
     defaults:
