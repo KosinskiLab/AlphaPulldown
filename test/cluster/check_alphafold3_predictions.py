@@ -42,6 +42,11 @@ from alphapulldown.utils.modelling_setup import (
 )
 from alphapulldown_input_parser import generate_fold_specifications
 
+# The sibling helper module; pytest puts this directory on sys.path, a direct load may not.
+if str(Path(__file__).resolve().parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+import af3_gpu_checks  # noqa: E402
+
 
 # --------------------------------------------------------------------------- #
 #                       configuration / environment guards                    #
@@ -4131,12 +4136,33 @@ def _non_finite_values(payload: Any, where: str = "") -> list[str]:
 class TestAlphaFold3FastKernels(_TestBase):
     """--fast_kernels for AF3 on a GPU, and one model compile per process.
 
-    Select with -k TestAlphaFold3FastKernels. ``on`` skips with the backend's reason on
-    a GPU the fork's policy does not enable; ``auto`` must then fall back.
+    Select with -k TestAlphaFold3FastKernels. ``on`` skips, and ``auto`` may fall back,
+    only when the backend says the kernels are not supported here and nvidia-smi, read
+    against the fork's device policy, agrees. Kernels that fail on a GPU the policy
+    enables are a failure, never a skip.
     """
 
     FOLD = "A0A075B6L2:1"
     NOT_SUPPORTED = "AF3 fused triangle kernels are not supported here"
+
+    def _fused_triangle_support(self) -> af3_gpu_checks.Support:
+        """The fork's policy for this GPU, from nvidia-smi rather than the code under test."""
+        return af3_gpu_checks.fused_triangle_support(
+            af3_gpu_checks.visible_gpu(),
+            af3_gpu_checks.jax_memory_fraction(self._make_af3_test_env()),
+            af3_gpu_checks.installed_device_policy(),
+        )
+
+    def _assert_gpu_unsupported(self, backend_reason: str) -> str:
+        """The independent check's detail, once it agrees the kernels are not enabled here."""
+        support = self._fused_triangle_support()
+        self.assertIs(
+            support.supported,
+            False,
+            f"the backend says {backend_reason!r}, but nvidia-smi and the fork's policy "
+            f"say otherwise ({support.detail})",
+        )
+        return support.detail
 
     def _fold(self, mode: str) -> subprocess.CompletedProcess:
         self._require_af3_functional_environment()
@@ -4205,7 +4231,8 @@ class TestAlphaFold3FastKernels(_TestBase):
         log = res.stdout + res.stderr
         if res.returncode != 0 and f"--fast_kernels=on, but {self.NOT_SUPPORTED}" in log:
             reason = next(line for line in log.splitlines() if self.NOT_SUPPORTED in line)
-            self.skipTest(f"this GPU cannot run the fused triangles: {reason.strip()}")
+            detail = self._assert_gpu_unsupported(reason.strip())
+            self.skipTest(f"this GPU cannot run the fused triangles: {reason.strip()} ({detail})")
         self._runCommonTests(res)
 
         self._assert_fused(self._kernel_records("on"))
@@ -4223,6 +4250,7 @@ class TestAlphaFold3FastKernels(_TestBase):
                     record["reason"].startswith(f"--fast_kernels=auto: {self.NOT_SUPPORTED}"),
                     (key, record),
                 )
+            self._assert_gpu_unsupported(next(iter(records.values()))["reason"])
 
     def test_af3_identical_folds_compile_the_model_once(self):
         """Three identical folds in one process: one jit(apply_fn) compile (1afe779e)."""
