@@ -176,3 +176,22 @@ def test_alphafold2_image_pins_openmm_to_cuda12_for_gpu_relax():
     assert "ls /opt/conda/conda-meta/cuda-nvrtc-12.*.json" in dockerfile
     assert "! ls /opt/conda/conda-meta/cuda-nvrtc-13.*.json" in dockerfile
     assert dockerfile.count("micromamba install") == 1
+
+
+def test_alphafold2_image_builds_hhblits_from_the_pinned_realignment_fix():
+    dockerfile = (REPOSITORY / "docker" / "alphafold2.dockerfile").read_text(
+        encoding="utf-8"
+    )
+    builder = dockerfile[
+        dockerfile.index("AS hhblits-builder"):dockerfile.index("FROM nvidia/cuda")
+    ]
+
+    # c4e16e1 is upstream's multi-database realignment fix; later master commits
+    # change hit rescoring, so the build must not follow master.
+    assert re.search(r"^ARG HHSUITE_COMMIT=c4e16e1136[0-9a-f]{30}$", dockerfile, re.M)
+    assert 'git checkout "${HHSUITE_COMMIT}"' in builder
+    assert "git apply" not in builder
+    assert not (REPOSITORY / "docker" / "patches" / "hhsuite-pr389.diff").exists()
+    # The version bump marks features made with the fix, and the image checks it.
+    assert "grep -qx 'set(HHSUITE_VERSION_PATCH 1)' CMakeLists.txt" in builder
+    assert '*"HHblits 3.3.1"*)' in dockerfile

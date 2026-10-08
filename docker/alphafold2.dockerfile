@@ -6,20 +6,22 @@ ARG CUDA=12.2.2
 ARG MMSEQS_VERSION=18-8cc5c
 ARG MMSEQS_COMMIT=8cc5ce367b5638c4306c2d7cfc652dd099a4643f
 ARG MMSEQS_GPU_SHA256=83969dd5c7d4c32858c2fc9a4d1024c15e8fe5da768ce76e787ab0195ffd64e7
+ARG HHSUITE_COMMIT=c4e16e1136f39550f881d01a1d0c7a3f0f23c085
 
 # ---------------------------------------------------------------------------
-# Patched HHblits, built in a throwaway stage so the runtime image never gains
-# a toolchain.
+# HHblits with the multi-database realignment fix, built in a throwaway stage so
+# the runtime image never gains a toolchain.
 #
-# Stock hhblits keys its realignment bookkeeping by database entry NAME, but
+# Stock hhblits 3.3.0 keys its realignment bookkeeping by database entry NAME, but
 # ffindex names are unique only within one database. AlphaFold searches two at
 # once (-d bfd -d uniref30), so identically named entries collide and the wrong
 # HMM is reused during MAC realignment, aborting long queries with
 #   MergeMasterSlave: did not find N match states in sequence 1 of <hit>
-# soedinglab/hh-suite#389 keys those maps by the concrete HHEntry* instead. It is
-# unmerged and in no release (3.3.0 is newest and master still has the bug), so it
-# is built here from master + the vendored patch. VERSION_PATCH is bumped to 3.3.1
-# so features generated with it are distinguishable in recorded metadata.
+# Upstream fixed this in c4e16e1 (soedinglab/hh-suite#389), which is in no release
+# (3.3.0 is newest), so it is built here from that commit. Later master commits
+# change how hits are rescored, so the pin keeps MSAs as they were. VERSION_PATCH
+# is bumped to 3.3.1 so features generated with the fix are distinguishable in
+# recorded metadata.
 #
 # Base must match the runtime image (ubuntu 20.04) so the binary links cleanly.
 # ---------------------------------------------------------------------------
@@ -29,12 +31,14 @@ RUN set -eux; \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       build-essential cmake git ca-certificates; \
     rm -rf /var/lib/apt/lists/*
-COPY docker/patches/hhsuite-pr389.diff /tmp/hhsuite-pr389.diff
+ARG HHSUITE_COMMIT
 RUN set -eux; \
-    git clone --recursive https://github.com/soedinglab/hh-suite.git /tmp/hh-suite; \
+    git clone https://github.com/soedinglab/hh-suite.git /tmp/hh-suite; \
     cd /tmp/hh-suite; \
-    git apply --exclude=data/test.sh /tmp/hhsuite-pr389.diff; \
+    git checkout "${HHSUITE_COMMIT}"; \
+    git submodule update --init --recursive; \
     sed -i 's/set(HHSUITE_VERSION_PATCH 0)/set(HHSUITE_VERSION_PATCH 1)/' CMakeLists.txt; \
+    grep -qx 'set(HHSUITE_VERSION_PATCH 1)' CMakeLists.txt; \
     cmake -B build -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_INSTALL_PREFIX=/opt/hhsuite; \
     cmake --build build -j"$(nproc)"; \
@@ -111,15 +115,15 @@ RUN set -eux; \
     && ls /opt/conda/conda-meta/cuda-nvrtc-12.*.json \
     && ! ls /opt/conda/conda-meta/cuda-nvrtc-13.*.json 2>/dev/null
 
-# Overwrite conda's hhblits with the patched build (see the builder stage above).
+# Overwrite conda's hhblits with the fixed build (see the builder stage above).
 # The conda hhsuite package stays installed, so its shared libraries and the other
 # hh-suite tools remain available; only the hhblits binary is replaced.
 COPY --from=hhblits-builder /opt/hhsuite/bin/hhblits /opt/conda/bin/hhblits
 RUN set -eux; \
     out="$(/opt/conda/bin/hhblits -h 2>&1 || true)"; \
     case "$out" in \
-      *"HHblits 3.3.1"*) echo "patched hhblits in place" ;; \
-      *) printf '%s\n' "$out" | head -3; echo "ERROR: patched hhblits missing"; exit 1 ;; \
+      *"HHblits 3.3.1"*) echo "hhblits with the realignment fix in place" ;; \
+      *) printf '%s\n' "$out" | head -3; echo "ERROR: hhblits with the realignment fix missing"; exit 1 ;; \
     esac
 
 #RUN micromamba run -n base python -m pip install --no-cache-dir "openmm==8.1.1"
