@@ -1,5 +1,7 @@
 [run]
 branch = True
+# Measure the scripts tests run as subprocesses (coverage >= 7.10).
+patch = subprocess
 source =
     alphapulldown
 omit =

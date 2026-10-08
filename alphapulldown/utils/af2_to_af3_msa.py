@@ -145,16 +145,6 @@ def resolve_chain_column_slices(
     return fallback_slices
 
 
-def msa_rows_to_a3m(msa_rows: np.ndarray, query_sequence: str) -> str:
-    """Converts AF2 integer MSA rows to an AF3-compatible A3M string."""
-    deletion_rows = np.zeros_like(msa_rows, dtype=np.int32)
-    return msa_rows_and_deletions_to_a3m(
-        msa_rows=msa_rows,
-        deletion_rows=deletion_rows,
-        query_sequence=query_sequence,
-    )
-
-
 def normalise_deletion_rows(
     deletion_rows: np.ndarray | None, msa_shape: tuple[int, int]
 ) -> np.ndarray:

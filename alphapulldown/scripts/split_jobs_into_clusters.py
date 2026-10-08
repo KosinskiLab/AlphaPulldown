@@ -9,11 +9,13 @@ import numpy as np
 import logging
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
-def create_multimer_objects(args):
-    data = create_custom_info(args.parsed_input)
-    interactors = create_interactors(data, args.features_directory, 0)
-    multimer = MultimericObject(interactors[0])
-    return multimer
+def create_multimer_objects(fold: str, args):
+    parsed = parse_fold([fold], args.features_directory, args.protein_delimiter)
+    data = create_custom_info(parsed)
+    interactors = create_interactors(data, args.features_directory, 0)[0]
+    if len(interactors) == 1:
+        return interactors[0]
+    return MultimericObject(interactors)
 
 
 def profile_all_jobs_and_cluster(all_folds: List[str], args):
@@ -22,9 +24,7 @@ def profile_all_jobs_and_cluster(all_folds: List[str], args):
               "seq_length": []}
     total_num = len(all_folds)
     for idx, i in enumerate(all_folds):
-        args.input = [i]
-        args = parse_fold(args)
-        multimer = create_multimer_objects(args)
+        multimer = create_multimer_objects(i, args)
         msa_depth, seq_length = multimer.feature_dict["msa"].shape
         output['name'].append(i)
         output['msa_depth'].append(msa_depth)
@@ -40,7 +40,7 @@ def plot_clustering_result(X : np.array, labels : List[float | int], num_cluster
     total_num = len(labels)
     labels_unique = np.unique(labels)
     n_clusters_ = num_cluster
-    cmap = plt.cm.get_cmap('tab20')
+    cmap = plt.get_cmap('tab20')
 
     norm = plt.Normalize(vmin=min(labels_unique), vmax=max(labels_unique))
     color_template = {label: cmap(norm(label)) for label in labels_unique}
