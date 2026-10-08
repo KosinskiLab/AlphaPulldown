@@ -115,6 +115,7 @@ def test_alphafold3_image_tests_the_fused_triangles_and_one_compile_per_process(
         "test/unit/test_af3_fused_triangles.py",
         "test/unit/test_alphafold3_backend_helpers.py",
         "test/unit/test_af3_tokamax_trace_context.py",
+        "test/integration/test_af3_input_preparation.py",
         "alphafold3/src/alphafold3/model/network/fused_triangle_test.py",
     ):
         assert test_path in stage, test_path
