@@ -11,6 +11,7 @@ import lzma
 import pytest
 
 from alphapulldown.utils.msa_integrity import (
+    MsaProblem,
     check_a3m,
     check_msa_file,
     check_stockholm,
@@ -157,3 +158,9 @@ def test_validate_precomputed_msas_tolerates_a_missing_directory(tmp_path):
 def test_validate_precomputed_msas_ignores_subdirectories(tmp_path):
     (tmp_path / "nested").mkdir()
     assert validate_precomputed_msas(tmp_path) == []
+
+
+def test_a_problem_reads_as_its_path_and_reason(tmp_path):
+    problem = MsaProblem(tmp_path / "query.a3m", "no query row")
+
+    assert str(problem) == f"{tmp_path / 'query.a3m'}: no query row"

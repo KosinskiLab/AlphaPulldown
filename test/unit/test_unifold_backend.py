@@ -51,3 +51,8 @@ def test_unifold_is_not_advertised_as_available(monkeypatch):
     import alphapulldown.folding_backend as manager_module
     monkeypatch.setattr(manager_module, "_try_import", lambda *args: object)
     assert "unifold" not in FoldingBackendManager().available_backends()
+
+
+def test_postprocess_rejects_unifold_too():
+    with pytest.raises(ValueError, match="UniFold.*unavailable"):
+        UnifoldBackend.postprocess(prediction_results={}, output_dir="/unused")

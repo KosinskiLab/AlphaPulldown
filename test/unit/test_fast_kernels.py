@@ -172,3 +172,42 @@ def test_package_version_falls_back_to_the_module(monkeypatch):
     monkeypatch.setitem(sys.modules, "colabfold_kernels", types.SimpleNamespace(__version__="0.4.0"))
 
     assert fast_kernels._package_version() == "0.4.0"
+
+
+def test_smoke_test_runs_one_fused_layer_norm(monkeypatch):
+    calls = []
+
+    class Result:
+        def block_until_ready(self):
+            calls.append("ran")
+
+    def layer_norm(config, dtype):
+        calls.append((config, dtype.__name__))
+        return lambda x, scale, offset, eps: Result()
+
+    real_import = importlib.import_module
+    monkeypatch.setattr(
+        fast_kernels.importlib,
+        "import_module",
+        lambda name: types.SimpleNamespace(layer_norm=layer_norm)
+        if name == "alphafold.model.fused_kernels"
+        else real_import(name),
+    )
+
+    fast_kernels._smoke_test()
+
+    assert calls == [({"use_pallas": True}, "bfloat16"), "ran"]
+
+
+def test_smoke_test_fails_without_a_bf16_layer_norm(monkeypatch):
+    real_import = importlib.import_module
+    monkeypatch.setattr(
+        fast_kernels.importlib,
+        "import_module",
+        lambda name: types.SimpleNamespace(layer_norm=lambda config, dtype: None)
+        if name == "alphafold.model.fused_kernels"
+        else real_import(name),
+    )
+
+    with pytest.raises(RuntimeError, match="no bf16 LayerNorm kernel"):
+        fast_kernels._smoke_test()

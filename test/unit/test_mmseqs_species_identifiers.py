@@ -713,3 +713,52 @@ def test_make_mmseq_features_precomputed_colabfold_a3m_enriches_identifiers(
   assert resolvable, (
       f'expected at least one resolvable accession in {accessions.tolist()}'
   )
+
+
+class _FakeResponse:
+  def __init__(self, payload):
+    self._body = json.dumps(payload).encode()
+
+  def __enter__(self):
+    import io
+    return io.BytesIO(self._body)
+
+  def __exit__(self, *exc):
+    return False
+
+
+def test_uniprot_and_uniparc_batches_query_the_rest_api_and_read_taxa():
+  urls = []
+
+  def fake_urlopen(url, timeout):
+    urls.append(url)
+    if '/uniparc/' in url:
+      return _FakeResponse({
+          'results': [
+              # One organism resolves; two disagreeing organisms do not.
+              {'uniParcId': 'UPI0000000001', 'organisms': [{'taxonId': 9606}]},
+              {'uniParcId': 'UPI0000000002',
+               'organisms': [{'taxonId': 9606}, {'taxonId': 10090}]},
+          ]
+      })
+    return _FakeResponse({
+        'results': [{'primaryAccession': 'P69905', 'organism': {'taxonId': 9606}}]
+    })
+
+  uniprot, uniprot_misses = mmseqs_species_identifiers._query_uniprot_species_ids(
+      ['P69905', 'Q9XXX1'], urlopen=fake_urlopen
+  )
+  uniparc, uniparc_misses = mmseqs_species_identifiers._query_uniparc_species_ids(
+      ['UPI0000000001', 'UPI0000000002'], urlopen=fake_urlopen
+  )
+
+  assert uniprot == {'P69905': '9606'}
+  assert uniprot_misses == {'P69905', 'Q9XXX1'}
+  assert uniparc == {'UPI0000000001': '9606'}
+  assert uniparc_misses == {'UPI0000000001', 'UPI0000000002'}
+  uniprot_url, uniparc_url = urls
+  assert uniprot_url.startswith('https://rest.uniprot.org/uniprotkb/search?query=')
+  assert 'accession%3AP69905%20OR%20accession%3AQ9XXX1' in uniprot_url
+  assert '&fields=accession,organism_id' in uniprot_url and uniprot_url.endswith('&size=2')
+  assert uniparc_url.startswith('https://rest.uniprot.org/uniparc/search?query=')
+  assert 'upi%3AUPI0000000001%20OR%20upi%3AUPI0000000002' in uniparc_url
