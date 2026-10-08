@@ -70,6 +70,8 @@ alphafold3 = [
   "zstandard",
 ]
 test = [
+  # 7.10 adds [run] patch = subprocess, which .coveragerc uses.
+  "coverage>=7.10",
   "parameterized",
   "pytest>=8.0",
   "pytest-cov>=5.0",

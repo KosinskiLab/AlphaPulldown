@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import argparse
 import ast
+import configparser
+import fnmatch
 import json
 import sys
 from dataclasses import dataclass
@@ -14,6 +16,42 @@ PACKAGE_ROOT = REPO_ROOT / "alphapulldown"
 OMIT_PREFIXES = (
     "alphapulldown/analysis_pipeline/af2plots/",
 )
+
+
+def coverage_omit_patterns(config_path: Path = REPO_ROOT / ".coveragerc") -> list[str]:
+    """The [run] omit patterns: coverage never measures those files, so never report them."""
+    config = configparser.ConfigParser()
+    config.read(config_path, encoding="utf-8")
+    raw = config.get("run", "omit", fallback="")
+    return [line.strip() for line in raw.splitlines() if line.strip()]
+
+
+def _is_docstring(statement: ast.stmt) -> bool:
+    return (
+        isinstance(statement, ast.Expr)
+        and isinstance(statement.value, ast.Constant)
+        and isinstance(statement.value.value, str)
+    )
+
+
+def is_interface_stub(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    """An abstract method or Protocol stub: nothing in its body can run."""
+    if any(
+        (isinstance(decorator, ast.Name) and decorator.id == "abstractmethod")
+        or (isinstance(decorator, ast.Attribute) and decorator.attr == "abstractmethod")
+        for decorator in node.decorator_list
+    ):
+        return True
+    body = node.body[1:] if node.body and _is_docstring(node.body[0]) else node.body
+    return all(
+        isinstance(statement, ast.Pass)
+        or (
+            isinstance(statement, ast.Expr)
+            and isinstance(statement.value, ast.Constant)
+            and statement.value.value is Ellipsis
+        )
+        for statement in body
+    )
 
 
 @dataclass(frozen=True)
@@ -43,6 +81,8 @@ class FunctionCollector(ast.NodeVisitor):
         self._record(node)
 
     def _record(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        if is_interface_stub(node):
+            return
         qualname = ".".join([*self.stack, node.name]) if self.stack else node.name
         end_lineno = getattr(node, "end_lineno", node.lineno)
         body_lineno = getattr(node.body[0], "lineno", node.lineno) if node.body else node.lineno
@@ -62,9 +102,12 @@ class FunctionCollector(ast.NodeVisitor):
 
 def iter_package_functions() -> list[FunctionSpan]:
     functions: list[FunctionSpan] = []
+    omit = coverage_omit_patterns()
     for path in sorted(PACKAGE_ROOT.rglob("*.py")):
         rel_path = path.relative_to(REPO_ROOT).as_posix()
         if any(rel_path.startswith(prefix) for prefix in OMIT_PREFIXES):
+            continue
+        if any(fnmatch.fnmatch(rel_path, pattern) for pattern in omit):
             continue
         tree = ast.parse(path.read_text(encoding="utf-8"))
         collector = FunctionCollector(path.relative_to(REPO_ROOT))

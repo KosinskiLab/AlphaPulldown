@@ -185,13 +185,6 @@ def feature_requests_from_fastas(
     return tuple(requests)
 
 
-def protein_requests_from_fastas(
-    fasta_paths: Sequence[str | Path],
-) -> tuple[FeatureRequest, ...]:
-    """Read protein requests without importing AlphaFold or JAX."""
-    return feature_requests_from_fastas(fasta_paths)
-
-
 @dataclasses.dataclass(frozen=True, slots=True)
 class DatabaseSpec:
     """An explicit MMseqs2 database and its immutable cache identity."""

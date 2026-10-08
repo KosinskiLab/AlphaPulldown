@@ -223,3 +223,35 @@ def test_main_processes_associated_models_before_selected_models(monkeypatch, tm
     assert calls[0]["out_dir"] != str(tmp_path / "out")
     assert calls[1]["model_tuple"][0] == "ranked_0.pdb"
     assert calls[1]["additional_assoc_files"]
+
+
+def test_reference_databases_are_listed_once_per_release_and_url():
+    def database(release_date, version, url):
+        return {"release_date": release_date, "version": version, "location_url": [url]}
+
+    uniref_2022 = ("2022-01-01 00:00:00", "2022_01", "https://example.org/uniref90.fasta.gz")
+    meta = {
+        "A": {"databases": {"UniRef90": database(*uniref_2022)}},
+        # The same UniRef90 release again, and a database A did not use.
+        "B": {
+            "databases": {
+                "UniRef90": database(*uniref_2022),
+                "MGnify": database("2022-05-01 00:00:00", "2022_05", "https://example.org/mgy.fa.gz"),
+            }
+        },
+        "C": {
+            "databases": {
+                "UniRef90": database(
+                    "2023-01-01 00:00:00", "2023_01", "https://example.org/uniref90.fasta.gz"
+                )
+            }
+        },
+    }
+
+    databases = convert_to_modelcif._get_modelcif_ref_dbs(meta)
+
+    assert [(db.name, db.version) for db in databases] == [
+        ("UniRef90", "2022_01"),
+        ("UniRef90", "2023_01"),
+        ("MGnify", "2022_05"),
+    ]

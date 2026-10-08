@@ -112,3 +112,45 @@ def test_check_function_coverage_accepts_executed_function_body(tmp_path, monkey
     captured = capsys.readouterr()
     assert exit_code == 0
     assert "Function coverage check passed" in captured.out
+
+
+def test_interface_stubs_are_not_reported():
+    checker = _load_checker_module()
+    source = "\n".join(
+        [
+            "from abc import abstractmethod",
+            "class Backend:",
+            "    @abstractmethod",
+            "    def setup(self):",
+            '        """Implemented by each backend."""',
+            "class Process(Protocol):",
+            "    def search(self) -> None: ...",
+            "    def describe(self) -> None:",
+            '        """Docstring only."""',
+            "    def run(self):",
+            "        return 1",
+            "",
+        ]
+    )
+    collector = checker.FunctionCollector(Path("alphapulldown/example.py"))
+
+    collector.visit(checker.ast.parse(source))
+
+    assert [function.qualname for function in collector.functions] == ["Process.run"]
+
+
+def test_files_coverage_omits_are_not_reported(tmp_path):
+    checker = _load_checker_module()
+    config = tmp_path / ".coveragerc"
+    config.write_text(
+        "[run]\nomit =\n    alphapulldown/__init__.py\n    alphapulldown/analysis_pipeline/*\n",
+        encoding="utf-8",
+    )
+
+    assert checker.coverage_omit_patterns(config) == [
+        "alphapulldown/__init__.py",
+        "alphapulldown/analysis_pipeline/*",
+    ]
+    reported = {function.path.as_posix() for function in checker.iter_package_functions()}
+    assert not any(path.startswith("alphapulldown/analysis_pipeline/") for path in reported)
+    assert "alphapulldown/folding_backend/alphalink_backend.py" not in reported
