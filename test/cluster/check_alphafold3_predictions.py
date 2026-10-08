@@ -2569,7 +2569,9 @@ class TestAlphaFold3MetadataEndToEnd(_TestBase):
                 "input": f"{self.PROTEIN_ID}+{ap_feature_path}",
                 "metadata_count": 2,
                 "software": {"AlphaPulldown", "AlphaFold 2"},
-                "databases": {"UniRef90", "MGnify", "PDB mmCIF"},
+                # The AF2 chain brings its own recorded databases: the fixture's
+                # metadata lists ColabFold.
+                "databases": {"UniRef90", "MGnify", "PDB mmCIF", "ColabFold"},
             },
         }
         report: dict[str, Any] = {
@@ -2605,8 +2607,9 @@ class TestAlphaFold3MetadataEndToEnd(_TestBase):
                 required_databases=case["databases"],
                 forbidden_databases=(
                     {"NT-RNA", "Rfam", "RNAcentral", "ColabFold"}
-                    if case_name
-                    in {"alphapulldown_af3_features", "mixed_af2_and_af3_features"}
+                    if case_name == "alphapulldown_af3_features"
+                    else {"NT-RNA", "Rfam", "RNAcentral"}
+                    if case_name == "mixed_af2_and_af3_features"
                     else set()
                 ),
             )
