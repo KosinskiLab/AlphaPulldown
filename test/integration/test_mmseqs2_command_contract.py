@@ -1,4 +1,4 @@
-"""Opt-in contract test against a real MMseqs2 executable and tiny database."""
+"""Contract test against a real MMseqs2 executable and tiny database."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import subprocess
 
 import pytest
 
-pytestmark = [pytest.mark.integration, pytest.mark.external_tools]
+pytestmark = pytest.mark.integration
 
 # No AlphaFold 3 skip here any more. This module exercises the shared protein
 # search, which the AlphaFold 2 image has to run too -- and that image has no

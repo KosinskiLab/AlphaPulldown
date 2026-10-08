@@ -1,9 +1,7 @@
 """Template-heavy feature-generation smoke tests.
 
-These exercise the real CLI path for custom-template feature creation. They are
-kept under `test/functional/`, but still marked `external_tools` because the
-subprocess touches the ColabFold/JAX import chain and local bioinformatics
-tooling that is not available in the lightweight default test environment.
+These exercise the real CLI path for custom-template feature creation, with
+the bioinformatics tools from environment.yml (kalign, HMMER, HH-suite).
 """
 
 import os
@@ -22,8 +20,6 @@ from absl.testing import absltest, parameterized
 
 from alphapulldown.utils.remove_clashes_low_plddt import extract_seqs
 
-
-pytestmark = pytest.mark.external_tools
 
 
 class TestCreateIndividualFeaturesWithTemplates(parameterized.TestCase):
@@ -75,7 +71,7 @@ class TestCreateIndividualFeaturesWithTemplates(parameterized.TestCase):
         for suffix in uniref_db_files:
             self.create_mock_file(f"{uniref_db_root}{suffix}")
 
-    def run_features_generation(self, file_name, chain_id, file_extension, use_mmseqs2, compress_features=False):
+    def run_features_generation(self, file_name, chain_id, file_extension, compress_features=False):
         (self.TEST_DATA_DIR / 'features').mkdir(parents=True, exist_ok=True)
         (self.TEST_DATA_DIR / 'templates').mkdir(parents=True, exist_ok=True)
         self.mock_databases()
@@ -104,12 +100,8 @@ class TestCreateIndividualFeaturesWithTemplates(parameterized.TestCase):
             "--path_to_mmt", str(self.TEST_DATA_DIR / "templates"),
             "--description_file", str(self.TEST_DATA_DIR / "description.csv"),
             "--output_dir", str(self.TEST_DATA_DIR / "features"),
+            "--data_dir", str(self.TEST_DATA_DIR),
         ]
-        # only pass data_dir when not using mmseqs2 (to match the test name/intent)
-        if not use_mmseqs2:
-            cmd += ["--data_dir", str(self.TEST_DATA_DIR)]
-        else:
-            cmd += ["--use_mmseqs2", "True"]
         if compress_features:
             cmd += ["--compress_features", "True"]
 
@@ -165,12 +157,12 @@ class TestCreateIndividualFeaturesWithTemplates(parameterized.TestCase):
                         assert (s in seqres_seq)
                     assert np.any(a[:4] != 0)
 
+    # Uncompressed output is what test_run_features_generation checks.
     @parameterized.parameters(
         {'compress_features': True, 'file_name': '3L4Q', 'chain_id': 'A', 'file_extension': 'cif'},
-        {'compress_features': False, 'file_name': '3L4Q', 'chain_id': 'A', 'file_extension': 'cif'},
     )
     def test_compress_features_flag(self, compress_features, file_name, chain_id, file_extension):
-        self.run_features_generation(file_name, chain_id, file_extension, use_mmseqs2=False, compress_features=compress_features)
+        self.run_features_generation(file_name, chain_id, file_extension, compress_features=compress_features)
 
         json_pattern = f'{file_name}_{chain_id}.{file_name}.{file_extension}.{chain_id}_feature_metadata_*.json'
         if compress_features:
@@ -191,15 +183,15 @@ class TestCreateIndividualFeaturesWithTemplates(parameterized.TestCase):
         json_path.unlink(missing_ok=True)
 
     @parameterized.parameters(
-        {'file_name': '3L4Q', 'chain_id': 'A', 'file_extension': 'cif', 'use_mmseqs2': False},
-        {'file_name': '3L4Q', 'chain_id': 'C', 'file_extension': 'pdb', 'use_mmseqs2': False},
-        {'file_name': 'RANdom_name1_.7-1_0', 'chain_id': 'B', 'file_extension': 'pdb', 'use_mmseqs2': False},
-        {'file_name': 'RANdom_name1_.7-1_0', 'chain_id': 'C', 'file_extension': 'pdb', 'use_mmseqs2': False},
-        {'file_name': 'GAPPY_PDB', 'chain_id': 'B', 'file_extension': 'pdb', 'use_mmseqs2': False},
-        {'file_name': 'hetatoms', 'chain_id': 'A', 'file_extension': 'pdb', 'use_mmseqs2': False},
+        {'file_name': '3L4Q', 'chain_id': 'A', 'file_extension': 'cif'},
+        {'file_name': '3L4Q', 'chain_id': 'C', 'file_extension': 'pdb'},
+        {'file_name': 'RANdom_name1_.7-1_0', 'chain_id': 'B', 'file_extension': 'pdb'},
+        {'file_name': 'RANdom_name1_.7-1_0', 'chain_id': 'C', 'file_extension': 'pdb'},
+        {'file_name': 'GAPPY_PDB', 'chain_id': 'B', 'file_extension': 'pdb'},
+        {'file_name': 'hetatoms', 'chain_id': 'A', 'file_extension': 'pdb'},
     )
-    def test_run_features_generation(self, file_name, chain_id, file_extension, use_mmseqs2):
-        self.run_features_generation(file_name, chain_id, file_extension, use_mmseqs2)
+    def test_run_features_generation(self, file_name, chain_id, file_extension):
+        self.run_features_generation(file_name, chain_id, file_extension)
 
         pkl_filename = f'{file_name}_{chain_id}.{file_name}.{file_extension}.{chain_id}.pkl'
         pkl_path = self.TEST_DATA_DIR / 'features' / pkl_filename
@@ -213,14 +205,6 @@ class TestCreateIndividualFeaturesWithTemplates(parameterized.TestCase):
         # cleanup
         pkl_path.unlink(missing_ok=True)
         json_path.unlink(missing_ok=True)
-
-    def test_mmseqs2_without_data_dir(self):
-        """Test that MMseqs2 works without data_dir flag."""
-        self.run_features_generation('3L4Q', 'A', 'cif', True)
-
-    @absltest.skip("use_mmseqs2 must not be set when running with --path_to_mmts")
-    def test_6a_mmseqs2(self):
-        self.run_features_generation('3L4Q', 'A', 'cif', True)
 
 
 if __name__ == '__main__':

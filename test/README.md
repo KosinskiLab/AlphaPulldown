@@ -8,7 +8,7 @@ The active pytest layout is:
 
 Notes:
 
-- `pytest.ini` only collects `unit`, `integration`, and `functional`.
+- `pytest.ini` only collects `unit`, `integration`, and `functional`; CI runs all three.
 - `conftest.py` auto-applies markers from the directory layout.
 - Keep pytest's canonical node IDs, including parameter IDs. Replacing them with
   descriptions causes `pytest-xdist --dist loadfile` to silently omit cases.
