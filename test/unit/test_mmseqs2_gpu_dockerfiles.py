@@ -159,9 +159,11 @@ def test_alphafold2_image_checks_the_fused_kernels_import_with_its_final_jax():
     numpy = dockerfile.index('RUN pip install --no-cache-dir "numpy<2"')
     check = dockerfile.index("fused_kernels.fused_ops()")
 
-    # After the last dependency change, so it checks what the image ships.
-    assert kernels < jax < numpy < check
-    assert "pip install" not in dockerfile[check:]
+    # After the last dependency change, so it checks what the image ships. The test
+    # stage installs pytest, but that stage never reaches the runtime image.
+    tests = dockerfile.index("FROM base AS af2-compatibility-tests")
+    assert kernels < jax < numpy < check < tests
+    assert "pip install" not in dockerfile[check:tests]
 
 
 def test_alphafold2_image_pins_openmm_to_cuda12_for_gpu_relax():
@@ -176,3 +178,61 @@ def test_alphafold2_image_pins_openmm_to_cuda12_for_gpu_relax():
     assert "ls /opt/conda/conda-meta/cuda-nvrtc-12.*.json" in dockerfile
     assert "! ls /opt/conda/conda-meta/cuda-nvrtc-13.*.json" in dockerfile
     assert dockerfile.count("micromamba install") == 1
+
+
+def test_alphafold2_image_builds_hhblits_from_the_pinned_realignment_fix():
+    dockerfile = (REPOSITORY / "docker" / "alphafold2.dockerfile").read_text(
+        encoding="utf-8"
+    )
+    builder = dockerfile[
+        dockerfile.index("AS hhblits-builder"):dockerfile.index("FROM nvidia/cuda")
+    ]
+
+    # c4e16e1 is upstream's multi-database realignment fix; later master commits
+    # change hit rescoring, so the build must not follow master.
+    assert re.search(r"^ARG HHSUITE_COMMIT=c4e16e1136[0-9a-f]{30}$", dockerfile, re.M)
+    assert 'git checkout "${HHSUITE_COMMIT}"' in builder
+    assert "git apply" not in builder
+    assert not (REPOSITORY / "docker" / "patches" / "hhsuite-pr389.diff").exists()
+    # The version bump marks features made with the fix, and the image checks it.
+    assert "grep -qx 'set(HHSUITE_VERSION_PATCH 1)' CMakeLists.txt" in builder
+    assert '*"HHblits 3.3.1"*)' in dockerfile
+
+
+def test_alphafold2_image_tests_its_own_toolchain():
+    dockerfile = (REPOSITORY / "docker" / "alphafold2.dockerfile").read_text(
+        encoding="utf-8"
+    )
+    stage = dockerfile.split("FROM base AS af2-compatibility-tests", 1)[1].split(
+        "FROM base AS runtime", 1
+    )[0]
+
+    for test_path in (
+        "test/integration/test_mmseqs2_af2.py",
+        "test/integration/test_modelcif.py",
+    ):
+        assert test_path in stage, test_path
+        assert (REPOSITORY / test_path).is_file(), test_path
+    # The bundled MMseqs2, not one found elsewhere, must produce the features.
+    assert "MMSEQS_INTEGRATION_BINARY=/opt/mmseqs/bin/mmseqs" in stage
+    # The runtime image cannot be built without the test stage passing.
+    assert "COPY --from=af2-compatibility-tests" in dockerfile.split(
+        "FROM base AS runtime", 1
+    )[1]
+
+
+def test_ci_runs_the_tool_tests_with_the_images_mmseqs2():
+    workflow = yaml.load(WORKFLOW.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
+    script = REPOSITORY / ".github" / "scripts" / "install-mmseqs.sh"
+
+    for job in ("smoke-tests", "coverage"):
+        runs = [step.get("run", "") for step in workflow["jobs"][job]["steps"]]
+        install = runs.index(".github/scripts/install-mmseqs.sh")
+        tests = next(i for i, run in enumerate(runs) if "test/integration test/functional" in run)
+        assert install < tests, job
+    # One source of truth: the release and checksum the images install.
+    text = script.read_text(encoding="utf-8")
+    for arg in ("MMSEQS_VERSION", "MMSEQS_GPU_SHA256", "MMSEQS_COMMIT"):
+        assert f"s/^ARG {arg}=//p" in text, arg
+    assert "sha256sum -c -" in text
+    assert "MMSEQS_INTEGRATION_BINARY=" in text

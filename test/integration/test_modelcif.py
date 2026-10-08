@@ -1,6 +1,7 @@
 import os
 import logging
 import subprocess
+import sys
 from absl.testing import parameterized
 import shutil
 import tempfile
@@ -18,7 +19,6 @@ Test conversion of PDB to CIF for monomers and multimers
 
 pytest.importorskip("ihm")
 pytest.importorskip("modelcif")
-pytestmark = pytest.mark.external_tools
 
 
 class TestConvertPDB2CIF(parameterized.TestCase):
@@ -88,7 +88,8 @@ class TestConvertPDB2CIF(parameterized.TestCase):
                 if compress:
                     cif = f"{cif}.gz"
                 logging.info(f"Checking existence of file: {cif}")
-                self.assertTrue(cif, f"File {cif} exists")
+                self.assertTrue(os.path.exists(join(test_output_dir, cif)),
+                                f"File {cif} does not exist")
 
             if add_associated:
                 associated_file = f"ranked_{idx}.zip"
@@ -117,7 +118,7 @@ class TestConvertPDB2CIF(parameterized.TestCase):
     def build_command(self, output_dir, add_associated, compress, model_selected):
         """Build the command for subprocess"""
         command = [
-            "python3", self.script_path,
+            sys.executable, self.script_path,
             "--ap_output", output_dir,
             "--add_associated" if add_associated else "--noadd_associated",
             "--compress" if compress else "--nocompress"
