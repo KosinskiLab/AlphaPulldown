@@ -102,7 +102,7 @@ Notes:
 - For cluster installs, prefer `python -m pip install ".[alphafold3,test]"` and then build the vendored `alphafold3` package.
 - The compiled `alphafold3.cpp` extension comes from `python -m pip install --no-deps -e ./alphafold3`, not from the root install.
 - The vendored AF3 package provides the `build_data` entry point. Use that directly.
-- The experimental `--fast_kernels` option (fused triangle kernels) needs the vendored `alphafold3` built from this checkout's submodule revision; see [AF3 fused triangle kernels](af3_fused_triangles.md).
+- The opt-in `--fast_kernels` option (fused triangle kernels) needs the vendored `alphafold3` built from this checkout's submodule revision; see [AF3 fused triangle kernels](af3_fused_triangles.md).
 - If you are actively developing inside the checkout and want the root package editable as well, add:
 
 ```bash

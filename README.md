@@ -9,7 +9,7 @@
 ### Quick install (recommended)
 
 ```bash
-curl -O https://raw.githubusercontent.com/KosinskiLab/AlphaPulldownSnakemake/2.9.2/install.sh
+curl -O https://raw.githubusercontent.com/KosinskiLab/AlphaPulldownSnakemake/2.10.0/install.sh
 bash install.sh
 conda activate snake
 cd AlphaPulldownSnakemake
@@ -25,7 +25,7 @@ Useful options:
 | Option | Meaning |
 | --- | --- |
 | `-d, --dest DIR` | working directory to deploy into (default `AlphaPulldownSnakemake`) |
-| `-v, --version TAG` | workflow version to deploy (default `2.9.2`) |
+| `-v, --version TAG` | workflow version to deploy (default `2.10.0`) |
 | `-i, --image-dir DIR` | shared container image directory |
 | `-n, --env-name NAME` | conda environment name (default `snake`) |
 | `--no-pull` | skip container pre-fetch (Snakemake will fetch on first run) |
@@ -43,7 +43,7 @@ Create and activate the conda environment:
 ```bash
 conda env create \
   -n snake \
-  -f https://raw.githubusercontent.com/KosinskiLab/AlphaPulldownSnakemake/2.9.2/workflow/envs/alphapulldown.yaml
+  -f https://raw.githubusercontent.com/KosinskiLab/AlphaPulldownSnakemake/2.10.0/workflow/envs/alphapulldown.yaml
 conda activate snake
 ```
 
@@ -55,7 +55,7 @@ Then deploy the workflow into a new processing directory for your project:
 snakedeploy deploy-workflow \
   https://github.com/KosinskiLab/AlphaPulldownSnakemake \
   AlphaPulldownSnakemake \
-  --tag 2.9.2
+  --tag 2.10.0
 cd AlphaPulldownSnakemake
 ```
 
@@ -373,7 +373,7 @@ XlaRuntimeError: UNIMPLEMENTED: ... ptxas too old
 This cannot be patched from outside the container. jaxlib calls its own bundled `ptxas`, so
 `XLA_FLAGS=--xla_gpu_cuda_data_dir` and `PATH` have no effect, and bind-mounting a newer `ptxas`
 still leaves the CUDA runtime and cuDNN too old for the real kernels. From 2.5.0 the images ship a
-consistent CUDA >= 12.8 stack (AF3: jax 0.9.1, from AlphaFold 3 v3.0.4 on jax 0.10.2, ptxas 12.9, cuDNN 9.17, Tokamax; AF2: jax 0.5.3,
+consistent CUDA >= 12.8 stack (AF3: jax 0.10.2 with AlphaFold 3 v3.0.4, ptxas 12.9, cuDNN 9.17, Tokamax; AF2: jax 0.5.3,
 ptxas 12.9, cuDNN 9.2x) and return the same confidence scores as the older cards. All three AF3
 attention implementations (`triton`/Tokamax, `cudnn`, `xla`) work, so no
 `--flash_attention_implementation` override is needed.
@@ -389,12 +389,15 @@ Those nodes are RTX PRO 4500 cards split into 16 GB `1g.16gb` MIG instances. The
 `slurm_gres`: a plain `gpu:1` request lands on one slice and SLURM sets
 `CUDA_VISIBLE_DEVICES=MIG-<uuid>`. Route work to them by size with a `min_vram_gb: 16` tier in
 `structure_inference_gpu_tiers`. They suit monomers and small complexes, while larger jobs belong on
-the 96 GB RTX PRO 6000 tier.
+the 96 GB RTX PRO 6000 tier. Keep AlphaFold 2 off them for larger complexes: the tier estimate
+(`per_token_sq·N²`) places AlphaFold 2 complexes of up to ~1,700 residues on a 16 GB slice, but in our
+runs AlphaFold 2 complexes of 1,600–2,900 residues ran out of GPU memory there with 10–45 GB of host
+RAM for spill, and spilling is many times slower than VRAM anyway.
 
 One MIG caveat the workflow already handles: `nvidia-smi --query-gpu=memory.total` reports the parent
 card (32623 MiB) rather than the slice (~16 GB). Since `structure_inference_xla_mem_fraction: auto`
-is `host RAM / GPU VRAM`, taking that number at face value would roughly halve the fraction and
-switch off host spill exactly where it is most needed. The workflow therefore reads the slice profile
+divides the host RAM by the GPU VRAM, taking that number at face value would roughly halve the
+host spill exactly where it is most needed. The workflow therefore reads the slice profile
 from `nvidia-smi -L` when `CUDA_VISIBLE_DEVICES` holds a MIG UUID, and falls back to `--query-gpu` on
 whole cards.
 
@@ -500,8 +503,8 @@ for large inputs. It is exported inside the prediction container as:
 ```sh
 export TF_FORCE_UNIFIED_MEMORY=true
 export XLA_PYTHON_CLIENT_PREALLOCATE=false   # don't grab a huge VRAM chunk up front
-export XLA_CLIENT_MEM_FRACTION=$FRACTION      # how far past physical VRAM XLA may allocate
-export XLA_PYTHON_CLIENT_MEM_FRACTION=$FRACTION
+export XLA_CLIENT_MEM_FRACTION=$FRACTION      # XLA's total limit = FRACTION x GPU VRAM
+unset XLA_PYTHON_CLIENT_MEM_FRACTION          # deprecated; both set -> JAX falls back to CPU
 ```
 
 `XLA_PYTHON_CLIENT_PREALLOCATE=false` is required: without it XLA reserves a large
@@ -510,17 +513,29 @@ host RAM on demand.
 
 ```yaml
 structure_inference_unified_memory: true     # set false to fail fast on OOM instead
-structure_inference_xla_mem_fraction: auto   # "auto", or pin a number like 3.2
+structure_inference_xla_mem_fraction: auto   # "auto", or pin a number like 2.5
 ```
 
-With the default `structure_inference_xla_mem_fraction: auto`, the fraction is computed
-**per job at run time** as `(allocated host RAM) / (physical GPU VRAM)`: the GPU VRAM is
-read with `nvidia-smi` once the job lands on a node, and the host RAM is the job's SLURM
-`--mem` allocation (which scales with retry attempts). This keeps the unified-memory
-ceiling within the SLURM allocation so XLA cannot oversubscribe host RAM beyond what the
-job requested — which would otherwise get the job OOM-killed. The chosen fraction is
-logged as a `[unified-memory]` line at the top of the job log. Pin a number instead if
-you want a fixed multiplier regardless of GPU/RAM.
+The fraction is a multiple of the GPU's VRAM, and the limit it sets covers VRAM and host
+spill together: `1.0` allows the GPU memory only, `2.0` all of it plus the same amount
+again of host RAM. With the default `auto`, the fraction is computed **per job at run
+time** as
+
+```text
+1 + (allocated host RAM - structure_inference_ram_bytes) / (physical GPU VRAM)
+```
+
+The GPU VRAM is read with `nvidia-smi` once the job lands on a node, and the host RAM is
+the job's SLURM `--mem` allocation (which scales with retry attempts). The job can thus
+spill into all of its host RAM except the base inference RAM (`structure_inference_ram_bytes`,
+by default 8000 MB for AlphaFold 3 and 16000 MB for AlphaFold 2), which stays free for the
+process itself. For example, 128 GB of host RAM on an 80 GB GPU gives 1 + (128 - 8) / 80 = 2.5,
+a 200 GB limit with 120 GB of host spill. The fraction never goes below 1, and the chosen value
+is logged as a `[unified-memory]` line at the top of the job log. Pin a number instead if
+you want a fixed multiplier regardless of GPU/RAM, but keep (fraction - 1) x VRAM within the
+host RAM the job requests: on some clusters (e.g. EL8 with cgroup v1) spilled pages are not
+counted against the job's `--mem`, so an oversized fraction does not fail the job but takes RAM
+from everything else on the node.
 
 > The fraction is computed in the job shell rather than via the SLURM executor: the
 > executor passes the submit environment through with `--export=ALL` but offers no
@@ -528,9 +543,10 @@ you want a fixed multiplier regardless of GPU/RAM.
 > run time). Computing it in the container shell also avoids the apptainer env-crossing
 > that submit-side env vars would need.
 
-Because spilling is slower, make sure the job also requests enough host RAM
-(`structure_inference_ram_bytes`, in MB) to hold the overflow — under `auto` that RAM is
-exactly what the fraction is sized against.
+Under `auto` the spill allowance grows with the job's host RAM request (see the
+length-aware memory requests below), so if a large complex still runs out of memory, raise
+that request (`structure_inference_ram_per_token_sq_mb` or `mem_safety_factor`) rather than
+pinning the fraction.
 
 </details>
 
@@ -563,8 +579,8 @@ structure_inference  mem = safety * (structure_inference_ram_bytes + per_token_s
   | `alphafold3` | 40000 MB | 25 MB |  8000 MB | 0.0045 |
 
   The AF3 inference quadratic is sized to the observed GPU-VRAM demand so that, with unified
-  memory, the host spill ceiling (`host_mem / gpu_vram`) covers large complexes instead of
-  OOM-ing.
+  memory, the `auto` limit (GPU VRAM plus the host RAM request minus its base) covers large
+  complexes instead of OOM-ing.
 - The first attempt already includes `mem_safety_factor` (default `1.25`) of head-room.
   **OOM retries still escalate** on top, multiplying by `..._ram_scaling ** (attempt - 1)`,
   so a bad estimate self-heals.
@@ -793,7 +809,7 @@ require `pdb_seqres`, and every search requires `mmcif`. Update the relevant ID 
 rebuilding a database, even at the same path; this invalidates finalized features.
 The native MSA arguments do not reach finalization because this stage replaces
 that search. Use a matching prediction image, such as
-`docker://kosinskilab/alphafold2:2.9.0`, for AlphaFold 2. AlphaFold 2 finalization is
+`docker://kosinskilab/alphafold2:2.10.0`, for AlphaFold 2. AlphaFold 2 finalization is
 heavier than AlphaFold 3's because template featurization dominates it — median ~1 GB and 2 min, but up to
 19 GB and 90 min, set by which structures the templates come from rather than by length
 — so its defaults request 16 GB (times the safety factor) and 60 min. Against native
@@ -920,6 +936,7 @@ structure_inference_arguments:
   --use_ap_style: False
   --use_gpu_relax: True
   --dropout: False
+  --fast_kernels: "off"                # "off" | "on" | "auto" (quoted: YAML reads bare on/off as booleans): ColabFold's fused kernels, ~2x faster AF2-Multimer on NVIDIA GPUs of compute capability 8.0+
 ```
 </details>
 
@@ -939,9 +956,10 @@ structure_inference_arguments:
   --save_embeddings: False
   --save_distogram: False
   --use_ap_style: False                   # shared with AlphaFold2
+  --fast_kernels: "off"                   # "off" | "on" | "auto" (quoted: YAML reads bare on/off as booleans): fused triangle kernels, 1.1-2x faster AF3 on NVIDIA GPUs of compute capability 8.0+
 ```
 
-Experimental fused triangle kernels (`--fast_kernels`, not in released images yet):
+How the AF3 kernels are chosen per GPU:
 [AlphaPulldown docs/af3_fused_triangles.md](https://github.com/KosinskiLab/AlphaPulldown/blob/main/docs/af3_fused_triangles.md).
 </details>
 
