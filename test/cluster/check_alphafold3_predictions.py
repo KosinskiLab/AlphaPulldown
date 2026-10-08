@@ -13,6 +13,7 @@ import time
 import sys
 import tempfile
 import hashlib
+import importlib.util
 from pathlib import Path
 import shutil
 import pickle
@@ -2159,6 +2160,12 @@ class TestAlphaFold3MetadataEndToEnd(_TestBase):
             self.skipTest(
                 "AF3 metadata end-to-end test requires the AF3 databases; "
                 f"missing: {missing_databases}"
+            )
+        if importlib.util.find_spec("modelcif") is None:
+            # A test-only dependency: the AF3 runtime image leaves it out.
+            self.skipTest(
+                "AF3 metadata end-to-end test reads the ModelCIF output with "
+                "modelcif; install modelcif>=1.6 alongside the tests"
             )
 
         model_files = list(Path(DATA_DIR).glob("af3.bin*"))
