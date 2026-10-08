@@ -41,9 +41,12 @@ jobs:
           # Fresh-interpreter compatibility tests import AF2's real JAX tree API.
           pip install -e .[test] 'jax==0.5.3'
 
+      - name: Install MMseqs2 as in the images
+        run: .github/scripts/install-mmseqs.sh
+
       - run: |
           pytest -n auto --dist loadfile test/unit
-          pytest test/integration
+          pytest test/integration test/functional
           #export PYTHONPATH=$PWD/alphapulldown/analysis_pipeline:$PYTHONPATH
           ## Test analysis pipeline
           #conda install -c bioconda biopandas
@@ -82,12 +85,15 @@ jobs:
           # Match the CPU runtime used by the smoke-test matrix.
           pip install -e .[test] 'jax==0.5.3'
 
+      - name: Install MMseqs2 as in the images
+        run: .github/scripts/install-mmseqs.sh
+
       - run: |
           pytest -n auto --dist loadfile test/unit \
             --cov=alphapulldown \
             --cov-config=.coveragerc \
             --cov-report=
-          pytest test/integration \
+          pytest test/integration test/functional \
             --cov=alphapulldown \
             --cov-config=.coveragerc \
             --cov-append \

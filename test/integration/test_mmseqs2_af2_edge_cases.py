@@ -29,7 +29,7 @@ import sys
 import numpy as np
 import pytest
 
-pytestmark = [pytest.mark.integration, pytest.mark.external_tools]
+pytestmark = pytest.mark.integration
 
 TEMPLATES = Path(__file__).resolve().parents[1] / "test_data" / "templates"
 RESIDUES = "ACDEFGHIKLMNPQRSTVWY"

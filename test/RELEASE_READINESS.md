@@ -19,9 +19,13 @@ processing and checkpoint-loading APIs, and inference with native UniFold weight
 GitHub Actions runs:
 
 - `test/unit`
-- `test/integration`
+- `test/integration` and `test/functional`, including the local-MMseqs2 tests
+  against the MMseqs2 release the images bundle and AF2 ModelCIF conversion
 - coverage collection and reporting
 - Python `3.10` and `3.11`
+- both image builds, each with a test stage the runtime image depends on: the AF3
+  image runs the tests that need AF3's compiled extension, and the AF2 image runs
+  local MMseqs2 to AF2 features and ModelCIF conversion with its own toolchain
 
 These lanes continuously protect:
 

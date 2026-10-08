@@ -22,7 +22,7 @@ import sys
 
 import pytest
 
-pytestmark = [pytest.mark.integration, pytest.mark.external_tools]
+pytestmark = pytest.mark.integration
 
 pytest.importorskip("alphafold.data.pipeline", reason="needs AlphaFold 2")
 
