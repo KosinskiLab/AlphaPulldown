@@ -148,7 +148,7 @@ DIMER_SUMMARY = """{
  "chain_iptm": [0.61, 0.61], "chain_pair_iptm": [[0.8, 0.61], [0.61, 0.79]],
  "chain_pair_pae_min": [[0.8, 4.2], [4.3, 0.8]], "chain_ptm": [0.8, 0.79],
  "fraction_disordered": 0.05, "has_clash": 0.0, "iptm": 0.61, "ptm": 0.7,
- "ranking_score": 0.66
+ "ranking_score": 0.66, "chain_ids": ["A", "B"]
 }"""
 FULL = """{
  "atom_chain_ids": ["A", "A"], "atom_plddts": [91.2, 88.4],
@@ -208,6 +208,25 @@ def test_a_missing_score_fails():
     assert checks.confidence_problems("summary_confidences.json", payload) == [
         "ranking_score is missing"
     ]
+
+
+@pytest.mark.parametrize(
+    "chain_ids, problem",
+    [
+        # Upstream AF3's per-token IDs: a dimer of three tokens.
+        (["A", "A", "B"], "chain_ids repeats chains: ['A', 'A', 'B']"),
+        (["A"], "chain_ids has 1 IDs for 2 chains"),
+        ([], "chain_ids is not a list of chain IDs: []"),
+        (None, "chain_ids is not a list of chain IDs: None"),
+    ],
+)
+def test_chain_ids_must_label_each_chain_once(chain_ids, problem):
+    problems = checks.confidence_problems(
+        "summary_confidences.json", _summary(DIMER_SUMMARY, chain_ids=chain_ids)
+    )
+
+    assert problem in problems, problems
+    assert checks.chain_id_problems(_summary(DIMER_SUMMARY, chain_ids=chain_ids)) == problems
 
 
 def test_has_clash_may_be_a_boolean():

@@ -707,6 +707,43 @@ class TestFastKernelsAndPadding(_TestBase):
             self.assertLess(abs(score - expected["ranking_confidence"]), self.SCORE_TOLERANCE, name)
 
 
+class TestCompileCache(_TestBase):
+    """--jax_compilation_cache_dir on a GPU: a second process loads what the first compiled.
+
+    Select with -k TestCompileCache.
+    """
+
+    def test_second_fold_loads_the_compiled_model_from_the_cache(self):
+        cache_dir = self.output_dir / "jax_cache"
+        entries = {}
+        for name in ("first", "second"):
+            output_dir = self.output_dir / name
+            res = self._run_prediction_subprocess(
+                [
+                    sys.executable,
+                    str(self.script_single),
+                    "--input=TEST",
+                    f"--output_directory={output_dir}",
+                    "--model_names=model_1_ptm",
+                    "--num_cycle=1",
+                    "--num_predictions_per_model=1",
+                    "--random_seed=42",
+                    f"--data_directory={DATA_DIR}",
+                    f"--features_directory={self.test_features_dir}",
+                    f"--jax_compilation_cache_dir={cache_dir}",
+                ]
+            )
+            self.assertEqual(
+                res.returncode, 0, f"{name} failed.\nSTDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}"
+            )
+            self.assertTrue(list(_af2_result_dir(output_dir).glob("ranked_*.pdb")), name)
+            entries[name] = {path.name for path in cache_dir.iterdir()}
+
+        self.assertTrue(entries["first"], "the first fold wrote nothing to the cache")
+        # Every compile of the second fold was a cache hit, so it wrote nothing new.
+        self.assertEqual(entries["second"], entries["first"])
+
+
 class TestMmseqsIssue588Inference(_TestBase):
     """Opt-in end-to-end regression for freshly generated mmseq AF2 features."""
 
@@ -1043,8 +1080,9 @@ class TestLocalMmseqsAgainstRemote(_TestBase):
         skip_reason = _mmseqs_functional_test_skip_reason()
         if skip_reason:
             self.skipTest(skip_reason)
-        binary = os.getenv("MMSEQS_INTEGRATION_BINARY")
-        if not binary or not Path(binary).is_file():
+        # The prediction images bundle a GPU-capable MMseqs2 release.
+        binary = os.getenv("MMSEQS_INTEGRATION_BINARY") or "/opt/mmseqs/bin/mmseqs"
+        if not Path(binary).is_file():
             self.skipTest("Set MMSEQS_INTEGRATION_BINARY to a GPU-capable MMseqs2 build.")
         missing = [
             name

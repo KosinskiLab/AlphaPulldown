@@ -954,6 +954,10 @@ class _TestBase(Af3TestData, parameterized.TestCase):
         self.assertTrue(len(conf_files) > 0, f"No confidences.json files found in {output_dir}")
         self.assertTrue(len(summary_conf_files) > 0, f"No summary_confidences.json files found in {output_dir}")
         self.assertTrue(len(model_files) > 0, f"No model.cif files found in {output_dir}")
+        for path in summary_conf_files:
+            self.assertEqual(
+                af3_gpu_checks.chain_id_problems(json.loads(path.read_text())), [], path
+            )
 
         sample_dirs = [
             f for f in files if f.is_dir() and f.name.startswith("seed-") and "sample-" in f.name
@@ -2695,6 +2699,39 @@ class TestAlphaFold3FastKernels(_TestBase):
                 self.PLDDT_TOLERANCE,
                 (sample, expected, got),
             )
+
+    def test_af3_second_fold_loads_the_compiled_model_from_the_cache(self):
+        """--jax_compilation_cache_dir: a second process loads what the first compiled."""
+        self._require_af3_functional_environment()
+        cache_dir = self.output_dir / "jax_cache"
+        entries = {}
+        for name in ("first", "second"):
+            res = subprocess.run(
+                [
+                    sys.executable,
+                    str(self.script_single),
+                    f"--input={self.FOLD}",
+                    f"--output_directory={self.output_dir / name}",
+                    f"--data_directory={DATA_DIR}",
+                    f"--features_directory={self.test_features_dir}",
+                    "--fold_backend=alphafold3",
+                    f"--flash_attention_implementation={self._af3_flash_attention_impl()}",
+                    "--num_diffusion_samples=1",
+                    f"--jax_compilation_cache_dir={cache_dir}",
+                ],
+                capture_output=True,
+                text=True,
+                env=self._make_af3_test_env(),
+            )
+            self.assertEqual(
+                res.returncode, 0, f"{name} failed.\nSTDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}"
+            )
+            self.assertTrue(list((self.output_dir / name).rglob("ranking_scores.csv")), name)
+            entries[name] = {path.name for path in cache_dir.iterdir()}
+
+        self.assertTrue(entries["first"], "the first fold wrote nothing to the cache")
+        # Every compile of the second fold was a cache hit, so it wrote nothing new.
+        self.assertEqual(entries["second"], entries["first"])
 
     def test_af3_identical_folds_compile_the_model_once(self):
         """Three identical folds in one process: one jit(apply_fn) compile (1afe779e)."""
