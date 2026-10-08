@@ -44,7 +44,7 @@ RUN set -eux; \
     cmake --build build -j"$(nproc)"; \
     cmake --install build
 
-FROM nvidia/cuda:${CUDA}-cudnn8-runtime-ubuntu20.04
+FROM nvidia/cuda:${CUDA}-cudnn8-runtime-ubuntu20.04 AS base
 ARG CUDA
 ARG MMSEQS_VERSION
 ARG MMSEQS_COMMIT
@@ -202,5 +202,25 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get autoremove -y; \
     apt-get clean; \
     rm -rf /var/lib/apt/lists/* /root/.cache
+
+# ---------------------------------------------------------------------------
+# Checks that need this image's own toolchain: local MMseqs2 to AF2 features with
+# the bundled MMseqs2, HMMER and kalign, and AF2 ModelCIF conversion with the
+# image's modelcif. A separate stage keeps pytest out of the runtime image; the
+# final stage copies its marker, so every build runs them.
+# ---------------------------------------------------------------------------
+FROM base AS af2-compatibility-tests
+WORKDIR /AlphaPulldown
+RUN pip install --no-cache-dir "pytest>=8.0" parameterized && \
+    MMSEQS_INTEGRATION_BINARY=/opt/mmseqs/bin/mmseqs \
+      python -m pytest -q -o addopts="-ra --strict-markers" \
+      test/integration/test_mmseqs2_af2.py \
+      test/integration/test_modelcif.py && \
+    touch /tmp/af2-compatibility-tests-passed
+
+FROM base AS runtime
+COPY --from=af2-compatibility-tests \
+    /tmp/af2-compatibility-tests-passed \
+    /opt/af2-compatibility-tests-passed
 
 #ENTRYPOINT ["bash"]
