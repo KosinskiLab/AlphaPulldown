@@ -13,6 +13,7 @@ import time
 import sys
 import tempfile
 import hashlib
+import importlib.util
 from pathlib import Path
 import shutil
 import pickle
@@ -2160,6 +2161,12 @@ class TestAlphaFold3MetadataEndToEnd(_TestBase):
                 "AF3 metadata end-to-end test requires the AF3 databases; "
                 f"missing: {missing_databases}"
             )
+        if importlib.util.find_spec("modelcif") is None:
+            # A test-only dependency: the AF3 runtime image leaves it out.
+            self.skipTest(
+                "AF3 metadata end-to-end test reads the ModelCIF output with "
+                "modelcif; install modelcif>=1.6 alongside the tests"
+            )
 
         model_files = list(Path(DATA_DIR).glob("af3.bin*"))
         self.assertTrue(model_files, f"No AF3 model weights found in {DATA_DIR}")
@@ -2516,7 +2523,9 @@ class TestAlphaFold3MetadataEndToEnd(_TestBase):
                 "--buckets=256",
                 *self._jax_compilation_cache_args(cache_dir),
             ],
-            env=env,
+            # Upstream AF3 also writes XLA's autotune caches into the cache dir,
+            # which fails on cluster scratch; AlphaPulldown turns them off itself.
+            env={**env, "JAX_PERSISTENT_CACHE_ENABLE_XLA_CACHES": "none"},
             label="vanilla AF3 inference on AlphaPulldown AF3 features",
         )
         vanilla_inference_dir = vanilla_inference_root / self.PROTEIN_ID
@@ -2560,7 +2569,9 @@ class TestAlphaFold3MetadataEndToEnd(_TestBase):
                 "input": f"{self.PROTEIN_ID}+{ap_feature_path}",
                 "metadata_count": 2,
                 "software": {"AlphaPulldown", "AlphaFold 2"},
-                "databases": {"UniRef90", "MGnify", "PDB mmCIF"},
+                # The AF2 chain brings its own recorded databases: the fixture's
+                # metadata lists ColabFold.
+                "databases": {"UniRef90", "MGnify", "PDB mmCIF", "ColabFold"},
             },
         }
         report: dict[str, Any] = {
@@ -2596,8 +2607,9 @@ class TestAlphaFold3MetadataEndToEnd(_TestBase):
                 required_databases=case["databases"],
                 forbidden_databases=(
                     {"NT-RNA", "Rfam", "RNAcentral", "ColabFold"}
-                    if case_name
-                    in {"alphapulldown_af3_features", "mixed_af2_and_af3_features"}
+                    if case_name == "alphapulldown_af3_features"
+                    else {"NT-RNA", "Rfam", "RNAcentral"}
+                    if case_name == "mixed_af2_and_af3_features"
                     else set()
                 ),
             )
