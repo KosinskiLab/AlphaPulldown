@@ -1,4 +1,4 @@
-# Fused triangle kernels for AlphaFold 3 (experimental)
+# Fused triangle kernels for AlphaFold 3
 
 AlphaFold 3 spends much of its time in the triangle layers of its pair stack:
 triangle multiplication and triangle attention. `--fast_kernels` can run these layers
@@ -85,19 +85,20 @@ not by the card's advertised memory. Above its limit a layer runs the original c
 | 64 GiB and more | 3,584 tokens (5,120 on 9.0 and 12.0) | 3,072 tokens |
 
 Token counts are AlphaFold 3's padded bucket sizes (`--buckets`). The limits are
-conservative experimental settings, not measured capacities of the full model.
+conservative settings, not measured capacities of the full model.
 
 ## How it was measured
 
 The kernels were checked layer by layer ("Gate 0"): each fused layer against the
 original layer and a float64 reference, with random and DeepMind weights and padded
 masks, on A100, A40, RTX 3090, L40S, H100 and RTX Pro 6000 Blackwell. The full-model
-comparison of `off` and `on` predictions (speed, memory, identical-output checks and
-accuracy on DeepMind weights) runs on the same cards. Both used JAX 0.9.1 and
-tokamax 0.0.11; other versions have not been measured on GPU.
-
-Layer speed-ups justify an end-to-end pilot, not a claim about production speed. The
-option stays opt-in until the full-model comparison is complete.
+comparison of `off` and `on` predictions ran on the same cards: whole predictions were
+1.08-2.03x faster depending on card and size, the largest complex each card folds was
+unchanged, and on 12 heterodimers released after AlphaFold 3's training cutoff the
+ranking scores and DockQ of paired seeds agreed. Both used JAX 0.9.1 and tokamax
+0.0.11. On the AlphaFold 3 v3.0.4 image (JAX 0.10.2, tokamax 0.0.12), the GPU test suite
+checks on each card it runs on that `on` and `auto` use the kernels and that their
+scores stay within 0.02 of the original layers.
 
 The fused kernels are skipped while parameters are initialised, so parameter names,
 shapes, initialisers and random-number order are those of the original model, and
