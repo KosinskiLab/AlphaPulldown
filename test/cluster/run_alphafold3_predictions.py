@@ -12,9 +12,9 @@ Run only selected tests:
 
     python test/cluster/run_alphafold3_predictions.py -k chopped
 
-Enable the runtime benchmark test as well:
+The runtime benchmark and the MMseqs2 tests run by default; skip them with:
 
-    python test/cluster/run_alphafold3_predictions.py --include-perf
+    python test/cluster/run_alphafold3_predictions.py --no-include-perf --no-mmseqs-functional
 """
 
 from __future__ import annotations
@@ -215,6 +215,7 @@ def write_job_script(
     python_executable: str,
     use_temp_dir: bool,
     include_perf: bool,
+    mmseqs_functional: bool,
 ) -> None:
     pytest_cmd = [
         python_executable,
@@ -238,6 +239,8 @@ def write_job_script(
     ]
     if include_perf:
         env_lines.append("export AF3_RUN_PERF_TESTS=1")
+    if mmseqs_functional:
+        env_lines.append("export RUN_MMSEQS_FUNCTIONAL_TESTS=1")
 
     script = "\n".join(
         [
@@ -567,8 +570,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--include-perf",
-        action="store_true",
-        help="Set AF3_RUN_PERF_TESTS=1 inside jobs so the runtime benchmark is included.",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "Set AF3_RUN_PERF_TESTS=1 inside jobs so the runtime benchmark is included. "
+            "On by default; --no-include-perf skips it."
+        ),
     )
     parser.add_argument(
         "--use-temp-dir",
@@ -577,6 +584,16 @@ def parse_args() -> argparse.Namespace:
         help=(
             "Run target tests with isolated temporary output directories. "
             "Use --no-use-temp-dir to keep the shared repo output tree."
+        ),
+    )
+    parser.add_argument(
+        "--mmseqs-functional",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "Set RUN_MMSEQS_FUNCTIONAL_TESTS=1 inside jobs, so the tests that use the ColabFold "
+            "MMseqs2 server or local MMseqs2 databases run. On by default; "
+            "--no-mmseqs-functional skips them."
         ),
     )
     parser.add_argument("--partition", default="gpu-el8", help="Slurm partition/queue.")
@@ -690,6 +707,8 @@ def main() -> int:
         if args.use_temp_dir:
             rerun_parts.append("--use-temp-dir")
         rerun_command = " ".join(rerun_parts)
+        if args.mmseqs_functional:
+            rerun_command = f"RUN_MMSEQS_FUNCTIONAL_TESTS=1 {rerun_command}"
         if args.include_perf:
             rerun_command = f"AF3_RUN_PERF_TESTS=1 {rerun_command}"
         job = JobSpec(
@@ -706,6 +725,7 @@ def main() -> int:
             python_executable=args.python,
             use_temp_dir=args.use_temp_dir,
             include_perf=args.include_perf,
+            mmseqs_functional=args.mmseqs_functional,
         )
         jobs.append(job)
 

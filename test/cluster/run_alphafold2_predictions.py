@@ -231,6 +231,7 @@ def write_job_script(
     python_executable: str,
     use_temp_dir: bool,
     cpus_per_task: int,
+    mmseqs_functional: bool,
 ) -> None:
     pytest_cmd = [
         python_executable,
@@ -251,6 +252,7 @@ def write_job_script(
             "set -euo pipefail",
             f"cd {_quote(str(REPO_ROOT))}",
             *_default_gpu_env_lines(cpus_per_task=cpus_per_task),
+            *(["export RUN_MMSEQS_FUNCTIONAL_TESTS=1"] if mmseqs_functional else []),
             "echo \"[$(date)] Running test node:\"",
             f"echo {_quote(job.nodeid)}",
             "echo \"[$(date)] Host: $(hostname)\"",
@@ -580,6 +582,16 @@ def parse_args() -> argparse.Namespace:
             "Use --no-use-temp-dir to keep the shared repo output tree."
         ),
     )
+    parser.add_argument(
+        "--mmseqs-functional",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "Set RUN_MMSEQS_FUNCTIONAL_TESTS=1 inside jobs, so the tests that use the ColabFold "
+            "MMseqs2 server or local MMseqs2 databases run. On by default; "
+            "--no-mmseqs-functional skips them."
+        ),
+    )
     parser.add_argument("--partition", default="gpu-el8", help="Slurm partition/queue.")
     parser.add_argument("--qos", default="normal", help="Slurm QoS.")
     parser.add_argument("--constraint", default="gaming", help="Optional Slurm constraint.")
@@ -682,6 +694,8 @@ def main() -> int:
             f"{_quote(args.python)} -m pytest -o {_quote('addopts=-ra --strict-markers')} -vv -s {_quote(nodeid)}"
             + (" --use-temp-dir" if args.use_temp_dir else "")
         )
+        if args.mmseqs_functional:
+            rerun_command = f"RUN_MMSEQS_FUNCTIONAL_TESTS=1 {rerun_command}"
         job = JobSpec(
             index=index,
             nodeid=nodeid,
@@ -696,6 +710,7 @@ def main() -> int:
             python_executable=args.python,
             use_temp_dir=args.use_temp_dir,
             cpus_per_task=args.cpus_per_task,
+            mmseqs_functional=args.mmseqs_functional,
         )
         jobs.append(job)
 

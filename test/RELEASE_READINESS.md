@@ -46,6 +46,13 @@ The following are intentionally outside default CI and must be run explicitly wh
 - `test/cluster/check_alphalink_predictions.py`
 - manual or cluster-backed GPU/Slurm smoke runs
 
+`test/cluster/run_alphafold{2,3}_predictions.py` submit one Slurm job per test and
+include the opt-in checks by default: the MMseqs2 tests (ColabFold server and local
+databases) and the AF3 runtime benchmark. `--no-mmseqs-functional` and
+`--no-include-perf` skip them. The suites hold only tests that run inference; AF3
+input preparation is tested in `test/integration/test_af3_input_preparation.py`,
+which the AF3 image build runs.
+
 Release-critical examples include:
 
 - AF3 wrapper output isolation for combined JSON folds

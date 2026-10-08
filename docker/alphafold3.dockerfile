@@ -158,6 +158,9 @@ RUN uv pip install --no-cache "modelcif>=1.6" && \
       test/unit/test_af3_fused_triangles.py \
       test/unit/test_alphafold3_backend_helpers.py \
       test/unit/test_af3_tokamax_trace_context.py && \
+    # Its own process: the backend unit tests above stub and unload JAX modules,
+    # and re-importing JAX's MLIR bindings in one process fails.
+    python -m pytest -q test/integration/test_af3_input_preparation.py && \
     JAX_PLATFORMS=cpu python alphafold3/src/alphafold3/model/network/fused_triangle_test.py && \
     MMSEQS_INTEGRATION_BINARY=/opt/mmseqs/bin/mmseqs \
       python -m pytest -q -o addopts="-ra --strict-markers" \

@@ -72,6 +72,7 @@ def test_af2_cluster_wrapper_job_script_exports_gpu_defaults(tmp_path):
         python_executable=sys.executable,
         use_temp_dir=True,
         cpus_per_task=8,
+        mmseqs_functional=True,
     )
 
     script_text = job.script_path.read_text(encoding="utf-8")
@@ -81,6 +82,7 @@ def test_af2_cluster_wrapper_job_script_exports_gpu_defaults(tmp_path):
     assert 'JAX_PLATFORM_NAME="${JAX_PLATFORM_NAME:-gpu}"' in script_text
     assert "--xla_gpu_force_compilation_parallelism=1" in script_text
     assert "--xla_force_host_platform_device_count=1" in script_text
+    assert "export RUN_MMSEQS_FUNCTIONAL_TESTS=1" in script_text
     assert "addopts=-ra --strict-markers" in script_text
     assert "--use-temp-dir" in script_text
 
@@ -102,10 +104,12 @@ def test_af3_cluster_wrapper_job_script_sets_perf_flag(tmp_path):
         python_executable=sys.executable,
         use_temp_dir=True,
         include_perf=True,
+        mmseqs_functional=True,
     )
 
     script_text = job.script_path.read_text(encoding="utf-8")
     assert "export AF3_RUN_PERF_TESTS=1" in script_text
+    assert "export RUN_MMSEQS_FUNCTIONAL_TESTS=1" in script_text
     assert f'export PATH={Path(sys.executable).resolve().parent}:"$PATH"' in script_text
     assert "addopts=-ra --strict-markers" in script_text
     assert "--use-temp-dir" in script_text

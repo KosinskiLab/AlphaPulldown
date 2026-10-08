@@ -1246,31 +1246,6 @@ class AlphaFold3Backend(FoldingBackend):
                 sliced_chars.append(char)
             return "".join(sliced_chars)
 
-        def _slice_a3m_to_region(
-            a3m_text: str | None,
-            start: int,
-            end: int,
-        ) -> str | None:
-            if a3m_text in (None, ""):
-                return a3m_text
-
-            sequences, descriptions = af3_parsers.parse_fasta(a3m_text)
-            sliced_sequences = [
-                _slice_a3m_row_to_region(sequence, start, end)
-                for sequence in sequences
-            ]
-            return (
-                "\n".join(
-                    f">{description}\n{sequence}"
-                    for description, sequence in zip(
-                        descriptions,
-                        sliced_sequences,
-                        strict=True,
-                    )
-                )
-                + "\n"
-            )
-
         def _slice_a3m_to_regions(
             a3m_text: str | None,
             regions: Sequence[tuple[int, int]],
@@ -1297,42 +1272,6 @@ class AlphaFold3Backend(FoldingBackend):
                 )
                 + "\n"
             )
-
-        def _slice_templates_to_region(
-            templates: Sequence[folding_input.Template] | None,
-            start: int,
-            end: int,
-        ) -> Sequence[folding_input.Template] | None:
-            if templates is None:
-                return None
-
-            start_index = start - 1
-            sliced_templates = []
-            for template in templates:
-                remapped_indices = {
-                    query_index - start_index: template_index
-                    for query_index, template_index in template.query_to_template_map.items()
-                    if start_index <= query_index < end
-                }
-                if remapped_indices:
-                    sliced_templates.append(
-                        folding_input.Template(
-                            mmcif=template.mmcif,
-                            query_to_template_map=remapped_indices,
-                        )
-                    )
-            return sliced_templates
-
-        def _slice_positioned_modifications_to_region(
-            modifications: Sequence[tuple[str, int]],
-            start: int,
-            end: int,
-        ) -> list[tuple[str, int]]:
-            return [
-                (modification_name, modification_position - start + 1)
-                for modification_name, modification_position in modifications
-                if start <= modification_position <= end
-            ]
 
         def _slice_positioned_modifications_to_regions(
             modifications: Sequence[tuple[str, int]],

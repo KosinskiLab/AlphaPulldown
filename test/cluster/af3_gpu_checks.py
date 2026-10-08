@@ -202,6 +202,26 @@ def confidence_problems(name: str, payload: Any) -> list[str]:
             more = len(found) - _MAX_PROBLEMS_PER_FIELD
             found = [*found[:_MAX_PROBLEMS_PER_FIELD], f"{field}: {more} more"]
         problems.extend(found)
+    if name.endswith("summary_confidences.json"):
+        problems.extend(chain_id_problems(payload))
+    return problems
+
+
+def chain_id_problems(summary: Any) -> list[str]:
+    """What is wrong with ``chain_ids`` in a summary_confidences.json; empty when nothing.
+
+    It labels the chain-level arrays, so it needs one distinct ID per chain. Upstream
+    AF3 writes one ID per token instead; the KosinskiLab fork fixes that.
+    """
+    chain_ids = summary.get("chain_ids")
+    if not (isinstance(chain_ids, list) and chain_ids and all(isinstance(c, str) for c in chain_ids)):
+        return [f"chain_ids is not a list of chain IDs: {chain_ids!r:.60}"]
+    problems = []
+    if len(set(chain_ids)) != len(chain_ids):
+        problems.append(f"chain_ids repeats chains: {chain_ids!r:.60}")
+    chain_ptm = summary.get("chain_ptm")
+    if isinstance(chain_ptm, list) and len(chain_ids) != len(chain_ptm):
+        problems.append(f"chain_ids has {len(chain_ids)} IDs for {len(chain_ptm)} chains")
     return problems
 
 

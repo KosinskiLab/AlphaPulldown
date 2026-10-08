@@ -8,6 +8,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+# Taken before the module loaders below stub the parser package.
+from alphapulldown_input_parser import generate_fold_specifications
 
 
 RUN_STRUCTURE_PREDICTION_PATH = (
@@ -374,6 +376,9 @@ def _load_run_multimer_jobs_module():
     jax_mod.local_devices = lambda backend="gpu": []
 
     root_pkg = _package("alphapulldown")
+    # Real subpackages (alphapulldown.prediction) resolve from the checkout, so the
+    # tests do not depend on an earlier test having imported them.
+    root_pkg.__path__ = [str(RUN_MULTIMER_JOBS_PATH.parents[1])]
     utils_pkg = _package("alphapulldown.utils")
     scripts_pkg = _package("alphapulldown.scripts")
     run_structure_prediction_stub = types.ModuleType(
@@ -1305,6 +1310,40 @@ def test_run_multimer_jobs_scopes_af3_json_jobs_to_per_job_dirs(
     assert second_command[second_command.index("--output_directory") + 1] == (
         "/tmp/output/p01308"
     )
+
+
+def test_run_multimer_jobs_passes_chopped_regions_as_the_single_job_input(
+    run_multimer_jobs_module,
+    monkeypatch,
+):
+    """The wrapper turns a chopped protein list into the --input the GPU suite folds."""
+    calls = []
+    monkeypatch.setattr(
+        run_multimer_jobs_module.subprocess,
+        "run",
+        lambda command, check, env: calls.append(command),
+    )
+    run_multimer_jobs_module.generate_fold_specifications = generate_fold_specifications
+    protein_list = (
+        Path(__file__).resolve().parents[1]
+        / "test_data"
+        / "protein_lists"
+        / "test_dimer_chopped.txt"
+    )
+
+    _set_flag(run_multimer_jobs_module.FLAGS, "mode", "custom")
+    _set_flag(run_multimer_jobs_module.FLAGS, "protein_lists", [str(protein_list)])
+    _set_flag(run_multimer_jobs_module.FLAGS, "dry_run", False)
+    _set_flag(run_multimer_jobs_module.FLAGS, "fold_backend", "alphafold3")
+    _set_flag(run_multimer_jobs_module.FLAGS, "output_path", "/tmp/output")
+    _set_flag(run_multimer_jobs_module.FLAGS, "data_dir", "/tmp/models")
+    _set_flag(run_multimer_jobs_module.FLAGS, "monomer_objects_dir", ["/tmp/features"])
+
+    run_multimer_jobs_module.main(["prog"])
+
+    (command,) = calls
+    # The same input as the GPU suite's chopped_dimer run_structure_prediction case.
+    assert command[command.index("--input") + 1] == "TEST+A0A075B6L2:1-10:2-5:12-15"
 
 
 def test_run_multimer_jobs_combines_inputs_when_padding_requested(
