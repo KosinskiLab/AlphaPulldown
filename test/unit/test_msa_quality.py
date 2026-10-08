@@ -145,3 +145,42 @@ def test_af2_comparison_refuses_unpaired_or_mismatched_sets(tmp_path):
     _af2_pickle(candidate / "alpha.pkl", "ACDEFW", ["ACDEFW"])
     with pytest.raises(ValueError, match="Sequence mismatch"):
         compare_af2_directories(reference, candidate)
+
+
+def test_command_line_writes_the_paired_report_and_summary(tmp_path):
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    reference = tmp_path / "reference"
+    candidate = tmp_path / "candidate"
+    reference.mkdir()
+    candidate.mkdir()
+    for name in ("alpha", "beta"):
+        _feature(reference / f"{name}_af3_input.json")
+        _feature(candidate / f"{name}_af3_input.json", unpaired=">query\nACDE\n>hit\nAC-E\n")
+    report_path = tmp_path / "report.json"
+    script = (
+        Path(__file__).resolve().parents[2] / "alphapulldown" / "scripts" / "compare_msa_backends.py"
+    )
+
+    subprocess.run(
+        [
+            sys.executable, str(script),
+            f"--reference_dir={reference}",
+            f"--candidate_dir={candidate}",
+            f"--output_path={report_path}",
+        ],
+        check=True,
+        capture_output=True,
+        timeout=300,
+    )
+
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["artifactFormat"] == "af3_json"
+    assert len(report["proteins"]) == 2
+    summary = report["summary"]
+    assert summary["protein_count"] == 2
+    assert summary["mean_reference_unpaired_depth"] == 1
+    assert summary["mean_candidate_unpaired_depth"] == 2
+    assert summary["total_reference_templates"] == summary["total_candidate_templates"] == 0

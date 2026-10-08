@@ -66,7 +66,6 @@ The following areas are only partially protected, optional, or report-only:
 
 - `test/cluster` workflows
 - `test/alphalink` workflows beyond CPU-safe helper tests
-- legacy scenarios still parked under `test/outdated`
 - analysis-pipeline utilities and some deeper ModelCIF internals
 - Python `3.12`, which packaging allows (`requires-python >= 3.10`) but GitHub Actions does not exercise
 

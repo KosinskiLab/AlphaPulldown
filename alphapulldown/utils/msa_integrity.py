@@ -54,7 +54,7 @@ class MsaProblem:
     path: Path
     reason: str
 
-    def __str__(self) -> str:  # pragma: no cover - trivial
+    def __str__(self) -> str:
         return f"{self.path}: {self.reason}"
 
 

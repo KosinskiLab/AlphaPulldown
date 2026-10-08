@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from alphapulldown.scripts import generate_alphafold_server_json
 from alphapulldown.utils.alphafold_server_json import (
     build_alphafold_server_jobs,
     build_alphafold_server_job,
@@ -116,4 +117,87 @@ def test_job_index_is_one_based():
             protein_lists=[str(TEST_DATA / "protein_lists" / "test_dimer.txt")],
             monomer_directories=[str(TEST_DATA / "features")],
             job_index=2,
+        )
+
+
+def test_build_server_job_turns_af3_ligand_codes_into_server_ligands():
+    job = build_alphafold_server_jobs(
+        protein_lists=[str(TEST_DATA / "protein_lists" / "test_monomer_with_ligand.txt")],
+        monomer_directories=[str(TEST_DATA / "features")],
+    )[0]
+
+    assert job["sequences"][1:] == [{"ligand": {"ligand": "ATP", "count": 1}}]
+
+
+def test_build_server_job_passes_server_json_entities_through(tmp_path):
+    server_json = tmp_path / "complex.json"
+    server_json.write_text(
+        json.dumps(
+            {
+                "dialect": "alphafoldserver",
+                "sequences": [
+                    {"proteinChain": {"sequence": "ACDE", "count": 2}},
+                    {"ion": {"ion": "MG", "count": 1}},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    job = build_alphafold_server_job([{"json_input": str(server_json)}], [])
+
+    assert job["name"] == "complex"
+    assert job["sequences"] == [
+        {"proteinChain": {"sequence": "ACDE", "count": 2}},
+        {"ion": {"ion": "MG", "count": 1}},
+    ]
+
+
+@pytest.mark.parametrize(
+    "entity, error",
+    [
+        ({"glycan": {"residues": "NAG"}}, ValueError),
+        ({"proteinChain": "ACDE"}, TypeError),
+        ({"proteinChain": {"sequence": "A"}, "ion": {"ion": "MG"}}, ValueError),
+    ],
+)
+def test_build_server_job_rejects_malformed_server_entities(tmp_path, entity, error):
+    server_json = tmp_path / "bad.json"
+    server_json.write_text(
+        json.dumps({"dialect": "alphafoldserver", "sequences": [entity]}), encoding="utf-8"
+    )
+
+    with pytest.raises(error):
+        build_alphafold_server_job([{"json_input": str(server_json)}], [])
+
+
+def test_command_line_writes_the_jobs_with_their_seeds(tmp_path, capsys):
+    output_path = tmp_path / "server_jobs.json"
+
+    written = generate_alphafold_server_json.main(
+        [
+            "--protein_lists", str(TEST_DATA / "protein_lists" / "test_dimer.txt"),
+            "--monomer_objects_dir", str(TEST_DATA / "features"),
+            "--output_path", str(output_path),
+            "--mode", "custom",
+            "--model_seeds", "7, 11",
+        ]
+    )
+
+    assert written == [output_path]
+    assert capsys.readouterr().out.split() == [str(output_path)]
+    (job,) = json.loads(output_path.read_text(encoding="utf-8"))
+    assert job["name"] == "TEST_and_TEST"
+    assert job["modelSeeds"] == [7, 11]
+
+
+def test_command_line_rejects_seeds_that_are_not_integers(tmp_path):
+    with pytest.raises(SystemExit):
+        generate_alphafold_server_json.main(
+            [
+                "--protein_lists", str(TEST_DATA / "protein_lists" / "test_dimer.txt"),
+                "--monomer_objects_dir", str(TEST_DATA / "features"),
+                "--output_path", str(tmp_path / "jobs.json"),
+                "--model_seeds", "7,x",
+            ]
         )
