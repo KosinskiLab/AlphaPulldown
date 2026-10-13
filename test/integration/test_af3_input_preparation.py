@@ -393,10 +393,9 @@ class TestAlphaFold3InputPreparation(Af3TestData, parameterized.TestCase):
             debug_msas=True,
         )
         self.assertLen(mappings, 1)
-        fold_input_obj, (
-            prepared_output_dir,
-            resolve_msa_overlaps,
-        ) = next(iter(mappings[0].items()))
+        fold_input_obj = mappings[0].fold_input
+        prepared_output_dir = mappings[0].output_dir
+        resolve_msa_overlaps = mappings[0].resolve_msa_overlaps
 
         process_fold_input(
             fold_input=fold_input_obj,
@@ -456,7 +455,7 @@ class TestAlphaFold3InputPreparation(Af3TestData, parameterized.TestCase):
         # Use backend to prepare the combined input
         mappings = AlphaFold3Backend.prepare_input(objects_to_model=objects_to_model, random_seed=42)
         self.assertEqual(len(mappings), 1)
-        fold_input_obj, out_dir = next(iter(mappings[0].items()))
+        fold_input_obj = mappings[0].fold_input
 
         # Ask the backend helper to write *_data.json without inference
         res = process_fold_input(
@@ -661,7 +660,7 @@ class TestAlphaFold3InputPreparation(Af3TestData, parameterized.TestCase):
             random_seed=42,
         )
         self.assertLen(mappings, 1)
-        fold_input_obj, _ = next(iter(mappings[0].items()))
+        fold_input_obj = mappings[0].fold_input
 
         self.assertEqual(
             fold_input_obj.sanitised_name(),
@@ -743,7 +742,7 @@ class TestAlphaFold3InputPreparation(Af3TestData, parameterized.TestCase):
             random_seed=42,
         )
         self.assertLen(mappings, 1)
-        fold_input_obj, _ = next(iter(mappings[0].items()))
+        fold_input_obj = mappings[0].fold_input
 
         self.assertEqual([chain.id for chain in fold_input_obj.chains], ["A", "L"])
         self.assertIsInstance(fold_input_obj.chains[0], folding_input.ProteinChain)
@@ -797,7 +796,7 @@ class TestAlphaFold3InputPreparation(Af3TestData, parameterized.TestCase):
             random_seed=42,
         )
         self.assertLen(mappings, 1)
-        fold_input_obj, _ = next(iter(mappings[0].items()))
+        fold_input_obj = mappings[0].fold_input
 
         self.assertEqual([chain.id for chain in fold_input_obj.chains], ["P"])
         self.assertLen(fold_input_obj.chains, 1)
@@ -858,7 +857,7 @@ class TestAlphaFold3InputPreparation(Af3TestData, parameterized.TestCase):
             random_seed=42,
         )
         self.assertLen(mappings, 1)
-        fold_input_obj, _ = next(iter(mappings[0].items()))
+        fold_input_obj = mappings[0].fold_input
 
         self.assertEqual([chain.id for chain in fold_input_obj.chains], ["A"])
         self.assertLen(fold_input_obj.chains, 1)
@@ -1115,7 +1114,7 @@ class TestAlphaFold3InputPreparation(Af3TestData, parameterized.TestCase):
             random_seed=42,
         )
         self.assertLen(mappings, 1)
-        fold_input_obj, _ = next(iter(mappings[0].items()))
+        fold_input_obj = mappings[0].fold_input
 
         chopped_region_sequences = self._get_region_sequences(
             "A0A075B6L2",
@@ -1201,7 +1200,7 @@ class TestAlphaFold3InputPreparation(Af3TestData, parameterized.TestCase):
             random_seed=42,
         )
         self.assertLen(mappings, 1)
-        fold_input_obj, _ = next(iter(mappings[0].items()))
+        fold_input_obj = mappings[0].fold_input
 
         expected_regions = [(8, 10), (2, 5)]
         expected_sequence = "".join(
@@ -1280,7 +1279,7 @@ class TestAlphaFold3InputPreparation(Af3TestData, parameterized.TestCase):
             random_seed=42,
         )
         self.assertLen(mappings, 1)
-        fold_input_obj, _ = next(iter(mappings[0].items()))
+        fold_input_obj = mappings[0].fold_input
 
         json_sequences = self._get_sequence_from_json(
             "af3_features/protein/A0A024R1R8_af3_input.json"

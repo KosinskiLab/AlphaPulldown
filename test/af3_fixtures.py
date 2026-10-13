@@ -278,5 +278,5 @@ class Af3TestData:
             debug_msas=debug_msas,
         )
         self.assertLen(mappings, 1)
-        fold_input_obj, _ = next(iter(mappings[0].items()))
+        fold_input_obj = mappings[0].fold_input
         return fold_input_obj

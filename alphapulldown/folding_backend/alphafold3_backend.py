@@ -39,6 +39,7 @@ from alphapulldown.folding_backend.alphafold3_debug import (
 )
 from alphapulldown.folding_backend.alphafold3_inputs import (
     FoldInputBuilder,
+    PreparedFold,
     _build_output_job_name,
 )
 from alphapulldown.folding_backend.alphafold3_outputs import (
@@ -500,7 +501,7 @@ class AlphaFold3Backend(FoldingBackend):
         features_directory: str = None,
         debug_templates: bool | None = None,
         debug_msas: bool = False,
-    ) -> list:
+    ) -> list[PreparedFold]:
         """Prepare input for AlphaFold3 prediction."""
         logging.info(f"prepare_input called with {len(objects_to_model)} objects to model")
         for i, entry in enumerate(objects_to_model):
@@ -544,7 +545,13 @@ class AlphaFold3Backend(FoldingBackend):
             )
         # Disable overlap resolution when we provide translated AF2 multimer MSAs.
         disable_overlaps = len(builder.af2_translated_msa_chain_ids) > 0
-        return [{combined_input: (first_output_dir, not disable_overlaps)}]
+        return [
+            PreparedFold(
+                fold_input=combined_input,
+                output_dir=first_output_dir,
+                resolve_msa_overlaps=not disable_overlaps,
+            )
+        ]
 
     @staticmethod
     def predict(
@@ -582,19 +589,10 @@ class AlphaFold3Backend(FoldingBackend):
             debug_msas=kwargs.get("debug_msas", False),
         )
         # Run predictions
-        for mapping in prepared_inputs:
-            logging.info(f"Processing mapping: {mapping}")
-            if len(mapping) != 1:
-                raise ValueError(f"Expected exactly one item in mapping, got {len(mapping)}: {mapping}")
-            fold_input_obj, mapping_value = next(iter(mapping.items()))
-            if isinstance(mapping_value, tuple):
-                output_dir, resolve_overlaps_flag = mapping_value
-            else:
-                output_dir = mapping_value
-                resolve_overlaps_flag = True
-
+        for prepared in prepared_inputs:
+            output_dir = prepared.output_dir
             started = _start_or_resume_fold(
-                fold_input_obj, output_dir, random_seed, allow_resume, kwargs, postprocess_flags
+                prepared.fold_input, output_dir, random_seed, allow_resume, kwargs, postprocess_flags
             )
             if started is None:
                 continue
@@ -609,7 +607,7 @@ class AlphaFold3Backend(FoldingBackend):
                 model_runner=model_runner,
                 output_dir=output_dir,
                 buckets=buckets,
-                resolve_msa_overlaps=resolve_overlaps_flag,
+                resolve_msa_overlaps=prepared.resolve_msa_overlaps,
                 debug_msas=kwargs.get('debug_msas', False),
                 seeds_done=seeds_done,
                 modelcif_metadata=(

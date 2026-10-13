@@ -8,6 +8,7 @@ Copyright (c) 2024 European Molecular Biology Laboratory
 Author: Dmitry Molodenskiy <dmitry.molodenskiy@embl-hamburg.de>
 """
 
+import dataclasses
 import functools
 import inspect
 import logging
@@ -616,6 +617,16 @@ def _expand_monomeric_object(
     mono_obj: Union[MonomericObject, ChoppedObject],
 ) -> list[Union[MonomericObject, ChoppedObject]]:
     return [mono_obj]
+
+
+@dataclasses.dataclass(frozen=True)
+class PreparedFold:
+    """A fold input ready to predict: where its outputs go, and whether AF3 may resolve
+    MSA overlaps (not when its MSAs were translated from AF2 multimer features)."""
+
+    fold_input: folding_input.Input
+    output_dir: str
+    resolve_msa_overlaps: bool = True
 
 
 class FoldInputBuilder:

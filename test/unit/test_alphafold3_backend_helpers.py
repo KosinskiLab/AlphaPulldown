@@ -1295,7 +1295,9 @@ def test_af3_predict_expands_num_seeds_and_calls_process_fold_input(
     monkeypatch.setattr(
         af3_backend_module.AlphaFold3Backend,
         "prepare_input",
-        staticmethod(lambda **kwargs: [{fake_input: (tmp_path, False)}]),
+        staticmethod(
+            lambda **kwargs: [af3_backend_module.PreparedFold(fake_input, tmp_path, False)]
+        ),
     )
     monkeypatch.setattr(
         af3_backend_module,
@@ -1335,11 +1337,12 @@ def _af3_run(module, monkeypatch, output_dir, *, finish=True, random_seed=None,
     monkeypatch.setattr(
         backend,
         "prepare_input",
-        staticmethod(lambda **kwargs: [{
+        staticmethod(lambda **kwargs: [module.PreparedFold(
             module.folding_input.Input(
                 name="job", chains=("A",), rng_seeds=(kwargs["random_seed"],)
-            ): (output_dir, True)
-        }]),
+            ),
+            output_dir,
+        )]),
     )
     monkeypatch.setattr(
         module,
@@ -1494,7 +1497,7 @@ def _modelcif_metadata_given_to_seed_outputs(module, monkeypatch, output_dir, fo
     monkeypatch.setattr(
         module.AlphaFold3Backend,
         "prepare_input",
-        staticmethod(lambda **kwargs: [{fold_input: (output_dir, True)}]),
+        staticmethod(lambda **kwargs: [module.PreparedFold(fold_input, output_dir)]),
     )
     calls = []
     monkeypatch.setattr(
@@ -1642,9 +1645,9 @@ def test_prepare_input_merges_json_chain_and_rewrites_duplicate_ids(
     )
 
     assert len(prepared_inputs) == 1
-    fold_input, (output_dir, resolve_msa_overlaps) = next(
-        iter(prepared_inputs[0].items())
-    )
+    fold_input = prepared_inputs[0].fold_input
+    output_dir = prepared_inputs[0].output_dir
+    resolve_msa_overlaps = prepared_inputs[0].resolve_msa_overlaps
     assert output_dir == str(tmp_path)
     assert resolve_msa_overlaps is True
     assert [chain.id for chain in fold_input.chains] == ["A", "B"]
@@ -1711,7 +1714,7 @@ def test_successive_preparations_share_no_state(af3_backend_module, tmp_path):
             random_seed=7,
             features_directory=[str(feature_dir)],
         )
-        fold_input, _ = next(iter(prepared_inputs[0].items()))
+        fold_input = prepared_inputs[0].fold_input
         fold_inputs.append(fold_input)
 
     assert [[chain.id for chain in fold_input.chains] for fold_input in fold_inputs] == [
@@ -1790,7 +1793,7 @@ def test_prepare_input_transports_af2_sidecar_metadata_into_af3_description(
         features_directory=[str(feature_dir)],
     )
 
-    fold_input, _ = next(iter(prepared_inputs[0].items()))
+    fold_input = prepared_inputs[0].fold_input
     clean_description, recovered = decode_metadata_from_description(
         fold_input.chains[0].description
     )
@@ -1848,7 +1851,7 @@ def test_prepare_input_preserves_mixed_af2_and_af3_metadata(
         features_directory=[str(feature_dir)],
     )
 
-    fold_input, _ = next(iter(prepared_inputs[0].items()))
+    fold_input = prepared_inputs[0].fold_input
     assert extract_metadata_from_fold_input(fold_input) == [af2_metadata, af3_metadata]
 
 
@@ -1926,7 +1929,8 @@ def test_prepare_input_slices_single_chain_json_regions_and_promotes_msa(
         random_seed=13,
     )
 
-    fold_input, (_output_dir, resolve_msa_overlaps) = next(iter(prepared_inputs[0].items()))
+    fold_input = prepared_inputs[0].fold_input
+    resolve_msa_overlaps = prepared_inputs[0].resolve_msa_overlaps
     chain = fold_input.chains[0]
 
     assert resolve_msa_overlaps is True
@@ -1973,7 +1977,7 @@ def test_prepare_input_drops_invalid_json_templates_but_keeps_valid_ones(
         random_seed=17,
     )
 
-    fold_input, _ = next(iter(prepared_inputs[0].items()))
+    fold_input = prepared_inputs[0].fold_input
     chain = fold_input.chains[0]
     assert len(chain.templates) == 1
     assert chain.templates[0].mmcif == "data_valid"
@@ -2026,7 +2030,8 @@ def test_prepare_input_normalises_adjacent_duplicate_residues_for_monomers(
         random_seed=19,
     )
 
-    fold_input, (_output_dir, resolve_msa_overlaps) = next(iter(prepared_inputs[0].items()))
+    fold_input = prepared_inputs[0].fold_input
+    resolve_msa_overlaps = prepared_inputs[0].resolve_msa_overlaps
     chain = fold_input.chains[0]
 
     assert resolve_msa_overlaps is True
@@ -2240,7 +2245,9 @@ def test_prepare_input_multimer_writes_translated_msa_debug_artifacts(
     )
 
     assert fallback_calls == []
-    fold_input, (output_dir, resolve_msa_overlaps) = next(iter(prepared_inputs[0].items()))
+    fold_input = prepared_inputs[0].fold_input
+    output_dir = prepared_inputs[0].output_dir
+    resolve_msa_overlaps = prepared_inputs[0].resolve_msa_overlaps
     assert output_dir == str(tmp_path)
     assert resolve_msa_overlaps is False
     assert [chain.id for chain in fold_input.chains] == ["A", "B"]
@@ -2396,7 +2403,8 @@ def test_prepare_input_multimer_falls_back_to_complex_msa_when_pairing_is_unavai
         np.asarray([[1, 2, 3, 4, 5, 6, 7, 8]], dtype=np.int32),
     )
 
-    fold_input, (_output_dir, resolve_msa_overlaps) = next(iter(prepared_inputs[0].items()))
+    fold_input = prepared_inputs[0].fold_input
+    resolve_msa_overlaps = prepared_inputs[0].resolve_msa_overlaps
     assert resolve_msa_overlaps is False
     assert [chain.unpaired_msa for chain in fold_input.chains] == [
         ">fallbackA\nACDE\n",
@@ -2465,7 +2473,8 @@ def test_prepare_input_multimer_skips_complex_fallback_after_duplicate_residue_n
     )
 
     assert fallback_calls == []
-    fold_input, (_output_dir, resolve_msa_overlaps) = next(iter(prepared_inputs[0].items()))
+    fold_input = prepared_inputs[0].fold_input
+    resolve_msa_overlaps = prepared_inputs[0].resolve_msa_overlaps
     assert resolve_msa_overlaps is False
     assert [chain.sequence for chain in fold_input.chains] == ["ACD", "FGHI"]
     assert [chain.unpaired_msa for chain in fold_input.chains] == [
@@ -2525,7 +2534,8 @@ def test_prepare_input_multimer_trimer_preserves_sparse_middle_chain_pairing(
         debug_msas=True,
     )
 
-    fold_input, (_output_dir, resolve_msa_overlaps) = next(iter(prepared_inputs[0].items()))
+    fold_input = prepared_inputs[0].fold_input
+    resolve_msa_overlaps = prepared_inputs[0].resolve_msa_overlaps
     assert resolve_msa_overlaps is False
     assert [chain.id for chain in fold_input.chains] == ["A", "B", "C"]
     assert fold_input.chains[0].paired_msa
@@ -2603,7 +2613,8 @@ def test_prepare_input_multimer_trimer_reports_effective_min_count_pairing(
         debug_msas=True,
     )
 
-    fold_input, (_output_dir, resolve_msa_overlaps) = next(iter(prepared_inputs[0].items()))
+    fold_input = prepared_inputs[0].fold_input
+    resolve_msa_overlaps = prepared_inputs[0].resolve_msa_overlaps
     assert resolve_msa_overlaps is False
     assert all(chain.paired_msa for chain in fold_input.chains)
 
@@ -2687,7 +2698,7 @@ def test_prepare_input_builds_template_mmcif_and_skips_zero_atom_templates(
     )
 
     assert len(mmcif_calls) == 1
-    fold_input, _ = next(iter(prepared_inputs[0].items()))
+    fold_input = prepared_inputs[0].fold_input
     chain = fold_input.chains[0]
     assert len(chain.templates) == 1
     assert chain.templates[0].query_to_template_map == {0: 0, 2: 1}
