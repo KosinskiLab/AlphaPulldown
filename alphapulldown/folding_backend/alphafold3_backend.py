@@ -16,6 +16,7 @@ import json
 import logging
 import os
 import pathlib
+import random
 import re
 import time
 import typing
@@ -44,6 +45,13 @@ from alphafold.common.protein import Protein, to_mmcif
 from alphapulldown.folding_backend.folding_backend import FoldingBackend
 from alphapulldown.prediction import af3_fused_triangles
 from alphapulldown.prediction.jax_compilation_cache import enable_persistent_compilation_cache
+from alphapulldown.prediction.resume import (
+    finish_fold_record,
+    finished_fold,
+    read_fold_record,
+    record_fold_complete,
+    start_fold_record,
+)
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
 from alphapulldown.utils.af2_to_af3_msa import (
     Af2ToAf3TranslationResult,
@@ -52,6 +60,10 @@ from alphapulldown.utils.af2_to_af3_msa import (
     translate_af2_complex_msa_to_af3_unpaired_chain_msas_with_stats,
 )
 from alphapulldown.utils.msa_encoding import ids_to_a3m_af3
+from alphapulldown.utils.post_modelling import (
+    af3_ranking_scores,
+    post_prediction_process_af3,
+)
 from alphapulldown.utils.af3_modelcif import (
     augment_af3_modelcif_file,
     find_af3_modelcif_files,
@@ -795,6 +807,111 @@ def process_fold_input(
     )
     logging.info(f'Done processing fold input {fold_input.name}.')
     return all_inference_results
+
+
+def _earlier_fold_seeds(
+    output_dir: os.PathLike[str] | str, job_name: str, record: dict
+) -> list[int]:
+    """The seeds of an earlier run of fold ``job_name`` in ``output_dir``, if any."""
+    settings = record.get('settings') or {}
+    if settings.get('job_name') == job_name and settings.get('seeds'):
+        return [int(seed) for seed in settings['seeds']]
+    # Output of a version without fold records: a finished fold lists its seeds here.
+    if not record and os.path.isfile(os.path.join(output_dir, f'{job_name}_model.cif')):
+        return sorted({seed for seed, _, _ in af3_ranking_scores(output_dir)})
+    return []
+
+
+def _fold_seed(
+    requested_seed: int | None,
+    earlier_seeds: Sequence[int],
+    output_dir: os.PathLike[str] | str,
+) -> int:
+    """The first rng seed of a fold: the earlier run's when resuming, else the requested
+    one, else a new one. A requested seed must not mix a second run into the first."""
+    if earlier_seeds:
+        if requested_seed is not None and requested_seed != earlier_seeds[0]:
+            raise ValueError(
+                f'{output_dir} holds a prediction of this fold with seed(s) '
+                f'{list(earlier_seeds)}, which --random_seed={requested_seed} would mix with '
+                f'new ones. Pass --random_seed={earlier_seeds[0]} to resume it, write to '
+                'another output directory, or pass --allow_resume=false to predict it again.'
+            )
+        return earlier_seeds[0]
+    if requested_seed is not None:
+        return requested_seed
+    return random.randrange(2**32 - 1)
+
+
+def _fold_settings(
+    fold_input: folding_input.Input,
+    model_flags: dict[str, Any],
+    postprocess_flags: dict[str, Any],
+) -> dict[str, Any]:
+    """What a fold's record holds: the settings that shape its outputs."""
+    return {
+        'backend': 'alphafold3',
+        'job_name': fold_input.sanitised_name(),
+        'seeds': list(fold_input.rng_seeds),
+        'num_diffusion_samples': model_flags.get('num_diffusion_samples'),
+        'num_recycles': model_flags.get('num_recycles'),
+        'return_embeddings': bool(model_flags.get('return_embeddings')),
+        'return_distogram': bool(model_flags.get('return_distogram')),
+        'storage_mode': postprocess_flags.get('storage_mode', 'vanilla'),
+        'convert_to_modelcif': postprocess_flags.get('convert_to_modelcif', True),
+    }
+
+
+def _complete_without_record(output_dir: os.PathLike[str] | str, settings: dict) -> bool:
+    """Whether output of a version without fold records holds this whole fold: its best
+    model, and every sample of these seeds ranked, with model and summary."""
+    num_samples = settings['num_diffusion_samples']
+    if not num_samples or not os.path.isfile(
+        os.path.join(output_dir, f"{settings['job_name']}_model.cif")
+    ):
+        return False
+    expected = {(seed, sample) for seed in settings['seeds'] for sample in range(num_samples)}
+    ranked = {(seed, sample) for seed, sample, _ in af3_ranking_scores(output_dir)}
+    if ranked != expected:
+        return False
+    return all(
+        os.path.isfile(os.path.join(output_dir, f'seed-{seed}_sample-{sample}', name))
+        for seed, sample in expected
+        for name in ('model.cif', 'summary_confidences.json')
+    )
+
+
+def _start_or_resume_fold(
+    fold_input: folding_input.Input,
+    output_dir: os.PathLike[str] | str,
+    requested_seed: int | None,
+    allow_resume: bool,
+    model_flags: dict[str, Any],
+    postprocess_flags: dict[str, Any],
+) -> folding_input.Input | None:
+    """The fold input with its seeds, recorded as being predicted; None if the fold is
+    already complete. Resuming takes the seeds of the earlier run."""
+    job_name = fold_input.sanitised_name()
+    record = read_fold_record(output_dir) if allow_resume else {}
+    earlier_seeds = _earlier_fold_seeds(output_dir, job_name, record) if allow_resume else []
+    fold_input = dataclasses.replace(
+        fold_input, rng_seeds=[_fold_seed(requested_seed, earlier_seeds, output_dir)]
+    )
+    num_seeds = model_flags.get('num_seeds')
+    if num_seeds is not None:
+        logging.info(f'Expanding fold job {fold_input.name} to {num_seeds} seeds')
+        fold_input = fold_input.with_multiple_seeds(num_seeds)
+
+    settings = _fold_settings(fold_input, model_flags, postprocess_flags)
+    if allow_resume:
+        if not record and _complete_without_record(output_dir, settings):
+            record_fold_complete(output_dir, settings)
+            logging.info(f'{job_name} is already complete in {output_dir} (older version).')
+            return None
+        if finished_fold(record, settings, job_name, output_dir):
+            return None
+    start_fold_record(output_dir, settings)
+    return fold_input
 
 
 @dataclasses.dataclass(frozen=True, slots=True, kw_only=True)
@@ -2128,20 +2245,26 @@ class AlphaFold3Backend(FoldingBackend):
     ):
         """Predicts structures for a list of objects using AlphaFold 3.
         Supports merging AlphaPulldown protein objects and input.json objects into a single job.
+
+        ``random_seed=None`` reuses an earlier run's seed when resuming. With
+        ``allow_resume``, a fold already complete is neither predicted nor yielded.
         """
         logging.info(f"predict called with {len(objects_to_model)} objects to model")
         for i, obj in enumerate(objects_to_model):
             logging.info(f"Object {i}: {obj}")
-        
+
         if isinstance(buckets, int):
             buckets = [buckets]
         buckets = tuple(int(b) for b in buckets)
+        allow_resume = bool(kwargs.get("allow_resume", False))
+        postprocess_flags = kwargs.get("postprocess_flags") or {}
 
         # Prepare inputs
         logging.info("Calling prepare_input...")
         prepared_inputs = AlphaFold3Backend.prepare_input(
             objects_to_model=objects_to_model,
-            random_seed=random_seed,
+            # A placeholder: _start_or_resume_fold settles each fold's seeds.
+            random_seed=0 if random_seed is None else random_seed,
             af3_input_json=kwargs.get("af3_input_json"),
             features_directory=kwargs.get("features_directory"),
             debug_templates=kwargs.get("debug_templates", False),
@@ -2158,13 +2281,13 @@ class AlphaFold3Backend(FoldingBackend):
             else:
                 output_dir = mapping_value
                 resolve_overlaps_flag = True
-            
-            # Expand to multiple seeds if num_seeds is specified
-            num_seeds = kwargs.get('num_seeds')
-            if num_seeds is not None:
-                logging.info(f'Expanding fold job {fold_input_obj.name} to {num_seeds} seeds')
-                fold_input_obj = fold_input_obj.with_multiple_seeds(num_seeds)
-            
+
+            fold_input_obj = _start_or_resume_fold(
+                fold_input_obj, output_dir, random_seed, allow_resume, kwargs, postprocess_flags
+            )
+            if fold_input_obj is None:
+                continue
+
             # Do not write input JSON here; defer to process_fold_input for a single source of truth.
 
             logging.info(f'Processing fold input {fold_input_obj.name}')
@@ -2242,5 +2365,6 @@ class AlphaFold3Backend(FoldingBackend):
                     )
 
         # Apply the AF3 storage preset (no-op for the default 'vanilla').
-        from alphapulldown.utils.post_modelling import post_prediction_process_af3
         post_prediction_process_af3(output_dir, job_name, storage_mode=storage_mode)
+        # Last: a fold recorded complete is skipped by --allow_resume.
+        finish_fold_record(output_dir)

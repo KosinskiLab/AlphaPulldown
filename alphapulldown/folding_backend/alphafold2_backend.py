@@ -26,6 +26,12 @@ from alphapulldown.utils.post_modelling import post_prediction_process
 from alphapulldown.utils.modelling_setup import pad_input_features
 from alphapulldown.prediction import fast_kernels as fast_kernels_policy
 from alphapulldown.prediction.jax_compilation_cache import enable_persistent_compilation_cache
+from alphapulldown.prediction.resume import (
+    finish_fold_record,
+    finished_fold,
+    read_fold_record,
+    start_fold_record,
+)
 from alphapulldown.utils.file_handling import open_atomic
 from alphapulldown.utils.af2_to_af3_msa import msa_rows_and_deletions_to_a3m
 from alphafold.relax import relax
@@ -250,6 +256,34 @@ def _has_current_relaxation(output_dir: str, model_name: str) -> bool:
     if not os.path.exists(unrelaxed_path):
         return True
     return _residue_b_factors(relaxed_path) == _residue_b_factors(unrelaxed_path)
+
+
+# Post-processing flags that change a finished fold's outputs.
+_POSTPROCESS_SETTINGS = (
+    "models_to_relax", "relax_best_score_threshold", "convert_to_modelcif",
+    "compress_pickles", "remove_pickles", "remove_keys_from_pickles", "storage_mode",
+)
+
+
+def _fold_settings(model_runners: Dict, postprocess_flags: Dict) -> Dict[str, Any]:
+    """A fold's models and post-processing. As in per-model resume, not its prediction
+    settings: a rerun with other recycles or templates keeps the models it finds."""
+    settings = {"backend": "alphafold2", "model_names": list(model_runners)}
+    settings.update(
+        (name, postprocess_flags[name])
+        for name in _POSTPROCESS_SETTINGS if name in postprocess_flags
+    )
+    return settings
+
+
+def _pdb_holds_prediction(pdb_path: str, prediction_result: Dict) -> bool:
+    """Whether unrelaxed_<model>.pdb holds this pickle's model: its B-factors are the
+    pickle's pLDDT (of the real residues, which come before any padding)."""
+    b_factors = _residue_b_factors(pdb_path)
+    plddt = np.asarray(prediction_result.get("plddt", ()))
+    return len(b_factors) <= len(plddt) and b_factors == [
+        f"{value:.2f}" for value in plddt[: len(b_factors)]
+    ]
 
 
 def _discard_relaxation(output_dir: str, model_name: str, timings: Dict) -> None:
@@ -781,36 +815,26 @@ class AlphaFold2Backend(FoldingBackend):
                 result_output_path = os.path.join(output_dir, f"result_{model_name}.pkl")
                 # If --remove_result_pickle=True the predictions are done anew.
                 if os.path.exists(unrelaxed_pdb_path) and os.path.exists(result_output_path):
-                    result_output_path = os.path.join(output_dir, f"result_{model_name}.pkl")
                     with open(result_output_path, "rb") as f:
                         prediction_result = pickle.load(f)
-                        # Update prediction_result with input seqs and unrelaxed protein
-                        if "seqs" not in prediction_result.keys():
-                            prediction_result.update(
-                                {"seqs": multimeric_object.input_seqs if hasattr(multimeric_object, "input_seqs") else [
-                                    multimeric_object.sequence]})
-                        if "unrelaxed_protein" not in prediction_result.keys():
-                            plddt_b_factors = np.repeat(
-                                prediction_result['plddt'][:,
-                                None], residue_constants.atom_type_num, axis=-1
-                            )
-                            model_random_seed = model_index + random_seed * len(model_runners)
-                            logging.info(f"Running prediction using model {model_name} "
-                                         f"and random seed: {model_random_seed}")
-                            processed_feature_dict = model_runner.process_features(
-                                original_feature_dict, random_seed=model_random_seed
-                            )
-                            normalized_feature_dict = _normalize_asym_id(
-                                processed_feature_dict, fallback_feature_dict=original_feature_dict
-                            )
-                            unrelaxed_protein = protein.from_prediction(
-                                features=normalized_feature_dict,
-                                result=prediction_result,
-                                b_factors=plddt_b_factors,
-                                remove_leading_feature_dimension=not model_runner.multimer_mode,
-                            )
-                            prediction_result.update(
-                                {"unrelaxed_protein": unrelaxed_protein})
+                    if not _pdb_holds_prediction(unrelaxed_pdb_path, prediction_result):
+                        # Killed between writing a new pickle and its PDB: the PDB is still
+                        # the earlier prediction's, so the model is predicted again.
+                        logging.info(
+                            f"{unrelaxed_pdb_path} is not the model in {result_output_path}; "
+                            f"predicting {model_name} again.")
+                        break
+                    # Update prediction_result with input seqs and unrelaxed protein
+                    if "seqs" not in prediction_result.keys():
+                        prediction_result.update(
+                            {"seqs": multimeric_object.input_seqs if hasattr(multimeric_object, "input_seqs") else [
+                                multimeric_object.sequence]})
+                    if "unrelaxed_protein" not in prediction_result.keys():
+                        # Rather than process the features again to rebuild it.
+                        with open(unrelaxed_pdb_path, "r") as pdb:
+                            unrelaxed_protein = protein.from_pdb_string(pdb.read())
+                        prediction_result.update(
+                            {"unrelaxed_protein": unrelaxed_protein})
                     prediction_results.update({model_name: prediction_result})
                     START = model_index + 1
                 else:
@@ -838,13 +862,13 @@ class AlphaFold2Backend(FoldingBackend):
         num_models = len(model_runners)
         # Predict
         for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
+            # Skip if results.pkl und unrelaxed.pdb are exist
+            if model_index < START: continue
             t_0 = time.time()
             model_random_seed = model_index + random_seed * num_models
             processed_feature_dict = model_runner.process_features(
                 original_feature_dict, random_seed=model_random_seed
             )
-            # Skip if results.pkl und unrelaxed.pdb are exist
-            if model_index < START: continue
             # TODO: re-predict models if --allow_resume and previous predictions were done with templates
             if skip_templates:
                 _reset_template_features(processed_feature_dict)
@@ -937,11 +961,19 @@ class AlphaFold2Backend(FoldingBackend):
                 allow_resume: bool,
                 skip_templates: bool,
                 random_seed: int = 42,
+                postprocess_flags: Dict = None,
                 **kwargs):
         for entry in objects_to_model:
             object_to_model = entry['object']
             output_dir = entry['output_dir']
-            
+
+            settings = _fold_settings(model_runners, postprocess_flags or {})
+            if allow_resume and finished_fold(
+                read_fold_record(output_dir), settings, object_to_model.description, output_dir
+            ):
+                continue
+            start_fold_record(output_dir, settings)
+
             prediction_results = AlphaFold2Backend.predict_individual_job(
                 model_runners=model_runners,
                 multimeric_object=object_to_model,
@@ -1270,3 +1302,5 @@ class AlphaFold2Backend(FoldingBackend):
            remove_keys=remove_keys_from_pickles,
            storage_mode=storage_mode,
         )
+        # Last: a fold recorded complete is skipped by --allow_resume.
+        finish_fold_record(output_dir)

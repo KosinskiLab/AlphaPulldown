@@ -2792,6 +2792,202 @@ class TestAlphaFold3FastKernels(_TestBase):
 
 
 # --------------------------------------------------------------------------- #
+#                    parameterised "resume" tests, as for AF2                  #
+# --------------------------------------------------------------------------- #
+class TestAlphaFold3Resume(_TestBase):
+    """--allow_resume for AlphaFold 3, the counterpart of AF2's TestResume.
+
+    The test data hold no finished AF3 fold, so each case predicts one first, leaves
+    what an interrupted run or an older version would have left, runs again, and checks
+    the outputs as well as what the second run predicted again.
+    """
+
+    FOLD = "A0A075B6L2:1"
+    DIMER = "A0A075B6L2:2"
+    RECORD = "alphapulldown_prediction.json"
+    SKIPPED = "is already complete in"
+    SAMPLES = 2
+
+    def _common_args(self) -> list[str]:
+        return [
+            f"--data_directory={DATA_DIR}",
+            f"--features_directory={self.test_features_dir}",
+            "--fold_backend=alphafold3",
+            f"--flash_attention_implementation={self._af3_flash_attention_impl()}",
+            # Both runs of a case share compiled models.
+            *self._jax_compilation_cache_args(self.output_dir / "jax_cache"),
+        ]
+
+    def _predict(self, *extra: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [
+                sys.executable,
+                str(self.script_single),
+                f"--input={self.FOLD}",
+                f"--output_directory={self.output_dir / 'fold'}",
+                "--num_seeds=2",
+                f"--num_diffusion_samples={self.SAMPLES}",
+                *self._common_args(),
+                *extra,
+            ],
+            capture_output=True,
+            text=True,
+            env=self._make_af3_test_env(),
+        )
+
+    def _assertSucceeded(self, res: subprocess.CompletedProcess, label: str) -> None:
+        self.assertEqual(
+            res.returncode, 0, f"{label} failed.\nSTDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}"
+        )
+
+    def _fold_dir(self, root: Path) -> Path:
+        records = sorted(root.rglob(self.RECORD))
+        self.assertLen(records, 1, f"one fold record under {root}")
+        return records[0].parent
+
+    def _record(self, fold_dir: Path) -> dict:
+        return json.loads((fold_dir / self.RECORD).read_text())
+
+    def _outputs(self, fold_dir: Path) -> dict[str, int]:
+        """Each output and its modification time; the fold record aside, and the feature
+        metadata, which fold preparation copies in on every run before predicting."""
+        return {
+            str(path.relative_to(fold_dir)): path.stat().st_mtime_ns
+            for path in fold_dir.rglob("*")
+            if path.is_file()
+            and path.name != self.RECORD
+            and "_feature_metadata_" not in path.name
+        }
+
+    def _sample_dirs(self, fold_dir: Path) -> list[str]:
+        return sorted(path.name for path in fold_dir.glob("seed-*_sample-*") if path.is_dir())
+
+    # What earlier runs leave behind -------------------------------------------- #
+    def _leave_what_a_killed_run_leaves(self, fold_dir: Path) -> None:
+        """Killed during inference: the record of the run it started and its input
+        JSON; AF3 had written no model yet."""
+        record = self._record(fold_dir)
+        record["complete"] = False
+        (fold_dir / self.RECORD).write_text(json.dumps(record))
+        for path in list(fold_dir.iterdir()):
+            if path.is_dir() and path.name.startswith("seed-"):
+                shutil.rmtree(path)
+            elif path.name != self.RECORD and not path.name.endswith("_data.json"):
+                path.unlink()
+
+    def _leave_what_an_older_version_leaves(self, fold_dir: Path) -> None:
+        """AlphaPulldown 2.10 and older wrote no fold record."""
+        (fold_dir / self.RECORD).unlink()
+
+    @parameterized.named_parameters(
+        dict(testcase_name="finished_fold", predicted_again=False),
+        dict(
+            testcase_name="killed_during_inference",
+            leave="_leave_what_a_killed_run_leaves",
+            predicted_again=True,
+        ),
+        dict(
+            testcase_name="older_version",
+            leave="_leave_what_an_older_version_leaves",
+            predicted_again=False,
+        ),
+        dict(
+            testcase_name="more_samples",
+            extra=("--num_diffusion_samples=3",),
+            predicted_again=True,
+            samples=3,
+        ),
+        dict(
+            testcase_name="no_resume",
+            extra=("--allow_resume=false", "--random_seed={first_seed}"),
+            predicted_again=True,
+        ),
+    )
+    def test_(self, predicted_again, leave=None, extra=(), samples=SAMPLES):
+        self._require_af3_functional_environment()
+        self._assertSucceeded(self._predict(), "first run")
+        fold_dir = self._fold_dir(self.output_dir)
+        seeds = self._record(fold_dir)["settings"]["seeds"]
+        self.assertLen(seeds, 2)
+        if leave:
+            getattr(self, leave)(fold_dir)
+        before = self._outputs(fold_dir)
+
+        second = self._predict(*(arg.format(first_seed=seeds[0]) for arg in extra))
+        self._assertSucceeded(second, "second run")
+        self._assert_af3_outputs_present(fold_dir)
+        record = self._record(fold_dir)
+        self.assertTrue(record["complete"])
+        # The second run kept the first run's seeds: one fold, never a mix of two runs.
+        self.assertEqual(record["settings"]["seeds"], seeds)
+        self.assertEqual(
+            self._sample_dirs(fold_dir),
+            sorted(f"seed-{seed}_sample-{sample}" for seed in seeds for sample in range(samples)),
+        )
+        log = second.stdout + second.stderr
+        if predicted_again:
+            self.assertNotIn(self.SKIPPED, log)
+            after = self._outputs(fold_dir)
+            for sample_dir in self._sample_dirs(fold_dir):
+                model = f"{sample_dir}/model.cif"
+                self.assertNotEqual(after[model], before.get(model), f"{model} was not predicted again")
+        else:
+            self.assertIn(self.SKIPPED, log)
+            self.assertEqual(self._outputs(fold_dir), before, "outputs were written again")
+
+    def test_af3_resume_refuses_a_seed_that_would_mix_two_runs(self):
+        self._require_af3_functional_environment()
+        self._assertSucceeded(self._predict(), "first run")
+        fold_dir = self._fold_dir(self.output_dir)
+        seeds = self._record(fold_dir)["settings"]["seeds"]
+        before = self._outputs(fold_dir)
+
+        second = self._predict(f"--random_seed={seeds[0] + 1000}")
+
+        self.assertNotEqual(second.returncode, 0)
+        self.assertIn(f"--random_seed={seeds[0]} to resume", second.stdout + second.stderr)
+        self.assertEqual(self._outputs(fold_dir), before)
+
+    def test_af3_batch_rerun_predicts_only_the_folds_it_had_not_finished(self):
+        """A batch killed before its last fold: the rerun skips the finished ones."""
+        self._require_af3_functional_environment()
+        manifest = self.output_dir / "manifest.jsonl"
+        jobs = {"monomer": self.FOLD, "dimer": self.DIMER}
+        manifest.write_text(
+            "".join(
+                json.dumps(
+                    {"job_id": job, "input": fold, "output_directory": str(self.output_dir / job)}
+                )
+                + "\n"
+                for job, fold in jobs.items()
+            )
+        )
+        command = [
+            sys.executable,
+            str(self.script_single.parent / "run_structure_prediction_batch.py"),
+            f"--manifest={manifest}",
+            f"--num_diffusion_samples={self.SAMPLES}",
+            *self._common_args(),
+        ]
+        env = self._make_af3_test_env()
+        self._assertSucceeded(
+            subprocess.run(command, capture_output=True, text=True, env=env), "first batch"
+        )
+        monomer_dir = self._fold_dir(self.output_dir / "monomer")
+        shutil.rmtree(self.output_dir / "dimer")
+        before = self._outputs(monomer_dir)
+
+        rerun = subprocess.run(command, capture_output=True, text=True, env=env)
+
+        self._assertSucceeded(rerun, "rerun")
+        self.assertEqual((rerun.stdout + rerun.stderr).count(self.SKIPPED), 1)
+        self.assertEqual(self._outputs(monomer_dir), before)
+        dimer_dir = self._fold_dir(self.output_dir / "dimer")
+        self.assertTrue(self._record(dimer_dir)["complete"])
+        self._assert_af3_outputs_present(dimer_dir)
+
+
+# --------------------------------------------------------------------------- #
 def _parse_test_args():
     """Parse test-specific arguments that work with both absltest and pytest."""
     # Check for --use-temp-dir in sys.argv or environment variable

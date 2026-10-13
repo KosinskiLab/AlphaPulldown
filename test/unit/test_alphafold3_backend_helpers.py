@@ -263,7 +263,9 @@ def _install_alphafold3_backend_stubs(tmp_path: Path, monkeypatch) -> None:
             )
 
         def with_multiple_seeds(self, num_seeds: int):
-            return dataclasses.replace(self, rng_seeds=tuple(range(1, num_seeds + 1)))
+            # As AlphaFold 3: consecutive seeds from the input's one.
+            first = self.rng_seeds[0]
+            return dataclasses.replace(self, rng_seeds=tuple(range(first, first + num_seeds)))
 
     folding_input_mod.Input = StubInput
     folding_input_mod.Template = StubTemplate
@@ -1187,16 +1189,9 @@ def test_af3_predict_expands_num_seeds_and_calls_process_fold_input(
     tmp_path,
 ):
     calls = []
-
-    class FakeFoldInput:
-        def __init__(self, name):
-            self.name = name
-            self.rng_seeds = (3,)
-
-        def with_multiple_seeds(self, num_seeds):
-            return FakeFoldInput(f"{self.name}__{num_seeds}")
-
-    fake_input = FakeFoldInput("job")
+    fake_input = af3_backend_module.folding_input.Input(
+        name="job", chains=("A",), rng_seeds=(3,)
+    )
     monkeypatch.setattr(
         af3_backend_module.AlphaFold3Backend,
         "prepare_input",
@@ -1224,7 +1219,142 @@ def test_af3_predict_expands_num_seeds_and_calls_process_fold_input(
     assert calls[0]["buckets"] == (256,)
     assert calls[0]["resolve_msa_overlaps"] is False
     assert calls[0]["debug_msas"] is True
-    assert calls[0]["fold_input"].name == "job__4"
+    assert calls[0]["fold_input"].name == "job"
+    # Four seeds counted up from the requested one.
+    assert calls[0]["fold_input"].rng_seeds == (7, 8, 9, 10)
+
+
+def _af3_run(module, monkeypatch, output_dir, *, finish=True, random_seed=None,
+             allow_resume=True, **model_flags):
+    """Predict fold "job" and post-process it as the adapters do; return the fold
+    inputs that were predicted. ``finish=False`` stops before post-processing, as a
+    job killed during inference."""
+    backend = module.AlphaFold3Backend
+    predicted = []
+    monkeypatch.setattr(
+        backend,
+        "prepare_input",
+        staticmethod(lambda **kwargs: [{
+            module.folding_input.Input(
+                name="job", chains=("A",), rng_seeds=(kwargs["random_seed"],)
+            ): (output_dir, True)
+        }]),
+    )
+    monkeypatch.setattr(
+        module,
+        "process_fold_input",
+        lambda **kwargs: predicted.append(kwargs["fold_input"]) or ["predicted"],
+    )
+    monkeypatch.setattr(module, "write_outputs", lambda **kwargs: None)
+    postprocess_flags = {"storage_mode": "vanilla", "convert_to_modelcif": False}
+    for job in backend.predict(
+        model_runner=object(),
+        objects_to_model=[{"object": object(), "output_dir": str(output_dir)}],
+        random_seed=random_seed,
+        buckets=256,
+        allow_resume=allow_resume,
+        postprocess_flags=postprocess_flags,
+        **{"num_diffusion_samples": 2, "num_recycles": 10, **model_flags},
+    ):
+        if finish:
+            backend.postprocess(
+                prediction_results=job["prediction_results"],
+                output_dir=job["output_dir"],
+                multimeric_object=job["object"],
+                **postprocess_flags,
+            )
+    return predicted
+
+
+def _af3_fold_record(output_dir):
+    return json.loads((output_dir / "alphapulldown_prediction.json").read_text())
+
+
+def test_af3_rerun_of_a_finished_fold_predicts_nothing(
+    af3_backend_module, monkeypatch, tmp_path
+):
+    first = _af3_run(af3_backend_module, monkeypatch, tmp_path)
+    second = _af3_run(af3_backend_module, monkeypatch, tmp_path)
+
+    assert len(first) == 1
+    assert second == []
+    record = _af3_fold_record(tmp_path)
+    assert record["complete"] is True
+    assert record["settings"]["seeds"] == list(first[0].rng_seeds)
+
+
+def test_af3_interrupted_fold_is_predicted_again_with_its_seeds(
+    af3_backend_module, monkeypatch, tmp_path
+):
+    first = _af3_run(af3_backend_module, monkeypatch, tmp_path, finish=False, num_seeds=3)
+    assert _af3_fold_record(tmp_path)["complete"] is False
+
+    second = _af3_run(af3_backend_module, monkeypatch, tmp_path, num_seeds=3)
+
+    assert len(second) == 1
+    assert len(second[0].rng_seeds) == 3
+    assert second[0].rng_seeds == first[0].rng_seeds
+    assert _af3_fold_record(tmp_path)["complete"] is True
+
+
+def test_af3_finished_fold_is_predicted_again_when_its_settings_change(
+    af3_backend_module, monkeypatch, tmp_path
+):
+    first = _af3_run(af3_backend_module, monkeypatch, tmp_path)
+    second = _af3_run(af3_backend_module, monkeypatch, tmp_path, num_diffusion_samples=3)
+
+    assert len(second) == 1
+    assert second[0].rng_seeds == first[0].rng_seeds
+    assert _af3_fold_record(tmp_path)["settings"]["num_diffusion_samples"] == 3
+
+
+def test_af3_resume_refuses_a_seed_that_would_mix_two_runs(
+    af3_backend_module, monkeypatch, tmp_path
+):
+    _af3_run(af3_backend_module, monkeypatch, tmp_path, random_seed=5)
+
+    with pytest.raises(ValueError, match="--random_seed=5 to resume"):
+        _af3_run(af3_backend_module, monkeypatch, tmp_path, random_seed=6)
+    # Asked for explicitly, a new prediction replaces the earlier one.
+    again = _af3_run(
+        af3_backend_module, monkeypatch, tmp_path, random_seed=6, allow_resume=False
+    )
+    assert again[0].rng_seeds == (6,)
+
+
+def _write_older_versions_fold(output_dir, seed, samples):
+    """What AlphaPulldown 2.10 left for fold "job": no fold record."""
+    (output_dir / "job_model.cif").write_text("model", encoding="utf-8")
+    rows = "".join(f"{seed},{sample},0.{9 - sample}\n" for sample in samples)
+    (output_dir / "ranking_scores.csv").write_text(
+        "seed,sample,ranking_score\n" + rows, encoding="utf-8"
+    )
+    for sample in samples:
+        sample_dir = output_dir / f"seed-{seed}_sample-{sample}"
+        sample_dir.mkdir()
+        (sample_dir / "model.cif").write_text("model", encoding="utf-8")
+        (sample_dir / "summary_confidences.json").write_text("{}", encoding="utf-8")
+
+
+def test_af3_resume_recognises_a_finished_fold_of_an_older_version(
+    af3_backend_module, monkeypatch, tmp_path
+):
+    _write_older_versions_fold(tmp_path, seed=11, samples=(0, 1))
+
+    assert _af3_run(af3_backend_module, monkeypatch, tmp_path) == []
+    record = _af3_fold_record(tmp_path)
+    assert record["complete"] is True
+    assert record["settings"]["seeds"] == [11]
+
+
+def test_af3_resume_predicts_an_older_versions_incomplete_fold_with_its_seed(
+    af3_backend_module, monkeypatch, tmp_path
+):
+    _write_older_versions_fold(tmp_path, seed=11, samples=(0,))
+
+    predicted = _af3_run(af3_backend_module, monkeypatch, tmp_path)
+
+    assert [fold.rng_seeds for fold in predicted] == [(11,)]
 
 
 def test_af3_postprocess_skips_missing_args_and_writes_outputs(

@@ -1,3 +1,4 @@
+import csv
 import os
 import json
 import gzip
@@ -12,6 +13,7 @@ import pickle
 # read), so it is pure redundancy inside the pickle.
 PAE_KEY = "predicted_aligned_error"
 MAX_PAE_KEY = "max_predicted_aligned_error"
+AF3_RANKING_SCORES = "ranking_scores.csv"
 
 
 def compress_file(file_path, *, method="gzip"):
@@ -188,7 +190,7 @@ def post_prediction_process_af3(output_path, job_name, storage_mode="vanilla"):
 
     try:
         # Identify the best sample dir from ranking_scores.csv (highest score).
-        best_sample_dir = _af3_best_sample_dir(output_path)
+        best_sample_dir = af3_best_sample_dir(output_path)
 
         # Top-level duplicates: confidences.json mirrors the best sample,
         # data.json mirrors features/<name>_af3_input.json. Remove them only if
@@ -228,19 +230,23 @@ def post_prediction_process_af3(output_path, job_name, storage_mode="vanilla"):
         logging.error(f"Unexpected AF3 post-processing error: {e}")
 
 
-def _af3_best_sample_dir(output_path):
-    """Return the ``seed-*_sample-*`` dir name with the highest ranking score."""
-    import csv
-    ranking_csv = os.path.join(output_path, "ranking_scores.csv")
-    if not os.path.isfile(ranking_csv):
+def af3_ranking_scores(output_path):
+    """The (seed, sample, ranking score) rows of an AF3 fold's ranking_scores.csv, in
+    order; empty if it is missing or unreadable."""
+    try:
+        with open(os.path.join(output_path, AF3_RANKING_SCORES), newline="") as f:
+            return [
+                (int(row["seed"]), int(row["sample"]), float(row["ranking_score"]))
+                for row in csv.DictReader(f)
+            ]
+    except (OSError, KeyError, ValueError):
+        return []
+
+
+def af3_best_sample_dir(output_path):
+    """The ``seed-*_sample-*`` dir with the highest ranking score; the first of equals."""
+    rows = af3_ranking_scores(output_path)
+    if not rows:
         return None
-    best = (None, float("-inf"))
-    with open(ranking_csv, newline="") as f:
-        for row in csv.DictReader(f):
-            try:
-                score = float(row["ranking_score"])
-            except (KeyError, ValueError):
-                continue
-            if score > best[1]:
-                best = (f"seed-{row['seed']}_sample-{row['sample']}", score)
-    return best[0]
+    seed, sample, _ = max(rows, key=lambda row: row[2])
+    return f"seed-{seed}_sample-{sample}"

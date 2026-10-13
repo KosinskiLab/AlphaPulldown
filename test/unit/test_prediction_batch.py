@@ -498,6 +498,86 @@ def test_alphapulldown_adapter_keeps_af3_jobs_independent_with_one_setup(tmp_pat
     ]
 
 
+class _SkippingBackend:
+    """Records what predict is given and, like a backend resuming finished folds,
+    yields nothing to post-process."""
+
+    def __init__(self):
+        self.predict_calls = []
+
+    def change_backend(self, backend_name):
+        assert backend_name == "alphafold3"
+
+    def setup(self, **model_flags):
+        return {"model_runner": object()}
+
+    def predict(self, **kwargs):
+        self.predict_calls.append(kwargs)
+        return iter(())
+
+    def postprocess(self, **kwargs):
+        raise AssertionError("a fold that was not predicted was post-processed")
+
+
+@pytest.mark.parametrize("requested_seed", [None, 13])
+def test_batch_adapter_leaves_the_af3_seed_to_the_backend_and_passes_postprocessing(
+    tmp_path, requested_seed
+):
+    """The AF3 backend reuses an earlier run's seed when it resumes a fold, and tells a
+    finished fold by its post-processing as well."""
+    from alphapulldown.prediction.prediction_batch import (
+        AlphaPulldownPredictionAdapter,
+        PredictionBatch,
+        PredictionJob,
+    )
+
+    (tmp_path / "fold.json").write_text(
+        json.dumps({"name": "fold", "sequences": [], "modelSeeds": [1]}),
+        encoding="utf-8",
+    )
+    flags = _prediction_flags(tmp_path, "alphafold3")
+    flags.random_seed = requested_seed
+    backend = _SkippingBackend()
+
+    summary = PredictionBatch(
+        (PredictionJob("fold", "fold.json", tmp_path / "out"),)
+    ).run(AlphaPulldownPredictionAdapter(flags, backend=backend))
+
+    # A fold the backend skips as finished still counts as completed.
+    assert summary.completed_job_ids == ("fold",)
+    (call,) = backend.predict_calls
+    assert call["random_seed"] == requested_seed
+    assert call["postprocess_flags"]["storage_mode"] == "vanilla"
+    assert call["allow_resume"] is True
+
+
+def test_legacy_adapter_leaves_the_af3_seed_to_the_backend_and_passes_postprocessing(
+    tmp_path,
+):
+    from alphapulldown.prediction.prediction_batch import (
+        PredictionBatch,
+        PredictionJob,
+        PreparedPredictionAdapter,
+    )
+
+    backend = _SkippingBackend()
+    adapter = PreparedPredictionAdapter(
+        backend=backend,
+        fold_backend="alphafold3",
+        objects_to_model=[{"object": {"json_input": "fold.json"}, "output_dir": "out"}],
+        model_flags={"model_name": "monomer_ptm", "allow_resume": True},
+        postprocess_flags={"storage_mode": "slim"},
+        random_seed=None,
+    )
+
+    summary = PredictionBatch((PredictionJob("legacy", "", tmp_path),)).run(adapter)
+
+    assert summary.exit_code == 0
+    (call,) = backend.predict_calls
+    assert call["random_seed"] is None
+    assert call["postprocess_flags"] == {"storage_mode": "slim"}
+
+
 def test_alphapulldown_adapter_reuses_af2_runners_across_jobs(tmp_path):
     from alphapulldown.objects import MonomericObject
     from alphapulldown.prediction.prediction_batch import (
