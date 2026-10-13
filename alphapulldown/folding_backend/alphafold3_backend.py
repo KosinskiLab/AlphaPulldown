@@ -6,6 +6,7 @@ Copyright (c) 2024 European Molecular Biology Laboratory
 Author: Dmitry Molodenskiy <dmitry.molodenskiy@embl-hamburg.de>
 """
 
+import contextlib
 import csv
 import dataclasses
 import functools
@@ -18,6 +19,7 @@ import os
 import pathlib
 import random
 import re
+import shutil
 import time
 import typing
 from collections import Counter
@@ -46,6 +48,7 @@ from alphapulldown.folding_backend.folding_backend import FoldingBackend
 from alphapulldown.prediction import af3_fused_triangles
 from alphapulldown.prediction.jax_compilation_cache import enable_persistent_compilation_cache
 from alphapulldown.prediction.resume import (
+    changed_settings,
     finish_fold_record,
     finished_fold,
     read_fold_record,
@@ -61,14 +64,13 @@ from alphapulldown.utils.af2_to_af3_msa import (
 )
 from alphapulldown.utils.msa_encoding import ids_to_a3m_af3
 from alphapulldown.utils.post_modelling import (
+    AF3_RANKING_SCORES,
+    af3_best_sample_dir,
     af3_ranking_scores,
     post_prediction_process_af3,
 )
-from alphapulldown.utils.af3_modelcif import (
-    augment_af3_modelcif_file,
-    find_af3_modelcif_files,
-)
-from alphapulldown.utils.file_handling import read_maybe_xz, resolve_af3_input
+from alphapulldown.utils.af3_modelcif import augment_af3_modelcif_file
+from alphapulldown.utils.file_handling import open_atomic, read_maybe_xz, resolve_af3_input
 from alphapulldown.utils.feature_metadata import (
     encode_metadata_in_description,
     extract_metadata_from_fold_input,
@@ -197,27 +199,62 @@ class ModelRunner:
 
 
 
-def write_outputs(
-    all_inference_results: Sequence[ResultsForSeed],
+# What AlphaFold 3 writes per sample, and again under the job name for the best one.
+_SAMPLE_OUTPUTS = ('model.cif', 'confidences.json', 'summary_confidences.json')
+
+
+@contextlib.contextmanager
+def _directory_written_whole(path: os.PathLike[str] | str):
+    """Fill ``<path>.partial``, then put it in place of ``path`` once complete."""
+    partial = f'{os.fspath(path)}.partial'
+    shutil.rmtree(partial, ignore_errors=True)
+    os.makedirs(partial)
+    yield partial
+    shutil.rmtree(path, ignore_errors=True)
+    os.replace(partial, path)
+
+
+def _write_ranking_rows(
+    output_dir: os.PathLike[str] | str, seed: int, rows: Sequence[tuple[int, int, float]]
+) -> None:
+    """Put a seed's samples into ranking_scores.csv, replacing any rows it had."""
+    kept = [row for row in af3_ranking_scores(output_dir) if row[0] != seed]
+    # As AlphaFold 3 writes it: text mode with csv's own line endings.
+    with open_atomic(os.path.join(output_dir, AF3_RANKING_SCORES)) as f:
+        writer = csv.writer(f)
+        writer.writerow(['seed', 'sample', 'ranking_score'])
+        writer.writerows(kept + list(rows))
+
+
+def _augment_modelcif(cif_path: str, metadata_records: Sequence[dict]) -> None:
+    try:
+        augment_af3_modelcif_file(cif_path, metadata_records)
+    except (OSError, ValueError) as exc:
+        logging.warning(
+            "Could not add AlphaPulldown metadata to %s: %s",
+            cif_path,
+            exc,
+        )
+
+
+def write_seed_outputs(
+    results_for_seed: ResultsForSeed,
     output_dir: os.PathLike[str] | str,
     job_name: str,
+    modelcif_metadata: Sequence[dict] | None = None,
 ) -> None:
-    """Writes outputs (CIF, confidences, embeddings, distograms, ranking CSV)."""
-    ranking_scores = []
-    max_ranking_score = None
-    max_ranking_result = None
+    """Write a seed's samples, embeddings and distogram as soon as it is predicted.
 
-    output_terms = (
-        pathlib.Path(alphafold3.cpp.__file__).parent / 'OUTPUT_TERMS_OF_USE.md'
-    ).read_text()
-
+    Each directory appears whole and the ranking comes last, so a ranked seed is on
+    disk. ModelCIF metadata goes into each sample once; the best model is a copy.
+    """
+    seed = results_for_seed.seed
     os.makedirs(output_dir, exist_ok=True)
-    for results_for_seed in all_inference_results:
-        seed = results_for_seed.seed
-        for sample_idx, result in enumerate(results_for_seed.inference_results):
-            sample_dir = os.path.join(output_dir, f'seed-{seed}_sample-{sample_idx}')
-            os.makedirs(sample_dir, exist_ok=True)
-            result = _make_viewer_compatible_inference_result(result)
+    rows = []
+    for sample_idx, result in enumerate(results_for_seed.inference_results):
+        result = _make_viewer_compatible_inference_result(result)
+        sample_path = os.path.join(output_dir, f'seed-{seed}_sample-{sample_idx}')
+        with _directory_written_whole(sample_path) as sample_dir:
             post_processing.write_output(
                 inference_result=result, output_dir=sample_dir
             )
@@ -225,43 +262,46 @@ def write_outputs(
                 os.path.join(sample_dir, 'confidences.json'),
                 result,
             )
-            ranking_score = float(result.metadata['ranking_score'])
-            ranking_scores.append((seed, sample_idx, ranking_score))
-            if max_ranking_score is None or ranking_score > max_ranking_score:
-                max_ranking_score = ranking_score
-                max_ranking_result = result
+            if modelcif_metadata:
+                _augment_modelcif(os.path.join(sample_dir, 'model.cif'), modelcif_metadata)
+        rows.append((seed, sample_idx, float(result.metadata['ranking_score'])))
 
-        # Optionally write embeddings/distogram per-seed if present
-        if results_for_seed.embeddings:
-            embeddings_dir = os.path.join(output_dir, f'seed-{seed}_embeddings')
-            os.makedirs(embeddings_dir, exist_ok=True)
+    # Optionally write embeddings/distogram per-seed if present
+    if results_for_seed.embeddings:
+        embeddings_path = os.path.join(output_dir, f'seed-{seed}_embeddings')
+        with _directory_written_whole(embeddings_path) as embeddings_dir:
             post_processing.write_embeddings(
                 embeddings=results_for_seed.embeddings,
                 output_dir=embeddings_dir,
                 name=f'{job_name}_seed-{seed}',
             )
-        if results_for_seed.distogram is not None:
-            dist_dir = os.path.join(output_dir, f'seed-{seed}_distogram')
-            os.makedirs(dist_dir, exist_ok=True)
+    if results_for_seed.distogram is not None:
+        with _directory_written_whole(
+            os.path.join(output_dir, f'seed-{seed}_distogram')
+        ) as dist_dir:
             dist_path = os.path.join(dist_dir, f'{job_name}_seed-{seed}_distogram.npz')
             with open(dist_path, 'wb') as f:
                 np.savez_compressed(f, distogram=results_for_seed.distogram.astype(np.float16))
+    _write_ranking_rows(output_dir, seed, rows)
 
-    if max_ranking_result is not None:  # True iff ranking_scores non-empty.
-        post_processing.write_output(
-            inference_result=max_ranking_result,
-            output_dir=output_dir,
-            terms_of_use=output_terms,
-            name=job_name,
-        )
-        _augment_confidence_json_with_author_numbering(
-            os.path.join(output_dir, f'{job_name}_confidences.json'),
-            max_ranking_result,
-        )
-        with open(os.path.join(output_dir, 'ranking_scores.csv'), 'wt') as f:
-            writer = csv.writer(f)
-            writer.writerow(['seed', 'sample', 'ranking_score'])
-            writer.writerows(ranking_scores)
+
+def write_fold_outputs(output_dir: os.PathLike[str] | str, job_name: str) -> None:
+    """Copy the best ranked sample under the job name, with the terms of use: the same
+    bytes AlphaFold 3 writes there, also for samples of an interrupted earlier run."""
+    best = af3_best_sample_dir(output_dir)
+    if best is None:
+        logging.warning(f'No ranked samples in {output_dir}; writing no best model.')
+        return
+    for name in _SAMPLE_OUTPUTS:
+        with open(os.path.join(output_dir, best, name), 'rb') as source, open_atomic(
+            os.path.join(output_dir, f'{job_name}_{name}'), 'wb'
+        ) as target:
+            shutil.copyfileobj(source, target)
+    output_terms = (
+        pathlib.Path(alphafold3.cpp.__file__).parent / 'OUTPUT_TERMS_OF_USE.md'
+    ).read_text()
+    with open_atomic(os.path.join(output_dir, 'TERMS_OF_USE.md')) as f:
+        f.write(output_terms)
 
 
 def _duplicate_occurrence_to_insertion_code(
@@ -631,8 +671,13 @@ def predict_structure(
     output_dir: os.PathLike[str] | str | None = None,
     resolve_msa_overlaps: bool = True,
     debug_msas: bool = False,
+    on_seed_done: typing.Callable[[ResultsForSeed], None] | None = None,
 ) -> Sequence[ResultsForSeed]:
-    """Run inference (featurisation + model) to predict structures for each seed."""
+    """Run inference (featurisation + model) to predict structures for each seed.
+
+    With ``on_seed_done``, each seed's results go to it as soon as they exist instead
+    of being collected, so only one seed's are held in memory.
+    """
     logging.info(f'Featurising data for seeds {fold_input.rng_seeds}...')
     featurisation_start_time = time.time()
     ccd = chemical_components.Ccd(user_ccd=fold_input.user_ccd)
@@ -720,13 +765,17 @@ def predict_structure(
         except Exception:
             dist_out = None
 
-        all_inference_results.append(ResultsForSeed(
+        results_for_seed = ResultsForSeed(
             seed=seed,
             inference_results=inference_results,
             full_fold_input=fold_input,
             embeddings=embeddings_out,
             distogram=dist_out,
-        ))
+        )
+        if on_seed_done is None:
+            all_inference_results.append(results_for_seed)
+        else:
+            on_seed_done(results_for_seed)
     logging.info(
         f'Inference + extraction for seeds {fold_input.rng_seeds} took {time.time() - all_inference_start_time:.2f} seconds.'
     )
@@ -758,8 +807,13 @@ def process_fold_input(
     buckets: Sequence[int] | None = None,
     resolve_msa_overlaps: bool = True,
     debug_msas: bool = False,
-) -> folding_input.Input | Sequence[ResultsForSeed]:
-    """Runs data pipeline and/or inference on a single fold input, then writes outputs."""
+    seeds_done: Sequence[int] = (),
+    modelcif_metadata: Sequence[dict] | None = None,
+) -> folding_input.Input | list[int]:
+    """Runs data pipeline and/or inference on a single fold input, writing each seed's
+    outputs as it finishes; returns the fold's seeds, all now on disk. ``seeds_done``,
+    written out by an interrupted run, are not predicted again.
+    """
     logging.info(f'Processing fold input {fold_input.name}')
 
     # Validation
@@ -793,20 +847,30 @@ def process_fold_input(
         logging.info('Skipping inference...')
         return fold_input
 
-    # Run inference (writing of outputs is deferred to postprocess)
-    logging.info(
-        f'Predicting 3D structure for {fold_input.name} with seed(s) {fold_input.rng_seeds}...'
-    )
-    all_inference_results = predict_structure(
-        fold_input=fold_input,
-        model_runner=model_runner,
-        buckets=buckets,
-        output_dir=output_dir,
-        resolve_msa_overlaps=resolve_msa_overlaps,
-        debug_msas=debug_msas,
-    )
+    missing_seeds = [seed for seed in fold_input.rng_seeds if seed not in seeds_done]
+    if seeds_done:
+        logging.info(
+            f'Resuming {fold_input.name}: seed(s) {list(seeds_done)} are already predicted.'
+        )
+    if missing_seeds:
+        logging.info(
+            f'Predicting 3D structure for {fold_input.name} with seed(s) {missing_seeds}...'
+        )
+        job_name = fold_input.sanitised_name()
+        # Featurisation is per seed, so the missing ones come out as in a single run.
+        predict_structure(
+            fold_input=dataclasses.replace(fold_input, rng_seeds=missing_seeds),
+            model_runner=model_runner,
+            buckets=buckets,
+            output_dir=output_dir,
+            resolve_msa_overlaps=resolve_msa_overlaps,
+            debug_msas=debug_msas,
+            on_seed_done=lambda results_for_seed: write_seed_outputs(
+                results_for_seed, output_dir, job_name, modelcif_metadata
+            ),
+        )
     logging.info(f'Done processing fold input {fold_input.name}.')
-    return all_inference_results
+    return list(fold_input.rng_seeds)
 
 
 def _earlier_fold_seeds(
@@ -881,6 +945,48 @@ def _complete_without_record(output_dir: os.PathLike[str] | str, settings: dict)
     )
 
 
+def _finished_seeds(output_dir: os.PathLike[str] | str, settings: dict) -> list[int]:
+    """The seeds an interrupted run wrote out whole. write_seed_outputs ranks a seed
+    only once all of it is on disk; its directories are checked as well."""
+    num_samples = settings['num_diffusion_samples'] or 0
+    ranked = {(seed, sample) for seed, sample, _ in af3_ranking_scores(output_dir)}
+    extras = [kind for kind in ('embeddings', 'distogram') if settings[f'return_{kind}']]
+
+    def finished(seed: int) -> bool:
+        names = [f'seed-{seed}_sample-{sample}' for sample in range(num_samples)]
+        names += [f'seed-{seed}_{kind}' for kind in extras]
+        return num_samples > 0 and all(
+            (seed, sample) in ranked for sample in range(num_samples)
+        ) and all(os.path.isdir(os.path.join(output_dir, name)) for name in names)
+
+    return [seed for seed in settings['seeds'] if finished(seed)]
+
+
+def _modelcif_metadata(
+    fold_input: folding_input.Input, output_dir: os.PathLike[str] | str
+) -> list[dict]:
+    """The AlphaPulldown metadata for the fold's ModelCIF files, each record once."""
+    metadata_records = extract_metadata_from_fold_input(fold_input)
+    try:
+        metadata_records.extend(load_feature_metadata_sidecars(output_dir))
+    except (OSError, ValueError) as exc:
+        logging.warning(
+            "Could not read copied feature metadata from %s: %s",
+            output_dir,
+            exc,
+        )
+    # AF2 metadata may be present both in the transported description and as a copied
+    # sidecar. Deduplicate exact records before adding ModelCIF categories.
+    unique_metadata = []
+    seen_metadata = set()
+    for metadata in metadata_records:
+        fingerprint = json.dumps(metadata, sort_keys=True, default=str)
+        if fingerprint not in seen_metadata:
+            seen_metadata.add(fingerprint)
+            unique_metadata.append(metadata)
+    return unique_metadata
+
+
 def _start_or_resume_fold(
     fold_input: folding_input.Input,
     output_dir: os.PathLike[str] | str,
@@ -888,9 +994,9 @@ def _start_or_resume_fold(
     allow_resume: bool,
     model_flags: dict[str, Any],
     postprocess_flags: dict[str, Any],
-) -> folding_input.Input | None:
-    """The fold input with its seeds, recorded as being predicted; None if the fold is
-    already complete. Resuming takes the seeds of the earlier run."""
+) -> tuple[folding_input.Input, list[int]] | None:
+    """The fold input with its seeds, and the seeds an interrupted run already wrote
+    out, recorded as being predicted; None if the fold is already complete."""
     job_name = fold_input.sanitised_name()
     record = read_fold_record(output_dir) if allow_resume else {}
     earlier_seeds = _earlier_fold_seeds(output_dir, job_name, record) if allow_resume else []
@@ -903,6 +1009,7 @@ def _start_or_resume_fold(
         fold_input = fold_input.with_multiple_seeds(num_seeds)
 
     settings = _fold_settings(fold_input, model_flags, postprocess_flags)
+    seeds_done = []
     if allow_resume:
         if not record and _complete_without_record(output_dir, settings):
             record_fold_complete(output_dir, settings)
@@ -910,8 +1017,14 @@ def _start_or_resume_fold(
             return None
         if finished_fold(record, settings, job_name, output_dir):
             return None
+        if record and not record.get('complete') and not changed_settings(record, settings):
+            seeds_done = _finished_seeds(output_dir, settings)
+    if not seeds_done:
+        # A new prediction: the ranking of an earlier one must not mix into it.
+        with contextlib.suppress(FileNotFoundError):
+            os.remove(os.path.join(output_dir, AF3_RANKING_SCORES))
     start_fold_record(output_dir, settings)
-    return fold_input
+    return fold_input, seeds_done
 
 
 @dataclasses.dataclass(frozen=True, slots=True, kw_only=True)
@@ -2282,11 +2395,12 @@ class AlphaFold3Backend(FoldingBackend):
                 output_dir = mapping_value
                 resolve_overlaps_flag = True
 
-            fold_input_obj = _start_or_resume_fold(
+            started = _start_or_resume_fold(
                 fold_input_obj, output_dir, random_seed, allow_resume, kwargs, postprocess_flags
             )
-            if fold_input_obj is None:
+            if started is None:
                 continue
+            fold_input_obj, seeds_done = started
 
             # Do not write input JSON here; defer to process_fold_input for a single source of truth.
 
@@ -2299,6 +2413,12 @@ class AlphaFold3Backend(FoldingBackend):
                 buckets=buckets,
                 resolve_msa_overlaps=resolve_overlaps_flag,
                 debug_msas=kwargs.get('debug_msas', False),
+                seeds_done=seeds_done,
+                modelcif_metadata=(
+                    _modelcif_metadata(fold_input_obj, output_dir)
+                    if postprocess_flags.get('convert_to_modelcif', True)
+                    else None
+                ),
             )
 
             yield {
@@ -2309,6 +2429,7 @@ class AlphaFold3Backend(FoldingBackend):
 
     @staticmethod
     def postprocess(**kwargs) -> None:
+        # The fold's seeds (process_fold_input): their outputs are already on disk.
         prediction_results = kwargs.get('prediction_results')
         output_dir = kwargs.get('output_dir')
         fold_input_obj = kwargs.get('multimeric_object')
@@ -2323,46 +2444,10 @@ class AlphaFold3Backend(FoldingBackend):
         except Exception:
             job_name = 'ranked_0'
 
-        logging.info(
-            f"Writing outputs for {job_name} with {len(prediction_results) if hasattr(prediction_results, '__len__') else 'unknown'} result(s)..."
-        )
-        write_outputs(
-            all_inference_results=prediction_results,
-            output_dir=output_dir,
-            job_name=job_name,
-        )
-
-        if kwargs.get("convert_to_modelcif", True):
-            metadata_records = extract_metadata_from_fold_input(fold_input_obj)
-            try:
-                metadata_records.extend(load_feature_metadata_sidecars(output_dir))
-            except (OSError, ValueError) as exc:
-                logging.warning(
-                    "Could not read copied feature metadata from %s: %s",
-                    output_dir,
-                    exc,
-                )
-
-            # AF2 metadata may be present both in the transported description
-            # and as a copied sidecar.  Deduplicate exact records before adding
-            # ModelCIF categories.
-            unique_metadata = []
-            seen_metadata = set()
-            for metadata in metadata_records:
-                fingerprint = json.dumps(metadata, sort_keys=True, default=str)
-                if fingerprint not in seen_metadata:
-                    seen_metadata.add(fingerprint)
-                    unique_metadata.append(metadata)
-
-            for cif_path in find_af3_modelcif_files(output_dir, job_name):
-                try:
-                    augment_af3_modelcif_file(cif_path, unique_metadata)
-                except (OSError, ValueError) as exc:
-                    logging.warning(
-                        "Could not add AlphaPulldown metadata to %s: %s",
-                        cif_path,
-                        exc,
-                    )
+        # The samples, ModelCIF metadata included, were written as each seed finished
+        # (write_seed_outputs); the best one now goes under the job name.
+        logging.info(f"Writing the best model of {job_name}...")
+        write_fold_outputs(output_dir=output_dir, job_name=job_name)
 
         # Apply the AF3 storage preset (no-op for the default 'vanilla').
         post_prediction_process_af3(output_dir, job_name, storage_mode=storage_mode)

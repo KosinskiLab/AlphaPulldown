@@ -634,75 +634,119 @@ def test_make_viewer_compatible_inference_result_rewrites_residue_and_token_numb
     assert viewer_result.metadata["token_auth_res_labels"] == ["10", "10A", "7", "7A"]
 
 
-def test_write_outputs_writes_per_sample_final_outputs_and_ranking_csv(
-    af3_backend_module,
-    monkeypatch,
-    tmp_path,
-):
-    output_calls = []
-    embedding_calls = []
-    augment_calls = []
+def _write_files_like_af3(module, monkeypatch, augment_calls=None):
+    """Stand-ins for AlphaFold 3's writers that put real files where it would."""
 
+    def write_output(inference_result, output_dir, terms_of_use=None, name=None):
+        prefix = f"{name}_" if name else ""
+        score = inference_result.metadata["ranking_score"]
+        for output in ("model.cif", "confidences.json", "summary_confidences.json"):
+            Path(output_dir, prefix + output).write_text(f"{output} {score}", encoding="utf-8")
+
+    def write_embeddings(embeddings, output_dir, name):
+        Path(output_dir, f"{name}_embeddings.npz").write_bytes(b"embeddings")
+
+    monkeypatch.setattr(module, "_make_viewer_compatible_inference_result", lambda result: result)
+    monkeypatch.setattr(module.post_processing, "write_output", write_output)
+    monkeypatch.setattr(module.post_processing, "write_embeddings", write_embeddings)
     monkeypatch.setattr(
-        af3_backend_module,
-        "_make_viewer_compatible_inference_result",
-        lambda result: result,
-    )
-    monkeypatch.setattr(
-        af3_backend_module.post_processing,
-        "write_output",
-        lambda **kwargs: output_calls.append(kwargs),
-    )
-    monkeypatch.setattr(
-        af3_backend_module.post_processing,
-        "write_embeddings",
-        lambda **kwargs: embedding_calls.append(kwargs),
-    )
-    monkeypatch.setattr(
-        af3_backend_module,
+        module,
         "_augment_confidence_json_with_author_numbering",
-        lambda path, result: augment_calls.append((Path(path).name, result.metadata["ranking_score"])),
+        lambda path, result: None,
+    )
+    monkeypatch.setattr(
+        module,
+        "augment_af3_modelcif_file",
+        lambda path, records: (augment_calls if augment_calls is not None else []).append(
+            (Path(path).parent.name, records)
+        ),
     )
 
-    result_low = af3_backend_module.model.InferenceResult(
-        predicted_structure=None,
-        metadata={"ranking_score": 0.2},
-    )
-    result_high = af3_backend_module.model.InferenceResult(
-        predicted_structure=None,
-        metadata={"ranking_score": 0.9},
-    )
-    fold_input = af3_backend_module.folding_input.Input(
-        name="job",
-        chains=("A",),
-        rng_seeds=(7,),
-    )
-    results = [
-        af3_backend_module.ResultsForSeed(
-            seed=7,
-            inference_results=[result_low, result_high],
-            full_fold_input=fold_input,
-            embeddings={"single_embeddings": np.asarray([[1.0]], dtype=np.float32)},
-            distogram=np.asarray([[0.5]], dtype=np.float32),
-        )
-    ]
 
-    af3_backend_module.write_outputs(results, tmp_path, "job_name")
+def _results_for_seed(module, seed, *scores, extras=False):
+    fold_input = module.folding_input.Input(name="job", chains=("A",), rng_seeds=(seed,))
+    return module.ResultsForSeed(
+        seed=seed,
+        inference_results=[
+            module.model.InferenceResult(predicted_structure=None, metadata={"ranking_score": score})
+            for score in scores
+        ],
+        full_fold_input=fold_input,
+        embeddings={"single_embeddings": np.asarray([[1.0]], dtype=np.float32)} if extras else None,
+        distogram=np.asarray([[0.5]], dtype=np.float32) if extras else None,
+    )
 
-    assert len(output_calls) == 3
-    assert output_calls[-1]["name"] == "job_name"
-    assert output_calls[-1]["terms_of_use"] == "stub terms"
-    assert embedding_calls[0]["name"] == "job_name_seed-7"
+
+def _ranking_rows(output_dir):
+    return (output_dir / "ranking_scores.csv").read_text(encoding="utf-8").splitlines()
+
+
+def test_write_seed_outputs_writes_the_seed_whole_and_ranks_it_last(
+    af3_backend_module, monkeypatch, tmp_path
+):
+    augment_calls = []
+    _write_files_like_af3(af3_backend_module, monkeypatch, augment_calls)
+
+    af3_backend_module.write_seed_outputs(
+        _results_for_seed(af3_backend_module, 7, 0.2, 0.9, extras=True),
+        tmp_path,
+        "job_name",
+        modelcif_metadata=[{"software": {}}],
+    )
+
+    for sample in (0, 1):
+        sample_dir = tmp_path / f"seed-7_sample-{sample}"
+        assert sorted(path.name for path in sample_dir.iterdir()) == [
+            "confidences.json", "model.cif", "summary_confidences.json"
+        ]
+    assert (tmp_path / "seed-7_embeddings" / "job_name_seed-7_embeddings.npz").is_file()
     assert (tmp_path / "seed-7_distogram" / "job_name_seed-7_distogram.npz").is_file()
-
-    ranking_csv = (tmp_path / "ranking_scores.csv").read_text(encoding="utf-8")
-    assert "seed,sample,ranking_score" in ranking_csv
-    assert "7,1,0.9" in ranking_csv
+    assert not list(tmp_path.glob("*.partial"))
+    assert _ranking_rows(tmp_path) == ["seed,sample,ranking_score", "7,0,0.2", "7,1,0.9"]
+    # Byte for byte as AlphaFold 3 writes it, csv line endings included.
+    assert (tmp_path / "ranking_scores.csv").read_bytes().endswith(b"7,1,0.9\r\n")
+    # The metadata went into each sample's model, inside its unfinished directory.
     assert augment_calls == [
-        ("confidences.json", 0.2),
-        ("confidences.json", 0.9),
-        ("job_name_confidences.json", 0.9),
+        ("seed-7_sample-0.partial", [{"software": {}}]),
+        ("seed-7_sample-1.partial", [{"software": {}}]),
     ]
+    # Nothing is written under the job name until the fold is finished.
+    assert not list(tmp_path.glob("job_name_*"))
+
+
+def test_write_seed_outputs_replaces_a_seed_written_before_and_keeps_the_others(
+    af3_backend_module, monkeypatch, tmp_path
+):
+    _write_files_like_af3(af3_backend_module, monkeypatch)
+
+    for seed, score in ((7, 0.2), (8, 0.5), (7, 0.3)):
+        af3_backend_module.write_seed_outputs(
+            _results_for_seed(af3_backend_module, seed, score), tmp_path, "job"
+        )
+
+    assert _ranking_rows(tmp_path) == ["seed,sample,ranking_score", "8,0,0.5", "7,0,0.3"]
+    assert (tmp_path / "seed-7_sample-0" / "model.cif").read_text() == "model.cif 0.3"
+
+
+def test_write_fold_outputs_gives_the_best_sample_the_job_name(
+    af3_backend_module, monkeypatch, tmp_path
+):
+    _write_files_like_af3(af3_backend_module, monkeypatch)
+    af3_backend_module.write_seed_outputs(
+        _results_for_seed(af3_backend_module, 7, 0.2, 0.9), tmp_path, "job"
+    )
+    af3_backend_module.write_seed_outputs(
+        _results_for_seed(af3_backend_module, 8, 0.9, 0.4), tmp_path, "job"
+    )
+
+    af3_backend_module.write_fold_outputs(tmp_path, "job")
+
+    # The first of the equally ranked samples, as AlphaFold 3 picks it.
+    for name in ("model.cif", "confidences.json", "summary_confidences.json"):
+        assert (tmp_path / f"job_{name}").read_bytes() == (
+            tmp_path / "seed-7_sample-1" / name
+        ).read_bytes()
+    assert (tmp_path / "TERMS_OF_USE.md").read_text(encoding="utf-8") == "stub terms"
 
 
 def test_process_fold_input_rejects_missing_chains(af3_backend_module, tmp_path):
@@ -777,12 +821,39 @@ def test_process_fold_input_checks_model_params_and_calls_predict_structure(
         debug_msas=True,
     )
 
-    assert returned == fake_results
-    assert predict_calls[0]["fold_input"] is fold_input
+    assert returned == [42]
+    assert predict_calls[0]["fold_input"] == fold_input
+    assert callable(predict_calls[0]["on_seed_done"])
     assert predict_calls[0]["output_dir"] == tmp_path
     assert predict_calls[0]["buckets"] == [256]
     assert predict_calls[0]["resolve_msa_overlaps"] is False
     assert predict_calls[0]["debug_msas"] is True
+
+
+def test_process_fold_input_predicts_only_the_seeds_not_yet_written(
+    af3_backend_module, monkeypatch, tmp_path
+):
+    fold_input = af3_backend_module.folding_input.Input(
+        name="job", chains=("A",), rng_seeds=(5, 6, 7)
+    )
+    predict_calls = []
+    monkeypatch.setattr(
+        af3_backend_module,
+        "predict_structure",
+        lambda **kwargs: predict_calls.append(kwargs) or [],
+    )
+    runner = SimpleNamespace(model_params={"ok": True})
+
+    returned = af3_backend_module.process_fold_input(
+        fold_input=fold_input, model_runner=runner, output_dir=tmp_path, seeds_done=[5]
+    )
+    assert returned == [5, 6, 7]
+    assert predict_calls[0]["fold_input"].rng_seeds == (6, 7)
+
+    af3_backend_module.process_fold_input(
+        fold_input=fold_input, model_runner=runner, output_dir=tmp_path, seeds_done=[5, 6, 7]
+    )
+    assert len(predict_calls) == 1
 
 
 def test_predict_structure_writes_final_msa_and_collects_optional_outputs(
@@ -1225,10 +1296,11 @@ def test_af3_predict_expands_num_seeds_and_calls_process_fold_input(
 
 
 def _af3_run(module, monkeypatch, output_dir, *, finish=True, random_seed=None,
-             allow_resume=True, **model_flags):
+             allow_resume=True, calls=None, **model_flags):
     """Predict fold "job" and post-process it as the adapters do; return the fold
-    inputs that were predicted. ``finish=False`` stops before post-processing, as a
-    job killed during inference."""
+    inputs that were predicted, and add the process_fold_input calls to ``calls``.
+    ``finish=False`` stops before post-processing, as a job killed during inference."""
+    calls = [] if calls is None else calls
     backend = module.AlphaFold3Backend
     predicted = []
     monkeypatch.setattr(
@@ -1243,9 +1315,11 @@ def _af3_run(module, monkeypatch, output_dir, *, finish=True, random_seed=None,
     monkeypatch.setattr(
         module,
         "process_fold_input",
-        lambda **kwargs: predicted.append(kwargs["fold_input"]) or ["predicted"],
+        lambda **kwargs: predicted.append(kwargs["fold_input"])
+        or calls.append(kwargs)
+        or list(kwargs["fold_input"].rng_seeds),
     )
-    monkeypatch.setattr(module, "write_outputs", lambda **kwargs: None)
+    monkeypatch.setattr(module, "write_fold_outputs", lambda **kwargs: None)
     postprocess_flags = {"storage_mode": "vanilla", "convert_to_modelcif": False}
     for job in backend.predict(
         model_runner=object(),
@@ -1357,7 +1431,7 @@ def test_af3_resume_predicts_an_older_versions_incomplete_fold_with_its_seed(
     assert [fold.rng_seeds for fold in predicted] == [(11,)]
 
 
-def test_af3_postprocess_skips_missing_args_and_writes_outputs(
+def test_af3_postprocess_skips_missing_args_and_writes_the_best_model(
     af3_backend_module,
     monkeypatch,
     tmp_path,
@@ -1365,7 +1439,7 @@ def test_af3_postprocess_skips_missing_args_and_writes_outputs(
     calls = []
     monkeypatch.setattr(
         af3_backend_module,
-        "write_outputs",
+        "write_fold_outputs",
         lambda **kwargs: calls.append(kwargs),
     )
 
@@ -1378,21 +1452,36 @@ def test_af3_postprocess_skips_missing_args_and_writes_outputs(
         rng_seeds=(1,),
     )
     af3_backend_module.AlphaFold3Backend.postprocess(
-        prediction_results=["result"],
+        prediction_results=[1],
         output_dir=tmp_path,
         multimeric_object=fold_input,
     )
 
-    assert calls == [
-        {
-            "all_inference_results": ["result"],
-            "output_dir": tmp_path,
-            "job_name": "job",
-        }
-    ]
+    assert calls == [{"output_dir": tmp_path, "job_name": "job"}]
 
 
-def test_af3_postprocess_enriches_modelcif_from_embedded_and_sidecar_metadata(
+def _modelcif_metadata_given_to_seed_outputs(module, monkeypatch, output_dir, fold_input,
+                                             convert_to_modelcif):
+    monkeypatch.setattr(
+        module.AlphaFold3Backend,
+        "prepare_input",
+        staticmethod(lambda **kwargs: [{fold_input: (output_dir, True)}]),
+    )
+    calls = []
+    monkeypatch.setattr(
+        module, "process_fold_input", lambda **kwargs: calls.append(kwargs) or [1]
+    )
+    list(module.AlphaFold3Backend.predict(
+        model_runner=object(),
+        objects_to_model=[{"object": object(), "output_dir": str(output_dir)}],
+        random_seed=1,
+        buckets=256,
+        postprocess_flags={"convert_to_modelcif": convert_to_modelcif},
+    ))
+    return calls[0]["modelcif_metadata"]
+
+
+def test_af3_seed_outputs_get_modelcif_metadata_from_embedded_and_sidecar_records(
     af3_backend_module,
     monkeypatch,
     tmp_path,
@@ -1423,31 +1512,15 @@ def test_af3_postprocess_enriches_modelcif_from_embedded_and_sidecar_metadata(
         ),
         rng_seeds=(1,),
     )
-    best_cif = tmp_path / "job_model.cif"
-    calls = []
-    monkeypatch.setattr(af3_backend_module, "write_outputs", lambda **kwargs: None)
-    monkeypatch.setattr(
-        af3_backend_module,
-        "find_af3_modelcif_files",
-        lambda output_dir, job_name: [best_cif],
-    )
-    monkeypatch.setattr(
-        af3_backend_module,
-        "augment_af3_modelcif_file",
-        lambda path, records: calls.append((path, records)) or True,
+
+    metadata = _modelcif_metadata_given_to_seed_outputs(
+        af3_backend_module, monkeypatch, tmp_path, fold_input, convert_to_modelcif=True
     )
 
-    af3_backend_module.AlphaFold3Backend.postprocess(
-        prediction_results=["result"],
-        output_dir=tmp_path,
-        multimeric_object=fold_input,
-        convert_to_modelcif=True,
-    )
-
-    assert calls == [(best_cif, [embedded_metadata, sidecar_metadata])]
+    assert metadata == [embedded_metadata, sidecar_metadata]
 
 
-def test_af3_postprocess_respects_disabled_modelcif_enrichment(
+def test_af3_seed_outputs_get_no_modelcif_metadata_when_disabled(
     af3_backend_module,
     monkeypatch,
     tmp_path,
@@ -1455,19 +1528,51 @@ def test_af3_postprocess_respects_disabled_modelcif_enrichment(
     fold_input = af3_backend_module.folding_input.Input(
         name="job", chains=("A",), rng_seeds=(1,)
     )
-    monkeypatch.setattr(af3_backend_module, "write_outputs", lambda **kwargs: None)
-    monkeypatch.setattr(
-        af3_backend_module,
-        "augment_af3_modelcif_file",
-        lambda *args, **kwargs: pytest.fail("ModelCIF enrichment should be disabled"),
+
+    metadata = _modelcif_metadata_given_to_seed_outputs(
+        af3_backend_module, monkeypatch, tmp_path, fold_input, convert_to_modelcif=False
     )
 
-    af3_backend_module.AlphaFold3Backend.postprocess(
-        prediction_results=["result"],
-        output_dir=tmp_path,
-        multimeric_object=fold_input,
-        convert_to_modelcif=False,
-    )
+    assert metadata is None
+
+
+def _write_seeds_like_an_interrupted_run(output_dir, seeds, samples=2):
+    """What write_seed_outputs leaves for each seed it finished."""
+    rows = ["seed,sample,ranking_score"]
+    for seed in seeds:
+        for sample in range(samples):
+            (output_dir / f"seed-{seed}_sample-{sample}").mkdir()
+            rows.append(f"{seed},{sample},0.5")
+    (output_dir / "ranking_scores.csv").write_text("\r\n".join(rows) + "\r\n")
+
+
+def test_af3_interrupted_fold_keeps_the_seeds_it_wrote_out(
+    af3_backend_module, monkeypatch, tmp_path
+):
+    first = _af3_run(af3_backend_module, monkeypatch, tmp_path, finish=False, num_seeds=3)
+    seeds = list(first[0].rng_seeds)
+    _write_seeds_like_an_interrupted_run(tmp_path, seeds[:1])
+
+    calls = []
+    _af3_run(af3_backend_module, monkeypatch, tmp_path, num_seeds=3, calls=calls)
+
+    assert list(calls[0]["fold_input"].rng_seeds) == seeds
+    assert calls[0]["seeds_done"] == seeds[:1]
+
+
+def test_af3_new_prediction_discards_the_ranking_of_an_earlier_one(
+    af3_backend_module, monkeypatch, tmp_path
+):
+    first = _af3_run(af3_backend_module, monkeypatch, tmp_path, finish=False, num_seeds=3)
+    _write_seeds_like_an_interrupted_run(tmp_path, list(first[0].rng_seeds)[:1])
+
+    calls = []
+    # Other settings: none of the seeds written out belong to this prediction.
+    _af3_run(af3_backend_module, monkeypatch, tmp_path, num_seeds=3,
+             num_diffusion_samples=3, calls=calls)
+
+    assert calls[0]["seeds_done"] == []
+    assert not (tmp_path / "ranking_scores.csv").exists()
 
 
 def _write_stub_af3_json(path: Path, payload: dict) -> Path:

@@ -49,7 +49,10 @@ The following are intentionally outside default CI and must be run explicitly wh
 `test/cluster/run_alphafold{2,3}_predictions.py` submit one Slurm job per test and
 include the opt-in checks by default: the MMseqs2 tests (ColabFold server and local
 databases) and the AF3 runtime benchmark. `--no-mmseqs-functional` and
-`--no-include-perf` skip them. The suites hold only tests that run inference; AF3
+`--no-include-perf` skip them. The slowest checks, real feature generation and the AF2
+fused-kernel comparisons, run only when their code differs from origin/main
+(`test/cluster/code_changes.py`); a release sets `RUN_EXPENSIVE_GPU_TESTS=1` to run them
+too. The suites hold only tests that run inference; AF3
 input preparation is tested in `test/integration/test_af3_input_preparation.py`,
 which the AF3 image build runs.
 

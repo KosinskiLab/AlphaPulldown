@@ -24,6 +24,11 @@ from absl.testing import absltest, parameterized
 import alphapulldown
 from alphapulldown_input_parser import generate_fold_specifications
 
+# The sibling helper module; pytest puts this directory on sys.path, a direct load may not.
+if str(Path(__file__).resolve().parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+import code_changes  # noqa: E402
+
 # --------------------------------------------------------------------------- #
 #                         configuration / logging                             #
 # --------------------------------------------------------------------------- #
@@ -33,7 +38,6 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 TEST_ROOT = REPO_ROOT / "test"
 
 DATA_DIR = Path(os.getenv("ALPHAFOLD_DATA_DIR", "/scratch/AlphaFold_DBs/2.3.0"))
-os.environ["JAX_COMPILATION_CACHE_DIR"] = "/scratch/dima/jax_cache"
 #os.environ["XLA_FLAGS"] = "--xla_disable_hlo_passes=custom-kernel-fusion-rewriter --xla_gpu_force_compilation_parallelism=8"
 #os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
 #os.environ["XLA_CLIENT_MEM_FRACTION"] = "0.95"
@@ -809,7 +813,9 @@ class TestFastKernelsAndPadding(_TestBase):
         }
 
     def test_dimer_fast_kernels_match_the_stock_code(self):
-        skip_reason = _fast_kernels_skip_reason()
+        skip_reason = _fast_kernels_skip_reason() or code_changes.skip_unless_changed(
+            code_changes.FAST_KERNELS
+        )
         if skip_reason:
             self.skipTest(skip_reason)
         model = f"--model_names={self.MULTIMER_MODEL}"
@@ -834,7 +840,9 @@ class TestFastKernelsAndPadding(_TestBase):
         self.assertLess(abs(fused_scores["ptm"] - stock_scores["ptm"]), self.SCORE_TOLERANCE)
 
     def test_monomer_models_keep_the_stock_code(self):
-        skip_reason = _fast_kernels_skip_reason()
+        skip_reason = _fast_kernels_skip_reason() or code_changes.skip_unless_changed(
+            code_changes.FAST_KERNELS
+        )
         if skip_reason:
             self.skipTest(skip_reason)
 
@@ -1243,7 +1251,9 @@ class TestLocalMmseqsAgainstRemote(_TestBase):
     RATIO_BAND = (0.2, 5.0)
 
     def _require_local_mmseqs_environment(self) -> Path:
-        skip_reason = _mmseqs_functional_test_skip_reason()
+        skip_reason = _mmseqs_functional_test_skip_reason() or code_changes.skip_unless_changed(
+            code_changes.FEATURE_GENERATION
+        )
         if skip_reason:
             self.skipTest(skip_reason)
         # The prediction images bundle a GPU-capable MMseqs2 release.

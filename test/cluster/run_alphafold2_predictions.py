@@ -11,6 +11,9 @@ Typical usage from a login node:
 Run only selected tests:
 
     python test/cluster/run_alphafold2_predictions.py -k dimer
+
+The slowest tests run only when their code changed; RUN_EXPENSIVE_GPU_TESTS=1 runs them
+anyway (test/cluster/code_changes.py).
 """
 
 from __future__ import annotations
