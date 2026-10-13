@@ -26,7 +26,7 @@ from alphapulldown.utils.post_modelling import post_prediction_process
 from alphapulldown.utils.modelling_setup import pad_input_features
 from alphapulldown.prediction import fast_kernels as fast_kernels_policy
 from alphapulldown.prediction.jax_compilation_cache import enable_persistent_compilation_cache
-from alphapulldown.prediction.resume import open_atomic
+from alphapulldown.utils.file_handling import open_atomic
 from alphapulldown.utils.af2_to_af3_msa import msa_rows_and_deletions_to_a3m
 from alphafold.relax import relax
 from alphafold.common import protein, residue_constants, confidence
@@ -224,11 +224,7 @@ def _read_from_json_if_exists(json_path: str) -> Dict:
 
 
 def _residue_b_factors(pdb_path: str) -> List[str]:
-    """The B-factor of each residue of a PDB file, as written.
-
-    AlphaFold writes a model's pLDDT there, and the Amber relaxation copies it to the
-    relaxed model unchanged (``relax.utils.overwrite_b_factors``).
-    """
+    """Each residue's B-factor: AlphaFold's pLDDT, which relaxation keeps unchanged."""
     values = []
     last_residue = None
     with open(pdb_path, "r") as f:
@@ -244,10 +240,8 @@ def _residue_b_factors(pdb_path: str) -> List[str]:
 def _has_current_relaxation(output_dir: str, model_name: str) -> bool:
     """Whether relaxed_<model>.pdb was relaxed from the current unrelaxed_<model>.pdb.
 
-    Predicting a model again removes its relaxed model (``_discard_relaxation``), but
-    output from older versions can still hold one relaxed from an earlier prediction.
-    Its B-factors are then the pLDDT of that prediction, not of the current one. File
-    times cannot tell: a checkout or a copy of the directory reorders them.
+    One relaxed from an earlier prediction carries that prediction's pLDDT as B-factors.
+    (File times cannot tell: copying a directory reorders them.)
     """
     relaxed_path = os.path.join(output_dir, f"relaxed_{model_name}.pdb")
     if not os.path.exists(relaxed_path):
@@ -773,8 +767,7 @@ class AlphaFold2Backend(FoldingBackend):
             If multimeric mode and skip templates are enabled at the same time
         """
         timings_output_path = os.path.join(output_dir, "timings.json")
-        # Keep earlier runs' entries, among them the relax_<model> timings of the models
-        # this run resumes; a model predicted again drops its relaxation below.
+        # Keeps the relax_<model> entries of the models this run resumes.
         timings = _read_from_json_if_exists(timings_output_path)
         prediction_results = {}
         START = 0
@@ -916,8 +909,7 @@ class AlphaFold2Backend(FoldingBackend):
             )
             # Remove jax dependency from results
             np_prediction_result = _jnp_to_np(dict(prediction_result))
-            # Save prediction results to pickle file. Resume counts a model as done when
-            # its pickle and PDB exist, so both appear whole or not at all.
+            # Save prediction results to pickle file
             result_output_path = os.path.join(output_dir, f"result_{model_name}.pkl")
             with open_atomic(result_output_path, "wb") as f:
                  pickle.dump(np_prediction_result, f, protocol=4)
@@ -931,11 +923,7 @@ class AlphaFold2Backend(FoldingBackend):
 
             with open_atomic(unrelaxed_pdb_path) as f:
                 f.write(protein.to_pdb(unrelaxed_protein))
-            # Only now that the new model is on disk: a relaxed model of the earlier one
-            # must not be ranked with it. Until here a kill leaves the earlier prediction
-            # whole, relaxation included; one that strikes after the new files and before
-            # this cannot pass off the old relaxation either, as its B-factors are the
-            # earlier pLDDT (_has_current_relaxation).
+            # Only now: until the new model is written, the earlier one stays whole.
             _discard_relaxation(output_dir, model_name, timings)
             # Save timings to json file
             with open_atomic(timings_output_path) as f:
@@ -1191,8 +1179,7 @@ class AlphaFold2Backend(FoldingBackend):
         for model_name in to_relax:
             relaxed_output_path = os.path.join(output_dir, f'relaxed_{model_name}.pdb')
             if _has_current_relaxation(output_dir, model_name):
-                # Relaxed by an earlier run of this fold: rank that model rather than
-                # replacing it with the unrelaxed one.
+                # Relaxed by an earlier run: rank it, not the unrelaxed model.
                 with open(relaxed_output_path, 'r') as f:
                     relaxed_pdbs[model_name] = f.read()
                 logging.info(f"Using the existing relaxed model {relaxed_output_path}.")
@@ -1215,8 +1202,7 @@ class AlphaFold2Backend(FoldingBackend):
             }
             timings[f'relax_{model_name}'] = time.time() - t_0
             relaxed_pdbs[model_name] = relaxed_pdb_str
-            # Save the relaxed PDB and record it after every model, so a job killed
-            # during relaxation keeps the models it has already relaxed.
+            # Recorded per model, so a job killed while relaxing keeps what it relaxed.
             with open_atomic(relaxed_output_path) as f:
                 f.write(relaxed_pdb_str)
             with open_atomic(relax_metrics_path) as f:

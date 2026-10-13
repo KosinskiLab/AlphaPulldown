@@ -4,9 +4,40 @@ import csv
 import contextlib
 import lzma
 import tempfile
+import uuid
 from pathlib import Path
 
 AF3_INPUT_SUFFIX = "_af3_input.json"
+
+
+@contextlib.contextmanager
+def open_atomic(path, mode="w", **open_kwargs):
+    """Write ``path`` whole or not at all, through a hidden sibling file.
+
+    The sibling (``.<name>.<random>.tmp``) replaces ``path`` only when the body
+    succeeds, and never matches an output glob. Unlike ``tempfile``'s owner-only
+    files, it gets the usual umask permissions: output directories are often shared.
+    """
+    if mode not in ("w", "wb"):
+        raise ValueError(f"open_atomic writes whole files, not mode {mode!r}")
+    directory, name = os.path.split(os.path.abspath(os.fspath(path)))
+    temporary_path = os.path.join(directory, f".{name}.{uuid.uuid4().hex[:12]}.tmp")
+    descriptor = os.open(temporary_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
+    try:
+        with os.fdopen(descriptor, mode, **open_kwargs) as handle:
+            yield handle
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_path, os.path.join(directory, name))
+    except BaseException:
+        with contextlib.suppress(FileNotFoundError):
+            os.remove(temporary_path)
+        raise
+    directory_descriptor = os.open(directory, os.O_RDONLY)
+    try:
+        os.fsync(directory_descriptor)
+    finally:
+        os.close(directory_descriptor)
 
 def read_maybe_xz(path) -> str:
     """Read a text file that may be lzma-compressed, chosen by its suffix."""

@@ -1616,15 +1616,30 @@ def test_postprocess_keeps_finished_relaxations_when_killed_between_them(
     assert (tmp_path / "ranked_1.pdb").read_text(encoding="utf-8") == "RELAXED:low"
 
 
-def _two_model_monomer_runner():
-    return SimpleNamespace(
-        multimer_mode=False,
-        process_features=lambda feature_dict, random_seed: dict(feature_dict),
-        predict=lambda processed_feature_dict, random_seed: {
+def _ab_monomer(module):
+    monomer = module.MonomericObject("single", "AB")
+    monomer.feature_dict = {"residue_index": np.array([0, 1], dtype=np.int32)}
+    return monomer
+
+
+def _monomer_runner(predictions=None):
+    """A runner for _ab_monomer; each prediction appends its seed to ``predictions``."""
+
+    def predict(processed_feature_dict, random_seed):
+        if predictions is not None:
+            predictions.append(random_seed)
+        return {
             "plddt": np.array([91.0, 88.0], dtype=np.float32),
             "predicted_aligned_error": np.zeros((2, 2), dtype=np.float32),
             "max_predicted_aligned_error": 31.0,
-        },
+            "ptm": 0.5,
+            "ranking_confidence": 89.5,
+        }
+
+    return SimpleNamespace(
+        multimer_mode=False,
+        process_features=lambda feature_dict, random_seed: dict(feature_dict),
+        predict=predict,
     )
 
 
@@ -1633,8 +1648,7 @@ def test_predict_individual_job_resume_keeps_earlier_timings_and_relaxations(
 ):
     """Each run overwrote timings.json with its own timings, dropping the relax_<model>
     entries of models it had resumed."""
-    monomer = af2_backend_module.MonomericObject("single", "AB")
-    monomer.feature_dict = {"residue_index": np.array([0, 1], dtype=np.int32)}
+    monomer = _ab_monomer(af2_backend_module)
     with open(tmp_path / "result_modelA.pkl", "wb") as handle:
         pickle.dump({"plddt": np.array([91.0, 88.0], dtype=np.float32)}, handle, protocol=4)
     (tmp_path / "unrelaxed_modelA.pdb").write_text("unrelaxed A", encoding="utf-8")
@@ -1643,7 +1657,7 @@ def test_predict_individual_job_resume_keeps_earlier_timings_and_relaxations(
         json.dumps({"predict_and_compile_modelA": 5.0, "relax_modelA": 2.0}),
         encoding="utf-8",
     )
-    runner = _two_model_monomer_runner()
+    runner = _monomer_runner()
 
     af2_backend_module.AlphaFold2Backend.predict_individual_job(
         model_runners={"modelA": runner, "modelB": runner},
@@ -1667,8 +1681,7 @@ def test_predict_individual_job_drops_the_relaxation_of_a_model_it_predicts_agai
     af2_backend_module, tmp_path
 ):
     """A relaxed model of an earlier prediction must not be ranked with the new one."""
-    monomer = af2_backend_module.MonomericObject("single", "AB")
-    monomer.feature_dict = {"residue_index": np.array([0, 1], dtype=np.int32)}
+    monomer = _ab_monomer(af2_backend_module)
     (tmp_path / "relaxed_modelA.pdb").write_text("RELAXED:old", encoding="utf-8")
     (tmp_path / "timings.json").write_text(
         json.dumps({"relax_modelA": 2.0}), encoding="utf-8"
@@ -1678,7 +1691,7 @@ def test_predict_individual_job_drops_the_relaxation_of_a_model_it_predicts_agai
     )
 
     af2_backend_module.AlphaFold2Backend.predict_individual_job(
-        model_runners={"modelA": _two_model_monomer_runner()},
+        model_runners={"modelA": _monomer_runner()},
         multimeric_object=monomer,
         allow_resume=False,
         skip_templates=False,
@@ -1699,8 +1712,7 @@ def test_predict_individual_job_keeps_the_relaxation_until_the_new_model_is_writ
 ):
     """A job killed while writing a model predicted again leaves the earlier prediction
     whole, and its relaxation with it."""
-    monomer = af2_backend_module.MonomericObject("single", "AB")
-    monomer.feature_dict = {"residue_index": np.array([0, 1], dtype=np.int32)}
+    monomer = _ab_monomer(af2_backend_module)
     (tmp_path / "relaxed_modelA.pdb").write_text("RELAXED:earlier", encoding="utf-8")
     (tmp_path / "timings.json").write_text(json.dumps({"relax_modelA": 2.0}), encoding="utf-8")
 
@@ -1710,7 +1722,7 @@ def test_predict_individual_job_keeps_the_relaxation_until_the_new_model_is_writ
     monkeypatch.setattr(af2_backend_module.pickle, "dump", killed)
     with pytest.raises(KeyboardInterrupt):
         af2_backend_module.AlphaFold2Backend.predict_individual_job(
-            model_runners={"modelA": _two_model_monomer_runner()},
+            model_runners={"modelA": _monomer_runner()},
             multimeric_object=monomer,
             allow_resume=False,
             skip_templates=False,

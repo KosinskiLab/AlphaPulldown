@@ -6,7 +6,6 @@ import hashlib
 import json
 import os
 import re
-import tempfile
 from typing import Callable, Iterable, Sequence
 from urllib import error
 from urllib import parse
@@ -15,6 +14,8 @@ from urllib import request
 from absl import logging
 from alphafold.data import parsers
 import numpy as np
+
+from alphapulldown.utils.file_handling import open_atomic
 
 _UNIPROT_HEADER_PATTERN = re.compile(
     r"""
@@ -371,18 +372,8 @@ def _write_identifier_rows_to_cache(
         "msa_species_identifiers": list(species_ids),
         "msa_uniprot_accession_identifiers": list(accessions),
     }
-    fd, temp_path = tempfile.mkstemp(
-        dir=cache_dir,
-        prefix=f".{os.path.basename(cache_path)}.",
-        suffix=".tmp",
-    )
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            json.dump(payload, handle, ensure_ascii=False)
-        os.replace(temp_path, cache_path)
-    finally:
-        if os.path.exists(temp_path):
-            os.unlink(temp_path)
+    with open_atomic(cache_path, encoding="utf-8") as handle:
+        json.dump(payload, handle, ensure_ascii=False)
 
 
 def build_mmseq_identifier_features(
