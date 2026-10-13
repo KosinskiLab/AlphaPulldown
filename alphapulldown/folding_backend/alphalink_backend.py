@@ -15,6 +15,7 @@ from shutil import copyfile
 import re, json
 from alphapulldown.folding_backend.alphafold2_backend import _save_pae_json_file
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
+from alphapulldown.prediction.inference_flags import validate_model_configuration
 from alphapulldown.utils.plotting import plot_pae_from_matrix
 from .folding_backend import FoldingBackend
 import torch
@@ -49,7 +50,7 @@ class AlphaLinkBackend(FoldingBackend):
     def setup(
         model_dir: str,
         model_name: str = "multimer_af2_crop",
-        **kwargs,
+        **other_backends_options,
     ) -> Dict:
         """
         Initializes and configures an AlphaLink model runner including crosslinking data.
@@ -63,10 +64,9 @@ class AlphaLinkBackend(FoldingBackend):
             1. A directory containing AlphaLink weights files (e.g., AlphaLink-Multimer_SDA_v3.pt)
             2. A specific AlphaLink weights file (e.g., /path/to/AlphaLink-Multimer_SDA_v3.pt)
             Expected file names: AlphaLink-Multimer_SDA_v2.pt or AlphaLink-Multimer_SDA_v3.pt
-        crosslinks : str
-            The path to the file containing crosslinking data.
-        **kwargs : dict
-            Additional keyword arguments for model configuration.
+        **other_backends_options : dict
+            Options of other backends: the adapters give every backend the whole
+            configuration. One no backend takes is an error rather than dropped.
 
         Returns
         -------
@@ -82,6 +82,7 @@ class AlphaLinkBackend(FoldingBackend):
         ValueError
             If the file does not have a .pt extension or is not a recognized AlphaLink weights file.
         """
+        validate_model_configuration(other_backends_options)
         # Check if model_dir is a file or directory
         if os.path.isfile(model_dir):
             # Direct file path provided
@@ -472,7 +473,13 @@ class AlphaLinkBackend(FoldingBackend):
     @staticmethod
     def predict(
         objects_to_model: List[Dict[str, Union[MultimericObject, MonomericObject, ChoppedObject, str]]],
-        **kwargs,
+        configs=None,
+        param_path=None,
+        crosslinks=None,
+        num_predictions_per_model: int = 1,
+        random_seed=None,
+        postprocess_flags=None,
+        **other_backends_options,
     ):
         """
         Predicts the structure of proteins using configured AlphaLink models.
@@ -483,17 +490,19 @@ class AlphaLinkBackend(FoldingBackend):
             A list of dictionaries. Each dictionary has keys 'object' and 'output_dir'.
             The 'object' key contains an instance of MultimericObject, MonomericObject, or ChoppedObject.
             The 'output_dir' key contains the corresponding output directory to save the modelling results.
-        **kwargs : dict
-            Additional keyword arguments including:
-            - configs: Configuration dictionary for the AlphaLink model
-            - param_path: Path to the AlphaLink model parameters
-            - crosslinks: Path to crosslink information pickle for AlphaLink
+        configs, param_path
+            The AlphaLink model configuration and weights, from ``setup``.
+        crosslinks : str, optional
+            Path to the crosslink information pickle.
+        num_predictions_per_model : int
+            Predictions per object, default 1.
+        random_seed, postprocess_flags
+            Given to every backend's ``predict``; AlphaLink uses neither.
+        **other_backends_options : dict
+            Options of other backends (the adapters give every backend the whole
+            configuration); one no backend takes is an error rather than dropped.
         """
-        # Extract required parameters from kwargs
-        configs = kwargs.get('configs')
-        param_path = kwargs.get('param_path')
-        crosslinks = kwargs.get('crosslinks')
-        
+        validate_model_configuration(other_backends_options)
         if not all([configs, param_path]):
             raise ValueError("Missing required parameters: configs or param_path")
         
@@ -507,9 +516,6 @@ class AlphaLinkBackend(FoldingBackend):
             object_to_model = entry['object']
             output_dir = entry['output_dir']
             os.makedirs(output_dir, exist_ok=True)
-            
-            # Get num_predictions_per_model from kwargs, default to 1
-            num_predictions_per_model = kwargs.get('num_predictions_per_model', 1)
             
             # Get chain_id_map if available, otherwise create a default one
             chain_id_map = getattr(object_to_model, 'chain_id_map', None)

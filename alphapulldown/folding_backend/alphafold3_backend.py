@@ -42,6 +42,7 @@ from alphapulldown.folding_backend.alphafold3_runner import (
     process_fold_input,
 )
 from alphapulldown.prediction import af3_fused_triangles
+from alphapulldown.prediction.inference_flags import validate_model_configuration
 from alphapulldown.prediction.jax_compilation_cache import enable_persistent_compilation_cache
 from alphapulldown.prediction.resume import finish_fold_record
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
@@ -63,9 +64,15 @@ class AlphaFold3Backend(FoldingBackend):
         return_embeddings: bool = False,
         return_distogram: bool = False,
         fast_kernels: str = "off",
-        **kwargs,
+        **other_backends_options,
     ) -> Dict:
-        """Sets up the ModelRunner with the given configurations."""
+        """Sets up the ModelRunner with the given configurations.
+
+        The adapters give every backend the whole configuration; the options of other
+        backends arrive in ``other_backends_options``, and an option no backend takes is an
+        error rather than dropped.
+        """
+        validate_model_configuration(other_backends_options)
         enable_persistent_compilation_cache(jax_compilation_cache_dir)
         _initialise_tokamax_trace_context()
 
@@ -174,14 +181,30 @@ class AlphaFold3Backend(FoldingBackend):
         objects_to_model: List[Dict[str, Union[MultimericObject, MonomericObject, ChoppedObject, 'folding_input.Input', str]]],
         random_seed: int,
         buckets: int | Sequence[int],
-        **kwargs,
+        *,
+        allow_resume: bool = False,
+        postprocess_flags: Dict | None = None,
+        features_directory=None,
+        debug_templates: bool = False,
+        debug_msas: bool = False,
+        num_seeds: int | None = None,
+        num_diffusion_samples: int | None = None,
+        num_recycles: int | None = None,
+        return_embeddings: bool = False,
+        return_distogram: bool = False,
+        **other_backends_options,
     ):
         """Predicts structures for a list of objects using AlphaFold 3.
         Supports merging AlphaPulldown protein objects and input.json objects into a single job.
 
         ``random_seed=None`` reuses an earlier run's seed when resuming. With
         ``allow_resume``, a fold already complete is neither predicted nor yielded.
+        ``num_diffusion_samples``, ``num_recycles`` and the embedding and distogram
+        switches, set up in ``setup``, are recorded with each fold for resume. Options of
+        other backends arrive in ``other_backends_options``; one no backend takes is an
+        error rather than dropped.
         """
+        validate_model_configuration(other_backends_options)
         logging.info(f"predict called with {len(objects_to_model)} objects to model")
         for i, obj in enumerate(objects_to_model):
             logging.info(f"Object {i}: {obj}")
@@ -189,8 +212,14 @@ class AlphaFold3Backend(FoldingBackend):
         if isinstance(buckets, int):
             buckets = [buckets]
         buckets = tuple(int(b) for b in buckets)
-        allow_resume = bool(kwargs.get("allow_resume", False))
-        postprocess_flags = kwargs.get("postprocess_flags") or {}
+        postprocess_flags = postprocess_flags or {}
+        model_flags = {
+            'num_seeds': num_seeds,
+            'num_diffusion_samples': num_diffusion_samples,
+            'num_recycles': num_recycles,
+            'return_embeddings': return_embeddings,
+            'return_distogram': return_distogram,
+        }
 
         # Prepare inputs
         logging.info("Calling prepare_input...")
@@ -198,16 +227,15 @@ class AlphaFold3Backend(FoldingBackend):
             objects_to_model=objects_to_model,
             # A placeholder: _start_or_resume_fold settles each fold's seeds.
             random_seed=0 if random_seed is None else random_seed,
-            af3_input_json=kwargs.get("af3_input_json"),
-            features_directory=kwargs.get("features_directory"),
-            debug_templates=kwargs.get("debug_templates", False),
-            debug_msas=kwargs.get("debug_msas", False),
+            features_directory=features_directory,
+            debug_templates=debug_templates,
+            debug_msas=debug_msas,
         )
         # Run predictions
         for prepared in prepared_inputs:
             output_dir = prepared.output_dir
             started = _start_or_resume_fold(
-                prepared.fold_input, output_dir, random_seed, allow_resume, kwargs, postprocess_flags
+                prepared.fold_input, output_dir, random_seed, allow_resume, model_flags, postprocess_flags
             )
             if started is None:
                 continue
@@ -223,7 +251,7 @@ class AlphaFold3Backend(FoldingBackend):
                 output_dir=output_dir,
                 buckets=buckets,
                 resolve_msa_overlaps=prepared.resolve_msa_overlaps,
-                debug_msas=kwargs.get('debug_msas', False),
+                debug_msas=debug_msas,
                 seeds_done=seeds_done,
                 modelcif_metadata=(
                     _modelcif_metadata(fold_input_obj, output_dir)
