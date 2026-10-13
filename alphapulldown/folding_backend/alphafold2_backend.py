@@ -26,6 +26,7 @@ from alphapulldown.utils.post_modelling import post_prediction_process
 from alphapulldown.utils.modelling_setup import pad_input_features
 from alphapulldown.prediction import fast_kernels as fast_kernels_policy
 from alphapulldown.prediction.jax_compilation_cache import enable_persistent_compilation_cache
+from alphapulldown.utils.file_handling import open_atomic
 from alphapulldown.utils.af2_to_af3_msa import msa_rows_and_deletions_to_a3m
 from alphafold.relax import relax
 from alphafold.common import protein, residue_constants, confidence
@@ -211,13 +212,58 @@ def _save_confidence_json_file(plddt: np.ndarray, output_dir: str, model_name: s
 
 
 def _read_from_json_if_exists(json_path: str) -> Dict:
-    """Reads a JSON file or creates it with default data if it does not exist."""
+    """Reads a JSON file, or returns an empty dict if it is missing or unreadable."""
     if os.path.exists(json_path):
-        with open(json_path, "r") as f:
-            data = json.load(f)
-    else:
-        data = {}
-    return data
+        try:
+            with open(json_path, "r") as f:
+                return json.load(f)
+        except json.JSONDecodeError:
+            # Left truncated by a run killed while writing it, before writes were atomic.
+            logging.warning(f"Ignoring unreadable {json_path}.")
+    return {}
+
+
+def _residue_b_factors(pdb_path: str) -> List[str]:
+    """Each residue's B-factor: AlphaFold's pLDDT, which relaxation keeps unchanged."""
+    values = []
+    last_residue = None
+    with open(pdb_path, "r") as f:
+        for line in f:
+            if line.startswith("ATOM"):
+                residue = line[21:27]  # chain ID, residue number and insertion code
+                if residue != last_residue:
+                    values.append(line[60:66].strip())
+                    last_residue = residue
+    return values
+
+
+def _has_current_relaxation(output_dir: str, model_name: str) -> bool:
+    """Whether relaxed_<model>.pdb was relaxed from the current unrelaxed_<model>.pdb.
+
+    One relaxed from an earlier prediction carries that prediction's pLDDT as B-factors.
+    (File times cannot tell: copying a directory reorders them.)
+    """
+    relaxed_path = os.path.join(output_dir, f"relaxed_{model_name}.pdb")
+    if not os.path.exists(relaxed_path):
+        return False
+    unrelaxed_path = os.path.join(output_dir, f"unrelaxed_{model_name}.pdb")
+    if not os.path.exists(unrelaxed_path):
+        return True
+    return _residue_b_factors(relaxed_path) == _residue_b_factors(unrelaxed_path)
+
+
+def _discard_relaxation(output_dir: str, model_name: str, timings: Dict) -> None:
+    """Forget the relaxation of an earlier prediction of ``model_name``."""
+    relaxed_path = os.path.join(output_dir, f"relaxed_{model_name}.pdb")
+    if os.path.exists(relaxed_path):
+        os.remove(relaxed_path)
+    timings.pop(f"relax_{model_name}", None)
+    relax_metrics_path = os.path.join(output_dir, "relax_metrics.json")
+    relax_metrics = _read_from_json_if_exists(relax_metrics_path)
+    if model_name in relax_metrics:
+        del relax_metrics[model_name]
+        with open_atomic(relax_metrics_path) as f:
+            f.write(json.dumps(relax_metrics, indent=4))
 
 
 def _reset_template_features(feature_dict: Dict) -> None:
@@ -720,7 +766,9 @@ class AlphaFold2Backend(FoldingBackend):
         ValueError
             If multimeric mode and skip templates are enabled at the same time
         """
-        timings = {}
+        timings_output_path = os.path.join(output_dir, "timings.json")
+        # Keeps the relax_<model> entries of the models this run resumes.
+        timings = _read_from_json_if_exists(timings_output_path)
         prediction_results = {}
         START = 0
         multimeric_mode = multimeric_object.multimeric_mode if hasattr(multimeric_object, "multimeric_mode") else None
@@ -863,7 +911,7 @@ class AlphaFold2Backend(FoldingBackend):
             np_prediction_result = _jnp_to_np(dict(prediction_result))
             # Save prediction results to pickle file
             result_output_path = os.path.join(output_dir, f"result_{model_name}.pkl")
-            with open(result_output_path, "wb") as f:
+            with open_atomic(result_output_path, "wb") as f:
                  pickle.dump(np_prediction_result, f, protocol=4)
             prediction_result.update(
                         {"seqs": multimeric_object.input_seqs if hasattr(multimeric_object,"input_seqs") else [multimeric_object.sequence]})
@@ -873,11 +921,12 @@ class AlphaFold2Backend(FoldingBackend):
             unrelaxed_pdb_path = os.path.join(
                 output_dir, f"unrelaxed_{model_name}.pdb")
 
-            with open(unrelaxed_pdb_path, "w") as f:
+            with open_atomic(unrelaxed_pdb_path) as f:
                 f.write(protein.to_pdb(unrelaxed_protein))
+            # Only now: until the new model is written, the earlier one stays whole.
+            _discard_relaxation(output_dir, model_name, timings)
             # Save timings to json file
-            timings_output_path = os.path.join(output_dir, "timings.json")
-            with open(timings_output_path, "w") as f:
+            with open_atomic(timings_output_path) as f:
                 f.write(json.dumps(timings, indent=4))
             _record_inference_kernels(output_dir, model_name, model_runner)
         return prediction_results
@@ -1128,7 +1177,12 @@ class AlphaFold2Backend(FoldingBackend):
         )
 
         for model_name in to_relax:
-            if f'relax_{model_name}' in timings:
+            relaxed_output_path = os.path.join(output_dir, f'relaxed_{model_name}.pdb')
+            if _has_current_relaxation(output_dir, model_name):
+                # Relaxed by an earlier run: rank it, not the unrelaxed model.
+                with open(relaxed_output_path, 'r') as f:
+                    relaxed_pdbs[model_name] = f.read()
+                logging.info(f"Using the existing relaxed model {relaxed_output_path}.")
                 continue
             t_0 = time.time()
             if 'unrelaxed_protein' in prediction_results[model_name].keys():
@@ -1147,17 +1201,16 @@ class AlphaFold2Backend(FoldingBackend):
                 'remaining_violations_count': sum(violations)
             }
             timings[f'relax_{model_name}'] = time.time() - t_0
-            relax_metrics_path = os.path.join(output_dir, 'relax_metrics.json')
-            with open(relax_metrics_path, 'w') as f:
-                f.write(json.dumps(relax_metrics, indent=4))
             relaxed_pdbs[model_name] = relaxed_pdb_str
-            # Save the relaxed PDB.
-            relaxed_output_path = os.path.join(
-                output_dir, f'relaxed_{model_name}.pdb')
-            with open(relaxed_output_path, 'w') as f:
+            # Recorded per model, so a job killed while relaxing keeps what it relaxed.
+            with open_atomic(relaxed_output_path) as f:
                 f.write(relaxed_pdb_str)
+            with open_atomic(relax_metrics_path) as f:
+                f.write(json.dumps(relax_metrics, indent=4))
+            with open_atomic(timings_path) as f:
+                f.write(json.dumps(timings, indent=4))
 
-        with open(timings_path, 'w') as f:
+        with open_atomic(timings_path) as f:
             f.write(json.dumps(timings, indent=4))
               # Write out PDBs in rank order.
         for idx, model_name in enumerate(ranked_order):

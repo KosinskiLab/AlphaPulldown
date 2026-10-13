@@ -44,10 +44,8 @@ import dataclasses
 from datetime import date
 import json
 import lzma
-import os
 from pathlib import Path
 import pickle
-import tempfile
 from typing import Any, Mapping, Sequence
 
 from alphapulldown.features.feature_batch import (
@@ -63,6 +61,7 @@ from alphapulldown.features.feature_batch import (
     read_msa_bundle,
     searched_msas_from_payload,
 )
+from alphapulldown.utils.file_handling import open_atomic
 
 
 # AlphaFold 2's own caps, counting the query row the way it does.
@@ -438,24 +437,9 @@ class Af2FeatureFinalizer:
 
 def _write_atomic(path: Path, content: bytes) -> None:
     """Publish a file whole or not at all, compressed when its name says .xz."""
-    descriptor, temporary_name = tempfile.mkstemp(
-        prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
-    )
-    temporary_path = Path(temporary_name)
-    try:
-        with os.fdopen(descriptor, "wb") as raw_handle:
-            if path.suffix == ".xz":
-                with lzma.open(raw_handle, "wb") as handle:
-                    handle.write(content)
-            else:
-                raw_handle.write(content)
-            raw_handle.flush()
-            os.fsync(raw_handle.fileno())
-        os.replace(temporary_path, path)
-        directory_fd = os.open(path.parent, os.O_RDONLY)
-        try:
-            os.fsync(directory_fd)
-        finally:
-            os.close(directory_fd)
-    finally:
-        temporary_path.unlink(missing_ok=True)
+    with open_atomic(path, "wb") as raw_handle:
+        if path.suffix == ".xz":
+            with lzma.open(raw_handle, "wb") as handle:
+                handle.write(content)
+        else:
+            raw_handle.write(content)

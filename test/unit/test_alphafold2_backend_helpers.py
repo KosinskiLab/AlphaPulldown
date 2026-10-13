@@ -1446,6 +1446,294 @@ def test_postprocess_uses_ptm_threshold_for_best_monomer_relaxation(
     assert (tmp_path / "ranked_0.pdb").read_text(encoding="utf-8") == "RELAXED:mono"
 
 
+def _skip_plots_and_cleanup(monkeypatch, module):
+    monkeypatch.setattr(module, "plot_pae_from_matrix", lambda **kwargs: None)
+    monkeypatch.setattr(module, "post_prediction_process", lambda *args, **kwargs: None)
+
+
+def _record_relaxations(monkeypatch, module, fail_on_call=None):
+    """Relax by name, recording each call; optionally die on the Nth call."""
+    calls = []
+
+    def process(self, prot):
+        calls.append(prot.name)
+        if fail_on_call is not None and len(calls) == fail_on_call:
+            raise RuntimeError("killed during relaxation")
+        return (f"RELAXED:{prot.name}", None, [0, 1])
+
+    monkeypatch.setattr(module.relax.AmberRelaxation, "process", process)
+    return calls
+
+
+def _complex_and_two_results(module):
+    def result(name, confidence):
+        return {
+            "plddt": np.array([80.0, 81.0, 82.0, 83.0], dtype=np.float32),
+            "predicted_aligned_error": np.zeros((4, 4), dtype=np.float32),
+            "max_predicted_aligned_error": 31.0,
+            "ranking_confidence": confidence,
+            "iptm": confidence,
+            "ptm": confidence,
+            "unrelaxed_protein": SimpleNamespace(name=name),
+            "seqs": ["AA", "BB"],
+        }
+
+    multimer = module.MultimericObject(
+        description="complex",
+        input_seqs=["AA", "BB"],
+        feature_dict={},
+        multimeric_mode=True,
+    )
+    return multimer, {"model_low": result("low", 0.2), "model_high": result("high", 0.9)}
+
+
+def _pdb_with_b_factors(*b_factors, remark=""):
+    """A minimal PDB file: one CA atom per residue, carrying the given B-factors."""
+    lines = [f"REMARK {remark}\n"] if remark else []
+    lines.extend(
+        f"ATOM  {index:5d}  CA  ALA A{index:4d}    "
+        f"{0.0:8.3f}{0.0:8.3f}{0.0:8.3f}{1.0:6.2f}{b_factor:6.2f}           C\n"
+        for index, b_factor in enumerate(b_factors, start=1)
+    )
+    return "".join(lines)
+
+
+def test_residue_b_factors_reads_one_value_per_residue(af2_backend_module, tmp_path):
+    residue_1, residue_2 = _pdb_with_b_factors(90.5, 60.0).splitlines(keepends=True)
+    second_atom_of_residue_1 = residue_1.replace("  CA  ", "  CB  ")
+    path = tmp_path / "model.pdb"
+    path.write_text(
+        residue_1 + second_atom_of_residue_1 + "TER\n" + residue_2, encoding="utf-8"
+    )
+
+    assert af2_backend_module._residue_b_factors(str(path)) == ["90.50", "60.00"]
+
+
+def test_postprocess_rerun_ranks_the_relaxed_model_it_already_has(
+    af2_backend_module, monkeypatch, tmp_path
+):
+    """A rerun of a finished fold skipped the relaxation it had already done, then wrote
+    ranked_0.pdb from the unrelaxed model, replacing the relaxed one."""
+    _skip_plots_and_cleanup(monkeypatch, af2_backend_module)
+    relax_calls = _record_relaxations(monkeypatch, af2_backend_module)
+    relaxed_earlier = _pdb_with_b_factors(90.0, 91.0, remark="relaxed by an earlier run")
+    (tmp_path / "unrelaxed_model_high.pdb").write_text(
+        _pdb_with_b_factors(90.0, 91.0), encoding="utf-8"
+    )
+    (tmp_path / "relaxed_model_high.pdb").write_text(relaxed_earlier, encoding="utf-8")
+    (tmp_path / "timings.json").write_text(
+        json.dumps({"relax_model_high": 12.5}), encoding="utf-8"
+    )
+    (tmp_path / "relax_metrics.json").write_text(
+        json.dumps({"model_high": {"remaining_violations_count": 0}}), encoding="utf-8"
+    )
+    multimer, prediction_results = _complex_and_two_results(af2_backend_module)
+
+    af2_backend_module.AlphaFold2Backend.postprocess(
+        prediction_results=prediction_results,
+        multimeric_object=multimer,
+        output_dir=tmp_path,
+        features_directory="/features",
+        models_to_relax=af2_backend_module.ModelsToRelax.BEST,
+        convert_to_modelcif=False,
+    )
+
+    assert relax_calls == []
+    assert (tmp_path / "ranked_0.pdb").read_text(encoding="utf-8") == relaxed_earlier
+    assert (tmp_path / "ranked_1.pdb").read_text(encoding="utf-8") == "PDB:low"
+    timings = json.loads((tmp_path / "timings.json").read_text(encoding="utf-8"))
+    assert timings["relax_model_high"] == 12.5
+    metrics = json.loads((tmp_path / "relax_metrics.json").read_text(encoding="utf-8"))
+    assert "model_high" in metrics
+
+
+def test_postprocess_relaxes_again_a_model_relaxed_from_another_prediction(
+    af2_backend_module, monkeypatch, tmp_path
+):
+    """Output from older versions can hold a model relaxed from an earlier prediction,
+    recognisable by the earlier prediction's pLDDT in its B-factors."""
+    _skip_plots_and_cleanup(monkeypatch, af2_backend_module)
+    relax_calls = _record_relaxations(monkeypatch, af2_backend_module)
+    relaxed = tmp_path / "relaxed_model_high.pdb"
+    (tmp_path / "unrelaxed_model_high.pdb").write_text(
+        _pdb_with_b_factors(90.0, 91.0), encoding="utf-8"
+    )
+    relaxed.write_text(_pdb_with_b_factors(70.0, 71.0), encoding="utf-8")
+    multimer, prediction_results = _complex_and_two_results(af2_backend_module)
+
+    af2_backend_module.AlphaFold2Backend.postprocess(
+        prediction_results=prediction_results,
+        multimeric_object=multimer,
+        output_dir=tmp_path,
+        features_directory="/features",
+        models_to_relax=af2_backend_module.ModelsToRelax.BEST,
+        convert_to_modelcif=False,
+    )
+
+    assert relax_calls == ["high"]
+    assert relaxed.read_text(encoding="utf-8") == "RELAXED:high"
+    assert (tmp_path / "ranked_0.pdb").read_text(encoding="utf-8") == "RELAXED:high"
+
+
+def test_postprocess_keeps_finished_relaxations_when_killed_between_them(
+    af2_backend_module, monkeypatch, tmp_path
+):
+    """timings.json was written only after every relaxation, so a kill midway made the
+    rerun relax every model again."""
+    _skip_plots_and_cleanup(monkeypatch, af2_backend_module)
+    _record_relaxations(monkeypatch, af2_backend_module, fail_on_call=2)
+    multimer, prediction_results = _complex_and_two_results(af2_backend_module)
+
+    with pytest.raises(RuntimeError, match="killed during relaxation"):
+        af2_backend_module.AlphaFold2Backend.postprocess(
+            prediction_results=prediction_results,
+            multimeric_object=multimer,
+            output_dir=tmp_path,
+            features_directory="/features",
+            models_to_relax=af2_backend_module.ModelsToRelax.ALL,
+            convert_to_modelcif=False,
+        )
+
+    assert (tmp_path / "relaxed_model_high.pdb").read_text(encoding="utf-8") == "RELAXED:high"
+    assert not (tmp_path / "relaxed_model_low.pdb").exists()
+    timings = json.loads((tmp_path / "timings.json").read_text(encoding="utf-8"))
+    assert "relax_model_high" in timings
+    assert not [path.name for path in tmp_path.iterdir() if path.name.endswith(".tmp")]
+
+    relax_calls = _record_relaxations(monkeypatch, af2_backend_module)
+    multimer, prediction_results = _complex_and_two_results(af2_backend_module)
+    af2_backend_module.AlphaFold2Backend.postprocess(
+        prediction_results=prediction_results,
+        multimeric_object=multimer,
+        output_dir=tmp_path,
+        features_directory="/features",
+        models_to_relax=af2_backend_module.ModelsToRelax.ALL,
+        convert_to_modelcif=False,
+    )
+
+    assert relax_calls == ["low"]
+    assert (tmp_path / "ranked_0.pdb").read_text(encoding="utf-8") == "RELAXED:high"
+    assert (tmp_path / "ranked_1.pdb").read_text(encoding="utf-8") == "RELAXED:low"
+
+
+def _ab_monomer(module):
+    monomer = module.MonomericObject("single", "AB")
+    monomer.feature_dict = {"residue_index": np.array([0, 1], dtype=np.int32)}
+    return monomer
+
+
+def _monomer_runner(predictions=None):
+    """A runner for _ab_monomer; each prediction appends its seed to ``predictions``."""
+
+    def predict(processed_feature_dict, random_seed):
+        if predictions is not None:
+            predictions.append(random_seed)
+        return {
+            "plddt": np.array([91.0, 88.0], dtype=np.float32),
+            "predicted_aligned_error": np.zeros((2, 2), dtype=np.float32),
+            "max_predicted_aligned_error": 31.0,
+            "ptm": 0.5,
+            "ranking_confidence": 89.5,
+        }
+
+    return SimpleNamespace(
+        multimer_mode=False,
+        process_features=lambda feature_dict, random_seed: dict(feature_dict),
+        predict=predict,
+    )
+
+
+def test_predict_individual_job_resume_keeps_earlier_timings_and_relaxations(
+    af2_backend_module, tmp_path
+):
+    """Each run overwrote timings.json with its own timings, dropping the relax_<model>
+    entries of models it had resumed."""
+    monomer = _ab_monomer(af2_backend_module)
+    with open(tmp_path / "result_modelA.pkl", "wb") as handle:
+        pickle.dump({"plddt": np.array([91.0, 88.0], dtype=np.float32)}, handle, protocol=4)
+    (tmp_path / "unrelaxed_modelA.pdb").write_text("unrelaxed A", encoding="utf-8")
+    (tmp_path / "relaxed_modelA.pdb").write_text("RELAXED:A", encoding="utf-8")
+    (tmp_path / "timings.json").write_text(
+        json.dumps({"predict_and_compile_modelA": 5.0, "relax_modelA": 2.0}),
+        encoding="utf-8",
+    )
+    runner = _monomer_runner()
+
+    af2_backend_module.AlphaFold2Backend.predict_individual_job(
+        model_runners={"modelA": runner, "modelB": runner},
+        multimeric_object=monomer,
+        allow_resume=True,
+        skip_templates=False,
+        output_dir=tmp_path,
+        random_seed=3,
+    )
+
+    timings = json.loads((tmp_path / "timings.json").read_text(encoding="utf-8"))
+    assert timings["predict_and_compile_modelA"] == 5.0
+    assert timings["relax_modelA"] == 2.0
+    assert "predict_and_compile_modelB" in timings
+    assert (tmp_path / "relaxed_modelA.pdb").read_text(encoding="utf-8") == "RELAXED:A"
+    assert (tmp_path / "unrelaxed_modelB.pdb").is_file()
+    assert not [path.name for path in tmp_path.iterdir() if path.name.endswith(".tmp")]
+
+
+def test_predict_individual_job_drops_the_relaxation_of_a_model_it_predicts_again(
+    af2_backend_module, tmp_path
+):
+    """A relaxed model of an earlier prediction must not be ranked with the new one."""
+    monomer = _ab_monomer(af2_backend_module)
+    (tmp_path / "relaxed_modelA.pdb").write_text("RELAXED:old", encoding="utf-8")
+    (tmp_path / "timings.json").write_text(
+        json.dumps({"relax_modelA": 2.0}), encoding="utf-8"
+    )
+    (tmp_path / "relax_metrics.json").write_text(
+        json.dumps({"modelA": {"remaining_violations_count": 0}}), encoding="utf-8"
+    )
+
+    af2_backend_module.AlphaFold2Backend.predict_individual_job(
+        model_runners={"modelA": _monomer_runner()},
+        multimeric_object=monomer,
+        allow_resume=False,
+        skip_templates=False,
+        output_dir=tmp_path,
+        random_seed=3,
+    )
+
+    assert not (tmp_path / "relaxed_modelA.pdb").exists()
+    timings = json.loads((tmp_path / "timings.json").read_text(encoding="utf-8"))
+    assert "relax_modelA" not in timings
+    assert "predict_and_compile_modelA" in timings
+    metrics = json.loads((tmp_path / "relax_metrics.json").read_text(encoding="utf-8"))
+    assert "modelA" not in metrics
+
+
+def test_predict_individual_job_keeps_the_relaxation_until_the_new_model_is_written(
+    af2_backend_module, monkeypatch, tmp_path
+):
+    """A job killed while writing a model predicted again leaves the earlier prediction
+    whole, and its relaxation with it."""
+    monomer = _ab_monomer(af2_backend_module)
+    (tmp_path / "relaxed_modelA.pdb").write_text("RELAXED:earlier", encoding="utf-8")
+    (tmp_path / "timings.json").write_text(json.dumps({"relax_modelA": 2.0}), encoding="utf-8")
+
+    def killed(*args, **kwargs):
+        raise KeyboardInterrupt("killed while writing the pickle")
+
+    monkeypatch.setattr(af2_backend_module.pickle, "dump", killed)
+    with pytest.raises(KeyboardInterrupt):
+        af2_backend_module.AlphaFold2Backend.predict_individual_job(
+            model_runners={"modelA": _monomer_runner()},
+            multimeric_object=monomer,
+            allow_resume=False,
+            skip_templates=False,
+            output_dir=tmp_path,
+            random_seed=3,
+        )
+
+    assert (tmp_path / "relaxed_modelA.pdb").read_text(encoding="utf-8") == "RELAXED:earlier"
+    assert json.loads((tmp_path / "timings.json").read_text())["relax_modelA"] == 2.0
+
+
 def test_msa_depth_scan_gives_every_depth_its_own_runner_and_config(
     af2_backend_module, monkeypatch
 ):

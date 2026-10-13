@@ -361,14 +361,26 @@ class TestRunModes(_TestBase):
 # --------------------------------------------------------------------------- #
 #                    parameterised “resume” / relaxation tests                #
 # --------------------------------------------------------------------------- #
+# The finished fold the resume tests start from: five models, every one relaxed.
+RESUME_FIXTURE_MODELS = [f"model_{index}_multimer_v3_pred_0" for index in range(1, 6)]
+RESUME_FIXTURE_RELAXED = [f"relaxed_{model}.pdb" for model in RESUME_FIXTURE_MODELS]
+
+
 class TestResume(_TestBase):
+    """Resuming a fold from what an earlier run left in its output directory.
+
+    Each case starts from a copy of a finished fold, removes what an interrupted run
+    would not have written yet, and checks the outputs as well as what the run did
+    again: which models it predicted and relaxed, leaving the rest as they were.
+    """
+
     def setUp(self):
         super().setUp()
         self.protein_lists = self.test_protein_lists_dir / "test_dimer.txt"
         # Resume tests need a pre-populated per-test output tree to continue from.
-        source = self.test_modelling_dir / "TEST_homo_2er"
-        target = self.output_dir / "TEST_homo_2er"
-        shutil.copytree(source, target, dirs_exist_ok=True)
+        self.fixture_dir = self.test_modelling_dir / "TEST_homo_2er"
+        self.fold_dir = self.output_dir / "TEST_homo_2er"
+        shutil.copytree(self.fixture_dir, self.fold_dir, dirs_exist_ok=True)
 
         self.base_args = [
             sys.executable,
@@ -385,61 +397,104 @@ class TestResume(_TestBase):
 
     def _runAfterRelaxTests(self, relax_mode="All"):
         expected = {"None": 0, "Best": 1, "All": 5}[relax_mode]
-        d = self.output_dir / "TEST_homo_2er"
-        got = len([f for f in d.iterdir() if f.name.startswith("relaxed") and f.suffix == ".pdb"])
+        got = len([f for f in self.fold_dir.iterdir() if f.name.startswith("relaxed") and f.suffix == ".pdb"])
         self.assertEqual(got, expected)
+        if relax_mode != "None":
+            # The best model is ranked relaxed, also when an earlier run relaxed it.
+            best = json.loads((self.fold_dir / "ranking_debug.json").read_text())["order"][0]
+            self.assertEqual(
+                (self.fold_dir / "ranked_0.pdb").read_text(),
+                (self.fold_dir / f"relaxed_{best}.pdb").read_text(),
+            )
+
+    def _relaxed_in_this_run(self) -> set[str]:
+        """Models with a relax timing. The fixture's timings.json has none, and a model
+        predicted again loses its own, so these are the relaxations the test ran."""
+        timings = json.loads((self.fold_dir / "timings.json").read_text())
+        return {key.removeprefix("relax_") for key in timings if key.startswith("relax_")}
+
+    def _assertUntouched(self, file_names):
+        for name in file_names:
+            self.assertEqual(
+                (self.fold_dir / name).read_bytes(),
+                (self.fixture_dir / name).read_bytes(),
+                f"{name} was written again",
+            )
 
     @parameterized.named_parameters(
         dict(
             testcase_name="no_relax",
             relax_mode="None",
-            remove=[
-                "relaxed_model_1_multimer_v3_pred_0.pdb",
-                "relaxed_model_2_multimer_v3_pred_0.pdb",
-                "relaxed_model_3_multimer_v3_pred_0.pdb",
-                "relaxed_model_4_multimer_v3_pred_0.pdb",
-                "relaxed_model_5_multimer_v3_pred_0.pdb",
-            ],
+            remove=RESUME_FIXTURE_RELAXED,
+            relaxed_now=[],
         ),
         dict(
             testcase_name="relax_all",
             relax_mode="All",
-            remove=[
-                "relaxed_model_1_multimer_v3_pred_0.pdb",
-                "relaxed_model_2_multimer_v3_pred_0.pdb",
-                "relaxed_model_3_multimer_v3_pred_0.pdb",
-                "relaxed_model_4_multimer_v3_pred_0.pdb",
-                "relaxed_model_5_multimer_v3_pred_0.pdb",
-            ],
+            remove=RESUME_FIXTURE_RELAXED,
+            relaxed_now=RESUME_FIXTURE_MODELS,
         ),
         dict(
             testcase_name="continue_relax",
             relax_mode="All",
             remove=["relaxed_model_5_multimer_v3_pred_0.pdb"],
+            relaxed_now=["model_5_multimer_v3_pred_0"],
         ),
         dict(
             testcase_name="continue_prediction",
             relax_mode="Best",
-            remove=[
-                "unrelaxed_model_5_multimer_v3_pred_0.pdb",
-                "relaxed_model_1_multimer_v3_pred_0.pdb",
-                "relaxed_model_2_multimer_v3_pred_0.pdb",
-                "relaxed_model_3_multimer_v3_pred_0.pdb",
-                "relaxed_model_4_multimer_v3_pred_0.pdb",
-                "relaxed_model_5_multimer_v3_pred_0.pdb",
-            ],
+            remove=["unrelaxed_model_5_multimer_v3_pred_0.pdb", *RESUME_FIXTURE_RELAXED],
+            predicted_now=["model_5_multimer_v3_pred_0"],
         ),
     )
-    def test_(self, relax_mode, remove):
+    def test_(self, relax_mode, remove, relaxed_now=None, predicted_now=()):
         args = self.base_args + [f"--models_to_relax={relax_mode}"]
         for fname in remove:
             try:
-                (self.output_dir / "TEST_homo_2er" / fname).unlink()
+                (self.fold_dir / fname).unlink()
             except FileNotFoundError:
                 pass
         res = self._run_prediction_subprocess(args)
         self._runCommonTests(res, multimer=True, dirname="TEST_homo_2er")
         self._runAfterRelaxTests(relax_mode)
+
+        # Only the removed predictions were made again ...
+        self._assertUntouched(
+            f"unrelaxed_{model}.pdb"
+            for model in RESUME_FIXTURE_MODELS
+            if model not in predicted_now
+        )
+        # ... and only the missing relaxations were run: the others were reused as they are.
+        if relaxed_now is not None:
+            self.assertEqual(self._relaxed_in_this_run(), set(relaxed_now))
+            self._assertUntouched(
+                name
+                for model, name in zip(RESUME_FIXTURE_MODELS, RESUME_FIXTURE_RELAXED)
+                if name not in remove and model not in relaxed_now
+            )
+
+    def test_rerun_of_a_finished_fold_keeps_its_relaxed_ranking(self):
+        """A rerun of a finished fold reuses its relaxed model and still ranks it first.
+
+        It used to skip the relaxation and then write ranked_0.pdb from the unrelaxed model.
+        """
+        for name in RESUME_FIXTURE_RELAXED:
+            (self.fold_dir / name).unlink()
+        args = self.base_args + ["--models_to_relax=Best"]
+        first = self._run_prediction_subprocess(args)
+        self._runCommonTests(first, multimer=True, dirname="TEST_homo_2er")
+        self._runAfterRelaxTests("Best")
+        (relaxed_model,) = self._relaxed_in_this_run()
+        relaxed_path = self.fold_dir / f"relaxed_{relaxed_model}.pdb"
+        relaxed = relaxed_path.read_bytes()
+        relaxed_mtime = relaxed_path.stat().st_mtime_ns
+
+        second = self._run_prediction_subprocess(args)
+        self._runCommonTests(second, multimer=True, dirname="TEST_homo_2er")
+        self._runAfterRelaxTests("Best")
+        self.assertEqual(self._relaxed_in_this_run(), {relaxed_model})
+        self.assertEqual(relaxed_path.read_bytes(), relaxed)
+        self.assertEqual(relaxed_path.stat().st_mtime_ns, relaxed_mtime, "relaxed again")
 
 
 def _parse_test_args():
