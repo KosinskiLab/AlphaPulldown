@@ -683,7 +683,7 @@ class TestAlphaFold3InputPreparation(Af3TestData, parameterized.TestCase):
 
     def test_af3_output_job_name_hashes_overlong_unique_compound_names(self):
         """AF3 job names should fall back to a deterministic hash suffix when needed."""
-        from alphapulldown.folding_backend.alphafold3_backend import (
+        from alphapulldown.folding_backend.alphafold3_inputs import (
             _build_output_job_name,
         )
 

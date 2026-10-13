@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 
 from alphapulldown.objects import MonomericObject
+from alphapulldown.utils import output_paths
 from alphapulldown.utils.feature_metadata import (
     decode_metadata_from_description,
     encode_metadata_in_description,
@@ -400,6 +401,10 @@ def _install_alphafold3_backend_stubs(tmp_path: Path, monkeypatch) -> None:
     structure_pkg.mmcif = mmcif_mod
 
 
+# The modules split out of alphafold3_backend.py; each imports AF3 itself.
+_EXTRACTED_MODULES = ("alphafold3_debug", "alphafold3_inputs", "alphafold3_outputs")
+
+
 @pytest.fixture(scope="module")
 def af3_backend_module(tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp("af3_backend_stubs")
@@ -410,7 +415,8 @@ def af3_backend_module(tmp_path_factory):
         sys.modules.pop("alphapulldown.folding_backend.alphafold3_backend", None)
         # Load the extracted modules afresh too, against the stubs: a copy imported
         # earlier would hold the real AF3.
-        sys.modules.pop("alphapulldown.folding_backend.alphafold3_outputs", None)
+        for extracted in _EXTRACTED_MODULES:
+            sys.modules.pop(f"alphapulldown.folding_backend.{extracted}", None)
         spec = importlib.util.spec_from_file_location(
             "alphapulldown.folding_backend.alphafold3_backend",
             MODULE_PATH,
@@ -427,6 +433,18 @@ def af3_outputs_module(af3_backend_module):
     """The output-writing module the stubbed backend imported, to patch and call where
     the moved code looks its names up."""
     return sys.modules["alphapulldown.folding_backend.alphafold3_outputs"]
+
+
+@pytest.fixture(scope="module")
+def af3_debug_module(af3_backend_module):
+    """The debug-artifact module the stubbed backend imported."""
+    return sys.modules["alphapulldown.folding_backend.alphafold3_debug"]
+
+
+@pytest.fixture(scope="module")
+def af3_inputs_module(af3_backend_module):
+    """The input-preparation module the stubbed backend imported."""
+    return sys.modules["alphapulldown.folding_backend.alphafold3_inputs"]
 
 
 class FakeChainsTable:
@@ -459,38 +477,38 @@ class FakeStructure:
         return SimpleNamespace(updated_residues=kwargs)
 
 
-def test_output_name_helpers_compact_and_normalise_fragments(af3_backend_module):
-    assert af3_backend_module._normalise_output_name_fragment(" A/B : C ") == "A_B___C"
-    assert af3_backend_module._collapse_repeated_name_fragments(
+def test_output_name_helpers_compact_and_normalise_fragments():
+    assert output_paths._normalise_output_name_fragment(" A/B : C ") == "A_B___C"
+    assert output_paths._collapse_repeated_name_fragments(
         ["a", "a", "b", "b", "b", "c"]
     ) == ["a__x2", "b__x3", "c"]
-    compacted = af3_backend_module._compact_output_job_name("x" * 260, max_chars=40)
+    compacted = output_paths._compact_output_job_name("x" * 260, max_chars=40)
     assert compacted.startswith("x")
     assert len(compacted) <= 40
 
 
-def test_compound_and_region_name_helpers_handle_existing_suffixes(af3_backend_module):
-    assert af3_backend_module._compact_existing_compound_name(
+def test_compound_and_region_name_helpers_handle_existing_suffixes():
+    assert output_paths._compact_existing_compound_name(
         "protA_and_protA_and_protB"
     ) == "protA__x2_and_protB"
-    assert af3_backend_module._regions_to_name_fragment([(1, 10), (20, 25)]) == "1-10_20-25"
-    assert af3_backend_module._json_input_basename("/tmp/A0ABD7FQG0_af3_input.json") == "A0ABD7FQG0"
-    assert af3_backend_module._json_input_basename("/tmp/job_input.json") == "job"
+    assert output_paths._regions_to_name_fragment([(1, 10), (20, 25)]) == "1-10_20-25"
+    assert output_paths._json_input_basename("/tmp/A0ABD7FQG0_af3_input.json") == "A0ABD7FQG0"
+    assert output_paths._json_input_basename("/tmp/job_input.json") == "job"
 
 
 def test_object_and_output_job_name_helpers_cover_json_monomer_and_multimer_inputs(
-    af3_backend_module,
+    af3_inputs_module,
 ):
     monomer = MonomericObject("protA", "ACDE")
-    multimer = object.__new__(af3_backend_module.MultimericObject)
+    multimer = object.__new__(af3_inputs_module.MultimericObject)
     multimer.description = "protA_and_protA_and_protB"
     json_entry = {"json_input": "/tmp/sample_af3_input.json", "regions": [(5, 9)]}
 
-    assert af3_backend_module._object_name_fragment(json_entry) == "sample__5-9"
-    assert af3_backend_module._object_name_fragment(monomer) == "protA"
-    assert af3_backend_module._object_name_fragment(multimer) == "protA__x2_and_protB"
+    assert af3_inputs_module._object_name_fragment(json_entry) == "sample__5-9"
+    assert af3_inputs_module._object_name_fragment(monomer) == "protA"
+    assert af3_inputs_module._object_name_fragment(multimer) == "protA__x2_and_protB"
 
-    job_name = af3_backend_module._build_output_job_name(
+    job_name = af3_inputs_module._build_output_job_name(
         [{"object": [json_entry, monomer, monomer, multimer]}]
     )
     assert job_name == "sample__5-9_and_protA__x2_and_protA__x2_and_protB"
@@ -868,6 +886,7 @@ def test_process_fold_input_predicts_only_the_seeds_not_yet_written(
 
 def test_predict_structure_writes_final_msa_and_collects_optional_outputs(
     af3_backend_module,
+    af3_debug_module,
     monkeypatch,
     tmp_path,
 ):
@@ -891,7 +910,7 @@ def test_predict_structure_writes_final_msa_and_collects_optional_outputs(
         lambda **kwargs: [example],
     )
     monkeypatch.setattr(
-        af3_backend_module,
+        af3_debug_module,
         "ids_to_a3m_af3",
         lambda rows: ">query\nABC\n",
     )
@@ -1852,6 +1871,7 @@ def test_prepare_input_drops_invalid_json_templates_but_keeps_valid_ones(
 
 def test_prepare_input_normalises_adjacent_duplicate_residues_for_monomers(
     af3_backend_module,
+    af3_inputs_module,
     monkeypatch,
     tmp_path,
 ):
@@ -1880,7 +1900,7 @@ def test_prepare_input_normalises_adjacent_duplicate_residues_for_monomers(
         return ">query\nACD\n"
 
     monkeypatch.setattr(
-        af3_backend_module,
+        af3_inputs_module,
         "msa_rows_and_deletions_to_a3m",
         _fake_msa_rows_and_deletions_to_a3m,
     )
@@ -1915,7 +1935,7 @@ def test_prepare_input_normalises_adjacent_duplicate_residues_for_monomers(
 
 
 def _make_af3_translation_result(
-    af3_backend_module,
+    af3_inputs_module,
     *,
     chain_msas,
     chain_stats,
@@ -1925,7 +1945,7 @@ def _make_af3_translation_result(
     invalid_paired_rows=0,
     invalid_unpaired_rows=0,
 ):
-    return af3_backend_module.Af2ToAf3TranslationResult(
+    return af3_inputs_module.Af2ToAf3TranslationResult(
         chain_msas=tuple(chain_msas),
         chain_stats=tuple(chain_stats),
         translation_mode=translation_mode,
@@ -2030,6 +2050,7 @@ def _make_stub_multimeric_object(af3_backend_module, *, description: str, intera
 
 def test_prepare_input_multimer_writes_translated_msa_debug_artifacts(
     af3_backend_module,
+    af3_inputs_module,
     monkeypatch,
     tmp_path,
 ):
@@ -2044,7 +2065,7 @@ def test_prepare_input_multimer_writes_translated_msa_debug_artifacts(
     multimer.feature_dict = {"msa": np.asarray([[1, 2, 3, 4, 5, 6, 7, 8]], dtype=np.int32)}
 
     translation_result = _make_af3_translation_result(
-        af3_backend_module,
+        af3_inputs_module,
         chain_msas=[
             _translation_msas(
                 paired_msa=(
@@ -2085,13 +2106,13 @@ def test_prepare_input_multimer_writes_translated_msa_debug_artifacts(
     )
 
     monkeypatch.setattr(
-        af3_backend_module,
+        af3_inputs_module,
         "translate_af2_individual_chain_features_to_af3_msas_with_stats",
         lambda **kwargs: translation_result,
     )
     fallback_calls = []
     monkeypatch.setattr(
-        af3_backend_module,
+        af3_inputs_module,
         "translate_af2_complex_msa_to_af3_unpaired_chain_msas_with_stats",
         lambda **kwargs: fallback_calls.append(kwargs),
     )
@@ -2175,6 +2196,7 @@ def test_prepare_input_multimer_writes_translated_msa_debug_artifacts(
 
 def test_prepare_input_multimer_falls_back_to_complex_msa_when_pairing_is_unavailable(
     af3_backend_module,
+    af3_inputs_module,
     monkeypatch,
     tmp_path,
 ):
@@ -2196,7 +2218,7 @@ def test_prepare_input_multimer_falls_back_to_complex_msa_when_pairing_is_unavai
     individual_calls = []
     fallback_calls = []
     individual_result = _make_af3_translation_result(
-        af3_backend_module,
+        af3_inputs_module,
         chain_msas=[
             _translation_msas(paired_msa="", unpaired_msa=">indA\nACDE\n"),
             _translation_msas(paired_msa="", unpaired_msa=">indB\nFGHI\n"),
@@ -2216,7 +2238,7 @@ def test_prepare_input_multimer_falls_back_to_complex_msa_when_pairing_is_unavai
         translation_mode="af3_species_pairing_from_af2_individual_msas",
     )
     fallback_result = _make_af3_translation_result(
-        af3_backend_module,
+        af3_inputs_module,
         chain_msas=[
             _translation_msas(paired_msa="", unpaired_msa=">fallbackA\nACDE\n"),
             _translation_msas(paired_msa="", unpaired_msa=">fallbackB\nFGHI\n"),
@@ -2235,12 +2257,12 @@ def test_prepare_input_multimer_falls_back_to_complex_msa_when_pairing_is_unavai
     )
 
     monkeypatch.setattr(
-        af3_backend_module,
+        af3_inputs_module,
         "translate_af2_individual_chain_features_to_af3_msas_with_stats",
         lambda **kwargs: individual_calls.append(kwargs) or individual_result,
     )
     monkeypatch.setattr(
-        af3_backend_module,
+        af3_inputs_module,
         "translate_af2_complex_msa_to_af3_unpaired_chain_msas_with_stats",
         lambda **kwargs: fallback_calls.append(kwargs) or fallback_result,
     )
@@ -2274,6 +2296,7 @@ def test_prepare_input_multimer_falls_back_to_complex_msa_when_pairing_is_unavai
 
 def test_prepare_input_multimer_skips_complex_fallback_after_duplicate_residue_normalisation(
     af3_backend_module,
+    af3_inputs_module,
     monkeypatch,
     tmp_path,
 ):
@@ -2288,7 +2311,7 @@ def test_prepare_input_multimer_skips_complex_fallback_after_duplicate_residue_n
     multimer.feature_dict = {"msa": np.asarray([[1, 2, 3, 4, 5, 6, 7, 8]], dtype=np.int32)}
 
     individual_result = _make_af3_translation_result(
-        af3_backend_module,
+        af3_inputs_module,
         chain_msas=[
             _translation_msas(paired_msa="", unpaired_msa=">indA\nACD\n"),
             _translation_msas(paired_msa="", unpaired_msa=">indB\nFGHI\n"),
@@ -2310,12 +2333,12 @@ def test_prepare_input_multimer_skips_complex_fallback_after_duplicate_residue_n
     fallback_calls = []
 
     monkeypatch.setattr(
-        af3_backend_module,
+        af3_inputs_module,
         "translate_af2_individual_chain_features_to_af3_msas_with_stats",
         lambda **kwargs: individual_result,
     )
     monkeypatch.setattr(
-        af3_backend_module,
+        af3_inputs_module,
         "translate_af2_complex_msa_to_af3_unpaired_chain_msas_with_stats",
         lambda **kwargs: fallback_calls.append(kwargs),
     )
@@ -2342,6 +2365,7 @@ def test_prepare_input_multimer_skips_complex_fallback_after_duplicate_residue_n
 
 def test_prepare_input_multimer_trimer_preserves_sparse_middle_chain_pairing(
     af3_backend_module,
+    af3_inputs_module,
     monkeypatch,
     tmp_path,
 ):
@@ -2374,7 +2398,7 @@ def test_prepare_input_multimer_trimer_preserves_sparse_middle_chain_pairing(
         raise AssertionError(f"Unexpected AF2 merged-MSA fallback: {kwargs}")
 
     monkeypatch.setattr(
-        af3_backend_module,
+        af3_inputs_module,
         "translate_af2_complex_msa_to_af3_unpaired_chain_msas_with_stats",
         _unexpected_fallback,
     )
@@ -2419,6 +2443,7 @@ def test_prepare_input_multimer_trimer_preserves_sparse_middle_chain_pairing(
 
 def test_prepare_input_multimer_trimer_reports_effective_min_count_pairing(
     af3_backend_module,
+    af3_inputs_module,
     monkeypatch,
     tmp_path,
 ):
@@ -2451,7 +2476,7 @@ def test_prepare_input_multimer_trimer_reports_effective_min_count_pairing(
         raise AssertionError(f"Unexpected AF2 merged-MSA fallback: {kwargs}")
 
     monkeypatch.setattr(
-        af3_backend_module,
+        af3_inputs_module,
         "translate_af2_complex_msa_to_af3_unpaired_chain_msas_with_stats",
         _unexpected_fallback,
     )
@@ -2493,13 +2518,14 @@ def test_prepare_input_multimer_trimer_reports_effective_min_count_pairing(
 
 def test_prepare_input_builds_template_mmcif_and_skips_zero_atom_templates(
     af3_backend_module,
+    af3_inputs_module,
     monkeypatch,
     tmp_path,
 ):
     monomer = MonomericObject("templated", "ACDE")
-    atom_type_num = af3_backend_module.residue_constants.atom_type_num
+    atom_type_num = af3_inputs_module.residue_constants.atom_type_num
     hhblits_alphabet_size = len(
-        af3_backend_module.residue_constants.MAP_HHBLITS_AATYPE_TO_OUR_AATYPE
+        af3_inputs_module.residue_constants.MAP_HHBLITS_AATYPE_TO_OUR_AATYPE
     )
     template_aatype = np.zeros((2, 4, hhblits_alphabet_size), dtype=np.float32)
     template_aatype[:, np.arange(4), [0, 4, 3, 6]] = 1.0
@@ -2535,7 +2561,7 @@ def test_prepare_input_builds_template_mmcif_and_skips_zero_atom_templates(
             "ATOM\n"
         )
 
-    monkeypatch.setattr(af3_backend_module, "to_mmcif", _fake_to_mmcif)
+    monkeypatch.setattr(af3_inputs_module, "to_mmcif", _fake_to_mmcif)
     monkeypatch.chdir(tmp_path)
 
     prepared_inputs = af3_backend_module.AlphaFold3Backend.prepare_input(
@@ -2566,13 +2592,14 @@ def test_prepare_input_builds_template_mmcif_and_skips_zero_atom_templates(
 
 def test_prepare_input_writes_template_error_artifacts_on_mmcif_generation_failure(
     af3_backend_module,
+    af3_inputs_module,
     monkeypatch,
     tmp_path,
 ):
     monomer = MonomericObject("templated", "ACDE")
-    atom_type_num = af3_backend_module.residue_constants.atom_type_num
+    atom_type_num = af3_inputs_module.residue_constants.atom_type_num
     hhblits_alphabet_size = len(
-        af3_backend_module.residue_constants.MAP_HHBLITS_AATYPE_TO_OUR_AATYPE
+        af3_inputs_module.residue_constants.MAP_HHBLITS_AATYPE_TO_OUR_AATYPE
     )
     template_aatype = np.zeros((1, 4, hhblits_alphabet_size), dtype=np.float32)
     template_aatype[0, np.arange(4), [0, 4, 3, 6]] = 1.0
@@ -2590,7 +2617,7 @@ def test_prepare_input_writes_template_error_artifacts_on_mmcif_generation_failu
     }
 
     monkeypatch.setattr(
-        af3_backend_module,
+        af3_inputs_module,
         "to_mmcif",
         lambda **kwargs: (_ for _ in ()).throw(RuntimeError("mmcif boom")),
     )
