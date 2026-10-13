@@ -1654,6 +1654,117 @@ def test_prepare_input_merges_json_chain_and_rewrites_duplicate_ids(
     assert fold_input.chains[1].unpaired_msa == ""
 
 
+def test_fold_input_builder_numbers_chains_past_z(af3_inputs_module):
+    builder = af3_inputs_module.FoldInputBuilder()
+    for index in range(28):
+        builder.add(MonomericObject(f"prot{index}", "ACDE"))
+
+    assert [chain.id for chain in builder.chains][-3:] == ["Z", "AA", "AB"]
+
+
+def test_fold_input_builder_never_gives_two_chains_one_id(af3_inputs_module, tmp_path):
+    first = _write_stub_af3_json(
+        tmp_path / "first.json",
+        {
+            "name": "first",
+            "chains": [
+                {"type": "protein", "id": "A", "sequence": "GG"},
+                {"type": "protein", "id": "C", "sequence": "HH"},
+            ],
+        },
+    )
+    second = _write_stub_af3_json(
+        tmp_path / "second.json",
+        {"name": "second", "chains": [{"type": "protein", "id": "A", "sequence": "KK"}]},
+    )
+    builder = af3_inputs_module.FoldInputBuilder()
+    builder.add({"json_input": str(first)})
+    builder.add(MonomericObject("protA", "ACDE"))
+    builder.add(MonomericObject("protB", "ACDE"))
+    builder.add({"json_input": str(second)})
+
+    # A JSON chain keeps its ID while it is free, generated IDs skip the taken ones,
+    # and a JSON chain whose ID is taken gets the next free one.
+    assert [chain.id for chain in builder.chains] == ["A", "C", "B", "D", "E"]
+    assert [chain.sequence for chain in builder.chains] == ["GG", "HH", "ACDE", "ACDE", "KK"]
+
+
+def test_successive_preparations_share_no_state(af3_backend_module, tmp_path):
+    """Each preparation numbers its chains afresh and reads feature metadata from its own
+    features directory, even for a description an earlier preparation already read."""
+    fold_inputs = []
+    for version in ("2.5.0", "2.6.0"):
+        feature_dir = tmp_path / version
+        feature_dir.mkdir()
+        metadata = {
+            "software": {"AlphaPulldown": {"version": version}},
+            "databases": {},
+            "other": {"data_pipeline": "alphafold2"},
+        }
+        (feature_dir / "protA_feature_metadata_2026-08-19.json").write_text(
+            json.dumps(metadata), encoding="utf-8"
+        )
+        prepared_inputs = af3_backend_module.AlphaFold3Backend.prepare_input(
+            objects_to_model=[
+                {"object": MonomericObject("protA", "ACDE"), "output_dir": str(tmp_path)}
+            ],
+            random_seed=7,
+            features_directory=[str(feature_dir)],
+        )
+        fold_input, _ = next(iter(prepared_inputs[0].items()))
+        fold_inputs.append(fold_input)
+
+    assert [[chain.id for chain in fold_input.chains] for fold_input in fold_inputs] == [
+        ["A"],
+        ["A"],
+    ]
+    versions = [
+        decode_metadata_from_description(fold_input.chains[0].description)[1]["software"][
+            "AlphaPulldown"
+        ]["version"]
+        for fold_input in fold_inputs
+    ]
+    assert versions == ["2.5.0", "2.6.0"]
+
+
+def test_a3m_region_slice_keeps_only_the_insertions_inside_it(af3_inputs_module):
+    # Lowercase letters are insertions after the query residue before them.
+    row = "AbCDeF"
+
+    assert af3_inputs_module._slice_a3m_row_to_region(row, 1, 3) == "AbCD"
+    assert af3_inputs_module._slice_a3m_row_to_region(row, 2, 3) == "CD"
+
+
+def test_json_chain_regions_slice_sequence_residue_ids_ptms_and_msa(af3_inputs_module):
+    chain = af3_inputs_module.folding_input.ProteinChain(
+        id="A",
+        sequence="ACDEFG",
+        ptms=[("SEP", 4)],
+        unpaired_msa=">query\nACDEFG\n>hit\nAC-EFG\n",
+    )
+
+    sliced = af3_inputs_module._slice_af3_chain_to_regions(
+        chain, regions=[(1, 2), (4, 5)], json_path="input.json"
+    )
+
+    assert sliced.sequence == "ACEF"
+    assert sliced.residue_ids == [1, 2, 4, 5]
+    assert sliced.ptms == [("SEP", 3)]
+    assert sliced.unpaired_msa == ">query\nACEF\n>hit\nACEF\n"
+
+
+def test_json_regions_need_exactly_one_chain(af3_inputs_module):
+    protein = af3_inputs_module.folding_input.ProteinChain
+    builder = af3_inputs_module.FoldInputBuilder()
+
+    with pytest.raises(ValueError, match="exactly one chain per file"):
+        builder._expand_json_input_chains(
+            chains=[protein(id="A", sequence="AC"), protein(id="B", sequence="DE")],
+            json_path="input.json",
+            regions=[(1, 1)],
+        )
+
+
 def test_prepare_input_transports_af2_sidecar_metadata_into_af3_description(
     af3_backend_module,
     tmp_path,
