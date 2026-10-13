@@ -15,6 +15,9 @@ Run only selected tests:
 The runtime benchmark and the MMseqs2 tests run by default; skip them with:
 
     python test/cluster/run_alphafold3_predictions.py --no-include-perf --no-mmseqs-functional
+
+The slowest tests run only when their code changed; RUN_EXPENSIVE_GPU_TESTS=1 runs them
+anyway (test/cluster/code_changes.py).
 """
 
 from __future__ import annotations

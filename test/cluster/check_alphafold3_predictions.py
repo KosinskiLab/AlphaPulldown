@@ -37,6 +37,7 @@ from alphapulldown_input_parser import generate_fold_specifications
 if str(Path(__file__).resolve().parent) not in sys.path:
     sys.path.insert(0, str(Path(__file__).resolve().parent))
 import af3_gpu_checks  # noqa: E402
+import code_changes  # noqa: E402
 
 # Test data helpers shared with test/integration/test_af3_input_preparation.py.
 if str(Path(__file__).resolve().parents[1]) not in sys.path:
@@ -911,20 +912,21 @@ class _TestBase(Af3TestData, parameterized.TestCase):
         return os.getenv("AF3_TEST_FLASH_ATTENTION_IMPL", "xla")
 
     @staticmethod
-    def _jax_compilation_cache_args(cache_dir: Path) -> list[str]:
-        """Return the optional persistent-cache flag for functional tests.
+    def _jax_compilation_cache_args() -> list[str]:
+        """The persistent compile cache every run shares, so that runs load the model
+        rather than compile it: AlphaPulldown's default, named for upstream AF3 too.
 
-        Some XLA/JAX combinations cannot safely populate the per-fusion cache on
-        a cluster scratch filesystem. Keep the normal cached path while making
-        it possible to isolate that environment failure without weakening the
-        actual inference and ModelCIF assertions.
+        AF3_TEST_DISABLE_JAX_COMPILATION_CACHE=1 leaves the flag out, to isolate a
+        filesystem the cache fails on without weakening the inference assertions.
         """
+        from alphapulldown.prediction.jax_compilation_cache import resolve_cache_dir
+
         disabled = os.getenv(
             "AF3_TEST_DISABLE_JAX_COMPILATION_CACHE", ""
         ).strip().lower()
         if disabled in {"1", "true", "yes"}:
             return []
-        return [f"--jax_compilation_cache_dir={cache_dir}"]
+        return [f"--jax_compilation_cache_dir={resolve_cache_dir(None)}"]
 
     def _require_af3_functional_environment(self) -> None:
         if not os.path.exists(DATA_DIR):
@@ -1726,7 +1728,6 @@ class TestAlphaFold3MetadataEndToEnd(_TestBase):
         input_spec: str,
         output_dir: Path,
         feature_directories: list[Path],
-        cache_dir: Path,
         env: Dict[str, str],
         label: str,
     ) -> Path:
@@ -1746,7 +1747,7 @@ class TestAlphaFold3MetadataEndToEnd(_TestBase):
                 "--num_recycles=1",
                 "--buckets=256",
                 "--random_seed=42",
-                *self._jax_compilation_cache_args(cache_dir),
+                *self._jax_compilation_cache_args(),
                 "--convert_to_modelcif=True",
                 "--storage_mode=vanilla",
             ],
@@ -1757,10 +1758,11 @@ class TestAlphaFold3MetadataEndToEnd(_TestBase):
         return output_dir
 
     def test_real_feature_generation_inference_and_modelcif_matrix(self):
+        skip_reason = code_changes.skip_unless_changed(code_changes.FEATURE_GENERATION)
+        if skip_reason:
+            self.skipTest(skip_reason)
         self._require_metadata_e2e_environment()
         env = self._make_af3_test_env()
-        cache_dir = self.output_dir / "jax_cache"
-        cache_dir.mkdir()
         ap_feature_dir = self.output_dir / "features_alphapulldown_af3"
         vanilla_feature_root = self.output_dir / "features_vanilla_af3"
         ap_feature_dir.mkdir()
@@ -1902,7 +1904,7 @@ class TestAlphaFold3MetadataEndToEnd(_TestBase):
                 "--num_diffusion_samples=1",
                 "--num_recycles=1",
                 "--buckets=256",
-                *self._jax_compilation_cache_args(cache_dir),
+                *self._jax_compilation_cache_args(),
             ],
             # Upstream AF3 also writes XLA's autotune caches into the cache dir,
             # which fails on cluster scratch; AlphaPulldown turns them off itself.
@@ -1968,7 +1970,6 @@ class TestAlphaFold3MetadataEndToEnd(_TestBase):
                 input_spec=case["input"],
                 output_dir=case_output_dir,
                 feature_directories=feature_directories,
-                cache_dir=cache_dir,
                 env=env,
                 label=f"AlphaPulldown backend inference: {case_name}",
             )
@@ -2816,8 +2817,7 @@ class TestAlphaFold3Resume(_TestBase):
             f"--features_directory={self.test_features_dir}",
             "--fold_backend=alphafold3",
             f"--flash_attention_implementation={self._af3_flash_attention_impl()}",
-            # Both runs of a case share compiled models.
-            *self._jax_compilation_cache_args(self.output_dir / "jax_cache"),
+            *self._jax_compilation_cache_args(),
         ]
 
     def _predict(self, *extra: str) -> subprocess.CompletedProcess:
