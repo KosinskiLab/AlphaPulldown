@@ -53,7 +53,7 @@ AF3_FLAGS = frozenset({
     "jax_compilation_cache_dir", "buckets", "flash_attention_implementation",
     "num_diffusion_samples", "num_seeds", "debug_templates", "debug_msas",
     "num_recycles", "save_embeddings", "save_distogram", "use_ap_style",
-    "convert_to_modelcif",
+    "convert_to_modelcif", "allow_resume",
 })
 
 FLAGS_BY_BACKEND: Mapping[str, frozenset] = {

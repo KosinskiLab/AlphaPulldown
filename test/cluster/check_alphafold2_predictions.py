@@ -496,6 +496,117 @@ class TestResume(_TestBase):
         self.assertEqual(relaxed_path.read_bytes(), relaxed)
         self.assertEqual(relaxed_path.stat().st_mtime_ns, relaxed_mtime, "relaxed again")
 
+    # Finished folds, recognised by their fold record ---------------------------- #
+    SKIPPED = "is already complete in"
+
+    def _assertSucceeded(self, res: subprocess.CompletedProcess, label: str) -> None:
+        self.assertEqual(
+            res.returncode, 0, f"{label} failed.\nSTDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}"
+        )
+
+    def _assertComplete(self, fold_dir: Path) -> None:
+        record = json.loads((fold_dir / "alphapulldown_prediction.json").read_text())
+        self.assertTrue(record["complete"], fold_dir)
+
+    @staticmethod
+    def _mtimes(*fold_dirs: Path) -> dict[str, int]:
+        """Each output's modification time; not the feature metadata, which fold
+        preparation copies in on every run before predicting."""
+        return {
+            str(path): path.stat().st_mtime_ns
+            for fold_dir in fold_dirs
+            for path in fold_dir.iterdir()
+            if path.is_file() and "_feature_metadata_" not in path.name
+        }
+
+    @staticmethod
+    def _atoms(pdb_path: Path) -> list[str]:
+        """Coordinates and B-factors (the pLDDT) of every atom, in order."""
+        return [line[30:66] for line in pdb_path.read_text().splitlines() if line.startswith("ATOM")]
+
+    def test_rerun_of_a_finished_fold_without_its_pickles_predicts_nothing(self):
+        """storage_mode=minimal removes the result pickles that per-model resume looks
+        for, so a rerun predicted every finished fold again."""
+        args = self.base_args + ["--models_to_relax=None", "--storage_mode=minimal"]
+        self._assertSucceeded(self._run_prediction_subprocess(args), "first run")
+        self.assertFalse(list(self.fold_dir.glob("result_*.pkl")))
+        self._assertComplete(self.fold_dir)
+        before = self._mtimes(self.fold_dir)
+
+        second = self._run_prediction_subprocess(args)
+
+        self._assertSucceeded(second, "second run")
+        self.assertIn(self.SKIPPED, second.stdout + second.stderr)
+        self.assertEqual(self._mtimes(self.fold_dir), before, "outputs were written again")
+        self._assertUntouched(f"unrelaxed_{model}.pdb" for model in RESUME_FIXTURE_MODELS)
+
+    def test_resident_batch_resumes_its_folds_and_skips_finished_ones(self):
+        """A resident batch pads its folds to one shape. A fold killed after four models
+        predicts only the fifth, padded; the four it resumes are read back from their
+        PDBs. A rerun of the finished batch predicts nothing."""
+        partial = self.output_dir / "partial"
+        finished = self.output_dir / "finished"
+        for fold_dir in (partial, finished):
+            shutil.copytree(self.fixture_dir, fold_dir)
+        for name in ("unrelaxed_model_5_multimer_v3_pred_0.pdb", "result_model_5_multimer_v3_pred_0.pkl"):
+            (partial / name).unlink()
+        manifest = self.output_dir / "manifest.jsonl"
+        manifest.write_text(
+            "".join(
+                json.dumps(
+                    {"job_id": fold_dir.name, "input": "TEST+TEST", "output_directory": str(fold_dir)}
+                )
+                + "\n"
+                for fold_dir in (partial, finished)
+            )
+        )
+        command = [
+            sys.executable,
+            str(self.script_single.parent / "run_structure_prediction_batch.py"),
+            f"--manifest={manifest}",
+            f"--data_directory={DATA_DIR}",
+            f"--features_directory={self.test_features_dir}",
+            "--num_cycle=1",
+            "--num_predictions_per_model=1",
+            "--models_to_relax=None",
+            # The fixture's homodimer has 128 residues.
+            "--desired_num_res=140",
+        ]
+
+        first = self._run_prediction_subprocess(command)
+
+        self._assertSucceeded(first, "batch")
+        self.assertIn("4 models are already completed.", first.stdout + first.stderr)
+        for fold_dir in (partial, finished):
+            self._assertComplete(fold_dir)
+            for model in RESUME_FIXTURE_MODELS:
+                if fold_dir is partial and model == "model_5_multimer_v3_pred_0":
+                    continue
+                self.assertEqual(
+                    (fold_dir / f"unrelaxed_{model}.pdb").read_bytes(),
+                    (self.fixture_dir / f"unrelaxed_{model}.pdb").read_bytes(),
+                    f"{fold_dir.name}: {model} was predicted again",
+                )
+        # The model predicted again was padded, then scored over the real residues.
+        with open(partial / "result_model_5_multimer_v3_pred_0.pkl", "rb") as handle:
+            self.assertLen(pickle.load(handle)["plddt"], 128)
+        # The resumed models are ranked as they were predicted.
+        order = json.loads((partial / "ranking_debug.json").read_text())["order"]
+        for rank, model in enumerate(order):
+            if model != "model_5_multimer_v3_pred_0":
+                self.assertEqual(
+                    self._atoms(partial / f"ranked_{rank}.pdb"),
+                    self._atoms(self.fixture_dir / f"unrelaxed_{model}.pdb"),
+                    f"ranked_{rank}.pdb",
+                )
+
+        before = self._mtimes(partial, finished)
+        rerun = self._run_prediction_subprocess(command)
+
+        self._assertSucceeded(rerun, "rerun")
+        self.assertEqual((rerun.stdout + rerun.stderr).count(self.SKIPPED), 2)
+        self.assertEqual(self._mtimes(partial, finished), before, "outputs were written again")
+
 
 def _parse_test_args():
     use_temp = '--use-temp-dir' in sys.argv or __import__("os").getenv('USE_TEMP_DIR', '').lower() in ('1','true','yes')

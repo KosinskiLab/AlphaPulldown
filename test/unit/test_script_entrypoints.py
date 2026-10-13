@@ -591,7 +591,8 @@ def test_predict_structure_changes_backend_and_postprocesses_jobs(
             {"model_runners": {"modelA": object(), "modelB": object()}},
             sys.maxsize // 2,
         ),
-        ("alphafold3", {"model_runners": {"modelA": object()}}, 2**32 - 1),
+        # The AlphaFold 3 backend picks the seed: an earlier run's when it resumes a fold.
+        ("alphafold3", {"model_runners": {"modelA": object()}}, None),
         ("custom-backend", {"model_runners": {"modelA": object()}}, sys.maxsize),
     ],
 )
@@ -640,8 +641,12 @@ def test_predict_structure_generates_backend_specific_random_seeds(
         fold_backend=backend_name,
     )
 
-    assert recorded_upper_bounds == [expected_upper_bound]
-    assert predict_calls[0]["random_seed"] == 17
+    if expected_upper_bound is None:
+        assert recorded_upper_bounds == []
+        assert predict_calls[0]["random_seed"] is None
+    else:
+        assert recorded_upper_bounds == [expected_upper_bound]
+        assert predict_calls[0]["random_seed"] == 17
 
 
 def test_pre_modelling_setup_decompresses_metadata_and_sets_input_sequences(

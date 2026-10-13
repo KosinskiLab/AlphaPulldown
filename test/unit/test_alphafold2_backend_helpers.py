@@ -764,9 +764,48 @@ def test_predict_individual_job_resumes_completed_models_and_returns_early(
     )
 
     assert predict_calls == []
-    assert process_calls == [11]
+    # The model comes from its PDB; the features are not processed again for it.
+    assert process_calls == []
     assert results["modelA"]["seqs"] == ["AB"]
-    assert results["modelA"]["unrelaxed_protein"].name == "predicted"
+    assert results["modelA"]["unrelaxed_protein"].name == "from_pdb:existing pdb"
+
+
+def test_predict_individual_job_processes_features_only_for_models_it_predicts(
+    af2_backend_module,
+    tmp_path,
+):
+    monomer = af2_backend_module.MonomericObject("single", "AB")
+    monomer.feature_dict = {"residue_index": np.array([0, 1], dtype=np.int32)}
+    with open(tmp_path / "result_modelA.pkl", "wb") as handle:
+        pickle.dump({"plddt": np.array([91.0, 88.0], dtype=np.float32)}, handle, protocol=4)
+    (tmp_path / "unrelaxed_modelA.pdb").write_text("existing pdb", encoding="utf-8")
+    process_calls = []
+    runner = SimpleNamespace(
+        multimer_mode=False,
+        process_features=lambda feature_dict, random_seed: process_calls.append(
+            random_seed
+        )
+        or dict(feature_dict),
+        predict=lambda processed_feature_dict, random_seed: {
+            "plddt": np.array([70.0, 71.0], dtype=np.float32),
+            "predicted_aligned_error": np.zeros((2, 2), dtype=np.float32),
+            "max_predicted_aligned_error": 31.0,
+        },
+    )
+
+    results = af2_backend_module.AlphaFold2Backend.predict_individual_job(
+        model_runners={"modelA": runner, "modelB": runner},
+        multimeric_object=monomer,
+        allow_resume=True,
+        skip_templates=False,
+        output_dir=tmp_path,
+        random_seed=11,
+    )
+
+    # Model B's seed only: model_index + random_seed * number of models.
+    assert process_calls == [1 + 11 * 2]
+    assert results["modelA"]["unrelaxed_protein"].name == "from_pdb:existing pdb"
+    assert results["modelB"]["unrelaxed_protein"].name == "predicted"
 
 
 def test_predict_individual_job_rejects_missing_or_zero_template_positions(
@@ -1732,6 +1771,130 @@ def test_predict_individual_job_keeps_the_relaxation_until_the_new_model_is_writ
 
     assert (tmp_path / "relaxed_modelA.pdb").read_text(encoding="utf-8") == "RELAXED:earlier"
     assert json.loads((tmp_path / "timings.json").read_text())["relax_modelA"] == 2.0
+
+
+def _af2_monomer_and_runner(module, predictions):
+    """A monomer and a runner that appends each model prediction to ``predictions``."""
+    monomer = module.MonomericObject("single", "AB")
+    monomer.feature_dict = {"residue_index": np.array([0, 1], dtype=np.int32)}
+
+    def predict(processed_feature_dict, random_seed):
+        predictions.append(random_seed)
+        return {
+            "plddt": np.array([91.0, 88.0], dtype=np.float32),
+            "predicted_aligned_error": np.zeros((2, 2), dtype=np.float32),
+            "max_predicted_aligned_error": 31.0,
+            "ptm": 0.5,
+            "ranking_confidence": 89.5,
+        }
+
+    runner = SimpleNamespace(
+        multimer_mode=False,
+        process_features=lambda feature_dict, random_seed: dict(feature_dict),
+        predict=predict,
+    )
+    return monomer, runner
+
+
+def _af2_run(module, monkeypatch, output_dir, predictions, **postprocess_flags):
+    """Predict a two-model monomer fold and post-process it as the adapters do; return
+    the folds predict yielded. Each model prediction appends to ``predictions``."""
+    _skip_plots_and_cleanup(monkeypatch, module)
+    monomer, runner = _af2_monomer_and_runner(module, predictions)
+    flags = {
+        "models_to_relax": module.ModelsToRelax.NONE,
+        "convert_to_modelcif": False,
+        "storage_mode": "vanilla",
+        **postprocess_flags,
+    }
+    yielded = []
+    for job in module.AlphaFold2Backend.predict(
+        model_runners={"modelA": runner, "modelB": runner},
+        objects_to_model=[{"object": monomer, "output_dir": str(output_dir)}],
+        allow_resume=True,
+        skip_templates=False,
+        random_seed=3,
+        postprocess_flags=flags,
+    ):
+        yielded.append(job)
+        module.AlphaFold2Backend.postprocess(
+            prediction_results=job["prediction_results"],
+            multimeric_object=job["object"],
+            output_dir=job["output_dir"],
+            features_directory="/features",
+            **flags,
+        )
+    return yielded
+
+
+def test_af2_rerun_of_a_finished_fold_whose_pickles_were_removed_predicts_nothing(
+    af2_backend_module, monkeypatch, tmp_path
+):
+    """storage_mode=minimal removes the result pickles that per-model resume looks for,
+    so a rerun predicted every finished fold again."""
+    predictions = []
+    _af2_run(af2_backend_module, monkeypatch, tmp_path, predictions, storage_mode="minimal")
+    for path in tmp_path.glob("result_*.pkl"):
+        path.unlink()
+
+    rerun = _af2_run(
+        af2_backend_module, monkeypatch, tmp_path, predictions, storage_mode="minimal"
+    )
+
+    assert len(predictions) == 2
+    assert rerun == []
+    record = json.loads((tmp_path / "alphapulldown_prediction.json").read_text())
+    assert record["complete"] is True
+    assert record["settings"]["model_names"] == ["modelA", "modelB"]
+
+
+def test_af2_finished_fold_is_post_processed_again_when_its_relaxation_changes(
+    af2_backend_module, monkeypatch, tmp_path
+):
+    """Relaxing a finished fold later keeps working: it is resumed, not skipped."""
+    predictions = []
+    _af2_run(af2_backend_module, monkeypatch, tmp_path, predictions)
+
+    rerun = _af2_run(
+        af2_backend_module,
+        monkeypatch,
+        tmp_path,
+        predictions,
+        models_to_relax=af2_backend_module.ModelsToRelax.BEST,
+    )
+
+    assert len(predictions) == 2
+    assert len(rerun) == 1
+    assert len(list(tmp_path.glob("relaxed_*.pdb"))) == 1
+    record = json.loads((tmp_path / "alphapulldown_prediction.json").read_text())
+    assert record["complete"] is True
+    assert record["settings"]["models_to_relax"] == str(
+        af2_backend_module.ModelsToRelax.BEST
+    )
+
+
+def test_af2_fold_killed_before_postprocessing_is_resumed(
+    af2_backend_module, monkeypatch, tmp_path
+):
+    predictions = []
+    monomer, runner = _af2_monomer_and_runner(af2_backend_module, predictions)
+    jobs = af2_backend_module.AlphaFold2Backend.predict(
+        model_runners={"modelA": runner, "modelB": runner},
+        objects_to_model=[{"object": monomer, "output_dir": str(tmp_path)}],
+        allow_resume=True,
+        skip_templates=False,
+        random_seed=3,
+        postprocess_flags={},
+    )
+    next(jobs)  # predicted, then killed before post-processing
+
+    record = json.loads((tmp_path / "alphapulldown_prediction.json").read_text())
+    assert record["complete"] is False
+    assert len(_af2_run(af2_backend_module, monkeypatch, tmp_path, predictions)) == 1
+    # Both models came from the first run's pickles.
+    assert len(predictions) == 2
+    record = json.loads((tmp_path / "alphapulldown_prediction.json").read_text())
+    assert record["complete"] is True
 
 
 def test_msa_depth_scan_gives_every_depth_its_own_runner_and_config(

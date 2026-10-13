@@ -34,8 +34,8 @@ def test_every_backend_accepts_the_common_flags():
 
 
 def test_af2_only_and_af3_only_flags_are_rejected_by_the_other_backend():
-    assert inference_flags.unsupported_flags("alphafold3", ["allow_resume"]) == [
-        "allow_resume"
+    assert inference_flags.unsupported_flags("alphafold3", ["models_to_relax"]) == [
+        "models_to_relax"
     ]
     assert inference_flags.unsupported_flags("alphafold2", ["buckets"]) == ["buckets"]
 
@@ -109,3 +109,8 @@ def test_unifold_validation_rejects_the_backend_before_checking_flags():
     assert inference_flags.unsupported_flags("alphafold3", ["unifold_model_name"]) == [
         "unifold_model_name"
     ]
+
+
+def test_both_alphafold_backends_accept_allow_resume():
+    for backend in ("alphafold2", "alphafold3"):
+        assert inference_flags.unsupported_flags(backend, ["allow_resume"]) == [], backend

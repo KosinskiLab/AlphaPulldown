@@ -130,7 +130,10 @@ flags.DEFINE_integer('random_seed', None, 'The random seed for the data '
 flags.DEFINE_boolean('convert_to_modelcif', True,
                      'Whether to convert predicted pdb files to modelcif format. Default True.')
 flags.DEFINE_boolean('allow_resume', True,
-                     'Whether to allow resuming predictions from previous runs or start anew. Default True.')
+                     'Whether to resume what earlier runs left in the output directory or start '
+                     'anew. A finished fold is skipped; AlphaFold 2 continues from the last '
+                     'finished model and relaxation, AlphaFold 3 reuses the seed of an earlier '
+                     'run unless --random_seed is given. Default True.')
 flags.DEFINE_boolean('dropout', False,
                      'Whether to use dropout when inferring for more diverse predictions. Default False.')
 # AlphaLink2 settings

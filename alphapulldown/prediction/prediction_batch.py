@@ -272,14 +272,15 @@ class PreparedPredictionAdapter:
             dict(configuration), self._backend.setup(**configuration)
         )
 
-    def _random_seed(self, session: _AlphaPulldownSession) -> int:
+    def _random_seed(self, session: _AlphaPulldownSession) -> Optional[int]:
         if self._requested_random_seed is not None:
             return self._requested_random_seed
         if self._fold_backend == "alphafold2":
             count = len(session.backend_values["model_runners"])
             return random.randrange(sys.maxsize // count)
         if self._fold_backend == "alphafold3":
-            return random.randrange(2**32 - 1)
+            # The backend reuses an earlier run's seed when it resumes a fold.
+            return None
         return random.randrange(sys.maxsize)
 
     def predict(self, session: _AlphaPulldownSession, job: PredictionJob) -> None:
@@ -288,6 +289,8 @@ class PreparedPredictionAdapter:
             **session.backend_values,
             objects_to_model=self._objects_to_model,
             random_seed=self._random_seed(session),
+            # Part of what a finished fold is, so resume can tell whether one is.
+            postprocess_flags=self._postprocess_flags,
             **session.configuration,
         )
         for predicted_job in predicted_jobs:
@@ -362,14 +365,15 @@ class AlphaPulldownPredictionAdapter:
         backend_values = self._backend.setup(**configuration)
         return _AlphaPulldownSession(dict(configuration), backend_values)
 
-    def _random_seed(self, session: _AlphaPulldownSession) -> int:
+    def _random_seed(self, session: _AlphaPulldownSession) -> Optional[int]:
         if self._flags.random_seed is not None:
             return self._flags.random_seed
         if self._flags.fold_backend == "alphafold2":
             model_count = len(session.backend_values["model_runners"])
             return random.randrange(sys.maxsize // model_count)
         if self._flags.fold_backend == "alphafold3":
-            return random.randrange(2**32 - 1)
+            # The backend reuses an earlier run's seed when it resumes a fold.
+            return None
         return random.randrange(sys.maxsize)
 
     def _prepare_protein_object(self, interactors: list, output_dir: str):
@@ -440,13 +444,15 @@ class AlphaPulldownPredictionAdapter:
 
     def predict(self, session: _AlphaPulldownSession, job: PredictionJob) -> None:
         objects_to_model = self._objects_to_model(job)
+        postprocess_flags = self._postprocess_flags()
         predicted_jobs = self._backend.predict(
             **session.backend_values,
             objects_to_model=objects_to_model,
             random_seed=self._random_seed(session),
+            # Part of what a finished fold is, so resume can tell whether one is.
+            postprocess_flags=postprocess_flags,
             **session.configuration,
         )
-        postprocess_flags = self._postprocess_flags()
         for predicted_job in predicted_jobs:
             self._backend.postprocess(
                 **postprocess_flags,
