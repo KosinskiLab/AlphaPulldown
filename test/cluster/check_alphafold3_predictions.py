@@ -6,7 +6,9 @@ The script is identical for Slurm and workstation users – only the
 wrapper decides *how* each case is executed.
 """
 from __future__ import annotations
+import csv
 import os
+import signal
 import subprocess
 import time
 import sys
@@ -2864,8 +2866,8 @@ class TestAlphaFold3Resume(_TestBase):
 
     # What earlier runs leave behind -------------------------------------------- #
     def _leave_what_a_killed_run_leaves(self, fold_dir: Path) -> None:
-        """Killed during inference: the record of the run it started and its input
-        JSON; AF3 had written no model yet."""
+        """Killed before its first seed finished: the record of the run it started and
+        its input JSON; no model yet."""
         record = self._record(fold_dir)
         record["complete"] = False
         (fold_dir / self.RECORD).write_text(json.dumps(record))
@@ -2879,12 +2881,42 @@ class TestAlphaFold3Resume(_TestBase):
         """AlphaPulldown 2.10 and older wrote no fold record."""
         (fold_dir / self.RECORD).unlink()
 
+    def _leave_what_a_run_killed_after_its_first_seed_leaves(self, fold_dir: Path) -> None:
+        """Each seed is written out, and ranked, as it finishes; the best model only
+        once all of them have."""
+        record = self._record(fold_dir)
+        record["complete"] = False
+        (fold_dir / self.RECORD).write_text(json.dumps(record))
+        first_seed = record["settings"]["seeds"][0]
+        for sample_dir in fold_dir.glob("seed-*"):
+            if not sample_dir.name.startswith(f"seed-{first_seed}_"):
+                shutil.rmtree(sample_dir)
+        ranking = fold_dir / "ranking_scores.csv"
+        with ranking.open(newline="") as handle:
+            rows = list(csv.reader(handle))
+        with ranking.open("w") as handle:
+            csv.writer(handle).writerows(
+                [rows[0]] + [row for row in rows[1:] if row[0] == str(first_seed)]
+            )
+        for path in fold_dir.iterdir():
+            if path.is_file() and (
+                path.name == "TERMS_OF_USE.md"
+                or path.name.endswith(("_model.cif", "_confidences.json"))
+            ):
+                path.unlink()
+
     @parameterized.named_parameters(
         dict(testcase_name="finished_fold", predicted_again=False),
         dict(
             testcase_name="killed_during_inference",
             leave="_leave_what_a_killed_run_leaves",
             predicted_again=True,
+        ),
+        dict(
+            testcase_name="killed_after_its_first_seed",
+            leave="_leave_what_a_run_killed_after_its_first_seed_leaves",
+            predicted_again=True,
+            kept_seeds=1,
         ),
         dict(
             testcase_name="older_version",
@@ -2903,7 +2935,7 @@ class TestAlphaFold3Resume(_TestBase):
             predicted_again=True,
         ),
     )
-    def test_(self, predicted_again, leave=None, extra=(), samples=SAMPLES):
+    def test_(self, predicted_again, leave=None, extra=(), samples=SAMPLES, kept_seeds=0):
         self._require_af3_functional_environment()
         self._assertSucceeded(self._predict(), "first run")
         fold_dir = self._fold_dir(self.output_dir)
@@ -2928,12 +2960,82 @@ class TestAlphaFold3Resume(_TestBase):
         if predicted_again:
             self.assertNotIn(self.SKIPPED, log)
             after = self._outputs(fold_dir)
+            kept = {f"seed-{seed}_" for seed in seeds[:kept_seeds]}
             for sample_dir in self._sample_dirs(fold_dir):
                 model = f"{sample_dir}/model.cif"
-                self.assertNotEqual(after[model], before.get(model), f"{model} was not predicted again")
+                if any(sample_dir.startswith(prefix) for prefix in kept):
+                    self.assertEqual(after[model], before[model], f"{model} was predicted again")
+                else:
+                    self.assertNotEqual(
+                        after[model], before.get(model), f"{model} was not predicted again"
+                    )
         else:
             self.assertIn(self.SKIPPED, log)
             self.assertEqual(self._outputs(fold_dir), before, "outputs were written again")
+
+    def test_af3_rerun_after_a_kill_keeps_the_seeds_already_written(self):
+        """Kill a prediction once its first seed is written out, as a job hitting its
+        time limit; the rerun predicts only the seeds that were missing."""
+        self._require_af3_functional_environment()
+        command = [
+            sys.executable,
+            str(self.script_single),
+            f"--input={self.FOLD}",
+            f"--output_directory={self.output_dir / 'fold'}",
+            "--num_seeds=4",
+            f"--num_diffusion_samples={self.SAMPLES}",
+            *self._common_args(),
+        ]
+        log_path = self.output_dir / "killed_run.log"
+        with log_path.open("w") as log:
+            running = subprocess.Popen(
+                command,
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                env=self._make_af3_test_env(),
+                start_new_session=True,
+            )
+            ranking = None
+            while running.poll() is None:
+                ranking = next((self.output_dir / "fold").rglob("ranking_scores.csv"), None)
+                if ranking is not None:
+                    break
+                time.sleep(0.5)
+            if running.poll() is not None:
+                self.fail(
+                    f"The run ended (exit {running.returncode}) before writing a seed:\n"
+                    f"{log_path.read_text()}"
+                )
+            os.killpg(running.pid, signal.SIGKILL)
+            running.wait()
+
+        fold_dir = ranking.parent
+        record = self._record(fold_dir)
+        self.assertFalse(record["complete"])
+        seeds = record["settings"]["seeds"]
+        self.assertLen(seeds, 4)
+        with ranking.open(newline="") as handle:
+            written = sorted({int(row["seed"]) for row in csv.DictReader(handle)})
+        self.assertNotEqual(written, sorted(seeds), "killed after the last seed")
+        before = self._outputs(fold_dir)
+
+        rerun = self._predict("--num_seeds=4")
+
+        self._assertSucceeded(rerun, "rerun")
+        self.assertIn(
+            f"seed(s) {written} are already predicted", rerun.stdout + rerun.stderr
+        )
+        self._assert_af3_outputs_present(fold_dir)
+        self.assertTrue(self._record(fold_dir)["complete"])
+        self.assertEqual(self._record(fold_dir)["settings"]["seeds"], seeds)
+        after = self._outputs(fold_dir)
+        for seed in seeds:
+            for sample in range(self.SAMPLES):
+                model = f"seed-{seed}_sample-{sample}/model.cif"
+                if seed in written:
+                    self.assertEqual(after[model], before[model], f"{model} was predicted again")
+                else:
+                    self.assertIn(model, after)
 
     def test_af3_resume_refuses_a_seed_that_would_mix_two_runs(self):
         self._require_af3_functional_environment()
