@@ -1694,6 +1694,34 @@ def test_predict_individual_job_drops_the_relaxation_of_a_model_it_predicts_agai
     assert "modelA" not in metrics
 
 
+def test_predict_individual_job_keeps_the_relaxation_until_the_new_model_is_written(
+    af2_backend_module, monkeypatch, tmp_path
+):
+    """A job killed while writing a model predicted again leaves the earlier prediction
+    whole, and its relaxation with it."""
+    monomer = af2_backend_module.MonomericObject("single", "AB")
+    monomer.feature_dict = {"residue_index": np.array([0, 1], dtype=np.int32)}
+    (tmp_path / "relaxed_modelA.pdb").write_text("RELAXED:earlier", encoding="utf-8")
+    (tmp_path / "timings.json").write_text(json.dumps({"relax_modelA": 2.0}), encoding="utf-8")
+
+    def killed(*args, **kwargs):
+        raise KeyboardInterrupt("killed while writing the pickle")
+
+    monkeypatch.setattr(af2_backend_module.pickle, "dump", killed)
+    with pytest.raises(KeyboardInterrupt):
+        af2_backend_module.AlphaFold2Backend.predict_individual_job(
+            model_runners={"modelA": _two_model_monomer_runner()},
+            multimeric_object=monomer,
+            allow_resume=False,
+            skip_templates=False,
+            output_dir=tmp_path,
+            random_seed=3,
+        )
+
+    assert (tmp_path / "relaxed_modelA.pdb").read_text(encoding="utf-8") == "RELAXED:earlier"
+    assert json.loads((tmp_path / "timings.json").read_text())["relax_modelA"] == 2.0
+
+
 def test_msa_depth_scan_gives_every_depth_its_own_runner_and_config(
     af2_backend_module, monkeypatch
 ):

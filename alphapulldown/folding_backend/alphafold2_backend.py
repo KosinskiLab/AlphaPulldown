@@ -916,8 +916,6 @@ class AlphaFold2Backend(FoldingBackend):
             )
             # Remove jax dependency from results
             np_prediction_result = _jnp_to_np(dict(prediction_result))
-            # A relaxed model left by an earlier prediction must not be ranked with this one.
-            _discard_relaxation(output_dir, model_name, timings)
             # Save prediction results to pickle file. Resume counts a model as done when
             # its pickle and PDB exist, so both appear whole or not at all.
             result_output_path = os.path.join(output_dir, f"result_{model_name}.pkl")
@@ -933,6 +931,12 @@ class AlphaFold2Backend(FoldingBackend):
 
             with open_atomic(unrelaxed_pdb_path) as f:
                 f.write(protein.to_pdb(unrelaxed_protein))
+            # Only now that the new model is on disk: a relaxed model of the earlier one
+            # must not be ranked with it. Until here a kill leaves the earlier prediction
+            # whole, relaxation included; one that strikes after the new files and before
+            # this cannot pass off the old relaxation either, as its B-factors are the
+            # earlier pLDDT (_has_current_relaxation).
+            _discard_relaxation(output_dir, model_name, timings)
             # Save timings to json file
             with open_atomic(timings_output_path) as f:
                 f.write(json.dumps(timings, indent=4))
