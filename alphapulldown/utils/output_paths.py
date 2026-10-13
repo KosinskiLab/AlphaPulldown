@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import string
 from pathlib import Path
 from typing import Sequence
@@ -169,3 +170,30 @@ def resolve_af3_json_output_dir(
     candidate = output_root / derive_af3_job_name_from_json(json_input_path)
     _ensure_path_is_within_root(candidate, output_root)
     return os.fspath(candidate)
+
+
+def _normalise_output_name_fragment(raw_name: str) -> str:
+    """Normalises one output-name fragment while preserving readable IDs."""
+    cleaned = re.sub(r"\s+", "_", raw_name.strip())
+    cleaned = re.sub(r"[^A-Za-z0-9_.-]+", "_", cleaned)
+    cleaned = cleaned.strip("_.-")
+    return cleaned or "ranked_0"
+
+
+def _compact_existing_compound_name(raw_name: str) -> str:
+    """Compacts already-joined `_and_` names such as multimer descriptions."""
+    parts = [
+        _normalise_output_name_fragment(part)
+        for part in raw_name.split("_and_")
+        if part.strip("_.-")
+    ]
+    if not parts:
+        return "ranked_0"
+    return _compact_output_job_name(
+        "_and_".join(_collapse_repeated_name_fragments(parts))
+    )
+
+
+def _regions_to_name_fragment(regions: Sequence[tuple[int, int]]) -> str:
+    """Returns a readable name fragment for a set of closed residue intervals."""
+    return "_".join(f"{start}-{end}" for start, end in regions)

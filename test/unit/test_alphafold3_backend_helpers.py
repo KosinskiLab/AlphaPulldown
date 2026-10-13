@@ -408,6 +408,9 @@ def af3_backend_module(tmp_path_factory):
     with patch.dict(sys.modules), pytest.MonkeyPatch.context() as monkeypatch:
         _install_alphafold3_backend_stubs(tmp_path, monkeypatch)
         sys.modules.pop("alphapulldown.folding_backend.alphafold3_backend", None)
+        # Load the extracted modules afresh too, against the stubs: a copy imported
+        # earlier would hold the real AF3.
+        sys.modules.pop("alphapulldown.folding_backend.alphafold3_outputs", None)
         spec = importlib.util.spec_from_file_location(
             "alphapulldown.folding_backend.alphafold3_backend",
             MODULE_PATH,
@@ -417,6 +420,13 @@ def af3_backend_module(tmp_path_factory):
         assert spec.loader is not None
         spec.loader.exec_module(module)
         yield module
+
+
+@pytest.fixture(scope="module")
+def af3_outputs_module(af3_backend_module):
+    """The output-writing module the stubbed backend imported, to patch and call where
+    the moved code looks its names up."""
+    return sys.modules["alphapulldown.folding_backend.alphafold3_outputs"]
 
 
 class FakeChainsTable:
@@ -486,15 +496,15 @@ def test_object_and_output_job_name_helpers_cover_json_monomer_and_multimer_inpu
     assert job_name == "sample__5-9_and_protA__x2_and_protA__x2_and_protB"
 
 
-def test_duplicate_occurrence_and_author_id_helpers_handle_overflow(af3_backend_module):
-    assert af3_backend_module._duplicate_occurrence_to_insertion_code(1) == "."
-    assert af3_backend_module._duplicate_occurrence_to_insertion_code(2) == "A"
-    assert af3_backend_module._duplicate_occurrence_to_insertion_code(27) == "Z"
+def test_duplicate_occurrence_and_author_id_helpers_handle_overflow(af3_outputs_module):
+    assert af3_outputs_module._duplicate_occurrence_to_insertion_code(1) == "."
+    assert af3_outputs_module._duplicate_occurrence_to_insertion_code(2) == "A"
+    assert af3_outputs_module._duplicate_occurrence_to_insertion_code(27) == "Z"
     with pytest.raises(ValueError):
-        af3_backend_module._duplicate_occurrence_to_insertion_code(28)
-    assert af3_backend_module._duplicate_occurrence_to_insertion_code(28, strict=False) == "."
+        af3_outputs_module._duplicate_occurrence_to_insertion_code(28)
+    assert af3_outputs_module._duplicate_occurrence_to_insertion_code(28, strict=False) == "."
 
-    author_ids, insertion_codes, labels = af3_backend_module._author_ids_with_insertion_codes(
+    author_ids, insertion_codes, labels = af3_outputs_module._author_ids_with_insertion_codes(
         ["A", "A", "A"],
         ["10", "10", "10"],
         strict=False,
@@ -505,9 +515,9 @@ def test_duplicate_occurrence_and_author_id_helpers_handle_overflow(af3_backend_
 
 
 def test_author_id_helpers_respect_existing_insertion_codes_and_overflow_labels(
-    af3_backend_module,
+    af3_outputs_module,
 ):
-    author_ids, insertion_codes, labels = af3_backend_module._author_ids_with_insertion_codes(
+    author_ids, insertion_codes, labels = af3_outputs_module._author_ids_with_insertion_codes(
         ["A"] * 28,
         ["5"] * 28,
         strict=False,
@@ -518,7 +528,7 @@ def test_author_id_helpers_respect_existing_insertion_codes_and_overflow_labels(
     assert insertion_codes[27] == "."
     assert labels[27] == "5[28]"
 
-    author_ids, insertion_codes, labels = af3_backend_module._author_ids_with_insertion_codes(
+    author_ids, insertion_codes, labels = af3_outputs_module._author_ids_with_insertion_codes(
         ["A", "A"],
         ["5", "5"],
         existing_insertion_codes=[".", "C"],
@@ -528,34 +538,34 @@ def test_author_id_helpers_respect_existing_insertion_codes_and_overflow_labels(
 
 
 def test_residue_author_and_existing_insertion_code_helpers_normalise_structure_tables(
-    af3_backend_module,
+    af3_outputs_module,
 ):
     fallback_structure = FakeStructure(
         auth_seq_id=[".", "?"], residue_ids=[101, 102], insertion_codes=["?", ""], chain_keys=[0, 0], chain_ids=["A"]
     )
-    assert af3_backend_module._residue_author_ids(fallback_structure) == ["101", "102"]
-    assert af3_backend_module._existing_insertion_codes(fallback_structure) == [".", "."]
+    assert af3_outputs_module._residue_author_ids(fallback_structure) == ["101", "102"]
+    assert af3_outputs_module._existing_insertion_codes(fallback_structure) == [".", "."]
 
     explicit_structure = FakeStructure(
         auth_seq_id=["7", "8A"], residue_ids=[1, 2], insertion_codes=[".", "B"], chain_keys=[0, 0], chain_ids=["A"]
     )
-    assert af3_backend_module._residue_author_ids(explicit_structure) == ["7", "8A"]
-    assert af3_backend_module._existing_insertion_codes(explicit_structure) == [".", "B"]
+    assert af3_outputs_module._residue_author_ids(explicit_structure) == ["7", "8A"]
+    assert af3_outputs_module._existing_insertion_codes(explicit_structure) == [".", "B"]
 
 
-def test_coerce_json_scalar_and_sequential_residue_ids(af3_backend_module):
-    assert af3_backend_module._coerce_json_scalar("17") == 17
-    assert af3_backend_module._coerce_json_scalar("A17") == "A17"
-    assert af3_backend_module._sequential_residue_ids_per_chain(["A", "A", "B", "A", "B"]) == [1, 2, 1, 3, 2]
+def test_coerce_json_scalar_and_sequential_residue_ids(af3_outputs_module):
+    assert af3_outputs_module._coerce_json_scalar("17") == 17
+    assert af3_outputs_module._coerce_json_scalar("A17") == "A17"
+    assert af3_outputs_module._sequential_residue_ids_per_chain(["A", "A", "B", "A", "B"]) == [1, 2, 1, 3, 2]
 
 
-def test_augment_confidence_json_with_author_numbering_updates_sidecar(af3_backend_module, tmp_path):
+def test_augment_confidence_json_with_author_numbering_updates_sidecar(af3_outputs_module, tmp_path):
     confidences_path = tmp_path / "confidences.json"
     confidences_path.write_text(
         json.dumps({"token_res_ids": ["1", "2"]}),
         encoding="utf-8",
     )
-    inference_result = af3_backend_module.model.InferenceResult(
+    inference_result = af3_outputs_module.model.InferenceResult(
         predicted_structure=None,
         metadata={
             "token_auth_res_ids": ["10", "11"],
@@ -564,7 +574,7 @@ def test_augment_confidence_json_with_author_numbering_updates_sidecar(af3_backe
         },
     )
 
-    af3_backend_module._augment_confidence_json_with_author_numbering(
+    af3_outputs_module._augment_confidence_json_with_author_numbering(
         confidences_path,
         inference_result,
     )
@@ -577,18 +587,18 @@ def test_augment_confidence_json_with_author_numbering_updates_sidecar(af3_backe
 
 
 def test_augment_confidence_json_with_author_numbering_is_noop_without_metadata(
-    af3_backend_module,
+    af3_outputs_module,
     tmp_path,
 ):
     confidences_path = tmp_path / "confidences.json"
     original = {"token_res_ids": ["1", "2"], "other": "value"}
     confidences_path.write_text(json.dumps(original), encoding="utf-8")
-    inference_result = af3_backend_module.model.InferenceResult(
+    inference_result = af3_outputs_module.model.InferenceResult(
         predicted_structure=None,
         metadata={},
     )
 
-    af3_backend_module._augment_confidence_json_with_author_numbering(
+    af3_outputs_module._augment_confidence_json_with_author_numbering(
         confidences_path,
         inference_result,
     )
@@ -597,7 +607,7 @@ def test_augment_confidence_json_with_author_numbering_is_noop_without_metadata(
 
 
 def test_make_viewer_compatible_inference_result_rewrites_residue_and_token_numbering(
-    af3_backend_module,
+    af3_outputs_module,
 ):
     structure = FakeStructure(
         auth_seq_id=["10", "10", "7"],
@@ -606,7 +616,7 @@ def test_make_viewer_compatible_inference_result_rewrites_residue_and_token_numb
         chain_keys=[0, 0, 1],
         chain_ids=["A", "B"],
     )
-    inference_result = af3_backend_module.model.InferenceResult(
+    inference_result = af3_outputs_module.model.InferenceResult(
         predicted_structure=structure,
         metadata={
             "token_chain_ids": ["A", "A", "B", "B"],
@@ -614,7 +624,7 @@ def test_make_viewer_compatible_inference_result_rewrites_residue_and_token_numb
         },
     )
 
-    viewer_result = af3_backend_module._make_viewer_compatible_inference_result(
+    viewer_result = af3_outputs_module._make_viewer_compatible_inference_result(
         inference_result
     )
 
@@ -682,12 +692,12 @@ def _ranking_rows(output_dir):
 
 
 def test_write_seed_outputs_writes_the_seed_whole_and_ranks_it_last(
-    af3_backend_module, monkeypatch, tmp_path
+    af3_backend_module, af3_outputs_module, monkeypatch, tmp_path
 ):
     augment_calls = []
-    _write_files_like_af3(af3_backend_module, monkeypatch, augment_calls)
+    _write_files_like_af3(af3_outputs_module, monkeypatch, augment_calls)
 
-    af3_backend_module.write_seed_outputs(
+    af3_outputs_module.write_seed_outputs(
         _results_for_seed(af3_backend_module, 7, 0.2, 0.9, extras=True),
         tmp_path,
         "job_name",
@@ -715,12 +725,12 @@ def test_write_seed_outputs_writes_the_seed_whole_and_ranks_it_last(
 
 
 def test_write_seed_outputs_replaces_a_seed_written_before_and_keeps_the_others(
-    af3_backend_module, monkeypatch, tmp_path
+    af3_backend_module, af3_outputs_module, monkeypatch, tmp_path
 ):
-    _write_files_like_af3(af3_backend_module, monkeypatch)
+    _write_files_like_af3(af3_outputs_module, monkeypatch)
 
     for seed, score in ((7, 0.2), (8, 0.5), (7, 0.3)):
-        af3_backend_module.write_seed_outputs(
+        af3_outputs_module.write_seed_outputs(
             _results_for_seed(af3_backend_module, seed, score), tmp_path, "job"
         )
 
@@ -729,17 +739,17 @@ def test_write_seed_outputs_replaces_a_seed_written_before_and_keeps_the_others(
 
 
 def test_write_fold_outputs_gives_the_best_sample_the_job_name(
-    af3_backend_module, monkeypatch, tmp_path
+    af3_backend_module, af3_outputs_module, monkeypatch, tmp_path
 ):
-    _write_files_like_af3(af3_backend_module, monkeypatch)
-    af3_backend_module.write_seed_outputs(
+    _write_files_like_af3(af3_outputs_module, monkeypatch)
+    af3_outputs_module.write_seed_outputs(
         _results_for_seed(af3_backend_module, 7, 0.2, 0.9), tmp_path, "job"
     )
-    af3_backend_module.write_seed_outputs(
+    af3_outputs_module.write_seed_outputs(
         _results_for_seed(af3_backend_module, 8, 0.9, 0.4), tmp_path, "job"
     )
 
-    af3_backend_module.write_fold_outputs(tmp_path, "job")
+    af3_outputs_module.write_fold_outputs(tmp_path, "job")
 
     # The first of the equally ranked samples, as AlphaFold 3 picks it.
     for name in ("model.cif", "confidences.json", "summary_confidences.json"):
