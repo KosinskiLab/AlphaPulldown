@@ -1841,34 +1841,11 @@ def test_predict_individual_job_resumes_a_model_whose_pdb_matches_its_pickle(
     assert results["modelA"]["unrelaxed_protein"].name.startswith("from_pdb:")
 
 
-def _af2_monomer_and_runner(module, predictions):
-    """A monomer and a runner that appends each model prediction to ``predictions``."""
-    monomer = module.MonomericObject("single", "AB")
-    monomer.feature_dict = {"residue_index": np.array([0, 1], dtype=np.int32)}
-
-    def predict(processed_feature_dict, random_seed):
-        predictions.append(random_seed)
-        return {
-            "plddt": np.array([91.0, 88.0], dtype=np.float32),
-            "predicted_aligned_error": np.zeros((2, 2), dtype=np.float32),
-            "max_predicted_aligned_error": 31.0,
-            "ptm": 0.5,
-            "ranking_confidence": 89.5,
-        }
-
-    runner = SimpleNamespace(
-        multimer_mode=False,
-        process_features=lambda feature_dict, random_seed: dict(feature_dict),
-        predict=predict,
-    )
-    return monomer, runner
-
-
 def _af2_run(module, monkeypatch, output_dir, predictions, **postprocess_flags):
     """Predict a two-model monomer fold and post-process it as the adapters do; return
     the folds predict yielded. Each model prediction appends to ``predictions``."""
     _skip_plots_and_cleanup(monkeypatch, module)
-    monomer, runner = _af2_monomer_and_runner(module, predictions)
+    monomer, runner = _ab_monomer(module), _monomer_runner(predictions)
     flags = {
         "models_to_relax": module.ModelsToRelax.NONE,
         "convert_to_modelcif": False,
@@ -1945,7 +1922,7 @@ def test_af2_fold_killed_before_postprocessing_is_resumed(
     af2_backend_module, monkeypatch, tmp_path
 ):
     predictions = []
-    monomer, runner = _af2_monomer_and_runner(af2_backend_module, predictions)
+    monomer, runner = _ab_monomer(af2_backend_module), _monomer_runner(predictions)
     jobs = af2_backend_module.AlphaFold2Backend.predict(
         model_runners={"modelA": runner, "modelB": runner},
         objects_to_model=[{"object": monomer, "output_dir": str(tmp_path)}],

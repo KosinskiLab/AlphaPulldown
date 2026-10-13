@@ -11,10 +11,10 @@ def test_fold_record_is_incomplete_until_finished(tmp_path):
     record = resume.read_fold_record(tmp_path)
     assert record["complete"] is False
     assert record["settings"]["seeds"] == [5, 6]
-    assert not resume.fold_is_complete(record, settings)
+    assert not resume.finished_fold(record, settings, "fold", tmp_path)
 
     resume.finish_fold_record(tmp_path)
-    assert resume.fold_is_complete(resume.read_fold_record(tmp_path), settings)
+    assert resume.finished_fold(resume.read_fold_record(tmp_path), settings, "fold", tmp_path)
 
 
 def test_fold_record_names_the_settings_that_changed(tmp_path):
@@ -27,7 +27,9 @@ def test_fold_record_names_the_settings_that_changed(tmp_path):
         "storage_mode"
     ]
     assert resume.changed_settings(record, {"seeds": [5]}) == ["storage_mode"]
-    assert not resume.fold_is_complete(record, {"seeds": [5], "storage_mode": "slim"})
+    assert not resume.finished_fold(
+        record, {"seeds": [5], "storage_mode": "slim"}, "fold", tmp_path
+    )
 
 
 def test_finishing_a_fold_without_a_record_writes_none(tmp_path):

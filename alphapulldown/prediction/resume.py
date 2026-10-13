@@ -82,6 +82,16 @@ def changed_settings(record: Mapping[str, Any], settings: Mapping[str, Any]) -> 
     )
 
 
-def fold_is_complete(record: Mapping[str, Any], settings: Mapping[str, Any]) -> bool:
-    """Whether ``record`` is of a finished run with exactly these ``settings``."""
-    return bool(record.get("complete")) and not changed_settings(record, settings)
+def finished_fold(
+    record: Mapping[str, Any], settings: Mapping[str, Any], name: str, output_dir: PathLike
+) -> bool:
+    """Whether ``record`` is of a run that finished this fold with these ``settings``;
+    logs which settings changed when they differ."""
+    if not record.get("complete"):
+        return False
+    changes = changed_settings(record, settings)
+    if changes:
+        logging.info(f"{name} in {output_dir} was finished with other settings: {', '.join(changes)}.")
+        return False
+    logging.info(f"{name} is already complete in {output_dir}.")
+    return True
