@@ -44,7 +44,7 @@ from alphapulldown.utils.post_modelling import (
 )
 
 if TYPE_CHECKING:
-    from alphapulldown.folding_backend.alphafold3_backend import ResultsForSeed
+    from alphapulldown.folding_backend.alphafold3_runner import ResultsForSeed
 
 
 # What AlphaFold 3 writes per sample, and again under the job name for the best one.
