@@ -1881,13 +1881,21 @@ class AlphaFold3Backend(FoldingBackend):
             }
 
     @staticmethod
-    def postprocess(**kwargs) -> None:
-        # The fold's seeds (process_fold_input): their outputs are already on disk.
-        prediction_results = kwargs.get('prediction_results')
-        output_dir = kwargs.get('output_dir')
-        fold_input_obj = kwargs.get('multimeric_object')
-        storage_mode = kwargs.get('storage_mode', 'vanilla')
+    def postprocess(
+        *,
+        prediction_results=None,
+        output_dir=None,
+        multimeric_object=None,
+        storage_mode: str = 'vanilla',
+        **_ignored,
+    ) -> None:
+        """Write the best model under the job name, apply the storage preset and mark the
+        fold complete. ``prediction_results`` are the fold's seeds, already on disk.
 
+        The adapters pass every backend's post-processing options; those AlphaFold 3
+        does not use, such as ``models_to_relax``, are ignored.
+        """
+        fold_input_obj = multimeric_object
         if prediction_results is None or output_dir is None or fold_input_obj is None:
             logging.warning('AF3 postprocess called with missing arguments; skipping.')
             return
