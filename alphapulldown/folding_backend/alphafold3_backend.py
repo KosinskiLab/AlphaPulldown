@@ -11,12 +11,14 @@ import logging
 import os
 import pathlib
 import typing
-from typing import Any, List, Dict, Union, overload
+from collections.abc import Sequence
+from typing import List, Dict, Union, overload
 
 import alphafold3.cpp
 import jax
 import tokamax
 from alphafold3.common import folding_input
+from alphafold3.model import model
 
 from alphapulldown.folding_backend.folding_backend import FoldingBackend
 from alphapulldown.folding_backend.alphafold3_debug import _write_translated_msa_debug_artifacts
@@ -33,9 +35,9 @@ from alphapulldown.folding_backend.alphafold3_outputs import (
 # predict_structure and ResultsForSeed are re-exported for callers that import them from here.
 from alphapulldown.folding_backend.alphafold3_runner import (
     ModelRunner,
-    ModelT,
     ResultsForSeed,
     _initialise_tokamax_trace_context,
+    make_model_config,
     predict_structure,
     process_fold_input,
 )
@@ -64,37 +66,6 @@ class AlphaFold3Backend(FoldingBackend):
         **kwargs,
     ) -> Dict:
         """Sets up the ModelRunner with the given configurations."""
-
-        # Suppose we rely on your new code's "model.Model" or a custom class
-        from alphafold3.model.model import Model as MyNewModel
-
-        def make_model_config(
-            *,
-            model_class: type[ModelT] = MyNewModel,
-            flash_attention_implementation: tokamax.DotProductAttentionImplementation,
-            num_diffusion_samples: int = 5,
-            num_recycles: int = 10,
-            return_embeddings: bool = False,
-            return_distogram: bool = False,
-            global_config_update: Dict[str, Any],
-        ):
-            # The new code approach:
-            config = model_class.Config()
-            if hasattr(config, 'global_config'):
-                config.global_config.flash_attention_implementation = flash_attention_implementation
-                for key, value in global_config_update.items():
-                    setattr(config.global_config, key, value)
-            if hasattr(config, 'heads') and hasattr(config.heads, 'diffusion'):
-                config.heads.diffusion.eval.num_samples = num_diffusion_samples
-            # Optional overrides present in upstream AF3 runner
-            if hasattr(config, 'num_recycles'):
-                config.num_recycles = num_recycles
-            if hasattr(config, 'return_embeddings'):
-                config.return_embeddings = return_embeddings
-            if hasattr(config, 'return_distogram'):
-                config.return_distogram = return_distogram
-            return config
-
         enable_persistent_compilation_cache(jax_compilation_cache_dir)
         _initialise_tokamax_trace_context()
 
@@ -116,9 +87,11 @@ class AlphaFold3Backend(FoldingBackend):
         fused_triangles = af3_fused_triangles.resolve(fast_kernels, gpu_devices[0])
         logging.info('Building model from scratch...')
 
+        model_class = model.Model
         model_runner = ModelRunner(
-            model_class=MyNewModel,
+            model_class=model_class,
             config=make_model_config(
+                model_class=model_class,
                 flash_attention_implementation=typing.cast(
                     tokamax.DotProductAttentionImplementation,
                     flash_attention_implementation,
@@ -200,7 +173,7 @@ class AlphaFold3Backend(FoldingBackend):
         model_runner: ModelRunner,
         objects_to_model: List[Dict[str, Union[MultimericObject, MonomericObject, ChoppedObject, 'folding_input.Input', str]]],
         random_seed: int,
-        buckets: int,
+        buckets: int | Sequence[int],
         **kwargs,
     ):
         """Predicts structures for a list of objects using AlphaFold 3.

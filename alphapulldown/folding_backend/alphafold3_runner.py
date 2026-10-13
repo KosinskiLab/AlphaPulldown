@@ -18,11 +18,12 @@ import pathlib
 import time
 import typing
 from collections.abc import Sequence
-from typing import List
+from typing import Any, Dict, List
 
 import haiku as hk
 import jax
 import numpy as np
+import tokamax
 from alphafold3.common import base_config
 from alphafold3.common import folding_input
 from alphafold3.constants import chemical_components
@@ -86,6 +87,35 @@ class ResultsForSeed:
 # -----------------------------------------------------------------------------
 # Model Configuration and Runner
 # -----------------------------------------------------------------------------
+
+def make_model_config(
+    *,
+    model_class: type[ModelT],
+    flash_attention_implementation: tokamax.DotProductAttentionImplementation,
+    num_diffusion_samples: int = 5,
+    num_recycles: int = 10,
+    return_embeddings: bool = False,
+    return_distogram: bool = False,
+    global_config_update: Dict[str, Any],
+):
+    """The model's inference config. AF3 releases differ in which of these fields their
+    config has (``return_distogram`` is newer than the rest), so each is set only where
+    it exists."""
+    config = model_class.Config()
+    if hasattr(config, 'global_config'):
+        config.global_config.flash_attention_implementation = flash_attention_implementation
+        for key, value in global_config_update.items():
+            setattr(config.global_config, key, value)
+    if hasattr(config, 'heads') and hasattr(config.heads, 'diffusion'):
+        config.heads.diffusion.eval.num_samples = num_diffusion_samples
+    if hasattr(config, 'num_recycles'):
+        config.num_recycles = num_recycles
+    if hasattr(config, 'return_embeddings'):
+        config.return_embeddings = return_embeddings
+    if hasattr(config, 'return_distogram'):
+        config.return_distogram = return_distogram
+    return config
+
 
 @dataclasses.dataclass(frozen=True)
 class ModelRunner:
