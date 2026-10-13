@@ -2095,3 +2095,13 @@ def test_msa_depths_follow_the_fixed_depth_or_the_logarithmic_scan(af2_backend_m
     ]
     with pytest.raises(ValueError):
         af2_backend_module._msa_depths(evoformer, 2)
+
+
+def test_af2_predict_reports_an_option_no_backend_takes(af2_backend_module):
+    predict = af2_backend_module.AlphaFold2Backend.predict
+    common = dict(model_runners={}, objects_to_model=[], allow_resume=False, skip_templates=False)
+
+    # Other backends' options are expected: every backend is given the whole configuration.
+    assert list(predict(**common, num_diffusion_samples=5, crosslinks=None)) == []
+    with pytest.raises(ValueError, match="debug_msa"):
+        list(predict(**common, debug_msa=True))

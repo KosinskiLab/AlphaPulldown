@@ -1,5 +1,8 @@
 """The inference flag set has one home; these pin what that home guarantees."""
 
+import ast
+from pathlib import Path
+
 import pytest
 
 from alphapulldown.prediction import inference_flags
@@ -114,3 +117,70 @@ def test_unifold_validation_rejects_the_backend_before_checking_flags():
 def test_both_alphafold_backends_accept_allow_resume():
     for backend in ("alphafold2", "alphafold3"):
         assert inference_flags.unsupported_flags(backend, ["allow_resume"]) == [], backend
+
+
+# The backends are read from source: the AlphaFold 2 and 3 backends cannot be imported
+# into one environment.
+BACKENDS = Path(__file__).resolve().parents[2] / "alphapulldown" / "folding_backend"
+# What each backend's setup returns, handed by the adapters to its own predict.
+SETUP_VALUES = {
+    "alphafold2_backend.py": {"model_runners"},
+    "alphafold3_backend.py": {"model_runner"},
+    "alphalink_backend.py": {"configs", "param_path"},
+}
+# What the adapters give every predict besides the configuration.
+PREDICT_ARGUMENTS = {"objects_to_model", "random_seed", "postprocess_flags"}
+
+
+def _setup_and_predict(filename):
+    """The backend class's setup and predict: each one's definition and named parameters."""
+    tree = ast.parse((BACKENDS / filename).read_text())
+    (backend,) = [
+        node for node in tree.body
+        if isinstance(node, ast.ClassDef)
+        and {"setup", "predict"} <= {item.name for item in node.body if isinstance(item, ast.FunctionDef)}
+    ]
+    methods = {}
+    for node in backend.body:
+        if isinstance(node, ast.FunctionDef) and node.name in ("setup", "predict"):
+            arguments = node.args
+            named = {arg.arg for arg in arguments.posonlyargs + arguments.args + arguments.kwonlyargs}
+            methods[node.name] = (node, named)
+    return methods
+
+
+def test_every_configuration_key_is_named_by_a_backend():
+    # A key no backend names is a setting that never takes effect, such as a
+    # mistyped key in _MODEL_FLAG_SOURCES.
+    named = set()
+    for filename in SETUP_VALUES:
+        for _, parameters in _setup_and_predict(filename).values():
+            named |= parameters
+    assert sorted(inference_flags.MODEL_CONFIGURATION_KEYS - named) == []
+
+
+@pytest.mark.parametrize("filename", sorted(SETUP_VALUES))
+def test_every_backend_option_is_a_configuration_key(filename):
+    # An option the configuration never supplies keeps its default whatever the flags
+    # say, such as a mistyped parameter name.
+    for name, (_, parameters) in _setup_and_predict(filename).items():
+        options = parameters - PREDICT_ARGUMENTS - SETUP_VALUES[filename]
+        assert sorted(options - inference_flags.MODEL_CONFIGURATION_KEYS) == [], name
+
+
+@pytest.mark.parametrize("filename", sorted(SETUP_VALUES))
+def test_backends_only_validate_the_options_they_do_not_name(filename):
+    # Reading an unnamed option with kwargs.get(...) would bring back the silent default.
+    for name, (method, _) in _setup_and_predict(filename).items():
+        rest = method.args.kwarg.arg
+        uses = [
+            node for node in ast.walk(method)
+            if isinstance(node, ast.Name) and node.id == rest
+        ]
+        checks = [
+            node for node in ast.walk(method)
+            if isinstance(node, ast.Call)
+            and getattr(node.func, "id", None) == "validate_model_configuration"
+            and [getattr(arg, "id", None) for arg in node.args] == [rest]
+        ]
+        assert len(uses) == len(checks) == 1, name

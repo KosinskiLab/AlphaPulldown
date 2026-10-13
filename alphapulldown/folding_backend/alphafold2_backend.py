@@ -25,6 +25,7 @@ from alphapulldown.utils.post_modelling import post_prediction_process
 #from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
 from alphapulldown.utils.modelling_setup import pad_input_features
 from alphapulldown.prediction import fast_kernels as fast_kernels_policy
+from alphapulldown.prediction.inference_flags import validate_model_configuration
 from alphapulldown.prediction.jax_compilation_cache import enable_persistent_compilation_cache
 from alphapulldown.prediction.resume import (
     finish_fold_record,
@@ -617,7 +618,8 @@ class AlphaFold2Backend(FoldingBackend):
         msa_depth=None,
         dropout=False,
         fast_kernels="off",
-        **kwargs,
+        jax_compilation_cache_dir=None,
+        **other_backends_options,
     ) -> Dict:
         """
         Initializes and configures multiple AlphaFold model runners.
@@ -647,8 +649,11 @@ class AlphaFold2Backend(FoldingBackend):
         fast_kernels : str, optional
             "off" (default), "on" or "auto": ColabFold's fused Pallas kernels for the
             multimer models (``alphapulldown.prediction.fast_kernels``).
-        **kwargs : dict
-            Additional keyword arguments for model runner configuration.
+        jax_compilation_cache_dir : str, optional
+            A persistent on-disk JAX compile cache, shared by later processes.
+        **other_backends_options : dict
+            Options of other backends: the adapters give every backend the whole
+            configuration. One no backend takes is an error rather than dropped.
 
         Returns
         -------
@@ -661,13 +666,14 @@ class AlphaFold2Backend(FoldingBackend):
             If provided custom model names are not part of the available models.
         """
 
+        validate_model_configuration(other_backends_options)
         _ensure_typing_dataclass_transform()
         from alphafold.model import config
         from alphafold.model import data, model
 
         # AlphaFold2 inference is JAX-compiled, and a fresh process recompiles every
         # model runner. Honour a persistent on-disk compile cache when one is given.
-        enable_persistent_compilation_cache(kwargs.get("jax_compilation_cache_dir"))
+        enable_persistent_compilation_cache(jax_compilation_cache_dir)
 
         num_ensemble = 1
         model_runners = {}
@@ -765,7 +771,10 @@ class AlphaFold2Backend(FoldingBackend):
         skip_templates: bool,
         output_dir: Dict,
         random_seed: int,
-        **kwargs,
+        desired_num_res: int | None = None,
+        desired_num_msa: int | None = None,
+        debug_msas: bool = False,
+        debug_templates: bool = False,
     ) -> dict:
         """
         Executes structure predictions using configured AlphaFold models on one individual job.
@@ -785,8 +794,10 @@ class AlphaFold2Backend(FoldingBackend):
             The directory to save prediction results and PDB files.
         random_seed : int, optional
             A seed for random number generation to ensure reproducibility, default is 42.
-        **kwargs : dict
-            Additional keyword arguments for prediction.
+        desired_num_res, desired_num_msa : int, optional
+            Pad the features to this many residues and MSA rows (``--desired_num_res``).
+        debug_msas, debug_templates : bool, optional
+            Write the processed MSA and templates next to the outputs, for inspection.
 
         Returns
         -------
@@ -845,8 +856,6 @@ class AlphaFold2Backend(FoldingBackend):
                 f"All predictions for {multimeric_object.description} are already completed.")
             return prediction_results
         # first check whether the desired num_res and num_msa are specified for padding
-        desired_num_res, desired_num_msa = kwargs.get(
-            "desired_num_res", None), kwargs.get("desired_num_msa", None)
         if (desired_num_res is not None and
                 type(multimeric_object) == MultimericObject):
             # Padding every fold in a batch to one shape lets a resident session compile
@@ -889,14 +898,14 @@ class AlphaFold2Backend(FoldingBackend):
                     raise ValueError(
                         "No template_all_atom_positions key found in processed_feature_dict."
                     )
-            if kwargs.get("debug_msas", False):
+            if debug_msas:
                 _write_processed_msa_debug_artifact(
                     processed_feature_dict=processed_feature_dict,
                     multimeric_object=multimeric_object,
                     output_dir=output_dir,
                     model_name=model_name,
                 )
-            if kwargs.get("debug_templates", False):
+            if debug_templates:
                 _write_processed_template_debug_artifacts(
                     processed_feature_dict=processed_feature_dict,
                     output_dir=output_dir,
@@ -962,7 +971,19 @@ class AlphaFold2Backend(FoldingBackend):
                 skip_templates: bool,
                 random_seed: int = 42,
                 postprocess_flags: Dict = None,
-                **kwargs):
+                *,
+                desired_num_res: int | None = None,
+                desired_num_msa: int | None = None,
+                debug_msas: bool = False,
+                debug_templates: bool = False,
+                **other_backends_options):
+        """Predict each object with every model runner, yielding one job per object.
+
+        Options of other backends arrive in ``other_backends_options`` (the adapters
+        give every backend the whole configuration); one no backend takes is an error
+        rather than dropped.
+        """
+        validate_model_configuration(other_backends_options)
         for entry in objects_to_model:
             object_to_model = entry['object']
             output_dir = entry['output_dir']
@@ -981,7 +1002,10 @@ class AlphaFold2Backend(FoldingBackend):
                 skip_templates=skip_templates,
                 output_dir=output_dir,
                 random_seed=random_seed,
-                **kwargs
+                desired_num_res=desired_num_res,
+                desired_num_msa=desired_num_msa,
+                debug_msas=debug_msas,
+                debug_templates=debug_templates,
             )
             
             yield {'object': object_to_model, 

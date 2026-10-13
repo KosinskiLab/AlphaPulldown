@@ -2774,3 +2774,13 @@ def test_prepare_input_writes_template_error_artifacts_on_mmcif_generation_failu
     assert "Chain ID: A" in error_report
     assert "Domain name:" in error_report
     assert "Template sequence:" in error_report
+
+
+def test_af3_predict_reports_an_option_no_backend_takes(af3_backend_module):
+    predict = af3_backend_module.AlphaFold3Backend.predict
+    common = dict(model_runner=object(), objects_to_model=[], random_seed=1, buckets=256)
+
+    # Other backends' options are expected: every backend is given the whole configuration.
+    assert list(predict(**common, num_cycle=3, skip_templates=False)) == []
+    with pytest.raises(ValueError, match="debug_msa"):
+        list(predict(**common, debug_msa=True))

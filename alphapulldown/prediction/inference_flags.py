@@ -116,8 +116,9 @@ _POSTPROCESS_FLAG_SOURCES: Mapping[str, str] = {
     "convert_to_modelcif": "convert_to_modelcif",
 }
 
-# Keys a backend's setup() may legitimately be given. Backends ignore what they do not
-# use, so this set is the only thing standing between a mistyped key and silence.
+# Keys a backend's setup() and predict() may be given. Every backend is given them all,
+# names the ones it uses and checks the rest against this set; test_inference_flags ties
+# the set to the backends' parameter names, so a key no backend names cannot slip in.
 MODEL_CONFIGURATION_KEYS = frozenset(_MODEL_FLAG_SOURCES) | {
     "model_name",
     # added for AlphaFold2 multimer batches
@@ -166,15 +167,15 @@ def postprocess_flags(flags: Any) -> Dict[str, Any]:
 def validate_model_configuration(configuration: Mapping[str, Any]) -> None:
     """Reject configuration keys no backend consumes.
 
-    ``setup(**configuration)`` lets every backend absorb keys meant for another one in
-    ``**kwargs``, so without this a mistyped key is dropped without a word and the
-    setting it was meant to carry simply never takes effect.
+    Every backend's ``setup`` and ``predict`` take the keys meant for other backends as
+    ``**other_backends_options`` and pass them here, so a mistyped key is reported
+    instead of never taking effect.
     """
     unknown = sorted(set(configuration) - MODEL_CONFIGURATION_KEYS)
     if unknown:
         raise ValueError(
             f"Unknown model configuration key(s): {unknown}. "
-            "Backends ignore keys they do not use, so this would otherwise be silent."
+            "No backend takes them, so they would have no effect."
         )
 
 
