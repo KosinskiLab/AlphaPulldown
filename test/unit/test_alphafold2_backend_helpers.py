@@ -1773,6 +1773,74 @@ def test_predict_individual_job_keeps_the_relaxation_until_the_new_model_is_writ
     assert json.loads((tmp_path / "timings.json").read_text())["relax_modelA"] == 2.0
 
 
+def test_predict_individual_job_predicts_again_a_model_whose_pdb_is_older_than_its_pickle(
+    af2_backend_module, tmp_path
+):
+    """Killed between the new pickle and its PDB: the PDB on disk is the earlier
+    prediction's and must not be paired with the new scores."""
+    monomer = af2_backend_module.MonomericObject("single", "AB")
+    monomer.feature_dict = {"residue_index": np.array([0, 1], dtype=np.int32)}
+    with open(tmp_path / "result_modelA.pkl", "wb") as handle:
+        pickle.dump({"plddt": np.array([91.0, 88.0], dtype=np.float32)}, handle, protocol=4)
+    (tmp_path / "unrelaxed_modelA.pdb").write_text(
+        _pdb_with_b_factors(70.0, 71.0), encoding="utf-8"
+    )
+    predictions = []
+    runner = SimpleNamespace(
+        multimer_mode=False,
+        process_features=lambda feature_dict, random_seed: dict(feature_dict),
+        predict=lambda processed_feature_dict, random_seed: predictions.append(random_seed)
+        or {
+            "plddt": np.array([91.0, 88.0], dtype=np.float32),
+            "predicted_aligned_error": np.zeros((2, 2), dtype=np.float32),
+            "max_predicted_aligned_error": 31.0,
+        },
+    )
+
+    results = af2_backend_module.AlphaFold2Backend.predict_individual_job(
+        model_runners={"modelA": runner},
+        multimeric_object=monomer,
+        allow_resume=True,
+        skip_templates=False,
+        output_dir=tmp_path,
+        random_seed=3,
+    )
+
+    assert len(predictions) == 1
+    assert results["modelA"]["unrelaxed_protein"].name == "predicted"
+
+
+def test_predict_individual_job_resumes_a_model_whose_pdb_matches_its_pickle(
+    af2_backend_module, tmp_path
+):
+    monomer = af2_backend_module.MonomericObject("single", "AB")
+    monomer.feature_dict = {"residue_index": np.array([0, 1], dtype=np.int32)}
+    with open(tmp_path / "result_modelA.pkl", "wb") as handle:
+        # Padded to four residues; the PDB holds the two real ones.
+        pickle.dump(
+            {"plddt": np.array([91.0, 88.0, 30.0, 30.0], dtype=np.float32)}, handle, protocol=4
+        )
+    (tmp_path / "unrelaxed_modelA.pdb").write_text(
+        _pdb_with_b_factors(91.0, 88.0), encoding="utf-8"
+    )
+    runner = SimpleNamespace(
+        multimer_mode=False,
+        process_features=lambda feature_dict, random_seed: pytest.fail("predicted again"),
+        predict=lambda *args, **kwargs: pytest.fail("predicted again"),
+    )
+
+    results = af2_backend_module.AlphaFold2Backend.predict_individual_job(
+        model_runners={"modelA": runner},
+        multimeric_object=monomer,
+        allow_resume=True,
+        skip_templates=False,
+        output_dir=tmp_path,
+        random_seed=3,
+    )
+
+    assert results["modelA"]["unrelaxed_protein"].name.startswith("from_pdb:")
+
+
 def _af2_monomer_and_runner(module, predictions):
     """A monomer and a runner that appends each model prediction to ``predictions``."""
     monomer = module.MonomericObject("single", "AB")
