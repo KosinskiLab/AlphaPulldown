@@ -901,7 +901,7 @@ class TestAlphaFold3InputPreparation(Af3TestData, parameterized.TestCase):
         from alphafold3.common import folding_input
         from alphafold3.constants import chemical_components
         from alphafold3.model import model as af3_model
-        from alphapulldown.folding_backend.alphafold3_backend import (
+        from alphapulldown.folding_backend.alphafold3_outputs import (
             _make_viewer_compatible_inference_result,
         )
 
@@ -961,7 +961,7 @@ class TestAlphaFold3InputPreparation(Af3TestData, parameterized.TestCase):
         from alphafold3.common import folding_input
         from alphafold3.constants import chemical_components
         from alphafold3.model import model as af3_model
-        from alphapulldown.folding_backend.alphafold3_backend import (
+        from alphapulldown.folding_backend.alphafold3_outputs import (
             _make_viewer_compatible_inference_result,
         )
 
@@ -1031,7 +1031,7 @@ class TestAlphaFold3InputPreparation(Af3TestData, parameterized.TestCase):
         from alphafold3.common import folding_input
         from alphafold3.constants import chemical_components
         from alphafold3.model import model as af3_model
-        from alphapulldown.folding_backend.alphafold3_backend import (
+        from alphapulldown.folding_backend.alphafold3_outputs import (
             _make_viewer_compatible_inference_result,
         )
 
