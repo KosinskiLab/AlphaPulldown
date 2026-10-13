@@ -402,7 +402,12 @@ def _install_alphafold3_backend_stubs(tmp_path: Path, monkeypatch) -> None:
 
 
 # The modules split out of alphafold3_backend.py; each imports AF3 itself.
-_EXTRACTED_MODULES = ("alphafold3_debug", "alphafold3_inputs", "alphafold3_outputs")
+_EXTRACTED_MODULES = (
+    "alphafold3_debug",
+    "alphafold3_inputs",
+    "alphafold3_outputs",
+    "alphafold3_runner",
+)
 
 
 @pytest.fixture(scope="module")
@@ -439,6 +444,12 @@ def af3_outputs_module(af3_backend_module):
 def af3_debug_module(af3_backend_module):
     """The debug-artifact module the stubbed backend imported."""
     return sys.modules["alphapulldown.folding_backend.alphafold3_debug"]
+
+
+@pytest.fixture(scope="module")
+def af3_runner_module(af3_backend_module):
+    """The model-running module the stubbed backend imported."""
+    return sys.modules["alphapulldown.folding_backend.alphafold3_runner"]
 
 
 @pytest.fixture(scope="module")
@@ -710,13 +721,13 @@ def _ranking_rows(output_dir):
 
 
 def test_write_seed_outputs_writes_the_seed_whole_and_ranks_it_last(
-    af3_backend_module, af3_outputs_module, monkeypatch, tmp_path
+    af3_outputs_module, af3_runner_module, monkeypatch, tmp_path
 ):
     augment_calls = []
     _write_files_like_af3(af3_outputs_module, monkeypatch, augment_calls)
 
     af3_outputs_module.write_seed_outputs(
-        _results_for_seed(af3_backend_module, 7, 0.2, 0.9, extras=True),
+        _results_for_seed(af3_runner_module, 7, 0.2, 0.9, extras=True),
         tmp_path,
         "job_name",
         modelcif_metadata=[{"software": {}}],
@@ -743,13 +754,13 @@ def test_write_seed_outputs_writes_the_seed_whole_and_ranks_it_last(
 
 
 def test_write_seed_outputs_replaces_a_seed_written_before_and_keeps_the_others(
-    af3_backend_module, af3_outputs_module, monkeypatch, tmp_path
+    af3_outputs_module, af3_runner_module, monkeypatch, tmp_path
 ):
     _write_files_like_af3(af3_outputs_module, monkeypatch)
 
     for seed, score in ((7, 0.2), (8, 0.5), (7, 0.3)):
         af3_outputs_module.write_seed_outputs(
-            _results_for_seed(af3_backend_module, seed, score), tmp_path, "job"
+            _results_for_seed(af3_runner_module, seed, score), tmp_path, "job"
         )
 
     assert _ranking_rows(tmp_path) == ["seed,sample,ranking_score", "8,0,0.5", "7,0,0.3"]
@@ -757,14 +768,14 @@ def test_write_seed_outputs_replaces_a_seed_written_before_and_keeps_the_others(
 
 
 def test_write_fold_outputs_gives_the_best_sample_the_job_name(
-    af3_backend_module, af3_outputs_module, monkeypatch, tmp_path
+    af3_outputs_module, af3_runner_module, monkeypatch, tmp_path
 ):
     _write_files_like_af3(af3_outputs_module, monkeypatch)
     af3_outputs_module.write_seed_outputs(
-        _results_for_seed(af3_backend_module, 7, 0.2, 0.9), tmp_path, "job"
+        _results_for_seed(af3_runner_module, 7, 0.2, 0.9), tmp_path, "job"
     )
     af3_outputs_module.write_seed_outputs(
-        _results_for_seed(af3_backend_module, 8, 0.9, 0.4), tmp_path, "job"
+        _results_for_seed(af3_runner_module, 8, 0.9, 0.4), tmp_path, "job"
     )
 
     af3_outputs_module.write_fold_outputs(tmp_path, "job")
@@ -777,14 +788,14 @@ def test_write_fold_outputs_gives_the_best_sample_the_job_name(
     assert (tmp_path / "TERMS_OF_USE.md").read_text(encoding="utf-8") == "stub terms"
 
 
-def test_process_fold_input_rejects_missing_chains(af3_backend_module, tmp_path):
-    fold_input = af3_backend_module.folding_input.Input(
+def test_process_fold_input_rejects_missing_chains(af3_runner_module, tmp_path):
+    fold_input = af3_runner_module.folding_input.Input(
         name="broken",
         chains=(),
         rng_seeds=(1,),
     )
     with pytest.raises(ValueError, match="no chains"):
-        af3_backend_module.process_fold_input(
+        af3_runner_module.process_fold_input(
             fold_input=fold_input,
             model_runner=None,
             output_dir=tmp_path,
@@ -792,16 +803,16 @@ def test_process_fold_input_rejects_missing_chains(af3_backend_module, tmp_path)
 
 
 def test_process_fold_input_writes_json_and_skips_inference_without_model_runner(
-    af3_backend_module,
+    af3_runner_module,
     tmp_path,
 ):
-    fold_input = af3_backend_module.folding_input.Input(
+    fold_input = af3_runner_module.folding_input.Input(
         name="job name",
         chains=("A",),
         rng_seeds=(1,),
     )
 
-    returned = af3_backend_module.process_fold_input(
+    returned = af3_runner_module.process_fold_input(
         fold_input=fold_input,
         model_runner=None,
         output_dir=tmp_path,
@@ -817,11 +828,11 @@ def test_process_fold_input_writes_json_and_skips_inference_without_model_runner
 
 
 def test_process_fold_input_checks_model_params_and_calls_predict_structure(
-    af3_backend_module,
+    af3_runner_module,
     monkeypatch,
     tmp_path,
 ):
-    fold_input = af3_backend_module.folding_input.Input(
+    fold_input = af3_runner_module.folding_input.Input(
         name="job",
         chains=("A",),
         rng_seeds=(42,),
@@ -835,12 +846,12 @@ def test_process_fold_input_checks_model_params_and_calls_predict_structure(
 
     fake_results = ["result"]
     monkeypatch.setattr(
-        af3_backend_module,
+        af3_runner_module,
         "predict_structure",
         lambda **kwargs: predict_calls.append(kwargs) or fake_results,
     )
 
-    returned = af3_backend_module.process_fold_input(
+    returned = af3_runner_module.process_fold_input(
         fold_input=fold_input,
         model_runner=FakeRunner(),
         output_dir=tmp_path,
@@ -859,38 +870,38 @@ def test_process_fold_input_checks_model_params_and_calls_predict_structure(
 
 
 def test_process_fold_input_predicts_only_the_seeds_not_yet_written(
-    af3_backend_module, monkeypatch, tmp_path
+    af3_runner_module, monkeypatch, tmp_path
 ):
-    fold_input = af3_backend_module.folding_input.Input(
+    fold_input = af3_runner_module.folding_input.Input(
         name="job", chains=("A",), rng_seeds=(5, 6, 7)
     )
     predict_calls = []
     monkeypatch.setattr(
-        af3_backend_module,
+        af3_runner_module,
         "predict_structure",
         lambda **kwargs: predict_calls.append(kwargs) or [],
     )
     runner = SimpleNamespace(model_params={"ok": True})
 
-    returned = af3_backend_module.process_fold_input(
+    returned = af3_runner_module.process_fold_input(
         fold_input=fold_input, model_runner=runner, output_dir=tmp_path, seeds_done=[5]
     )
     assert returned == [5, 6, 7]
     assert predict_calls[0]["fold_input"].rng_seeds == (6, 7)
 
-    af3_backend_module.process_fold_input(
+    af3_runner_module.process_fold_input(
         fold_input=fold_input, model_runner=runner, output_dir=tmp_path, seeds_done=[5, 6, 7]
     )
     assert len(predict_calls) == 1
 
 
 def test_predict_structure_writes_final_msa_and_collects_optional_outputs(
-    af3_backend_module,
+    af3_runner_module,
     af3_debug_module,
     monkeypatch,
     tmp_path,
 ):
-    fold_input = af3_backend_module.folding_input.Input(
+    fold_input = af3_runner_module.folding_input.Input(
         name="job name",
         chains=("A",),
         rng_seeds=(7,),
@@ -899,13 +910,13 @@ def test_predict_structure_writes_final_msa_and_collects_optional_outputs(
         "msa": np.asarray([[1, 2, 3], [4, 5, 6]], dtype=np.int32),
         "num_alignments": 1,
     }
-    inference_result = af3_backend_module.model.InferenceResult(
+    inference_result = af3_runner_module.model.InferenceResult(
         predicted_structure=None,
         metadata={"token_chain_ids": ["A", "A"]},
     )
 
     monkeypatch.setattr(
-        af3_backend_module.featurisation,
+        af3_runner_module.featurisation,
         "featurise_input",
         lambda **kwargs: [example],
     )
@@ -926,7 +937,7 @@ def test_predict_structure_writes_final_msa_and_collects_optional_outputs(
         def extract_structures(self, batch, result, target_name):
             return [inference_result]
 
-    results = af3_backend_module.predict_structure(
+    results = af3_runner_module.predict_structure(
         fold_input=fold_input,
         model_runner=FakeRunner(),
         buckets=[128],
@@ -947,8 +958,8 @@ def test_predict_structure_writes_final_msa_and_collects_optional_outputs(
 class FakeKernelRunner:
     """A runner with an AF3 fused-triangle choice; logs extraction to ``events``."""
 
-    def __init__(self, af3_backend_module, events=None):
-        self.fused_triangles = af3_backend_module.af3_fused_triangles.OFF
+    def __init__(self, af3_runner_module, events=None):
+        self.fused_triangles = af3_runner_module.af3_fused_triangles.OFF
         self.config = SimpleNamespace(global_config=SimpleNamespace())
         self.events = [] if events is None else events
 
@@ -970,30 +981,30 @@ OFF_RECORD = {
 
 
 def test_predict_structure_records_kernels_per_seed_after_extraction(
-    af3_backend_module,
+    af3_runner_module,
     monkeypatch,
     tmp_path,
 ):
-    fold_input = af3_backend_module.folding_input.Input(
+    fold_input = af3_runner_module.folding_input.Input(
         name="job", chains=("A",), rng_seeds=(7, 8)
     )
     example = {"token_index": np.arange(3)}
     monkeypatch.setattr(
-        af3_backend_module.featurisation,
+        af3_runner_module.featurisation,
         "featurise_input",
         lambda **kwargs: [example, example],
     )
     events = []
-    real_metadata = af3_backend_module.af3_fused_triangles.metadata
+    real_metadata = af3_runner_module.af3_fused_triangles.metadata
     monkeypatch.setattr(
-        af3_backend_module.af3_fused_triangles,
+        af3_runner_module.af3_fused_triangles,
         "metadata",
         lambda *args, **kwargs: events.append("record") or real_metadata(*args, **kwargs),
     )
 
-    af3_backend_module.predict_structure(
+    af3_runner_module.predict_structure(
         fold_input=fold_input,
-        model_runner=FakeKernelRunner(af3_backend_module, events),
+        model_runner=FakeKernelRunner(af3_runner_module, events),
         output_dir=tmp_path,
     )
 
@@ -1004,25 +1015,25 @@ def test_predict_structure_records_kernels_per_seed_after_extraction(
 
 
 def test_record_inference_kernels_replaces_a_corrupt_file(
-    af3_backend_module, tmp_path, caplog
+    af3_runner_module, tmp_path, caplog
 ):
     path = tmp_path / "inference_kernels.json"
     path.write_text("{not json")
 
-    af3_backend_module._record_inference_kernels(
-        tmp_path, 7, FakeKernelRunner(af3_backend_module), {"token_index": np.arange(3)}
+    af3_runner_module._record_inference_kernels(
+        tmp_path, 7, FakeKernelRunner(af3_runner_module), {"token_index": np.arange(3)}
     )
 
     assert json.loads(path.read_text()) == {"seed-7": OFF_RECORD}
     assert "Replacing unreadable" in caplog.text
 
 
-def test_record_inference_kernels_keeps_other_entries(af3_backend_module, tmp_path):
+def test_record_inference_kernels_keeps_other_entries(af3_runner_module, tmp_path):
     path = tmp_path / "inference_kernels.json"
     path.write_text(json.dumps({"seed-1": {"fused_kernels": True}}))
 
-    af3_backend_module._record_inference_kernels(
-        tmp_path, 7, FakeKernelRunner(af3_backend_module), {"token_index": np.arange(3)}
+    af3_runner_module._record_inference_kernels(
+        tmp_path, 7, FakeKernelRunner(af3_runner_module), {"token_index": np.arange(3)}
     )
 
     assert json.loads(path.read_text()) == {
@@ -1032,15 +1043,15 @@ def test_record_inference_kernels_keeps_other_entries(af3_backend_module, tmp_pa
 
 
 def test_record_inference_kernels_never_fails_a_prediction(
-    af3_backend_module, monkeypatch, tmp_path, caplog
+    af3_runner_module, monkeypatch, tmp_path, caplog
 ):
     def broken(*args, **kwargs):
         raise ImportError("no alphafold3.jax.fused_triangle")
 
-    monkeypatch.setattr(af3_backend_module.af3_fused_triangles, "metadata", broken)
+    monkeypatch.setattr(af3_runner_module.af3_fused_triangles, "metadata", broken)
 
-    af3_backend_module._record_inference_kernels(
-        tmp_path, 7, FakeKernelRunner(af3_backend_module), {"token_index": np.arange(3)}
+    af3_runner_module._record_inference_kernels(
+        tmp_path, 7, FakeKernelRunner(af3_runner_module), {"token_index": np.arange(3)}
     )
 
     assert not (tmp_path / "inference_kernels.json").exists()
@@ -1048,9 +1059,9 @@ def test_record_inference_kernels_never_fails_a_prediction(
 
 
 def test_record_inference_kernels_skips_runners_without_a_choice(
-    af3_backend_module, tmp_path
+    af3_runner_module, tmp_path
 ):
-    af3_backend_module._record_inference_kernels(
+    af3_runner_module._record_inference_kernels(
         tmp_path, 7, SimpleNamespace(), {"token_index": np.arange(3)}
     )
 
@@ -1257,7 +1268,7 @@ def test_af3_setup_says_whether_the_gpu_lacks_support_or_the_kernels_failed(
 
 
 def test_af3_tokamax_trace_context_is_created_by_its_own_hook(
-    af3_backend_module, monkeypatch
+    af3_runner_module, monkeypatch
 ):
     calls = []
     monkeypatch.setitem(
@@ -1266,21 +1277,21 @@ def test_af3_tokamax_trace_context_is_created_by_its_own_hook(
         SimpleNamespace(get_autotuning_cache_overlay_state=lambda: calls.append(True)),
     )
 
-    af3_backend_module._initialise_tokamax_trace_context()
+    af3_runner_module._initialise_tokamax_trace_context()
 
     assert calls == [True]
 
 
-def test_af3_tokamax_trace_context_hook_is_optional(af3_backend_module, monkeypatch):
+def test_af3_tokamax_trace_context_hook_is_optional(af3_runner_module, monkeypatch):
     # A tokamax without the private hook, then no tokamax module at all.
     monkeypatch.setitem(sys.modules, "tokamax._src.ops.op", SimpleNamespace())
-    af3_backend_module._initialise_tokamax_trace_context()
+    af3_runner_module._initialise_tokamax_trace_context()
 
     def missing(name):
         raise ImportError(name)
 
-    monkeypatch.setattr(af3_backend_module.importlib, "import_module", missing)
-    af3_backend_module._initialise_tokamax_trace_context()
+    monkeypatch.setattr(af3_runner_module.importlib, "import_module", missing)
+    af3_runner_module._initialise_tokamax_trace_context()
 
 
 def test_af3_predict_expands_num_seeds_and_calls_process_fold_input(
