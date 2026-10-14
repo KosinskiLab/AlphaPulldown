@@ -509,17 +509,17 @@ class TestResume(_TestBase):
         )
 
     def _assertComplete(self, fold_dir: Path) -> None:
-        record = json.loads((fold_dir / "alphapulldown_prediction.json").read_text())
+        record = json.loads((fold_dir / "alphapulldown" / "prediction.json").read_text())
         self.assertTrue(record["complete"], fold_dir)
 
     @staticmethod
     def _mtimes(*fold_dirs: Path) -> dict[str, int]:
-        """Each output's modification time; not the feature metadata, which fold
-        preparation copies in on every run before predicting."""
+        """Each output's modification time, AlphaPulldown's records included; not the
+        feature metadata, which fold preparation copies in on every run before predicting."""
         return {
             str(path): path.stat().st_mtime_ns
             for fold_dir in fold_dirs
-            for path in fold_dir.iterdir()
+            for path in fold_dir.rglob("*")
             if path.is_file() and "_feature_metadata_" not in path.name
         }
 
@@ -796,7 +796,9 @@ class TestFastKernelsAndPadding(_TestBase):
 
     @staticmethod
     def _kernels(result_dir: Path) -> dict:
-        return json.loads((result_dir / "inference_kernels.json").read_text(encoding="utf-8"))
+        return json.loads(
+            (result_dir / "alphapulldown" / "inference_kernels.json").read_text(encoding="utf-8")
+        )
 
     @staticmethod
     def _scores(result_dir: Path) -> dict:

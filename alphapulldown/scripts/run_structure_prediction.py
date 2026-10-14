@@ -244,13 +244,15 @@ flags.DEFINE_string('fold_backend', 'alphafold2',
                     'Folding backend: alphafold2, alphafold3, or alphalink. UniFold is unavailable.')
 flags.DEFINE_boolean(
     'debug_templates', False,
-    'If set, save backend-specific template debug artifacts. AF3 writes generated'
-    ' template mmCIFs and AF2 writes processed template PDBs.'
+    'If set, save backend-specific template debug artifacts in each fold\'s'
+    ' debug/templates/ directory. AF3 writes generated template mmCIFs and AF2 writes'
+    ' processed template PDBs.'
 )
 flags.DEFINE_boolean(
     'debug_msas', False,
-    'If set, dump backend-specific MSA debug artifacts such as translated or'
-    ' processed input A3Ms and the AF3 final merged complex A3M.'
+    'If set, dump backend-specific MSA debug artifacts in each fold\'s debug/'
+    ' directory, such as translated or processed input A3Ms and the AF3 final merged'
+    ' complex A3M.'
 )
 
 FLAGS = flags.FLAGS

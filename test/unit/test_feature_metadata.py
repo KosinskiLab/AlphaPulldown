@@ -14,6 +14,7 @@ from alphapulldown.utils.feature_metadata import (
     encode_metadata_in_description,
     extract_metadata_from_af3_json,
     extract_metadata_from_fold_input,
+    copied_feature_metadata_paths,
     find_feature_metadata,
     load_feature_metadata_sidecars,
 )
@@ -164,3 +165,17 @@ def test_embed_rejects_non_af3_or_ligand_only_payloads():
             {"sequences": [{"ligand": {"id": "L", "ccdCodes": ["ATP"]}}]},
             METADATA,
         )
+
+
+def test_copied_feature_metadata_is_read_from_its_folder_and_from_older_outputs(tmp_path):
+    # This version copies sidecars into alphapulldown/feature_metadata/; versions up to
+    # 2.10 put them at the top of the prediction directory, still read for ModelCIF.
+    new = tmp_path / "alphapulldown" / "feature_metadata" / "A_feature_metadata_2026-10-14.json"
+    old = tmp_path / "B_feature_metadata_2025-07-01.json.xz"
+    new.parent.mkdir(parents=True)
+    new.write_text(json.dumps(METADATA), encoding="utf-8")
+    old.write_bytes(lzma.compress(json.dumps(METADATA).encode("utf-8")))
+    (tmp_path / "ranking_debug.json").write_text("{}", encoding="utf-8")
+
+    assert copied_feature_metadata_paths(tmp_path) == sorted([new, old])
+    assert load_feature_metadata_sidecars(tmp_path) == [METADATA, METADATA]

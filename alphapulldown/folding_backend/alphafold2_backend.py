@@ -26,6 +26,8 @@ from alphapulldown.utils.post_modelling import post_prediction_process
 #from alphapulldown.utils.calculate_rmsd import calculate_rmsd_and_superpose
 from alphapulldown.utils.modelling_setup import pad_input_features
 from alphapulldown.prediction import fast_kernels as fast_kernels_policy
+from alphapulldown.prediction.inference_kernels import record_inference_kernels
+from alphapulldown.utils.output_paths import debug_dir
 from alphapulldown.prediction.inference_flags import validate_model_configuration
 from alphapulldown.prediction.jax_compilation_cache import enable_persistent_compilation_cache
 from alphapulldown.prediction.resume import (
@@ -413,7 +415,8 @@ def _write_processed_msa_debug_artifact(
         ),
         query_sequence=_query_sequence_for_debug(multimeric_object),
     )
-    out_path = os.path.join(output_dir, f"{model_name}_processed_msa.a3m")
+    os.makedirs(debug_dir(output_dir), exist_ok=True)
+    out_path = os.path.join(debug_dir(output_dir), f"{model_name}_processed_msa.a3m")
     with open(out_path, "wt") as handle:
         handle.write(a3m_text)
     logging.info(f"Wrote processed MSA A3M to {out_path}")
@@ -498,8 +501,8 @@ def _write_processed_template_debug_artifacts(
     else:
         chain_index = np.asarray(_normalize_asym_id(processed_feature_dict)["asym_id"]).reshape(-1)
 
-    debug_dir = os.path.join(output_dir, "templates_debug")
-    os.makedirs(debug_dir, exist_ok=True)
+    templates_dir = os.path.join(debug_dir(output_dir), "templates")
+    os.makedirs(templates_dir, exist_ok=True)
 
     domain_names = processed_feature_dict.get("template_domain_names")
     if domain_names is None:
@@ -523,14 +526,14 @@ def _write_processed_template_debug_artifacts(
                 domain_name, f"template_{template_index}"
             )
             debug_path = os.path.join(
-                debug_dir, f"{model_name}_{template_name}_idx{template_index}.pdb"
+                templates_dir, f"{model_name}_{template_name}_idx{template_index}.pdb"
             )
             with open(debug_path, "wt") as handle:
                 handle.write(protein.to_pdb(template_protein))
             logging.info(f"Wrote processed template PDB to {debug_path}")
         except Exception as exc:
             error_path = os.path.join(
-                debug_dir, f"ERROR_{model_name}_template_{template_index}.txt"
+                templates_dir, f"ERROR_{model_name}_template_{template_index}.txt"
             )
             with open(error_path, "wt") as handle:
                 handle.write(f"Error: {exc}\n")
@@ -576,11 +579,9 @@ def _msa_depths(
 
 
 def _record_inference_kernels(output_dir, model_name, model_runner) -> None:
-    """Record in inference_kernels.json whether a model ran ColabFold's fused kernels.
+    """Record whether a model ran ColabFold's fused kernels (``inference_kernels``).
 
-    Fast and stock predictions differ slightly in their numerics, so the record lets
-    ranking and analysis tell them apart. Read back from the runner's own config, so it
-    states what actually ran.
+    Read back from the runner's own config, so it states what actually ran.
     """
     try:
         global_config = model_runner.config.model.global_config
@@ -590,17 +591,7 @@ def _record_inference_kernels(output_dir, model_name, model_runner) -> None:
         "fused_kernels": bool(global_config.get("use_pallas", False)),
         "compute_capability": global_config.get("compute_capability", None),
     }
-    path = os.path.join(output_dir, "inference_kernels.json")
-    existing = {}
-    if os.path.exists(path):
-        try:
-            with open(path) as f:
-                existing = json.load(f)
-        except (OSError, ValueError):
-            existing = {}
-    existing[model_name] = record
-    with open(path, "w") as f:
-        json.dump(existing, f, indent=2, sort_keys=True)
+    record_inference_kernels(output_dir, model_name, record)
 
 
 # The converter runs in its own process: it exits on errors and keeps module-level state.

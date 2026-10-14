@@ -1,7 +1,7 @@
 """Writing prediction outputs so that an interrupted run can be resumed.
 
 Each fold directory holds a record of the run that predicted it
-(``alphapulldown_prediction.json``): the settings that shape the fold's outputs, and
+(``alphapulldown/prediction.json``): the settings that shape the fold's outputs, and
 whether the run finished. A backend starts the record before predicting and marks it
 complete as the last step of post-processing, so a later run with ``--allow_resume`` can
 skip a finished fold without inspecting, or redoing, any of its outputs.
@@ -16,10 +16,16 @@ from typing import Any, Dict, List, Mapping, Union
 from absl import logging
 
 from alphapulldown.utils.file_handling import open_atomic
+from alphapulldown.utils.output_paths import alphapulldown_dir
 
 PathLike = Union[str, "os.PathLike[str]"]
 
-FOLD_RECORD_NAME = "alphapulldown_prediction.json"
+FOLD_RECORD_NAME = "prediction.json"
+
+
+def fold_record_path(output_dir: PathLike) -> str:
+    """Where the record of the fold in ``output_dir`` is kept."""
+    return os.path.join(alphapulldown_dir(output_dir), FOLD_RECORD_NAME)
 
 
 def _as_recorded(settings: Mapping[str, Any]) -> Dict[str, Any]:
@@ -29,7 +35,7 @@ def _as_recorded(settings: Mapping[str, Any]) -> Dict[str, Any]:
 
 def read_fold_record(output_dir: PathLike) -> Dict[str, Any]:
     """The record of the run that predicted the fold in ``output_dir``; empty if none."""
-    path = os.path.join(os.fspath(output_dir), FOLD_RECORD_NAME)
+    path = fold_record_path(output_dir)
     try:
         with open(path, "r", encoding="utf-8") as handle:
             record = json.load(handle)
@@ -44,8 +50,8 @@ def read_fold_record(output_dir: PathLike) -> Dict[str, Any]:
 def _write_fold_record(output_dir: PathLike, record: Mapping[str, Any]) -> None:
     from alphapulldown import __version__
 
-    os.makedirs(output_dir, exist_ok=True)
-    with open_atomic(os.path.join(os.fspath(output_dir), FOLD_RECORD_NAME)) as handle:
+    os.makedirs(alphapulldown_dir(output_dir), exist_ok=True)
+    with open_atomic(fold_record_path(output_dir)) as handle:
         json.dump(
             {**record, "alphapulldown_version": __version__}, handle, indent=2, sort_keys=True
         )

@@ -952,7 +952,7 @@ def test_predict_structure_writes_final_msa_and_collects_optional_outputs(
     assert results[0].embeddings["single_embeddings"].shape == (2, 1)
     assert results[0].embeddings["pair_embeddings"].shape == (2, 2)
     assert results[0].distogram.shape == (2, 2)
-    final_msa = tmp_path / "job_name_seed-7_final_complex_msa.a3m"
+    final_msa = tmp_path / "debug" / "job_name_seed-7_final_complex_msa.a3m"
     assert final_msa.read_text(encoding="utf-8") == ">query\nABC\n"
 
 
@@ -1011,14 +1011,15 @@ def test_predict_structure_records_kernels_per_seed_after_extraction(
 
     # After extraction, so it is not timed as model inference.
     assert events == ["extract", "record", "extract", "record"]
-    record = json.loads((tmp_path / "inference_kernels.json").read_text())
+    record = json.loads((tmp_path / "alphapulldown" / "inference_kernels.json").read_text())
     assert record == {"seed-7": OFF_RECORD, "seed-8": OFF_RECORD}
 
 
 def test_record_inference_kernels_replaces_a_corrupt_file(
     af3_runner_module, tmp_path, caplog
 ):
-    path = tmp_path / "inference_kernels.json"
+    path = tmp_path / "alphapulldown" / "inference_kernels.json"
+    path.parent.mkdir()
     path.write_text("{not json")
 
     af3_runner_module._record_inference_kernels(
@@ -1030,7 +1031,8 @@ def test_record_inference_kernels_replaces_a_corrupt_file(
 
 
 def test_record_inference_kernels_keeps_other_entries(af3_runner_module, tmp_path):
-    path = tmp_path / "inference_kernels.json"
+    path = tmp_path / "alphapulldown" / "inference_kernels.json"
+    path.parent.mkdir()
     path.write_text(json.dumps({"seed-1": {"fused_kernels": True}}))
 
     af3_runner_module._record_inference_kernels(
@@ -1055,7 +1057,7 @@ def test_record_inference_kernels_never_fails_a_prediction(
         tmp_path, 7, FakeKernelRunner(af3_runner_module), {"token_index": np.arange(3)}
     )
 
-    assert not (tmp_path / "inference_kernels.json").exists()
+    assert not list(tmp_path.rglob("inference_kernels.json"))
     assert "no alphafold3.jax.fused_triangle" in caplog.text
 
 
@@ -1066,7 +1068,7 @@ def test_record_inference_kernels_skips_runners_without_a_choice(
         tmp_path, 7, SimpleNamespace(), {"token_index": np.arange(3)}
     )
 
-    assert not (tmp_path / "inference_kernels.json").exists()
+    assert not list(tmp_path.rglob("inference_kernels.json"))
 
 
 def test_af3_setup_builds_model_runner_and_validates_gpu_capability(
@@ -1385,7 +1387,7 @@ def _af3_run(module, monkeypatch, output_dir, *, finish=True, random_seed=None,
 
 
 def _af3_fold_record(output_dir):
-    return json.loads((output_dir / "alphapulldown_prediction.json").read_text())
+    return json.loads((output_dir / "alphapulldown" / "prediction.json").read_text())
 
 
 def test_af3_rerun_of_a_finished_fold_predicts_nothing(
@@ -2276,7 +2278,7 @@ def test_prepare_input_multimer_writes_translated_msa_debug_artifacts(
     )
     assert fold_input.chains[1].unpaired_msa == ">unpairedB\nFGHI\n"
 
-    summary_path = tmp_path / f"{fold_input.sanitised_name()}_af2_to_af3_translation_summary.json"
+    summary_path = tmp_path / "debug" / f"{fold_input.sanitised_name()}_af2_to_af3_translation_summary.json"
     assert summary_path.is_file()
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     assert summary["translation_modes"] == [
@@ -2313,14 +2315,14 @@ def test_prepare_input_multimer_writes_translated_msa_debug_artifacts(
         },
     ]
     assert (
-        tmp_path / f"{fold_input.sanitised_name()}_chain-A_paired_input.a3m"
+        tmp_path / "debug" / f"{fold_input.sanitised_name()}_chain-A_paired_input.a3m"
     ).read_text(encoding="utf-8") == (
         ">query\nACDE\n"
         ">tr|APA0000001|APA0000001_ECOLX\nACDE\n"
         ">tr|APA0000002|APA0000002_SHIDY\nACDE\n"
     )
     assert (
-        tmp_path / f"{fold_input.sanitised_name()}_chain-B_unpaired_input.a3m"
+        tmp_path / "debug" / f"{fold_input.sanitised_name()}_chain-B_unpaired_input.a3m"
     ).read_text(encoding="utf-8") == ">unpairedB\nFGHI\n"
 
 
@@ -2554,7 +2556,7 @@ def test_prepare_input_multimer_trimer_preserves_sparse_middle_chain_pairing(
     assert fold_input.chains[1].paired_msa == ""
     assert fold_input.chains[2].paired_msa
 
-    summary_path = tmp_path / f"{fold_input.sanitised_name()}_af2_to_af3_translation_summary.json"
+    summary_path = tmp_path / "debug" / f"{fold_input.sanitised_name()}_af2_to_af3_translation_summary.json"
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     assert summary["translation_modes"] == ["af3_species_pairing_from_af2_individual_msas"]
     assert summary["translated_paired_input_row_count"] == 2
@@ -2630,7 +2632,7 @@ def test_prepare_input_multimer_trimer_reports_effective_min_count_pairing(
     assert resolve_msa_overlaps is False
     assert all(chain.paired_msa for chain in fold_input.chains)
 
-    summary_path = tmp_path / f"{fold_input.sanitised_name()}_af2_to_af3_translation_summary.json"
+    summary_path = tmp_path / "debug" / f"{fold_input.sanitised_name()}_af2_to_af3_translation_summary.json"
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     assert summary["translation_modes"] == ["af3_species_pairing_from_af2_individual_msas"]
     assert summary["translated_paired_input_row_count"] == 3
@@ -2718,7 +2720,8 @@ def test_prepare_input_builds_template_mmcif_and_skips_zero_atom_templates(
     assert "_pdbx_audit_revision_history.revision_date" in chain.templates[0].mmcif
     debug_path = (
         tmp_path
-        / "templates_debug"
+        / "debug"
+        / "templates"
         / "generated_template_1abc_B_chainA_idx1.cif"
     )
     assert debug_path.read_text(encoding="utf-8") == chain.templates[0].mmcif
@@ -2755,20 +2758,24 @@ def test_prepare_input_writes_template_error_artifacts_on_mmcif_generation_failu
         "to_mmcif",
         lambda **kwargs: (_ for _ in ()).throw(RuntimeError("mmcif boom")),
     )
-    monkeypatch.chdir(tmp_path)
+    workdir = tmp_path / "workdir"
+    workdir.mkdir()
+    monkeypatch.chdir(workdir)
 
     with pytest.raises(RuntimeError, match="mmcif boom"):
         af3_backend_module.AlphaFold3Backend.prepare_input(
             objects_to_model=[
                 {
                     "object": monomer,
-                    "output_dir": str(tmp_path),
+                    "output_dir": str(tmp_path / "fold"),
                 }
             ],
             random_seed=41,
         )
 
-    error_path = tmp_path / "templates_debug" / "ERROR_template_0_chain_A.txt"
+    # Beside the fold, not in whatever directory the job happens to run in.
+    assert list(workdir.iterdir()) == []
+    error_path = tmp_path / "fold" / "debug" / "templates" / "ERROR_template_0_chain_A.txt"
     error_report = error_path.read_text(encoding="utf-8")
     assert "Error: mmcif boom" in error_report
     assert "Template index: 0" in error_report
@@ -2906,7 +2913,8 @@ def test_process_fold_input_stops_when_the_model_parameters_cannot_load(
 def test_record_inference_kernels_replaces_a_file_that_is_not_an_object(
     af3_runner_module, tmp_path, caplog
 ):
-    path = tmp_path / "inference_kernels.json"
+    path = tmp_path / "alphapulldown" / "inference_kernels.json"
+    path.parent.mkdir()
     path.write_text("[1, 2]")
 
     af3_runner_module._record_inference_kernels(
@@ -2980,11 +2988,11 @@ def test_translated_msa_summary_pairs_only_rows_with_a_species(af3_debug_module,
         translation_results=[translation],
     )
 
-    summary = json.loads((tmp_path / "job_af2_to_af3_translation_summary.json").read_text())
+    summary = json.loads((tmp_path / "debug" / "job_af2_to_af3_translation_summary.json").read_text())
     # Only the HUMAN row pairs across the chains; the row without a species does not.
     assert summary["effective_paired_row_count"] == 1
     assert summary["effective_paired_row_histogram_by_num_chains"] == {"2": 1}
-    assert (tmp_path / "job_chain-B_paired_input.a3m").read_text() == paired
+    assert (tmp_path / "debug" / "job_chain-B_paired_input.a3m").read_text() == paired
 
 
 @pytest.mark.parametrize(

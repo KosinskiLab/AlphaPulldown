@@ -11,7 +11,6 @@ Author: Dmitry Molodenskiy <dmitry.molodenskiy@embl-hamburg.de>
 import dataclasses
 import functools
 import importlib
-import json
 import logging
 import os
 import pathlib
@@ -36,6 +35,7 @@ from jax import numpy as jnp
 from alphapulldown.folding_backend.alphafold3_debug import _write_final_msa_a3m
 from alphapulldown.folding_backend.alphafold3_outputs import write_seed_outputs
 from alphapulldown.prediction import af3_fused_triangles
+from alphapulldown.prediction.inference_kernels import record_inference_kernels
 
 
 # -----------------------------------------------------------------------------
@@ -191,13 +191,11 @@ def _record_inference_kernels(
     model_runner: ModelRunner,
     example: features.BatchDict,
 ) -> None:
-    """Record in inference_kernels.json which kernels a seed's triangle layers ran.
+    """Record which kernels a seed's triangle layers ran (``inference_kernels``).
 
-    Fused and original layers differ slightly in their numerics, so the record lets
-    ranking and analysis tell them apart, like AlphaFold 2's. Entries are keyed
-    ``seed-N`` like AF3's other outputs and are read back from the runner's own config,
-    so they state what actually ran. The record never fails a finished prediction: an
-    unreadable file is replaced, and any other failure is logged and skipped.
+    Entries are keyed ``seed-N`` like AF3's other outputs and are read back from the
+    runner's own config, so they state what actually ran. The record never fails a
+    finished prediction: a failure to describe the kernels is logged and skipped.
     """
     fused_triangles = getattr(model_runner, "fused_triangles", None)
     tokens = example.get("token_index", example.get("aatype"))
@@ -211,22 +209,7 @@ def _record_inference_kernels(
     except Exception as exc:  # provenance only; the prediction itself succeeded
         logging.warning("Not recording the inference kernels of %s: %s", key, exc)
         return
-    path = pathlib.Path(output_dir) / "inference_kernels.json"
-    try:
-        records = json.loads(path.read_text()) if path.exists() else {}
-        if not isinstance(records, dict):
-            raise ValueError("not a JSON object")
-    except (OSError, ValueError) as exc:
-        logging.warning("Replacing unreadable %s: %s", path, exc)
-        records = {}
-    records[key] = record
-    try:
-        os.makedirs(output_dir, exist_ok=True)
-        temporary = path.with_suffix(".json.tmp")
-        temporary.write_text(json.dumps(records, indent=2, sort_keys=True) + "\n")
-        temporary.replace(path)
-    except OSError as exc:
-        logging.warning("Not recording the inference kernels of %s: %s", key, exc)
+    record_inference_kernels(output_dir, key, record)
 
 
 def predict_structure(
