@@ -10,6 +10,7 @@ import time
 import json
 import pickle
 import subprocess
+import sys
 import enum
 import typing
 from collections.abc import Mapping
@@ -600,6 +601,41 @@ def _record_inference_kernels(output_dir, model_name, model_runner) -> None:
     existing[model_name] = record
     with open(path, "w") as f:
         json.dump(existing, f, indent=2, sort_keys=True)
+
+
+# The converter runs in its own process: it exits on errors and keeps module-level state.
+_MODELCIF_CONVERTER = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "scripts",
+    "convert_to_modelcif.py",
+)
+
+
+def _convert_to_modelcif(output_dir) -> None:
+    """Convert the fold's models to ModelCIF. Best effort: a failure is reported, never
+    raised, so the fold is still cleaned up and recorded complete.
+
+    The converter runs with this interpreter and an argument list, not a shell, so any
+    output path works; what it prints is passed on as diagnostics, and only its exit
+    code says whether it failed.
+    """
+    command = [sys.executable, _MODELCIF_CONVERTER, "--ap_output", os.fspath(output_dir)]
+    logging.info(f"Converting {output_dir} to ModelCIF format...")
+    try:
+        result = subprocess.run(command, check=False, capture_output=True, text=True)
+    except OSError as exc:
+        logging.warning(f"Could not start the ModelCIF conversion of {output_dir}: {exc}")
+        return
+    for stream, text in (("stdout", result.stdout), ("stderr", result.stderr)):
+        if text and text.strip():
+            logging.info(f"ModelCIF converter {stream}:\n{text.rstrip()}")
+    if result.returncode != 0:
+        logging.warning(
+            f"ModelCIF conversion of {output_dir} failed with exit code "
+            f"{result.returncode}; its output is logged above."
+        )
+    else:
+        logging.info(f"ModelCIF converter finished for {output_dir}.")
 
 
 class AlphaFold2Backend(FoldingBackend):
@@ -1302,23 +1338,8 @@ class AlphaFold2Backend(FoldingBackend):
         #             template_file_path, ranked_output_path, temp_dir
         #         )
 
-        # Call convert_to_modelcif script
         if convert_to_modelcif:
-            parent_dir = os.path.dirname(os.path.dirname((os.path.abspath(__file__))))
-            logging.info(f"Converting {output_dir} to ModelCIF format...")
-            command = f"python3 {parent_dir}/scripts/convert_to_modelcif.py " \
-                      f"--ap_output {output_dir} "
-
-            result = subprocess.run(command,
-                                   check=False,
-                                   shell=True,
-                                   capture_output=True,
-                                   text=True)
-
-            if result.stderr:
-                logging.error(f"Error: {result.stderr}")
-            else:
-                logging.info("All PDBs converted to ModelCIF format.")
+            _convert_to_modelcif(output_dir)
         post_prediction_process(
            output_dir,
            compress_pickles=compress_pickles,

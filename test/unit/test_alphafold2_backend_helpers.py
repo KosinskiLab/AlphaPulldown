@@ -1248,7 +1248,15 @@ def test_postprocess_ranks_models_relaxes_best_and_runs_cleanup(
     assert (tmp_path / "ranked_1.pdb").read_text(encoding="utf-8") == "PDB:low"
     assert (tmp_path / "relax_metrics.json").is_file()
     assert cleanup_calls
-    assert subprocess_calls
+    (command,), kwargs = subprocess_calls[0]
+    assert command == [
+        af2_backend_module.sys.executable,
+        af2_backend_module._MODELCIF_CONVERTER,
+        "--ap_output",
+        str(tmp_path),
+    ]
+    assert command[1].endswith("scripts/convert_to_modelcif.py")
+    assert "shell" not in kwargs
 
 
 def test_postprocess_relaxes_all_using_saved_unrelaxed_pdbs(
@@ -1340,8 +1348,8 @@ def test_postprocess_handles_monomers_without_relaxation_and_logs_modelcif_error
     )
     monkeypatch.setattr(
         af2_backend_module.logging,
-        "error",
-        lambda message: modelcif_errors.append(message),
+        "warning",
+        lambda message, *args: modelcif_errors.append(message % args if args else message),
     )
     monkeypatch.setattr(
         af2_backend_module.subprocess,
@@ -1383,7 +1391,9 @@ def test_postprocess_handles_monomers_without_relaxation_and_logs_modelcif_error
     assert not (tmp_path / "relaxed_modelA.pdb").exists()
     assert plot_calls == [0]
     assert cleanup_calls
-    assert modelcif_errors == ["Error: convert failed"]
+    assert [message for message in modelcif_errors if "ModelCIF" in message] == [
+        f"ModelCIF conversion of {tmp_path} failed with exit code 1; its output is logged above."
+    ]
 
 
 def test_postprocess_skips_best_relaxation_below_score_threshold(
@@ -2116,3 +2126,98 @@ def test_an_unreadable_json_left_by_an_older_version_is_ignored(
 
     assert af2_backend_module._read_from_json_if_exists(str(path)) == {}
     assert "Ignoring unreadable" in caplog.text
+
+
+_FAKE_MODELCIF_CONVERTER = """
+import argparse, pathlib, sys
+parser = argparse.ArgumentParser()
+parser.add_argument("--ap_output")
+output = pathlib.Path(parser.parse_args().ap_output)
+(output / "ranked_0.cif").write_text("data_converted\\n")
+print("INFO converting ranked_0.pdb", file=sys.stderr)
+"""
+
+
+def test_modelcif_conversion_works_in_any_output_path(
+    af2_backend_module, monkeypatch, tmp_path, caplog
+):
+    converter = tmp_path / "convert_to_modelcif.py"
+    converter.write_text(_FAKE_MODELCIF_CONVERTER)
+    monkeypatch.setattr(af2_backend_module, "_MODELCIF_CONVERTER", str(converter))
+    monkeypatch.chdir(tmp_path)
+    output_dir = tmp_path / "fold A+B; touch pwned $(touch pwned2) 'q' & `x`"
+    output_dir.mkdir()
+    caplog.set_level("INFO")
+
+    af2_backend_module._convert_to_modelcif(output_dir)
+
+    assert (output_dir / "ranked_0.cif").read_text() == "data_converted\n"
+    # No shell ran the command, so nothing else appeared.
+    assert sorted(path.name for path in tmp_path.iterdir()) == sorted(
+        [converter.name, output_dir.name]
+    )
+    # Informational stderr is passed on, not taken for a failure.
+    assert "INFO converting ranked_0.pdb" in caplog.text
+    assert "failed" not in caplog.text
+
+
+def _postprocess_monomer(af2_backend_module, monkeypatch, tmp_path, *, convert_to_modelcif):
+    cleanup_calls = []
+    monkeypatch.setattr(af2_backend_module, "plot_pae_from_matrix", lambda **kwargs: None)
+    monkeypatch.setattr(
+        af2_backend_module,
+        "post_prediction_process",
+        lambda *args, **kwargs: cleanup_calls.append(args),
+    )
+    af2_backend_module.start_fold_record(tmp_path, {"backend": "alphafold2"})
+    af2_backend_module.AlphaFold2Backend.postprocess(
+        prediction_results={
+            "modelA": {
+                "plddt": np.array([81.0, 82.0], dtype=np.float32),
+                "predicted_aligned_error": np.zeros((2, 2), dtype=np.float32),
+                "max_predicted_aligned_error": 31.0,
+                "ranking_confidence": 81.5,
+                "ptm": 0.4,
+                "seqs": ["AB"],
+                "unrelaxed_protein": SimpleNamespace(name="mono"),
+            }
+        },
+        multimeric_object=af2_backend_module.MonomericObject("single", "AB"),
+        output_dir=tmp_path,
+        features_directory="/features",
+        models_to_relax=af2_backend_module.ModelsToRelax.NONE,
+        convert_to_modelcif=convert_to_modelcif,
+    )
+    return cleanup_calls
+
+
+@pytest.mark.parametrize("failure", ["nonzero exit", "launch error"])
+def test_a_failed_modelcif_conversion_still_cleans_up_and_completes_the_fold(
+    af2_backend_module, monkeypatch, tmp_path, caplog, failure
+):
+    def run(command, **kwargs):
+        if failure == "launch error":
+            raise FileNotFoundError(command[0])
+        return SimpleNamespace(returncode=2, stdout="", stderr="Traceback: ValueError")
+
+    monkeypatch.setattr(af2_backend_module.subprocess, "run", run)
+
+    cleanup_calls = _postprocess_monomer(
+        af2_backend_module, monkeypatch, tmp_path, convert_to_modelcif=True
+    )
+
+    assert cleanup_calls
+    assert af2_backend_module.read_fold_record(tmp_path)["complete"] is True
+    expected = "failed with exit code 2" if failure == "nonzero exit" else "Could not start"
+    assert expected in caplog.text
+
+
+def test_no_modelcif_conversion_starts_when_it_is_off(
+    af2_backend_module, monkeypatch, tmp_path
+):
+    def run(*args, **kwargs):
+        raise AssertionError("the ModelCIF converter started")
+
+    monkeypatch.setattr(af2_backend_module.subprocess, "run", run)
+
+    assert _postprocess_monomer(af2_backend_module, monkeypatch, tmp_path, convert_to_modelcif=False)
