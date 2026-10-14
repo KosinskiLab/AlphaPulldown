@@ -237,3 +237,17 @@ def test_ci_runs_the_tool_tests_with_the_images_mmseqs2():
         assert f"s/^ARG {arg}=//p" in text, arg
     assert "sha256sum -c -" in text
     assert "MMSEQS_INTEGRATION_BINARY=" in text
+
+
+@pytest.mark.parametrize(
+    "dockerfile", sorted((REPOSITORY / "docker").glob("*.dockerfile")), ids=lambda path: path.name
+)
+def test_every_test_an_image_runs_exists(dockerfile):
+    # A renamed test file or test fails the image build at its test stage, after an
+    # hour of building, and only in the container job.
+    for target in re.findall(r"\btest/[\w/]+\.py(?:::\w+)?", dockerfile.read_text()):
+        path, _, name = target.partition("::")
+        assert (REPOSITORY / path).is_file(), target
+        if name:
+            source = (REPOSITORY / path).read_text()
+            assert re.search(rf"^def {re.escape(name)}\(", source, re.MULTILINE), target
