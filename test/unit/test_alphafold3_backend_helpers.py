@@ -1,6 +1,7 @@
 import dataclasses
 import importlib.util
 import json
+import lzma
 import sys
 import types
 from pathlib import Path
@@ -2784,3 +2785,368 @@ def test_af3_predict_reports_an_option_no_backend_takes(af3_backend_module):
     assert list(predict(**common, num_cycle=3, skip_templates=False)) == []
     with pytest.raises(ValueError, match="debug_msa"):
         list(predict(**common, debug_msa=True))
+
+
+def test_af3_fold_without_ranked_samples_is_not_recorded_complete(
+    af3_backend_module, af3_outputs_module, monkeypatch, tmp_path
+):
+    # Predicted, but its ranking ledger is gone by post-processing.
+    _af3_run(af3_backend_module, monkeypatch, tmp_path, finish=False)
+    monkeypatch.setattr(
+        af3_backend_module, "write_fold_outputs", af3_outputs_module.write_fold_outputs
+    )
+    fold_input = af3_backend_module.folding_input.Input(
+        name="job", chains=("A",), rng_seeds=(1,)
+    )
+
+    with pytest.raises(FileNotFoundError, match="No ranked samples"):
+        af3_backend_module.AlphaFold3Backend.postprocess(
+            prediction_results=[1], output_dir=tmp_path, multimeric_object=fold_input
+        )
+
+    assert _af3_fold_record(tmp_path)["complete"] is False
+    # So a resumed run predicts the fold again instead of skipping one with no model.
+    assert len(_af3_run(af3_backend_module, monkeypatch, tmp_path)) == 1
+
+
+def test_af3_seed_is_written_when_its_modelcif_metadata_cannot_be_added(
+    af3_outputs_module, af3_runner_module, monkeypatch, tmp_path, caplog
+):
+    _write_files_like_af3(af3_outputs_module, monkeypatch)
+
+    def unparsable(path, records):
+        raise ValueError("not an mmCIF file")
+
+    monkeypatch.setattr(af3_outputs_module, "augment_af3_modelcif_file", unparsable)
+
+    af3_outputs_module.write_seed_outputs(
+        _results_for_seed(af3_runner_module, 7, 0.4),
+        tmp_path,
+        "job",
+        modelcif_metadata=[{"software": {}}],
+    )
+
+    assert _ranking_rows(tmp_path) == ["seed,sample,ranking_score", "7,0,0.4"]
+    assert (tmp_path / "seed-7_sample-0" / "model.cif").is_file()
+    assert "Could not add AlphaPulldown metadata" in caplog.text
+
+
+def test_af3_modelcif_metadata_keeps_each_record_once_and_survives_a_bad_sidecar(
+    af3_outputs_module, monkeypatch, tmp_path, caplog
+):
+    # A homodimer: both chains carry the record, and the copied sidecar holds it too.
+    record = {"software": {"AlphaFold": {"version": "2.3.2"}}, "databases": {}}
+    monkeypatch.setattr(
+        af3_outputs_module,
+        "extract_metadata_from_fold_input",
+        lambda fold_input: [record, dict(record)],
+    )
+    monkeypatch.setattr(
+        af3_outputs_module, "load_feature_metadata_sidecars", lambda output_dir: [dict(record)]
+    )
+    assert af3_outputs_module._modelcif_metadata(object(), tmp_path) == [record]
+
+    def unreadable(output_dir):
+        raise ValueError("truncated sidecar")
+
+    monkeypatch.setattr(af3_outputs_module, "load_feature_metadata_sidecars", unreadable)
+    assert af3_outputs_module._modelcif_metadata(object(), tmp_path) == [record]
+    assert "Could not read copied feature metadata" in caplog.text
+
+
+def test_predict_structure_hands_each_seed_over_as_soon_as_it_is_predicted(
+    af3_runner_module, monkeypatch
+):
+    fold_input = af3_runner_module.folding_input.Input(
+        name="job", chains=("A",), rng_seeds=(7, 8)
+    )
+    monkeypatch.setattr(
+        af3_runner_module.featurisation, "featurise_input", lambda **kwargs: [{}, {}]
+    )
+    events = []
+
+    class FakeRunner:
+        def run_inference(self, batch, rng_key):
+            events.append("inference")
+            return {}
+
+        def extract_structures(self, batch, result, target_name):
+            return []
+
+    returned = af3_runner_module.predict_structure(
+        fold_input=fold_input,
+        model_runner=FakeRunner(),
+        on_seed_done=lambda results_for_seed: events.append(results_for_seed.seed),
+    )
+
+    # Each seed is handed over before the next one runs, and none is kept in memory.
+    assert events == ["inference", 7, "inference", 8]
+    assert returned == []
+
+
+def test_process_fold_input_stops_when_the_model_parameters_cannot_load(
+    af3_runner_module, tmp_path
+):
+    fold_input = af3_runner_module.folding_input.Input(
+        name="job", chains=("A",), rng_seeds=(1,)
+    )
+
+    class RunnerWithoutWeights:
+        @property
+        def model_params(self):
+            raise FileNotFoundError("no AF3 weights in /models")
+
+    with pytest.raises(FileNotFoundError, match="no AF3 weights"):
+        af3_runner_module.process_fold_input(
+            fold_input=fold_input, model_runner=RunnerWithoutWeights(), output_dir=tmp_path
+        )
+    assert not list(tmp_path.glob("*_data.json"))
+
+
+def test_record_inference_kernels_replaces_a_file_that_is_not_an_object(
+    af3_runner_module, tmp_path, caplog
+):
+    path = tmp_path / "inference_kernels.json"
+    path.write_text("[1, 2]")
+
+    af3_runner_module._record_inference_kernels(
+        tmp_path, 7, FakeKernelRunner(af3_runner_module), {"token_index": np.arange(3)}
+    )
+
+    assert json.loads(path.read_text()) == {"seed-7": OFF_RECORD}
+    assert "Replacing unreadable" in caplog.text
+
+
+def test_model_config_sets_only_the_fields_its_af3_release_has(af3_runner_module):
+    class OlderModel:
+        class Config:
+            def __init__(self):
+                self.num_recycles = 3
+
+    config = af3_runner_module.make_model_config(
+        model_class=OlderModel,
+        flash_attention_implementation="xla",
+        num_recycles=5,
+        return_embeddings=True,
+        return_distogram=True,
+        global_config_update={"fused": True},
+    )
+
+    assert vars(config) == {"num_recycles": 5}
+
+
+def test_translated_msa_debug_artifacts_need_a_translation(af3_debug_module, tmp_path):
+    # Debug MSAs on, but nothing was translated from AF2 features (JSON inputs only).
+    af3_debug_module._write_translated_msa_debug_artifacts(
+        job_name="job",
+        output_dir=str(tmp_path / "out"),
+        chain_records=[],
+        translation_results=[],
+    )
+
+    assert not (tmp_path / "out").exists()
+
+
+def test_translated_msa_summary_pairs_only_rows_with_a_species(af3_debug_module, tmp_path):
+    paired = ">query\nAAA\n>tr|X1|P1_HUMAN\nAAA\n>tr|X2|NOSPECIES\nAAA\n"
+    records = [
+        af3_debug_module._TranslatedMsaDebugRecord(
+            chain_id=chain_id,
+            chain_description=chain_id,
+            chain_length=3,
+            paired_msa=paired,
+            unpaired_msa=">query\nAAA\n",
+            paired_msa_row_count=3,
+            unpaired_msa_row_count=1,
+            paired_species_identifier_count=1,
+            paired_rows_without_species_identifier_count=1,
+            paired_rows_with_generated_accession_count=0,
+        )
+        for chain_id in ("A", "B")
+    ]
+    translation = SimpleNamespace(
+        translation_mode="individual",
+        total_rows_considered=3,
+        occupancy_histogram={"0": 0, "1": 1, "ge_2": 2},
+        paired_row_count=2,
+        invalid_paired_rows=0,
+        invalid_unpaired_rows=0,
+    )
+
+    af3_debug_module._write_translated_msa_debug_artifacts(
+        job_name="job",
+        output_dir=str(tmp_path),
+        chain_records=records,
+        translation_results=[translation],
+    )
+
+    summary = json.loads((tmp_path / "job_af2_to_af3_translation_summary.json").read_text())
+    # Only the HUMAN row pairs across the chains; the row without a species does not.
+    assert summary["effective_paired_row_count"] == 1
+    assert summary["effective_paired_row_histogram_by_num_chains"] == {"2": 1}
+    assert (tmp_path / "job_chain-B_paired_input.a3m").read_text() == paired
+
+
+@pytest.mark.parametrize(
+    "example",
+    [{}, {"msa": np.zeros((2, 3), dtype=np.int32), "num_alignments": 0}],
+    ids=["no msa", "no alignments"],
+)
+def test_final_msa_a3m_is_skipped_without_alignments(af3_debug_module, tmp_path, example):
+    af3_debug_module._write_final_msa_a3m(example, 7, output_dir=tmp_path, job_name="job")
+
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_final_msa_a3m_never_fails_the_prediction(
+    af3_debug_module, monkeypatch, tmp_path, caplog
+):
+    example = {"msa": np.zeros((2, 3), dtype=np.int32)}
+    # Nowhere to write it: nothing to do.
+    af3_debug_module._write_final_msa_a3m(example, 7, output_dir=None, job_name="job")
+
+    def unencodable(rows):
+        raise ValueError("unknown residue id")
+
+    monkeypatch.setattr(af3_debug_module, "ids_to_a3m_af3", unencodable)
+    af3_debug_module._write_final_msa_a3m(example, 7, output_dir=tmp_path, job_name="job")
+
+    assert "Failed to write final complex MSA A3M" in caplog.text
+    assert not list(tmp_path.glob("*.a3m"))
+
+
+def test_json_input_is_read_from_its_compressed_copy(af3_inputs_module, tmp_path):
+    # The published database ships AF3 inputs as .json.xz.
+    payload = {"name": "x", "chains": [{"type": "protein", "id": "A", "sequence": "GG"}]}
+    (tmp_path / "x_af3_input.json.xz").write_bytes(
+        lzma.compress(json.dumps(payload).encode("utf-8"))
+    )
+    builder = af3_inputs_module.FoldInputBuilder()
+
+    builder.add({"json_input": str(tmp_path / "x_af3_input.json")})
+
+    assert [chain.sequence for chain in builder.chains] == ["GG"]
+    with pytest.raises(FileNotFoundError):
+        builder.add({"json_input": str(tmp_path / "missing_af3_input.json")})
+
+
+def test_json_rna_and_dna_chains_are_sliced_to_regions(af3_inputs_module):
+    folding_input = af3_inputs_module.folding_input
+    rna = folding_input.RnaChain(
+        id="R", sequence="ACGUAC", modifications=[("PSU", 4)], unpaired_msa=">q\nACGUAC\n"
+    )
+    dna = folding_input.DnaChain(id="D", sequence="ACGTAC", modifications=[("5MC", 5)])
+
+    rna = af3_inputs_module._slice_af3_chain_to_regions(rna, regions=[(2, 4)], json_path="r.json")
+    dna = af3_inputs_module._slice_af3_chain_to_regions(
+        dna, regions=[(1, 1), (5, 6)], json_path="d.json"
+    )
+
+    assert (rna.sequence, rna.residue_ids, rna.modifications, rna.unpaired_msa) == (
+        "CGU", [2, 3, 4], [("PSU", 3)], ">q\nCGU\n"
+    )
+    assert (dna.sequence, dna.residue_ids, dna.modifications()) == (
+        "AAC", [1, 5, 6], [("5MC", 2)]
+    )
+
+
+def test_json_regions_must_lie_inside_the_chain_and_not_on_a_ligand(af3_inputs_module):
+    folding_input = af3_inputs_module.folding_input
+
+    with pytest.raises(ValueError, match="outside the sequence length 2"):
+        af3_inputs_module._slice_af3_chain_to_regions(
+            folding_input.ProteinChain(id="A", sequence="AC"), regions=[(2, 3)], json_path="a.json"
+        )
+    with pytest.raises(ValueError, match="not supported for ligand"):
+        af3_inputs_module._slice_af3_chain_to_regions(
+            folding_input.Ligand(id="L", ccd_ids=["ATP"]), regions=[(1, 1)], json_path="l.json"
+        )
+
+
+def test_json_rna_dna_and_ligand_chains_get_a_free_id_on_a_clash(af3_inputs_module, tmp_path):
+    json_path = _write_stub_af3_json(
+        tmp_path / "complex.json",
+        {
+            "name": "complex",
+            "chains": [
+                {"type": "rna", "id": "A", "sequence": "ACGU", "modifications": [["PSU", 2]]},
+                {"type": "dna", "id": "B", "sequence": "ACGT", "modifications": [["5MC", 1]]},
+                {"type": "ligand", "id": "C", "ccd_ids": ["ATP"]},
+            ],
+        },
+    )
+    builder = af3_inputs_module.FoldInputBuilder()
+
+    builder.add({"json_input": str(json_path)})
+    builder.add({"json_input": str(json_path)})
+
+    assert [chain.id for chain in builder.chains] == ["A", "B", "C", "D", "E", "F"]
+    rna, dna, ligand = builder.chains[3:]
+    folding_input = af3_inputs_module.folding_input
+    assert isinstance(rna, folding_input.RnaChain) and rna.modifications == [["PSU", 2]]
+    assert isinstance(dna, folding_input.DnaChain) and dna.modifications() == [["5MC", 1]]
+    assert isinstance(ligand, folding_input.Ligand) and ligand.ccd_ids == ["ATP"]
+
+
+def test_an_unreadable_feature_metadata_sidecar_leaves_the_description_as_it_is(
+    af3_backend_module, tmp_path, caplog
+):
+    feature_dir = tmp_path / "features"
+    feature_dir.mkdir()
+    (feature_dir / "protA_feature_metadata_2026-08-19.json").write_text(
+        "{truncated", encoding="utf-8"
+    )
+
+    prepared = af3_backend_module.AlphaFold3Backend.prepare_input(
+        objects_to_model=[{"object": MonomericObject("protA", "ACDE"), "output_dir": str(tmp_path)}],
+        random_seed=7,
+        features_directory=[str(feature_dir)],
+    )
+
+    assert prepared[0].fold_input.chains[0].description == "protA"
+    assert "Could not read feature metadata for protA" in caplog.text
+
+
+def test_duplicate_residue_normalisation_is_skipped_when_the_sequence_does_not_match(
+    af3_inputs_module, caplog
+):
+    monomer = MonomericObject("protA", "ACDE")
+    monomer.feature_dict = {"residue_index": np.asarray([0, 0, 1])}
+
+    sequence, _, residue_ids, normalised = af3_inputs_module._normalise_monomeric_inputs_for_af3(
+        monomer
+    )
+
+    assert (sequence, residue_ids, normalised) == ("ACDE", [1, 1, 2], False)
+    assert "Skipping adjacent-duplicate AF3 normalization" in caplog.text
+
+
+def test_slicing_a_sequence_shorter_than_the_residues_to_keep(af3_inputs_module, caplog):
+    keep = np.asarray([0, 3])
+
+    # A template sequence may be shorter than the query: it is kept as it is.
+    assert af3_inputs_module._slice_sequence_like(
+        b"AC", keep, tolerate_shorter_input=True, context="template_sequence"
+    ) == b"AC"
+    assert "Leaving template_sequence unsliced" in caplog.text
+    with pytest.raises(IndexError, match="sequence length 2 is shorter than keep index 3"):
+        af3_inputs_module._slice_sequence_like("AC", keep)
+
+
+def test_job_name_fragments_of_fold_inputs_other_objects_and_nothing(af3_inputs_module):
+    fold_input = af3_inputs_module.folding_input.Input(
+        name="protA_and_protA", chains=("A",), rng_seeds=(1,)
+    )
+
+    assert af3_inputs_module._object_name_fragment(fold_input) == "protA__x2"
+    assert af3_inputs_module._object_name_fragment(3.5) == "float"
+    assert af3_inputs_module._build_output_job_name([{"object": []}]) == "ranked_0"
+
+
+def test_release_date_goes_after_the_data_block_header(af3_inputs_module):
+    without_header = "loop_\n_atom_site.id\n1\n"
+    assert af3_inputs_module.insert_release_date_into_mmcif(without_header) == without_header
+
+    dated = af3_inputs_module.insert_release_date_into_mmcif("data_x\nloop_\n")
+    assert dated.splitlines()[:3] == ["data_x", "", "loop_"]
+    assert "1 'Structure model' 1 0 2100-01-01" in dated

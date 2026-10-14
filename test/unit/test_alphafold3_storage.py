@@ -68,3 +68,23 @@ def test_af3_storage_mode_preserves_top_confidences_when_best_sample_lacks_it(tm
     alphafold3_storage.post_prediction_process_af3(str(tmp_path), job, storage_mode="slim")
     # top-level copy is the only remaining source of best-model PAE -> must survive
     assert (tmp_path / f"{job}_confidences.json").is_file()
+
+
+def test_af3_best_sample_needs_a_readable_ranking(tmp_path):
+    assert alphafold3_storage.af3_best_sample_dir(tmp_path) is None
+    # Truncated by a killed run of a version before atomic writes: no scores.
+    (tmp_path / "ranking_scores.csv").write_text("seed,sample\n9,0\n", encoding="utf-8")
+    assert alphafold3_storage.af3_ranking_scores(tmp_path) == []
+    assert alphafold3_storage.af3_best_sample_dir(tmp_path) is None
+
+
+def test_af3_storage_mode_never_fails_a_finished_fold(tmp_path, caplog):
+    alphafold3_storage.post_prediction_process_af3(str(tmp_path / "gone"), "job", storage_mode="slim")
+    assert "AF3 post-processing error" in caplog.text
+
+    # A rerun after an earlier slim pass already removed one duplicate.
+    job = _make_af3_dir(tmp_path)
+    (tmp_path / f"{job}_data.json").unlink()
+    alphafold3_storage.post_prediction_process_af3(str(tmp_path), job, storage_mode="slim")
+    assert not (tmp_path / f"{job}_confidences.json").exists()
+    assert (tmp_path / "seed-9_sample-1" / "confidences.json").is_file()

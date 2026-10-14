@@ -2105,3 +2105,14 @@ def test_af2_predict_reports_an_option_no_backend_takes(af2_backend_module):
     assert list(predict(**common, num_diffusion_samples=5, crosslinks=None)) == []
     with pytest.raises(ValueError, match="debug_msa"):
         list(predict(**common, debug_msa=True))
+
+
+def test_an_unreadable_json_left_by_an_older_version_is_ignored(
+    af2_backend_module, tmp_path, caplog
+):
+    # Truncated by a run killed while writing it, before writes were atomic.
+    path = tmp_path / "timings.json"
+    path.write_text('{"predict_and_compile_model_1": 12.', encoding="utf-8")
+
+    assert af2_backend_module._read_from_json_if_exists(str(path)) == {}
+    assert "Ignoring unreadable" in caplog.text

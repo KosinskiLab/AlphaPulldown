@@ -135,11 +135,16 @@ def write_seed_outputs(
 
 def write_fold_outputs(output_dir: os.PathLike[str] | str, job_name: str) -> None:
     """Copy the best ranked sample under the job name, with the terms of use: the same
-    bytes AlphaFold 3 writes there, also for samples of an interrupted earlier run."""
+    bytes AlphaFold 3 writes there, also for samples of an interrupted earlier run.
+
+    Without ranked samples this raises rather than returns: the fold has no model, and
+    post-processing it to the end would record it complete for ``--allow_resume`` to skip.
+    """
     best = af3_best_sample_dir(output_dir)
     if best is None:
-        logging.warning(f'No ranked samples in {output_dir}; writing no best model.')
-        return
+        raise FileNotFoundError(
+            f'No ranked samples in {output_dir}: no model to write under {job_name}.'
+        )
     for name in _SAMPLE_OUTPUTS:
         with open(os.path.join(output_dir, best, name), 'rb') as source, open_atomic(
             os.path.join(output_dir, f'{job_name}_{name}'), 'wb'
