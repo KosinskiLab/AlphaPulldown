@@ -31,17 +31,17 @@ from alphapulldown.prediction.resume import (
     record_fold_complete,
     start_fold_record,
 )
-from alphapulldown.utils.af3_modelcif import augment_af3_modelcif_file
+from alphapulldown.folding_backend.alphafold3_modelcif import augment_af3_modelcif_file
+from alphapulldown.folding_backend.alphafold3_storage import (
+    AF3_RANKING_SCORES,
+    af3_best_sample_dir,
+    af3_ranking_scores,
+)
 from alphapulldown.utils.feature_metadata import (
     extract_metadata_from_fold_input,
     load_feature_metadata_sidecars,
 )
 from alphapulldown.utils.file_handling import open_atomic
-from alphapulldown.utils.post_modelling import (
-    AF3_RANKING_SCORES,
-    af3_best_sample_dir,
-    af3_ranking_scores,
-)
 
 if TYPE_CHECKING:
     from alphapulldown.folding_backend.alphafold3_runner import ResultsForSeed

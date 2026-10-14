@@ -20,7 +20,7 @@ def test_af3_backend_stubs_do_not_leak_into_modelcif_tests():
             "-n", "0",
             "test/unit/test_alphafold3_backend_helpers.py::"
             "test_output_name_helpers_compact_and_normalise_fragments",
-            "test/unit/test_af3_modelcif.py::"
+            "test/unit/test_alphafold3_modelcif.py::"
             "test_augment_real_af3_modelcif_preserves_comments_and_is_modelcif_readable",
         ],
         cwd=root,
