@@ -2784,3 +2784,26 @@ def test_af3_predict_reports_an_option_no_backend_takes(af3_backend_module):
     assert list(predict(**common, num_cycle=3, skip_templates=False)) == []
     with pytest.raises(ValueError, match="debug_msa"):
         list(predict(**common, debug_msa=True))
+
+
+def test_af3_fold_without_ranked_samples_is_not_recorded_complete(
+    af3_backend_module, af3_outputs_module, monkeypatch, tmp_path
+):
+    # Predicted, but its ranking ledger is gone by post-processing.
+    _af3_run(af3_backend_module, monkeypatch, tmp_path, finish=False)
+    monkeypatch.setattr(
+        af3_backend_module, "write_fold_outputs", af3_outputs_module.write_fold_outputs
+    )
+    fold_input = af3_backend_module.folding_input.Input(
+        name="job", chains=("A",), rng_seeds=(1,)
+    )
+
+    with pytest.raises(FileNotFoundError, match="No ranked samples"):
+        af3_backend_module.AlphaFold3Backend.postprocess(
+            prediction_results=[1], output_dir=tmp_path, multimeric_object=fold_input
+        )
+
+    assert _af3_fold_record(tmp_path)["complete"] is False
+    # So a resumed run predicts the fold again instead of skipping one with no model.
+    assert len(_af3_run(af3_backend_module, monkeypatch, tmp_path)) == 1
+
