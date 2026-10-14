@@ -159,3 +159,41 @@ class TestConvertPDB2CIF(parameterized.TestCase):
             with open(out_cif, "r", encoding="ascii") as fh:
                 cif_txt = fh.read()
             self.assertIn("MESAIA", cif_txt)
+
+    def test_backend_conversion_matches_the_script_in_any_output_path(self):
+        """The AF2 backend's conversion, run in a directory full of shell metacharacters,
+        writes what the standalone script writes in a plain one."""
+        try:
+            from alphapulldown.folding_backend.alphafold2_backend import _convert_to_modelcif
+        except ImportError as exc:  # the AF2 backend needs AlphaFold 2
+            self.skipTest(f"AlphaFold 2 backend unavailable: {exc}")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # The fold directory's name becomes the ModelCIF entry ID, so both are TEST.
+            plain = Path(temp_dir, "plain", "TEST")
+            odd = Path(temp_dir, "runs A+B; touch pwned $(x) 'q' & `y`", "TEST")
+            for fold_dir in (plain, odd):
+                shutil.copytree(join(self.input_dir, "TEST"), fold_dir)
+
+            subprocess.run(
+                [sys.executable, self.script_path, "--ap_output", str(plain)],
+                check=True, capture_output=True, text=True,
+            )
+            _convert_to_modelcif(odd)
+
+            files = sorted(path.relative_to(plain) for path in plain.rglob("*") if path.is_file())
+            self.assertEqual(
+                files, sorted(path.relative_to(odd) for path in odd.rglob("*") if path.is_file())
+            )
+            self.assertIn(Path("ranked_0.cif"), files)
+            for relative in files:
+                if relative.suffix == ".zip":  # archives differ in their timestamps only
+                    with zipfile.ZipFile(plain / relative) as expected, zipfile.ZipFile(
+                        odd / relative
+                    ) as actual:
+                        self.assertEqual(expected.namelist(), actual.namelist())
+                        for name in expected.namelist():
+                            self.assertEqual(expected.read(name), actual.read(name), name)
+                else:
+                    self.assertEqual(
+                        (plain / relative).read_bytes(), (odd / relative).read_bytes(), relative
+                    )
