@@ -187,6 +187,10 @@ def _af2_subprocess_env() -> dict[str, str]:
 # --------------------------------------------------------------------------- #
 #                       common helper mix-in / assertions                     #
 # --------------------------------------------------------------------------- #
+# AlphaPulldown's own subfolders of a fold directory (records, feature metadata, debug
+# output); the folds are the other subfolders.
+_ALPHAPULLDOWN_SUBDIRS = {"alphapulldown", "debug"}
+
 class _TestBase(parameterized.TestCase):
     use_temp_dir = True
 
@@ -262,7 +266,10 @@ class _TestBase(parameterized.TestCase):
         if dirname is not None:
             folders = [self.output_dir / dirname]
         else:
-            folders = [d for d in self.output_dir.iterdir() if d.is_dir()]
+            folders = [
+                d for d in self.output_dir.iterdir()
+                if d.is_dir() and d.name not in _ALPHAPULLDOWN_SUBDIRS
+            ]
 
         for folder in folders:
             files = list(folder.iterdir())
