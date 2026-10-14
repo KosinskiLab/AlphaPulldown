@@ -1,7 +1,7 @@
 """
 Implements structure prediction backend using AlphaFold 3.
 
-Copyright (c) 2024 European Molecular Biology Laboratory
+Copyright (c) 2026 European Molecular Biology Laboratory
 
 Author: Dmitry Molodenskiy <dmitry.molodenskiy@embl-hamburg.de>
 """

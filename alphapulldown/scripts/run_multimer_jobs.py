@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """ A script to perform structure prediction.
 
-    Copyright (c) 2024 European Molecular Biology Laboratory
+    Copyright (c) 2026 European Molecular Biology Laboratory
 
     Authors: Dingquan Yu, Valentin Maurer <name.surname@embl-hamburg.de>
 """

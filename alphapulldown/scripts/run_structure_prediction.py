@@ -2,7 +2,7 @@
 
 """ CLI inferface for performing structure prediction.
 
-    Copyright (c) 2024 European Molecular Biology Laboratory
+    Copyright (c) 2026 European Molecular Biology Laboratory
 
     Author: Valentin Maurer <valentin.maurer@embl-hamburg.de>
             Dmitry Molodenskiy <dmitry.molodenskiy@embl-hamburg.de>

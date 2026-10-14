@@ -3,7 +3,7 @@ Runs the AlphaFold 3 model on a fold input: featurisation, inference and structu
 extraction per seed, adapted from upstream run_alphafold.py and kept close to it for
 diffing. Each seed's outputs are written as it finishes.
 
-Copyright (c) 2024 European Molecular Biology Laboratory
+Copyright (c) 2026 European Molecular Biology Laboratory
 
 Author: Dmitry Molodenskiy <dmitry.molodenskiy@embl-hamburg.de>
 """

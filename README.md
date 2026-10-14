@@ -9,7 +9,7 @@
 ### Quick install (recommended)
 
 ```bash
-curl -O https://raw.githubusercontent.com/KosinskiLab/AlphaPulldownSnakemake/2.10.0/install.sh
+curl -O https://raw.githubusercontent.com/KosinskiLab/AlphaPulldownSnakemake/2.11.0/install.sh
 bash install.sh
 conda activate snake
 cd AlphaPulldownSnakemake
@@ -25,7 +25,7 @@ Useful options:
 | Option | Meaning |
 | --- | --- |
 | `-d, --dest DIR` | working directory to deploy into (default `AlphaPulldownSnakemake`) |
-| `-v, --version TAG` | workflow version to deploy (default `2.10.0`) |
+| `-v, --version TAG` | workflow version to deploy (default `2.11.0`) |
 | `-i, --image-dir DIR` | shared container image directory |
 | `-n, --env-name NAME` | conda environment name (default `snake`) |
 | `--no-pull` | skip container pre-fetch (Snakemake will fetch on first run) |
@@ -43,7 +43,7 @@ Create and activate the conda environment:
 ```bash
 conda env create \
   -n snake \
-  -f https://raw.githubusercontent.com/KosinskiLab/AlphaPulldownSnakemake/2.10.0/workflow/envs/alphapulldown.yaml
+  -f https://raw.githubusercontent.com/KosinskiLab/AlphaPulldownSnakemake/2.11.0/workflow/envs/alphapulldown.yaml
 conda activate snake
 ```
 
@@ -55,7 +55,7 @@ Then deploy the workflow into a new processing directory for your project:
 snakedeploy deploy-workflow \
   https://github.com/KosinskiLab/AlphaPulldownSnakemake \
   AlphaPulldownSnakemake \
-  --tag 2.10.0
+  --tag 2.11.0
 cd AlphaPulldownSnakemake
 ```
 
@@ -522,12 +522,12 @@ again of host RAM. With the default `auto`, the fraction is computed **per job a
 time** as
 
 ```text
-1 + (allocated host RAM - structure_inference_ram_bytes) / (physical GPU VRAM)
+1 + (allocated host RAM - structure_inference_unified_memory_margin_mb) / (physical GPU VRAM)
 ```
 
 The GPU VRAM is read with `nvidia-smi` once the job lands on a node, and the host RAM is
 the job's SLURM `--mem` allocation (which scales with retry attempts). The job can thus
-spill into all of its host RAM except the base inference RAM (`structure_inference_ram_bytes`,
+spill into all of its host RAM except a margin (`structure_inference_unified_memory_margin_mb`,
 by default 8000 MB for AlphaFold 3 and 16000 MB for AlphaFold 2), which stays free for the
 process itself. For example, 128 GB of host RAM on an 80 GB GPU gives 1 + (128 - 8) / 80 = 2.5,
 a 200 GB limit with 120 GB of host spill. The fraction never goes below 1, and the chosen value
@@ -579,7 +579,7 @@ structure_inference  mem = safety * (structure_inference_ram_bytes + per_token_s
   | `alphafold3` | 40000 MB | 25 MB |  8000 MB | 0.0045 |
 
   The AF3 inference quadratic is sized to the observed GPU-VRAM demand so that, with unified
-  memory, the `auto` limit (GPU VRAM plus the host RAM request minus its base) covers large
+  memory, the `auto` limit (GPU VRAM plus the host RAM request minus the margin) covers large
   complexes instead of OOM-ing.
 - The first attempt already includes `mem_safety_factor` (default `1.25`) of head-room.
   **OOM retries still escalate** on top, multiplying by `..._ram_scaling ** (attempt - 1)`,
@@ -693,8 +693,8 @@ batch_max_tokens: 0    # optional cap on summed residues per batch (0 = no cap)
   share a shape, whereas for AlphaFold3 the point is queueing once instead of once
   per fold.
 - For AlphaFold2 batches, `--allow_resume` is enabled automatically, so if a job is
-  interrupted a rerun skips folds whose outputs already exist (AlphaFold3 does not accept
-  that flag, so its batches recompute the unfinished folds on rerun).
+  interrupted a rerun skips folds whose outputs already exist (AlphaFold3 images from
+  2.11.0 resume by default as well, keeping finished folds and seeds).
 - Analysis and reports are unaffected — `alphajudge` still runs per fold (one
   `interfaces.csv` + `report.pdf` each) and the recursive summary still aggregates them.
 - **Trade-off:** a batch is one SLURM job, so a failure reruns the whole batch (minus the
@@ -809,7 +809,7 @@ require `pdb_seqres`, and every search requires `mmcif`. Update the relevant ID 
 rebuilding a database, even at the same path; this invalidates finalized features.
 The native MSA arguments do not reach finalization because this stage replaces
 that search. Use a matching prediction image, such as
-`docker://kosinskilab/alphafold2:2.10.0`, for AlphaFold 2. AlphaFold 2 finalization is
+`docker://kosinskilab/alphafold2:2.11.0`, for AlphaFold 2. AlphaFold 2 finalization is
 heavier than AlphaFold 3's because template featurization dominates it — median ~1 GB and 2 min, but up to
 19 GB and 90 min, set by which structures the templates come from rather than by length
 — so its defaults request 16 GB (times the safety factor) and 60 min. Against native
@@ -861,7 +861,7 @@ You can pass backend CLI switches through `structure_inference_arguments`. Commo
 > against the selected `--fold_backend` and aborts the job with
 > `ValueError: The following flags are not supported by backend '<name>'` if you pass one the
 > backend does not accept. Only use flags from **your** backend's list below — e.g.
-> `--allow_resume` is AlphaFold2-only. A single wrong flag fails the job immediately
+> `--models_to_relax` is AlphaFold2-only. A single wrong flag fails the job immediately
 > (before any prediction runs).
 >
 > When **batching** (`batch_size > 1`) the workflow adds what each backend needs —

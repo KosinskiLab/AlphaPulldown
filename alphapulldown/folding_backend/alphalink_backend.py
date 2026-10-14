@@ -1,6 +1,6 @@
 """ Implements structure prediction backend using AlphaLink2.
 
-    Copyright (c) 2024 European Molecular Biology Laboratory
+    Copyright (c) 2026 European Molecular Biology Laboratory
 
     Author: Dingquan Yu <dingquan.yu@embl-hamburg.de>
             Valentin Maurer <valentin.maurer@embl-hamburg.de>

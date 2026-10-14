@@ -2,7 +2,7 @@
 Debug artifacts of AlphaFold 3 input preparation and inference: the MSAs translated from
 AF2 features with their summary, and each seed's final complex MSA.
 
-Copyright (c) 2024 European Molecular Biology Laboratory
+Copyright (c) 2026 European Molecular Biology Laboratory
 
 Author: Dmitry Molodenskiy <dmitry.molodenskiy@embl-hamburg.de>
 """
