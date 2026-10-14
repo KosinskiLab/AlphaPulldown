@@ -8,6 +8,24 @@ from typing import Sequence
 
 _AF3_ALLOWED_NAME_CHARS = set(string.ascii_lowercase + string.digits + "_-.")
 
+# A fold's output directory holds AlphaFold's own outputs at the top; what AlphaPulldown
+# adds for itself goes in two subdirectories. ``alphapulldown/`` holds the fold record
+# (resume), the inference-kernel record and the copied feature metadata; ``debug/``
+# holds what the --debug_* flags write.
+ALPHAPULLDOWN_DIR = "alphapulldown"
+DEBUG_DIR = "debug"
+FEATURE_METADATA_DIR = os.path.join(ALPHAPULLDOWN_DIR, "feature_metadata")
+
+
+def alphapulldown_dir(output_dir) -> str:
+    """Where AlphaPulldown keeps its records of the fold in ``output_dir``."""
+    return os.path.join(os.fspath(output_dir), ALPHAPULLDOWN_DIR)
+
+
+def debug_dir(output_dir) -> str:
+    """Where the --debug_* flags write their files for the fold in ``output_dir``."""
+    return os.path.join(os.fspath(output_dir), DEBUG_DIR)
+
 
 def _raw_sanitise_af3_job_name(job_name: str) -> str:
     lower_spaceless_name = job_name.lower().replace(" ", "_")

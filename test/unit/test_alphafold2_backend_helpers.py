@@ -459,7 +459,7 @@ def test_asym_query_and_msa_debug_helpers(af2_backend_module, tmp_path):
         model_name="modelA",
     )
 
-    debug_path = tmp_path / "modelA_processed_msa.a3m"
+    debug_path = tmp_path / "debug" / "modelA_processed_msa.a3m"
     assert debug_path.read_text(encoding="utf-8") == ">query\nAC\n>rows\n1\n"
 
 
@@ -511,7 +511,7 @@ def test_template_debug_helpers_cover_success_and_failure_paths(
         model_name="modelB",
     )
 
-    debug_dir = tmp_path / "templates_debug"
+    debug_dir = tmp_path / "debug" / "templates"
     assert (debug_dir / "modelB_good_template_idx0.pdb").is_file()
     error_file = debug_dir / "ERROR_modelB_template_1.txt"
     assert error_file.is_file()
@@ -1888,7 +1888,7 @@ def test_af2_rerun_of_a_finished_fold_whose_pickles_were_removed_predicts_nothin
 
     assert len(predictions) == 2
     assert rerun == []
-    record = json.loads((tmp_path / "alphapulldown_prediction.json").read_text())
+    record = json.loads((tmp_path / "alphapulldown" / "prediction.json").read_text())
     assert record["complete"] is True
     assert record["settings"]["model_names"] == ["modelA", "modelB"]
 
@@ -1911,7 +1911,7 @@ def test_af2_finished_fold_is_post_processed_again_when_its_relaxation_changes(
     assert len(predictions) == 2
     assert len(rerun) == 1
     assert len(list(tmp_path.glob("relaxed_*.pdb"))) == 1
-    record = json.loads((tmp_path / "alphapulldown_prediction.json").read_text())
+    record = json.loads((tmp_path / "alphapulldown" / "prediction.json").read_text())
     assert record["complete"] is True
     assert record["settings"]["models_to_relax"] == str(
         af2_backend_module.ModelsToRelax.BEST
@@ -1933,12 +1933,12 @@ def test_af2_fold_killed_before_postprocessing_is_resumed(
     )
     next(jobs)  # predicted, then killed before post-processing
 
-    record = json.loads((tmp_path / "alphapulldown_prediction.json").read_text())
+    record = json.loads((tmp_path / "alphapulldown" / "prediction.json").read_text())
     assert record["complete"] is False
     assert len(_af2_run(af2_backend_module, monkeypatch, tmp_path, predictions)) == 1
     # Both models came from the first run's pickles.
     assert len(predictions) == 2
-    record = json.loads((tmp_path / "alphapulldown_prediction.json").read_text())
+    record = json.loads((tmp_path / "alphapulldown" / "prediction.json").read_text())
     assert record["complete"] is True
 
 
@@ -2056,7 +2056,7 @@ def test_inference_kernels_record_names_each_model(af2_backend_module, tmp_path)
     # Not an AlphaFold RunModel: nothing is recorded, nothing fails.
     af2_backend_module._record_inference_kernels(tmp_path, "model_3", object())
 
-    record = json.loads((tmp_path / "inference_kernels.json").read_text())
+    record = json.loads((tmp_path / "alphapulldown" / "inference_kernels.json").read_text())
     assert record == {
         "model_1": {"compute_capability": 86, "fused_kernels": True},
         "model_2": {"compute_capability": None, "fused_kernels": False},

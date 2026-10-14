@@ -106,8 +106,9 @@ DeepMind's weights load unchanged.
 
 ## Output record
 
-Every AlphaFold 3 output directory gets an `inference_kernels.json` with one entry per
-seed, keyed like AlphaFold 3's other outputs:
+Every AlphaFold 3 output directory gets an `alphapulldown/inference_kernels.json` with
+one entry per seed, keyed like AlphaFold 3's other outputs (versions up to 2.10 wrote it at
+the top of the directory):
 
 ```json
 {

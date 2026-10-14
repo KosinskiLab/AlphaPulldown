@@ -699,7 +699,7 @@ def test_metadata_is_taken_from_every_feature_directory(tmp_path):
     flags = SimpleNamespace(features_directory=[str(first), str(second)])
     fold_preparation._copy_feature_metadata([interactor], flags, str(out))
 
-    copied = sorted(p.name for p in out.iterdir())
+    copied = sorted(p.name for p in (out / "alphapulldown" / "feature_metadata").iterdir())
     assert copied == ["P1_feature_metadata_2025-01-01.json"]
 
 

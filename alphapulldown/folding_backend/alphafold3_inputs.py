@@ -644,10 +644,14 @@ class FoldInputBuilder:
         features_directory: str | None = None,
         debug_templates: bool | None = None,
         debug_msas: bool = False,
+        debug_dir: str | None = None,
     ) -> None:
         self.features_directory = features_directory
         self.debug_templates = debug_templates
         self.debug_msas = debug_msas
+        # The fold's debug/ directory: generated template mmCIFs, and a note on each
+        # template that failed to convert. Without it, no debug files are written.
+        self.debug_dir = debug_dir
         self.chains: list[
             folding_input.ProteinChain
             | folding_input.RnaChain
@@ -861,11 +865,12 @@ class FoldInputBuilder:
                     # Remove _entity_poly_seq to avoid mismatches during AF3 parsing
                     new_mmcif_string = strip_entity_poly_seq_block(new_mmcif_string)
                     # Optional debug dump of generated template mmCIF
-                    if self.debug_templates:
+                    if self.debug_templates and self.debug_dir is not None:
                         try:
-                            os.makedirs("templates_debug", exist_ok=True)
+                            templates_dir = os.path.join(self.debug_dir, "templates")
+                            os.makedirs(templates_dir, exist_ok=True)
                             debug_fname = os.path.join(
-                                "templates_debug",
+                                templates_dir,
                                 f"generated_template_{pdb_code}_{chain_id_template}_chain{chain_id}_idx{i}.cif",
                             )
                             with open(debug_fname, "w") as f_dbg:
@@ -895,9 +900,12 @@ class FoldInputBuilder:
                     )
                 except Exception as e:
                     logging.error(f"Error processing template {i} for chain {chain_id}: {e}")
+                    if self.debug_dir is None:
+                        raise
                     try:
-                        os.makedirs("templates_debug", exist_ok=True)
-                        error_filename = os.path.join("templates_debug", f"ERROR_template_{i}_chain_{chain_id}.txt")
+                        templates_dir = os.path.join(self.debug_dir, "templates")
+                        os.makedirs(templates_dir, exist_ok=True)
+                        error_filename = os.path.join(templates_dir, f"ERROR_template_{i}_chain_{chain_id}.txt")
                         with open(error_filename, "w") as error_file:
                             error_file.write(f"Error: {e}\n")
                             error_file.write(f"Template index: {i}\n")

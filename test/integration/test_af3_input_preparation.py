@@ -190,7 +190,7 @@ class TestAlphaFold3InputPreparation(Af3TestData, parameterized.TestCase):
         self.assertEqual(sorted(chain_sequences), ["A", "B"])
 
         job_name = fold_input_obj.sanitised_name()
-        summary_path = self.output_dir / f"{job_name}_af2_to_af3_translation_summary.json"
+        summary_path = self.output_dir / "debug" / f"{job_name}_af2_to_af3_translation_summary.json"
         self.assertTrue(summary_path.is_file(), f"Missing translation summary {summary_path}")
 
         summary = json.loads(summary_path.read_text(encoding="utf-8"))
@@ -230,7 +230,7 @@ class TestAlphaFold3InputPreparation(Af3TestData, parameterized.TestCase):
                 )
 
             for msa_kind in ("paired_input", "unpaired_input"):
-                msa_path = self.output_dir / f"{job_name}_chain-{chain_id}_{msa_kind}.a3m"
+                msa_path = self.output_dir / "debug" / f"{job_name}_chain-{chain_id}_{msa_kind}.a3m"
                 self.assertTrue(msa_path.is_file(), f"Missing debug MSA {msa_path}")
                 msa_text = msa_path.read_text(encoding="utf-8")
                 if msa_text:
@@ -408,6 +408,7 @@ class TestAlphaFold3InputPreparation(Af3TestData, parameterized.TestCase):
         job_name = fold_input_obj.sanitised_name()
         summary_path = (
             Path(prepared_output_dir)
+            / "debug"
             / f"{job_name}_af2_to_af3_translation_summary.json"
         )
         self.assertTrue(summary_path.is_file(), f"Missing translation summary {summary_path}")

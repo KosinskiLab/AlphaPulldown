@@ -13,7 +13,9 @@ import copy
 import json
 import lzma
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Mapping, Sequence
+
+from alphapulldown.utils.output_paths import FEATURE_METADATA_DIR
 
 
 AF3_METADATA_MARKER = "\n__ALPHAPULLDOWN_FEATURE_METADATA_V1__="
@@ -168,13 +170,19 @@ def find_feature_metadata(
     return read_feature_metadata(newest)
 
 
+def copied_feature_metadata_paths(directory: str | Path) -> list[Path]:
+    """The AF2 metadata sidecars copied into a prediction directory: in
+    ``alphapulldown/feature_metadata/``, or at its top where versions up to 2.10 put them."""
+    root = Path(directory)
+    paths: set[Path] = set()
+    for location in (root / FEATURE_METADATA_DIR, root):
+        paths |= set(location.glob("*_feature_metadata_*.json"))
+        paths |= set(location.glob("*_feature_metadata_*.json.xz"))
+    return sorted(paths)
+
+
 def load_feature_metadata_sidecars(
     directory: str | Path,
 ) -> list[dict[str, Any]]:
     """Load all AF2 metadata sidecars copied into a prediction directory."""
-    root = Path(directory)
-    paths: Iterable[Path] = sorted(
-        set(root.glob("*_feature_metadata_*.json"))
-        | set(root.glob("*_feature_metadata_*.json.xz"))
-    )
-    return [read_feature_metadata(path) for path in paths]
+    return [read_feature_metadata(path) for path in copied_feature_metadata_paths(directory)]

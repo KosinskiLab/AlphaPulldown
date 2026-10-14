@@ -249,6 +249,7 @@ def _load_run_structure_prediction_module(jax_local_devices=None):
     modelling_setup_mod.parse_fold = lambda inputs, features_directory, delimiter: []
 
     output_paths_mod = types.ModuleType("alphapulldown.utils.output_paths")
+    output_paths_mod.FEATURE_METADATA_DIR = os.path.join("alphapulldown", "feature_metadata")
     output_paths_mod.resolve_af3_combined_json_output_dir = (
         lambda json_inputs, out_dir, use_ap_style: out_dir
     )
@@ -679,7 +680,10 @@ def test_pre_modelling_setup_decompresses_metadata_and_sets_input_sequences(
 
     assert returned_object is monomer
     assert returned_object.input_seqs == ["ACDE"]
-    copied_metadata = Path(returned_output_dir) / "protA_feature_metadata_2026-03-30.json"
+    copied_metadata = (
+        Path(returned_output_dir) / "alphapulldown" / "feature_metadata"
+        / "protA_feature_metadata_2026-03-30.json"
+    )
     assert copied_metadata.read_text(encoding="utf-8") == '{"meta": 1}'
 
 

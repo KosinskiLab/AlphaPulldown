@@ -31,6 +31,7 @@ import modelcif.protocol
 
 from alphapulldown.utils.file_handling import iter_seqs
 from alphapulldown.utils.feature_metadata import (
+    copied_feature_metadata_paths,
     decode_metadata_from_description,
     read_feature_metadata,
 )
@@ -805,11 +806,7 @@ def _get_feature_metadata(
             if new_entry not in fasta_dicts:
                 fasta_dicts.append(new_entry)
 
-    feature_json_files = sorted(
-        set(glob.glob(os.path.join(out_dir, "*_feature_metadata_*.json")))
-        | set(glob.glob(os.path.join(out_dir, "*_feature_metadata_*.json.xz")))
-    )
-    for feature_json in feature_json_files:
+    for feature_json in copied_feature_metadata_paths(out_dir):
         _file_exists_or_exit(
             feature_json, f"No feature metadata file '{feature_json}' found."
         )

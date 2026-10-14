@@ -19,6 +19,7 @@ from typing import Any, List, Tuple, Union
 from absl import logging
 
 from alphapulldown.objects import ChoppedObject, MonomericObject, MultimericObject
+from alphapulldown.utils.output_paths import FEATURE_METADATA_DIR
 
 
 # Most filesystems reject paths longer than this.
@@ -94,14 +95,16 @@ def _copy_feature_metadata(interactors: List[Any], flags: Any, output_dir: str) 
             )
             continue
         latest = max(metadata_files, key=os.path.getmtime)
-        destination = os.path.join(output_dir, os.path.basename(latest))
+        metadata_dir = os.path.join(output_dir, FEATURE_METADATA_DIR)
+        os.makedirs(metadata_dir, exist_ok=True)
+        destination = os.path.join(metadata_dir, os.path.basename(latest))
         if latest.endswith(".json.xz"):
             destination = destination[: -len(".xz")]
             logging.info("Decompressing %s to %s", latest, destination)
             with lzma.open(latest, "rb") as source, open(destination, "wb") as target:
                 target.write(source.read())
         else:
-            logging.info("Copying %s to %s", latest, output_dir)
+            logging.info("Copying %s to %s", latest, metadata_dir)
             shutil.copyfile(latest, destination)
 
 

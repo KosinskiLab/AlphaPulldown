@@ -43,6 +43,9 @@ def test_finishing_a_fold_without_a_record_writes_none(tmp_path):
 def test_an_unreadable_fold_record_counts_as_none(tmp_path):
     from alphapulldown.prediction import resume
 
-    (tmp_path / resume.FOLD_RECORD_NAME).write_text('{"complete": tr', encoding="utf-8")
+    path = tmp_path / "alphapulldown" / "prediction.json"
+    assert resume.fold_record_path(tmp_path) == str(path)
+    path.parent.mkdir()
+    path.write_text('{"complete": tr', encoding="utf-8")
 
     assert resume.read_fold_record(tmp_path) == {}

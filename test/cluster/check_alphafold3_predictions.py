@@ -1278,7 +1278,7 @@ class TestAlphaFold3BackendRegressions(_BackendOnlyTestBase):
             debug_msas=True,
         )
         job_name = fold_input_obj.sanitised_name()
-        summary_path = self.output_dir / f"{job_name}_af2_to_af3_translation_summary.json"
+        summary_path = self.output_dir / "debug" / f"{job_name}_af2_to_af3_translation_summary.json"
         self.assertTrue(summary_path.is_file(), f"Missing translation summary {summary_path}")
 
         summary = json.loads(summary_path.read_text(encoding="utf-8"))
@@ -1416,7 +1416,7 @@ class TestAlphaFold3MmseqsIssue588Inference(_TestBase):
 
         result_dir = self._resolve_single_af3_result_dir()
         summary_paths = sorted(
-            result_dir.glob("*_af2_to_af3_translation_summary.json")
+            (result_dir / "debug").glob("*_af2_to_af3_translation_summary.json")
         )
         self.assertLen(summary_paths, 1)
         summary = json.loads(summary_paths[0].read_text(encoding="utf-8"))
@@ -1472,7 +1472,7 @@ class TestAlphaFold3MmseqsIssue588Inference(_TestBase):
 
         result_dir = self._resolve_single_af3_result_dir()
         summary_paths = sorted(
-            result_dir.glob("*_af2_to_af3_translation_summary.json")
+            (result_dir / "debug").glob("*_af2_to_af3_translation_summary.json")
         )
         self.assertLen(summary_paths, 1)
         summary = json.loads(summary_paths[0].read_text(encoding="utf-8"))
@@ -2582,7 +2582,7 @@ class TestAlphaFold3FastKernels(_TestBase):
         result_dir = self._resolve_single_af3_result_dir()
         with (result_dir / "ranking_scores.csv").open() as handle:
             seeds = {line.split(",")[0] for line in handle.readlines()[1:] if line.strip()}
-        records = json.loads((result_dir / "inference_kernels.json").read_text())
+        records = json.loads((result_dir / "alphapulldown" / "inference_kernels.json").read_text())
         self.assertEqual(set(records), {f"seed-{seed}" for seed in seeds})
         self.assertLen(records, 2)
         for key, record in records.items():
@@ -2807,7 +2807,7 @@ class TestAlphaFold3Resume(_TestBase):
 
     FOLD = "A0A075B6L2:1"
     DIMER = "A0A075B6L2:2"
-    RECORD = "alphapulldown_prediction.json"
+    RECORD = Path("alphapulldown", "prediction.json")
     SKIPPED = "is already complete in"
     SAMPLES = 2
 
@@ -2843,9 +2843,9 @@ class TestAlphaFold3Resume(_TestBase):
         )
 
     def _fold_dir(self, root: Path) -> Path:
-        records = sorted(root.rglob(self.RECORD))
+        records = sorted(root.rglob(str(self.RECORD)))
         self.assertLen(records, 1, f"one fold record under {root}")
-        return records[0].parent
+        return records[0].parent.parent
 
     def _record(self, fold_dir: Path) -> dict:
         return json.loads((fold_dir / self.RECORD).read_text())
@@ -2857,7 +2857,7 @@ class TestAlphaFold3Resume(_TestBase):
             str(path.relative_to(fold_dir)): path.stat().st_mtime_ns
             for path in fold_dir.rglob("*")
             if path.is_file()
-            and path.name != self.RECORD
+            and path.relative_to(fold_dir) != self.RECORD
             and "_feature_metadata_" not in path.name
         }
 
@@ -2874,12 +2874,20 @@ class TestAlphaFold3Resume(_TestBase):
         for path in list(fold_dir.iterdir()):
             if path.is_dir() and path.name.startswith("seed-"):
                 shutil.rmtree(path)
-            elif path.name != self.RECORD and not path.name.endswith("_data.json"):
+            elif path.is_file() and not path.name.endswith("_data.json"):
                 path.unlink()
+        # Its alphapulldown/ folder: the record and the copied feature metadata, no
+        # kernels record yet.
+        (fold_dir / "alphapulldown" / "inference_kernels.json").unlink(missing_ok=True)
 
     def _leave_what_an_older_version_leaves(self, fold_dir: Path) -> None:
-        """AlphaPulldown 2.10 and older wrote no fold record."""
-        (fold_dir / self.RECORD).unlink()
+        """AlphaPulldown 2.10 and older wrote no fold record, and kept the kernels record
+        and the copied feature metadata at the top of the fold's directory."""
+        own = fold_dir / "alphapulldown"
+        for path in [own / "inference_kernels.json", *own.glob("feature_metadata/*")]:
+            if path.is_file():
+                path.rename(fold_dir / path.name)
+        shutil.rmtree(own)
 
     def _leave_what_a_run_killed_after_its_first_seed_leaves(self, fold_dir: Path) -> None:
         """Each seed is written out, and ranked, as it finishes; the best model only

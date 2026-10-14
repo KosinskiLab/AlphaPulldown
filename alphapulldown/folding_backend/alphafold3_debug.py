@@ -18,6 +18,7 @@ from alphafold3.data import parsers as af3_parsers
 
 from alphapulldown.utils.af2_to_af3_msa import Af2ToAf3TranslationResult
 from alphapulldown.utils.msa_encoding import ids_to_a3m_af3
+from alphapulldown.utils.output_paths import debug_dir
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -43,6 +44,7 @@ def _write_translated_msa_debug_artifacts(
 ) -> None:
     if not chain_records or not translation_results:
         return
+    output_dir = debug_dir(output_dir)
 
     def _extract_paired_species_identifier(description: str) -> str:
         if not description.startswith(("tr|", "sp|")):
@@ -229,11 +231,12 @@ def _write_final_msa_a3m(
     try:
         if output_dir is None:
             return
-        os.makedirs(output_dir, exist_ok=True)
+        output_dir = debug_dir(output_dir)
 
         def write_from_array(rows: np.ndarray, suffix: str):
             # AF3 uses a different integer alphabet for MSA arrays.
             a3m_text = ids_to_a3m_af3(rows)
+            os.makedirs(output_dir, exist_ok=True)
             a3m_path = os.path.join(output_dir, f"{job_name}_seed-{seed_value}_{suffix}.a3m")
             with open(a3m_path, 'wt') as f:
                 f.write(a3m_text)

@@ -45,6 +45,7 @@ from alphapulldown.prediction import af3_fused_triangles
 from alphapulldown.prediction.inference_flags import validate_model_configuration
 from alphapulldown.prediction.jax_compilation_cache import enable_persistent_compilation_cache
 from alphapulldown.prediction.resume import finish_fold_record
+from alphapulldown.utils.output_paths import debug_dir
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
 from alphapulldown.folding_backend.alphafold3_storage import post_prediction_process_af3
 
@@ -134,6 +135,7 @@ class AlphaFold3Backend(FoldingBackend):
             features_directory=features_directory,
             debug_templates=debug_templates,
             debug_msas=debug_msas,
+            debug_dir=debug_dir(objects_to_model[0]['output_dir']) if objects_to_model else None,
         )
         for entry in objects_to_model:
             object_to_model = entry['object']
