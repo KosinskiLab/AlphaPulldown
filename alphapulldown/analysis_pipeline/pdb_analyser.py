@@ -1,7 +1,7 @@
 """ 
     A script that survey all interfaces and obtain all the residues on the interface
 
-    Copyright (c) 2024 European Molecular Biology Laboratory
+    Copyright (c) 2026 European Molecular Biology Laboratory
 
     Author:Dingquan Yu <dingquan.yu@embl-hamburg.de>
 """

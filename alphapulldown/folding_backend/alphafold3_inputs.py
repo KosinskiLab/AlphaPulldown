@@ -3,7 +3,7 @@ Translates AlphaPulldown objects and AlphaFold 3 JSON inputs into one AlphaFold 
 input: chain construction, monomer normalisation, region slicing of JSON chains, template
 mmCIF fixes, chain IDs and the job name.
 
-Copyright (c) 2024 European Molecular Biology Laboratory
+Copyright (c) 2026 European Molecular Biology Laboratory
 
 Author: Dmitry Molodenskiy <dmitry.molodenskiy@embl-hamburg.de>
 """

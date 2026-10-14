@@ -1,6 +1,6 @@
 """ Create monomeric or multimeric objects with corresponding import features for the modelling backends
 
-    Copyright (c) 2024 European Molecular Biology Laboratory
+    Copyright (c) 2026 European Molecular Biology Laboratory
 
     Author: Dingquan Yu <dingquan.yu@embl-hamburg.de>
 """
