@@ -21,7 +21,7 @@ FEATURE_GENERATION = (
     "alphapulldown/features",
     "alphapulldown/scripts/create_individual_features.py",
     "alphapulldown/objects.py",
-    "alphapulldown/utils/af3_modelcif.py",
+    "alphapulldown/folding_backend/alphafold3_modelcif.py",
     "alphapulldown/utils/create_custom_template_db.py",
     "alphapulldown/utils/feature_metadata.py",
     "alphapulldown/utils/file_handling.py",

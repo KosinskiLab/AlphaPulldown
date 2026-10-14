@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from alphapulldown.utils.af3_modelcif import (
+from alphapulldown.folding_backend.alphafold3_modelcif import (
     augment_af3_modelcif_file,
     build_alphapulldown_mmcif_updates,
     find_af3_modelcif_files,

@@ -46,7 +46,7 @@ from alphapulldown.prediction.inference_flags import validate_model_configuratio
 from alphapulldown.prediction.jax_compilation_cache import enable_persistent_compilation_cache
 from alphapulldown.prediction.resume import finish_fold_record
 from alphapulldown.objects import MultimericObject, MonomericObject, ChoppedObject
-from alphapulldown.utils.post_modelling import post_prediction_process_af3
+from alphapulldown.folding_backend.alphafold3_storage import post_prediction_process_af3
 
 
 @dataclasses.dataclass(frozen=True, slots=True, kw_only=True)
