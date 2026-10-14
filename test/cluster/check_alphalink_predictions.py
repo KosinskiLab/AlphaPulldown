@@ -54,6 +54,10 @@ TEST_ROOT = REPO_ROOT / "test"
 # --------------------------------------------------------------------------- #
 #                       common helper mix-in / assertions                     #
 # --------------------------------------------------------------------------- #
+# AlphaPulldown's own subfolders of a fold directory (records, feature metadata, debug
+# output); the folds are the other subfolders.
+_ALPHAPULLDOWN_SUBDIRS = {"alphapulldown", "debug"}
+
 class _TestBase(parameterized.TestCase):
     use_temp_dir = True  # Class variable to control directory behavior - default to True
 
@@ -308,7 +312,10 @@ class _TestBase(parameterized.TestCase):
         print(f"\nExpected sequences: {expected_sequences}")
         
         # Find the predicted PDB files (should be in the output directory)
-        subdirs = [d for d in self.output_dir.iterdir() if d.is_dir()]
+        subdirs = [
+            d for d in self.output_dir.iterdir()
+            if d.is_dir() and d.name not in _ALPHAPULLDOWN_SUBDIRS
+        ]
         for d in subdirs:
             pdb_files = list(d.glob("ranked_*.pdb"))
         if not pdb_files:
@@ -469,7 +476,8 @@ class _TestBase(parameterized.TestCase):
             )
 
         dirs = [dirname] if dirname else [
-            d for d in self.output_dir.iterdir() if d.is_dir()
+            d for d in self.output_dir.iterdir()
+            if d.is_dir() and d.name not in _ALPHAPULLDOWN_SUBDIRS
         ]
 
         for d in dirs:
