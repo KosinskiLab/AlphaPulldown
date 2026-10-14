@@ -761,3 +761,114 @@ def test_prepare_fold_does_not_save_features_unless_asked(tmp_path, monkeypatch)
     _, output_dir = fold_preparation.prepare_fold(interactors, str(tmp_path / "out"), flags)
 
     assert not (Path(output_dir) / fold_preparation.MULTIMERIC_FEATURES_FILENAME).exists()
+
+
+class _RecordingBackend:
+    """Records every call an adapter makes and yields each prepared object back as a
+    predicted fold. ``fail`` = (stage, output directory) makes that stage raise for
+    that fold."""
+
+    def __init__(self, fail=None):
+        self.calls = []
+        self.fail = fail
+
+    def _maybe_fail(self, stage, output_dir):
+        if self.fail == (stage, output_dir):
+            raise RuntimeError(f"{stage} failed for {output_dir}")
+
+    def change_backend(self, backend_name):
+        self.calls.append(("change_backend", backend_name))
+
+    def setup(self, **configuration):
+        self.calls.append(("setup", configuration))
+        return {"model_runner": "resident-runner"}
+
+    def predict(self, **kwargs):
+        self.calls.append(("predict", kwargs))
+        for entry in kwargs["objects_to_model"]:
+            self._maybe_fail("predict", entry["output_dir"])
+            yield {
+                "object": entry["object"],
+                "output_dir": entry["output_dir"],
+                "prediction_results": [1],
+            }
+
+    def postprocess(self, **kwargs):
+        self.calls.append(("postprocess", kwargs))
+        self._maybe_fail("postprocess", kwargs["output_dir"])
+
+
+def _write_af3_inputs(tmp_path, *names):
+    for name in names:
+        (tmp_path / name).write_text(
+            json.dumps({"name": name, "sequences": [], "modelSeeds": [1]}), encoding="utf-8"
+        )
+
+
+@pytest.mark.parametrize("requested_seed", [None, 13])
+def test_both_adapters_make_the_same_backend_calls_for_the_same_fold(tmp_path, requested_seed):
+    """The legacy command and the batch command share setup, seeding, prediction and
+    post-processing; given the same prepared fold they make the same calls."""
+    from alphapulldown.prediction.inference_flags import model_flags, postprocess_flags
+    from alphapulldown.prediction.prediction_batch import (
+        AlphaPulldownPredictionAdapter,
+        PredictionBatch,
+        PredictionJob,
+        PreparedPredictionAdapter,
+    )
+
+    _write_af3_inputs(tmp_path, "first.json", "second.json")
+    flags = _prediction_flags(tmp_path, "alphafold3")
+    flags.random_seed = requested_seed
+    batch_backend = _RecordingBackend()
+    PredictionBatch(
+        (PredictionJob("job", "first.json+second.json", tmp_path / "out"),)
+    ).run(AlphaPulldownPredictionAdapter(flags, backend=batch_backend))
+    prepared = next(kwargs for call, kwargs in batch_backend.calls if call == "predict")[
+        "objects_to_model"
+    ]
+
+    legacy_backend = _RecordingBackend()
+    PredictionBatch((PredictionJob("job", "", tmp_path),)).run(
+        PreparedPredictionAdapter(
+            backend=legacy_backend,
+            fold_backend="alphafold3",
+            objects_to_model=prepared,
+            model_flags=model_flags(flags),
+            postprocess_flags=postprocess_flags(flags),
+            random_seed=requested_seed,
+        )
+    )
+
+    assert legacy_backend.calls == batch_backend.calls
+    # The complex's two AF3 inputs stay one prediction; each yielded fold is post-processed.
+    assert [call for call, _ in batch_backend.calls] == [
+        "change_backend", "setup", "predict", "postprocess", "postprocess",
+    ]
+    assert len(prepared) == 2
+
+
+@pytest.mark.parametrize("stage", ["predict", "postprocess"])
+def test_a_job_failing_in_prediction_or_postprocessing_does_not_stop_the_batch(
+    tmp_path, stage
+):
+    from alphapulldown.prediction.prediction_batch import (
+        AlphaPulldownPredictionAdapter,
+        PredictionBatch,
+        PredictionJob,
+    )
+
+    _write_af3_inputs(tmp_path, "first.json", "second.json")
+    backend = _RecordingBackend(fail=(stage, str(tmp_path / "out-first")))
+
+    summary = PredictionBatch(
+        (
+            PredictionJob("first", "first.json", tmp_path / "out-first"),
+            PredictionJob("second", "second.json", tmp_path / "out-second"),
+        )
+    ).run(AlphaPulldownPredictionAdapter(_prediction_flags(tmp_path, "alphafold3"), backend=backend))
+
+    assert summary.completed_job_ids == ("second",)
+    assert [failure.job_id for failure in summary.failures] == ["first"]
+    assert f"{stage} failed" in summary.failures[0].message
+    assert [call for call, _ in backend.calls].count("setup") == 1

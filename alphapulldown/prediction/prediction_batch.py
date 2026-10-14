@@ -254,6 +254,46 @@ def _random_seed(
     return random.randrange(sys.maxsize)
 
 
+def _setup_session(
+    backend: Any, fold_backend: str, configuration: Dict[str, Any]
+) -> _AlphaPulldownSession:
+    """Validate the configuration, select the backend and set it up: the session every
+    job of a batch then reuses."""
+    from alphapulldown.prediction.inference_flags import validate_model_configuration
+
+    validate_model_configuration(configuration)
+    backend.change_backend(backend_name=fold_backend)
+    return _AlphaPulldownSession(dict(configuration), backend.setup(**configuration))
+
+
+def _predict_and_postprocess(
+    backend: Any,
+    session: _AlphaPulldownSession,
+    *,
+    fold_backend: str,
+    objects_to_model: list,
+    requested_seed: Optional[int],
+    postprocess_flags: Dict[str, Any],
+) -> None:
+    """Predict the prepared objects with one seed and post-process each fold the backend
+    yields. A resumed fold it finds finished yields nothing, and still counts as done."""
+    predicted_jobs = backend.predict(
+        **session.backend_values,
+        objects_to_model=objects_to_model,
+        random_seed=_random_seed(fold_backend, requested_seed, session),
+        # Resume compares them with those a finished fold was post-processed with.
+        postprocess_flags=postprocess_flags,
+        **session.configuration,
+    )
+    for predicted_job in predicted_jobs:
+        backend.postprocess(
+            **postprocess_flags,
+            multimeric_object=predicted_job["object"],
+            prediction_results=predicted_job["prediction_results"],
+            output_dir=predicted_job["output_dir"],
+        )
+
+
 class PreparedPredictionAdapter:
     """Adapter for the already-parsed invocation used by the legacy command."""
 
@@ -279,33 +319,18 @@ class PreparedPredictionAdapter:
         return self._model_flags
 
     def setup(self, configuration: Dict[str, Any]) -> _AlphaPulldownSession:
-        from alphapulldown.prediction.inference_flags import validate_model_configuration
-
-        validate_model_configuration(configuration)
-        self._backend.change_backend(backend_name=self._fold_backend)
-        return _AlphaPulldownSession(
-            dict(configuration), self._backend.setup(**configuration)
-        )
+        return _setup_session(self._backend, self._fold_backend, configuration)
 
     def predict(self, session: _AlphaPulldownSession, job: PredictionJob) -> None:
         del job
-        predicted_jobs = self._backend.predict(
-            **session.backend_values,
+        _predict_and_postprocess(
+            self._backend,
+            session,
+            fold_backend=self._fold_backend,
             objects_to_model=self._objects_to_model,
-            random_seed=_random_seed(
-                self._fold_backend, self._requested_random_seed, session
-            ),
-            # Resume compares them with those a finished fold was post-processed with.
+            requested_seed=self._requested_random_seed,
             postprocess_flags=self._postprocess_flags,
-            **session.configuration,
         )
-        for predicted_job in predicted_jobs:
-            self._backend.postprocess(
-                **self._postprocess_flags,
-                multimeric_object=predicted_job["object"],
-                prediction_results=predicted_job["prediction_results"],
-                output_dir=predicted_job["output_dir"],
-            )
 
 
 class AlphaPulldownPredictionAdapter:
@@ -364,12 +389,7 @@ class AlphaPulldownPredictionAdapter:
         return model_flags
 
     def setup(self, configuration: Dict[str, Any]) -> _AlphaPulldownSession:
-        from alphapulldown.prediction.inference_flags import validate_model_configuration
-
-        validate_model_configuration(configuration)
-        self._backend.change_backend(backend_name=self._flags.fold_backend)
-        backend_values = self._backend.setup(**configuration)
-        return _AlphaPulldownSession(dict(configuration), backend_values)
+        return _setup_session(self._backend, self._flags.fold_backend, configuration)
 
     def _prepare_protein_object(self, interactors: list, output_dir: str):
         from alphapulldown.prediction.fold_preparation import prepare_fold
@@ -438,22 +458,11 @@ class AlphaPulldownPredictionAdapter:
         return objects_to_model
 
     def predict(self, session: _AlphaPulldownSession, job: PredictionJob) -> None:
-        objects_to_model = self._objects_to_model(job)
-        postprocess_flags = self._postprocess_flags()
-        predicted_jobs = self._backend.predict(
-            **session.backend_values,
-            objects_to_model=objects_to_model,
-            random_seed=_random_seed(
-                self._flags.fold_backend, self._flags.random_seed, session
-            ),
-            # Resume compares them with those a finished fold was post-processed with.
-            postprocess_flags=postprocess_flags,
-            **session.configuration,
+        _predict_and_postprocess(
+            self._backend,
+            session,
+            fold_backend=self._flags.fold_backend,
+            objects_to_model=self._objects_to_model(job),
+            requested_seed=self._flags.random_seed,
+            postprocess_flags=self._postprocess_flags(),
         )
-        for predicted_job in predicted_jobs:
-            self._backend.postprocess(
-                **postprocess_flags,
-                multimeric_object=predicted_job["object"],
-                prediction_results=predicted_job["prediction_results"],
-                output_dir=predicted_job["output_dir"],
-            )
