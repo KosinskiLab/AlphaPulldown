@@ -60,22 +60,10 @@ COPY --from=ghcr.io/astral-sh/uv:0.9.24 /uv /uvx /bin/
 RUN uv venv ${VIRTUAL_ENV}
 
 # ---------------------------------------------------------------------
-# HMMER (with seq_limit patch)
+# HMMER with AlphaFold 3's jackhmmer patches (docker/hmmer)
 # ---------------------------------------------------------------------
-RUN mkdir /hmmer_build /hmmer && \
-    wget http://eddylab.org/software/hmmer/hmmer-3.4.tar.gz -O /hmmer_build/hmmer-3.4.tar.gz && \
-    echo "ca70d94fd0cf271bd7063423aabb116d42de533117343a9b27a65c17ff06fbf3  /hmmer_build/hmmer-3.4.tar.gz" | sha256sum -c - && \
-    tar -xzf /hmmer_build/hmmer-3.4.tar.gz -C /hmmer_build
-
-COPY alphafold3/docker/jackhmmer_seq_limit.patch /hmmer_build/
-
-RUN cd /hmmer_build && \
-    patch -p0 < jackhmmer_seq_limit.patch && \
-    cd /hmmer_build/hmmer-3.4 && \
-    ./configure --prefix=/hmmer && \
-    make -j$(nproc) && \
-    make install && \
-    cd easel && make install && \
+COPY docker/hmmer/ /hmmer_build/
+RUN bash /hmmer_build/build_hmmer.sh /hmmer && \
     rm -rf /hmmer_build
 
 # ---------------------------------------------------------------------
