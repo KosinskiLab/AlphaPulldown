@@ -44,6 +44,19 @@ RUN set -eux; \
     cmake --build build -j"$(nproc)"; \
     cmake --install build
 
+# ---------------------------------------------------------------------------
+# HMMER 3.4 with AlphaFold 3's jackhmmer patches (docker/hmmer/build_hmmer.sh),
+# built like hhblits above.
+# ---------------------------------------------------------------------------
+FROM ubuntu:20.04 AS hmmer-builder
+RUN set -eux; \
+    apt-get update; \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      build-essential ca-certificates curl patch; \
+    rm -rf /var/lib/apt/lists/*
+COPY docker/hmmer/ /tmp/hmmer/
+RUN bash /tmp/hmmer/build_hmmer.sh /opt/hmmer
+
 FROM nvidia/cuda:${CUDA}-cudnn8-runtime-ubuntu20.04 AS base
 ARG CUDA
 ARG MMSEQS_VERSION
@@ -124,6 +137,14 @@ RUN set -eux; \
     case "$out" in \
       *"HHblits 3.3.1"*) echo "hhblits with the realignment fix in place" ;; \
       *) printf '%s\n' "$out" | head -3; echo "ERROR: hhblits with the realignment fix missing"; exit 1 ;; \
+    esac
+
+# Overwrite conda's HMMER the same way. Only the patched build has --seq_limit.
+COPY --from=hmmer-builder /opt/hmmer/bin/ /opt/conda/bin/
+RUN set -eux; \
+    case "$(/opt/conda/bin/jackhmmer -h)" in \
+      *--seq_limit*) echo "patched HMMER in place" ;; \
+      *) echo "ERROR: patched HMMER missing"; exit 1 ;; \
     esac
 
 #RUN micromamba run -n base python -m pip install --no-cache-dir "openmm==8.1.1"
