@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools<82", "wheel"]
+requires = ["setuptools>=77.0.3,<82", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,8 +7,9 @@ name = "alphapulldown"
 description = "Pipeline allows massive screening using alphafold"
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.10"
-license = "MIT"
-license-files = ["LICENSE"]
+# Original AlphaPulldown code is MIT. A distribution-wide license expression
+# awaits resolution of the bundled-code terms in THIRD_PARTY_LICENSES.md.
+license-files = ["LICENSE", "THIRD_PARTY_LICENSES.md", "licenses/*"]
 authors = [
   { name = "EMBL Hamburg", email = "alphapulldown@embl-hamburg.de" }
 ]

@@ -965,6 +965,14 @@ How the AF3 kernels are chosen per GPU:
 
 ---
 
+## License
+
+Original AlphaPulldown code is available under the [MIT License](LICENSE).
+Bundled third-party code, model parameters and databases retain their own terms;
+MIT does not replace those terms. See [third-party licensing](THIRD_PARTY_LICENSES.md)
+for the component inventory, included notices and unresolved permissions for
+AlphaLink2 and af2plots. The complete distribution is not represented as MIT-only.
+
 ## How to cite
 
 If AlphaPulldown (or this workflow) contributed to your research, please cite [Molodenskiy et al., 2025](https://doi.org/10.1093/bioinformatics/btaf115):
