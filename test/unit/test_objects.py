@@ -1340,6 +1340,24 @@ def test_save_binary_matrix_writes_image_file(tmp_path):
     assert output.is_file()
 
 
+def test_save_binary_matrix_renders_labels_with_real_pillow(tmp_path):
+    from PIL import Image
+
+    multimer = MultimericObject.__new__(MultimericObject)
+    matrix = np.zeros((32, 64), dtype=int)
+    matrix[:, 32:] = 1
+    output = tmp_path / "labelled_mask.png"
+
+    multimer.save_binary_matrix(matrix, output)
+
+    with Image.open(output) as image:
+        pixels = np.asarray(image)
+        assert image.size == (64, 32)
+        assert (pixels[0, 0] == [0, 0, 255]).all()
+        assert (pixels[0, -1] == [255, 0, 0]).all()
+        assert np.any(np.all(pixels == [0, 0, 0], axis=-1))
+
+
 def test_save_binary_matrix_falls_back_to_default_font_and_draws_labels(monkeypatch, tmp_path):
     multimer = MultimericObject.__new__(MultimericObject)
     saved = {}
@@ -1353,8 +1371,8 @@ def test_save_binary_matrix_falls_back_to_default_font_and_draws_labels(monkeypa
             saved["path"] = path
 
     class FakeDraw:
-        def textsize(self, text, font):
-            return (3, 2)
+        def textbbox(self, xy, text, font):
+            return (0, 0, 3, 2)
 
         def text(self, xy, text, font, fill):
             draw_calls.append((xy, text, fill))

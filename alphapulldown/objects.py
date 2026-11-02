@@ -804,9 +804,9 @@ class MultimericObject:
         for col in range(width - 1):
             if matrix[:, col].any() != matrix[:, col + 1].any():
                 text = str(col + 1)
-                text_width, text_height = draw.textsize(text, font=font)
-                x = (col + 0.5) * image.width / width - text_width / 2
-                y = image.height - text_height
+                left, top, right, bottom = draw.textbbox((0, 0), text, font=font)
+                x = (col + 0.5) * image.width / width - (left + right) / 2
+                y = image.height - bottom
                 # Set text fill color to black
                 draw.text((x, y), text, font=font, fill=(0, 0, 0))
 
