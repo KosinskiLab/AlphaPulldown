@@ -965,6 +965,12 @@ How the AF3 kernels are chosen per GPU:
 
 ---
 
+## License
+
+Original AlphaPulldown code is available under the [MIT License](LICENSE).
+Submodules, third-party code, model parameters and databases remain subject to
+their own licenses and terms.
+
 ## How to cite
 
 If AlphaPulldown (or this workflow) contributed to your research, please cite [Molodenskiy et al., 2025](https://doi.org/10.1093/bioinformatics/btaf115):
