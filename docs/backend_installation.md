@@ -125,6 +125,14 @@ CPU allocation with `feature_threads`. Changing `feature_threads` alone does
 not change these search settings. Benchmark complete feature jobs on the target
 storage before increasing defaults or reducing requested walltime.
 
+## Faster jackhmmer (optional)
+
+The Docker images build HMMER 3.4 with AlphaFold 3's jackhmmer patches: faster FASTA parsing, and threads that each read their own part of the database. To use the same build in a conda environment, overwrite its HMMER:
+
+```bash
+bash docker/hmmer/build_hmmer.sh "$CONDA_PREFIX"
+```
+
 ## Cluster validation
 
 On EMBL, the AF2 and AF3 functional tests already have default database roots baked into the test files, so the only environment variable you need for the standard cluster runs is:
