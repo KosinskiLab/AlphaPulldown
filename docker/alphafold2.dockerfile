@@ -180,8 +180,10 @@ RUN pip3 install --upgrade pip --no-cache-dir \
 # `np.sum(x for x in feats)` and numpy>=2 raises
 # `TypeError: Calling np.sum(generator) is deprecated`. The numpy<2 pins earlier in
 # this file (conda + pyproject) run BEFORE the jax upgrade so they do not stick; re-pin
-# numpy<2 as the LAST dependency step. jax 0.5.3 runs fine with numpy 1.26.x.
-RUN pip install --no-cache-dir "numpy<2"
+# numpy<2 as the LAST dependency step. Resolve pandas and ml-dtypes with it:
+# their newest releases require numpy 2, so downgrading numpy alone leaves imports
+# broken. jax 0.5.3 runs fine with numpy 1.26.x.
+RUN pip install --no-cache-dir "numpy<2" "pandas>=1.5.3" ml-dtypes
 
 # --fast_kernels reaches colabfold-kernels through the fork's hooks, which add the
 # Pallas names jax 0.5.3 lacks. Check that this package, fork and jax import together
