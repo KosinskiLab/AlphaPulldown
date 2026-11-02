@@ -27,6 +27,7 @@ dependencies = [
   "dm-tree>=0.1.6",
   "h5py>=3.1.0",
   "matplotlib>=3.3.3",
+  "pillow>=12.2.0",
   "ml-collections>=0.1.0",
   "pandas>=1.5.3",
   "tensorflow-cpu==2.20.0",

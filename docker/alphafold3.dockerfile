@@ -118,6 +118,13 @@ ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 # Sanity check
 # ---------------------------------------------------------------------
 RUN python - << 'EOF'
+from importlib.metadata import version
+from packaging.version import Version
+
+pillow_version = version("pillow")
+assert Version(pillow_version) >= Version("12.2.0"), pillow_version
+print(f"Pillow {pillow_version}: security minimum satisfied")
+
 from alphafold3.constants import chemical_components
 from alphapulldown.folding_backend.folding_backend import FoldingBackend
 print("AF3 + AlphaPulldown import OK, CCD present")
