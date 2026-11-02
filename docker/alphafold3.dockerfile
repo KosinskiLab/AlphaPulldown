@@ -2,7 +2,7 @@ ARG MMSEQS_VERSION=18-8cc5c
 ARG MMSEQS_COMMIT=8cc5ce367b5638c4306c2d7cfc652dd099a4643f
 ARG MMSEQS_GPU_SHA256=83969dd5c7d4c32858c2fc9a4d1024c15e8fe5da768ce76e787ab0195ffd64e7
 
-FROM nvidia/cuda:12.6.3-base-ubuntu24.04 AS base
+FROM nvidia/cuda:12.9.2-base-ubuntu24.04 AS base
 ARG MMSEQS_VERSION
 ARG MMSEQS_COMMIT
 ARG MMSEQS_GPU_SHA256
@@ -56,7 +56,7 @@ ENV CXX=g++-12
 # ---------------------------------------------------------------------
 # Python venv and package installer
 # ---------------------------------------------------------------------
-COPY --from=ghcr.io/astral-sh/uv:0.9.24 /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.13.6 /uv /uvx /bin/
 RUN uv venv ${VIRTUAL_ENV}
 
 # ---------------------------------------------------------------------
@@ -74,7 +74,7 @@ RUN bash /hmmer_build/build_hmmer.sh /hmmer && \
 COPY . /app/AlphaPulldown
 
 # ---------------------------------------------------------------------
-# Install AlphaFold3 from its locked v3.0.4/Tokamax environment
+# Install AlphaFold3 from its locked v3.0.5/Tokamax environment
 # ---------------------------------------------------------------------
 WORKDIR /app/AlphaPulldown/alphafold3
 
@@ -84,7 +84,7 @@ ENV PIP_INDEX_URL=${PIP_INDEX_URL} \
     PIP_RETRIES=10 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    SETUPTOOLS_SCM_PRETEND_VERSION_FOR_ALPHAFOLD3=3.0.4
+    SETUPTOOLS_SCM_PRETEND_VERSION_FOR_ALPHAFOLD3=3.0.5
 
 ENV CMAKE_BUILD_PARALLEL_LEVEL=1
 ENV CFLAGS="-O2 -pipe"

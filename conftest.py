@@ -51,14 +51,14 @@ def _use_installed_af3_data() -> None:
     """Let vendored AF3 sources read the CCD data built into the installed wheel.
 
     AF3 reads its data relative to its own sources (resources.ROOT), and only
-    the installed package has the CCD pickles that build_data generates.
+    the installed package has the CCD MessagePack data that build_data generates.
     """
     try:
         import alphafold3
         from alphafold3.common import resources
     except Exception:  # absent, or sources this Python cannot import
         return
-    ccd = Path("constants", "converters", "ccd.pickle")
+    ccd = Path("constants", "converters", "ccd.msgpack")
     if (resources.ROOT / ccd).is_file():
         return
     for package_path in alphafold3.__path__:

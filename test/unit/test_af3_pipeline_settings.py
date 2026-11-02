@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import dataclasses
 
+import pytest
+
 from alphapulldown.features.af3_pipeline import (
     BINARY_FIELDS,
     DATABASE_FIELDS,
@@ -83,7 +85,10 @@ def test_settings_are_frozen_so_they_cannot_drift_after_resolution():
     raise AssertionError("settings must be frozen")
 
 
-def test_build_pipeline_passes_binaries_databases_and_date_through():
+@pytest.mark.parametrize(
+    "cpu_settings", [{}, {"jackhmmer_n_cpu": 16, "nhmmer_n_cpu": 4, "hmmsearch_n_cpu": 0}]
+)
+def test_build_pipeline_passes_binaries_databases_and_date_through(cpu_settings):
     captured = {}
 
     class _Config:
@@ -94,11 +99,12 @@ def test_build_pipeline_passes_binaries_databases_and_date_through():
         def __init__(self, config):
             self.config = config
 
-    settings = AF3PipelineSettings.from_flags(_Flags(), _resolver)
+    settings = AF3PipelineSettings.from_flags(_Flags(**cpu_settings), _resolver)
     pipeline = build_pipeline(settings, pipeline_cls=_Pipeline, config_cls=_Config)
 
     assert isinstance(pipeline, _Pipeline)
     assert captured["uniref90_database_path"] == "/db/uniref90"
     assert captured["jackhmmer_binary_path"] == "/usr/bin/jackhmmer_binary_path"
     assert captured["max_template_date"].isoformat() == "2050-01-01"
-    assert captured["jackhmmer_n_cpu"] == 8
+    for name in ("jackhmmer_n_cpu", "nhmmer_n_cpu", "hmmsearch_n_cpu"):
+        assert captured[name] == cpu_settings.get(name, 8)

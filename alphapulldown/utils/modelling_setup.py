@@ -138,10 +138,11 @@ def create_custom_info(all_proteins : List[List[Dict[str, str]]]) -> List[Dict[s
     return output
 
 
-def create_uniprot_runner(jackhmmer_binary_path, uniprot_database_path):
+def create_uniprot_runner(jackhmmer_binary_path, uniprot_database_path, *, n_cpu=8):
     """create a uniprot runner object"""
     return jackhmmer.Jackhmmer(
-        binary_path=jackhmmer_binary_path, database_path=uniprot_database_path
+        binary_path=jackhmmer_binary_path, database_path=uniprot_database_path,
+        n_cpu=n_cpu,
     )
 
 

@@ -58,15 +58,16 @@ fast-kernels = [
   "colabfold-kernels>=0.4.0,<0.5",
 ]
 alphafold3 = [
-  "dm-haiku==0.0.16",
+  "dm-haiku==0.0.17",
   "jax==0.10.2",
   "jax[cuda12]==0.10.2; platform_system == 'Linux' and platform_machine == 'x86_64'",
   "modelcif>=1.6",
   "numpy",
   "openmm>=8.2",
   "pdbfixer>=1.10",
-  "rdkit==2025.9.4",
+  "rdkit==2026.3.3",
   "tokamax==0.0.12",
+  "msgpack",
   "zstandard",
 ]
 test = [

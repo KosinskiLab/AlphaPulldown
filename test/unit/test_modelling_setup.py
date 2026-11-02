@@ -90,7 +90,8 @@ def test_create_custom_info_wraps_columns_by_position():
     ]
 
 
-def test_create_uniprot_runner_passes_expected_kwargs(monkeypatch):
+@pytest.mark.parametrize("n_cpu", [8, 16])
+def test_create_uniprot_runner_passes_expected_kwargs(monkeypatch, n_cpu):
     captured = {}
 
     class FakeJackhmmer:
@@ -99,12 +100,15 @@ def test_create_uniprot_runner_passes_expected_kwargs(monkeypatch):
 
     monkeypatch.setattr(modelling_setup.jackhmmer, "Jackhmmer", FakeJackhmmer)
 
-    runner = modelling_setup.create_uniprot_runner("jackhmmer", "uniprot.fasta")
+    runner = modelling_setup.create_uniprot_runner(
+        "jackhmmer", "uniprot.fasta", n_cpu=n_cpu
+    )
 
     assert isinstance(runner, FakeJackhmmer)
     assert captured == {
         "binary_path": "jackhmmer",
         "database_path": "uniprot.fasta",
+        "n_cpu": n_cpu,
     }
 
 

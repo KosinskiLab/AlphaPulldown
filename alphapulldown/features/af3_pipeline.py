@@ -44,10 +44,6 @@ DATABASE_FIELDS: Mapping[str, tuple[str, str]] = {
     "seqres_database_path": ("pdb_seqres_database_path", "pdb_seqres"),
 }
 
-# Number of CPUs the two search stages get. Previously inline literals.
-JACKHMMER_N_CPU = 8
-NHMMER_N_CPU = 8
-
 
 @dataclasses.dataclass(frozen=True)
 class AF3PipelineSettings:
@@ -60,6 +56,9 @@ class AF3PipelineSettings:
     # Keyed by flag name, for provenance. Same values, addressed the way metadata
     # addresses them, so recording what was used needs no global to have been rewritten.
     resolved_flag_values: Mapping[str, Optional[str]]
+    jackhmmer_n_cpu: int = 8
+    nhmmer_n_cpu: int = 8
+    hmmsearch_n_cpu: int = 8
 
     @classmethod
     def from_flags(
@@ -87,6 +86,9 @@ class AF3PipelineSettings:
             binaries=binaries,
             databases=databases,
             resolved_flag_values=resolved_flag_values,
+            jackhmmer_n_cpu=getattr(flags, "jackhmmer_n_cpu", 8),
+            nhmmer_n_cpu=getattr(flags, "nhmmer_n_cpu", 8),
+            hmmsearch_n_cpu=getattr(flags, "hmmsearch_n_cpu", 8),
         )
 
     def flag_values_with_resolved_paths(
@@ -132,8 +134,9 @@ def build_pipeline(
     config = config_cls(
         **settings.binaries,
         **settings.databases,
-        jackhmmer_n_cpu=JACKHMMER_N_CPU,
-        nhmmer_n_cpu=NHMMER_N_CPU,
+        jackhmmer_n_cpu=settings.jackhmmer_n_cpu,
+        nhmmer_n_cpu=settings.nhmmer_n_cpu,
+        hmmsearch_n_cpu=settings.hmmsearch_n_cpu,
         max_template_date=datetime.date.fromisoformat(settings.max_template_date),
     )
     return pipeline_cls(config)
