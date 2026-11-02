@@ -455,6 +455,7 @@ class TestCreateIndividualFeaturesComprehensive:
         mock_runner.assert_called_once_with(
             FLAGS.jackhmmer_binary_path,
             FLAGS.uniprot_database_path,
+            n_cpu=FLAGS.msa_tools_n_cpu,
         )
 
         saved_monomer, saved_pipeline = mock_save.call_args.args
@@ -620,6 +621,7 @@ class TestCreateIndividualFeaturesComprehensive:
         mock_runner.assert_called_once_with(
             FLAGS.jackhmmer_binary_path,
             FLAGS.uniprot_database_path,
+            n_cpu=FLAGS.msa_tools_n_cpu,
         )
         saved_monomer, saved_pipeline = mock_save.call_args.args
         assert saved_pipeline == "pipeline"
@@ -739,7 +741,9 @@ class TestCreateIndividualFeaturesComprehensive:
         mock_custom_db.assert_called_once()
         mock_arguments.assert_called_once_with("/tmp/custom_db")
         mock_pipeline.assert_called_once_with()
-        mock_runner.assert_called_once_with("/usr/bin/jackhmmer", "/db/uniprot.fasta")
+        mock_runner.assert_called_once_with(
+            "/usr/bin/jackhmmer", "/db/uniprot.fasta", n_cpu=FLAGS.msa_tools_n_cpu
+        )
         mock_save.assert_called_once()
 
     def test_main_dispatches_to_truemultimer_for_af2_template_runs(self):
@@ -1394,6 +1398,7 @@ def test_create_pipeline_af2_uses_hhsearch_template_stack(tmp_flags):
 def test_create_pipeline_af2_uses_hmmsearch_template_stack(tmp_flags):
     create_features.FLAGS.use_mmseqs2 = False
     create_features.FLAGS.use_hhsearch = False
+    create_features.FLAGS.msa_tools_n_cpu = 16
     create_features.FLAGS.hmmsearch_binary_path = "/bin/hmmsearch"
     create_features.FLAGS.hmmbuild_binary_path = "/bin/hmmbuild"
     create_features.FLAGS.pdb_seqres_database_path = "/db/pdb_seqres.txt"
@@ -1423,6 +1428,7 @@ def test_create_pipeline_af2_uses_hmmsearch_template_stack(tmp_flags):
     )
     assert mock_pipeline.call_args.kwargs["template_searcher"] == "searcher"
     assert mock_pipeline.call_args.kwargs["template_featurizer"] == "featurizer"
+    assert mock_pipeline.call_args.kwargs["msa_tools_n_cpu"] == 16
 
 
 def test_create_pipeline_af2_skip_msa_returns_template_only_pipeline(tmp_flags):

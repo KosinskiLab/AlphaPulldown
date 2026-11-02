@@ -143,6 +143,27 @@ flags.DEFINE_string('hmmbuild_binary_path', shutil.which('hmmbuild'), '')
 flags.DEFINE_string('nhmmer_binary_path', shutil.which('nhmmer'), '')
 flags.DEFINE_string('hmmalign_binary_path', shutil.which('hmmalign'), '')
 flags.DEFINE_string('kalign_binary_path', shutil.which('kalign'), '')
+flags.DEFINE_integer(
+    'jackhmmer_n_cpu', 8,
+    'Worker threads per AlphaFold 3 Jackhmmer search. Four protein database '
+    'searches run concurrently; this is not the total job CPU allocation. '
+    'Use 0 for a serial search.', lower_bound=0,
+)
+flags.DEFINE_integer(
+    'nhmmer_n_cpu', 8,
+    'Worker threads per AlphaFold 3 Nhmmer search. Three RNA database searches '
+    'run concurrently. Use 0 for a serial search.', lower_bound=0,
+)
+flags.DEFINE_integer(
+    'hmmsearch_n_cpu', 8,
+    'Worker threads for the AlphaFold 3 template search. Use 0 for a serial '
+    'search.', lower_bound=0,
+)
+flags.DEFINE_integer(
+    'msa_tools_n_cpu', 8,
+    'Worker threads per AlphaFold 2 MSA search (Jackhmmer and HHblits).',
+    lower_bound=1,
+)
 flags.DEFINE_string('uniref90_database_path', None, '')
 flags.DEFINE_string('mgnify_database_path', None, '')
 flags.DEFINE_string('bfd_database_path', None, '')
@@ -454,6 +475,7 @@ def create_pipeline_af2():
         uniref30_database_path=FLAGS.uniref30_database_path,
         small_bfd_database_path=FLAGS.small_bfd_database_path,
         use_small_bfd=use_small_bfd,
+        msa_tools_n_cpu=FLAGS.msa_tools_n_cpu,
         use_precomputed_msas=FLAGS.use_precomputed_msas,
         template_searcher=template_searcher,
         template_featurizer=template_featuriser
@@ -473,7 +495,8 @@ def create_individual_features():
             uniprot_runner = None
         else:
             uniprot_runner = create_uniprot_runner(
-                FLAGS.jackhmmer_binary_path, FLAGS.uniprot_database_path
+                FLAGS.jackhmmer_binary_path, FLAGS.uniprot_database_path,
+                n_cpu=FLAGS.msa_tools_n_cpu,
             )
     
     for seq_idx, (seq, desc) in enumerate(iter_seqs(FLAGS.fasta_paths), 1):
@@ -757,7 +780,8 @@ def process_multimeric_features(feat, idx):
                 uniprot_runner = None
             else:
                 uniprot_runner = create_uniprot_runner(
-                    FLAGS.jackhmmer_binary_path, FLAGS.uniprot_database_path
+                    FLAGS.jackhmmer_binary_path, FLAGS.uniprot_database_path,
+                    n_cpu=FLAGS.msa_tools_n_cpu,
                 )
         
         monomer = MonomericObject(protein, feat['sequence'])

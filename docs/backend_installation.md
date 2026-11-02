@@ -101,13 +101,29 @@ Notes:
 - The working EMBL AF3 environment is closer to `.[alphafold3,test]` than to the upstream `alphafold3/dev-requirements.txt` stack.
 - For cluster installs, prefer `python -m pip install ".[alphafold3,test]"` and then build the vendored `alphafold3` package.
 - The compiled `alphafold3.cpp` extension comes from `python -m pip install --no-deps -e ./alphafold3`, not from the root install.
-- The vendored AF3 package provides the `build_data` entry point. Use that directly.
+- The vendored AF3 package provides the `build_data` entry point. Run it after installing or upgrading the submodule. AlphaFold 3 v3.0.5 uses `ccd.msgpack` and `chemical_component_sets.msgpack`; CCD files from an older installation must be regenerated.
 - The opt-in `--fast_kernels` option (fused triangle kernels) needs the vendored `alphafold3` built from this checkout's submodule revision; see [AF3 fused triangle kernels](af3_fused_triangles.md).
 - If you are actively developing inside the checkout and want the root package editable as well, add:
 
 ```bash
 python -m pip install -e . --no-deps
 ```
+
+## Feature search threads
+
+`create_individual_features.py` accepts `--jackhmmer_n_cpu`, `--nhmmer_n_cpu`
+and `--hmmsearch_n_cpu` for AlphaFold 3, and `--msa_tools_n_cpu` for AlphaFold 2
+(Jackhmmer, including UniProt, and HHblits). Defaults remain 8 worker threads
+per search. The AlphaFold 3 flags also apply to batch feature generation and
+finalization, which share the same pipeline settings.
+
+AlphaFold 3 runs four protein searches or three RNA searches concurrently.
+Account for all of them when allocating CPUs; a per-search thread count is not
+the total job allocation. Template search runs after the protein MSA searches.
+In Snakemake, put these flags in `create_feature_arguments` and set the total
+CPU allocation with `feature_threads`. Changing `feature_threads` alone does
+not change these search settings. Benchmark complete feature jobs on the target
+storage before increasing defaults or reducing requested walltime.
 
 ## Cluster validation
 
