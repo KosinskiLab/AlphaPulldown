@@ -1327,3 +1327,28 @@ class TestAlphaFold3InputPreparation(Af3TestData, parameterized.TestCase):
 
 if __name__ == "__main__":
     absltest.main()
+
+
+@pytest.mark.parametrize("modifications", [(), (("5MC", 5),)])
+def test_real_dna_chain_cloning_and_slicing_preserve_modifications(modifications):
+    from alphafold3.common import folding_input
+    from alphapulldown.folding_backend import alphafold3_inputs
+
+    chain = folding_input.DnaChain(
+        id="D", sequence="ACGTAC", modifications=modifications,
+        description="DNA input",
+    )
+    cloned = alphafold3_inputs._clone_chain_with_id(chain, "E")
+    sliced = alphafold3_inputs._slice_af3_chain_to_regions(
+        chain, regions=[(1, 1), (5, 6)], json_path="dna.json"
+    )
+
+    assert cloned.id == "E"
+    assert cloned._sequence == "ACGTAC"
+    assert tuple(cloned.modifications) == modifications
+    assert cloned.description == "DNA input"
+    assert sliced._sequence == "AAC"
+    assert tuple(sliced.modifications) == ((("5MC", 2),) if modifications else ())
+    assert list(sliced.residue_ids) == [1, 5, 6]
+    assert chain.id == "D"
+    assert tuple(chain.modifications) == modifications
