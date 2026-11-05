@@ -142,7 +142,7 @@ def _clone_chain_with_id(chain, new_id: str):
             sequence=_chain_input_sequence(chain),
             description=description,
             residue_ids=getattr(chain, "residue_ids", None),
-            modifications=chain.modifications(),
+            modifications=chain.modifications,
         )
     if isinstance(chain, folding_input.Ligand):
         return _construct_chain(
@@ -530,7 +530,7 @@ def _slice_af3_chain_to_regions(
             sequence=sliced_sequence,
             description=getattr(chain, "description", None),
             modifications=_slice_positioned_modifications_to_regions(
-                chain.modifications(),
+                chain.modifications,
                 regions,
             ),
             residue_ids=sliced_residue_ids,

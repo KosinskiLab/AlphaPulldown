@@ -150,6 +150,7 @@ def _install_alphafold3_backend_stubs(tmp_path: Path, monkeypatch) -> None:
             self.residue_ids = None if residue_ids is None else list(residue_ids)
             self.description = description
 
+        @property
         def modifications(self):
             return list(self._modifications)
 
@@ -3053,7 +3054,7 @@ def test_json_rna_and_dna_chains_are_sliced_to_regions(af3_inputs_module):
     assert (rna.sequence, rna.residue_ids, rna.modifications, rna.unpaired_msa) == (
         "CGU", [2, 3, 4], [("PSU", 3)], ">q\nCGU\n"
     )
-    assert (dna.sequence, dna.residue_ids, dna.modifications()) == (
+    assert (dna.sequence, dna.residue_ids, dna.modifications) == (
         "AAC", [1, 5, 6], [("5MC", 2)]
     )
 
@@ -3092,7 +3093,7 @@ def test_json_rna_dna_and_ligand_chains_get_a_free_id_on_a_clash(af3_inputs_modu
     rna, dna, ligand = builder.chains[3:]
     folding_input = af3_inputs_module.folding_input
     assert isinstance(rna, folding_input.RnaChain) and rna.modifications == [["PSU", 2]]
-    assert isinstance(dna, folding_input.DnaChain) and dna.modifications() == [["5MC", 1]]
+    assert isinstance(dna, folding_input.DnaChain) and dna.modifications == [["5MC", 1]]
     assert isinstance(ligand, folding_input.Ligand) and ligand.ccd_ids == ["ATP"]
 
 
