@@ -104,6 +104,13 @@ def _load_written(output_dir, name="proteinA"):
 @pytest.mark.parametrize("compressed", [False, True])
 def test_keep_msas_replaces_templates_and_preserves_msas(flagged, compressed):
     original = _make_monomer()
+    original.feature_metadata = {
+        "date": "2020-01-01", "databases": {
+            "UniProt": {"version": "2020_01"},
+            "UniRef90": {"version": None, "release_date": "2019-12-12 04:05:06"},
+        },
+        "other": {"use_mmseqs2": "False"},
+    }
     _write_monomer(flagged, original, compressed=compressed)
     (flagged / "proteinA").mkdir()
     (flagged / "proteinA" / "uniref90_hits.sto").write_text(REAL_STO)
@@ -138,6 +145,15 @@ def test_keep_msas_replaces_templates_and_preserves_msas(flagged, compressed):
             written.feature_dict[key], original.feature_dict[key]
         )
     assert written.template_msa_source == SOURCE_UNIREF90_FILE
+    assert written.feature_metadata["databases"]["UniProt"]["version"] == "2020_01"
+    assert written.feature_metadata["databases"]["UniRef90"] == {
+        "version": None, "release_date": None, "file_modified_date": "2019-12-12 04:05:06",
+    }
+    assert written.feature_metadata["msa_provenance"]["source_date"] == "2020-01-01"
+    sidecar = next(flagged.glob("proteinA_feature_metadata_*.json*"))
+    opener = lzma.open if compressed else open
+    with opener(sidecar, "rt") as handle:
+        assert json.load(handle) == written.feature_metadata
 
 
 def test_keep_msas_reconstructs_the_alignment_when_msa_files_were_deleted(flagged):
@@ -509,3 +525,49 @@ def test_af3_input_keeping_msas_declines_when_there_are_no_msas(tmp_path, af3_st
     path = tmp_path / "proteinA_af3_input.json"
     path.write_text(_af3_json(unpaired=None, paired=None))
     assert create_features._af3_input_keeping_msas(str(path), "proteinA") is None
+
+
+def test_af2_old_pickle_recovers_sidecar_provenance(flagged):
+    _write_monomer(flagged, _make_monomer())
+    old = {"databases": {"UniRef90": {"version": "2022_05"}}}
+    (flagged / "proteinA_feature_metadata_2022-01-01.json").write_text(json.dumps(old))
+    loaded = create_features._existing_monomer_for_update("proteinA", "ACDE")
+    assert loaded.feature_metadata == old
+
+
+def test_af3_loop_keeps_original_msa_provenance(tmp_path, af3_stub, monkeypatch):
+    from alphapulldown.utils.feature_metadata import embed_metadata_in_af3_json, extract_metadata_from_af3_json
+    FLAGS(["test"])
+    for name, value in dict(output_dir=str(tmp_path), keep_msas=True, skip_existing=False,
+                            compress_features=False, data_pipeline="alphafold3", skip_msa=False).items():
+        monkeypatch.setattr(FLAGS, name, value)
+    fasta = tmp_path / "in.fasta"
+    fasta.write_text(">proteinA\nACDE\n")
+    monkeypatch.setattr(FLAGS, "fasta_paths", [str(fasta)])
+    old = {"databases": {
+        "UniProt": {"version": "2021_04"},
+        "UniRef90": {"version": None, "release_date": "2022-12-12 04:05:06"},
+    }, "date": "2022-01-01"}
+    payload = embed_metadata_in_af3_json(json.loads(_af3_json()), old)
+    path = tmp_path / "proteinA_af3_input.json"
+    path.write_text(json.dumps(payload))
+    class Pipeline:
+        def process(self, input_obj):
+            assert input_obj.chains[0].unpaired_msa == ">q\nACDE\n"
+            return json.loads(_af3_json())
+    calls = []
+    def metadata(kinds, *, skip_msa):
+        calls.append(skip_msa)
+        return {"databases": {"PDB seqres": {"version": "new"}}}
+    monkeypatch.setattr(create_features, "create_arguments", lambda: None)
+    monkeypatch.setattr(create_features, "validate_data_pipeline_flags", lambda: None)
+    monkeypatch.setattr(create_features, "create_pipeline_af3", lambda: Pipeline())
+    monkeypatch.setattr(create_features, "get_af3_feature_metadata", metadata)
+    create_features.create_af3_individual_features()
+    result = extract_metadata_from_af3_json(json.loads(path.read_text()))[0]
+    assert calls == [True]
+    assert result["databases"] == {
+        "UniProt": {"version": "2021_04"}, "PDB seqres": {"version": "new"},
+        "UniRef90": {"version": None, "release_date": None, "file_modified_date": "2022-12-12 04:05:06"},
+    }
+    assert result["msa_provenance"]["source_date"] == "2022-01-01"

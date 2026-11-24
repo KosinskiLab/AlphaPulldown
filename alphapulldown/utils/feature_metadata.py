@@ -22,6 +22,71 @@ AF3_METADATA_MARKER = "\n__ALPHAPULLDOWN_FEATURE_METADATA_V1__="
 _AF3_POLYMER_TYPES = ("protein", "rna", "dna")
 
 
+def _normalize_legacy_msa_database_entry(name, entry):
+    """Retain source identity without promoting old writer dates to releases."""
+    entry = copy.deepcopy(entry)
+    if not isinstance(entry, dict) or entry.get("version_source"):
+        return entry
+    if name in {"UniProt", "UniRef90"} and entry.get("version") is None:
+        # Before explicit release provenance, these entries always used the
+        # FASTA's mtime as release_date and left version null.
+        if entry.get("release_date") is not None:
+            entry.setdefault("file_modified_date", entry["release_date"])
+            entry["release_date"] = None
+    elif name == "ColabFold":
+        # Older service entries used the metadata-writing date as a version
+        # and a fixed 2021 envdb URL, neither of which identifies the search DB.
+        entry.update(version=None, release_date=None, location_url=[],
+                     version_source="not_reported_by_service")
+    return entry
+
+
+def retain_msa_provenance(metadata, previous):
+    """Combine new template provenance with the retained MSA's original source.
+
+    Callers must collect *template-only* current metadata. Missing historical
+    provenance remains unknown; configured current MSA databases are not a
+    substitute. Keep this record flat across repeated template refreshes.
+    """
+    result = copy.deepcopy(metadata)
+    previous = previous or {}
+    old = previous.get("msa_provenance", {})
+    flags = previous.get("other", {})
+    msa_names = {"UniRef90", "UniProt", "MGnify", "BFD", "Reduced BFD", "UniRef30",
+                 "ColabFold", "NT-RNA", "Rfam", "RNAcentral"}
+    inherited = {name: _normalize_legacy_msa_database_entry(name, entry)
+                 for name, entry in previous.get("databases", {}).items()
+                 if name in msa_names}
+    if "ColabFold" not in old.get("inherited_databases", ()) and str(flags.get("use_mmseqs2")).lower() != "true":
+        inherited.pop("ColabFold", None)
+    # Older AF2 writers recorded unused default paths too. AF3 uses Reduced BFD
+    # regardless of the legacy AF2 preset flag, so apply this only to AF2 sources.
+    if not old and flags.get("data_pipeline", "alphafold2") == "alphafold2":
+        if flags.get("db_preset") == "full_dbs":
+            inherited.pop("Reduced BFD", None)
+        elif flags.get("db_preset") == "reduced_dbs":
+            inherited.pop("BFD", None)
+            inherited.pop("UniRef30", None)
+    result.setdefault("databases", {}).update(inherited)
+    result["msa_provenance"] = {
+        "mode": "reused_features",
+        "source_date": old.get("source_date", previous.get("date")),
+        "source_software": copy.deepcopy(old.get("source_software", previous.get("software", {}))),
+        "inherited_databases": sorted(inherited),
+        "cached_databases": old.get("cached_databases", []),
+        "unknown_source": not bool(inherited) or old.get("unknown_source", False),
+    }
+    # Local MMseqs2 batches describe their searched database snapshots in
+    # other.mmseqs2_gpu rather than the legacy databases mapping.
+    backend = old.get("source_backend")
+    if backend is None and flags.get("mmseqs2_gpu"):
+        backend = {key: copy.deepcopy(flags[key]) for key in ("msa_backend", "mmseqs2_gpu") if key in flags}
+    if backend is not None:
+        result["msa_provenance"]["source_backend"] = copy.deepcopy(backend)
+        result["msa_provenance"]["unknown_source"] = old.get("unknown_source", False)
+    return result
+
+
 def encode_metadata_in_description(
     description: str | None,
     metadata: Mapping[str, Any],

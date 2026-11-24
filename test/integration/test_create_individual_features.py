@@ -1523,7 +1523,9 @@ def test_create_and_save_monomer_objects_writes_compressed_af2_outputs(tmp_flags
     metadata_files = list(tmp_path.glob("protA_feature_metadata_*.json.xz"))
     assert len(metadata_files) == 1
     with lzma.open(metadata_files[0], "rt", encoding="utf-8") as handle:
-        assert json.load(handle) == {"source": "test"}
+        metadata = json.load(handle)
+        assert metadata["source"] == "test"
+        assert metadata["msa_provenance"] == {"mode": "generated"}
     assert (tmp_path / "protA.pkl.xz").exists()
     assert monomer.feature_calls == [
         {
