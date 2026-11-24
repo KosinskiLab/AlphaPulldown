@@ -11,6 +11,7 @@ import datetime
 import re
 import hashlib
 import glob
+from alphapulldown.utils.database_provenance import read_database_manifest
 
 
 COMMON_PATTERNS = [
@@ -110,6 +111,34 @@ def get_metadata_for_database(k, v):
     # under the pinned name's date.
     resolved, via_symlink = resolve_database_path(v)
 
+    if name in {"uniprot", "uniref90"}:
+        # UniProt release identifiers are not filesystem modification dates.
+        # AF3's downloaded FASTAs carry release IDs; generic AF2 filenames do
+        # not, and must remain unknown unless provenance is recorded upstream.
+        basename = os.path.basename(resolved)
+        pattern = (r"uniprot(?:_all)?_(\d{4}_\d{2})\.(?:fa|fasta)(?:\.(?:gz|xz|zst))?"
+                   if name == "uniprot" else
+                   r"uniref90_(\d{4}_\d{2})\.(?:fa|fasta)(?:\.(?:gz|xz|zst))?")
+        match = re.fullmatch(pattern, basename, re.IGNORECASE)
+        display_name = "UniProt" if name == "uniprot" else "UniRef90"
+        entry = {
+            "release_date": None,
+            "version": match.group(1) if match else None,
+            "file_modified_date": get_last_modified_date(v),
+            "location_url": DB_NAME_TO_URL[display_name],
+        }
+        if match:
+            entry["version_source"] = "resolved_filename"
+        manifest = read_database_manifest(resolved, display_name)
+        if manifest:
+            if match and manifest["version"] != match.group(1):
+                raise ValueError(f"Database filename and manifest disagree: {resolved}")
+            entry.update(manifest)
+        if via_symlink:
+            entry["configured_path"] = str(v)
+            entry["resolved_path"] = resolved
+        return {display_name: entry}
+
     if name == "pdb_seqres":
         af3_seqres_release = re.search(
             r"pdb_seqres_(\d{4}_\d{2}_\d{2})", str(resolved)
@@ -208,14 +237,10 @@ def get_metadata_for_database(k, v):
             release_date = "AF2"
         return {name: {"release_date": release_date, "version": hash_value, "location_url": url}}
 
-    other_databases = ["small_bfd", "uniprot", "uniref90", "pdb_seqres"]
+    other_databases = ["small_bfd", "pdb_seqres"]
     if name in other_databases:
         if name == "small_bfd":
             name = "Reduced BFD"
-        elif name == "uniprot":
-            name = "UniProt"
-        elif name == "uniref90":
-            name = "UniRef90"
         elif name == "pdb_seqres":
             name = "PDB seqres"
         url = DB_NAME_TO_URL[name]
@@ -265,12 +290,14 @@ def get_meta_dict(flag_dict):
             metadata["software"].update(get_metadata_for_binary(k, v))
         elif "_database_path" in k or "template_mmcif_dir" in k:
             metadata["databases"].update(get_metadata_for_database(k, v))
-        elif k == "use_mmseqs2" and v:
-            url = DB_NAME_TO_URL["ColabFold"]
+        elif k == "use_mmseqs2" and (v is True or str(v).lower() == "true"):
+            # A service request date is not a database release. Its evolving
+            # backend cannot be attributed to the hard-coded 2021 envdb tarball.
             metadata["databases"].update({"ColabFold":
-                                              {"version": datetime.datetime.now().strftime('%Y-%m-%d'),
+                                              {"version": None,
                                                "release_date": None,
-                                               "location_url": url}
+                                               "location_url": [],
+                                               "version_source": "not_reported_by_service"}
                                           })
 
     return metadata

@@ -91,8 +91,44 @@ def test_get_metadata_for_database_handles_other_named_databases(
     metadata = save_meta_data.get_metadata_for_database(key, path)
 
     assert list(metadata) == [expected_name]
-    assert metadata[expected_name]["release_date"] == "2024-04-02 00:00:00"
+    if expected_name in {"UniProt", "UniRef90"}:
+        assert metadata[expected_name]["release_date"] is None
+        assert metadata[expected_name]["file_modified_date"] == "2024-04-02 00:00:00"
+    else:
+        assert metadata[expected_name]["release_date"] == "2024-04-02 00:00:00"
     assert metadata[expected_name]["version"] == expected_version
+
+
+@pytest.mark.parametrize("key,filename,name,version", [
+    ("uniprot", "uniprot_all_2021_04.fa", "UniProt", "2021_04"),
+    ("uniref90", "uniref90_2022_05.fa", "UniRef90", "2022_05"),
+    ("uniprot", "uniprot_2024_04.fasta", "UniProt", "2024_04"),
+    ("uniref90", "uniref90.fasta", "UniRef90", None),
+])
+def test_uniprot_release_comes_from_filename_not_mtime(tmp_path, key, filename, name, version):
+    path = tmp_path / "backup_2026_11" / filename
+    path.parent.mkdir()
+    path.write_text(">fixture\nACDE\n")
+    metadata = save_meta_data.get_metadata_for_database(key + "_database_path", str(path))[name]
+    assert metadata["version"] == version
+    assert metadata["release_date"] is None
+    assert metadata["file_modified_date"] is not None
+
+
+def test_uniprot_release_follows_symlink_and_drops_stale_release(tmp_path):
+    real = tmp_path / "uniref90_2024_04.fa"
+    real.write_text(">fixture\nACDE\n")
+    link = tmp_path / "uniref90_2022_05.fa"
+    link.symlink_to(real)
+    metadata = save_meta_data.get_metadata_for_database("uniref90_database_path", str(link))["UniRef90"]
+    assert metadata["version"] == "2024_04"
+    assert metadata["resolved_path"] == str(real)
+    link.unlink()
+    generic = tmp_path / "uniref90.fasta"
+    generic.write_text(">fixture\nACDE\n")
+    link.symlink_to(generic)
+    metadata = save_meta_data.get_metadata_for_database("uniref90_database_path", str(link))["UniRef90"]
+    assert metadata["version"] is None
 
 
 def test_get_metadata_for_database_handles_release_dated_databases(monkeypatch):
@@ -327,7 +363,8 @@ def test_get_meta_dict_collects_other_software_databases_and_mmseqs(monkeypatch)
     assert metadata["software"]["AlphaPulldown"]["version"]
     assert metadata["software"]["AlphaFold"]["version"]
     assert metadata["databases"]["UniProt"]["version"] == "dbv"
-    assert metadata["databases"]["ColabFold"]["version"] == "2026-03-27"
+    assert metadata["databases"]["ColabFold"]["version"] is None
+    assert metadata["databases"]["ColabFold"]["location_url"] == []
     assert metadata["other"]["jackhmmer_binary_path"] == "/usr/bin/jackhmmer"
     assert metadata["other"]["use_mmseqs2"] == "True"
     assert "test_flag" not in metadata["other"]

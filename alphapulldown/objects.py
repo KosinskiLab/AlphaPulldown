@@ -22,6 +22,7 @@ from alphapulldown.utils.multimeric_template_utils import (extract_multimeric_te
                                                      prepare_multimeric_template_meta_info)
 from alphapulldown.utils.file_handling import temp_fasta_file
 from alphapulldown.utils.msa_integrity import validate_precomputed_msas
+from alphapulldown.utils.af2_metadata import cached_msa_databases
 from alphapulldown.utils.mmseqs_species_identifiers import (
     enrich_mmseq_feature_dict_with_identifiers,
     strip_mmseq_comment_lines,
@@ -228,6 +229,10 @@ class MonomericObject:
         if use_precomputed_msa:
             validate_precomputed_msas(msa_output_dir, remove_invalid=True)
 
+        self.cached_msa_databases = (
+            cached_msa_databases(msa_output_dir) if use_precomputed_msa and not skip_msa else []
+        )
+
         self.skip_msa = skip_msa
         if skip_msa:
             self.feature_dict = self._build_query_only_feature_dict()
@@ -339,6 +344,7 @@ class MonomericObject:
             logging.info(f"Skipping {self.description} (result.zip)")
 
         a3m_path = os.path.join(result_dir, self.description + ".a3m")
+        self.cached_msa_databases = []
         self.skip_msa = skip_msa
         if skip_msa:
             a3m_lines = [_query_only_a3m(self.sequence, query_id="101")]
@@ -362,6 +368,7 @@ class MonomericObject:
                 user_agent="alphapulldown",
             )
         elif use_precomputed_msa and os.path.isfile(a3m_path):
+            self.cached_msa_databases = ["ColabFold"]
             logging.info(f"Using precomputed MSA from {a3m_path}")
             a3m_lines = [plPath(a3m_path).read_text()]
             (unpaired_msa, paired_msa, query_seqs_unique, query_seqs_cardinality,

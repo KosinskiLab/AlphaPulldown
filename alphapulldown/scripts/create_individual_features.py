@@ -42,7 +42,11 @@ from alphapulldown.utils.multimeric_template_utils import (
 )
 from alphapulldown.features import af3_pipeline
 from alphapulldown.utils import save_meta_data
-from alphapulldown.utils.feature_metadata import embed_metadata_in_af3_json
+from alphapulldown.utils.feature_metadata import (
+    embed_metadata_in_af3_json, find_feature_metadata,
+    extract_metadata_from_fold_input, retain_msa_provenance,
+)
+from alphapulldown.utils.af2_metadata import get_af2_feature_metadata
 from alphapulldown.utils.template_reuse import (
     msa_for_template_search,
     search_templates,
@@ -530,8 +534,16 @@ def _should_skip_monomer_output(description):
     return False
 
 
-def _persist_monomer_outputs(monomer):
-    meta_dict = save_meta_data.get_meta_dict(FLAGS.flag_values_dict())
+def _persist_monomer_outputs(monomer, *, reuse_msa=False, direct_template=None):
+    meta_dict = get_af2_feature_metadata(
+        FLAGS.flag_values_dict(), previous=getattr(monomer, "feature_metadata", None),
+        reuse_features=reuse_msa,
+        cached_databases=() if reuse_msa else getattr(monomer, "cached_msa_databases", ()),
+        direct_template=direct_template,
+    )
+    # Keep the same provenance inside the pickle so later template-only updates
+    # retain the MSA's source rather than replacing it with current DB defaults.
+    monomer.feature_metadata = meta_dict
     metadata_output_path = _metadata_output_path(monomer.description)
     if FLAGS.compress_features:
         with lzma.open(str(metadata_output_path) + ".xz", "wt") as meta_data_outfile:
@@ -620,6 +632,11 @@ def _existing_monomer_for_update(description, sequence):
             description, stored, sequence,
         )
         return None
+    if not getattr(monomer, "feature_metadata", None):
+        try:
+            monomer.feature_metadata = find_feature_metadata(description, FLAGS.output_dir)
+        except (OSError, ValueError, UnicodeError, lzma.LZMAError) as exc:
+            logging.warning("Cannot recover previous metadata for %s: %s", description, exc)
     return monomer
 
 
@@ -655,7 +672,7 @@ def _update_templates_keeping_msas(description, sequence, pipeline):
     # Keep the provenance with the features: which alignment drove the search
     # decides whether the hits reproduce a fresh run (see template_reuse).
     monomer.template_msa_source = msa.source
-    _persist_monomer_outputs(monomer)
+    _persist_monomer_outputs(monomer, reuse_msa=True)
     logging.info(
         "Updated templates for %s from %s (MSAs kept, %d template(s)).",
         description, msa.source,
@@ -763,7 +780,7 @@ def process_multimeric_features(feat, idx):
     if reused_monomer is not None:
         if _should_skip_monomer_output(reused_monomer.description):
             return
-        _persist_monomer_outputs(reused_monomer)
+        _persist_monomer_outputs(reused_monomer, reuse_msa=True, direct_template=feat["templates"][0])
         return
     protein, chains, template_paths = feat["protein"], feat["chains"], feat["templates"]
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -972,13 +989,21 @@ def create_af3_individual_features():
                     feature_payload = json.loads(features.to_json())
                 else:
                     feature_payload = features
-                if chain_kind not in metadata_by_kind:
-                    metadata_by_kind[chain_kind] = get_af3_feature_metadata(
-                        {chain_kind}, skip_msa=FLAGS.skip_msa
+                if reuse_input is not None:
+                    previous = extract_metadata_from_fold_input(reuse_input)
+                    metadata = retain_msa_provenance(
+                        get_af3_feature_metadata({chain_kind}, skip_msa=True),
+                        previous[0] if previous else None,
                     )
+                else:
+                    if chain_kind not in metadata_by_kind:
+                        metadata_by_kind[chain_kind] = get_af3_feature_metadata(
+                            {chain_kind}, skip_msa=FLAGS.skip_msa
+                        )
+                    metadata = metadata_by_kind[chain_kind]
                 try:
                     feature_payload = embed_metadata_in_af3_json(
-                        feature_payload, metadata_by_kind[chain_kind]
+                        feature_payload, metadata
                     )
                 except ValueError as exc:
                     # Third-party/test pipelines may return a non-AF3 mapping.
