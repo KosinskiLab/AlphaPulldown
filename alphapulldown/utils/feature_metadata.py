@@ -22,6 +22,25 @@ AF3_METADATA_MARKER = "\n__ALPHAPULLDOWN_FEATURE_METADATA_V1__="
 _AF3_POLYMER_TYPES = ("protein", "rna", "dna")
 
 
+def _normalize_legacy_msa_database_entry(name, entry):
+    """Retain source identity without promoting old writer dates to releases."""
+    entry = copy.deepcopy(entry)
+    if not isinstance(entry, dict) or entry.get("version_source"):
+        return entry
+    if name in {"UniProt", "UniRef90"} and entry.get("version") is None:
+        # Before explicit release provenance, these entries always used the
+        # FASTA's mtime as release_date and left version null.
+        if entry.get("release_date") is not None:
+            entry.setdefault("file_modified_date", entry["release_date"])
+            entry["release_date"] = None
+    elif name == "ColabFold":
+        # Older service entries used the metadata-writing date as a version
+        # and a fixed 2021 envdb URL, neither of which identifies the search DB.
+        entry.update(version=None, release_date=None, location_url=[],
+                     version_source="not_reported_by_service")
+    return entry
+
+
 def retain_msa_provenance(metadata, previous):
     """Combine new template provenance with the retained MSA's original source.
 
@@ -35,7 +54,8 @@ def retain_msa_provenance(metadata, previous):
     flags = previous.get("other", {})
     msa_names = {"UniRef90", "UniProt", "MGnify", "BFD", "Reduced BFD", "UniRef30",
                  "ColabFold", "NT-RNA", "Rfam", "RNAcentral"}
-    inherited = {name: copy.deepcopy(entry) for name, entry in previous.get("databases", {}).items()
+    inherited = {name: _normalize_legacy_msa_database_entry(name, entry)
+                 for name, entry in previous.get("databases", {}).items()
                  if name in msa_names}
     if "ColabFold" not in old.get("inherited_databases", ()) and str(flags.get("use_mmseqs2")).lower() != "true":
         inherited.pop("ColabFold", None)

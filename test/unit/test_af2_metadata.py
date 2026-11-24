@@ -59,13 +59,52 @@ def test_reuse_keeps_original_source_and_new_templates_without_nesting():
     assert old == original
 
 
-def test_colabfold_survives_repeated_template_updates():
-    old = dict(other={"use_mmseqs2": "True"}, databases={"ColabFold": {"version": None}})
+@pytest.mark.parametrize("release_date", [None, "2024-09-01"])
+def test_colabfold_survives_repeated_template_updates(release_date):
+    old = dict(other={"use_mmseqs2": "True"}, databases={"ColabFold": {
+        "version": "2024-09-01", "release_date": release_date,
+        "location_url": ["https://wwwuser.gwdg.de/~compbiol/colabfold/colabfold_envdb_202108.tar.gz"],
+    }})
+    original = copy.deepcopy(old)
     current = dict(other={"use_mmseqs2": "False"}, databases={})
     once = retain_msa_provenance(current, old)
     twice = retain_msa_provenance(current, once)
-    assert twice["databases"] == old["databases"]
+    assert once == twice
+    assert twice["databases"] == {"ColabFold": {
+        "version": None, "release_date": None, "location_url": [],
+        "version_source": "not_reported_by_service",
+    }}
+    assert old == original
     assert not twice["msa_provenance"]["unknown_source"]
+
+
+@pytest.mark.parametrize("name", ["UniProt", "UniRef90"])
+@pytest.mark.parametrize("pipeline", ["alphafold2", "alphafold3"])
+def test_reuse_normalizes_legacy_file_dates(name, pipeline):
+    old = {"date": "2024-09-01", "other": {"data_pipeline": pipeline},
+           "databases": {name: {"version": None, "release_date": "2022-12-12 04:05:06",
+                                "location_url": ["https://example.org/db.fa"]}}}
+    original = copy.deepcopy(old)
+    once = retain_msa_provenance({"databases": {}}, old)
+    twice = retain_msa_provenance({"databases": {}}, once)
+    assert once == twice
+    assert once["databases"][name] == {
+        "version": None, "release_date": None, "file_modified_date": "2022-12-12 04:05:06",
+        "location_url": ["https://example.org/db.fa"],
+    }
+    assert once["msa_provenance"]["source_date"] == "2024-09-01"
+    assert old == original
+
+
+@pytest.mark.parametrize("name,entry", [
+    ("UniProt", {"version": "2024_04", "release_date": "2024-07-24", "version_source": "database_manifest"}),
+    ("UniRef90", {"version": "2022_05", "release_date": None, "version_source": "resolved_filename"}),
+    ("UniRef90", {"version": "2022_05", "release_date": None}),
+    ("ColabFold", {"version": "verified-release", "release_date": "2024-07-24", "version_source": "service_response"}),
+])
+def test_reuse_preserves_explicitly_sourced_or_known_releases(name, entry):
+    old = {"other": {"use_mmseqs2": "True"}, "databases": {name: entry}}
+    assert retain_msa_provenance({"databases": {}}, old)["databases"][name] == entry
 
 
 def test_missing_reused_metadata_stays_unknown(monkeypatch):

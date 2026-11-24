@@ -51,6 +51,10 @@ updates retain the original MSA database entries and source date/software while
 recording the new template resources. Older pickles can recover provenance from
 their latest sidecar; if neither source exists, it stays unknown. AF3 template
 updates similarly retain the metadata embedded in chain descriptions.
+When inheriting older metadata, null-version UniProt/UniRef90 modification dates
+are moved out of `release_date`, and unsourced ColabFold request-date versions
+and fixed environment-database URLs are cleared. Explicitly sourced releases
+remain intact; repeated template updates do not reintroduce the legacy claims.
 
 ColabFold is included only for a service request or documented inherited
 provenance. Its database release remains unknown when the service does not
