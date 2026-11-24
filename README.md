@@ -9,7 +9,7 @@
 ### Quick install (recommended)
 
 ```bash
-curl -O https://raw.githubusercontent.com/KosinskiLab/AlphaPulldownSnakemake/2.11.1/install.sh
+curl -O https://raw.githubusercontent.com/KosinskiLab/AlphaPulldownSnakemake/2.11.2/install.sh
 bash install.sh
 conda activate snake
 cd AlphaPulldownSnakemake
@@ -25,7 +25,7 @@ Useful options:
 | Option | Meaning |
 | --- | --- |
 | `-d, --dest DIR` | working directory to deploy into (default `AlphaPulldownSnakemake`) |
-| `-v, --version TAG` | workflow version to deploy (default `2.11.1`) |
+| `-v, --version TAG` | workflow version to deploy (default `2.11.2`) |
 | `-i, --image-dir DIR` | shared container image directory |
 | `-n, --env-name NAME` | conda environment name (default `snake`) |
 | `--no-pull` | skip container pre-fetch (Snakemake will fetch on first run) |
@@ -43,7 +43,7 @@ Create and activate the conda environment:
 ```bash
 conda env create \
   -n snake \
-  -f https://raw.githubusercontent.com/KosinskiLab/AlphaPulldownSnakemake/2.11.1/workflow/envs/alphapulldown.yaml
+  -f https://raw.githubusercontent.com/KosinskiLab/AlphaPulldownSnakemake/2.11.2/workflow/envs/alphapulldown.yaml
 conda activate snake
 ```
 
@@ -55,7 +55,7 @@ Then deploy the workflow into a new processing directory for your project:
 snakedeploy deploy-workflow \
   https://github.com/KosinskiLab/AlphaPulldownSnakemake \
   AlphaPulldownSnakemake \
-  --tag 2.11.1
+  --tag 2.11.2
 cd AlphaPulldownSnakemake
 ```
 
@@ -809,7 +809,7 @@ require `pdb_seqres`, and every search requires `mmcif`. Update the relevant ID 
 rebuilding a database, even at the same path; this invalidates finalized features.
 The native MSA arguments do not reach finalization because this stage replaces
 that search. Use a matching prediction image, such as
-`docker://kosinskilab/alphafold2:2.11.1`, for AlphaFold 2. AlphaFold 2 finalization is
+`docker://kosinskilab/alphafold2:2.11.2`, for AlphaFold 2. AlphaFold 2 finalization is
 heavier than AlphaFold 3's because template featurization dominates it — median ~1 GB and 2 min, but up to
 19 GB and 90 min, set by which structures the templates come from rather than by length
 — so its defaults request 16 GB (times the safety factor) and 60 min. Against native
